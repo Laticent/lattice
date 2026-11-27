@@ -111,11 +111,11 @@
       "description": "Nested items whose trailing pill is NOT a number (or that carry no pill) are per-category detail, not data. They render nowhere on the chart face: they drive the Present-mode reveal popover and fold into the slide's speaker note, so a chart with detail is pixel-identical to one without. This is the same detail-vs-data rule every Cartesian member shares."
     }
   },
-  "skeleton": "<!-- _class: bar -->\n\n## Which category is biggest.\n\n- First `120`\n- Second `86`\n- Third `54`\n- Fourth `31`\n",
-  "sample": "<!-- _class: bar -->\n\n`Revenue · FY26`\n\n## Growth is concentrated in two regions.\n\n- North America `$4.2M`\n  - Two enterprise renewals landed in Q4\n- EMEA `$3.1M`\n- APAC `$1.8M`\n- LATAM `$0.6M`\n",
+  "skeleton": "<!-- @meta{layout=bar} -->\n\n## Which category is biggest.\n\n- First `120`\n- Second `86`\n- Third `54`\n- Fourth `31`\n",
+  "sample": "<!-- @meta{layout=bar} -->\n\n`Revenue · FY26`\n\n## Growth is concentrated in two regions.\n\n- North America `$4.2M`\n  - Two enterprise renewals landed in Q4\n- EMEA `$3.1M`\n- APAC `$1.8M`\n- LATAM `$0.6M`\n",
   "stressDoc": {
     "summary": "Eight business units with full-length names — the case that forces the row form.",
-    "sample": "<!-- _class: bar row -->\n\n## Every unit named in full, nothing abbreviated.\n\n- Commercial Banking `$182M`\n- Wealth & Asset Management `$154M`\n- Global Transaction Services `$121M`\n- Insurance & Protection `$96M`\n- Markets & Securities `$74M`\n- Retail & Small Business `$61M`\n- Corporate Real Estate `$38M`\n- Private Credit Partnerships `$12M`\n"
+    "sample": "<!-- @meta{layout=bar, class=row} -->\n\n## Every unit named in full, nothing abbreviated.\n\n- Commercial Banking `$182M`\n- Wealth & Asset Management `$154M`\n- Global Transaction Services `$121M`\n- Insurance & Protection `$96M`\n- Markets & Securities `$74M`\n- Retail & Small Business `$61M`\n- Corporate Real Estate `$38M`\n- Private Credit Partnerships `$12M`\n"
   },
   "whenToUse": [
     {
@@ -208,15 +208,15 @@
   "variantDocs": {
     "row": {
       "summary": "Horizontal bars with the category name in a wide left gutter — the correct form whenever the names are long or numerous.",
-      "sample": "<!-- _class: bar row -->\n\n## Support load sits with two teams.\n\n- Platform Engineering `1,240`\n- Customer Success `980`\n- Data & Analytics `410`\n- Design Systems `260`\n- Developer Relations `95`\n"
+      "sample": "<!-- @meta{layout=bar, class=row} -->\n\n## Support load sits with two teams.\n\n- Platform Engineering `1,240`\n- Customer Success `980`\n- Data & Analytics `410`\n- Design Systems `260`\n- Developer Relations `95`\n"
     },
     "grouped": {
       "summary": "Two to four series side by side in each category, selected by nesting numeric children under each category.",
-      "sample": "<!-- _class: bar grouped -->\n\n## We beat plan everywhere but APAC.\n\n- Americas\n  - Plan `3.2`\n  - Actual `3.9`\n- EMEA\n  - Plan `2.6`\n  - Actual `3.1`\n- APAC\n  - Plan `1.9`\n  - Actual `1.4`\n"
+      "sample": "<!-- @meta{layout=bar, class=grouped} -->\n\n## We beat plan everywhere but APAC.\n\n- Americas\n  - Plan `3.2`\n  - Actual `3.9`\n- EMEA\n  - Plan `2.6`\n  - Actual `3.1`\n- APAC\n  - Plan `1.9`\n  - Actual `1.4`\n"
     },
     "diverging": {
       "summary": "Signed values off a centered zero rule, both sides on one scale — the variance and tornado form.",
-      "sample": "<!-- _class: bar diverging row -->\n\n## What moves the forecast, and which way.\n\n- Renewal rate `+2.4`\n- Enterprise pipeline `+1.6`\n- Price realization `+0.7`\n- Services attach `-0.5`\n- Churn in mid-market `-1.8`\n- FX exposure `-2.9`\n"
+      "sample": "<!-- @meta{layout=bar, class=diverging row} -->\n\n## What moves the forecast, and which way.\n\n- Renewal rate `+2.4`\n- Enterprise pipeline `+1.6`\n- Price realization `+0.7`\n- Services attach `-0.5`\n- Churn in mid-market `-1.8`\n- FX exposure `-2.9`\n"
     }
   },
   "pane": {

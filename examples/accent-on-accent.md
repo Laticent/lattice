@@ -2,11 +2,11 @@
 marp: true
 size: 4K
 theme: atelier-dark
-paginate: true
+pagination: true
 header: "Lattice · Accent foreground contrast"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Text that survives a pale accent.
 
@@ -16,8 +16,8 @@ Every accent-filled surface now pairs with its curated `--on-accent` ink — rea
 
 ---
 
-<!-- _class: split-compare -->
-<!-- _footer: "Recommendation bar · split-compare" -->
+<!-- @meta{layout=split-compare, footer=Recommendation bar · split-compare} -->
+
 
 `Decision Required`
 
@@ -38,8 +38,8 @@ Both paths are viable. The difference is where we spend the next 18 months.
 
 ---
 
-<!-- _class: cards-grid -->
-<!-- _footer: "Accent corner tags · cards-grid" -->
+<!-- @meta{layout=cards-grid, footer=Accent corner tags · cards-grid} -->
+
 
 ## The fix has four moving parts.
 
@@ -54,8 +54,8 @@ Both paths are viable. The difference is where we spend the next 18 months.
 
 ---
 
-<!-- _class: list-steps timeline -->
-<!-- _footer: "Accent nodes · timeline" -->
+<!-- @meta{layout=list-steps, class=timeline, footer=Accent nodes · timeline} -->
+
 
 ## How the accent ink resolves.
 
@@ -70,8 +70,8 @@ Both paths are viable. The difference is where we spend the next 18 months.
 
 ---
 
-<!-- _class: split-panel watermark -->
-<!-- _footer: "Accent rail · split-panel watermark" -->
+<!-- @meta{layout=split-panel, class=watermark, footer=Accent rail · split-panel watermark} -->
+
 
 ## The accent rail proves it
 
@@ -90,9 +90,9 @@ The left rail fills with the raw accent. Its eyebrow rides `--on-accent` at full
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: "Accent foreground contrast · closing" -->
+<!-- @meta{layout=closing, header="", footer=Accent foreground contrast · closing} -->
+
+
 
 `One pair, every palette`
 

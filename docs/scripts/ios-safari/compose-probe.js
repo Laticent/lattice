@@ -8,8 +8,8 @@
  *      on a phone, which opens on the preview, the Compose cell brings the rich editor up;
  *   2. Compose is listed before Source;
  *   3. Compose's slide toolbar keeps its place and width while the caret moves inside a slide (the owner's screen
- *      recording: it grew, shrank and jumped on every move): on up to two slides of whatever deck is open (the
- *      Simulator keeps the earlier probes' deck), through its heading, eyebrow, paragraph and list item, each read once
+ *      recording: it grew, shrank and jumped on every move): on up to two slides of the first-visit deck (run.mjs
+ *      clears every stored deck before this page, as a new visitor has none), through its heading, eyebrow, paragraph and list item, each read once
  *      two frames agree, and only passing when the stops offered different styles;
  *   4. the caret Compose draws while it is not focused stays on its text through a real re-flow of the column (the slide's
  *      Slide settings docking a column beside the editor) and a scroll (2026-11-15-one-side-pane.md §3c).
@@ -164,7 +164,7 @@ async function latticeComposeProbe() {
 		};
 		const slides = () => [...pm().querySelectorAll(':scope > .cs-slide')];
 		await until(() => slides().length >= 1, 30000, 'a slide in Compose');
-		// Whatever deck is open (on the Simulator the earlier probes leave theirs in storage): each slide's first heading,
+		// The first-visit deck (the runner stores none, so no earlier probe's deck reaches here): each slide's first heading,
 		// eyebrow line, plain paragraph and list item. A slide with two or more of them offers different styles at different
 		// stops, which is what made the toolbar move.
 		const stopsOf = (s) => {
@@ -199,11 +199,22 @@ async function latticeComposeProbe() {
 		heading.scrollIntoView({ block: 'center' });
 		const headText = document.createTreeWalker(heading, NodeFilter.SHOW_TEXT, { acceptNode: (n) => (n.data.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP) }).nextNode();
 		pm().focus();
+		// THE MOVE'S OWN selectionchange, not only the caret-line mark: the mark is on the heading already when the last toolbar
+		// stop above was this same heading (a one-slide deck), so it would pass before Compose read the move, and the caret
+		// it then draws sits one letter right (16 to 19 px on studio-probe.js's checklist deck, iPad run 44850293408). Compose's
+		// own listener was registered first, so it has read the caret by the time this one runs.
+		const was = getSelection();
+		const moves = !(was?.isCollapsed && was.anchorNode === headText && was.anchorOffset === 0);
+		let moved = !moves;
+		if (moves) document.addEventListener('selectionchange', () => (moved = true), { once: true });
 		const at = document.createRange();
 		at.setStart(headText, 0);
 		at.collapse(true);
 		getSelection().removeAllRanges();
 		getSelection().addRange(at);
+		await until(() => moved, 10000, "the caret move's selectionchange").catch((e) => {
+			throw new Error(`${e.message} (${caretState(heading, heading.closest('.cs-slide'))})`);
+		});
 		// Wait until Compose has READ that caret (its caret-line mark, ComposeView.tsx, on the block holding its own selection),
 		// not a frame: WebKit can report the selection change later than one frame, and then the caret Compose draws once
 		// focus leaves sits at the previous stop's place (seen 2 of 21 on the selftest's iPad-Safari width, 221 px below).

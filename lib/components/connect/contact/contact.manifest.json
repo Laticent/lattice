@@ -51,8 +51,8 @@
       "description": "Optional call-to-action under the QR, as a postfix-key bullet: ``- Scan to add me `caption` ``."
     }
   },
-  "skeleton": "<!-- _class: contact -->\n\n## Add me.\n\n- Full Name `name`\n- Title `title`\n- Organization `org`\n- name@example.com `email`\n- Scan to add me `caption`\n",
-  "sample": "<!-- _class: contact -->\n\n- Ada Slide `name`\n- One scan saves the speaker `title`\n- Laticent `org`\n- hello@laticent.io `email`\n- laticent.io `url`\n- The QR encodes this card as a vCard `caption`\n",
+  "skeleton": "<!-- @meta{layout=contact} -->\n\n## Add me.\n\n- Full Name `name`\n- Title `title`\n- Organization `org`\n- name@example.com `email`\n- Scan to add me `caption`\n",
+  "sample": "<!-- @meta{layout=contact} -->\n\n- Ada Slide `name`\n- One scan saves the speaker `title`\n- Laticent `org`\n- hello@laticent.io `email`\n- laticent.io `url`\n- The QR encodes this card as a vCard `caption`\n",
   "whenToUse": [
     {
       "title": "The scan-to-add-me close",
@@ -116,5 +116,5 @@
   "gesture": {
     "archetype": "media"
   },
-  "venueProbe": "<!-- _class: contact -->\n\n- Sharmarke Aden `name`\n- Founder & Chief Executive Officer `title`\n- Laticent International Holdings `org`\n- +1 (555) 014-2200 `mobile`\n- sharmarke.aden@laticent.example `email`\n- laticent.example/sharmarke `url`\n- Scan to add me `caption`\n"
+  "venueProbe": "<!-- @meta{layout=contact} -->\n\n- Sharmarke Aden `name`\n- Founder & Chief Executive Officer `title`\n- Laticent International Holdings `org`\n- +1 (555) 014-2200 `mobile`\n- sharmarke.aden@laticent.example `email`\n- laticent.example/sharmarke `url`\n- Scan to add me `caption`\n"
 }

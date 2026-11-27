@@ -1,1 +1,0 @@
-- **The copy-and-go Marp kit is published to the orphan `dist-kits` branch**, under `marp/`, so it is browsable and raw-fetchable straight from the repo again — the surface lost when `dist/` stopped being committed to `main`. npm install and the GitHub Release zip already carried it; this restores the third.

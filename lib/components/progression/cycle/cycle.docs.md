@@ -45,7 +45,7 @@ Use when the sequence is CIRCULAR: a natural cycle, a feedback loop, a recurring
 ## Authoring
 
 ```markdown
-<!-- _class: cycle -->
+<!-- @meta{layout=cycle} -->
 
 ## The heading names the loop.
 

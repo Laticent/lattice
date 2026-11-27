@@ -1,13 +1,13 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · chart axis grammar"
 acronyms:
   SMB: small and mid-sized business
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # One grammar for an axis. Position says what it means.
 
@@ -20,8 +20,8 @@ the key.
 
 ---
 
-<!-- _class: matrix-grid -->
-<!-- _footer: "Above the grid · the list names the axes" -->
+<!-- @meta{layout=matrix-grid, footer=Above the grid · the list names the axes} -->
+
 
 `[Wider reach, Deeper cognition]`
 
@@ -38,8 +38,8 @@ typed.
 
 ---
 
-<!-- _class: matrix-grid -->
-<!-- _footer: "Both slots · same shape, different authority" -->
+<!-- @meta{layout=matrix-grid, footer="Both slots · same shape, different authority"} -->
+
 
 `[Wider market, Deeper product]`
 
@@ -57,8 +57,8 @@ Nothing about the two spans distinguishes them. Only where they sit.
 
 ---
 
-<!-- _class: scatter -->
-<!-- _footer: "scatter · two members, x then y" -->
+<!-- @meta{layout=scatter, footer="scatter · two members, x then y"} -->
+
 
 `[Annual cost, Teams adopting]`
 
@@ -73,8 +73,8 @@ Nothing about the two spans distinguishes them. Only where they sit.
 
 ---
 
-<!-- _class: scatter bubble -->
-<!-- _footer: "scatter bubble · a third member names the size measure" -->
+<!-- @meta{layout=scatter, class=bubble, footer=scatter bubble · a third member names the size measure} -->
+
 
 `[Annual cost, Teams adopting, Seats]`
 
@@ -88,8 +88,8 @@ Nothing about the two spans distinguishes them. Only where they sit.
 
 ---
 
-<!-- _class: scatter -->
-<!-- _footer: "Quotes protect a comma, so this is two axes and not three" -->
+<!-- @meta{layout=scatter, footer="Quotes protect a comma, so this is two axes and not three"} -->
+
 
 `["Cost, excluding tax", "Teams adopting"]`
 
@@ -104,8 +104,8 @@ Unquoted, every comma splits. Quoted, a comma is part of the name.
 
 ---
 
-<!-- _class: quadrant threshold -->
-<!-- _footer: "quadrant · name, domain and threshold, one member per axis" -->
+<!-- @meta{layout=quadrant, class=threshold, footer="quadrant · name, domain and threshold, one member per axis"} -->
+
 
 `Portfolio review · FY26`
 
@@ -128,8 +128,8 @@ sets both domains and draws both cutoff lines.
 
 ---
 
-<!-- _class: gantt -->
-<!-- _footer: "gantt · the keyword pills, kept · order-independent" -->
+<!-- @meta{layout=gantt, footer="gantt · the keyword pills, kept · order-independent"} -->
+
 
 `[{Timeline, 2026 Q1 .. 2026 Q4, today=Q3}]`
 
@@ -145,8 +145,8 @@ sets both domains and draws both cutoff lines.
 
 ---
 
-<!-- _class: gantt -->
-<!-- _footer: "gantt · the same axis as one bracketed list · the identical chart" -->
+<!-- @meta{layout=gantt, footer=gantt · the same axis as one bracketed list · the identical chart} -->
+
 
 `[{Timeline, 2026 Q1..2026 Q4, today=Q3}]`
 
@@ -162,8 +162,8 @@ sets both domains and draws both cutoff lines.
 
 ---
 
-<!-- _class: content -->
-<!-- _footer: "What it replaced" -->
+<!-- @meta{layout=content, footer=What it replaced} -->
+
 
 ## Four grammars, one list.
 

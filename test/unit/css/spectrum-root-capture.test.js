@@ -2,7 +2,7 @@
  * The theme's ribbon stays the theme's on every element (2026-09-24-one-style-delivery-spine.md §8.2).
  *
  * `--sp-fill-rainbow-*` captures the theme's `--spectrum` with `var()` inside a `:root` block, so a
- * `spectrum-card: rainbow` rail can show the theme's ribbon on a `spectrum: solid` deck. That only
+ * `card-spectrum: rainbow` rail can show the theme's ribbon on a `spectrum: solid` deck. That only
  * holds if no slide-level rule redefines `--spectrum`: every browser host PACKS `:root` onto the
  * slide itself (lib/engine/css.js `packSelector`), and there `var(--spectrum)` resolves against
  * whatever the slide set. The STYLE classes used to set it, so the pinned rail drew the quieter bar

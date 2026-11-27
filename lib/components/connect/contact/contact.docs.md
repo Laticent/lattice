@@ -41,7 +41,7 @@ Use as the "scan to add me" close or a speaker-intro slide. The QR encodes a vCa
 ## Authoring
 
 ```markdown
-<!-- _class: contact -->
+<!-- @meta{layout=contact} -->
 
 ## Add me.
 

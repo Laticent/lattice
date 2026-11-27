@@ -143,7 +143,7 @@ export const CHROME = {
 	brandHome: 'Lattice — home',
 	/** The workspace launcher in the top bar — the wordmark + chevron that opens Decks /
 	 *  Fabricate / Import. It used to be the brand mark too; `brandHome` is the mark now. */
-	workspaceLauncher: 'Workspace launcher',
+	workspaceLauncher: 'Lattice — workspace launcher',
 	/** The workspace-settings sheet trigger. */
 	workspaceSettings: 'Workspace settings',
 	/** The version-history sheet trigger — DECK checkpoints. Distinct from an ASSET's
@@ -530,6 +530,21 @@ export async function openStripMenu(page: Page): Promise<void> {
 /** What a strip action said, on the strip with its Undo (2026-10-27-slide-structure-strip.md §7), not in a toast. */
 export function stripNote(page: Page): Locator {
 	return page.locator('[data-strip-note]').filter({ visible: true }).first();
+}
+
+/**
+ * A toast pill that is still LIVE, never one on its way out, filtered by its text. Use it to wait
+ * for a confirmation ("Saved …") instead of a bare `getByText`.
+ *
+ * lib/notify.ts re-raises a message that lands on the previous pill's dying edge on a fresh id
+ * (trap 3 in `raiseSlot`). For Sonner's 200 ms exit the dying pill, marked `data-removed="true"`
+ * with the new text merged in, sits beside the fresh one, so a strict `getByText` finds two and
+ * fails. Two Saves about 2.6 s apart (the status dwell) are enough: studio-smoke hit it on #3451
+ * and the gecko nightly on run 44105740693. Exactly one live copy still means a doubled notice
+ * fails strict mode, so this cannot hide a product bug.
+ */
+export function liveToast(page: Pick<Page, 'locator'>, text: RegExp | string): Locator {
+	return page.locator('[data-sonner-toast]:not([data-removed="true"])').filter({ hasText: text });
 }
 
 /** The app toast pill — the canonical name for the centralized toast accessor.
@@ -1054,6 +1069,28 @@ export async function openSlideLook(page: Page): Promise<void> {
 export async function setEditorContent(page: Page, text: string): Promise<void> {
 	await focusEditor(page);
 	await selectAllInEditor(page);
+	// THE iOS KEY PATH. CodeMirror reads the user agent, and on an iPhone or iPad (`browser.ios`) it does not run Delete,
+	// Backspace or Enter at keydown: it lets the browser edit the DOM natively, then reconciles, and 250 ms later sends the
+	// key itself if it saw no change (@codemirror/view `InputState.keydown`, `PendingKeys`, `flushIOSKey`). Playwright's
+	// `webkit-phone` project is Linux WebKit with an iPhone user agent, so a Delete right after a select-all is reconciled
+	// as a collapsed selection and the deferred Delete then removes ONE character (measured: 164 -> 163, 5 runs in 5; with a
+	// pause after the select-all it cleared the deck, which is why the failure looked like a late write). Replacing the
+	// selection by inserting text is a plain selection replacement on that path (5 in 5 exact). So on the iOS path the deck
+	// goes in over the selection, and an empty deck is a space taken back by one Backspace from a collapsed caret, the case
+	// that path handles. Every other engine keeps the Delete below (switch-controls.spec.ts:118, HARD RULE #33).
+	const iosKeyPath = await page.evaluate(() => /iP(?:hone|ad|od)/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 2));
+	if (iosKeyPath) {
+		await page.keyboard.insertText(text || ' ');
+		if (!text) {
+			await expect.poll(() => deckEditorLength(page), { message: 'setEditorContent: the space did not replace the selection' }).toBe(1);
+			await page.keyboard.press('Backspace');
+			await expect.poll(() => deckEditorLength(page), { message: 'setEditorContent: the Backspace left the space behind' }).toBe(0);
+		}
+		await expect
+			.poll(() => deckEditorFingerprint(page), { message: 'setEditorContent: the editor does not hold exactly the deck it was given' })
+			.toEqual(fingerprint(text));
+		return;
+	}
 	await page.keyboard.press('Delete');
 	// The select-all and the Delete are two events, and a source write that lands between them (a
 	// boot-time hydration, a mapped selection) collapses the selection, so the Delete removes one
@@ -1244,6 +1281,22 @@ export async function openAddSlide(page: Page, _compact = false, side: 'before' 
 	await page.getByRole('button', { name: CHROME.addSlide, exact: true }).filter({ visible: true }).first().click();
 	await chooseSide(page, side);
 	await addSlideReady(page);
+}
+
+/**
+ * Pick a family in the add-slide gallery, wherever its pill is: in the one-row strip, or folded into
+ * the "More ▾" menu when the row runs out of room (a phone folds most of them, 2026-11-23). A spec
+ * that clicked only the visible pill skipped the folded ones without saying so.
+ */
+export async function chooseGalleryFamily(page: Page, family: string): Promise<void> {
+	const tabs = page.getByRole('tablist', { name: 'Slide categories' }).filter({ visible: true });
+	const pill = tabs.getByRole('tab', { name: family, exact: true });
+	if (await pill.count()) {
+		await pill.click();
+		return;
+	}
+	await page.getByRole('button', { name: /^More slide categories$|^Slide categories: .*, more$/ }).filter({ visible: true }).click();
+	await page.getByRole('menuitemradio', { name: family, exact: true }).click();
 }
 
 /** New slide splits in place into Before | After (2026-10-27-slide-structure-strip.md §5); the gallery opens on the choice. */

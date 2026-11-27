@@ -1,5 +1,5 @@
 import type * as React from 'react';
-import type { ImageCardAxis } from './slide-provenance';
+import type { ImageCardAxis } from './deck-axes';
 
 // The Image rows the deck settings and the slide drawer share — one row per axis of the
 // `image-card:` register (lib/core/resolve-image-card.js, lib/base/base.registers.docs.md

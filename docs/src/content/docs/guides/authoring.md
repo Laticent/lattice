@@ -12,7 +12,7 @@ the deck's palette. You never set fonts, colors, or positions by hand.
 ```markdown
 ---
 theme: indaco       # palette (see Themes & palettes)
-paginate: true
+pagination: true
 header: "Quarterly Review"
 ---
 
@@ -41,7 +41,7 @@ One-line subtitle that frames the deck.
 Three things to notice:
 
 1. **Front matter** selects the palette (`theme:`), the deck's finish
-   (`finish:`), and global chrome (`paginate`, `header`, `footer`).
+   (`finish:`), and global chrome (`pagination`, `header`, `footer`).
 2. **Headings** separate slides by default — each `##` starts a new one (and a
    `---` still works too). Set `split: rule` for separators-only (see The
    `split:` key below).
@@ -413,7 +413,7 @@ Every one of them is a **switch**, and every switch is spelled the same way:
 |---|---|---|---|
 | Running header | `header: "Acme — Q3"`, or `class: no-header` | `no-header` · `with-header` | once you give it text; not on a title |
 | Running footer | `footer: "Confidential"`, or `class: no-footer` | `no-footer` · `with-footer` | once you give it text, on every slide |
-| Page number | `paginate: false`, or `class: no-pagination` | `no-pagination` · `with-pagination` | yes — except title, divider, topic and closing |
+| Page number | `pagination: false`, or `class: no-pagination` | `no-pagination` · `with-pagination` | yes — except title, divider, topic and closing |
 | Section rail | `class: no-progress` | `no-progress` · `with-progress` | on when the deck has dividers |
 | Logo | `logo: …`, or `class: no-logo` | `no-logo` · `with-logo` | on once you set `logo:` |
 

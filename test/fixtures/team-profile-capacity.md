@@ -1,10 +1,10 @@
 ---
 theme: indaco
 # No page numbers: the third slide's footer must be the only reason a footer Cell exists.
-paginate: false
+pagination: false
 ---
 
-<!-- _class: team-profile lead -->
+<!-- @meta{layout=team-profile, class=lead} -->
 
 ## Six people, one ranked row
 
@@ -24,7 +24,7 @@ paginate: false
 
 ---
 
-<!-- _class: team-profile -->
+<!-- @meta{layout=team-profile} -->
 
 ## Six people under a closing line
 
@@ -51,7 +51,7 @@ paginate: false
 
 ---
 
-<!-- _class: team-profile -->
+<!-- @meta{layout=team-profile} -->
 
 ## Six people, no closing line
 
@@ -74,4 +74,4 @@ paginate: false
   - `Customer Success`
   - Your standing contact between reviews.
 
-<!-- _footer: A standing footer line -->
+<!-- @meta{footer=A standing footer line} -->

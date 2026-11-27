@@ -7,8 +7,8 @@ import { usePhotoContrast } from './photo-contrast-watch';
 const readVerdict = vi.fn<(...a: unknown[]) => Promise<PhotoVerdict | null>>();
 vi.mock('../photo-verdict', () => ({ readVerdict: (...a: unknown[]) => readVerdict(...a) }));
 
-const LOW: PhotoVerdict = { low: true, ratio: 2.1, floor: 4.5, fix: 'ink-light', fixRatio: 9, message: 'The text on this photo reads at 2.1:1.', label: 'Set card ink light', src: 'live' };
-const CHUNK = '<!-- _class: image spotlight card-clear -->\n\n## A quiet harbor.\n\n![A harbor](sample:photo-wide.svg)\n';
+const LOW: PhotoVerdict = { low: true, ratio: 2.1, floor: 4.5, fix: 'image-card-light', fixRatio: 9, message: 'The text on this photo reads at 2.1:1.', label: 'Set card ink light', src: 'live' };
+const CHUNK = '<!-- _class: image spotlight image-card-clear -->\n\n## A quiet harbor.\n\n![A harbor](sample:photo-wide.svg)\n';
 const CONTEXT = {};
 
 /** A stand-in for the shell's preview-paint listener set. */
@@ -98,7 +98,7 @@ describe('usePhotoContrast', () => {
 			initialProps: { chunk: CHUNK, section: 0 },
 		});
 		await settle();
-		expect(result.current.findings.map((f) => f.pin)).toEqual(['ink-light']);
+		expect(result.current.findings.map((f) => f.pin)).toEqual(['image-card-light']);
 		// The caret moves to the second part: same `---` slide, another engine slide. Nothing of the first part's read stays.
 		rerender({ chunk: CHUNK.replace('A quiet harbor.', 'A second harbor.'), section: 1 });
 		expect(result.current.verdict).toBeNull();

@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · premise"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # premise
 
@@ -15,8 +15,7 @@ A framing claim beside a vertically centered ledger of parallel rows — a numbe
 
 ---
 
-<!-- _class: premise -->
-<!-- _footer: "Default · premise" -->
+<!-- @meta{layout=premise, footer=Default · premise} -->
 
 ## Growth is a change in thinking, not title.
 
@@ -44,9 +43,8 @@ Six cognitive verbs map the questions an engineer learns to ask — your level i
 
 ---
 
-<!-- _class: premise -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · premise — Eight rows — the categorical palette's ceiling." -->
+<!-- @meta{layout=premise, footer="Stress test · premise — Eight rows — the categorical palette's ceiling."} -->
+<!-- @meta{stress-slide} -->
 
 ## Eight is where one palette cycle ends.
 
@@ -80,8 +78,7 @@ Past eight rows the categorical hues repeat, so eight is this layout's practical
 
 ---
 
-<!-- _class: premise dark -->
-<!-- _footer: "Composition: dark · premise dark" -->
+<!-- @meta{layout=premise, class=dark, footer=Composition: dark · premise dark} -->
 
 ## Growth is a change in thinking, not title.
 
@@ -109,8 +106,7 @@ Six cognitive verbs map the questions an engineer learns to ask — your level i
 
 ---
 
-<!-- _class: premise compact -->
-<!-- _footer: "Composition: compact · premise compact" -->
+<!-- @meta{layout=premise, class=compact, footer=Composition: compact · premise compact} -->
 
 ## Growth is a change in thinking, not title.
 
@@ -138,8 +134,7 @@ Six cognitive verbs map the questions an engineer learns to ask — your level i
 
 ---
 
-<!-- _class: premise accent -->
-<!-- _footer: "Composition: accent · premise accent" -->
+<!-- @meta{layout=premise, class=accent, footer=Composition: accent · premise accent} -->
 
 ## Growth is a change in thinking, not title.
 
@@ -167,8 +162,7 @@ Six cognitive verbs map the questions an engineer learns to ask — your level i
 
 ---
 
-<!-- _class: cards-grid three claim-hero -->
-<!-- _footer: "Anti-patterns · premise" -->
+<!-- @meta{layout=cards-grid, class=three claim-hero, footer=Anti-patterns · premise} -->
 
 ## When NOT to reach for premise.
 
@@ -181,7 +175,7 @@ Six cognitive verbs map the questions an engineer learns to ask — your level i
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

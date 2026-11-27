@@ -2,12 +2,12 @@
 marp: true
 size: 16:9
 theme: indaco
-paginate: true
+pagination: true
 header: "Chart finishes"
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
+<!-- @meta{layout=title, header=""} -->
+
 
 # Tone keeps status hue; matrix, pie, map and waterfall finishes settle
 
@@ -17,8 +17,8 @@ A waterfall's up and down bars and a risk matrix's bands stay green, amber and r
 
 ---
 
-<!-- _class: waterfall marks-tone dark -->
-<!-- _footer: "tone · dark · waterfall" -->
+<!-- @meta{layout=waterfall, class=marks-tone dark, footer=tone · dark · waterfall} -->
+
 
 `FY26 plan · actual`
 
@@ -35,8 +35,8 @@ A waterfall's up and down bars and a risk matrix's bands stay green, amber and r
 
 ---
 
-<!-- _class: risk-matrix marks-tone -->
-<!-- _footer: "tone · risk-matrix" -->
+<!-- @meta{layout=risk-matrix, class=marks-tone, footer=tone · risk-matrix} -->
+
 
 `Enterprise risk register · Q4 2026`
 
@@ -51,8 +51,8 @@ A waterfall's up and down bars and a risk matrix's bands stay green, amber and r
 
 ---
 
-<!-- _class: risk-matrix marks-tone dark -->
-<!-- _footer: "tone · dark · risk-matrix" -->
+<!-- @meta{layout=risk-matrix, class=marks-tone dark, footer=tone · dark · risk-matrix} -->
+
 
 `Enterprise risk register · Q4 2026`
 
@@ -68,8 +68,8 @@ A waterfall's up and down bars and a risk matrix's bands stay green, amber and r
 
 ---
 
-<!-- _class: piechart marks-tone dark -->
-<!-- _footer: "tone · dark · piechart" -->
+<!-- @meta{layout=piechart, class=marks-tone dark, footer=tone · dark · piechart} -->
+
 
 `H1 2026 · 1,840 person-hours`
 
@@ -87,8 +87,8 @@ Nearly half went to producing decks; the deciding itself was the smallest slice.
 
 ---
 
-<!-- _class: matrix-grid marks-tone dark -->
-<!-- _footer: "tone · dark · matrix-grid" -->
+<!-- @meta{layout=matrix-grid, class=marks-tone dark, footer=tone · dark · matrix-grid} -->
+
 
 ## Your level is a cell, not a rung.
 
@@ -109,8 +109,8 @@ Illustrative — placements vary by company.
 
 ---
 
-<!-- _class: waterfall marks-etch -->
-<!-- _footer: "etch · waterfall" -->
+<!-- @meta{layout=waterfall, class=marks-etch, footer=etch · waterfall} -->
+
 
 `FY26 plan · actual`
 
@@ -127,8 +127,8 @@ Illustrative — placements vary by company.
 
 ---
 
-<!-- _class: waterfall marks-etch dark -->
-<!-- _footer: "etch · dark · waterfall" -->
+<!-- @meta{layout=waterfall, class=marks-etch dark, footer=etch · dark · waterfall} -->
+
 
 `FY26 plan · actual`
 
@@ -145,8 +145,8 @@ Illustrative — placements vary by company.
 
 ---
 
-<!-- _class: map marks-etch dark -->
-<!-- _footer: "etch · dark · map" -->
+<!-- @meta{layout=map, class=marks-etch dark, footer=etch · dark · map} -->
+
 
 ## The map fills regions by value.
 

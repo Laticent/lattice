@@ -63,7 +63,7 @@ async function pickPhoto(page: Page, files: { name: string; width: number; heigh
 		}
 		const dt = new DataTransfer();
 		for (const f of made) dt.items.add(f);
-		const input = document.querySelector('input[type="file"][accept*="image"]') as HTMLInputElement;
+		const input = document.querySelector('[data-testid="library-import-input"]') as HTMLInputElement;
 		input.files = dt.files;
 		input.dispatchEvent(new Event('change', { bubbles: true }));
 		return hadExif;
@@ -302,7 +302,7 @@ test('@smoke a PNG with an eXIf GPS chunk and a GIF with comment and XMP blocks 
 		dt.items.add(new File([dirtyPng as BlobPart], 'Marked PNG.png', { type: 'image/png' }));
 		dt.items.add(new File([dirtyGif as BlobPart], 'Marked GIF.gif', { type: 'image/gif' }));
 		const has = (b: Uint8Array) => new TextDecoder('latin1').decode(b).includes(mark);
-		const input = document.querySelector('input[type="file"][accept*="image"]') as HTMLInputElement;
+		const input = document.querySelector('[data-testid="library-import-input"]') as HTMLInputElement;
 		input.files = dt.files;
 		input.dispatchEvent(new Event('change', { bubbles: true }));
 		return { pngHadMark: has(dirtyPng), gifHadMark: has(dirtyGif), pngLength: dirtyPng.length, gifLength: dirtyGif.length };
@@ -391,7 +391,7 @@ for (const engine of [' @gecko', ' @webkit-tablet']) test(`@smoke adding a photo
 		const blob: Blob = await new Promise((r) => c.toBlob((b) => r(b as Blob), 'image/jpeg', 0.95));
 		const dt = new DataTransfer();
 		dt.items.add(new File([blob], 'Harbour.jpg', { type: 'image/jpeg' }));
-		const input = document.querySelector('input[type="file"][accept*="image"]') as HTMLInputElement;
+		const input = document.querySelector('[data-testid="library-import-input"]') as HTMLInputElement;
 		input.files = dt.files;
 		input.dispatchEvent(new Event('change', { bubbles: true }));
 	});
@@ -456,7 +456,7 @@ for (const engine of [' @gecko', ' @webkit-tablet'])
 				};
 				const dt = new DataTransfer();
 				dt.items.add(new File([blob], 'pano.png', { type: 'image/png' }));
-				const input = document.querySelector('input[type="file"][accept*="image"]') as HTMLInputElement;
+				const input = document.querySelector('[data-testid="library-import-input"]') as HTMLInputElement;
 				input.files = dt.files;
 				input.dispatchEvent(new Event('change', { bubbles: true }));
 			});

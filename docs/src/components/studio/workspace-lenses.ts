@@ -1,4 +1,4 @@
-import type { LensDef, WorkspaceLensConfig } from '@/lib/lente';
+import type { LensDef, WorkspaceLensConfig } from '@/lib/lente-host';
 import { ARCHETYPES, STARTER_ARCHETYPE_IDS } from './lens-archetypes';
 import type { StudioSettings } from './studio-store';
 

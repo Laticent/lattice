@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { inlineAgents } from '../../../lib/core/frame-agents.mjs';
 import { slideFrameFilter } from '../../../lib/core/slide-frame.mjs';
 import { buildSrcdoc, fitSlideOnSheet, nUpCells, nUpGrid, resolvePrintSheet } from './deck-preview.js';
 
@@ -30,15 +31,19 @@ describe('buildSrcdoc — the slide edge', () => {
 		// (base.modifiers.css) and only draws once a host hands it --slide-edge-k.
 		const doc = buildSrcdoc({ ...base, html });
 		expect(doc).toContain(`.lattice{filter:${slideFrameFilter('card')};}`);
-		expect(doc).not.toContain('window.__SLIDE_EDGE=1');
+		// The geometry agent sets the edge flag only for a tag that carries `data-edge` (frame-agents.mjs).
+		expect(doc).toMatch(/data-agent="geom"[^>]*data-w="1280"/);
+		expect(doc).not.toContain('data-edge=');
 	});
 
 	it('hands the engine its on-screen scale when asked, so the deck draws its own edge', () => {
 		// The FIT agent stamps slide-percent-per-screen-pixel (100 / width) — the one number
 		// the engine's keyline needs to stay a true 1px through the scale.
 		const doc = buildSrcdoc({ ...base, html, slideEdge: 'var(--border, red)' });
-		expect(doc).toContain('window.__SLIDE_EDGE=1');
-		expect(doc).toContain('--slide-edge-k');
+		expect(doc).toMatch(/data-agent="geom"[^>]*data-edge="1"/);
+		// …and the agents that tag runs really set the flag and stamp the scale.
+		expect(inlineAgents(doc)).toContain('window.__SLIDE_EDGE=1');
+		expect(inlineAgents(doc)).toContain('--slide-edge-k');
 	});
 
 	it('never shapes the slide: no radius, border or box-shadow on the section', () => {

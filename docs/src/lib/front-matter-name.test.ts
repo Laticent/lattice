@@ -23,9 +23,9 @@ const LINES = [
 
 describe('getFrontMatterName ↔ engine frontMatterName', () => {
 	for (const value of LINES) {
-		it(`agrees on \`guards: ${value}\``, () => {
-			const engine = frontMatterName(`guards: ${value}`, 'guards');
-			const studio = getFrontMatterName(`---\nguards: ${value}\n---\n\n# x\n`, 'guards');
+		it(`agrees on \`fit: ${value}\``, () => {
+			const engine = frontMatterName(`fit: ${value}`, 'fit');
+			const studio = getFrontMatterName(`---\nfit: ${value}\n---\n\n# x\n`, 'fit');
 			expect(studio).toBe(engine ?? undefined);
 		});
 	}

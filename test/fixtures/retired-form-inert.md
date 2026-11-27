@@ -11,7 +11,7 @@ byte-identical with or without them and the CLI must stay silent.
 
 ---
 
-<!-- _class: content form -->
+<!-- @meta{layout=content, class=form} -->
 
 ## A slide with the inert token
 

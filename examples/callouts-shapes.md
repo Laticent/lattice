@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · callouts on shapes · placed by measure"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Notes pin to the shape they name
 
@@ -15,8 +15,8 @@ A slice, a funnel stage, a region, an axis: each ringed along its own outline, w
 
 ---
 
-<!-- _class: piechart -->
-<!-- _footer: "piechart · a slice by its label." -->
+<!-- @meta{layout=piechart, footer=piechart · a slice by its label.} -->
+
 
 ## The pie gives each share one wedge.
 
@@ -30,8 +30,8 @@ A slice, a funnel stage, a region, an axis: each ringed along its own outline, w
 
 ---
 
-<!-- _class: piechart donut -->
-<!-- _footer: "piechart donut · the ring follows the segment." -->
+<!-- @meta{layout=piechart, class=donut, footer=piechart donut · the ring follows the segment.} -->
+
 
 ## The donut gives each share one segment.
 
@@ -45,8 +45,8 @@ A slice, a funnel stage, a region, an axis: each ringed along its own outline, w
 
 ---
 
-<!-- _class: funnel -->
-<!-- _footer: "funnel · a stage by its label." -->
+<!-- @meta{layout=funnel, footer=funnel · a stage by its label.} -->
+
 
 ## The funnel narrows; the width is the story.
 
@@ -60,8 +60,8 @@ A slice, a funnel stage, a region, an axis: each ringed along its own outline, w
 
 ---
 
-<!-- _class: map -->
-<!-- _footer: "map · a region by its name; the outline is ringed." -->
+<!-- @meta{layout=map, footer="map · a region by its name; the outline is ringed."} -->
+
 
 ## The map fills regions by value.
 
@@ -75,8 +75,8 @@ A slice, a funnel stage, a region, an axis: each ringed along its own outline, w
 
 ---
 
-<!-- _class: map us -->
-<!-- _footer: "map us · the same rule on the US-states basemap." -->
+<!-- @meta{layout=map, class=us, footer=map us · the same rule on the US-states basemap.} -->
+
 
 ## Four states carry the volume.
 
@@ -89,8 +89,8 @@ A slice, a funnel stage, a region, an axis: each ringed along its own outline, w
 
 ---
 
-<!-- _class: radar -->
-<!-- _footer: "radar · an axis by its name; the tip of its spoke is ringed." -->
+<!-- @meta{layout=radar, footer="radar · an axis by its name; the tip of its spoke is ringed."} -->
+
 
 `[{Scale, 0..10}]`
 

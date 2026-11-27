@@ -1,0 +1,411 @@
+---
+import LibraryTheme from '../../../components/LibraryTheme.astro';
+// LTT — a standalone showcase driven by the REAL library (docs/src/lib/ltt, the `@laticent/ltt`
+// workspace). A three-slide deck's narration is written as an LTT file by the steps Lattice's export
+// takes (docs/src/lib/ltt-demo.ts, after lib/core/ltt-deck.mjs): Cadenza estimates each slide's
+// track, and LTT lays the file on one clock (`timeline`), answers what is lit at a moment
+// (`positionAt`), packs it, and checks it (`validateLtt`). Reached at /libraries/ltt/; its Learn page
+// is /libraries/ltt/learn/ (src/content/catalog/).
+import DemoBar from '../../../components/catalog/DemoBar.astro';
+import { BREAKS, DECK_PACES, SAMPLE_SLIDES } from '../../../lib/ltt-demo';
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+		<meta name="robots" content="noindex, nofollow" />
+		<title>LTT — when each word is spoken</title>
+		<link rel="icon" href="/ltt-mark-min.svg" type="image/svg+xml" />
+		<LibraryTheme lib="ltt" />
+		<style is:global>
+			* { box-sizing: border-box; }
+			body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans); line-height: 1.5;
+				-webkit-font-smoothing: antialiased; padding: clamp(16px, 4vw, 48px); }
+			.wrap { max-width: 1040px; margin: 0 auto; }
+			.brand { display: flex; align-items: center; gap: 13px; margin-top: 14px; }
+			.brand img { width: 46px; height: 46px; }
+			h1 { font-family: var(--serif); font-size: clamp(28px, 5vw, 40px); font-weight: 600; margin: 0; letter-spacing: -.01em; }
+			h2 { font-family: var(--serif); font-size: 21px; font-weight: 600; margin: 0; }
+			.promise { font-family: var(--serif); font-size: clamp(21px, 3vw, 27px); line-height: 1.3; max-width: 34ch; margin: 14px 0 0; text-wrap: balance; }
+			.sub { color: var(--muted); font-size: 15px; max-width: 72ch; margin: 10px 0 0; }
+			code { font-family: var(--mono); font-size: .92em; }
+			.head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px; margin-top: 30px; }
+			.head p { color: var(--muted); font-size: 13px; margin: 0; }
+
+			.seg-ctl { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); padding: 3px; gap: 2px; }
+			.seg-ctl button { border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 13px; font-weight: 600;
+				padding: 5px 13px; border-radius: 999px; cursor: pointer; }
+			.seg-ctl button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+			.seg-ctl button:focus-visible, .chip:focus-visible, .play:focus-visible, .tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+			.slides { margin-top: 12px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+			.slide { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 6px;
+				transition: border-color .12s ease, box-shadow .12s ease; }
+			.slide[data-active="true"] { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent); }
+			.slide .top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 12px; color: var(--muted); }
+			.slide .top b { color: var(--ink); font-weight: 600; letter-spacing: .02em; }
+			.slide .kind { font-family: var(--mono); font-size: 11.5px; }
+			.slide textarea { width: 100%; min-height: 88px; resize: vertical; background: transparent; color: var(--ink); border: 1px solid transparent;
+				border-radius: 8px; padding: 4px 6px; margin: 0 -6px; font: 14px/1.5 var(--sans); width: calc(100% + 12px); }
+			.slide textarea:hover { border-color: var(--line); }
+			.slide textarea:focus { outline: none; border-color: var(--accent); background: var(--paper); }
+
+			.player { margin-top: 12px; background: var(--stage); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow);
+				padding: clamp(14px, 2.6vw, 22px); display: flex; flex-direction: column; gap: 14px; }
+			.caption { min-height: 2.8em; font-family: var(--serif); font-size: clamp(19px, 2.6vw, 24px); line-height: 1.4; text-wrap: pretty; }
+			.caption .w { color: var(--muted); transition: color .08s linear; }
+			.caption .w.said { color: var(--ink); }
+			.caption .w.lit { color: var(--accent); background: var(--soft); border-radius: 4px; box-shadow: 0 0 0 2px var(--soft); }
+			.caption .idle { color: var(--muted); font-style: italic; }
+			.status { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; font-size: 13px; }
+			.pill { font-size: 11.5px; font-weight: 600; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); background: var(--panel);
+				letter-spacing: .02em; }
+			.pill[data-phase="cue"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+			.pill[data-phase="hold"], .pill[data-phase="gap"] { background: var(--glow-bg); color: var(--glow); border-color: transparent; }
+			.status .where { color: var(--muted); }
+			.status .clock { margin-left: auto; font-family: var(--mono); font-size: 13px; font-variant-numeric: tabular-nums; }
+
+			.bar { position: relative; display: flex; gap: 3px; height: 34px; cursor: pointer; touch-action: none; user-select: none; }
+			.bar .seg { position: relative; height: 100%; border-radius: 6px; background: var(--panel); border: 1px solid var(--line); overflow: hidden; min-width: 0; }
+			.bar .hold { position: absolute; top: 0; bottom: 0; left: 0;
+				background: repeating-linear-gradient(135deg, var(--glow-bg) 0 5px, transparent 5px 9px); border-right: 1px solid var(--line); }
+			.bar .cue { position: absolute; top: 7px; bottom: 7px; border-radius: 3px; background: var(--accent); opacity: .32; }
+			.bar .seg[data-active="true"] .cue { opacity: .55; }
+			.bar .seg .num { position: absolute; left: 4px; top: 50%; transform: translateY(-50%); font-size: 11px; font-weight: 600; line-height: 1; color: var(--muted);
+				background: var(--panel); border-radius: 4px; padding: 3px 4px; pointer-events: none; }
+			.bar .head-line { position: absolute; top: -5px; bottom: -5px; width: 2px; margin-left: -1px; background: var(--ink); border-radius: 2px; pointer-events: none; left: 0; }
+			.controls { display: flex; align-items: center; gap: 12px; }
+			.play { flex-shrink: 0; width: 40px; height: 40px; border-radius: 50%; border: 0; background: var(--accent); color: var(--accent-ink); cursor: pointer;
+				display: grid; place-items: center; }
+			.play svg { width: 16px; height: 16px; fill: currentColor; }
+			.play .i-pause, .play[aria-pressed="true"] .i-play { display: none; }
+			.play[aria-pressed="true"] .i-pause { display: block; }
+			.controls input[type="range"] { flex: 1; min-width: 0; accent-color: var(--accent); }
+			.legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12px; color: var(--muted); }
+			.legend i { display: inline-block; width: 18px; height: 10px; border-radius: 3px; vertical-align: -1px; margin-right: 6px; }
+			.legend .k-hold { background: repeating-linear-gradient(135deg, var(--glow-bg) 0 4px, var(--panel) 4px 7px); border: 1px solid var(--line); }
+			.legend .k-cue { background: var(--accent); opacity: .5; }
+			.legend .k-gap { background: var(--panel); border: 1px solid var(--line); }
+
+			.filebox { margin-top: 12px; display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 14px; }
+			.card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+			.tabs { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+			.tabs button { border: 1px solid var(--line); background: var(--paper); color: var(--ink); font: inherit; font-size: 13px; font-weight: 600; padding: 4px 12px; border-radius: 999px; cursor: pointer; }
+			.tabs button[aria-selected="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+			.tabs .bytes { margin-left: auto; font-family: var(--mono); font-size: 12px; color: var(--muted); }
+			pre { margin: 0; background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; max-height: 340px; overflow: auto;
+				font: 12px/1.55 var(--mono); white-space: pre; tab-size: 2; font-variant-ligatures: none; }
+			.label { font-size: 12px; color: var(--muted); letter-spacing: .02em; }
+			.chips { display: flex; flex-direction: column; gap: 6px; }
+			.chip { text-align: left; border: 1px solid var(--line); background: var(--paper); color: var(--ink); font: inherit; font-size: 13.5px; padding: 8px 11px; border-radius: 10px; cursor: pointer; }
+			.chip[aria-pressed="true"] { border-color: var(--glow); box-shadow: inset 3px 0 0 var(--glow); }
+			.verdict { border-radius: 10px; padding: 10px 12px; font-size: 13.5px; background: var(--paper); border: 1px solid var(--line); }
+			.verdict[data-ok="true"] b { color: var(--accent); }
+			.verdict[data-ok="false"] { border-color: var(--glow); }
+			.verdict[data-ok="false"] b { color: var(--glow); }
+			.verdict ul { margin: 6px 0 0; padding-left: 18px; }
+			.verdict li { overflow-wrap: anywhere; }
+
+			.stats { margin-top: 14px; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+			.stat { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+			.stat b { display: block; font-family: var(--mono); font-size: 20px; font-weight: 600; color: var(--accent); font-variant-numeric: tabular-nums; }
+			.stat span { font-size: 12px; color: var(--muted); }
+			.note { color: var(--muted); font-size: 13px; max-width: 78ch; margin-top: 16px; }
+			@media (max-width: 820px) { .filebox { grid-template-columns: 1fr; } }
+			@media (max-width: 720px) { .slides { grid-template-columns: 1fr; } .slide textarea { min-height: 64px; } }
+			@media (prefers-reduced-motion: reduce) { .caption .w, .slide { transition: none; } }
+		</style>
+	</head>
+	<body>
+		<div class="wrap">
+			<DemoBar slug="ltt" />
+			<div class="brand">
+				<img src="/ltt-mark.svg" alt="" />
+				<h1>LTT</h1>
+			</div>
+			<p class="promise">One file that says when each word of a narration is spoken.</p>
+			<p class="sub">
+				Edit the narration of a three-slide deck. Cadenza estimates when each word lands, and
+				the real <code>@laticent/ltt</code> writes it down as one file, lays that file on one clock, and answers what is lit at
+				any moment. Scrub or press play. Lattice's shared-deck player and its video export read the same kind of file with these same functions.
+			</p>
+
+			<div class="head">
+				<h2>The narration</h2>
+				<div class="seg-ctl" role="group" aria-label="Deck pace">
+					{DECK_PACES.map((p) => <button type="button" data-pace={p} aria-pressed={p === 'natural' ? 'true' : 'false'}>{p[0].toUpperCase() + p.slice(1)}</button>)}
+				</div>
+			</div>
+			<div class="slides" id="slides">
+				{SAMPLE_SLIDES.map((text, i) => (
+					<div class="slide" data-i={i}>
+						<div class="top"><b>Slide {i + 1}</b><span class="kind"></span></div>
+						<textarea spellcheck="false" aria-label={`Slide ${i + 1} narration`}>{text}</textarea>
+					</div>
+				))}
+			</div>
+
+			<div class="head">
+				<h2>The player</h2>
+				<p>Every length on the bar comes from <code>positionAt</code>; where each slide starts, from <code>timeline</code>.</p>
+			</div>
+			<div class="player">
+				<div class="status">
+					<span class="pill" id="phase" data-phase="cue">cue</span>
+					<span class="where" id="where"></span>
+					<span class="clock" id="clock" aria-live="off">0:00.0 / 0:00.0</span>
+				</div>
+				<div class="caption" id="caption" aria-live="polite"></div>
+				<div class="bar" id="bar" aria-hidden="true"><span class="head-line" id="headline"></span></div>
+				<div class="controls">
+					<button type="button" class="play" id="play" aria-pressed="false" aria-label="Play">
+						<svg class="i-play" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5v11l9.5-5.5z" /></svg>
+						<svg class="i-pause" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 2.5h3v11h-3zM9.5 2.5h3v11h-3z" /></svg>
+					</button>
+					<input type="range" id="scrub" min="0" max="1000" step="1" value="0" aria-label="Position in the narration" />
+				</div>
+				<div class="legend">
+					<span><i class="k-hold"></i>hold on arrival</span>
+					<span><i class="k-cue"></i>a sentence, spoken</span>
+					<span><i class="k-gap"></i>the breath after it</span>
+				</div>
+			</div>
+
+			<div class="head">
+				<h2>The file</h2>
+				<p>Two encodings of one object; <code>unpack(pack(file))</code> gives it back exactly.</p>
+			</div>
+			<div class="filebox">
+				<div class="card">
+					<div class="tabs" role="tablist" aria-label="Encoding">
+						<button type="button" role="tab" id="tab-canonical" aria-selected="true" aria-controls="json">Canonical</button>
+						<button type="button" role="tab" id="tab-packed" aria-selected="false" aria-controls="json">Packed</button>
+						<span class="bytes" id="bytes"></span>
+					</div>
+					<pre id="json" role="tabpanel" aria-labelledby="tab-canonical" tabindex="0"></pre>
+				</div>
+				<div class="card">
+					<span class="label" id="break-label">Break a copy of the file, and the validator says what is wrong</span>
+					<div class="chips" role="group" aria-labelledby="break-label">
+						<button type="button" class="chip" data-break="" aria-pressed="true">Leave it valid</button>
+						{BREAKS.map((b) => <button type="button" class="chip" data-break={b.id} aria-pressed="false">{b.label}</button>)}
+					</div>
+					<div class="verdict" id="verdict" aria-live="polite"></div>
+				</div>
+			</div>
+
+			<div class="stats">
+				<div class="stat"><b id="s-dur">0</b><span>long, start to end</span></div>
+				<div class="stat"><b id="s-words">0</b><span>words timed, on <span id="s-segs">0</span> slides</span></div>
+				<div class="stat"><b id="s-canon">0</b><span>bytes, canonical</span></div>
+				<div class="stat"><b id="s-packed">0</b><span>bytes packed (<span id="s-save">0</span>% smaller)</span></div>
+			</div>
+			<p class="note">
+				Clear a slide's text and it becomes a <code>hold</code> segment: it still waits on arrival, and nothing is lit.
+				Each slide's hash covers its text and every input that changes timing, so a tool can tell exactly which
+				recordings a changed word made stale. What this page does not show is measured audio: with a real clip, a
+				sentence is re-timed to the clip's length, and the words inside it keep the estimate's rhythm.
+			</p>
+		</div>
+
+		<script>
+			import { buildDeck, clock, momentAt, sizes, validateWith } from '../../../lib/ltt-demo';
+			import { type Ltt, pack, positionAt, timeline } from '../../../lib/ltt/index';
+
+			const $ = (id: string) => document.getElementById(id) as HTMLElement;
+			const cards = [...document.querySelectorAll<HTMLElement>('.slide')];
+			const areas = cards.map((c) => c.querySelector('textarea') as HTMLTextAreaElement);
+			const scrub = $('scrub') as HTMLInputElement;
+			const play = $('play');
+			const bar = $('bar');
+			let pace = 'natural';
+			let ltt: Ltt | null = null;
+			let duration = 0;
+			let now = 0;
+			let encoding: 'canonical' | 'packed' = 'canonical';
+			let breakId = '';
+			let raf = 0;
+			let built = 0;
+
+			function drawBar() {
+				if (!ltt) return;
+				for (const el of bar.querySelectorAll('.seg')) el.remove();
+				const line = timeline(ltt);
+				line.segments.forEach((entry, i) => {
+					const seg = document.createElement('div');
+					seg.className = 'seg';
+					seg.dataset.i = String(i);
+					seg.style.flex = `${entry.lengthMs} 1 0`;
+					const lay = positionAt(ltt!.segments[i], 0);
+					const pct = (ms: number) => `${(ms / entry.lengthMs) * 100}%`;
+					if (lay.waitMs) {
+						const h = document.createElement('span');
+						h.className = 'hold';
+						h.style.width = pct(lay.waitMs);
+						seg.append(h);
+					}
+					lay.onsets.forEach((at, k) => {
+						const c = document.createElement('span');
+						c.className = 'cue';
+						c.style.left = pct(at);
+						c.style.width = pct(lay.played[k]);
+						seg.append(c);
+					});
+					const n = document.createElement('span');
+					n.className = 'num';
+					n.textContent = String(i + 1);
+					seg.append(n);
+					bar.insertBefore(seg, $('headline'));
+				});
+			}
+
+			function drawFile() {
+				if (!ltt) return;
+				const value = encoding === 'canonical' ? ltt : pack(ltt);
+				$('json').textContent = JSON.stringify(value, null, 2);
+				const s = sizes(ltt);
+				$('bytes').textContent = `${(encoding === 'canonical' ? s.canonical : s.packed).toLocaleString('en-US')} bytes`;
+				$('s-canon').textContent = s.canonical.toLocaleString('en-US');
+				$('s-packed').textContent = s.packed.toLocaleString('en-US');
+				$('s-save').textContent = String(Math.round((1 - s.packed / s.canonical) * 100));
+				$('tab-canonical').setAttribute('aria-selected', String(encoding === 'canonical'));
+				$('tab-packed').setAttribute('aria-selected', String(encoding === 'packed'));
+				$('json').setAttribute('aria-labelledby', `tab-${encoding}`);
+			}
+
+			function drawVerdict() {
+				if (!ltt) return;
+				const problems = validateWith(ltt, breakId || null);
+				const v = $('verdict');
+				v.dataset.ok = String(problems.length === 0);
+				v.replaceChildren();
+				const b = document.createElement('b');
+				b.textContent = problems.length ? `${problems.length} problem${problems.length === 1 ? '' : 's'}` : 'Valid';
+				v.append(b, problems.length ? ' — validateLtt returned:' : ' — validateLtt returned an empty list.');
+				if (problems.length) {
+					const ul = document.createElement('ul');
+					for (const p of problems) {
+						const li = document.createElement('li');
+						li.textContent = p;
+						ul.append(li);
+					}
+					v.append(ul);
+				}
+				for (const c of document.querySelectorAll<HTMLElement>('.chip')) c.setAttribute('aria-pressed', String(c.dataset.break === breakId));
+			}
+
+			function drawMoment() {
+				if (!ltt) return;
+				const m = momentAt(ltt, now);
+				const seg = ltt.segments[m.slide - 1];
+				const phase = $('phase');
+				phase.dataset.phase = m.phase;
+				phase.textContent = m.phase;
+				$('where').textContent = m.phase === 'end' ? 'The deck is over' : `Slide ${m.slide}${m.cueIndex >= 0 && seg.kind !== 'hold' ? `, sentence ${m.cueIndex + 1} of ${seg.track.cues.length}` : ''}`;
+				$('clock').textContent = `${clock(now)} / ${clock(duration)}`;
+				cards.forEach((c, i) => { c.dataset.active = String(i === m.slide - 1 && m.phase !== 'end'); });
+				for (const el of bar.querySelectorAll<HTMLElement>('.seg')) el.dataset.active = String(Number(el.dataset.i) === m.slide - 1);
+				$('headline').style.left = `${duration ? (now / duration) * 100 : 0}%`;
+				scrub.value = String(duration ? Math.round((now / duration) * 1000) : 0);
+				const cap = $('caption');
+				cap.replaceChildren();
+				if (seg.kind === 'hold' || m.cueIndex < 0) {
+					const idle = document.createElement('span');
+					idle.className = 'idle';
+					idle.textContent = seg.kind === 'hold' ? 'This slide has no narration; it only holds.' : `Slide ${m.slide} arrives; the voice waits ${('holdMs' in seg ? seg.holdMs : 0).toLocaleString('en-US')} ms.`;
+					cap.append(idle);
+					return;
+				}
+				const cue = seg.track.cues[m.cueIndex];
+				cue.words.forEach((w, k) => {
+					if (k) cap.append(' ');
+					const span = document.createElement('span');
+					span.className = `w${k < m.wordIndex ? ' said' : ''}${k === m.wordIndex ? ' lit' : ''}`;
+					span.textContent = w.display;
+					cap.append(span);
+				});
+			}
+
+			async function rebuild() {
+				const ticket = ++built;
+				const next = await buildDeck(areas.map((a) => a.value), pace as 'natural');
+				if (ticket !== built) return;
+				const fraction = duration ? now / duration : 0;
+				ltt = next;
+				duration = timeline(ltt).durationMs;
+				now = Math.min(duration, fraction * duration);
+				cards.forEach((c, i) => {
+					const s = next.segments[i];
+					(c.querySelector('.kind') as HTMLElement).textContent = s.kind === 'hold' ? 'hold' : `${s.track.cues.length} sentence${s.track.cues.length === 1 ? '' : 's'}`;
+				});
+				$('s-dur').textContent = `${(duration / 1000).toFixed(1)} s`;
+				$('s-words').textContent = String(next.segments.reduce((n, s) => n + (s.kind === 'hold' ? 0 : s.track.cues.reduce((m, c) => m + c.words.length, 0)), 0));
+				$('s-segs').textContent = String(next.segments.length);
+				drawBar();
+				drawFile();
+				drawVerdict();
+				drawMoment();
+				document.body.dataset.ready = 'true';
+			}
+
+			function stop() {
+				cancelAnimationFrame(raf);
+				play.setAttribute('aria-pressed', 'false');
+				play.setAttribute('aria-label', 'Play');
+			}
+			function start() {
+				if (now >= duration) now = 0;
+				play.setAttribute('aria-pressed', 'true');
+				play.setAttribute('aria-label', 'Pause');
+				let last = performance.now();
+				const tick = (t: number) => {
+					now = Math.min(duration, now + (t - last));
+					last = t;
+					drawMoment();
+					if (now >= duration) return stop();
+					raf = requestAnimationFrame(tick);
+				};
+				raf = requestAnimationFrame(tick);
+			}
+			play.addEventListener('click', () => (play.getAttribute('aria-pressed') === 'true' ? stop() : start()));
+			scrub.addEventListener('input', () => {
+				stop();
+				now = (Number(scrub.value) / 1000) * duration;
+				drawMoment();
+			});
+			const seekTo = (e: PointerEvent) => {
+				const r = bar.getBoundingClientRect();
+				now = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * duration;
+				drawMoment();
+			};
+			bar.addEventListener('pointerdown', (e) => {
+				stop();
+				bar.setPointerCapture(e.pointerId);
+				seekTo(e);
+			});
+			bar.addEventListener('pointermove', (e) => { if (bar.hasPointerCapture(e.pointerId)) seekTo(e); });
+
+			for (const b of document.querySelectorAll<HTMLButtonElement>('.seg-ctl button')) {
+				b.addEventListener('click', () => {
+					pace = b.dataset.pace as string;
+					for (const o of document.querySelectorAll('.seg-ctl button')) o.setAttribute('aria-pressed', String(o === b));
+					rebuild();
+				});
+			}
+			let timer = 0;
+			for (const a of areas) a.addEventListener('input', () => { clearTimeout(timer); timer = window.setTimeout(rebuild, 150); });
+			$('tab-canonical').addEventListener('click', () => { encoding = 'canonical'; drawFile(); });
+			$('tab-packed').addEventListener('click', () => { encoding = 'packed'; drawFile(); });
+			for (const c of document.querySelectorAll<HTMLElement>('.chip')) c.addEventListener('click', () => { breakId = c.dataset.break || ''; drawVerdict(); });
+			// Open on a moment that shows a word lit mid-sentence, not a blank start.
+			rebuild().then(() => {
+				if (!ltt) return;
+				const first = positionAt(ltt.segments[0], 0);
+				now = first.onsets[0] + first.played[0] * 0.45;
+				drawMoment();
+			});
+		</script>
+	</body>
+</html>

@@ -2,11 +2,11 @@
 marp: true
 size: 4k
 theme: indaco
-paginate: true
+pagination: true
 header: "Project Northstar · Kickoff"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 <!-- tier: short -->
 
 `Kickoff · 12 June 2026`
@@ -17,7 +17,7 @@ Consolidating four sales tools into one CRM by year-end — here is the charter.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## We are consolidating four sales tools into one CRM by 19 December.
@@ -26,7 +26,7 @@ Sales runs on four disconnected tools today. Northstar replaces them with a sing
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## The problem: four tools, no single view, hours lost to re-entry.
@@ -38,7 +38,7 @@ Reps maintain the same account in a CRM, a quoting tool, a spreadsheet, and an e
 
 ---
 
-<!-- _class: big-number -->
+<!-- @meta{layout=big-number} -->
 <!-- tier: standard -->
 
 `The cost of fragmentation`
@@ -48,7 +48,7 @@ Reps maintain the same account in a CRM, a quoting tool, a spreadsheet, and an e
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## The charter: one CRM, one data model, live by 19 December.
@@ -60,7 +60,7 @@ Northstar delivers a single CRM with a unified account model, migrated history, 
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- @meta{layout=list, class=takeaway} -->
 <!-- tier: full -->
 
 ## What "done" must satisfy before we decommission anything.
@@ -76,7 +76,7 @@ Northstar delivers a single CRM with a unified account model, migrated history, 
 
 ---
 
-<!-- _class: roadmap -->
+<!-- @meta{layout=roadmap} -->
 <!-- tier: short -->
 
 `Northstar · H2 2026`
@@ -92,7 +92,7 @@ Northstar delivers a single CRM with a unified account model, migrated history, 
 
 ---
 
-<!-- _class: actors -->
+<!-- @meta{layout=actors} -->
 <!-- tier: short -->
 
 ## Who owns what on Northstar.
@@ -108,7 +108,7 @@ Northstar delivers a single CRM with a unified account model, migrated history, 
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 <!-- tier: full -->
 
 ## How we will work together for the next six months.
@@ -124,7 +124,7 @@ Northstar delivers a single CRM with a unified account model, migrated history, 
 
 ---
 
-<!-- _class: timeline-list -->
+<!-- @meta{layout=timeline-list} -->
 <!-- tier: full -->
 
 `Milestones · H2 2026`
@@ -142,7 +142,7 @@ Northstar delivers a single CRM with a unified account model, migrated history, 
 
 ---
 
-<!-- _class: decision -->
+<!-- @meta{layout=decision} -->
 <!-- tier: short -->
 
 ## First decision: freeze the data model before any build starts.
@@ -154,9 +154,9 @@ Northstar delivers a single CRM with a unified account model, migrated history, 
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 <!-- tier: short -->
 
 ## One CRM, one truth, live by year-end.

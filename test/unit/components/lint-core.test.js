@@ -304,7 +304,7 @@ describe('lint-core: note-malformed', () => {
 
 describe('lint-core: lintTextWith rules', () => {
   test('returns an array and skips front matter (slide 0)', () => {
-    const out = core.lintTextWith(`${FM}<!-- _class: cards-grid -->\n\n## H\n\n- A\n  - b\n`, vocab);
+    const out = core.lintTextWith(`${FM}<!-- @meta{layout=cards-grid} -->\n\n## H\n\n- A\n  - b\n`, vocab);
     assert.ok(Array.isArray(out));
     assert.equal(out.length, 0);
   });
@@ -472,7 +472,7 @@ describe('lint-core: lintTextWith rules', () => {
   });
 
   test('a clean card-style deck yields no findings', () => {
-    assert.equal(core.lintTextWith(`${FM}<!-- _class: cards-grid -->\n\n## H\n\n- First\n  - body\n- Second\n  - body\n`, vocab).length, 0);
+    assert.equal(core.lintTextWith(`${FM}<!-- @meta{layout=cards-grid} -->\n\n## H\n\n- First\n  - body\n- Second\n  - body\n`, vocab).length, 0);
   });
 });
 
@@ -693,7 +693,9 @@ describe('lint-core: auto-fix', () => {
     const fixed = core.applyFix(src, f);
     assert.ok(fixed.includes('<!-- _class: kpi -->'));
     assert.equal(core.lintTextWith(fixed, vocab).some((x) => x.rule === 'unknown-class'), false);
-    assert.ok(core.applyAllFixes(src, vocab).includes('<!-- _class: kpi -->'));
+    // Fix all also migrates the old comment (`legacy-directive-comment`). The migration runs after every line fix, so
+    // the typo is fixed first and `kpi`, now a component, is written as the typed `layout`.
+    assert.ok(core.applyAllFixes(src, vocab).includes('<!-- @meta{layout=kpi} -->'));
   });
 
   test('a typo\'d front-matter REGISTER value is one-click fixable too', () => {
@@ -739,7 +741,7 @@ describe('lint-core: auto-fix', () => {
   });
 
   test('applyAllFixes is a no-op on a clean deck', () => {
-    const src = `${FM}<!-- _class: cards-grid -->\n\n## H\n\n- A\n  - one\n`;
+    const src = `${FM}<!-- @meta{layout=cards-grid} -->\n\n## H\n\n- A\n  - one\n`;
     assert.equal(core.applyAllFixes(src, vocab), src);
   });
 
@@ -1033,43 +1035,43 @@ describe('lint-core: a deck finish on a bookend is not a finding', () => {
   });
 });
 
-// `paginate: skip` / `hold` are Marp values Lattice does NOT implement: `truthy()` reads both as
+// `pagination: skip` / `hold` are Marp values Lattice does NOT implement: `truthy()` reads both as
 // `false`, so the deck shows no page numbers at all. Front matter is the only place `paginate:`
-// still means anything; a slide comment is `paginate-comment-retired` (below).
-describe('paginate: skip / hold in front matter are flagged rather than silently downgraded', () => {
-  const find = (src) => ruleFor(src, 'paginate-unsupported-value');
+// still means anything; a slide comment is `pagination-comment-retired` (below).
+describe('pagination: skip / hold in front matter are flagged rather than silently downgraded', () => {
+  const find = (src) => ruleFor(src, 'pagination-unsupported-value');
 
   test('`skip` is flagged against slide 1, as a suggestion', () => {
-    const f = find('---\npaginate: skip\n---\n\n# A\n\n---\n\n## B.\n');
-    assert.ok(f, 'expected paginate-unsupported-value');
+    const f = find('---\npagination: skip\n---\n\n# A\n\n---\n\n## B.\n');
+    assert.ok(f, 'expected pagination-unsupported-value');
     assert.equal(f.severity, 'suggestion');
     assert.equal(f.slide, 1);
-    assert.match(f.message, /paginate: skip/);
-    assert.match(f.fix, /paginate: false/);
+    assert.match(f.message, /pagination: skip/);
+    assert.match(f.fix, /pagination: false/);
   });
 
   test('`hold` names its own value', () => {
-    const f = find('---\npaginate: hold\n---\n\n# A\n');
+    const f = find('---\npagination: hold\n---\n\n# A\n');
     assert.ok(f);
-    assert.match(f.message, /paginate: hold/);
+    assert.match(f.message, /pagination: hold/);
   });
 
   test('`false` and `true` are NOT flagged', () => {
-    assert.equal(find('---\npaginate: false\n---\n\n# A\n'), undefined);
-    assert.equal(find('---\npaginate: true\n---\n\n# A\n'), undefined);
+    assert.equal(find('---\npagination: false\n---\n\n# A\n'), undefined);
+    assert.equal(find('---\npagination: true\n---\n\n# A\n'), undefined);
   });
 
   test('a slide comment is not this rule: it is the retired-comment rule', () => {
-    const src = '---\npaginate: true\n---\n\n# A\n\n---\n\n<!-- _paginate: skip -->\n\n## B.\n';
+    const src = '---\npagination: true\n---\n\n# A\n\n---\n\n<!-- _paginate: skip -->\n\n## B.\n';
     assert.equal(find(src), undefined);
-    assert.equal(ruleFor(src, 'paginate-comment-retired')?.slide, 2);
+    assert.equal(ruleFor(src, 'pagination-comment-retired')?.slide, 2);
   });
 });
 
 // The owner's ruling (2026-10-20): page numbers are front matter plus the `no-pagination` /
 // `with-pagination` classes plus the component manifest. A comment does nothing, so it is named.
-describe('paginate-comment-retired', () => {
-  const find = (src) => ruleFor(src, 'paginate-comment-retired');
+describe('pagination-comment-retired', () => {
+  const find = (src) => ruleFor(src, 'pagination-comment-retired');
   const deck = (body) => `---\nmarp: true\n---\n\n# A\n\n---\n\n${body}\n\n## B.\n`;
 
   test('`_paginate: true` is autofixable: on is the default', () => {
@@ -1098,7 +1100,7 @@ describe('paginate-comment-retired', () => {
   });
 
   test('on a deck numbered off, `_paginate: true` is the author asking for a number: add the class, no autofix', () => {
-    const f = find('---\nmarp: true\npaginate: false\n---\n\n# A\n\n---\n\n<!-- _paginate: true -->\n\n## B.\n');
+    const f = find('---\nmarp: true\npagination: false\n---\n\n# A\n\n---\n\n<!-- _paginate: true -->\n\n## B.\n');
     assert.equal(f.autofixable, undefined);
     assert.match(f.fix, /with-pagination/);
   });
@@ -1110,10 +1112,12 @@ describe('paginate-comment-retired', () => {
     assert.match(f.message, /drops its number/);
   });
 
-  test('the retired `no-paginate` class names its new spelling', () => {
+  // The rename hint was retired on 2026-11-23 to give back lint-core bytes (changelog.d/retire-old-rename-hints.removed.md):
+  // the old class is still reported, as an unknown class, rather than accepted as a `no-*` switch.
+  test('the retired `no-paginate` class is still reported, as an unknown class', () => {
     const f = core.lintTextWith(deck('<!-- _class: big-number no-paginate -->'), vocab).find((x) => x.classToken === 'no-paginate');
     assert.ok(f, 'the old class is reported');
-    assert.match(`${f.message} ${f.fix ?? ''}`, /no-pagination/);
+    assert.equal(f.rule, 'unknown-class');
   });
 
   test('a plain `paginate:` comment is caught too, and a fenced one is not', () => {
@@ -2681,7 +2685,7 @@ describe('lint-core: an empty box is not a finding', () => {
       ['pricing', '- Starter `$0`\n  - [ ] Audit log\n  - For one team.'],
       ['obligation-matrix', '| Regime | A |\n| --- | :-: |\n| GDPR | [ ] |'],
     ]) {
-      const src = `${FM}<!-- _class: ${cls} -->\n\n## Heading\n\n${body}\n`;
+      const src = `${FM}<!-- @meta{layout=${cls}} -->\n\n## Heading\n\n${body}\n`;
       assert.equal(core.lintTextWith(src, vocab).find((f) => /empty-box/.test(f.rule)), undefined, cls);
       assert.equal(core.applyAllFixes(src, vocab), src, cls);
     }
@@ -2696,7 +2700,7 @@ describe('lint-core: the CLI `--fix` writes the file in its own encoding', () =>
   const path = require('node:path');
   const { spawnSync } = require('node:child_process');
   const CLI = path.resolve(__dirname, '../../../tools/lint-deck.js');
-  const deck = `${FM}<!-- _class: gantt -->\n\n## Plan\n\n- Phase 1\n  - Design \`Q1->Q2\`\n  - Build \`Q2..Q3\`\n`;
+  const deck = `${FM}<!-- @meta{layout=gantt} -->\n\n## Plan\n\n- Phase 1\n  - Design \`Q1->Q2\`\n  - Build \`Q2..Q3\`\n`;
   const run = (src) => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lint-fix-'));
     const file = path.join(dir, 'deck.md');
@@ -2905,7 +2909,7 @@ describe('lint-core: list-modifier-inert reads the list the renderer reads', () 
 // slide one. A fix there must still land on its line, and a later fix must still apply.
 describe('--fix on a deck whose body opens with a separator', () => {
   const FM = '---\ntheme: indaco\n---\n\n';
-  const gantt = (t) => `<!-- _class: gantt -->\n\n## ${t}\n\n- Phase\n  - ${t}X \`Q1->Q2\`\n`;
+  const gantt = (t) => `<!-- @meta{layout=gantt} -->\n\n## ${t}\n\n- Phase\n  - ${t}X \`Q1->Q2\`\n`;
   for (const sep of ['---', '***', '___']) {
     for (const [label, head] of [['with front matter', FM], ['without front matter', '']]) {
       test(`\`${sep}\` ${label}: the line is rewritten`, () => {

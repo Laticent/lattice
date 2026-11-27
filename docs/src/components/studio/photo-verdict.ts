@@ -1,4 +1,5 @@
 import { compositionOf, effectiveCard, needsInk } from '../../../../lib/core/card-ink.mjs';
+import cssTokensLib from '../../../../lib/core/css-tokens.js';
 import { describe, fixLabel, inkScenes, judge, SOLID, strongestScrim, TEXT_FLOOR } from '../../../../lib/core/photo-contrast.mjs';
 import { slideRanges, splitSlides } from '../../lib/deck-lint';
 import { stripFrontMatter } from '../../lib/front-matter';
@@ -6,9 +7,11 @@ import { slidePlacingAt, unitPartStarts } from '../../lib/slide-carried';
 import { canEditClass, getClassTokens, setClassTokens } from '../../lib/slide-directives';
 import { headingOf, photoRefOf } from './card-ink-pick';
 import { boxInSection, CARD_CLASS, meanUnderBox, photoMatches, previewDocument, sameSlide } from './card-ink-sampler';
+import { deckImageCardClasses, setImageCard } from './deck-axes';
 import { replaceSlide } from './deck-ops';
 import { cachedFix, cardOf, estimateMean, hasBodyText, keepFix, photoUrl } from './photo-ink-read';
-import { deckImageCardClasses, setImageCard } from './slide-provenance';
+
+const { cssUrls } = cssTokensLib;
 
 // THE PHOTO VERDICT: the one answer the Coach and the editor show for the text on a slide's photo. Both views render
 // the object `readVerdict` returns, with its message and its one fix button, so they cannot disagree (owner, 2026-10-28:
@@ -24,7 +27,7 @@ import { deckImageCardClasses, setImageCard } from './slide-provenance';
 // and an empty answer is `null`. Silence means "could not measure", not "passes", and neither view claims otherwise.
 
 /** A fix both views can offer: a slide pin, a card ink, or a solid card. */
-export type Fix = 'dark' | 'light' | 'ink-light' | 'ink-dark' | 'solid';
+export type Fix = 'dark' | 'light' | 'image-card-light' | 'image-card-dark' | 'solid';
 export type PhotoVerdict = {
 	/** The text falls under the floor. Null ratio (an estimate) means the current ink is not known. */
 	low: boolean;
@@ -65,7 +68,7 @@ export function cardPolicy(chunk: string, source: string, composition?: string |
 type Pin = Exclude<Fix, 'solid'>;
 
 /** Each fix's class and the classes it replaces: a slide carries one pin and one ink at most. */
-const GROUP: Record<Pin, readonly Pin[]> = { dark: ['dark', 'light'], light: ['dark', 'light'], 'ink-light': ['ink-light', 'ink-dark'], 'ink-dark': ['ink-light', 'ink-dark'] };
+const GROUP: Record<Pin, readonly Pin[]> = { dark: ['dark', 'light'], light: ['dark', 'light'], 'image-card-light': ['image-card-light', 'image-card-dark'], 'image-card-dark': ['image-card-light', 'image-card-dark'] };
 
 type Rgb = number[];
 type Scene = { card: number[] | null; ink: number[][] };
@@ -146,7 +149,7 @@ function readPinned(section: HTMLElement, card: HTMLElement, pin: Pin, statement
  * The verdict for the slide on screen, measured on the painted page, or null when it cannot be measured or is not a slide
  * whose text sits on the photo: a spotlight card, or a statement's words on its scrim (`clean`, `split` and `gallery` set
  * text beside the picture). A statement is judged against its scrim at its strongest (see `strongestScrim`), so it is
- * flagged only when its words fail even there, which `card-clear` (no scrim at all) makes exact.
+ * flagged only when its words fail even there, which `image-card-clear` (no scrim at all) makes exact.
  */
 async function readLive(chunk: string, source: string, slideNumber: number, at?: number): Promise<PhotoVerdict | null> {
 	try {
@@ -163,7 +166,7 @@ async function readLive(chunk: string, source: string, slideNumber: number, at?:
 		if (!sameSlide(headingOf(chunk), section.querySelector('h1, h2')?.textContent ?? null)) return null;
 		const panel = section.querySelector<HTMLElement>('.lattice-bg');
 		const card = section.querySelector<HTMLElement>('.image-text');
-		const url = /url\((['"]?)(.*?)\1\)/.exec(panel?.style.backgroundImage ?? '')?.[2];
+		const url = cssUrls(panel?.style.backgroundImage ?? '')[0]?.value;
 		if (!panel || !card || !url || !photoMatches(photoRefOf(chunk, source, at), url)) return null;
 		// The preview can still be showing the OLD render of this slide right after an edit.
 		if (getClassTokens(chunk).some((c) => (CARD_CLASS.test(c) || c === 'dark' || c === 'light') && !section.classList.contains(c))) return null;
@@ -173,7 +176,7 @@ async function readLive(chunk: string, source: string, slideNumber: number, at?:
 		const now = readScene(card, scrim);
 		if (!box || !now) return null;
 		const pins: Record<string, Scene | undefined> = {};
-		for (const pin of ['dark', 'light', 'ink-light', 'ink-dark'] as const) {
+		for (const pin of ['dark', 'light', 'image-card-light', 'image-card-dark'] as const) {
 			if (section.classList.contains(pin)) continue;
 			pins[pin] = readPinned(section, card, pin, statement) ?? undefined;
 		}
@@ -248,7 +251,7 @@ export function applyFix(chunk: string, fix: Fix, inherited: readonly string[] =
 	// A slide (or heading part) with no class of its own takes a running `class:` from an earlier slide. Writing only the fix
 	// would replace that class for it, dropping its layout and its photo, so the inherited words are written first.
 	if (inherited.length && !getClassTokens(chunk).length) chunk = setClassTokens(chunk, [...inherited]);
-	if (fix === 'ink-light' || fix === 'ink-dark') return setImageCard(chunk, 'ink', fix.slice(4));
+	if (fix === 'image-card-light' || fix === 'image-card-dark') return setImageCard(chunk, 'ink', fix.slice('image-card-'.length));
 	if (fix === SOLID) return setImageCard(chunk, 'backing', 'solid');
 	return setClassTokens(chunk, [...getClassTokens(chunk).filter((t) => t !== 'dark' && t !== 'light'), fix]);
 }

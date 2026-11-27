@@ -11,7 +11,7 @@ inverse treatment without any slide class saying so.
 
 ---
 
-<!-- _class: light -->
+<!-- @meta{class=light} -->
 
 # Pinned light inside a dark deck
 
@@ -19,7 +19,7 @@ A slide that pins its own ground back to light must take the mark back with it.
 
 ---
 
-<!-- _class: color-light -->
+<!-- @meta{class=color-light} -->
 
 # The deck-wide light pin, as a slide class
 

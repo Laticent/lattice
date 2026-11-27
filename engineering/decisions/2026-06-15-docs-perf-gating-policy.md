@@ -190,3 +190,11 @@ surfaces — `/studio/`, `/drawing-board/`, `/workbench/` — to the measured li
 `client:only` CodeMirror + live-engine shells are the heaviest thing a user loads and
 were never covered; the mobile profile (4× CPU, Slow-4G) puts them at ~40–55 perf,
 dominated by the engine JS payload, so this is exactly where a regression would bite.
+
+## Update (2026-11-22): Lighthouse 13 resets the speed baseline
+
+#3201 (`fe71a9956`) moved `@lhci/cli` from 0.15 to 0.16, which carries Lighthouse 12.6 to 13.6. On the same build,
+Lighthouse 13 reports TBT 30–110% higher on the script-heavy pages and LCP lower where the largest paint is text, with
+accessibility, SEO, CLS and the report files unchanged. Speed numbers on either side of that date do not compare; a
+single night's verdict still does, because both arms are measured by the head's lhci. The measured table and what it
+means for the tolerances above: `2026-11-22-lighthouse-13-measurement-shift.md`.

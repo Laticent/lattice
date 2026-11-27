@@ -2,11 +2,11 @@
 marp: true
 theme: indaco
 size: 16:9
-paginate: true
+pagination: true
 header: "Lattice · State chart paint"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 `Lattice · Feature deck`
 
@@ -16,7 +16,7 @@ Status words, a heavy main path, line patterns and palette slots — every one a
 
 ---
 
-<!-- _class: divider light -->
+<!-- @meta{layout=divider, class=light} -->
 
 ## The vocabulary
 
@@ -24,7 +24,7 @@ A status word or a slot `c1`…`c8` after a state; `=>` for the main path, `dash
 
 ---
 
-<!-- _class: state-chart lr -->
+<!-- @meta{layout=state-chart, class=lr} -->
 
 `Plain`
 
@@ -43,7 +43,7 @@ Every line takes the connector color; every state is a neutral tile.
 
 ---
 
-<!-- _class: state-chart lr -->
+<!-- @meta{layout=state-chart, class=lr} -->
 
 `The main path`
 
@@ -64,7 +64,7 @@ Every line takes the connector color; every state is a neutral tile.
 
 ---
 
-<!-- _class: state-chart lr -->
+<!-- @meta{layout=state-chart, class=lr} -->
 
 `Outcomes`
 
@@ -82,7 +82,7 @@ The end states carry their outcome, and words that paint alike share one key ent
 
 ---
 
-<!-- _class: state-chart -->
+<!-- @meta{layout=state-chart} -->
 
 `Slots`
 

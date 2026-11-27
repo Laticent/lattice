@@ -77,12 +77,12 @@
       "description": "Markdown table with a header row and 2+ data rows. Column alignment is markdown's own (`:---`, `:---:`, `---:`)."
     }
   },
-  "skeleton": "<!-- _class: table -->\n\n## Heading framing the comparison.\n\n| Criterion | Option A | Option B | Option C |\n| --- | --- | --- | --- |\n| First criterion | Value | Value | Value |\n| Second criterion | Value | Value | Value |\n| Third criterion | Value | Value | Value |\n",
+  "skeleton": "<!-- @meta{layout=table} -->\n\n## Heading framing the comparison.\n\n| Criterion | Option A | Option B | Option C |\n| --- | --- | --- | --- |\n| First criterion | Value | Value | Value |\n| Second criterion | Value | Value | Value |\n| Third criterion | Value | Value | Value |\n",
   "anatomyBlock": "T22-table",
-  "sample": "<!-- _class: table -->\n\n## The table compares rows on consistent columns.\n\n| Row | Holds | Budget |\n| --- | --- | --- |\n| A label | One cell per column | Twelve words |\n| Every row | The same column set | Twelve words |\n| Six rows | The comfortable page | Twelve words |\n",
+  "sample": "<!-- @meta{layout=table} -->\n\n## The table compares rows on consistent columns.\n\n| Row | Holds | Budget |\n| --- | --- | --- |\n| A label | One cell per column | Twelve words |\n| Every row | The same column set | Twelve words |\n| Six rows | The comfortable page | Twelve words |\n",
   "stressDoc": {
     "summary": "Eight rows — the hard ceiling.",
-    "sample": "<!-- _class: table -->\n\n## Eight rows is the table's hard ceiling.\n\n| Row | Reads | At the ceiling |\n| --- | --- | --- |\n| One | First | Fresh attention |\n| Two | Fast | Keep cells short |\n| Three | Steady | Parallel phrasing |\n| Four | Mid-page | The pivot row |\n| Five | Slower | Trim adjectives |\n| Six | The soft mark | Past comfort |\n| Seven | Strained | Nearly done |\n| Eight | Last | The hard stop |\n"
+    "sample": "<!-- @meta{layout=table} -->\n\n## Eight rows is the table's hard ceiling.\n\n| Row | Reads | At the ceiling |\n| --- | --- | --- |\n| One | First | Fresh attention |\n| Two | Fast | Keep cells short |\n| Three | Steady | Parallel phrasing |\n| Four | Mid-page | The pivot row |\n| Five | Slower | Trim adjectives |\n| Six | The soft mark | Past comfort |\n| Seven | Strained | Nearly done |\n| Eight | Last | The hard stop |\n"
   },
   "whenToUse": [
     {

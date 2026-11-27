@@ -28,6 +28,7 @@
  * Exit 0 always (an audit, not a gate), unless the render fails. Skips loudly with no Chromium.
  */
 const fs = require('node:fs');
+const { splitSample } = require('./lib/modifier-probe');
 const os = require('node:os');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
@@ -83,14 +84,7 @@ const EXCEPTIONS = {
 const SUPPORT_LINES = new Set(['list', 'content', 'split-panel proof', 'split-panel capstone', 'timeline-list']);
 const exceptionOf = (component, variant) => EXCEPTIONS[`${component} ${variant}`] || EXCEPTIONS[component] || null;
 
-/** A component sample, as `{ tokens, body }`: the class tokens it already carries and the slide below them. */
-function splitSample(md, name) {
-  const first = String(md || '').split(/\n---\s*\n/)[0];
-  const m = first.match(/<!--\s*_class:\s*([^>]*?)\s*-->/);
-  const tokens = m ? m[1].split(/\s+/).filter(Boolean) : [name];
-  const body = m ? first.replace(m[0], '') : first;
-  return { tokens: tokens[0] === name ? tokens.slice(1) : tokens, body: body.trim() };
-}
+// `splitSample` is tools/lib/modifier-probe.js's (one copy; this file re-exports it for its callers).
 
 /** The probe deck: the sample bare and under each declared variant, at every venue. */
 function probeDeck(m) {

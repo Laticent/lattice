@@ -104,8 +104,9 @@ test('readSettingsBlock reads raw YAML or the engine\'s JSON form from the FIRST
 
 test('every Marp-native key in the directive registry stays on top (pinned against meta.manifest.json)', async () => {
   const { META_FIELDS } = await import('../../../lib/plugins/meta.generated.mjs');
-  // The registry's keys that are LATTICE's, not Marp's, plus `class`, which moves on purpose.
-  const lattice = new Set(['hide', 'logo', 'focus', 'focusStyle', 'focusSteps', 'build', 'debug', 'lens', 'track', 'class']);
+  // The registry's keys that are LATTICE's, not Marp's, plus `class`, which moves on purpose. `pagination` never
+  // reaches the split: the Marp bridge writes it as Marp's `paginate:` first (lib/core/marp-bundle-scope.js).
+  const lattice = new Set(['hide', 'logo', 'focus', 'focusStyle', 'focusSteps', 'build', 'debug', 'lens', 'track', 'class', 'pagination']);
   for (const key of Object.keys(META_FIELDS)) {
     if (lattice.has(key)) continue;
     assert.ok(MARP_FRONT_MATTER_KEYS.has(key), `${key} is a Marp directive in meta.manifest.json but would move into the settings block`);

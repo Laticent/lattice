@@ -7,22 +7,36 @@ const assert = require('node:assert/strict');
 const g = require('../../../lib/cli/fit-grace.js');
 
 describe('fit-grace: adding a claim to a slide', () => {
-  test('appends to the slide\'s own `_class:`', () => {
-    assert.equal(g.withClaim('<!-- _class: gantt -->\n\n## T', 'claim-hero'), '<!-- _class: gantt claim-hero -->\n\n## T');
+  // Since the meta sweep (#3497) decks name a slide's layout in a `@meta` record; the engine still reads the old
+  // `_class:` comment. Grace reads both through the shared reader and writes the claim as a record.
+  test('a record at the slide\'s end carries its whole class plus the claim, from a record or a comment', () => {
+    assert.equal(g.withClaim('<!-- @meta{layout=gantt} -->\n\n## T', 'claim-hero'),
+      '<!-- @meta{layout=gantt} -->\n\n## T\n\n<!-- @meta{layout=gantt, class=claim-hero} -->\n');
+    assert.equal(g.withClaim('<!-- _class: split-panel cat-8 -->\n\n## T', 'claim-quiet'),
+      '<!-- _class: split-panel cat-8 -->\n\n## T\n\n<!-- @meta{layout=split-panel, class="cat-8 claim-quiet"} -->\n');
   });
-  test('adds a directive to a slide that has none', () => {
-    assert.equal(g.withClaim('## T\n\n- a', 'claim-quiet'), '<!-- _class: claim-quiet -->\n\n## T\n\n- a');
+  test('the record it adds is the class the slide renders with (the last class directive wins)', () => {
+    const out = g.withClaim('<!-- @meta{layout=kpi, footer=F} -->\n\n## T', 'claim-hero');
+    assert.equal(g.classInForce(out), 'kpi claim-hero');
   });
-  test('reads the slide\'s own classes', () => {
+  test('a running class, even one written on this slide, is not the slide\'s own spot class', () => {
+    assert.equal(g.hasSpotClass('<!-- @meta{layout=gantt} -->\n\n## T'), true);
+    assert.equal(g.hasSpotClass('<!-- _class: gantt -->\n\n## T'), true);
+    assert.equal(g.hasSpotClass('<!-- @meta{class=gantt, carry} -->\n\n## T'), false);
+    assert.equal(g.hasSpotClass('<!-- class: gantt -->\n\n## T'), false);
+    assert.equal(g.hasSpotClass('## T'), false);
+  });
+  test('reads the slide\'s own classes in either spelling', () => {
+    assert.deepEqual(g.slideClasses('<!-- @meta{layout=bar, class=claim-quiet} -->'), ['bar', 'claim-quiet']);
     assert.deepEqual(g.slideClasses('<!-- _class: bar  claim-quiet -->'), ['bar', 'claim-quiet']);
     assert.deepEqual(g.slideClasses('## no directive'), []);
   });
 });
 
 describe('fit-grace: the check deck', () => {
-  test('`fit: report` replaces any fit/guards line, so page N is slide N', () => {
-    const fm = g.reportFrontMatter('theme: indaco\nfit: trim\nguards: strict');
-    assert.equal(fm, '---\ntheme: indaco\nfit: report\n---\n\n');
+  test('`fit: report` replaces any fit line, so page N is slide N (`guards:` is retired and read by nothing)', () => {
+    const fm = g.reportFrontMatter('theme: indaco\nfit: trim\nfitness: x');
+    assert.equal(fm, '---\ntheme: indaco\nfitness: x\nfit: report\n---\n\n');
   });
   test('the deck is cut where the renderer cuts it (a `---` in a code fence is not a slide break)', () => {
     const { yaml, slides } = g.deckParts('---\ntheme: x\n---\n\n# A\n\n---\n\n```yaml\n---\n```\n\n---\n\n# C\n');
@@ -54,25 +68,23 @@ describe('fit-grace: what the author reads', () => {
   });
 });
 
-// Review of #3362, finding 3: a slide that takes its layout from a running `class:` (Marp's bare global form) must keep
-// it when a claim is added, and a trial slide rendered on its own must keep the directives it inherits.
-describe('fit-grace: a slide that inherits its class and chrome', () => {
-  const slides = ['<!-- class: gantt -->\n<!-- footer: "Board" -->\n\n## A', '## B', '<!-- _class: list -->\n\n## C'];
-  const inh = g.inheritedDirectives(slides);
-  test('the running directives run on to the following slides', () => {
-    assert.deepEqual(inh[1], { class: 'gantt', footer: '"Board"' });
-  });
-  test('a claim on a slide with no `_class:` repeats the running class, so the layout survives', () => {
-    assert.equal(g.withClaim('## B', 'claim-hero', inh[1].class), '<!-- _class: gantt claim-hero -->\n\n## B');
-  });
-  test('a slide alone carries its inherited chrome as spot directives', () => {
-    assert.equal(g.standalone(slides[1], inh[1]), '<!-- _footer: "Board" -->\n\n## B');
-    // its own directive wins
-    assert.equal(g.standalone('<!-- _footer: x -->\n\n## C', inh[2]), '<!-- _footer: x -->\n\n## C');
-  });
-  test('the author is told the spot class to write, layout included', () => {
-    const lines = g.describe({ clipped: [2], footerOnly: [], deck: null, perSlide: [{ slide: 2, claim: 'claim-hero', had: null, write: '<!-- _class: gantt claim-hero -->' }] });
-    assert.match(lines[0], /fits with `<!-- _class: gantt claim-hero -->`/);
+// Review of #3362, finding 3: a slide that takes its layout from a running class must keep it when a claim is added,
+// and a trial slide rendered on its own must keep what it inherits. Rebuilt by the Studio's `synthesizePrelude`, which
+// reads a `carry` record and a bare `class:` comment alike.
+describe('fit-grace: a slide that inherits its class', () => {
+  for (const [name, first] of [['a carry record', '<!-- @meta{class=gantt, carry} -->'], ['a bare class comment', '<!-- class: gantt -->']]) {
+    const slides = [`${first}\n\n## A`, '## B', '<!-- @meta{layout=list} -->\n\n## C'];
+    test(`${name}: a slide alone renders with the running class`, () => {
+      assert.equal(g.classInForce(g.standalone(slides, 1)), 'gantt');
+      assert.equal(g.classInForce(g.standalone(slides, 2)), 'list');
+    });
+    test(`${name}: a claim on it repeats the running class, so the layout survives`, () => {
+      assert.equal(g.classInForce(g.withClaim(g.standalone(slides, 1), 'claim-hero')), 'gantt claim-hero');
+    });
+  }
+  test('the author is told the record to write, layout included', () => {
+    const lines = g.describe({ clipped: [2], footerOnly: [], deck: null, perSlide: [{ slide: 2, claim: 'claim-hero', had: null, write: '<!-- @meta{layout=gantt, class=claim-hero} -->' }] });
+    assert.match(lines[0], /fits with `<!-- @meta\{layout=gantt, class=claim-hero\} -->`/);
   });
 });
 
@@ -117,10 +129,9 @@ describe('fit-grace: the trial renders the way the export did', () => {
 // hidden slides shifted the pages, and advised a claim on a slide the author marked `claim-framed`.
 describe('fit-grace: reads the deck the way the engine does', () => {
   test('a directive shown inside a code fence is not one', () => {
-    const tutorial = '## How to\n\n```markdown\n<!-- class: quote -->\n<!-- footer: Fake -->\n```';
-    assert.deepEqual(g.inheritedDirectives([tutorial, '## Next']), [{}, {}]);
-    assert.deepEqual(g.slideClasses('```md\n<!-- _class: quote -->\n```\n\n## T'), []);
-    assert.equal(g.maskFences('a\n```\n<!-- x: y -->\n```\nb').length, 'a\n```\n<!-- x: y -->\n```\nb'.length);
+    const tutorial = '## How to\n\n```markdown\n<!-- @meta{class=quote, carry} -->\n<!-- class: quote -->\n```';
+    assert.equal(g.classInForce(g.standalone([tutorial, '## Next'], 1)), '');
+    assert.deepEqual(g.slideClasses('```md\n<!-- @meta{layout=quote} -->\n```\n\n## T'), []);
   });
   test('a byte-order mark does not hide the front matter', () => {
     assert.equal(g.deckParts('﻿---\nsize: 9:16\n---\n\n# A\n').yaml, 'size: 9:16');

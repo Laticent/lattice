@@ -136,12 +136,12 @@
       "description": "Optional nested sublist under a satellite (under a LEAF with `tiered`, one level deeper). Drives the shared chart-family detail substrate: the Present/Practice popover on the satellite's disc, and a speaker-note line in the static PDF, with the chart pixels unchanged. A detail sublist may be written with `-` or `1.`: the list contract reads both the same."
     }
   },
-  "skeleton": "<!-- _class: hub-spoke -->\n\n`Eyebrow · context`\n\n## What the structure shows.\n\n- Hub\n  - First satellite\n  - Second satellite `at-risk`\n  - Third satellite\n  - Fourth satellite\n",
+  "skeleton": "<!-- @meta{layout=hub-spoke} -->\n\n`Eyebrow · context`\n\n## What the structure shows.\n\n- Hub\n  - First satellite\n  - Second satellite `at-risk`\n  - Third satellite\n  - Fourth satellite\n",
   "anatomyBlock": "hub-spoke-canvas",
-  "sample": "<!-- _class: hub-spoke -->\n\n`Transformation program · Workstream status · Q3`\n\n## Two of six workstreams are off track.\n\n- Program office\n  - Customer onboarding\n  - Core platform migration `at-risk`\n    - Cutover slipped from August to October\n    - Vendor data mapping is 60% complete\n  - Data governance\n  - Vendor consolidation `blocked`\n    - Waiting on the procurement freeze to lift\n  - Branch network\n  - Workforce reskilling\n",
+  "sample": "<!-- @meta{layout=hub-spoke} -->\n\n`Transformation program · Workstream status · Q3`\n\n## Two of six workstreams are off track.\n\n- Program office\n  - Customer onboarding\n  - Core platform migration `at-risk`\n    - Cutover slipped from August to October\n    - Vendor data mapping is 60% complete\n  - Data governance\n  - Vendor consolidation `blocked`\n    - Waiting on the procurement freeze to lift\n  - Branch network\n  - Workforce reskilling\n",
   "stressDoc": {
     "summary": "Twelve satellites in four groups — the cap.",
-    "sample": "<!-- _class: hub-spoke -->\n\n`Partner ecosystem · By capability`\n\n## Stress test — twelve partners across four capabilities, three apiece.\n\n- Lattice platform\n  - Northwind Data `Data`\n  - Quarry Analytics `Data`\n  - Lumen Warehouse `Data`\n  - Halcyon Pay `Payments`\n  - Arbor Identity `Payments`\n  - Ledgerline `Payments`\n  - Beacon Retail `Distribution`\n  - Keel Logistics `Distribution`\n  - Harbor Freight Co `Distribution`\n  - Tessera Cloud `Infrastructure`\n  - Stratus Edge `Infrastructure`\n  - Pylon Networks `Infrastructure`\n"
+    "sample": "<!-- @meta{layout=hub-spoke} -->\n\n`Partner ecosystem · By capability`\n\n## Stress test — twelve partners across four capabilities, three apiece.\n\n- Lattice platform\n  - Northwind Data `Data`\n  - Quarry Analytics `Data`\n  - Lumen Warehouse `Data`\n  - Halcyon Pay `Payments`\n  - Arbor Identity `Payments`\n  - Ledgerline `Payments`\n  - Beacon Retail `Distribution`\n  - Keel Logistics `Distribution`\n  - Harbor Freight Co `Distribution`\n  - Tessera Cloud `Infrastructure`\n  - Stratus Edge `Infrastructure`\n  - Pylon Networks `Infrastructure`\n"
   },
   "whenToUse": [
     {
@@ -209,27 +209,27 @@
     "sized": {
       "label": "sized",
       "summary": "Disc area carries each value.",
-      "sample": "<!-- _class: hub-spoke sized -->\n\n`FY2026 · Partner channel revenue · share of $120M`\n\n## Two partners carry half of channel revenue.\n\n- Channel revenue `$120M`\n  - Atlas Distribution `28%`\n  - Keystone Resellers `22%`\n  - Northgate Systems `18%`\n  - Brightline Retail `13%`\n  - Summit Online `11%`\n  - Harborview Telecom `8%`\n"
+      "sample": "<!-- @meta{layout=hub-spoke, class=sized} -->\n\n`FY2026 · Partner channel revenue · share of $120M`\n\n## Two partners carry half of channel revenue.\n\n- Channel revenue `$120M`\n  - Atlas Distribution `28%`\n  - Keystone Resellers `22%`\n  - Northgate Systems `18%`\n  - Brightline Retail `13%`\n  - Summit Online `11%`\n  - Harborview Telecom `8%`\n"
     },
     "flow-out": {
       "label": "flow-out",
       "summary": "Arrowheads and stepped connector weight.",
-      "sample": "<!-- _class: hub-spoke flow-out -->\n\n`Memphis distribution center · Pallets per week`\n\n## The Northeast and Southeast take over half of outbound volume.\n\n- Memphis DC `12,000`\n  - Northeast `3,600`\n  - Southeast `3,100`\n  - Midwest `2,400`\n  - Southwest `1,700`\n  - West `1,200`\n  - Returns center `400` `flow:in`\n"
+      "sample": "<!-- @meta{layout=hub-spoke, class=flow-out} -->\n\n`Memphis distribution center · Pallets per week`\n\n## The Northeast and Southeast take over half of outbound volume.\n\n- Memphis DC `12,000`\n  - Northeast `3,600`\n  - Southeast `3,100`\n  - Midwest `2,400`\n  - Southwest `1,700`\n  - West `1,200`\n  - Returns center `400` `flow:in`\n"
     },
     "flow-in": {
       "label": "flow-in",
       "summary": "Heads point at the hub.",
-      "sample": "<!-- _class: hub-spoke flow-in -->\n\n`Data platform · Records ingested per day`\n\n## Billing and the web store send two thirds of what the lake takes in.\n\n- Data lake `45M`\n  - Billing `16M`\n  - Web store `14M`\n  - Mobile app `8M`\n  - Call center `4M`\n  - Partner feeds `3M`\n"
+      "sample": "<!-- @meta{layout=hub-spoke, class=flow-in} -->\n\n`Data platform · Records ingested per day`\n\n## Billing and the web store send two thirds of what the lake takes in.\n\n- Data lake `45M`\n  - Billing `16M`\n  - Web store `14M`\n  - Mobile app `8M`\n  - Call center `4M`\n  - Partner feeds `3M`\n"
     },
     "flow-both": {
       "label": "flow-both",
       "summary": "Two-way flow on every spoke.",
-      "sample": "<!-- _class: hub-spoke flow-both -->\n\n`Shared services · Tickets per month`\n\n## Finance and HR trade the most work with the service desk.\n\n- Service desk `9,400`\n  - Finance `2,900`\n  - HR `2,600`\n  - Facilities `1,500`\n  - Legal `1,300`\n  - Procurement `1,100`\n"
+      "sample": "<!-- @meta{layout=hub-spoke, class=flow-both} -->\n\n`Shared services · Tickets per month`\n\n## Finance and HR trade the most work with the service desk.\n\n- Service desk `9,400`\n  - Finance `2,900`\n  - HR `2,600`\n  - Facilities `1,500`\n  - Legal `1,300`\n  - Procurement `1,100`\n"
     },
     "tiered": {
       "label": "tiered",
       "summary": "Branches, with leaves off each one.",
-      "sample": "<!-- _class: hub-spoke tiered -->\n\n`Platform organization · Service ownership · 2026`\n\n## Four platform teams own eleven services; two are in trouble.\n\n- Platform org\n  - Payments\n    - Card issuing\n    - Acquiring\n    - Fraud scoring `at-risk`\n  - Data\n    - Warehouse\n    - Streaming\n    - ML platform\n  - Identity\n    - Login\n    - Consent\n  - Core banking\n    - Ledger `blocked`\n    - Accounts\n    - Statements\n"
+      "sample": "<!-- @meta{layout=hub-spoke, class=tiered} -->\n\n`Platform organization · Service ownership · 2026`\n\n## Four platform teams own eleven services; two are in trouble.\n\n- Platform org\n  - Payments\n    - Card issuing\n    - Acquiring\n    - Fraud scoring `at-risk`\n  - Data\n    - Warehouse\n    - Streaming\n    - ML platform\n  - Identity\n    - Login\n    - Consent\n  - Core banking\n    - Ledger `blocked`\n    - Accounts\n    - Statements\n"
     }
   },
   "variantDecisionRule": [

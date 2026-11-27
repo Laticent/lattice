@@ -2,11 +2,11 @@
 marp: true
 size: 4k
 theme: indaco
-paginate: true
+pagination: true
 header: "Bridgeway Workforce · Grant report"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 <!-- tier: short -->
 
 `Grant report · Year 2 of 2`
@@ -17,7 +17,7 @@ Two years and $750K later, more adults are in healthcare careers than we promise
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## The grant funded a two-year run to train and place Dayton adults in healthcare jobs.
@@ -29,7 +29,7 @@ The Hartwell Foundation's $750,000 grant ran July 2024 through June 2026. It fun
 
 ---
 
-<!-- _class: kpi -->
+<!-- @meta{layout=kpi} -->
 <!-- tier: short -->
 
 `Outcomes · grant period`
@@ -48,7 +48,7 @@ The Hartwell Foundation's $750,000 grant ran July 2024 through June 2026. It fun
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- @meta{layout=list, class=takeaway} -->
 <!-- tier: short -->
 
 ## The outcomes this grant committed to.
@@ -64,7 +64,7 @@ The Hartwell Foundation's $750,000 grant ran July 2024 through June 2026. It fun
 
 ---
 
-<!-- _class: quote -->
+<!-- @meta{layout=quote} -->
 <!-- tier: standard -->
 
 > I was cleaning offices at night. Bridgeway got me certified in fourteen weeks. Now I'm a CNA at Miami Valley making twenty-four an hour — with benefits.
@@ -73,7 +73,7 @@ The Hartwell Foundation's $750,000 grant ran July 2024 through June 2026. It fun
 
 ---
 
-<!-- _class: big-number -->
+<!-- @meta{layout=big-number} -->
 <!-- tier: standard -->
 
 `The wage story behind the placements`
@@ -83,7 +83,7 @@ The Hartwell Foundation's $750,000 grant ran July 2024 through June 2026. It fun
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## Recruitment reached the neighborhoods the grant prioritized.
@@ -95,7 +95,7 @@ We committed to drawing enrollees from Dayton's three highest-unemployment ZIP c
 
 ---
 
-<!-- _class: checklist -->
+<!-- @meta{layout=checklist} -->
 <!-- tier: standard -->
 
 ## Milestones against the grant timeline.
@@ -109,7 +109,7 @@ We committed to drawing enrollees from Dayton's three highest-unemployment ZIP c
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 <!-- tier: short -->
 
 `Financials · grant period`
@@ -129,7 +129,7 @@ We committed to drawing enrollees from Dayton's three highest-unemployment ZIP c
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## The remaining $8K carries into a no-cost extension.
@@ -141,7 +141,7 @@ We spent $742K of the $750K award. The unspent $8K is committed to the final ind
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 <!-- tier: full -->
 
 `Cost efficiency · grant period`
@@ -161,7 +161,7 @@ We spent $742K of the $750K award. The unspent $8K is committed to the final ind
 
 ---
 
-<!-- _class: kpi -->
+<!-- @meta{layout=kpi} -->
 <!-- tier: full -->
 
 `Equity · grant period`
@@ -180,7 +180,7 @@ We spent $742K of the $750K award. The unspent $8K is committed to the final ind
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## One employer partner stalled, and one cohort ran small.
@@ -192,7 +192,7 @@ We promised ten employer partners and landed eight; a regional system paused hir
 
 ---
 
-<!-- _class: roadmap -->
+<!-- @meta{layout=roadmap} -->
 <!-- tier: standard -->
 
 `Year 2 · the plan`
@@ -208,7 +208,7 @@ We promised ten employer partners and landed eight; a regional system paused hir
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## We are requesting a no-cost extension and a Year-3 renewal.
@@ -220,9 +220,9 @@ The model works: 218 enrolled, 81% placed, 88% of dollars reaching participants.
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 <!-- tier: short -->
 
 ## The grant did what it promised — and the model is ready to grow.

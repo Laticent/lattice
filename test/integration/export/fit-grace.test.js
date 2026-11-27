@@ -8,7 +8,7 @@ const assert = require('node:assert/strict');
 const { resolveChrome, skipWithoutChrome } = require('../../helpers/chrome');
 const { plan, withClaim, deckParts } = require('../../../lib/cli/fit-grace.js');
 
-const GANTT = `<!-- _class: gantt -->
+const GANTT = `<!-- @meta{layout=gantt} -->
 
 \`[{Timeline, 2026 Q1 .. 2026 Q4, today=Q3}]\`
 
@@ -26,8 +26,8 @@ const GANTT = `<!-- _class: gantt -->
 > If the weighting decision slips past October, GA moves to Q1.
 
 GA also needs SOC 2 sign-off, expected 20 November.`;
-const LIST = '<!-- _class: list -->\n\n## A short list fits.\n\n- One\n- Two';
-const FM = '---\ntheme: indaco\nheader: "Header"\nfooter: "Footer"\npaginate: true\n---\n\n';
+const LIST = '<!-- @meta{layout=list} -->\n\n## A short list fits.\n\n- One\n- Two';
+const FM = '---\ntheme: indaco\nheader: "Header"\nfooter: "Footer"\npagination: true\n---\n\n';
 
 describe('fit-grace renders and checks', { skip: skipWithoutChrome(resolveChrome()) }, () => {
   const deck = `${FM}${LIST}\n\n---\n\n${GANTT}\n`;
@@ -49,7 +49,7 @@ describe('fit-grace renders and checks', { skip: skipWithoutChrome(resolveChrome
 // leaves (video.styles.css). Before that cap the poster ran 40px down over the caption on both of these compositions
 // (measured 2026-11-21). The QR and gallery compositions need a claim with both beats (fit-grace names it), so they
 // are not pinned here.
-const video = (cls) => `<!-- _class: ${cls} -->
+const video = (cls) => `<!-- @meta{layout=video${cls ? `, class=${cls}` : ''}} -->
 
 ## The video card plays beside its context.
 
@@ -63,14 +63,14 @@ Recorded in the October pilot, one take.`;
 
 describe('a video keeps both beats on the slide', { skip: skipWithoutChrome(resolveChrome()) }, () => {
   test('video and video companion, with a key insight and a caption, clip nothing', () => {
-    assert.deepEqual(plan(`${FM}${video('video')}\n\n---\n\n${video('video companion')}\n`).clipped, []);
+    assert.deepEqual(plan(`${FM}${video('')}\n\n---\n\n${video('companion')}\n`).clipped, []);
   });
 });
 
 // Review of #3362. Finding 2: grace answers only what the export reports, so a slide the engine split cleanly at the
 // deck's own `fit:` is not named. Finding 3: a slide that takes its layout from a running `class:` keeps it in both
 // the trial render and the advice.
-const CARDS8 = `<!-- _class: cards-grid -->
+const CARDS8 = `<!-- @meta{layout=cards-grid} -->
 
 ## Eight things we learned.
 
@@ -78,14 +78,22 @@ ${Array.from({ length: 8 }, (_, i) => `- Finding ${i + 1}\n  - A short body line
 
 describe('fit-grace answers the export, not a render the author never got', { skip: skipWithoutChrome(resolveChrome()) }, () => {
   test('a slide the engine split cleanly at 9:16 is not named', () => {
-    const fm = '---\ntheme: indaco\nsize: 9:16\nheader: "Header"\nfooter: "Footer"\npaginate: true\n---\n\n';
+    const fm = '---\ntheme: indaco\nsize: 9:16\nheader: "Header"\nfooter: "Footer"\npagination: true\n---\n\n';
     assert.deepEqual(plan(`${fm}${CARDS8}\n`).clipped, []);
   });
-  test('a gantt that takes its layout from a bare `class:` is tried as a gantt, and the advice keeps it', () => {
-    const p = plan(`${FM}${GANTT.replace('<!-- _class: gantt -->', '<!-- class: gantt -->')}\n`);
+  // In both spellings: a `carry` record (what the meta sweep writes) and Marp's bare `class:` comment (a kit deck).
+  for (const running of ['<!-- @meta{class=gantt, carry} -->', '<!-- class: gantt -->']) {
+    test(`a gantt that takes its layout from ${running} is tried as a gantt, and the advice keeps it`, () => {
+      const p = plan(`${FM}${GANTT.replace('<!-- @meta{layout=gantt} -->', running)}\n`);
+      assert.deepEqual(p.clipped, [1]);
+      assert.equal(p.perSlide[0].claim, 'claim-hero');
+      assert.equal(p.perSlide[0].write, '<!-- @meta{layout=gantt, class=claim-hero} -->');
+    });
+  }
+  test('a slide written in the old `_class:` spelling is read, and its claim fits', () => {
+    const p = plan(`${FM}${GANTT.replace('<!-- @meta{layout=gantt} -->', '<!-- _class: gantt -->')}\n`);
     assert.deepEqual(p.clipped, [1]);
     assert.equal(p.perSlide[0].claim, 'claim-hero');
-    assert.equal(p.perSlide[0].write, '<!-- _class: gantt claim-hero -->');
   });
 });
 

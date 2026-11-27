@@ -133,7 +133,7 @@ Accent colors for categories, levels, or themes extend this palette — they don
 ```yaml
 ---
 theme: uncover
-paginate: true
+pagination: true
 html: true
 header: "Deck Title or Brand"
 footer: "Subtitle or Date"
@@ -159,10 +159,10 @@ Header and footer are set for every slide in front matter only. A slide comment 
 the underscore: Lattice is not Marp, where the plain form carries onto every later slide. Every other directive keeps
 Marp's rule: underscore prefix = this slide only, no underscore = this slide and all following.
 
-**Page numbers are not a slide directive.** Front matter `paginate:` numbers the deck and is on unless it says
+**Page numbers are not a slide directive.** Front matter `pagination:` numbers the deck and is on unless it says
 `false`. A slide opts out with the `no-pagination` class and back in with `with-pagination`. A component opts its
 slides out in its manifest (`"chrome": { "pagination": false }`), as title, divider, topic and closing do, so their
-slides need nothing. A `paginate:` or `_paginate:` comment is ignored, and the deck lint says what to write instead.
+slides need nothing. A `paginate:` or `pagination:` comment, with or without `_`, is ignored, and the deck lint says what to write instead.
 Marp carries plain directives onward; Export to Marp writes Marp's own directives so a Marp render agrees (owner's
 rulings, 2026-10-20).
 

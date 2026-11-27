@@ -90,11 +90,11 @@
       "description": "Optional nested sublist, each child a NAME plus a value pill. `Target` (or `Plan`/`Goal`) overrides the second pill; `Actual` (or `Measure`) overrides the first; each `Band` (or `Range`) adds one internal cut point, so two Bands make three zones and three is the ceiling — past that the cuts NEAREST the target are the ones kept; `Floor` (or `Base`) starts the row's scale above zero, which is what a near-100% KPI — uptime, NRR, renewal rate — needs to show any movement at all. Every other nested bullet is mark detail: the Present-mode reveal payload and the PDF speaker note. That includes a bullet whose pill IS a number under an unrecognized name, so context never becomes a phantom band. Omit the sublist and the zones are derived from the target at 60% and 85%. A row can instead be written as one record, `- Uptime `{99.4%, target=99.9%, floor=99.0%, band=[99.5%]}``: `band` is a list of cut points, and a keyword row, if you also write one, overrides the record's value."
     }
   },
-  "skeleton": "<!-- _class: bullet -->\n\n## Are we on plan.\n\n- First KPI `4.2M` `5.0M`\n- Second KPI `3.6M` `3.0M`\n- Third KPI `1.1M` `2.4M`\n",
-  "sample": "<!-- _class: bullet -->\n\n`Q3 2026 · commercial plan`\n\n## Two of five KPIs cleared the plan line.\n\n- New ARR `4.2M` `5.0M`\n- Expansion ARR `3.6M` `3.0M`\n- Gross renewal `2.8M` `2.6M`\n- Services revenue `1.1M` `1.8M`\n- Partner-sourced ARR `0.9M` `1.4M`\n",
+  "skeleton": "<!-- @meta{layout=bullet} -->\n\n## Are we on plan.\n\n- First KPI `4.2M` `5.0M`\n- Second KPI `3.6M` `3.0M`\n- Third KPI `1.1M` `2.4M`\n",
+  "sample": "<!-- @meta{layout=bullet} -->\n\n`Q3 2026 · commercial plan`\n\n## Two of five KPIs cleared the plan line.\n\n- New ARR `4.2M` `5.0M`\n- Expansion ARR `3.6M` `3.0M`\n- Gross renewal `2.8M` `2.6M`\n- Services revenue `1.1M` `1.8M`\n- Partner-sourced ARR `0.9M` `1.4M`\n",
   "stressDoc": {
     "summary": "Seven rows at the ceiling — the longest realistic KPI name, one measure far past every zone, one at zero, and one range authored by hand.",
-    "sample": "<!-- _class: bullet -->\n\n## Stress test — seven rows, one runaway, one at zero.\n\n- Net revenue retention, enterprise segment `118%` `112%`\n- Gross margin `71%` `68%`\n- Support ticket deflection `94%` `62%`\n- Onboarding completion `58%` `80%`\n- Partner certification coverage `41%` `75%`\n- Self-serve conversion `0%` `12%`\n- Expansion pipeline coverage `86%` `90%`\n  - Band `70%`\n  - Band `85%`\n"
+    "sample": "<!-- @meta{layout=bullet} -->\n\n## Stress test — seven rows, one runaway, one at zero.\n\n- Net revenue retention, enterprise segment `118%` `112%`\n- Gross margin `71%` `68%`\n- Support ticket deflection `94%` `62%`\n- Onboarding completion `58%` `80%`\n- Partner certification coverage `41%` `75%`\n- Self-serve conversion `0%` `12%`\n- Expansion pipeline coverage `86%` `90%`\n  - Band `70%`\n  - Band `85%`\n"
   },
   "variants": [
     "shared-axis",
@@ -114,12 +114,12 @@
     "shared-axis": {
       "label": "shared-axis",
       "summary": "Forces one value axis across every row, even where the kernel would have chosen per-row scales. Use only when the rows really are the same ruler and you want the bars comparable by length.",
-      "sample": "<!-- _class: bullet shared-axis -->\n\n## shared-axis puts every row on one ruler.\n\n- New ARR `4.2M` `5.0M`\n- Expansion ARR `3.6M` `3.0M`\n- Gross renewal `2.8M` `2.6M`\n"
+      "sample": "<!-- @meta{layout=bullet, class=shared-axis} -->\n\n## shared-axis puts every row on one ruler.\n\n- New ARR `4.2M` `5.0M`\n- Expansion ARR `3.6M` `3.0M`\n- Gross renewal `2.8M` `2.6M`\n"
     },
     "own-axis": {
       "label": "own-axis",
       "summary": "Forces per-row scales, so every target tick lands on one x and the bars are read against the plan line rather than against each other. Use when the rows are different measures that happen to share a unit.",
-      "sample": "<!-- _class: bullet own-axis -->\n\n## own-axis lines the plan up and lets each row keep its scale.\n\n- Qualified pipeline `128%` `100%`\n- Win rate `112%` `100%`\n- Ramped reps `96%` `100%`\n"
+      "sample": "<!-- @meta{layout=bullet, class=own-axis} -->\n\n## own-axis lines the plan up and lets each row keep its scale.\n\n- Qualified pipeline `128%` `100%`\n- Win rate `112%` `100%`\n- Ramped reps `96%` `100%`\n"
     }
   },
   "variantDecisionRule": [

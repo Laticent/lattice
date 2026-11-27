@@ -1,14 +1,14 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 lang: fr
 footer: "Laticent · guardefou de langue"
 acronyms:
   CA: chiffre d'affaires
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # La narration parle la langue du deck.
 
@@ -20,7 +20,7 @@ Réglez `lang:` sur une langue autre que l'anglais et la narration lit le texte 
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 ## Le problème : une machinerie « say-as » anglaise.
 
@@ -54,7 +54,7 @@ Un `acronyms:` dans l'en-tête vous appartient — ici, `CA` se lit « chiffre d
 
 ---
 
-<!-- _class: light -->
+<!-- @meta{class=light} -->
 
 ## L'anglais, lui, ne change pas.
 

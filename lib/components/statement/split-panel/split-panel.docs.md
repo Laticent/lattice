@@ -50,7 +50,7 @@ Under a variant, a slot changes shape:
 - **Under `proof`, omitting the lede paragraph between the heading and the `### signal` label.** Always write a lede under `proof` — omitting it lets the extractor mistake the signal paragraph for the lede, hoisting it into the left panel and leaving the right zone's label empty.
 - **Under `proof`, authoring more or fewer than exactly two checkpoint items.** The two-column card grid assumes a pair. One item leaves an empty column; three crowds a third card half-width.
 - **Applying the same `cat-N` to every slide in a sequence, or picking numbers out of order (`cat-1`, `cat-4`, `cat-2`).** The point of `cat-1`…`cat-8` is that each slide in the SET reads as its own step — assign them in order, one number per slide, not the same number repeated or shuffled.
-- **Setting a long deck-level `header:` or `footer:` on a deck that uses this layout.** The running header and footer stay on the field they start on — the panel, or the supporting zone under `mirror`. Each holds one line; past that it ends in an ellipsis and the export reports it as a chrome cut (author-only, no reader pill). Measured at 16:9, the default panel holds about 46 characters of header and 49 of footer; `steps` about 37 and 39, `pullquote` about 61 and 65, and `mirror`'s supporting zone about 63 and 67. Shorten it, or set a shorter one on these slides with `<!-- _header: … -->` / `<!-- _footer: … -->`. On a portrait deck the panels stack: the header takes the top field's ink and the footer the bottom field's, so each stays legible whichever field it lands on. The portrait footer spans the page and still holds one line: about 48 characters at the `portrait` size, and fewer on a page split into a run, where it stops before the k-of-N pills (about 41 beside a three-page rail).
+- **Setting a long deck-level `header:` or `footer:` on a deck that uses this layout.** The running header and footer stay on the field they start on — the panel, or the supporting zone under `mirror`. Each holds one line; past that it ends in an ellipsis and the export reports it as a chrome cut (author-only, no reader pill). Measured at 16:9, the default panel holds about 46 characters of header and 49 of footer; `steps` about 37 and 39, `pullquote` about 61 and 65, and `mirror`'s supporting zone about 63 and 67. Shorten it, or set a shorter one on these slides with `<!-- @meta{header="…"} -->` / `<!-- @meta{footer="…"} -->`. On a portrait deck the panels stack: the header takes the top field's ink and the footer the bottom field's, so each stays legible whichever field it lands on. The portrait footer spans the page and still holds one line: about 48 characters at the `portrait` size, and fewer on a page split into a run, where it stops before the k-of-N pills (about 41 beside a three-page rail).
 - **Expecting a split-panel slide to drop the deck's `finish:`, or to show it on one side only.** The finish covers both sides. The supporting side has no fill, so the slide's finish shows under its content, as on any other slide. The feature panel is finished like an anchor slide: it keeps its solid field (dark, accent or category color) and the finish is painted on it, mixed for that field, in screen and PDF alike. On `metric` the finished field is the dark right-hand panel. `backdrop: clear` clears behind the content on both sides and leaves the finish in their margins (a `pullquote` panel keeps its finish, since its opening quote holds that layer). The finish's corner mark is left off, since a split slide has no frame margin for it. A finish whose CSS a deck wrote itself before this change shows on the supporting side and leaves the panel plain. `no-finish` keeps both sides plain.
 
 ## When to use
@@ -69,7 +69,7 @@ Under a variant, a slot changes shape:
 ## Authoring
 
 ```markdown
-<!-- _class: split-panel -->
+<!-- @meta{layout=split-panel} -->
 
 `Eyebrow context`
 
@@ -107,7 +107,7 @@ One-sentence framing paragraph explaining what the points cover.
 Light panel behind one hero number.
 
 ```markdown
-<!-- _class: split-panel metric -->
+<!-- @meta{layout=split-panel, class=metric} -->
 
 `split-panel metric`
 
@@ -126,7 +126,7 @@ Words per item — the budget this layout holds its supporting column to.
 Half the slide to one quotation.
 
 ```markdown
-<!-- _class: split-panel pullquote -->
+<!-- @meta{layout=split-panel, class=pullquote} -->
 
 > pullquote gives half the slide to one voice, and the other half to what it means.
 
@@ -143,7 +143,7 @@ Half the slide to one quotation.
 The panel anchors a numbered phase.
 
 ```markdown
-<!-- _class: split-panel steps -->
+<!-- @meta{layout=split-panel, class=steps} -->
 
 `02`
 
@@ -164,7 +164,7 @@ The left panel anchors a phase; the column numbers its moves.
 Accent panel, letterform, h3 rubric.
 
 ```markdown
-<!-- _class: split-panel watermark -->
+<!-- @meta{layout=split-panel, class=watermark} -->
 
 ## Watermark
 
@@ -183,7 +183,7 @@ Accent panel, letterform, h3 rubric.
 Scenario signal + two paired proof cards, filling the column top to bottom. Narrows the claim panel to 31% and steps the claim heading to the h2 tier — the evidence side carries three stacked regions where the base carries one list.
 
 ```markdown
-<!-- _class: split-panel proof -->
+<!-- @meta{layout=split-panel, class=proof} -->
 
 `Level 1 · Remembering`
 
@@ -204,7 +204,7 @@ Scenario signal + two paired proof cards, filling the column top to bottom. Narr
 Composes with `proof`: the signal reads as a quoted card, the two proof points read as plain top-rule pillars — the sequence's climactic, most-earned entry.
 
 ```markdown
-<!-- _class: split-panel capstone -->
+<!-- @meta{layout=split-panel, class=capstone} -->
 
 `Level 6 · Creating`
 
@@ -225,7 +225,7 @@ Composes with `proof`: the signal reads as a quoted card, the two proof points r
 Featured panel moves right.
 
 ```markdown
-<!-- _class: split-panel mirror -->
+<!-- @meta{layout=split-panel, class=mirror} -->
 
 `split-panel mirror`
 
@@ -244,7 +244,7 @@ Same anatomy, flipped — for when the deck's rhythm wants the claim to land lat
 Payload bullet becomes a code.
 
 ```markdown
-<!-- _class: split-panel qr -->
+<!-- @meta{layout=split-panel, class=qr} -->
 
 `split-panel qr`
 
@@ -261,7 +261,7 @@ A bare URL auto-resolves; the caption line labels the scan.
 Override: pins this slide to the theme's categorical slot #1 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order.
 
 ```markdown
-<!-- _class: split-panel cat-1 -->
+<!-- @meta{layout=split-panel, class=cat-1} -->
 
 `Stage 1 of 8`
 
@@ -278,7 +278,7 @@ Override: pins this slide to the theme's categorical slot #1 — the claim panel
 Override: pins this slide to the theme's categorical slot #2 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order.
 
 ```markdown
-<!-- _class: split-panel cat-2 -->
+<!-- @meta{layout=split-panel, class=cat-2} -->
 
 `Stage 2 of 8`
 
@@ -295,7 +295,7 @@ Override: pins this slide to the theme's categorical slot #2 — the claim panel
 Override: pins this slide to the theme's categorical slot #3 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order.
 
 ```markdown
-<!-- _class: split-panel cat-3 -->
+<!-- @meta{layout=split-panel, class=cat-3} -->
 
 `Stage 3 of 8`
 
@@ -312,7 +312,7 @@ Override: pins this slide to the theme's categorical slot #3 — the claim panel
 Override: pins this slide to the theme's categorical slot #4 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order.
 
 ```markdown
-<!-- _class: split-panel cat-4 -->
+<!-- @meta{layout=split-panel, class=cat-4} -->
 
 `Stage 4 of 8`
 
@@ -329,7 +329,7 @@ Override: pins this slide to the theme's categorical slot #4 — the claim panel
 Override: pins this slide to the theme's categorical slot #5 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order.
 
 ```markdown
-<!-- _class: split-panel cat-5 -->
+<!-- @meta{layout=split-panel, class=cat-5} -->
 
 `Stage 5 of 8`
 
@@ -346,7 +346,7 @@ Override: pins this slide to the theme's categorical slot #5 — the claim panel
 Override: pins this slide to the theme's categorical slot #6 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order.
 
 ```markdown
-<!-- _class: split-panel cat-6 -->
+<!-- @meta{layout=split-panel, class=cat-6} -->
 
 `Stage 6 of 8`
 
@@ -363,7 +363,7 @@ Override: pins this slide to the theme's categorical slot #6 — the claim panel
 Override: pins this slide to the theme's categorical slot #7 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order.
 
 ```markdown
-<!-- _class: split-panel cat-7 -->
+<!-- @meta{layout=split-panel, class=cat-7} -->
 
 `Stage 7 of 8`
 
@@ -380,7 +380,7 @@ Override: pins this slide to the theme's categorical slot #7 — the claim panel
 Override: pins this slide to the theme's categorical slot #8 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order.
 
 ```markdown
-<!-- _class: split-panel cat-8 -->
+<!-- @meta{layout=split-panel, class=cat-8} -->
 
 `Stage 8 of 8`
 
@@ -397,7 +397,7 @@ Override: pins this slide to the theme's categorical slot #8 — the claim panel
 Narrows the panel to 0.8 of the variant's width; the supporting column takes the room.
 
 ```markdown
-<!-- _class: split-panel panel-narrow -->
+<!-- @meta{layout=split-panel, class=panel-narrow} -->
 
 `split-panel panel-narrow`
 
@@ -416,7 +416,7 @@ The panel still carries the claim; the column carries the detail.
 Widens the panel to 1.3 of the variant's width (at most 62%); for a claim that is the argument.
 
 ```markdown
-<!-- _class: split-panel panel-wide -->
+<!-- @meta{layout=split-panel, class=panel-wide} -->
 
 `split-panel panel-wide`
 

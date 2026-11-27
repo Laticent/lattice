@@ -35,7 +35,7 @@ const fs   = require('node:fs');
 const path = require('node:path');
 
 const ROOT     = path.resolve(__dirname, '..');
-const pkg      = require(path.join(ROOT, 'package.json'));
+const pkg      = require(path.join(ROOT, 'packages', 'lattice', 'package.json')); // the engine's version, not the private root's
 const VERSION  = pkg.version;
 const PREFIX   = `lattice-v${VERSION}/`;
 const OUT_DIR  = path.join(ROOT, 'release');

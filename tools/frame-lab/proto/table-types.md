@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · table types"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # table types
 
@@ -15,8 +15,8 @@ Nine kinds of table, each with its own narrow layout.
 
 ---
 
-<!-- _class: table no-row-label -->
-<!-- _footer: "1 · Record list — row becomes a card" -->
+<!-- @meta{layout=table, class=no-row-label, footer="1 · Record list — row becomes a card"} -->
+
 
 ## The launch team spans four cities.
 
@@ -29,8 +29,8 @@ Nine kinds of table, each with its own narrow layout.
 
 ---
 
-<!-- _class: table -->
-<!-- _footer: "2 · Key–value — label above value" -->
+<!-- @meta{layout=table, footer="2 · Key–value — label above value"} -->
+
 
 ## The appliance ships with a short spec.
 
@@ -43,8 +43,8 @@ Nine kinds of table, each with its own narrow layout.
 
 ---
 
-<!-- _class: table -->
-<!-- _footer: "3 · Measure over time — labels plus a run of columns" -->
+<!-- @meta{layout=table, footer="3 · Measure over time — labels plus a run of columns"} -->
+
 
 ## Revenue grew every quarter while margin held.
 
@@ -57,8 +57,8 @@ Nine kinds of table, each with its own narrow layout.
 
 ---
 
-<!-- _class: table -->
-<!-- _footer: "4 · Option comparison — labels plus one option per block" -->
+<!-- @meta{layout=table, footer="4 · Option comparison — labels plus one option per block"} -->
+
 
 ## Plan B covers the team without enterprise cost.
 
@@ -72,8 +72,8 @@ Nine kinds of table, each with its own narrow layout.
 
 ---
 
-<!-- _class: table -->
-<!-- _footer: "5 · Cross-tab — labels plus a run of columns" -->
+<!-- @meta{layout=table, footer="5 · Cross-tab — labels plus a run of columns"} -->
+
 
 ## EMEA leads on hardware; APAC on services.
 
@@ -85,8 +85,8 @@ Nine kinds of table, each with its own narrow layout.
 
 ---
 
-<!-- _class: table no-row-label table-lists -->
-<!-- _footer: "6 · Independent lists — each column becomes a block" -->
+<!-- @meta{layout=table, class=no-row-label table-lists, footer="6 · Independent lists — each column becomes a block"} -->
+
 
 ## The review found three kinds of finding.
 
@@ -98,8 +98,8 @@ Nine kinds of table, each with its own narrow layout.
 
 ---
 
-<!-- _class: table no-row-label -->
-<!-- _footer: "7 · Ranked list — two-line row" -->
+<!-- @meta{layout=table, class=no-row-label, footer="7 · Ranked list — two-line row"} -->
+
 
 ## Five accounts drive half of new revenue.
 
@@ -113,8 +113,8 @@ Nine kinds of table, each with its own narrow layout.
 
 ---
 
-<!-- _class: table no-row-label -->
-<!-- _footer: "8 · Prose register — row becomes a card with paragraphs" -->
+<!-- @meta{layout=table, class=no-row-label, footer="8 · Prose register — row becomes a card with paragraphs"} -->
+
 
 ## Three risks need an owner this quarter.
 
@@ -126,8 +126,8 @@ Nine kinds of table, each with its own narrow layout.
 
 ---
 
-<!-- _class: table no-row-label -->
-<!-- _footer: "9 · Schedule — two-line row with the date on top" -->
+<!-- @meta{layout=table, class=no-row-label, footer="9 · Schedule — two-line row with the date on top"} -->
+
 
 ## The migration lands in four steps.
 

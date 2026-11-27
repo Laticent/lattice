@@ -101,6 +101,22 @@ describe('the data-directives clipboard bridge rejects foreign input', () => {
 		expect(round.child(1).attrs.directives).toEqual(['<!-- _class: big-number -->']);
 	});
 
+	it('KEEPS a slide\'s @meta record through copy and paste, and still drops a record that could forge structure', () => {
+		// The Studio writes records (record note §15): a record the bridge dropped was a slide that fell back to `content` on paste.
+		const doc = deckToDoc('<!-- @meta{layout=title} -->\n\n# Hi\n\n---\n\n<!-- @meta{layout=big-number, footer="Q3, review"} -->\n\n- 42\n  - things');
+		const div = document.createElement('div');
+		div.appendChild(DOMSerializer.fromSchema(deckSchema).serializeFragment(doc.content));
+		const round = parseElement(div);
+		expect(round.child(0).attrs.directives).toEqual(['<!-- @meta{layout=title} -->']);
+		expect(round.child(1).attrs.directives).toEqual(['<!-- @meta{layout=big-number, footer="Q3, review"} -->']);
+		// The shape gate: a newline, or a comment that closes early, is dropped even with a genuine token.
+		const bad = ['<!-- @meta{layout=kpi}\n---\n<style>x</style> -->', '<!-- @meta{footer=x} --><style>x</style><!-- {a=b} -->', '<!-- @meta{footer="a -- b"} -->'];
+		const parsed = parseSlideSection({ 'data-lattice-origin': ownOrigin(), 'data-directives': JSON.stringify(['<!-- @meta{layout=kpi} -->', ...bad]) });
+		expect(parsed.child(0).attrs.directives).toEqual(['<!-- @meta{layout=kpi} -->']);
+		// And provenance still comes first: a foreign record is dropped.
+		expect(parseSlideSection({ 'data-directives': JSON.stringify(['<!-- @meta{layout=kpi} -->']) }).child(0).attrs.directives).toEqual([]);
+	});
+
 	it('ignores a non-array, non-string, or malformed payload', () => {
 		for (const payload of ['{}', '"a string"', 'not json at all', JSON.stringify([1, null, { a: 1 }])]) {
 			const doc = parseSlideSection({ 'data-lattice-origin': ownOrigin(), 'data-directives': payload }, 'x');

@@ -39,7 +39,7 @@ const fs            = require('fs');
 const { themeEntries } = require('./lib/theme/files.js');
 const path          = require('path');
 const { pathToFileURL, fileURLToPath } = require('node:url');
-const { pkgRootFrom } = require('./lib/core/pkg-root');
+const { pkgRootFrom, engineManifestPath } = require('./lib/core/pkg-root');
 const { VALUE_BY_FLAG, SWITCH_BY_FLAG, PAPER_CHOICES, ORIENT_CHOICES, PLAYER_MODES } = require('./lib/cli/options.js');
 // A grace trial render (lib/cli/fit-grace.js) ends when the export that started it dies.
 require('./lib/cli/fit-grace.js').watchParent(process.env);
@@ -99,8 +99,10 @@ const PKG_ROOT = pkgRootFrom(__dirname);
 // committed bundle byte-stale on any dependency bump — reddening `build:check`
 // on a diff no human wrote and no bot could repair, since Dependabot cannot
 // run `npm run build`. Only `version` is ever wanted; read just that.
+// In the repository the version lives in packages/lattice/package.json (the root is a private
+// workspace root); installed, the package's own package.json. engineManifestPath picks.
 const pkgVersion = () => {
-  try { return JSON.parse(fs.readFileSync(path.join(PKG_ROOT, 'package.json'), 'utf8')).version; }
+  try { return JSON.parse(fs.readFileSync(engineManifestPath(PKG_ROOT), 'utf8')).version; }
   catch (_e) { return null; }
 };
 
@@ -1190,7 +1192,7 @@ const { deckClassRefusalsFromFrontMatter } = require('./lib/core/deck-class-regi
 const { frontMatterBody: deckFrontMatterBody } = require('./lib/core/resolve-color-mode');
 for (const { token, reason } of deckClassRefusalsFromFrontMatter(deckFrontMatterBody(md))) {
   console.error(reason === 'component'
-    ? `warning: deck-wide \`class: ${token}\` names a COMPONENT — it is ignored (every slide would be a ${token} slide). Name it per slide with <!-- _class: ${token} -->, or once for a run with <!-- class: ${token} -->.`
+    ? `warning: deck-wide \`class: ${token}\` names a COMPONENT — it is ignored (every slide would be a ${token} slide). Name it per slide with <!-- @meta{layout=${token}} -->, or once for a run with <!-- @meta{layout=${token}, carry} -->.`
     : `warning: deck-wide \`class: ${token}\` is superseded by \`color-mode:\` — it is dropped, not merged. Remove it from the class list.`);
 }
 
@@ -1277,7 +1279,7 @@ const { ROLE_SRC: TRIM_ROLE_SRC, MEASURE_SRC: TRIM_MEASURE_SRC, APPLY_SRC: TRIM_
 // `guards-strict-x` enabled the trim here and not in the runtime, and
 // `x-guards-loose guards-strict` disabled it here and not there. Same deck, two answers
 // about whether a slide is trimmable at all (HARD RULE #1). Injected from the kernel.
-const { GUARDS_ENABLED_SRC } = require('./lib/core/resolve-guards');
+const { TRIM_ENABLED_SRC } = require('./lib/core/resolve-fit');
 // The verdict half of the same measurement — extent + legibility → the
 // `{ ratio, canSplit, splitRatio }` the overflow RING reads. (It fed `resplitDoc` until
 // 2026-09-01; the split is structural now and consults no measurement.) See lib/core/split-verdict.js.
@@ -3874,11 +3876,18 @@ async function renderBody(browser, g, closeBrowser) {
     const deckDir = mdFile && mdFile !== '-' ? path.dirname(path.resolve(mdFile)) : process.cwd();
     // The REAL path is resolved once, checked, and is what gets read, so a symlink swapped in after
     // the check cannot change which file is served (the checker's race on the first cut).
-    const deckRelativeFile = (url) => {
+    // The same address taken from the deck folder: the path the author wrote. Null when the output sits in the deck folder.
+    const deckPathOf = (url) => {
       try {
         const local = localPathOfFileUrl(url);
-        if (local === null || deckDir === outDir) return null;
-        const real = fs.realpathSync(path.resolve(deckDir, path.relative(outDir, local)));
+        return local === null || deckDir === outDir ? null : path.resolve(deckDir, path.relative(outDir, local));
+      } catch { return null; }
+    };
+    const deckRelativeFile = (url) => {
+      try {
+        const mapped = deckPathOf(url);
+        if (mapped === null) return null;
+        const real = fs.realpathSync(mapped);
         return confine.allows(real) && fs.statSync(real).isFile() ? real : null;
       } catch { return null; }
     };
@@ -3908,7 +3917,10 @@ async function renderBody(browser, g, closeBrowser) {
       const refusedKey = url.split('#')[0];
       if (!refused.has(refusedKey)) {
         refused.add(refusedKey);
-        console.error(`  ⚠ refused ${url.slice(0, 200)}: it resolves outside the deck folder`);
+        // With `-o` elsewhere the page asked for the address from the OUTPUT folder, a path the author never wrote, so
+        // the warning also names the deck-folder path it was checked as (refused or missing there too).
+        const asWritten = req.isNavigationRequest() ? null : deckPathOf(url);
+        console.error(`  ⚠ refused ${url.slice(0, 200)}: it resolves outside the deck folder${asWritten ? ` (from the deck folder: ${asWritten.slice(0, 200)})` : ''}`);
       }
       if (req.resourceType() === 'image') req.respond({ status: 200, contentType: 'image/svg+xml', body: standIn });
       else req.abort('blockedbyclient');
@@ -4184,7 +4196,7 @@ async function renderBody(browser, g, closeBrowser) {
   /**
    * Measure in the page, DECIDE in Node, apply in the page.
    *
-   * Only sections carrying `guards-strict` are touched, and a section that fits is
+   * Only sections carrying `fit-trim` are touched, and a section that fits is
    * never modified — so a deck without the register produces byte-identical output
    * and `golden-diff` stays green.
    */
@@ -4198,13 +4210,13 @@ async function renderBody(browser, g, closeBrowser) {
       globalThis.trimRoleOf = new Function('return (' + roleSrc + ')')();
       const measureTrim = new Function('return (' + measureSrc + ')')();
       const clearTrim = new Function('return (' + clearSrc + ')')();
-      const guardsEnabled = new Function('return (' + enabledSrc + ')')();
+      const trimEnabled = new Function('return (' + enabledSrc + ')')();
       // The deck's own slides (lib/core/deck-slides.js), so the page numbers the trim
       // reports agree with the OVERFLOW line's on a deck that pastes slide markup.
       const deckSlideSections = new Function('return (' + slidesSrc + ')')();
       const out = [];
       deckSlideSections(document).forEach((s, i) => {
-        if (!guardsEnabled(s.className)) return;
+        if (!trimEnabled(s.className)) return;
         clearTrim(s);
         // A PER-SLIDE id namespace, matching the runtime. The export bakes one
         // document too, and an id only has to be unique where it is resolved.
@@ -4212,7 +4224,7 @@ async function renderBody(browser, g, closeBrowser) {
         if (model.boxes.length) out.push({ index: i, model });
       });
       return out;
-    }, { roleSrc: TRIM_ROLE_SRC, measureSrc: TRIM_MEASURE_SRC, clearSrc: TRIM_CLEAR_SRC, clipSel: CLIP_CELL_SELECTOR, enabledSrc: GUARDS_ENABLED_SRC, slidesSrc: DECK_SLIDES_SRC, tol: FRAME_TOLERANCE });
+    }, { roleSrc: TRIM_ROLE_SRC, measureSrc: TRIM_MEASURE_SRC, clearSrc: TRIM_CLEAR_SRC, clipSel: CLIP_CELL_SELECTOR, enabledSrc: TRIM_ENABLED_SRC, slidesSrc: DECK_SLIDES_SRC, tol: FRAME_TOLERANCE });
 
     const pages = [];
     const reverted = [];
@@ -4314,7 +4326,7 @@ async function renderBody(browser, g, closeBrowser) {
   // MEASURE FIT — after the split, and for the RING only. Nothing downstream of here changes
   // the page count; this verdict feeds the author warnings and the overflow marker, which is
   // the honest terminal for a page that still does not fit at one element per page.
-  // TRIM (`guards: strict`) — BEFORE the measure, so every channel below reports
+  // TRIM (`fit: trim`) — BEFORE the measure, so every channel below reports
   // what the printed page will actually carry. A trim that ran after this would
   // leave the ring, the warnings and the exported marker describing a slide that
   // no longer exists.
@@ -4356,7 +4368,7 @@ async function renderBody(browser, g, closeBrowser) {
   // Keying on `FLUID_VIEW` alone made a `fluid: true` + `--read` deck claim its trim reached
   // the deliverable: the deliverable is the reading article, projected from a Node-side
   // string built before the page rendered, so the trim reaches nothing. Measured on a
-  // `guards: strict` deck — the console printed "✂ TRIMMED … pages 1" naming a cut present in
+  // `fit: trim` deck — the console printed "✂ TRIMMED … pages 1" naming a cut present in
   // no artifact (the extracted prose is character-identical either way) AND suppressed the
   // honest "NOT APPLIED" line. That is the exact failure this constant was introduced to end.
   const FLUID_WINS = FLUID_VIEW && FLUID_BEATS_READ;
@@ -4379,15 +4391,15 @@ async function renderBody(browser, g, closeBrowser) {
   }
   if (!TRIM_REACHES_DELIVERABLE) {
     // Only worth saying on a deck that asked for it. Counted off the live DOM rather
-    // than the front matter, because a per-slide `<!-- _class: guards-strict -->` is
+    // than the front matter, because a per-slide `<!-- _class: fit-trim -->` is
     // just as much an ask and never reaches `fm`.
-    // Through the shared TRIM gate, not a selector: `fit: trim` stamps `fit-trim`, the old
-    // `guards: strict` stamps `guards-strict`, and a slide's own token can switch either
-    // off. Only `guardsEnabled` knows all of that (lib/core/resolve-guards.js).
+    // Through the shared TRIM gate, not a selector: `fit: trim` stamps `fit-trim`, and a
+    // slide's own `fit-*` token can switch it on or off. Only `trimEnabled` knows all of
+    // that (lib/core/resolve-fit.js).
     const strictSlides = await g(() => page.evaluate((enabledSrc) => {
-      const guardsEnabled = new Function('return (' + enabledSrc + ')')();
-      return [...document.querySelectorAll('section[data-lattice-slide]')].filter((s) => guardsEnabled(s.className)).length;
-    }, GUARDS_ENABLED_SRC), 'count trimmable slides');
+      const trimEnabled = new Function('return (' + enabledSrc + ')')();
+      return [...document.querySelectorAll('section[data-lattice-slide]')].filter((s) => trimEnabled(s.className)).length;
+    }, TRIM_ENABLED_SRC), 'count trimmable slides');
     if (strictSlides) {
       console.warn('  \u2702 fit: trim NOT APPLIED \u2014 an .html deliverable is written before the page renders, so it cannot carry a trim.');
       console.warn(`    Any slide that would have been trimmed clips in ${path.basename(outFile)} exactly as it would at \`fit: heal\`, and the warnings below report that file rather than a trimmed DOM.`);
@@ -4422,7 +4434,7 @@ async function renderBody(browser, g, closeBrowser) {
     // Not a warning about the deck — a warning about the guard. It planned a cut
     // whose reflow the DOM did not deliver, so the cut was undone and the slide
     // clips honestly. Reported rather than swallowed: a silent revert would make
-    // `guards: strict` look like it simply did not apply.
+    // `fit: trim` look like it simply did not apply.
     console.warn(`  ✂ TRIM REVERTED — the planned cut did not make pages ${trimmed.reverted.join(', ')} fit; they clip unchanged.`);
   }
   // A table or a row of cards whose narrow layout makes its slide overflow is held in its
@@ -6681,7 +6693,7 @@ html,body{background:var(--bg,#fff)}
 #lat-read th,#lat-read td{border:1px solid var(--border,#e2e2e2);padding:.4em .7em;text-align:left}
 #lat-read th{background:var(--bg-alt,#f5f5f5);font-weight:600}
 #lat-read pre{background:var(--bg-alt,#f5f5f5);padding:1em;border-radius:8px;overflow:auto;font-size:.85em}
-/* Un-trim, as the player's Read view does: a slide's guards:strict clamp rides in on the
+/* Un-trim, as the player's Read view does: a slide's fit: trim clamp rides in on the
    cloned DOM, and this column scrolls, so the clamp is pure content loss here.
    display:revert, not display:block — block demotes an <li> out of display:list-item. */
 #lat-read [data-lattice-trimmed]{display:revert!important;-webkit-line-clamp:none!important;overflow:visible!important}

@@ -2,11 +2,11 @@
 marp: true
 theme: indaco
 color-mode: dark
-paginate: true
+pagination: true
 header: "Lattice · one token for the body wash"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Chart color · the body tier`
 
@@ -16,8 +16,8 @@ On a dark canvas a legend swatch could paint a different color from the mark it 
 
 ---
 
-<!-- _class: piechart -->
-<!-- _footer: "piechart · swatch and wedge, same value" -->
+<!-- @meta{layout=piechart, footer="piechart · swatch and wedge, same value"} -->
+
 
 `The case that showed it`
 
@@ -31,8 +31,8 @@ On a dark canvas a legend swatch could paint a different color from the mark it 
 
 ---
 
-<!-- _class: funnel -->
-<!-- _footer: "funnel · one hue, off the body token" -->
+<!-- @meta{layout=funnel, footer="funnel · one hue, off the body token"} -->
+
 
 ## The funnel narrows; the width is the story.
 
@@ -44,8 +44,8 @@ On a dark canvas a legend swatch could paint a different color from the mark it 
 
 ---
 
-<!-- _class: stacked-bar -->
-<!-- _footer: "stacked-bar · body token through the mark contract" -->
+<!-- @meta{layout=stacked-bar, footer=stacked-bar · body token through the mark contract} -->
+
 
 ## Revenue by segment.
 
@@ -64,8 +64,8 @@ On a dark canvas a legend swatch could paint a different color from the mark it 
 
 ---
 
-<!-- _class: cards-grid -->
-<!-- _footer: "The three levels" -->
+<!-- @meta{layout=cards-grid, footer=The three levels} -->
+
 
 `One hue, three levels`
 
@@ -80,8 +80,8 @@ On a dark canvas a legend swatch could paint a different color from the mark it 
 
 ---
 
-<!-- _class: closing -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, footer=""} -->
+
 
 ## A rule with nothing to point at is a rule that gets retyped wrong.
 

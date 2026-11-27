@@ -6,8 +6,10 @@
 // (#1511; engineering/decisions/2026-11-11-voice-synthesis-spine.md §3.2, S2).
 //
 // It never writes anything back. The caller hands it a COPY of the clip's bytes, so the clip the store holds, which is what
-// playback reads, is never replaced by the compressed one (§9 of 2026-08-04-shared-deck-narration-audio.md: lamejs writes no
-// gapless header, so a compressed clip played live gains 56-70 ms of leading silence).
+// playback reads, is never replaced by the MP3 (§9 of 2026-08-04-shared-deck-narration-audio.md: lamejs writes no gapless
+// header, so an MP3 played live gains 56-70 ms of leading silence). The store itself keeps raw-audio voices as Ogg Opus,
+// which adds no lead-in; the bake decodes that back to WAV before calling this (stored-clip-to-wav.js), so what ships is
+// the same MP3, with the same measured lead, as before.
 import { compressClip, encoderAvailable, isCompressedAudio } from '@/playground/narration-encode.js';
 
 /** Bytes → base64, chunked so a multi-hundred-KB clip can't blow the argument limit on `String.fromCharCode`. */

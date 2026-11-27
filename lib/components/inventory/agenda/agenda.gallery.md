@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · agenda"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # agenda
 
@@ -15,8 +15,7 @@ Auto-numbered table of contents for the deck.
 
 ---
 
-<!-- _class: agenda -->
-<!-- _footer: "Default · agenda" -->
+<!-- @meta{layout=agenda, footer=Default · agenda} -->
 
 ## The agenda numbers the deck's stops and pages.
 
@@ -30,8 +29,7 @@ Auto-numbered table of contents for the deck.
 
 ---
 
-<!-- _class: agenda progress-1 -->
-<!-- _footer: "progress-1 · agenda progress-1 — Stop 1 is current; the rest dim or wait." -->
+<!-- @meta{layout=agenda, class=progress-1, footer="progress-1 · agenda progress-1 — Stop 1 is current; the rest dim or wait."} -->
 
 ## progress-1 marks stop 1 as the current one.
 
@@ -45,8 +43,7 @@ Auto-numbered table of contents for the deck.
 
 ---
 
-<!-- _class: agenda progress-2 -->
-<!-- _footer: "progress-2 · agenda progress-2 — Stop 2 is current; the rest dim or wait." -->
+<!-- @meta{layout=agenda, class=progress-2, footer="progress-2 · agenda progress-2 — Stop 2 is current; the rest dim or wait."} -->
 
 ## progress-2 marks stop 2 as the current one.
 
@@ -60,8 +57,7 @@ Auto-numbered table of contents for the deck.
 
 ---
 
-<!-- _class: agenda progress-3 -->
-<!-- _footer: "progress-3 · agenda progress-3 — Stop 3 is current; the rest dim or wait." -->
+<!-- @meta{layout=agenda, class=progress-3, footer="progress-3 · agenda progress-3 — Stop 3 is current; the rest dim or wait."} -->
 
 ## progress-3 marks stop 3 as the current one.
 
@@ -75,8 +71,7 @@ Auto-numbered table of contents for the deck.
 
 ---
 
-<!-- _class: agenda progress-4 -->
-<!-- _footer: "progress-4 · agenda progress-4 — Stop 4 is current; the rest dim or wait." -->
+<!-- @meta{layout=agenda, class=progress-4, footer="progress-4 · agenda progress-4 — Stop 4 is current; the rest dim or wait."} -->
 
 ## progress-4 marks stop 4 as the current one.
 
@@ -90,8 +85,7 @@ Auto-numbered table of contents for the deck.
 
 ---
 
-<!-- _class: agenda progress-5 -->
-<!-- _footer: "progress-5 · agenda progress-5 — Stop 5 is current; the rest dim or wait." -->
+<!-- @meta{layout=agenda, class=progress-5, footer="progress-5 · agenda progress-5 — Stop 5 is current; the rest dim or wait."} -->
 
 ## progress-5 marks stop 5 as the current one.
 
@@ -105,8 +99,7 @@ Auto-numbered table of contents for the deck.
 
 ---
 
-<!-- _class: agenda progress-6 -->
-<!-- _footer: "progress-6 · agenda progress-6 — Stop 6 is current; the rest dim or wait." -->
+<!-- @meta{layout=agenda, class=progress-6, footer="progress-6 · agenda progress-6 — Stop 6 is current; the rest dim or wait."} -->
 
 ## progress-6 marks stop 6 as the current one.
 
@@ -120,8 +113,7 @@ Auto-numbered table of contents for the deck.
 
 ---
 
-<!-- _class: agenda circles progress-3 -->
-<!-- _footer: "Style · circles · agenda circles — Numbers become rings; current fills." -->
+<!-- @meta{layout=agenda, class=circles progress-3, footer="Style · circles · agenda circles — Numbers become rings; current fills."} -->
 
 ## circles swaps the numbers for filled dots.
 
@@ -134,8 +126,7 @@ Auto-numbered table of contents for the deck.
 
 ---
 
-<!-- _class: agenda checks progress-3 -->
-<!-- _footer: "Style · checks · agenda checks — Done gets a tick, current an arrow." -->
+<!-- @meta{layout=agenda, class=checks progress-3, footer="Style · checks · agenda checks — Done gets a tick, current an arrow."} -->
 
 ## checks ticks the stops already behind you.
 
@@ -148,9 +139,8 @@ Auto-numbered table of contents for the deck.
 
 ---
 
-<!-- _class: agenda progress-4 -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · agenda — Six stops — the hard ceiling." -->
+<!-- @meta{layout=agenda, class=progress-4, footer="Stress test · agenda — Six stops — the hard ceiling."} -->
+<!-- @meta{stress-slide} -->
 
 ## Six stops is the most one agenda holds.
 
@@ -164,8 +154,7 @@ Auto-numbered table of contents for the deck.
 
 ---
 
-<!-- _class: agenda dark -->
-<!-- _footer: "Composition: dark · agenda dark" -->
+<!-- @meta{layout=agenda, class=dark, footer=Composition: dark · agenda dark} -->
 
 ## The agenda numbers the deck's stops and pages.
 
@@ -179,8 +168,7 @@ Auto-numbered table of contents for the deck.
 
 ---
 
-<!-- _class: agenda compact -->
-<!-- _footer: "Composition: compact · agenda compact" -->
+<!-- @meta{layout=agenda, class=compact, footer=Composition: compact · agenda compact} -->
 
 ## The agenda numbers the deck's stops and pages.
 
@@ -194,8 +182,7 @@ Auto-numbered table of contents for the deck.
 
 ---
 
-<!-- _class: agenda accent -->
-<!-- _footer: "Composition: accent · agenda accent" -->
+<!-- @meta{layout=agenda, class=accent, footer=Composition: accent · agenda accent} -->
 
 ## The agenda numbers the deck's stops and pages.
 
@@ -209,8 +196,7 @@ Auto-numbered table of contents for the deck.
 
 ---
 
-<!-- _class: cards-grid claim-hero -->
-<!-- _footer: "Anti-patterns · agenda · 1 of 2" -->
+<!-- @meta{layout=cards-grid, class=claim-hero, footer=Anti-patterns · agenda · 1 of 2} -->
 
 ## When NOT to reach for agenda.
 
@@ -221,8 +207,7 @@ Auto-numbered table of contents for the deck.
 
 ---
 
-<!-- _class: cards-grid claim-hero -->
-<!-- _footer: "Anti-patterns · agenda · 2 of 2" -->
+<!-- @meta{layout=cards-grid, class=claim-hero, footer=Anti-patterns · agenda · 2 of 2} -->
 
 ## When NOT to reach for agenda.
 
@@ -233,7 +218,7 @@ Auto-numbered table of contents for the deck.
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

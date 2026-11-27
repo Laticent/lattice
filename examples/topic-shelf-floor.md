@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: onyx-dark
-paginate: true
+pagination: true
 header: "Lattice · topic shelf floor"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # The lit tab stands off the shelf, even on black.
 
@@ -15,7 +15,7 @@ On onyx-dark the band is pure black, so the lifted shelf came out at #161616 and
 
 ---
 
-<!-- _class: divider silent -->
+<!-- @meta{layout=divider, class=silent} -->
 
 `Section 01 · Unit economics`
 
@@ -23,7 +23,7 @@ On onyx-dark the band is pure black, so the lifted shelf came out at #161616 and
 
 ---
 
-<!-- _class: topic -->
+<!-- @meta{layout=topic} -->
 
 `Section 01 · Unit economics`
 
@@ -33,7 +33,7 @@ Fully loaded acquisition cost is $4,100, against $2,970 in the plan.
 
 ---
 
-<!-- _class: topic -->
+<!-- @meta{layout=topic} -->
 
 `Section 01 · Unit economics`
 
@@ -43,7 +43,7 @@ Gross-margin LTV is $11,800, and the mix keeps shifting to the durable tier.
 
 ---
 
-<!-- _class: topic -->
+<!-- @meta{layout=topic} -->
 
 `Section 01 · Unit economics`
 
@@ -53,6 +53,6 @@ Fourteen months blended, against a nine-month plan. The black tab reaches down f
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 ## One floor, and the palettes above it keep their shelf.

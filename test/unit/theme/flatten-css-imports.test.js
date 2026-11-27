@@ -18,6 +18,7 @@
 
 const { describe, test, before } = require('node:test');
 const assert = require('node:assert/strict');
+const csstree = require('css-tree');
 const { execFileSync } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -138,8 +139,9 @@ describe('the grammar did not move', () => {
     '@import \'shared";': true, // mismatched — likewise
     '@import"shared";': true, // minified, no space
     '@import  shared ;': true,
-    // `url(` matches the NAME `url`, then resolves to a `url.css` that does not exist —
-    // so it is inert, but by resolution, not by the match failing.
+    // `url(` is not a theme name: the tokenizer reads a function token, not a name, so it
+    // never reaches `resolve` (the regex before it matched the NAME `url` and failed to
+    // resolve a `url.css`, which was inert by accident).
     "@import url('shared.css');": false,
     // A quoted PATH resolves, and must: the name class stops at the `.`, and `resolve`
     // appends `.css` again. This is the documented `--css` form that a narrowed grammar
@@ -172,6 +174,30 @@ describe('the grammar did not move', () => {
   });
 });
 
+describe('read by the CSS tokenizer: what is not an @import (Segno P5)', () => {
+  // Each line resolved under the regex the tokenizer replaced; none is an `@import` to CSS.
+  const notImports = {
+    // inside a string: text, not a rule
+    'main::after{content:"@import shared;"}': 'a string',
+    // `@importshared` is one at-keyword with another name
+    '@importshared;': 'another at-keyword',
+    // `\@` is an escape, so this is an identifier, not an at-keyword
+    '\\@import shared;': 'an escaped @',
+  };
+  for (const [line, why] of Object.entries(notImports)) {
+    test(`does not resolve (${why}): ${line}`, () => {
+      const out = flat({ '/d/entry.css': `${line}\nmain{}`, '/d/shared.css': '.PARENT{}' });
+      assert.equal(out.includes('.PARENT{}'), false);
+    });
+  }
+  test('the at-keyword is read as CSS reads it: any case, and escapes decoded', () => {
+    for (const line of ['@IMPORT shared;', '@imp\\6frt shared;', '@import \\73 hared;']) {
+      const out = flat({ '/d/entry.css': `${line}\nmain{}`, '/d/shared.css': '.PARENT{}' });
+      assert.ok(out.includes('.PARENT{}'), line);
+    }
+  });
+});
+
 describe('differential: identical to the old strip wherever the old strip was right', () => {
   /** The flattener as it stood, with the naive regex. */
   function oldFlatten(entryPath, { read, resolve, exists }, seen = new Set()) {
@@ -189,60 +215,29 @@ describe('differential: identical to the old strip wherever the old strip was ri
   }
 
   /**
-   * An INDEPENDENT reference stripper — written from the CSS Syntax rules rather than
-   * derived from `eachCssRun`, and in a different shape (one explicit state variable,
-   * no run callbacks), so agreeing with it is evidence rather than tautology.
+   * An INDEPENDENT reference: the flattener rebuilt on css-tree's spec tokenizer (CSS Syntax 3 §4), not on this repo's
+   * tokenizer, so agreeing with it is evidence rather than tautology. An `@import` is an at-keyword token named
+   * `import`; its target is the next token that is not whitespace or a comment, a string or an ident, and the name is
+   * its leading run of name characters. css-tree reads escapes as CSS does: `\@import` is an identifier, not an
+   * at-keyword, and `\/*` opens no comment. (The hand-written strip that stood here first read both the other way.)
    */
-  function oracleStrip(src) {
-    let out = '';
-    let state = 'code'; // 'code' | 'comment' | 'sq' | 'dq' | 'url'
-    for (let i = 0; i < src.length; i++) {
-      const c = src[i];
-      if (state === 'code') {
-        if (c === '/' && src[i + 1] === '*') { state = 'comment'; i++; continue; }
-        if (c === "'") state = 'sq';
-        else if (c === '"') state = 'dq';
-        // §4.3.6 — `url(` NOT preceded by an ident char and NOT followed by a quote
-        // opens an unquoted url-token, consumed verbatim to `)`. No comments inside.
-        const m = /^url\(\s*/i.exec(src.slice(i, i + 12));
-        const prevIdent = i > 0 && /[A-Za-z0-9_-]/.test(src[i - 1]);
-        if (m && !prevIdent && !/["']/.test(src[i + m[0].length] || '')) {
-          state = 'url';
-          out += src.slice(i, i + m[0].length);
-          i += m[0].length - 1;
-          continue;
-        }
-        out += c;
-        continue;
-      }
-      if (state === 'comment') {
-        if (c === '*' && src[i + 1] === '/') { state = 'code'; i++; }
-        continue;
-      }
-      if (state === 'url') {
-        out += c;
-        if (c === ')') state = 'code';
-        continue;
-      }
-      // inside a string: a backslash escapes the next character, and a RAW NEWLINE ends
-      // it (§4.3.5 bad-string-token) rather than running on to the next quote.
-      if (c === '\n' || c === '\r') { state = 'code'; out += c; continue; }
-      out += c;
-      if (c === '\\') { if (i + 1 < src.length) out += src[++i]; continue; }
-      if ((state === 'sq' && c === "'") || (state === 'dq' && c === '"')) state = 'code';
-    }
-    return out;
-  }
-
-  /** The flattener, rebuilt on the oracle's notion of "comment". */
   function oracle(entryPath, { read, resolve, exists }, seen = new Set()) {
     if (seen.has(entryPath)) return '';
     seen.add(entryPath);
     const content = read(entryPath);
+    const toks = [];
+    csstree.tokenize(content, (type, from, to) => toks.push({ type: csstree.tokenNames[type], text: content.slice(from, to) }));
     let imported = '';
-    for (const m of oracleStrip(content).matchAll(/@import\s*['"]?([A-Za-z0-9_-]+)['"]?\s*;?/g)) {
-      if (m[1] === 'lattice') continue;
-      const p = resolve(entryPath, m[1]);
+    for (let i = 0; i < toks.length; i++) {
+      if (toks[i].type !== 'at-keyword-token' || toks[i].text.toLowerCase() !== '@import') continue;
+      let j = i + 1;
+      while (j < toks.length && (toks[j].type === 'whitespace-token' || toks[j].type === 'comment-token')) j++;
+      const t = toks[j];
+      if (!t) break;
+      const value = t.type === 'string-token' || t.type === 'bad-string-token' ? t.text.slice(1) : t.type === 'ident-token' ? t.text : '';
+      const name = /^[A-Za-z0-9_-]+/.exec(value)?.[0];
+      if (!name || name === 'lattice') continue;
+      const p = resolve(entryPath, name);
       if (exists(p)) imported += `${oracle(p, { read, resolve, exists }, seen)}\n`;
     }
     return imported + content;
@@ -330,6 +325,7 @@ describe('differential: identical to the old strip wherever the old strip was ri
     const files = { '/d/p.css': 'P{}', '/d/q.css': 'Q{}' };
     let newFound = 0;
     let oldOnly = 0;
+    let escapedUrl = 0;
     for (let i = 0; i < 300_000; i++) {
       let src = '';
       for (let n = (rnd() * 12) | 0; n >= 0; n--) src += atoms[(rnd() * atoms.length) | 0];
@@ -351,6 +347,12 @@ describe('differential: identical to the old strip wherever the old strip was ri
       // with a later closer exposed code that is really inside a comment). A first cut
       // of this test tried to classify by direction and called the second class a
       // regression. The only sound question is which answer a CSS parser would give.
+      // css-tree reads a `url` name spelled with an escape (`\url(`) as a function, where CSS and Chromium read a url
+      // token; test/unit/core/css-tokens.test.js pins Chromium's reading, so those inputs are not adjudicated here.
+      if (src.includes('\\url(')) {
+        escapedUrl++;
+        continue;
+      }
       assert.equal(a, oracle('/d/entry.css', io, new Set()),
         `the walk disagreed with the oracle on ${JSON.stringify(src)}`);
       if (na.length > nb.length) newFound++;
@@ -358,5 +360,7 @@ describe('differential: identical to the old strip wherever the old strip was ri
     }
     assert.ok(newFound > 0, 'the fuzz never reached the imports-the-old-regex-swallowed class');
     assert.ok(oldOnly > 0, 'the fuzz never reached the imports-the-old-regex-invented class');
+    // The inputs left to the pin are a small share of the divergences, not the bulk of them.
+    assert.ok(escapedUrl < newFound + oldOnly, `${escapedUrl} escaped-url inputs against ${newFound + oldOnly} adjudicated`);
   });
 });

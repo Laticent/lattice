@@ -127,20 +127,20 @@
     "panel-narrow": {
       "label": "panel-narrow",
       "summary": "Narrows the dark frame to 0.8 of its width; the option grid takes the room.",
-      "sample": "<!-- _class: split-compare panel-narrow -->\n\n`Decision Required`\n\n## A narrow frame gives the options room.\n\nUse it when each option carries three rows.\n\n- Alternative option\n  - First fact about the alternative\n  - Second fact about the alternative\n- Preferred option\n  - First fact about the preferred path\n  - Second fact about the preferred path\n\n> The recommendation in one decisive sentence.\n"
+      "sample": "<!-- @meta{layout=split-compare, class=panel-narrow} -->\n\n`Decision Required`\n\n## A narrow frame gives the options room.\n\nUse it when each option carries three rows.\n\n- Alternative option\n  - First fact about the alternative\n  - Second fact about the alternative\n- Preferred option\n  - First fact about the preferred path\n  - Second fact about the preferred path\n\n> The recommendation in one decisive sentence.\n"
     },
     "panel-wide": {
       "label": "panel-wide",
       "summary": "Widens the dark frame to 1.3 of its width; for a question that carries the argument.",
-      "sample": "<!-- _class: split-compare panel-wide -->\n\n`Decision Required`\n\n## A wide frame puts the question first.\n\nUse it when the framing is the argument and each option is short.\n\n- Alternative option\n  - One fact\n- Preferred option\n  - One fact\n\n> The recommendation in one decisive sentence.\n"
+      "sample": "<!-- @meta{layout=split-compare, class=panel-wide} -->\n\n`Decision Required`\n\n## A wide frame puts the question first.\n\nUse it when the framing is the argument and each option is short.\n\n- Alternative option\n  - One fact\n- Preferred option\n  - One fact\n\n> The recommendation in one decisive sentence.\n"
     }
   },
-  "skeleton": "<!-- _class: split-compare -->\n\n`Decision Required`\n\n## Headline that frames the choice.\n\nOne-sentence context paragraph explaining the stakes.\n\n- Alternative option\n  - First fact about the alternative\n  - Second fact about the alternative\n- Preferred option\n  - First fact about the preferred path\n  - Second fact about the preferred path\n\n> The recommendation in one decisive sentence.\n",
+  "skeleton": "<!-- @meta{layout=split-compare} -->\n\n`Decision Required`\n\n## Headline that frames the choice.\n\nOne-sentence context paragraph explaining the stakes.\n\n- Alternative option\n  - First fact about the alternative\n  - Second fact about the alternative\n- Preferred option\n  - First fact about the preferred path\n  - Second fact about the preferred path\n\n> The recommendation in one decisive sentence.\n",
   "anatomyBlock": "split-compare",
-  "sample": "<!-- _class: split-compare -->\n\n`comparison · split-compare`\n\n## The dark panel asks; the grid answers.\n\nOne question on the left; two option cards and a verdict on the right.\n\n- Option A\n  - Three short rows state the case\n  - Rows stay parallel across cards\n- Option B\n  - The grid begs comparison\n  - Mismatched rows read as bias\n\n> The verdict card lands last: one recommendation, one revisit date.\n",
+  "sample": "<!-- @meta{layout=split-compare} -->\n\n`comparison · split-compare`\n\n## The dark panel asks; the grid answers.\n\nOne question on the left; two option cards and a verdict on the right.\n\n- Option A\n  - Three short rows state the case\n  - Rows stay parallel across cards\n- Option B\n  - The grid begs comparison\n  - Mismatched rows read as bias\n\n> The verdict card lands last: one recommendation, one revisit date.\n",
   "stressDoc": {
     "summary": "Four rows per card — the ceiling.",
-    "sample": "<!-- _class: split-compare -->\n\n`split-compare · stress`\n\n## Four rows per card is the grid's ceiling.\n\nThe panel question may run two lines when the cards run full.\n\n- The stressed first option\n  - Budget spent, one clause\n  - Rows compress the verdict\n  - The fourth is last\n  - Parallel, or it collapses\n- The stressed second option\n  - Symmetry is the grammar\n  - Four rows each, matched\n  - Eyes pair across cards\n  - Unpaired reads as missing\n\n> Even at the ceiling the verdict stays one sentence — the loudest line on the slide.\n"
+    "sample": "<!-- @meta{layout=split-compare} -->\n\n`split-compare · stress`\n\n## Four rows per card is the grid's ceiling.\n\nThe panel question may run two lines when the cards run full.\n\n- The stressed first option\n  - Budget spent, one clause\n  - Rows compress the verdict\n  - The fourth is last\n  - Parallel, or it collapses\n- The stressed second option\n  - Symmetry is the grammar\n  - Four rows each, matched\n  - Eyes pair across cards\n  - Unpaired reads as missing\n\n> Even at the ceiling the verdict stays one sentence — the loudest line on the slide.\n"
   },
   "whenToUse": [
     {
@@ -203,7 +203,7 @@
     },
     {
       "mistake": "Setting a long deck-level `header:` or `footer:` on a deck that uses this layout.",
-      "fix": "The running header and footer stay on the dark rail they start on. Each holds one line; past that it ends in an ellipsis and the export reports it as a chrome cut (author-only, no reader pill). Measured at 16:9 the rail holds about 37 characters of header and 39 of footer. Shorten it, or set a shorter one on these slides with `<!-- _header: … -->` / `<!-- _footer: … -->`."
+      "fix": "The running header and footer stay on the dark rail they start on. Each holds one line; past that it ends in an ellipsis and the export reports it as a chrome cut (author-only, no reader pill). Measured at 16:9 the rail holds about 37 characters of header and 39 of footer. Shorten it, or set a shorter one on these slides with `<!-- @meta{header=\"…\"} -->` / `<!-- @meta{footer=\"…\"} -->`."
     },
     {
       "mistake": "Expecting a split-compare slide to drop the deck's `finish:`, or to show it on one side only.",

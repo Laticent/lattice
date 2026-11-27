@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { buildCommentAnnotations, commentCount } from './export-options';
+import { buildCommentAnnotations, commentCount, deckSteps, slidesStep } from './export-options';
 import { addComment, setResolved } from './slide-comments';
 
 const DECK = 'deck-eo';
@@ -62,5 +62,22 @@ describe('export-options — comment → PDF sticky-note payload', () => {
 		expect(ann[4]).toBeUndefined(); // slide 5 never placed
 		// Unbounded (no slideCount) keeps the prior behavior for callers that don't pass it.
 		expect(commentCount(DECK, 'all')).toBe(2);
+	});
+});
+
+// Present waits for a stepping slide's walk, and export offers one page per step, only when a slide steps: a slide
+// that steps in the record spelling must count (engineering/decisions/2026-10-17-meta-record.md §15, slice A).
+describe('slidesStep / deckSteps read a slide record as the comment it replaces', () => {
+	it.each([
+		['<!-- _build -->\n\n- a', '<!-- @meta{build} -->\n\n- a'],
+		['<!-- _focusSteps: row 1 | row 2 -->\n\n| a |', '<!-- @meta{focus-steps="row 1 | row 2"} -->\n\n| a |'],
+	])('%s', (comment, record) => {
+		expect(slidesStep(comment)).toBe(true);
+		expect(slidesStep(record)).toBe(true);
+		expect(deckSteps(`# T\n\n---\n\n${record}`)).toBe(true);
+	});
+	it('a directive in a code fence is an example, not a step', () => {
+		expect(slidesStep('```\n<!-- _build -->\n```')).toBe(false);
+		expect(deckSteps('# T\n\n- a')).toBe(false);
 	});
 });

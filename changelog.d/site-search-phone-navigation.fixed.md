@@ -1,1 +1,0 @@
-- On a phone, picking a result in the site-wide search now goes there. Before, every pick (a page, a docs result) closed the search and left you where you were.

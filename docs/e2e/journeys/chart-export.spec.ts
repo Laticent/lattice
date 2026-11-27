@@ -74,6 +74,9 @@ async function exportMatchesScreen({ page }: { page: Page }) {
 		// (PENDING_FIGURES, lib/plugins/host-browser.mjs, what the export itself waits on), then two equal reads in a row
 		// for fonts and late layout. Polled, never a fixed sleep (#32).
 		await expect(sec).toContainText(HEADINGS[i]);
+		// The frame's agents ran (lib/core/frame-agents.mjs marks the root when its file loads): the font gate and
+		// fit are what reveal and scale the slide, so a picture taken without them would be the wrong slide state.
+		await expect(page.frameLocator(LIVE_PREVIEW).locator('html[data-latt-agents]')).toHaveCount(1);
 		await expect(sec.locator(PENDING_FIGURES)).toHaveCount(0, { timeout: 60_000 });
 		let last = '';
 		await expect

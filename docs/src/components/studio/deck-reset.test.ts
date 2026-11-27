@@ -5,23 +5,23 @@ const deck = (fm: string, body = '# One\n\n---\n\n# Two\n') => `---\n${fm}\n---\
 
 describe('deck reset: only the keys the pane changed go back', () => {
 	it('groups a key with its indented lines, and keeps comments as their own entries', () => {
-		const e = fmEntries('theme: cuoio\nlexicon:\n  a: b\n  c: d\n# a note\npaginate: true');
-		expect(e.map((x) => x.key)).toEqual(['theme', 'lexicon', null, 'paginate']);
+		const e = fmEntries('theme: cuoio\nlexicon:\n  a: b\n  c: d\n# a note\npagination: true');
+		expect(e.map((x) => x.key)).toEqual(['theme', 'lexicon', null, 'pagination']);
 		expect(e[1].lines).toEqual(['lexicon:', '  a: b', '  c: d']);
 	});
 
 	it('names the keys a write added, removed or changed', () => {
-		expect(touchedKeys(deck('theme: cuoio\npaginate: true'), deck('theme: indaco\nfooter: Q3'))).toEqual(['theme', 'paginate', 'footer']);
+		expect(touchedKeys(deck('theme: cuoio\npagination: true'), deck('theme: indaco\nfooter: Q3'))).toEqual(['theme', 'pagination', 'footer']);
 		expect(touchedKeys(deck('theme: cuoio'), deck('theme: cuoio'))).toEqual([]);
 	});
 
 	it("reverts the pane's keys and keeps everyone else's edits, the body and the order", () => {
-		const base = deck('theme: cuoio\npaginate: true\nviews:\n  exec: [1]');
+		const base = deck('theme: cuoio\npagination: true\nviews:\n  exec: [1]');
 		// The pane turned page numbers off; meanwhile the editor added a view and a collaborator changed the footer.
-		const now = deck('theme: cuoio\npaginate: false\nviews:\n  exec: [1]\n  board: [2]\nfooter: Q4', '# One edited\n');
-		const out = revertKeys(now, base, ['paginate']);
-		expect(out).toBe(deck('theme: cuoio\npaginate: true\nviews:\n  exec: [1]\n  board: [2]\nfooter: Q4', '# One edited\n'));
-		expect(keysDiffer(out, base, ['paginate'])).toBe(false);
+		const now = deck('theme: cuoio\npagination: false\nviews:\n  exec: [1]\n  board: [2]\nfooter: Q4', '# One edited\n');
+		const out = revertKeys(now, base, ['pagination']);
+		expect(out).toBe(deck('theme: cuoio\npagination: true\nviews:\n  exec: [1]\n  board: [2]\nfooter: Q4', '# One edited\n'));
+		expect(keysDiffer(out, base, ['pagination'])).toBe(false);
 	});
 
 	it('removes a key the visit added, and brings back one the visit removed', () => {
@@ -32,7 +32,7 @@ describe('deck reset: only the keys the pane changed go back', () => {
 
 	it('drops a block the visit created when the reset empties it, and leaves the body flush', () => {
 		const body = '# One\n';
-		expect(revertKeys(`---\npaginate: true\n---\n\n${body}`, body, ['paginate'])).toBe(body);
+		expect(revertKeys(`---\npagination: true\n---\n\n${body}`, body, ['pagination'])).toBe(body);
 	});
 
 	it('restores a block-valued key whole', () => {

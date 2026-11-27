@@ -179,9 +179,9 @@
       "description": "Body lines nested under an item. `-` or `1.` read the same here: the layout draws them as the item's plain body lines, so the engine hands it a `ul` either way. A list nested a level below is not part of the design: lint warns (`list-depth-unsupported`)."
     }
   },
-  "skeleton": "<!-- _class: split-panel -->\n\n`Eyebrow context`\n\n## Headline that anchors the panel.\n\nOne-sentence framing paragraph explaining what the points cover.\n\n- First point\n  - Supporting detail explaining the first point.\n- Second point\n  - Supporting detail explaining the second point.\n- Third point\n  - Supporting detail explaining the third point.\n",
+  "skeleton": "<!-- @meta{layout=split-panel} -->\n\n`Eyebrow context`\n\n## Headline that anchors the panel.\n\nOne-sentence framing paragraph explaining what the points cover.\n\n- First point\n  - Supporting detail explaining the first point.\n- Second point\n  - Supporting detail explaining the second point.\n- Third point\n  - Supporting detail explaining the third point.\n",
   "anatomyBlock": "split-panel",
-  "sample": "<!-- _class: split-panel -->\n\n`statement · split-panel`\n\n## The featured panel makes the claim; this side supports it.\n\nA dark left panel carries the headline, and the bright right column holds up to three supporting items.\n\n- Two zones, one argument\n  - The split is hierarchy, not decoration — the panel claims, the column proves.\n- Three items is the comfort zone\n  - A short title and one supporting line each, like this.\n- Prose stays on a budget\n  - Sixteen words per item keeps the column scannable.\n",
+  "sample": "<!-- @meta{layout=split-panel} -->\n\n`statement · split-panel`\n\n## The featured panel makes the claim; this side supports it.\n\nA dark left panel carries the headline, and the bright right column holds up to three supporting items.\n\n- Two zones, one argument\n  - The split is hierarchy, not decoration — the panel claims, the column proves.\n- Three items is the comfort zone\n  - A short title and one supporting line each, like this.\n- Prose stays on a budget\n  - Sixteen words per item keeps the column scannable.\n",
   "whenToUse": [
     {
       "title": "One feature, supporting points",
@@ -236,92 +236,92 @@
     "metric": {
       "label": "metric",
       "summary": "Light panel behind one hero number.",
-      "sample": "<!-- _class: split-panel metric -->\n\n`split-panel metric`\n\n## 16<em>wpi</em>\n\nWords per item — the budget this layout holds its supporting column to.\n\n- The panel flips light\n  - metric flips the panel light behind one hero number.\n- The number claims\n  - Keep support brief — two items beside a figure.\n"
+      "sample": "<!-- @meta{layout=split-panel, class=metric} -->\n\n`split-panel metric`\n\n## 16<em>wpi</em>\n\nWords per item — the budget this layout holds its supporting column to.\n\n- The panel flips light\n  - metric flips the panel light behind one hero number.\n- The number claims\n  - Keep support brief — two items beside a figure.\n"
     },
     "pullquote": {
       "label": "pullquote",
       "summary": "Half the slide to one quotation.",
-      "sample": "<!-- _class: split-panel pullquote -->\n\n> pullquote gives half the slide to one voice, and the other half to what it means.\n\n`split-panel pullquote · the layout, quoted`\n\n- The quote claims\n  - Display italic on the dark panel; keep it under twenty-five words.\n- The column interprets\n  - Two items that say why the words matter, not who said them again.\n"
+      "sample": "<!-- @meta{layout=split-panel, class=pullquote} -->\n\n> pullquote gives half the slide to one voice, and the other half to what it means.\n\n`split-panel pullquote · the layout, quoted`\n\n- The quote claims\n  - Display italic on the dark panel; keep it under twenty-five words.\n- The column interprets\n  - Two items that say why the words matter, not who said them again.\n"
     },
     "steps": {
       "label": "steps",
       "summary": "The panel anchors a numbered phase.",
-      "sample": "<!-- _class: split-panel steps -->\n\n`02`\n\n## steps\n\nThe left panel anchors a phase; the column numbers its moves.\n\n1. Watermark the phase\n   - The inline-code number becomes the panel's backdrop.\n2. Number the column\n   - An ordered list reads as sequence — three steps fit.\n3. Keep steps parallel\n   - Verb-first titles, one supporting line each.\n"
+      "sample": "<!-- @meta{layout=split-panel, class=steps} -->\n\n`02`\n\n## steps\n\nThe left panel anchors a phase; the column numbers its moves.\n\n1. Watermark the phase\n   - The inline-code number becomes the panel's backdrop.\n2. Number the column\n   - An ordered list reads as sequence — three steps fit.\n3. Keep steps parallel\n   - Verb-first titles, one supporting line each.\n"
     },
     "watermark": {
       "label": "watermark",
       "summary": "Accent panel, letterform, h3 rubric.",
-      "sample": "<!-- _class: split-panel watermark -->\n\n## Watermark\n\n### The heading's first letter becomes the panel\n\n- The accent panel decorates\n  - A large letterform behind the heading — presence without a photo.\n- The h3 subtitles\n  - One line naming what the slide surveys.\n- The column carries the content\n  - Same three-item budget as the default split.\n"
+      "sample": "<!-- @meta{layout=split-panel, class=watermark} -->\n\n## Watermark\n\n### The heading's first letter becomes the panel\n\n- The accent panel decorates\n  - A large letterform behind the heading — presence without a photo.\n- The h3 subtitles\n  - One line naming what the slide surveys.\n- The column carries the content\n  - Same three-item budget as the default split.\n"
     },
     "mirror": {
       "label": "mirror",
       "summary": "Featured panel moves right.",
-      "sample": "<!-- _class: split-panel mirror -->\n\n`split-panel mirror`\n\n## mirror puts the featured panel on the right.\n\nSame anatomy, flipped — for when the deck's rhythm wants the claim to land late.\n\n- Reading order still works\n  - The eye crosses support first, then lands on the panel's claim.\n- Use it sparingly\n  - One mirror per section keeps the flip meaningful.\n"
+      "sample": "<!-- @meta{layout=split-panel, class=mirror} -->\n\n`split-panel mirror`\n\n## mirror puts the featured panel on the right.\n\nSame anatomy, flipped — for when the deck's rhythm wants the claim to land late.\n\n- Reading order still works\n  - The eye crosses support first, then lands on the panel's claim.\n- Use it sparingly\n  - One mirror per section keeps the flip meaningful.\n"
     },
     "qr": {
       "label": "qr",
       "summary": "Payload bullet becomes a code.",
-      "sample": "<!-- _class: split-panel qr -->\n\n`split-panel qr`\n\n## The payload bullet becomes a code on the panel.\n\nA bare URL auto-resolves; the caption line labels the scan.\n\n- https://laticent.io/components/split-panel `qr`\n- Scan for this layout's docs `caption`\n"
+      "sample": "<!-- @meta{layout=split-panel, class=qr} -->\n\n`split-panel qr`\n\n## The payload bullet becomes a code on the panel.\n\nA bare URL auto-resolves; the caption line labels the scan.\n\n- https://laticent.io/components/split-panel `qr`\n- Scan for this layout's docs `caption`\n"
     },
     "proof": {
       "label": "proof",
       "summary": "Scenario signal + two paired proof cards, filling the column top to bottom. Narrows the claim panel to 31% and steps the claim heading to the h2 tier — the evidence side carries three stacked regions where the base carries one list.",
-      "sample": "<!-- _class: split-panel proof -->\n\n`Level 1 · Remembering`\n\n## Execute with accuracy.\n\n*How is this done?* You recall syntax, patterns, and standards — the path is known, and the job is to follow it without error.\n\n- You know you're here when\n  - You ship on an existing API and rework is rare.\n- Follows examples well\n  - Compiles, runs, and tests locally with confidence.\n- Works from brief tickets\n  - Consistent quality without hand-holding.\n"
+      "sample": "<!-- @meta{layout=split-panel, class=proof} -->\n\n`Level 1 · Remembering`\n\n## Execute with accuracy.\n\n*How is this done?* You recall syntax, patterns, and standards — the path is known, and the job is to follow it without error.\n\n- You know you're here when\n  - You ship on an existing API and rework is rare.\n- Follows examples well\n  - Compiles, runs, and tests locally with confidence.\n- Works from brief tickets\n  - Consistent quality without hand-holding.\n"
     },
     "capstone": {
       "label": "capstone",
       "summary": "Composes with `proof`: the signal reads as a quoted card, the two proof points read as plain top-rule pillars — the sequence's climactic, most-earned entry.",
-      "sample": "<!-- _class: split-panel capstone -->\n\n`Level 6 · Creating`\n\n## Build what didn't exist before.\n\n*What should exist?* You synthesize new frameworks, platforms and operating models — what you produce becomes the standard.\n\n- The signal\n  - Teams across the enterprise adopt your framework as their foundation.\n- Reference architecture\n  - The implementation exists and is validated.\n- Organization-wide adoption\n  - Measurable outcomes follow.\n"
+      "sample": "<!-- @meta{layout=split-panel, class=capstone} -->\n\n`Level 6 · Creating`\n\n## Build what didn't exist before.\n\n*What should exist?* You synthesize new frameworks, platforms and operating models — what you produce becomes the standard.\n\n- The signal\n  - Teams across the enterprise adopt your framework as their foundation.\n- Reference architecture\n  - The implementation exists and is validated.\n- Organization-wide adoption\n  - Measurable outcomes follow.\n"
     },
     "cat-1": {
       "label": "cat-1",
       "summary": "Override: pins this slide to the theme's categorical slot #1 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order.",
-      "sample": "<!-- _class: split-panel cat-1 -->\n\n`Stage 1 of 8`\n\n## Discover the real problem.\n\n- Talk to the people living with it\n  - Five conversations beat one survey.\n- Write down what surprised you\n  - The surprise is usually the actual problem.\n"
+      "sample": "<!-- @meta{layout=split-panel, class=cat-1} -->\n\n`Stage 1 of 8`\n\n## Discover the real problem.\n\n- Talk to the people living with it\n  - Five conversations beat one survey.\n- Write down what surprised you\n  - The surprise is usually the actual problem.\n"
     },
     "cat-2": {
       "label": "cat-2",
       "summary": "Override: pins this slide to the theme's categorical slot #2 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order.",
-      "sample": "<!-- _class: split-panel cat-2 -->\n\n`Stage 2 of 8`\n\n## Define what \"done\" means.\n\n- One sentence, not a document\n  - If it needs a meeting to explain, it isn't defined yet.\n- Name what's explicitly out of scope\n  - The edges matter more than the center.\n"
+      "sample": "<!-- @meta{layout=split-panel, class=cat-2} -->\n\n`Stage 2 of 8`\n\n## Define what \"done\" means.\n\n- One sentence, not a document\n  - If it needs a meeting to explain, it isn't defined yet.\n- Name what's explicitly out of scope\n  - The edges matter more than the center.\n"
     },
     "cat-3": {
       "label": "cat-3",
       "summary": "Override: pins this slide to the theme's categorical slot #3 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order.",
-      "sample": "<!-- _class: split-panel cat-3 -->\n\n`Stage 3 of 8`\n\n## Design the smallest real version.\n\n- Cut until it's uncomfortable\n  - Comfortable scope is usually still too big.\n- Sketch before you spec\n  - A rough picture surfaces disagreement a document hides.\n"
+      "sample": "<!-- @meta{layout=split-panel, class=cat-3} -->\n\n`Stage 3 of 8`\n\n## Design the smallest real version.\n\n- Cut until it's uncomfortable\n  - Comfortable scope is usually still too big.\n- Sketch before you spec\n  - A rough picture surfaces disagreement a document hides.\n"
     },
     "cat-4": {
       "label": "cat-4",
       "summary": "Override: pins this slide to the theme's categorical slot #4 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order.",
-      "sample": "<!-- _class: split-panel cat-4 -->\n\n`Stage 4 of 8`\n\n## Build the thing you designed.\n\n- Ship the ugly path first\n  - It finds the real risk; the happy path is easy.\n- Keep a running list of shortcuts taken\n  - Nothing is forgotten faster than a deliberate shortcut.\n"
+      "sample": "<!-- @meta{layout=split-panel, class=cat-4} -->\n\n`Stage 4 of 8`\n\n## Build the thing you designed.\n\n- Ship the ugly path first\n  - It finds the real risk; the happy path is easy.\n- Keep a running list of shortcuts taken\n  - Nothing is forgotten faster than a deliberate shortcut.\n"
     },
     "cat-5": {
       "label": "cat-5",
       "summary": "Override: pins this slide to the theme's categorical slot #5 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order.",
-      "sample": "<!-- _class: split-panel cat-5 -->\n\n`Stage 5 of 8`\n\n## Validate with the people it's for.\n\n- Watch, don't narrate\n  - What they do matters more than what they say they'd do.\n- One real user beats five imagined ones\n  - A single honest session outweighs a week of speculation.\n"
+      "sample": "<!-- @meta{layout=split-panel, class=cat-5} -->\n\n`Stage 5 of 8`\n\n## Validate with the people it's for.\n\n- Watch, don't narrate\n  - What they do matters more than what they say they'd do.\n- One real user beats five imagined ones\n  - A single honest session outweighs a week of speculation.\n"
     },
     "cat-6": {
       "label": "cat-6",
       "summary": "Override: pins this slide to the theme's categorical slot #6 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order.",
-      "sample": "<!-- _class: split-panel cat-6 -->\n\n`Stage 6 of 8`\n\n## Launch to a small, real audience.\n\n- Small enough to fix fast\n  - A limited launch turns mistakes into hours, not weeks.\n- Tell people it's early\n  - Set the expectation and the feedback gets more honest.\n"
+      "sample": "<!-- @meta{layout=split-panel, class=cat-6} -->\n\n`Stage 6 of 8`\n\n## Launch to a small, real audience.\n\n- Small enough to fix fast\n  - A limited launch turns mistakes into hours, not weeks.\n- Tell people it's early\n  - Set the expectation and the feedback gets more honest.\n"
     },
     "cat-7": {
       "label": "cat-7",
       "summary": "Override: pins this slide to the theme's categorical slot #7 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order.",
-      "sample": "<!-- _class: split-panel cat-7 -->\n\n`Stage 7 of 8`\n\n## Scale what actually worked.\n\n- Scale the mechanism, not the guess\n  - Confirm why it worked before you multiply it.\n- Expect the edges to break first\n  - Scale finds every assumption that only held at small size.\n"
+      "sample": "<!-- @meta{layout=split-panel, class=cat-7} -->\n\n`Stage 7 of 8`\n\n## Scale what actually worked.\n\n- Scale the mechanism, not the guess\n  - Confirm why it worked before you multiply it.\n- Expect the edges to break first\n  - Scale finds every assumption that only held at small size.\n"
     },
     "cat-8": {
       "label": "cat-8",
       "summary": "Override: pins this slide to the theme's categorical slot #8 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order.",
-      "sample": "<!-- _class: split-panel cat-8 -->\n\n`Stage 8 of 8`\n\n## Sustain it without you in the loop.\n\n- Write down what only you know\n  - If it lives in your head, it isn't sustained yet.\n- Hand off the decision, not just the task\n  - Ownership transfers when someone else can say no.\n"
+      "sample": "<!-- @meta{layout=split-panel, class=cat-8} -->\n\n`Stage 8 of 8`\n\n## Sustain it without you in the loop.\n\n- Write down what only you know\n  - If it lives in your head, it isn't sustained yet.\n- Hand off the decision, not just the task\n  - Ownership transfers when someone else can say no.\n"
     },
     "panel-narrow": {
       "label": "panel-narrow",
       "summary": "Narrows the panel to 0.8 of the variant's width; the supporting column takes the room.",
-      "sample": "<!-- _class: split-panel panel-narrow -->\n\n`split-panel panel-narrow`\n\n## A narrower panel gives the support more room.\n\nThe panel still carries the claim; the column carries the detail.\n\n- Four points fit\n  - The supporting column widens as the panel narrows.\n- The claim stays short\n  - A narrow panel wraps a long heading early.\n"
+      "sample": "<!-- @meta{layout=split-panel, class=panel-narrow} -->\n\n`split-panel panel-narrow`\n\n## A narrower panel gives the support more room.\n\nThe panel still carries the claim; the column carries the detail.\n\n- Four points fit\n  - The supporting column widens as the panel narrows.\n- The claim stays short\n  - A narrow panel wraps a long heading early.\n"
     },
     "panel-wide": {
       "label": "panel-wide",
       "summary": "Widens the panel to 1.3 of the variant's width (at most 62%); for a claim that is the argument.",
-      "sample": "<!-- _class: split-panel panel-wide -->\n\n`split-panel panel-wide`\n\n## A wider panel lets the claim breathe.\n\nUse it when the heading is the argument and the support is brief.\n\n- Two points at most\n  - The supporting column narrows as the panel widens.\n"
+      "sample": "<!-- @meta{layout=split-panel, class=panel-wide} -->\n\n`split-panel panel-wide`\n\n## A wider panel lets the claim breathe.\n\nUse it when the heading is the argument and the support is brief.\n\n- Two points at most\n  - The supporting column narrows as the panel widens.\n"
     }
   },
   "commonMistakes": [
@@ -347,7 +347,7 @@
     },
     {
       "mistake": "Setting a long deck-level `header:` or `footer:` on a deck that uses this layout.",
-      "fix": "The running header and footer stay on the field they start on — the panel, or the supporting zone under `mirror`. Each holds one line; past that it ends in an ellipsis and the export reports it as a chrome cut (author-only, no reader pill). Measured at 16:9, the default panel holds about 46 characters of header and 49 of footer; `steps` about 37 and 39, `pullquote` about 61 and 65, and `mirror`'s supporting zone about 63 and 67. Shorten it, or set a shorter one on these slides with `<!-- _header: … -->` / `<!-- _footer: … -->`. On a portrait deck the panels stack: the header takes the top field's ink and the footer the bottom field's, so each stays legible whichever field it lands on. The portrait footer spans the page and still holds one line: about 48 characters at the `portrait` size, and fewer on a page split into a run, where it stops before the k-of-N pills (about 41 beside a three-page rail)."
+      "fix": "The running header and footer stay on the field they start on — the panel, or the supporting zone under `mirror`. Each holds one line; past that it ends in an ellipsis and the export reports it as a chrome cut (author-only, no reader pill). Measured at 16:9, the default panel holds about 46 characters of header and 49 of footer; `steps` about 37 and 39, `pullquote` about 61 and 65, and `mirror`'s supporting zone about 63 and 67. Shorten it, or set a shorter one on these slides with `<!-- @meta{header=\"…\"} -->` / `<!-- @meta{footer=\"…\"} -->`. On a portrait deck the panels stack: the header takes the top field's ink and the footer the bottom field's, so each stays legible whichever field it lands on. The portrait footer spans the page and still holds one line: about 48 characters at the `portrait` size, and fewer on a page split into a run, where it stops before the k-of-N pills (about 41 beside a three-page rail)."
     },
     {
       "mistake": "Expecting a split-panel slide to drop the deck's `finish:`, or to show it on one side only.",
@@ -356,7 +356,7 @@
   ],
   "stressDoc": {
     "summary": "Three items at full budget.",
-    "sample": "<!-- _class: split-panel -->\n\n`split-panel · stress`\n\n## Three full items is this column's ceiling.\n\nThe framing paragraph can run two lines when every item below uses its whole budget, but nothing here may run longer.\n\n- First item at full width\n  - Sixteen words of support is the budget, and this line is written to land exactly on it, deliberately.\n- Second item, same weight\n  - Parallel structure keeps a maxed column readable; vary the openings and the scan collapses.\n- Third item closes the set\n  - A fourth would push past the footer — split the slide instead.\n"
+    "sample": "<!-- @meta{layout=split-panel} -->\n\n`split-panel · stress`\n\n## Three full items is this column's ceiling.\n\nThe framing paragraph can run two lines when every item below uses its whole budget, but nothing here may run longer.\n\n- First item at full width\n  - Sixteen words of support is the budget, and this line is written to land exactly on it, deliberately.\n- Second item, same weight\n  - Parallel structure keeps a maxed column readable; vary the openings and the scan collapses.\n- Third item closes the set\n  - A fourth would push past the footer — split the slide instead.\n"
   },
   "variantDecisionRule": [
     {

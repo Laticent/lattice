@@ -112,10 +112,10 @@ function probeDeck(m, probes) {
       for (const surf of VARIANT_PROBED) for (const t of probes[surf]) add(withV, key, t);
     }
   }
-  // `paginate: false`: page numbers are on by default, and the number on slide 10 onward is two
+  // `pagination: false`: page numbers are on by default, and the number on slide 10 onward is two
   // digits wide, so its box differs from the bare slide's and every token probed past slide 9
   // read as an effect on every surface. The control twins (slides 1 and 2) never saw it.
-  return { src: `---\ntheme: indaco\npaginate: false\n---\n\n${slides.join('\n---\n\n')}`, roster };
+  return { src: `---\ntheme: indaco\npagination: false\n---\n\n${slides.join('\n---\n\n')}`, roster };
 }
 
 function render(src, tag, assetDir) {

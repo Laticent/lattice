@@ -441,7 +441,9 @@ section [data-lattice-painting] > .lattice-paint-brush::before {
   bottom: 0;
   left: 0;
   width: calc(100% + 64cqi);
-  will-change: transform;
+  /* No `will-change`: the running sweep gets its layer from its own animation, and a standing hint kept a layer
+   * wider than the slide alive after the picture decoded, paid at the frame's own size in WebKit
+   * (lib/core/screen-canvas.mjs; engineering/gotchas/memory-profiling.md). */
   background-image:
     repeating-linear-gradient(0deg, color-mix(in oklab, var(--bg-alt, var(--bg)) 55%, transparent) 0 1px, transparent 1px 3px, color-mix(in oklab, var(--bg-alt, var(--bg)) 25%, transparent) 3px 4px, transparent 4px 7px),
     repeating-linear-gradient(0deg, transparent 0 5px, color-mix(in oklab, var(--bg-alt, var(--bg)) 35%, transparent) 5px 6.5px, transparent 6.5px 11px),
@@ -973,7 +975,7 @@ section.dark {
  *
  * THE `spectrum:` AND `accent:` REGISTERS WERE THE SAME DEFECT IN THREE MORE RULES,
  * and they are fixed now (#2291) -- this paragraph used to say they were not.
- * section.dark.no-spectrum (0,2,1), section.dark:is(.spectrum-edge-*) (0,3,1) and
+ * section.dark.no-spectrum (0,2,1), section.dark:is(.spectrum-<edge>) (0,3,1) and
  * section.accent.dark (0,2,1) all out-specified a frame's own canvas, so unlike this
  * rule no exemption list could have saved the frame: they won on SPECIFICITY, not on
  * order, and a dark title/closing/topic/cover flattened under `spectrum: off`.
@@ -2521,9 +2523,11 @@ section.overflow:not([data-lattice-overflow-marker="reader"]):not([data-lattice-
 section > .marker-rail {
   position: absolute !important;
   /* The rail sits one bar width above the SLIDE's bottom edge in every placement and centers on the slide,
-     not on the padding box a bar border shrinks: it holds still under every `spectrum-edge:` and never
+     not on the padding box a bar border shrinks: it holds still under every `spectrum:` edge and never
      sits inside a bottom bar (check:edge-shift). Its height gives up the same bar width below, so it
-     still ends where the footer's strip ends. */
+     still ends where the footer's strip ends. Its HEIGHT is the inset less the bar's ROOM (`--_bar-room`),
+     not its drawn weight: under a `band` (`spectrum:` weight) the strip keeps its full height and type and
+     rises with the band, rather than shrinking to the few pixels a heavy bar leaves of the inset. */
   bottom: calc(var(--_bar-w) - var(--_bar-b, 0px));
   left: calc(50% + (var(--_bar-r, 0px) - var(--_bar-l, 0px)) / 2);
   transform: translateX(-50%);
@@ -2581,9 +2585,9 @@ section > .marker-rail {
      overflowed — where it yields 13.2px on 1080, i.e. 1.22% of frame width against hd's
      1.17%. The marker reads the same size relative to the slide on every preset, which is
      what it always should have done. */
-  height: calc(var(--frame-inset-y) - var(--_bar-w));
+  height: calc(var(--frame-inset-y) - var(--_bar-room));
   align-items: center;
-  font-size: min(var(--fs-meta), calc((var(--frame-inset-y) - var(--_bar-w)) * 0.65));
+  font-size: min(var(--fs-meta), calc((var(--frame-inset-y) - var(--_bar-room)) * 0.65));
   z-index: var(--z-alarm);
   /* The capsule rises from the bottom edge, so the TOP corners round. */
   border-top-left-radius: var(--radius-md);
@@ -3180,7 +3184,7 @@ section.logo-plate img.deck-logo {
    lib/base/base.docs.md and engineering/decisions/2026-06-16-social-mobile-portrait-sizes.md. */
 section.safe[data-orientation='portrait'],
 section.safe[data-orientation='square'] {
-  /* Gives up the bar border like the base padding, so the safe box holds under every `spectrum-edge:`. */
+  /* Gives up the bar border like the base padding, so the safe box holds under every `spectrum:` edge. */
   padding-top: calc(max(var(--safe-top, 0px), calc(var(--_sec-1cqi, 1cqi) * 6.875)) + var(--_bar-room-t, 0px) - var(--_bar-t, 0px));
   padding-bottom: calc(max(var(--safe-bottom, 0px), calc(var(--_sec-1cqi, 1cqi) * 6.875)) - var(--_bar-b, 0px));
 }
@@ -3241,9 +3245,13 @@ section.safe[data-orientation='square'] :is(.cell-footer, .tile-meta, [class*='p
    paints `currentColor` and carries no fill, so it works on the flood and in the print band. */
 .split-cover-lead {
   /* Gap above the lead-in. <div>, no bg, in a no-gap flex column — padding-top reads
-   * identically to the old margin-top, and measures cleanly (HARD RULE #20). */
+   * identically to the old margin-top, and measures cleanly (HARD RULE #20).
+   * A BLOCK, so the arrow below runs inline after the last word. It was a flex row, which made
+   * the text one flex item and the arrow another: once the lead-in wrapped (three lines on a
+   * story box at a hall venue) the arrow floated at the far right edge, centered on the whole
+   * block and detached from the words it points past. `balance` evens the lines a wrap makes. */
   padding-top: var(--sp-lg); font-size: var(--fs-emphasis); letter-spacing: 0.02em; opacity: 0.9;
-  display: flex; align-items: center; gap: 0.4em;
+  text-wrap: balance;
 }
 /* The forward arrow, DRAWN (HARD RULE #29). It was a typed `&rarr;` written into the rendered
    DOM — an entity, which is why `checkTypedGlyphs` never saw it: that gate matches literal
@@ -3252,10 +3260,15 @@ section.safe[data-orientation='square'] :is(.cell-footer, .tile-meta, [class*='p
    Sized in `em` so it tracks the lead-in's type, and painted `currentColor` so it works on the
    accent cover and in the print band without a second rule (HARD RULE #3). */
 .split-cover-lead::after {
-  content: ""; flex: none; width: 1em; height: 1em;
-  background-color: currentColor;
+  /* Inline after the last word. The 0.4em space before it is the box's own leading padding,
+   * which the paint and the mask both leave empty (`content-box`), so it needs no margin. */
+  content: ""; display: inline-block; box-sizing: content-box;
+  width: 1em; height: 1em; padding-inline-start: 0.4em; vertical-align: -0.12em;
+  background-color: currentColor; background-clip: content-box;
   -webkit-mask: var(--shape-arrow-right) var(--shape-paint);
           mask: var(--shape-arrow-right) var(--shape-paint);
+  -webkit-mask-origin: content-box; mask-origin: content-box;
+  -webkit-mask-clip: content-box; mask-clip: content-box;
 }
 /* Shares the deck pagination's baseline (bottom-right, vertically centered on the page
    number) but stands well clear of it horizontally — the rail and the page count are two
@@ -4227,7 +4240,7 @@ section.form.lat-split-cards.lat-split-cards > .lat-split-note > .below-note > p
    spec: a `border-radius` box draws a hard rectangular bar over a rounded body,
    while `clip-path: inset(0 round R)` clips the WHOLE element — border image
    included — so the bar hugs the corner exactly. That holds for the four
-   `spectrum-edge-*` rails too, which are the same border-image on another side, so
+   `spectrum-<edge>` rails too, which are the same border-image on another side, so
    one property covers every placement with no per-edge repaint to keep in step.
 
    Everything else on the slide is already inside the clip for free: `section` is
@@ -4329,7 +4342,7 @@ section.corners-square {
  * THE SPECTRUM STAYS THE EDGE on whichever side it sits. The keyline is a border whose
  * per-side width is a flag, and a side carrying the brand bar sets its flag to 0, so the bar is that side's
  * edge and nothing doubles it. The side flags are set IN THE RULES THAT PLACE THE BAR — the
- * default top bar here, `spectrum-edge-*` and `spectrum: off` in base.variants.css, the
+ * default top bar here, `spectrum-<edge>` and `spectrum: off` in base.variants.css, the
  * frames that drop the bar (title, closing, divider, topic, split-panel, split-compare) in
  * their own styles — so the two can never disagree about where the bar is.
  * (test/unit/tools/slide-frame-hosts.test.js pins the co-location.)

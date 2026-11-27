@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: cuoio
-paginate: true
+pagination: true
 header: "Lattice · Coda everywhere"
 meta: "The coda · key insight, note, caption"
 ---

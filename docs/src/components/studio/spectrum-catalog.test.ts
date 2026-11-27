@@ -3,8 +3,12 @@
 // never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
 import { describe, expect, it } from 'vitest';
 // The engine's single source of truth for the spectrum value set (CommonJS).
-import { SPECTRUM_NAMES } from '../../../../lib/core/resolve-spectrum.js';
+import { SPECTRUM_AXES } from '../../../../lib/core/resolve-spectrum.js';
+
 import { activeSpectrum, SPECTRA } from './spectrum-catalog';
+
+// The style axis of `spectrum:`.
+const SPECTRUM_NAMES: readonly string[] = SPECTRUM_AXES.style;
 
 // Rot-guard: the Studio display catalog (spectrum-catalog.ts) MUST stay in step with the
 // engine SPECTRUM_NAMES. Without this, a register change silently drifts the picker (a
@@ -28,8 +32,8 @@ describe('spectrum-catalog ↔ SPECTRUM_NAMES', () => {
 	});
 
 	it('activeSpectrum falls back to the rainbow default for unknown / empty', () => {
-		expect(activeSpectrum('nonsense').name).toBe('on');
-		expect(activeSpectrum('').name).toBe('on');
+		expect(activeSpectrum('nonsense').name).toBe('rainbow');
+		expect(activeSpectrum('').name).toBe('rainbow');
 		expect(activeSpectrum('solid').name).toBe('solid');
 	});
 });

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { healSelections } from '../lib/model-retired.js';
 import { readVoiceSelection, selectChat, selectVoice, UNSET_VOICE, VOICE_SELECTION_KEY } from '../lib/model-selection.js';
+import { fakeKey } from '../test/fake-key';
 import { createVoiceModel, listGeminiVoiceCatalog } from './voice-model.js';
 
 // The model spine, voice half: the Studio's voice is the stored VOICE selection, resolved and
@@ -166,7 +167,7 @@ describe('model spine — Gemini direct voice', () => {
 			fetchImpl,
 			onModelGone,
 			onBilling,
-			selection: { read: readVoiceSelection, select: selectVoice, keyState: () => 'ready', readKey: (p: string) => (p === 'gemini' ? 'AIzaTestKey000000000000000' : 'sk-or-v1-test') },
+			selection: { read: readVoiceSelection, select: selectVoice, keyState: () => 'ready', readKey: (p: string) => (p === 'gemini' ? fakeKey('AIza', 'TestKey000000000000000') : 'sk-or-v1-test') },
 		}) as unknown as V & { synthFor: (o: { rung: string; text: string }) => Promise<{ ok: boolean; bytes: Blob | null; key: string; error?: string }> };
 	}
 
@@ -183,7 +184,7 @@ describe('model spine — Gemini direct voice', () => {
 		expect(out.bytes?.type).toBe('audio/wav');
 		expect(calls).toHaveLength(1);
 		expect(calls[0].url).toBe('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash-tts:generateContent');
-		expect((calls[0].init?.headers as Record<string, string>)['x-goog-api-key']).toBe('AIzaTestKey000000000000000');
+		expect((calls[0].init?.headers as Record<string, string>)['x-goog-api-key']).toBe(fakeKey('AIza', 'TestKey000000000000000'));
 		expect(JSON.parse(String(calls[0].init?.body))).toEqual({
 			contents: [{ parts: [{ text: 'Hello there.' }] }],
 			generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } } },
@@ -199,7 +200,7 @@ describe('model spine — Gemini direct voice', () => {
 			keyPrefix: 'studio',
 			onSynthesized: made,
 			fetchImpl: async () => Response.json({ candidates: [{ content: { parts: [{ inlineData: { mimeType: 'audio/wav', data: RIFF } }] } }] }),
-			selection: { read: readVoiceSelection, select: selectVoice, keyState: () => 'ready', readKey: () => 'AIzaTestKey000000000000000' },
+			selection: { read: readVoiceSelection, select: selectVoice, keyState: () => 'ready', readKey: () => fakeKey('AIza', 'TestKey000000000000000') },
 		}) as unknown as V & { synthFor: (o: { rung: string; text: string }) => Promise<{ ok: boolean }> };
 		expect((await v.synthFor({ rung: 'gemini', text: 'Hello there.' })).ok).toBe(true);
 		expect((await v.synthFor({ rung: 'gemini', text: 'Hello there.' })).ok).toBe(true);
@@ -252,7 +253,7 @@ describe('model spine — Gemini direct voice', () => {
 				if (url.includes('3.8-flash-lite-tts:generateContent')) return Response.json({ error: { code: 404, message: 'models/gemini-3.8-flash-lite-tts is not found' } }, { status: 404 });
 				return Response.json({ candidates: [{ content: { parts: [{ inlineData: { mimeType: 'audio/wav', data: RIFF } }] } }] });
 			},
-			selection: { read: readVoiceSelection, select: selectVoice, keyState: () => 'ready', readKey: () => 'AIzaTestKey000000000000000', heal: healSelections },
+			selection: { read: readVoiceSelection, select: selectVoice, keyState: () => 'ready', readKey: () => fakeKey('AIza', 'TestKey000000000000000'), heal: healSelections },
 		}) as unknown as V & { synthFor: (o: { rung: string; text: string }) => Promise<{ ok: boolean }> };
 		expect((await v.synthFor({ rung: 'gemini', text: 'One.' })).ok).toBe(false);
 		await vi.waitFor(() => expect(readVoiceSelection()).toMatchObject({ provider: 'gemini', model: 'gemini-3.9-flash-lite-tts', voice: 'Puck' }));
@@ -310,7 +311,7 @@ describe('model spine — Gemini direct voice', () => {
 			const token = new URL(url).searchParams.get('page_token') ?? '';
 			return Response.json(pages[token]);
 		};
-		const c = await listGeminiVoiceCatalog('AIzaTestKey000000000000000', fetchImpl as unknown as typeof fetch);
+		const c = await listGeminiVoiceCatalog(fakeKey('AIza', 'TestKey000000000000000'), fetchImpl as unknown as typeof fetch);
 		expect(c.voices).toEqual(['achernar', 'kore', 'zephyr']);
 		expect(seen.filter((u) => u.includes('/voices?'))).toHaveLength(3);
 	});

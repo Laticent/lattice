@@ -319,7 +319,7 @@ test('the Library adds a clip from its own picker, and the Images tab does not l
 	await page.getByRole('tab', { name: 'Media', exact: true }).click();
 	await page.getByRole('button', { name: 'Filter' }).click();
 	await page.getByRole('menuitemradio', { name: 'Videos' }).click();
-	await page.locator('input[type=file][accept*="video"]').first().setInputFiles({ name: 'Site Visit.webm', mimeType: 'video/webm', buffer: clip });
+	await page.getByTestId('library-import-input').setInputFiles({ name: 'Site Visit.webm', mimeType: 'video/webm', buffer: clip });
 	await expect(page.locator('[data-media-card="site-visit"]')).toBeVisible({ timeout: 20_000 });
 	await page.getByRole('tab', { name: 'Media', exact: true }).click();
 	await page.getByRole('button', { name: 'Filter' }).click();
@@ -420,7 +420,7 @@ test("a clip's location data is overwritten before it is stored, and the clip st
 	await page.getByRole('tab', { name: 'Media', exact: true }).click();
 	await page.getByRole('button', { name: 'Filter' }).click();
 	await page.getByRole('menuitemradio', { name: 'Videos' }).click();
-	await page.locator('input[type=file][accept*="video"]').first().setInputFiles({ name: 'Site Visit.mp4', mimeType: 'video/mp4', buffer: dirty });
+	await page.getByTestId('library-import-input').setInputFiles({ name: 'Site Visit.mp4', mimeType: 'video/mp4', buffer: dirty });
 	// It was probed after cleaning: a card with a length means the cleaned clip still decodes.
 	const card = page.locator('[data-media-card="site-visit"]');
 	await expect(card).toBeVisible({ timeout: 20_000 });

@@ -2,13 +2,13 @@
 marp: true
 size: 16:9
 theme: carbone
-paginate: true
+pagination: true
 header: "Carbone · the curation"
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
-<!-- _footer: "Carbone curation · title" -->
+<!-- @meta{layout=title, header="", footer=Carbone curation · title} -->
+
+
 
 # Carbone, on par
 
@@ -18,8 +18,8 @@ The same hues in a different order, so a chart reads as several colors instead o
 
 ---
 
-<!-- _class: line -->
-<!-- _footer: "Chart cycle · light face" -->
+<!-- @meta{layout=line, footer=Chart cycle · light face} -->
+
 
 `Chart cycle · most-distinct-first`
 
@@ -52,8 +52,8 @@ The same hues in a different order, so a chart reads as several colors instead o
 
 ---
 
-<!-- _class: line dark -->
-<!-- _footer: "Chart cycle · dark face" -->
+<!-- @meta{layout=line, class=dark, footer=Chart cycle · dark face} -->
+
 
 `Chart cycle · the graphite face`
 
@@ -86,8 +86,8 @@ The same hues in a different order, so a chart reads as several colors instead o
 
 ---
 
-<!-- _class: piechart donut -->
-<!-- _footer: "Chart cycle · five slices" -->
+<!-- @meta{layout=piechart, class=donut, footer=Chart cycle · five slices} -->
+
 
 `H1 2026 · 1,840 person-hours`
 
@@ -103,8 +103,8 @@ The closest neighbors in the cycle are now 0.198 apart in OKLab, up from 0.094.
 
 ---
 
-<!-- _class: stacked-bar -->
-<!-- _footer: "Chart cycle · stacked parts" -->
+<!-- @meta{layout=stacked-bar, footer=Chart cycle · stacked parts} -->
+
 
 `Revenue mix · FY23–FY25`
 
@@ -125,8 +125,8 @@ The closest neighbors in the cycle are now 0.198 apart in OKLab, up from 0.094.
 
 ---
 
-<!-- _class: diagram -->
-<!-- _footer: "Diagram cycle · light face" -->
+<!-- @meta{layout=diagram, footer=Diagram cycle · light face} -->
+
 
 `Diagram cycle · visible fills`
 
@@ -143,8 +143,8 @@ flowchart LR
 
 ---
 
-<!-- _class: diagram dark -->
-<!-- _footer: "Diagram cycle · dark face" -->
+<!-- @meta{layout=diagram, class=dark, footer=Diagram cycle · dark face} -->
+
 
 `Diagram cycle · the graphite face`
 
@@ -161,8 +161,8 @@ flowchart LR
 
 ---
 
-<!-- _class: progress -->
-<!-- _footer: "Status pair · warn and fail" -->
+<!-- @meta{layout=progress, footer=Status pair · warn and fail} -->
+
 
 `H1 2026 · Phase 1 readiness`
 
@@ -178,9 +178,9 @@ Warn moved to amber and fail to signal red; they were orange beside coral.
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: "Carbone curation · closing" -->
+<!-- @meta{layout=closing, header="", footer=Carbone curation · closing} -->
+
+
 
 `Carbone · both faces`
 

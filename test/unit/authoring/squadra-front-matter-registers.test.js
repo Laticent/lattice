@@ -40,7 +40,7 @@ describe('the front-matter register family', () => {
   test('the did-you-mean takes the first name at the best distance, so the order decides a tie', () => {
     assert.equal(nearest('of', ['on', 'solid', 'duo', 'mono', 'off']), 'on');
     assert.equal(nearest('of', ['off', 'on']), 'off');
-    assert.equal(fixDeck(deck('spectrum: of'), { vocab }).text, deck('spectrum: on'));
+    assert.equal(fixDeck(deck('lift: of'), { vocab }).text, deck('lift: on'), '`lift:` names `on` first');
   });
 
   test('the value span survives a BOM and CRLF line ends, and the fix lands on it', () => {
@@ -124,6 +124,7 @@ describe('the front-matter register family', () => {
         }
       }
     }
-    assert.ok(compared > 1700, `compared ${compared}`);
+    // 1344 since the five spectrum rows left for the axis-register checker (2026-11-21-spectrum-keys.md).
+    assert.ok(compared > 1300, `compared ${compared}`);
   });
 });

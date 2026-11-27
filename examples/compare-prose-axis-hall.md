@@ -1,13 +1,13 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 size: portrait
 venue: hall
 header: "Lattice · compare-prose at hall"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Comparison · compare-prose`
 
@@ -17,8 +17,8 @@ At a hall venue an axis slide splits one facet card a page. Each card now sits c
 
 ---
 
-<!-- _class: compare-prose axis -->
-<!-- _footer: "axis · split one facet a page" -->
+<!-- @meta{layout=compare-prose, class=axis, footer=axis · split one facet a page} -->
+
 
 ## The second axis: how far it reaches.
 
@@ -33,8 +33,8 @@ The verb is one axis — how you think. **Reach** is the other — how far what 
 
 ---
 
-<!-- _class: compare-prose -->
-<!-- _footer: "Default pair · unchanged" -->
+<!-- @meta{layout=compare-prose, footer=Default pair · unchanged} -->
+
 
 ## Build it, or buy it.
 
@@ -45,8 +45,8 @@ The verb is one axis — how you think. **Reach** is the other — how far what 
 
 ---
 
-<!-- _class: compare-prose chosen -->
-<!-- _footer: "chosen · the verdict marked" -->
+<!-- @meta{layout=compare-prose, class=chosen, footer=chosen · the verdict marked} -->
+
 
 ## We buy, and revisit at renewal.
 
@@ -57,8 +57,8 @@ The verb is one axis — how you think. **Reach** is the other — how far what 
 
 ---
 
-<!-- _class: compare-prose vertical -->
-<!-- _footer: "vertical · stacked panes" -->
+<!-- @meta{layout=compare-prose, class=vertical, footer=vertical · stacked panes} -->
+
 
 ## Two ways to staff the launch.
 
@@ -69,6 +69,6 @@ The verb is one axis — how you think. **Reach** is the other — how far what 
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 ## A lone card stands centered.

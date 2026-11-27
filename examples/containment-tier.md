@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · containment tier"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Feature demo · containment tier`
 
@@ -15,7 +15,7 @@ A subgraph is drawn from three per-theme tokens now — fill, edge and ink. Befo
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `The three rungs`
 
@@ -33,7 +33,7 @@ flowchart LR
 
 ---
 
-<!-- _class: diagram dark -->
+<!-- @meta{layout=diagram, class=dark} -->
 
 `The case that was broken`
 
@@ -51,7 +51,7 @@ flowchart LR
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `Two rungs`
 
@@ -71,7 +71,7 @@ flowchart TB
 
 ---
 
-<!-- _class: diagram dark -->
+<!-- @meta{layout=diagram, class=dark} -->
 
 `Two rungs, dark`
 
@@ -89,7 +89,7 @@ flowchart TB
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `The other consumer`
 
@@ -108,7 +108,7 @@ kanban
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `#1311`
 
@@ -127,7 +127,7 @@ flowchart LR
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `What the gate holds`
 

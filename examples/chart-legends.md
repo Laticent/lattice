@@ -1,10 +1,10 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Chart legends, rebalanced.
 
@@ -14,7 +14,7 @@ A shared key for every color-categorical chart — one separator, one rhythm, ba
 
 ---
 
-<!-- _class: piechart -->
+<!-- @meta{layout=piechart} -->
 
 `H1 2026 · 1,840 person-hours`
 
@@ -30,7 +30,7 @@ Nearly half went to producing decks; the deciding itself was the smallest slice.
 
 ---
 
-<!-- _class: radar -->
+<!-- @meta{layout=radar} -->
 
 `[{Scale, 0..10}]`
 
@@ -59,7 +59,7 @@ A three-vendor read; the legend keys the series without crowding the diagram.
 
 ---
 
-<!-- _class: map -->
+<!-- @meta{layout=map} -->
 
 ## Where our programs reached — unevenly.
 
@@ -76,7 +76,7 @@ A wide basemap takes a wider canvas; the rail keeps its room and the spine still
 
 ---
 
-<!-- _class: quadrant cohort -->
+<!-- @meta{layout=quadrant, class=cohort} -->
 
 `[{Effort, 0..10}, {Reach, 0..100}]`
 
@@ -97,7 +97,7 @@ A wide basemap takes a wider canvas; the rail keeps its room and the spine still
 
 ---
 
-<!-- _class: piechart -->
+<!-- @meta{layout=piechart} -->
 
 `Stress test · long labels`
 
@@ -111,7 +111,7 @@ A wide basemap takes a wider canvas; the rail keeps its room and the spine still
 
 ---
 
-<!-- _class: radar dark -->
+<!-- @meta{layout=radar, class=dark} -->
 
 `[{Scale, 0..10}]`
 
@@ -134,7 +134,7 @@ A wide basemap takes a wider canvas; the rail keeps its room and the spine still
 
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # One rail. Every key.
 

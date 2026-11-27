@@ -3,7 +3,7 @@
 // Reported: "the slide I am previewing via the preview slide selection is not the slide text that is
 // in full view in the editor. I feel like the count or something is off." That is an INDEX/COUNT
 // misalignment, not staleness — and `examples/gallery-jargon.md` is the deck it was seen on. It sets
-// `paginate: true` and a running `header:`, so the deck-context gate renders the WHOLE deck and
+// `pagination: true` and a running `header:`, so the deck-context gate renders the WHOLE deck and
 // narrows by index, which is exactly the path where an index can name the wrong section.
 //
 // The deck is not perturbed with markers: each slide is identified by its OWN first heading, read out

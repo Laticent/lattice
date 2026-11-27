@@ -31,7 +31,7 @@ const ref = argv.includes('--ref') ? argv[argv.indexOf('--ref') + 1] : '242de4a'
 
 // The old module with its one dependency, from git.
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'remote-ref-old-'));
-for (const f of ['remote-ref.js', 'media-sources.js', 'css-ref.generated.js']) {
+for (const f of ['remote-ref.js', 'media-sources.js', 'css-ref.generated.js', 'css-tokens.mjs', 'css-tokens.js']) {
   try {
     fs.writeFileSync(path.join(dir, f), execFileSync('git', ['show', `${ref}:lib/core/${f}`], { cwd: ROOT, stdio: ['ignore', 'pipe', 'ignore'] }));
   } catch {

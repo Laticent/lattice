@@ -96,15 +96,15 @@ describe('inlineSiblingLeaves', () => {
 		expect(isRemoteUrl('blob:x')).toBe(true);
 	});
 	it('inlines a sibling whose one require is an ESM sibling, hoisting that import to the outer module', () => {
-		// resolve-spectrum.js requires front-matter-key.js, which reads its keys from front-matter-keys.mjs.
+		// resolve-claim.js requires front-matter-key.js, which reads its keys from front-matter-keys.mjs.
 		const dir = path.join(REPO, 'lib', 'core');
 		const imports: string[] = [];
-		const { body } = hoistEsmSiblings(fs.readFileSync(path.join(dir, 'resolve-spectrum.js'), 'utf8'));
+		const { body } = hoistEsmSiblings(fs.readFileSync(path.join(dir, 'resolve-claim.js'), 'utf8'));
 		const inlined = inlineSiblingLeaves(body, dir, imports);
 		expect(inlined).not.toBeNull();
 		expect(inlined).not.toMatch(/\brequire\s*\(/);
 		expect(imports.join('\n')).toBe("import * as __latticeEsm_front_matter_key_0_0 from './front-matter-keys.mjs';");
-		const out = viteCjsLibDev(REPO).load(path.join(dir, 'resolve-spectrum.js'));
+		const out = viteCjsLibDev(REPO).load(path.join(dir, 'resolve-claim.js'));
 		expect(out).toContain("import * as __latticeEsm_front_matter_key_0_0 from './front-matter-keys.mjs';");
 		expect(out).toContain("import * as __latticeEsm0 from './front-matter-fence.mjs';");
 	});

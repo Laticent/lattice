@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · quadrant"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # quadrant
 
@@ -15,8 +15,7 @@ Native 2×2 scatter chart — items plotted on two continuous axes.
 
 ---
 
-<!-- _class: quadrant -->
-<!-- _footer: "Default · quadrant" -->
+<!-- @meta{layout=quadrant, footer=Default · quadrant} -->
 
 `[{Effort, 0..10}, {Reach, 0..100}]`
 
@@ -42,8 +41,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 ---
 
-<!-- _class: quadrant bubble -->
-<!-- _footer: "bubble · quadrant bubble — A third value sizes each point." -->
+<!-- @meta{layout=quadrant, class=bubble, footer="bubble · quadrant bubble — A third value sizes each point."} -->
 
 `[{Effort, 0..10}, {Reach, 0..100}]`
 
@@ -63,8 +61,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 ---
 
-<!-- _class: quadrant trail -->
-<!-- _footer: "trail · quadrant trail — Arrows show where points moved from." -->
+<!-- @meta{layout=quadrant, class=trail, footer="trail · quadrant trail — Arrows show where points moved from."} -->
 
 `[{Effort, 0..10}, {Reach, 0..100}]`
 
@@ -81,8 +78,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 ---
 
-<!-- _class: quadrant cohort -->
-<!-- _footer: "cohort · quadrant cohort — Points color by group." -->
+<!-- @meta{layout=quadrant, class=cohort, footer="cohort · quadrant cohort — Points color by group."} -->
 
 `[{Effort, 0..10}, {Reach, 0..100}]`
 
@@ -104,8 +100,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 ---
 
-<!-- _class: quadrant threshold -->
-<!-- _footer: "threshold · quadrant threshold — The lines that matter, drawn." -->
+<!-- @meta{layout=quadrant, class=threshold, footer="threshold · quadrant threshold — The lines that matter, drawn."} -->
 
 `[{Effort, 0..10, 5}, {Reach, 0..100, 50}]`
 
@@ -124,8 +119,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 ---
 
-<!-- _class: quadrant magic -->
-<!-- _footer: "magic · quadrant magic — All four quadrants named." -->
+<!-- @meta{layout=quadrant, class=magic, footer="magic · quadrant magic — All four quadrants named."} -->
 
 `[{Completeness of vision, 0..100}, {Ability to execute, 0..100}]`
 
@@ -144,8 +138,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 ---
 
-<!-- _class: quadrant minimal -->
-<!-- _footer: "minimal · quadrant minimal — Just the points." -->
+<!-- @meta{layout=quadrant, class=minimal, footer="minimal · quadrant minimal — Just the points."} -->
 
 `[{Effort, 0..10}, {Reach, 0..100}]`
 
@@ -165,9 +158,8 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 ---
 
-<!-- _class: quadrant -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · quadrant — A crowded field of points — the ceiling." -->
+<!-- @meta{layout=quadrant, footer="Stress test · quadrant — A crowded field of points — the ceiling."} -->
+<!-- @meta{stress-slide} -->
 
 `[{Effort, 0..10}, {Reach, 0..100}]`
 
@@ -195,8 +187,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 ---
 
-<!-- _class: quadrant dark -->
-<!-- _footer: "Composition: dark · quadrant dark" -->
+<!-- @meta{layout=quadrant, class=dark, footer=Composition: dark · quadrant dark} -->
 
 `[{Effort, 0..10}, {Reach, 0..100}]`
 
@@ -222,8 +213,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 ---
 
-<!-- _class: quadrant compact -->
-<!-- _footer: "Composition: compact · quadrant compact" -->
+<!-- @meta{layout=quadrant, class=compact, footer=Composition: compact · quadrant compact} -->
 
 `[{Effort, 0..10}, {Reach, 0..100}]`
 
@@ -249,8 +239,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 ---
 
-<!-- _class: quadrant accent -->
-<!-- _footer: "Composition: accent · quadrant accent" -->
+<!-- @meta{layout=quadrant, class=accent, footer=Composition: accent · quadrant accent} -->
 
 `[{Effort, 0..10}, {Reach, 0..100}]`
 
@@ -276,8 +265,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 ---
 
-<!-- _class: cards-grid three claim-hero -->
-<!-- _footer: "Anti-patterns · quadrant" -->
+<!-- @meta{layout=cards-grid, class=three claim-hero, footer=Anti-patterns · quadrant} -->
 
 ## When NOT to reach for quadrant.
 
@@ -290,7 +278,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

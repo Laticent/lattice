@@ -20,10 +20,8 @@ export const SWITCH_HOMES: Readonly<Record<string, { deck: SwitchHome; slide: Sw
 	callout: { deck: { tab: 'Content', label: 'Callouts' }, slide: { tab: 'Content', label: 'Callouts' } },
 	'heading-rule': { deck: { tab: 'Accent', label: 'Heading rule' }, slide: { tab: 'Accent', label: 'Heading rule' } },
 	motion: { deck: { tab: 'Motion', label: 'Play' }, slide: { tab: 'Motion', label: 'Play' } },
-	spectrum: { deck: { tab: 'Accent', label: 'Brand bar' }, slide: { tab: 'Accent', label: 'Brand bar' } },
-	'spectrum-edge': { deck: { tab: 'Accent', label: 'Bar placement' }, slide: { tab: 'Accent', label: 'Bar placement' } },
-	'spectrum-card': { deck: { tab: 'Accent', label: 'Card rail' }, slide: { tab: 'Accent', label: 'Card rail' } },
-	'spectrum-trim': { deck: { tab: 'Accent', label: 'Structural trim' }, slide: { tab: 'Accent', label: 'Structural trim' } },
+	spectrum: { deck: { tab: 'Accent', label: 'Spectrum' }, slide: { tab: 'Accent', label: 'Spectrum' } },
+	'card-spectrum': { deck: { tab: 'Accent', label: 'Card spectrum' }, slide: { tab: 'Accent', label: 'Card spectrum' } },
 	finish: { deck: { tab: 'Look', label: 'Finish' }, slide: { tab: 'Look', label: 'Finish' } },
 	backdrop: {
 		deck: { none: '`no-backdrop` is the old spelling of `no-finish` (both clear the finish): Look ▸ Finish ▸ None writes `no-finish`.' },

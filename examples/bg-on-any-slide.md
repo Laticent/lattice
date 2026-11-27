@@ -1,12 +1,12 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · Slide backgrounds"
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
+<!-- @meta{layout=title, header=""} -->
+
 
 # A background on any slide
 
@@ -16,7 +16,7 @@ Add `bleed` to the slide, and its one picture fills it
 
 ---
 
-<!-- _class: content dark bleed -->
+<!-- @meta{layout=content, class=dark bleed} -->
 
 ![A figure by a lake under a low sun](sample:photo-wide.jpg)
 
@@ -28,7 +28,7 @@ Add `bleed` to the slide, and its one picture fills it
 
 ---
 
-<!-- _class: content dark bleed -->
+<!-- @meta{layout=content, class=dark bleed} -->
 
 ![A lone figure on a wide shore at dusk](sample:photo-pano.jpg)
 
@@ -40,7 +40,7 @@ Add `bleed` to the slide, and its one picture fills it
 
 ---
 
-<!-- _class: image -->
+<!-- @meta{layout=image} -->
 
 ## Beside the text, use the image layout.
 
@@ -50,7 +50,7 @@ On an `image` slide the same picture sits next to the words; `image mirror` puts
 
 ---
 
-<!-- _class: content dark bleed -->
+<!-- @meta{layout=content, class=dark bleed} -->
 
 ![A figure by a lake under a low sun](sample:photo-wide.jpg)
 
@@ -62,8 +62,8 @@ On an `image` slide the same picture sits next to the words; `image mirror` puts
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
+<!-- @meta{layout=closing, header=""} -->
+
 
 `One renderer, one answer`
 

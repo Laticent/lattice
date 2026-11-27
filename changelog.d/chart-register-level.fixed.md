@@ -1,1 +1,0 @@
-- Chart design language: the register pins a text-bearing mark's wash *level*, not which hue is mixed into it — so a correction that collapses a member to one hue reaches a BACKDROP mark, while a finish still may not move its depth.

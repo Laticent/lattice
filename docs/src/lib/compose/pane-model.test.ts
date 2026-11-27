@@ -191,9 +191,9 @@ describe('the pane picker and the title field write what an author would', () =>
 		const state = stateOf(MARKED);
 		const tr = applyPaneChoice(state, 0, 1, { cls: 'big-number', starter: null });
 		const out = emitDeck(tr?.doc ?? state.doc, initBaseline(state.doc));
-		// The marker keeps the comment form the slide is written in (#3136), and the spacing the author wrote: it sat right
-		// above its heading (#3128).
-		expect(out).toContain('<!-- _pane: big-number no-title -->\n### What changed');
+		// The marker is written as a record (record note §15), with the spacing the author wrote: it sat right above its
+		// heading (#3128).
+		expect(out).toContain('<!-- @meta{pane=big-number no-title} -->\n### What changed');
 		expect(out).not.toContain('_pane: list');
 		expect(applyPaneChoice(state, 0, 0, { cls: 'bar', starter: null })).toBeNull(); // already bar
 	});
@@ -209,7 +209,7 @@ describe('the pane picker and the title field write what an author would', () =>
 		const tr = applyPaneChoice(state, 0, 1, { cls: 'kpi', starter: null });
 		const out = emitDeck(tr?.doc ?? state.doc, initBaseline(state.doc));
 		// The pill closes the first pane (the engine renders it there), so it stays above the marker.
-		expect(out).toContain('`Since May`\n\n<!-- _pane: kpi -->\n\n### After');
+		expect(out).toContain('`Since May`\n\n<!-- @meta{pane=kpi} -->\n\n### After');
 		// The rewritten slide still reads as two panes, the second now `kpi`.
 		const again = slidePanes(deckToDoc(out).child(0));
 		expect(again?.panes.map((p) => p.cls)).toEqual(['content', 'kpi']);
@@ -232,6 +232,6 @@ describe('the pane picker and the title field write what an author would', () =>
 		expect(side).toContain('bar');
 		// A narrow stacked pane offers fewer components than a half-width column.
 		expect(paneChoices('stack', 35).length).toBeLessThan(side.length);
-		expect(paneMarkerText('kpi', ['no-title'])).toBe('<!-- _pane: kpi no-title -->');
+		expect(paneMarkerText('kpi', ['no-title'])).toBe('<!-- @meta{pane=kpi no-title} -->');
 	});
 });

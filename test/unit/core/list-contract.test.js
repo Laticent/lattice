@@ -12,6 +12,7 @@ const { loadAll } = require('../../../lib/components');
 const engine = require('../../../lib/engine');
 const CATALOG = require('../../../lib/core/list-contract.generated.js');
 const { listContractFor, normalizeListsDom } = require('../../../lib/core/list-contract');
+const { ownClassOf } = require('../../helpers/slide-class.js');
 
 const manifests = loadAll();
 const hasListSlot = (slots) =>
@@ -258,11 +259,11 @@ describe('R3: a neutral layout renders either marker the same (manifest samples,
   for (const m of manifests) {
     if (m.lists !== 'neutral') continue;
     const samples = [['sample', m.sample], ...Object.entries(m.variantDocs || {}).map(([k, v]) => [`variant ${k}`, v.sample])]
-      .filter(([label, md]) => md && /^\s*(?:-|\d+\.) /m.test(md) && listContractFor(md.match(/_class:\s*([^>]*)-->/)?.[1] || '')?.lists === 'neutral' && label);
+      .filter(([label, md]) => md && /^\s*(?:-|\d+\.) /m.test(md) && listContractFor(ownClassOf(md)?.payload || '')?.lists === 'neutral' && label);
     for (const [label, md] of samples) {
       test(`${m.name} ${label}`, () => {
         probes++;
-        const swapped = swapMarkers(md, listContractFor(md.match(/_class:\s*([^>]*)-->/)?.[1] || '').depths);
+        const swapped = swapMarkers(md, listContractFor(ownClassOf(md)?.payload || '').depths);
         assert.notEqual(swapped, md, 'the swap changed nothing');
         assert.equal(section(swapped), section(md));
       });

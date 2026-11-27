@@ -354,12 +354,12 @@ function linesExcept(source: string, key: string): string[] {
 	return source.split('\n').filter((l) => !re.test(l));
 }
 
-// Every flat directive a deck-scope control writes: the 23 in StudioShell + `class`
+// Every flat directive a deck-scope control writes: the 20 in StudioShell + `class`
 // (the class-token helpers) + `finish`, which the EXPORT path also clears.
 const DECK_SCOPE_KEYS = [
 	'theme', 'color-mode', 'finish', 'mode', 'motion', 'motion-style', 'motion-speed',
-	'spectrum', 'spectrum-edge', 'spectrum-card', 'spectrum-card-edge', 'rule', 'eyebrow',
-	'headline', 'spectrum-trim', 'debug', 'lang', 'size', 'paginate', 'lift', 'header',
+	'spectrum', 'card-spectrum', 'rule', 'eyebrow',
+	'headline', 'trim-spectrum', 'debug', 'lang', 'size', 'paginate', 'lift', 'header',
 	'footer', 'title', 'class',
 ];
 

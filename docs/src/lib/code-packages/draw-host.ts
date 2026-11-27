@@ -13,6 +13,7 @@
 // for it (docs/route-budget.json).
 
 import { checkDrawReply, drawFrameDocument, drawFrameEsmDocument, drawFrameEsmScripts, drawFrameScript } from '../../../../lib/packages/draw-frame-core.mjs';
+import { loadSandboxed, pageHasPolicy, SANDBOX_SHELL_FILE, SHELL_READY } from '../../../../lib/packages/sandbox-shell.mjs';
 import { DRAW_FRAME_LIBRARIES } from '../../../../lib/plugins/draw-frame-libraries.generated.mjs';
 
 /** A plugin's name: the key of a frame the registry knows. */
@@ -52,6 +53,22 @@ const mark = (name: string) => {
 	}
 };
 const OPEN_MS = 30_000;
+/**
+ * OFFLINE, ON A PAGE WITH A POLICY, the frame opens only if the browser can load the sandbox shell, a navigation that the
+ * service worker does not answer for a sandboxed frame. Firefox loads it from its HTTP cache once the page was seen online;
+ * Chrome 153 does not load it offline at all, even cached as immutable; and a failed load fires no `load` event (measured
+ * 2026-11-21/22, followups.d/3277 OFFLINE). A shell that loads says hello as it runs, within milliseconds from the worker, so offline a frame with no hello
+ * in OFFLINE_HELLO_MS has failed. Failing then, not at OPEN_MS, keeps inside the slide's own budgets (function-plot's
+ * draw: 4 s; Mermaid's render: 20 s), lets Mermaid draw from the page's own copy, and tells the visitor what happened and
+ * what to do (the owner's condition for shipping the gap).
+ */
+const OFFLINE_HELLO_MS = 2_000;
+/**
+ * Browser-neutral, and no promise a browser does not keep: Firefox opens the shell offline once the page was seen online, but
+ * Chrome 153 does not open it offline at all, cached or not (measured 2026-11-22). Reconnecting is the one fix true everywhere.
+ */
+export const OFFLINE_SHELL_MESSAGE = "Offline, this browser can't open this diagram. Reconnect to draw it.";
+let helloChecks = 0;
 /** A draw that never reached its frame because the frame was closed first (an earlier draw overran): it is safe to send again to a fresh one. */
 class NotSent extends Error {}
 
@@ -82,6 +99,14 @@ export function createDrawHost(deps: DrawHostDeps): DrawHost {
 	const subtle = deps.subtle ?? crypto.subtle;
 	const fetchText = deps.fetchText ?? (async (url: string) => (await fetch(url, { credentials: 'omit' })).text());
 	const registry = deps.libraries ?? (DRAW_FRAME_LIBRARIES as unknown as Record<string, DrawLibrary>);
+	/** Kinds whose shell could not load while offline: the next try fails at once instead of waiting again, until the page is back online. */
+	const offlineDown = new Set<string>();
+	/** OFFLINE_SHELL_MESSAGE as this kind's failure: left to the page (`drawUnavailable`) unless the kind compiles code, which the page's policy refuses. */
+	const offlineFailure = (kind: DrawKind) => {
+		const e = new Error(OFFLINE_SHELL_MESSAGE);
+		if (!registry[kind]?.unsafeEval) (e as Error & { drawUnavailable?: boolean }).drawUnavailable = true;
+		return e;
+	};
 	const libraries = new Map<DrawKind, Promise<string>>();
 	const frames = new Map<DrawKind, Promise<Frame>>();
 	let done = false;
@@ -123,6 +148,10 @@ export function createDrawHost(deps: DrawHostDeps): DrawHost {
 	}
 
 	async function openFrame(kind: DrawKind): Promise<Frame> {
+		const view = doc.defaultView ?? window;
+		const offlineShell = pageHasPolicy(view.document) && view.navigator?.onLine === false;
+		if (!offlineShell) offlineDown.delete(String(kind));
+		else if (offlineDown.has(String(kind))) throw offlineFailure(kind);
 		let html: string | null;
 		try {
 			html = await esmDocument(kind);
@@ -137,6 +166,10 @@ export function createDrawHost(deps: DrawHostDeps): DrawHost {
 			throw e;
 		}
 		mark('script-hashed');
+		// On a page with a content policy the frame loads the sandbox shell from the site, and the shell writes
+		// `html` into itself: a srcdoc would inherit the page's script policy, which refuses the frame's own
+		// hashed script. A page without one writes srcdoc as before (sandbox-shell.mjs `loadSandboxed`).
+		const shellUrl = deps.libraryUrl(SANDBOX_SHELL_FILE);
 		const frame = doc.createElement('iframe');
 		frame.setAttribute('sandbox', 'allow-scripts');
 		frame.setAttribute('aria-hidden', 'true');
@@ -155,6 +188,7 @@ export function createDrawHost(deps: DrawHostDeps): DrawHost {
 			close: () => {
 				if (f.closed) return;
 				f.closed = true;
+				unhello();
 				window.removeEventListener('message', listener);
 				for (const [, w] of f.waiting) {
 					clearTimeout(w.timer);
@@ -164,11 +198,14 @@ export function createDrawHost(deps: DrawHostDeps): DrawHost {
 				frame.remove();
 			},
 		};
+		let shellSaidHello = false;
 		let onReady: (() => void) | null = null;
 		let onFailed: (() => void) | null = null;
+		let unhello: () => void = () => {};
 		const listener = (e: MessageEvent) => {
 			// Only this frame speaks to us, and only in the shapes checkDrawReply reads.
 			if (e.source !== frame.contentWindow) return;
+			if ((e.data as { t?: unknown } | null)?.t === SHELL_READY) shellSaidHello = true;
 			const r = checkDrawReply(e.data);
 			if ('ready' in r) return onReady?.();
 			if ('failed' in r) return onFailed?.();
@@ -190,20 +227,49 @@ export function createDrawHost(deps: DrawHostDeps): DrawHost {
 		try {
 			await new Promise<void>((resolve, reject) => {
 				const timer = setTimeout(() => reject(new Error(`the ${kind} draw frame did not open within ${OPEN_MS} ms`)), OPEN_MS);
+				// The deadline decides only after every message already queued: a page busy past it would otherwise run this timer
+				// before a hello the shell sent in time. A message posted now is delivered after the frame's earlier one, once that
+				// one has reached this page (a hello still crossing between processes at the 2 s edge can lose the race: rare).
+				const helloTimer = offlineShell
+					? setTimeout(() => {
+							if (shellSaidHello) return;
+							const id = ++helloChecks;
+							const onCheck = (e: MessageEvent) => {
+								// Only this page's own check counts: another frame's look-alike message (its source is that frame's window) must not
+								// end the wait early. A post's `source` is the window whose script posted it, this one (`window`), even when `view`
+								// is another document's; jsdom leaves it null.
+								if (e.source && e.source !== window) return;
+								const d = e.data as { t?: unknown; id?: unknown } | null;
+								if (d?.t !== 'lattice-draw-hello-check' || d.id !== id) return;
+								view.removeEventListener('message', onCheck);
+								if (!shellSaidHello) reject(new Error(OFFLINE_SHELL_MESSAGE));
+							};
+							view.addEventListener('message', onCheck);
+							view.postMessage({ t: 'lattice-draw-hello-check', id }, '*');
+						}, OFFLINE_HELLO_MS)
+					: undefined;
 				onReady = () => {
 					clearTimeout(timer);
+					clearTimeout(helloTimer);
 					resolve();
 				};
 				onFailed = () => {
 					clearTimeout(timer);
+					clearTimeout(helloTimer);
 					reject(new Error(`the ${kind} draw frame could not load its library`));
 				};
-				frame.srcdoc = html;
+				unhello = loadSandboxed(frame, html as string, shellUrl, doc.defaultView ?? window);
 				doc.body.appendChild(frame);
 			});
 		} catch (e) {
 			f.close();
-			// The page may draw this kind itself: a frame that could not open says so.
+			// The page may draw this kind itself: a frame that could not open says so. Except offline, for a kind that compiles
+			// code (`unsafeEval`, function-plot): the page's policy refuses that fallback, so the kind stays with this host and the
+			// figure shows OFFLINE_SHELL_MESSAGE, which says what to do, instead of the policy's refusal.
+			if (e instanceof Error && e.message === OFFLINE_SHELL_MESSAGE) {
+				offlineDown.add(String(kind));
+				throw offlineFailure(kind);
+			}
 			if (e instanceof Error) (e as Error & { drawUnavailable?: boolean }).drawUnavailable = true;
 			throw e;
 		}

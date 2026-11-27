@@ -177,10 +177,10 @@ describe('block scalars — the body is never a key', () => {
   });
 
   test('parseFrontMatter skips the body too', () => {
-    const { directives } = parseFrontMatter('---\nstyle: |\n  section {\n    color: #c00;\n  }\npaginate: true\n---\n\n# Hi\n');
+    const { directives } = parseFrontMatter('---\nstyle: |\n  section {\n    color: #c00;\n  }\npagination: true\n---\n\n# Hi\n');
     assert.equal(directives.color, undefined);
     assert.equal(directives.style, '|');
-    assert.equal(directives.paginate, 'true');
+    assert.equal(directives.pagination, 'true');
   });
 
   test('the other indicators, a trailing comment, CRLF and a nested header', () => {

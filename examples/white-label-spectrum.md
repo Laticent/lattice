@@ -2,7 +2,7 @@
 marp: true
 theme: indaco
 spectrum: solid
-paginate: true
+pagination: true
 header: "Lattice · white-label"
 ---
 
@@ -13,7 +13,7 @@ header: "Lattice · white-label"
      `spectrum: off` (shown mid-deck via a per-slide override) removes the bar entirely;
      omitting the key is the rainbow default.} -->
 
-<!-- _class: title pinned -->
+<!-- @meta{layout=title, class=pinned} -->
 
 `A feature demo`
 
@@ -24,7 +24,7 @@ Lattice rainbow. Set the accent to a client's brand and the whole deck follows.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## The bar above is solid, not a rainbow
 
@@ -34,13 +34,13 @@ the style they read, so one setting recolors every place the bar appears.
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 # The divider rail follows too
 
 ---
 
-<!-- _class: content no-spectrum -->
+<!-- @meta{layout=content, class=no-spectrum} -->
 
 ## `spectrum: off` — a clean edge
 
@@ -49,7 +49,7 @@ deck) that wants nothing at the top. The rest of this deck keeps the solid accen
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 ## Three values, one register
 
@@ -62,7 +62,7 @@ deck) that wants nothing at the top. The rest of this deck keeps the solid accen
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## Where it lives
 
@@ -73,7 +73,7 @@ brand-bar recolors.
 
 ---
 
-<!-- _class: closing revised -->
+<!-- @meta{layout=closing, class=revised} -->
 
 # Your bar, your brand
 

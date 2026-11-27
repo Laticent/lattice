@@ -1,0 +1,1 @@
+- The iOS Simulator Studio probe aims again before it re-sends a tap that iOS read as a long press, so the re-sent tap lands on the paragraph, not on a block the long press's selection scrolled under the old point.

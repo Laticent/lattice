@@ -1,12 +1,12 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · Coda everywhere"
 meta: "The coda · key insight, note, caption"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `The coda · 71 layouts`
 
@@ -16,7 +16,7 @@ A key insight, a note, or a source line now reach the splits, quotes and charts.
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 ## A card slide closes with both beats.
 
@@ -35,7 +35,7 @@ Figures are pre-audit; final numbers ship in Q3.
 
 ---
 
-<!-- _class: bar -->
+<!-- @meta{layout=bar} -->
 
 `Revenue · FY26`
 
@@ -52,7 +52,7 @@ _Source: finance close, December 2026._
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 ## A signal moves from input to decision.
 
@@ -69,7 +69,7 @@ _Source: the Q3 calibration review._
 
 ---
 
-<!-- _class: quote -->
+<!-- @meta{layout=quote} -->
 
 > A quotation earns the whole slide, or it does not belong on one.
 
@@ -79,7 +79,7 @@ Interview conducted in March and lightly edited for length.
 
 ---
 
-<!-- _class: split-panel -->
+<!-- @meta{layout=split-panel} -->
 
 `split-panel · coda`
 
@@ -98,7 +98,7 @@ Figures are from the Q3 pilot.
 
 ---
 
-<!-- _class: split-panel panel-wide -->
+<!-- @meta{layout=split-panel, class=panel-wide} -->
 
 `split-panel · panel-wide`
 
@@ -111,7 +111,7 @@ Use it when the heading is the argument.
 
 ---
 
-<!-- _class: split-compare panel-narrow -->
+<!-- @meta{layout=split-compare, class=panel-narrow} -->
 
 `Decision required`
 

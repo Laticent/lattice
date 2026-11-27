@@ -1,12 +1,12 @@
 ---
 size: portrait
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · Cover-paginate"
 footer: "Cover-paginate"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # Dense lists, split with a cover
 
@@ -16,7 +16,7 @@ A long register can't shrink to fit — so when it holds more than one record, t
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## What cover-paginate adds
 
@@ -27,7 +27,7 @@ A long register can't shrink to fit — so when it holds more than one record, t
 
 ---
 
-<!-- _class: statute-stack -->
+<!-- @meta{layout=statute-stack} -->
 
 ## Children's-data obligations across seven jurisdictions.
 
@@ -62,7 +62,7 @@ A long register can't shrink to fit — so when it holds more than one record, t
 
 ---
 
-<!-- _class: regulatory-update -->
+<!-- @meta{layout=regulatory-update} -->
 
 ## Privacy and AI motion — the year in review.
 
@@ -99,7 +99,7 @@ A long register can't shrink to fit — so when it holds more than one record, t
 
 ---
 
-<!-- _class: authority-chain -->
+<!-- @meta{layout=authority-chain} -->
 
 ## COPPA — the chain from statute to consent order.
 
@@ -121,7 +121,7 @@ A long register can't shrink to fit — so when it holds more than one record, t
 
 ---
 
-<!-- _class: q-and-a -->
+<!-- @meta{layout=q-and-a} -->
 
 ## What the board will press on.
 
@@ -136,7 +136,7 @@ A long register can't shrink to fit — so when it holds more than one record, t
 
 ---
 
-<!-- _class: glossary -->
+<!-- @meta{layout=glossary} -->
 
 ## Glossary
 
@@ -159,7 +159,7 @@ A long register can't shrink to fit — so when it holds more than one record, t
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 # A cover, then the cards — never a clipped register
 

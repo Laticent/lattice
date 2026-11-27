@@ -31,7 +31,7 @@
     "summary"
   ],
   "description": "Generic prose slide \u2014 heading plus paragraphs or a short list.",
-  "purpose": "The catch-all for explanatory content that doesn't fit a more structured layout. Resist using it when a more specific component (cards-grid, stats, compare-prose) would shape the content better. **`content` is also the DEFAULT**: a slide that names no component at all resolves to it (#1292), so writing nothing and writing `_class: content` are the same thing. That is why its prose reads at the body tier rather than the slide-statement tier \u2014 it has to sit correctly beside a Key Insight, a below-note and a table, all of which are body-tier.",
+  "purpose": "The catch-all for explanatory content that doesn't fit a more structured layout. Resist using it when a more specific component (cards-grid, stats, compare-prose) would shape the content better. **`content` is also the DEFAULT**: a slide that names no component at all resolves to it (#1292), so writing nothing and writing `@meta{layout=content}` are the same thing. That is why its prose reads at the body tier rather than the slide-statement tier \u2014 it has to sit correctly beside a Key Insight, a below-note and a table, all of which are body-tier.",
   "lists": "prose",
   "slots": {
     "heading": {
@@ -47,12 +47,12 @@
       "description": "Paragraphs or a short bullet list under the heading. Keep under ~40 words \u2014 an editorial target for a slide you chose this layout for, not a limit the engine enforces; a slide that merely fell back to `content` is bound by the overflow oracle, not by this."
     }
   },
-  "skeleton": "<!-- _class: content -->\n\n## Slide heading.\n\nThe explanatory paragraph that develops the heading goes here. Keep the slide under forty words.\n\n- Optional supporting point one.\n- Optional supporting point two.\n",
+  "skeleton": "<!-- @meta{layout=content} -->\n\n## Slide heading.\n\nThe explanatory paragraph that develops the heading goes here. Keep the slide under forty words.\n\n- Optional supporting point one.\n- Optional supporting point two.\n",
   "anatomyBlock": "content-canvas",
-  "sample": "<!-- _class: content -->\n\n`statement \u00b7 content`\n\n## The content slide is the plainest tool in the box.\n\nA heading that makes one claim, then a paragraph or short list that delivers it. When no specialized layout fits, this is the honest default.\n",
+  "sample": "<!-- @meta{layout=content} -->\n\n`statement · content`\n\n## The content slide is the plainest tool in the box.\n\nA heading that makes one claim, then a paragraph or short list that delivers it. When no specialized layout fits, this is the honest default.\n",
   "stressDoc": {
     "summary": "Two paragraphs and a list \u2014 the ceiling.",
-    "sample": "<!-- _class: content -->\n\n## This is as much text as one slide should ever carry.\n\nTwo paragraphs is the working limit, and this is what the limit looks like when a slide actually reaches it. The measure runs four full lines here \u2014 far enough to show that body prose keeps its rhythm, and far enough to show why a third paragraph belongs in a document instead.\n\nThe second paragraph stays shorter \u2014 because by now the audience is reading, not listening, and every line spends from the budget the list below it draws on.\n\n- One list is allowed after the prose\n- Five items is where it stops\n- Each item earns its line or loses it\n- A sixth would run past the footer\n- This fifth one is the last that fits\n"
+    "sample": "<!-- @meta{layout=content} -->\n\n## This is as much text as one slide should ever carry.\n\nTwo paragraphs is the working limit, and this is what the limit looks like when a slide actually reaches it. The measure runs four full lines here — far enough to show that body prose keeps its rhythm, and far enough to show why a third paragraph belongs in a document instead.\n\nThe second paragraph stays shorter — because by now the audience is reading, not listening, and every line spends from the budget the list below it draws on.\n\n- One list is allowed after the prose\n- Five items is where it stops\n- Each item earns its line or loses it\n- A sixth would run past the footer\n- This fifth one is the last that fits\n"
   },
   "whenToUse": [
     {
@@ -111,7 +111,7 @@
     },
     {
       "mistake": "Expecting a trailing paragraph to stay body copy after a list or a table.",
-      "fix": "It is promoted to a below-note \u2014 hairline rule, muted ink. A paragraph after a PARAGRAPH is never promoted, so ordinary prose is unaffected. When the trailing sentence really is the conclusion of the list rather than a footnote to it, add `no-note` to the slide `_class` and it stays body copy. A deck-wide `class: no-note` in front matter works too, and reaches every slide \u2014 including the ones that name their own `_class:` (on the Lattice engine; in a deck Marp renders, put it in the settings block)."
+      "fix": "It is promoted to a below-note \u2014 hairline rule, muted ink. A paragraph after a PARAGRAPH is never promoted, so ordinary prose is unaffected. When the trailing sentence really is the conclusion of the list rather than a footnote to it, add `no-note` to the slide's class (`@meta{layout=content, class=no-note}`) and it stays body copy. A deck-wide `class: no-note` in front matter works too, and reaches every slide \u2014 including the ones that set their own class (on the Lattice engine; in a deck Marp renders, put it in the settings block)."
     }
   ],
   "specimenVoice": true,

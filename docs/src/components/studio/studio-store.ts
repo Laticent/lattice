@@ -252,7 +252,7 @@ export function storedTitleFor(source: string, title: string): string | null {
 /** The starter source for a brand-new deck — its heading seeded with `title`, so the
  *  deck's name and its cover slide agree from birth (the title is the heading). */
 export function newDeckSource(title = 'Untitled deck'): string {
-	return `<!-- _class: title -->\n\n# ${title.trim() || 'Untitled deck'}\n\n\`Draft\`\n\nStart typing to build your deck.`;
+	return `<!-- @meta{layout=title} -->\n\n# ${title.trim() || 'Untitled deck'}\n\n\`Draft\`\n\nStart typing to build your deck.`;
 }
 
 /** `N slides` for the deck-switcher meta line — the SAME splitter the live rail

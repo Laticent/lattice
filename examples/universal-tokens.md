@@ -2,14 +2,14 @@
 marp: true
 theme: indaco
 size: hd
-paginate: true
+pagination: true
 header: "Lattice · universal token system"
 footer: "Phase 1 — categorical vocabulary"
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=title, header="", footer=""} -->
+
+
 
 # What you see is what it means.
 
@@ -19,7 +19,7 @@ footer: "Phase 1 — categorical vocabulary"
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 ## The categorical vocabulary, by role.
 
@@ -34,7 +34,7 @@ footer: "Phase 1 — categorical vocabulary"
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 ## Foreground or background — never ambiguous.
 
@@ -44,7 +44,7 @@ A background takes the bare role name; a foreground names the background it read
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `01 · Flowchart`
 
@@ -62,7 +62,7 @@ flowchart LR
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `02 · Pie`
 
@@ -80,7 +80,7 @@ pie showData
 
 ---
 
-<!-- _class: diagram dark -->
+<!-- @meta{layout=diagram, class=dark} -->
 
 `03 · Pie, dark canvas`
 
@@ -98,7 +98,7 @@ pie showData
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `04 · Gantt`
 
@@ -118,9 +118,9 @@ gantt
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 
 ## Byte-identical today; scalable tomorrow.
 

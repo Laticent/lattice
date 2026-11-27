@@ -90,7 +90,7 @@ test('the §7b shapes: front matter, empty chunks, a fence-masked separator', ()
 	// Front matter is stripped BEFORE the derivation, by contract — its closing `---` is a
 	// thematic break to any parser that sees it, and its opening `---` makes the first key a
 	// setext heading.
-	const withFm = '---\ntitle: x\npaginate: true\n---\n\n# One\n\n---\n\n# Two\n';
+	const withFm = '---\ntitle: x\npagination: true\n---\n\n# One\n\n---\n\n# Two\n';
 	assert.deepEqual(slideBoundaries(withFm.replace(FRONT_MATTER, '')).lines, [3]);
 
 	// An empty MIDDLE chunk is a real, rendered, empty slide; a body-LEADING one is dropped,
@@ -416,7 +416,7 @@ test('a memo miss derived from a held model is a full parse of the same text', a
 	setBoundaryDeriver(deriveFromNearest);
 	try {
 	const { bodyModel } = require('../../../lib/core/deck-model.mjs');
-	const { deckModelStats } = await import('@laticent/segno-markdown');
+	const { deckModelStats } = await import('@laticent/segno-languages/markdown');
 	const ATOMS = ['# A', 'text', '', '---', '***', '- item', '> quote', '```', '~~~', '<div>', '</div>', '<!-- _class: a -->', '<!--', '-->',
 		'- <!--\n  _class: b\n\t c -->', '$$', 'x = 1', '$$', '    code', '| a | b |\n| - | - |', '[r]: /u', 'para\n---', '> <!--\n> _footer: q\n> -->'];
 	const view = (m) => ({

@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: cuoio
-paginate: true
+pagination: true
 size: hd
 header: "Lattice · Sample Deck"
 footer: "Copy this folder. Edit this file."
@@ -73,7 +73,7 @@ Everything else stays Markdown.
 ---
 marp: true
 theme: cuoio
-paginate: true
+pagination: true
 header: "Lattice · Sample Deck"
 ---
 <script type="application/lattice-settings">

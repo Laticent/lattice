@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · funnel"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # funnel
 
@@ -15,8 +15,7 @@ Tapering stages that show where a flow drops off, with the conversion rate betwe
 
 ---
 
-<!-- _class: funnel -->
-<!-- _footer: "Default · funnel" -->
+<!-- @meta{layout=funnel, footer=Default · funnel} -->
 
 ## The funnel narrows; the width is the story.
 
@@ -31,9 +30,8 @@ Tapering stages that show where a flow drops off, with the conversion rate betwe
 
 ---
 
-<!-- _class: funnel -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · funnel — Seven stages, one steep early drop." -->
+<!-- @meta{layout=funnel, footer="Stress test · funnel — Seven stages, one steep early drop."} -->
+<!-- @meta{stress-slide} -->
 
 ## Seven stages, a steep early drop.
 
@@ -48,8 +46,7 @@ Tapering stages that show where a flow drops off, with the conversion rate betwe
 
 ---
 
-<!-- _class: funnel dark -->
-<!-- _footer: "Composition: dark · funnel dark" -->
+<!-- @meta{layout=funnel, class=dark, footer=Composition: dark · funnel dark} -->
 
 ## The funnel narrows; the width is the story.
 
@@ -64,8 +61,7 @@ Tapering stages that show where a flow drops off, with the conversion rate betwe
 
 ---
 
-<!-- _class: funnel compact -->
-<!-- _footer: "Composition: compact · funnel compact" -->
+<!-- @meta{layout=funnel, class=compact, footer=Composition: compact · funnel compact} -->
 
 ## The funnel narrows; the width is the story.
 
@@ -80,8 +76,7 @@ Tapering stages that show where a flow drops off, with the conversion rate betwe
 
 ---
 
-<!-- _class: funnel accent -->
-<!-- _footer: "Composition: accent · funnel accent" -->
+<!-- @meta{layout=funnel, class=accent, footer=Composition: accent · funnel accent} -->
 
 ## The funnel narrows; the width is the story.
 
@@ -96,8 +91,7 @@ Tapering stages that show where a flow drops off, with the conversion rate betwe
 
 ---
 
-<!-- _class: cards-grid three claim-hero -->
-<!-- _footer: "Anti-patterns · funnel" -->
+<!-- @meta{layout=cards-grid, class=three claim-hero, footer=Anti-patterns · funnel} -->
 
 ## When NOT to reach for funnel.
 
@@ -110,7 +104,7 @@ Tapering stages that show where a flow drops off, with the conversion rate betwe
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

@@ -2,12 +2,12 @@
 marp: true
 size: 4K
 theme: cuoio
-paginate: true
+pagination: true
 header: "Lattice · QR cards"
 ---
 
-<!-- _class: title -->
-<!-- _footer: "Title slide · title" -->
+<!-- @meta{layout=title, footer=Title slide · title} -->
+
 
 `Lattice · connect`
 
@@ -17,8 +17,8 @@ Two components — `wifi` and `contact` — that turn a postfix-key list into a 
 
 ---
 
-<!-- _class: wifi -->
-<!-- _footer: "wifi · a network join card" -->
+<!-- @meta{layout=wifi, footer=wifi · a network join card} -->
+
 
 ## Join the room.
 
@@ -28,8 +28,8 @@ Two components — `wifi` and `contact` — that turn a postfix-key list into a 
 
 ---
 
-<!-- _class: wifi -->
-<!-- _footer: "wifi · open network drops the password" -->
+<!-- @meta{layout=wifi, footer=wifi · open network drops the password} -->
+
 
 ## Guest network.
 
@@ -38,8 +38,8 @@ Two components — `wifi` and `contact` — that turn a postfix-key list into a 
 
 ---
 
-<!-- _class: contact -->
-<!-- _footer: "contact · a vCard identity card" -->
+<!-- @meta{layout=contact, footer=contact · a vCard identity card} -->
+
 
 ## Add me.
 
@@ -51,8 +51,8 @@ Two components — `wifi` and `contact` — that turn a postfix-key list into a 
 
 ---
 
-<!-- _class: contact -->
-<!-- _footer: "contact · minimal — name + email" -->
+<!-- @meta{layout=contact, footer="contact · minimal — name + email"} -->
+
 
 ## Let's connect.
 
@@ -62,8 +62,8 @@ Two components — `wifi` and `contact` — that turn a postfix-key list into a 
 
 ---
 
-<!-- _class: wifi -->
-<!-- _footer: "wifi · aliases: network / pass" -->
+<!-- @meta{layout=wifi, footer=wifi · aliases: network / pass} -->
+
 
 ## Conference floor.
 
@@ -73,8 +73,8 @@ Two components — `wifi` and `contact` — that turn a postfix-key list into a 
 
 ---
 
-<!-- _class: closing -->
-<!-- _footer: "Closing · closing" -->
+<!-- @meta{layout=closing, footer=Closing · closing} -->
+
 
 ## Scan, don't type.
 
