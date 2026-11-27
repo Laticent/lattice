@@ -100,7 +100,7 @@ export type CompactControls = { run: () => void; busy: boolean; undo: (() => voi
 export function lastUsage(messages: ChatMessage[] | undefined): ChatUsage | null {
 	for (let i = (messages?.length ?? 0) - 1; i >= 0; i--) {
 		const u = messages?.[i]?.usage;
-		if (messages?.[i]?.role === 'assistant' && u && typeof u === 'object') return { ...u, cost: num(u.cost), prompt: num(u.prompt), completion: num(u.completion), cached: num(u.cached), reasoning: num(u.reasoning), rounds: num(u.rounds), window: num(u.window) || null };
+		if (messages?.[i]?.role === 'assistant' && u && typeof u === 'object') return { ...u, cost: num(u.cost), prompt: num(u.prompt), completion: num(u.completion), cached: u.cached == null ? null : num(u.cached), reasoning: num(u.reasoning), rounds: num(u.rounds), window: num(u.window) || null };
 	}
 	return null;
 }
@@ -144,7 +144,8 @@ function MetricsMenu({ spend, deckId, last, usd, messages, price, compact }: { s
 	const fill = contextFill(last);
 	const ctxLevel = level(fill);
 	const pct = fill == null ? null : Math.round(fill * 100);
-	const cachedPct = last?.prompt ? Math.min(100, Math.round((last.cached / last.prompt) * 100)) : null;
+	// Unknown when the provider reported no cache figure: a missing report is not a 0% hit rate (#3533 S02).
+	const cachedPct = last?.prompt && last.cached != null ? Math.min(100, Math.round((last.cached / last.prompt) * 100)) : null;
 	// Compaction: what cutting the older messages would save each turn, and what the one summarizing call costs. Both are estimates
 	// (4 characters a token), shown as such; the real cost is reported when it is done.
 	const split = React.useMemo(() => (messages ? splitForCompaction(messages) : null), [messages]);
@@ -184,8 +185,8 @@ function MetricsMenu({ spend, deckId, last, usd, messages, price, compact }: { s
 					>
 						{last ? (
 							<>
-								<Row label="Read from cache" hint="billed at a fraction of normal input">
-									<span className="font-semibold tabular-nums">{cachedPct == null ? '—' : `${cachedPct}%`}</span>
+								<Row label="Read from cache" hint={last.cached == null ? 'the provider did not report it' : 'billed at a fraction of normal input'}>
+									<span className="font-semibold tabular-nums">{last.cached == null ? 'unknown' : cachedPct == null ? '—' : `${cachedPct}%`}</span>
 								</Row>
 								<Row label="Last reply wrote" hint={last.reasoning ? `${fmtTok(last.reasoning)} of them thinking` : undefined}>
 									<span className="font-semibold tabular-nums">{fmtTok(last.completion)} tokens</span>

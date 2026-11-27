@@ -6,7 +6,7 @@ import { readChatSelection, selectChat } from '../../../lib/model-selection.js';
 import { __resetOpenRouterKeyForTests, openRouterKeySettled, readProviderKey, writeProviderKey } from '../../../lib/openrouter-key.js';
 import { fakeKey } from '../../../test/fake-key';
 import { createArchitectModel } from './architect-model.js';
-import { catalogIdsFor, directBackend, estimateCost, pickDefaultModel, priceRow, toAnthropicBody, usablePrice } from './direct-providers.js';
+import { CACHE_RATES, catalogIdsFor, directBackend, estimateCost, pickDefaultModel, priceRow, requestWriteRate, toAnthropicBody, usablePrice } from './direct-providers.js';
 
 const CATALOG = [
 	{ id: 'openai/gpt-6.1-terra', name: 'OpenAI: GPT-6.1 Terra', promptPerM: 1, completionPerM: 5, contextLength: 400000, vision: true },
@@ -45,6 +45,20 @@ describe('pricing from the OpenRouter catalog', () => {
 	it('prices Anthropic cache writes at 1.25× and reads at 0.1×', () => {
 		const usd = estimateCost({ prompt_tokens: 1_000_000, completion_tokens: 0, cache_creation_input_tokens: 1_000_000, cache_read_input_tokens: 1_000_000 }, { promptPerM: 2, completionPerM: 10 });
 		expect(usd).toBeCloseTo(2 + 2.5 + 0.2, 6);
+	});
+	it('prices a write by its TTL: Anthropic\'s own 5-minute / 1-hour split, 1.25x and 2x (#3533 S02)', () => {
+		const price = { promptPerM: 2, completionPerM: 10 };
+		// 1M tokens written for an hour, 1M for five minutes: 2 * 2 + 2 * 1.25, not 2M at 1.25.
+		const split = estimateCost({ prompt_tokens: 0, completion_tokens: 0, cache_creation_input_tokens: 2_000_000, cache_creation: { ephemeral_1h_input_tokens: 1_000_000, ephemeral_5m_input_tokens: 1_000_000 } }, price);
+		expect(split).toBeCloseTo(2 * CACHE_RATES.write1h + 2 * CACHE_RATES.write5m, 6);
+		// No split: the rate the request's own marks asked for.
+		expect(estimateCost({ prompt_tokens: 0, completion_tokens: 0, cache_creation_input_tokens: 1_000_000 }, price, CACHE_RATES.write1h)).toBeCloseTo(4, 6);
+	});
+	it('reads the write rate from the request\'s own cache marks', () => {
+		expect(requestWriteRate({ system: [{ type: 'text', text: 'canon', cache_control: { type: 'ephemeral' } }] })).toBe(CACHE_RATES.write5m);
+		expect(requestWriteRate({ system: [{ type: 'text', text: 'canon', cache_control: { type: 'ephemeral', ttl: '1h' } }] })).toBe(CACHE_RATES.write1h);
+		expect(requestWriteRate({ messages: [{ role: 'user', content: [{ type: 'text', text: 'x', cache_control: { type: 'ephemeral', ttl: '1h' } }] }] })).toBe(CACHE_RATES.write1h);
+		expect(requestWriteRate({})).toBe(CACHE_RATES.write5m);
 	});
 	it('defaults to the newest mid-priced model, never a "pro" or "lite" tier', () => {
 		const models = [
@@ -169,6 +183,33 @@ describe('the transports', () => {
 		expect(h['x-api-key']).toBe('sk-ant-test-key-0000000000');
 		expect(h['anthropic-dangerous-direct-browser-access']).toBe('true');
 		expect(h.Authorization).toBeUndefined();
+	});
+
+	it('Anthropic: a cache read reaches the chat as prompt_tokens_details, and a 1-hour write is priced at 2x (#3533 S02)', async () => {
+		writeProviderKey('anthropic', 'sk-ant-test-key-0000000000');
+		await openRouterKeySettled();
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(
+				async () =>
+					new Response(
+						sse([
+							'data: {"type":"message_start","message":{"usage":{"input_tokens":100,"output_tokens":1,"cache_read_input_tokens":7000,"cache_creation_input_tokens":2000,"cache_creation":{"ephemeral_1h_input_tokens":2000,"ephemeral_5m_input_tokens":0}}}}',
+							'data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"ok"}}',
+							'data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":10}}',
+							'data: {"type":"message_stop"}',
+						]),
+						{ status: 200 },
+					),
+			),
+		);
+		const b = directBackend('anthropic', { catalog: async () => CATALOG, catalogNow: () => CATALOG });
+		const usage: Record<string, unknown>[] = [];
+		await b.complete({ model: 'claude-sonnet-5-5', messages: [{ role: 'user', content: 'hi' }], onToken: () => {}, onUsage: (u: Record<string, unknown>) => usage.push(u) });
+		// The chat reads cached input from prompt_tokens_details, as OpenRouter reports it; Anthropic's own key did not say it.
+		expect(usage[0]).toMatchObject({ prompt_tokens: 9100, prompt_tokens_details: { cached_tokens: 7000 } });
+		const p = 2e-6;
+		expect(usage[0].cost).toBeCloseTo(100 * p + 2000 * p * CACHE_RATES.write1h + 7000 * p * CACHE_RATES.read + 10 * 10e-6, 9);
 	});
 
 	it('OpenAI: the OpenRouter-shaped request at the provider base, max_completion_tokens, estimated usage', async () => {

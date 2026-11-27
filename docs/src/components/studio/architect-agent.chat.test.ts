@@ -259,6 +259,80 @@ describe('checker pass: failures name their cause', () => {
 		}
 	});
 
+	it('a Stop before any token is still charged, as an estimate, in the ledger, the usage line and the trace (#3533 S01)', async () => {
+		// The round was sent and never reported: before, it was $0 unless prose or a generation id had arrived, and it was
+		// missing from the usage line and from Show work. A missing report is not a free round.
+		const spend = await import('./ai/spend.js');
+		const before = spend.readSpend().session;
+		const m = (await architectModel()) as unknown as Hooks & { openRouterModelPrice?: () => unknown };
+		const ctl = new AbortController();
+		let n = 0;
+		let sentTools = '';
+		m.__setBackend({
+			name: 'openrouter',
+			async embed() {
+				return null;
+			},
+			async complete(o: Opts & { onUsage?: (u: unknown) => void }) {
+				n++;
+				if (n === 1) {
+					// No `prompt_tokens_details`: this provider reported no cache figure.
+					o.onUsage?.({ cost: 0.001, total_tokens: 10, prompt_tokens: 8, completion_tokens: 2 });
+					o.onToolCalls?.([{ id: 't1', type: 'function', function: { name: 'read_slides', arguments: '{"from":1}' } }]);
+					return '';
+				}
+				sentTools = JSON.stringify(o.tools ?? []);
+				ctl.abort();
+				const e = new Error('aborted');
+				e.name = 'AbortError';
+				throw e;
+			},
+		});
+		const orig = m.openRouterModelPrice;
+		m.openRouterModelPrice = () => ({ promptPerM: 3, completionPerM: 15 });
+		try {
+			const out = await chatComplete([{ role: 'user', content: 'Tighten slide 2' }], DECK, undefined, { signal: ctl.signal });
+			expect(out.status).toBe('ok');
+			if (out.status !== 'ok') return;
+			const charged = spend.readSpend().session - before;
+			// Round 1 reported 0.001; the stopped round adds an estimate on top of it.
+			expect(charged).toBeGreaterThan(0.001);
+			expect(out.usage).toMatchObject({ rounds: 2, estimated: true, cached: null });
+			expect(out.usage?.cost).toBeCloseTo(charged, 9);
+			const rounds = out.trace?.rounds ?? [];
+			expect(rounds).toHaveLength(2);
+			expect(rounds[0]).toMatchObject({ cost: 0.001, prompt: 8, completion: 2, cached: null });
+			expect(rounds[0].estimated).toBeUndefined();
+			expect(rounds[1]).toMatchObject({ estimated: true, cached: null });
+			// The estimate's input covers the tool definitions the round carried (#3533 S03): at 4 characters a token they alone
+			// are this many tokens, and the system prompt and the deck come on top.
+			expect(rounds[1].prompt).toBeGreaterThan(Math.ceil(sentTools.length / 4));
+		} finally {
+			m.openRouterModelPrice = orig;
+		}
+	});
+
+	it('a reported cache figure is kept, and a missing one reads as unknown, never 0 (#3533 S02)', async () => {
+		let n = 0;
+		await withBackend(async (o: Opts & { onUsage?: (u: unknown) => void }) => {
+			n++;
+			if (n === 1) {
+				o.onUsage?.({ cost: 0.001, prompt_tokens: 900, completion_tokens: 5, prompt_tokens_details: { cached_tokens: 700 } });
+				o.onToolCalls?.([{ id: 't1', type: 'function', function: { name: 'read_slides', arguments: '{"from":1}' } }]);
+				return '';
+			}
+			o.onUsage?.({ cost: 0.001, prompt_tokens: 1000, completion_tokens: 5 });
+			o.onToken?.('Done.');
+			return 'Done.';
+		});
+		const out = await chatComplete([{ role: 'user', content: 'What is on slide 1?' }], DECK);
+		expect(out.status).toBe('ok');
+		if (out.status !== 'ok') return;
+		expect(out.trace?.rounds.map((r) => r.cached)).toEqual([700, null]);
+		// The usage line is the LAST round's: it reported nothing, so the cache share is unknown, not 0%.
+		expect(out.usage?.cached).toBeNull();
+	});
+
 	it('a Stop on the one-shot path is priced at the exact generation cost, not its estimate', async () => {
 		// A model that refuses tools falls to the one-shot path (architect.ts). Stopped mid-stream there, the turn is
 		// booked at an estimate, then the generation id's exact cost replaces it: the twin of the agent path above.

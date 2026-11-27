@@ -131,6 +131,16 @@ function modelSeesImages(model: ArchitectModel, catalog: { id: string; vision?: 
 
 /** A message's text for the budget gate. A picture counts as a per-model charge (picture-tokens.ts), not as the
  *  base64 that carries it (one thumbnail is ~40K characters). */
+/** The cached prompt tokens a usage block reports, or null when it reports none. OpenRouter and OpenAI put them in
+ *  `prompt_tokens_details.cached_tokens`; Anthropic's own key reports `cache_read_input_tokens`. A block with neither is
+ *  unknown, never 0 (#3533 S02). */
+export function cachedOf(u: { prompt_tokens_details?: { cached_tokens?: unknown } | null; cache_read_input_tokens?: unknown } | null | undefined): number | null {
+	const v = u?.prompt_tokens_details?.cached_tokens ?? u?.cache_read_input_tokens;
+	if (v == null || v === '') return null;
+	const n = Number(v);
+	return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
 function budgetText(m: { content?: unknown; tool_calls?: unknown }): { text: string; images: number } {
 	let images = 0;
 	const c = m.content;
@@ -212,6 +222,9 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 		renderSlide: seesPictures ? renderer : undefined,
 	});
 	const systemTokens = estTokens(staticPrefix) + estTokens(dynamicTail);
+	// The tool definitions ride every round and are billed as input like the rest; the gate and the Stop estimate left them
+	// out (about 3K tokens in Review, #3533 S03).
+	const schemaTokens = estTokens(JSON.stringify(offered));
 	const docTokens = refDocsTokens(docs);
 	// Prose per FINISHED round, and the round in flight. Kept apart so a Stop charges an
 	// estimate for the aborted round only — earlier rounds already reported their exact cost
@@ -229,20 +242,22 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 	let rounds = 0;
 	// What the rounds that FINISHED reported, for the reply's usage line and the context meter. It comes from the same
 	// `usage` block that already feeds the spend tally, so keeping it is free; an aborted round never reports and is absent.
-	const used = { cost: 0, prompt: 0, completion: 0, cached: 0, reasoning: 0, rounds: 0 };
+	// `cached` is null until a round reports it: a provider that sends no cache figure has told us nothing, and a 0 would read as
+	// "no cache hit" in the usage line and the trace (#3533 S02).
+	const used: { cost: number; prompt: number; completion: number; cached: number | null; reasoning: number; rounds: number; estimated?: boolean } = { cost: 0, prompt: 0, completion: 0, cached: null, reasoning: 0, rounds: 0 };
 	const tally = (u: Parameters<NonNullable<Parameters<ArchitectModel['complete']>[0]['onUsage']>>[0]) => {
 		used.rounds++;
 		used.cost += Number(u?.cost) || 0;
 		used.prompt = Number(u?.prompt_tokens) || 0;
 		used.completion += Number(u?.completion_tokens) || 0;
-		used.cached = Number(u?.prompt_tokens_details?.cached_tokens) || 0;
+		used.cached = cachedOf(u);
 		used.reasoning += Number(u?.completion_tokens_details?.reasoning_tokens) || 0;
 	};
 	// The trace "Show work" lists: one entry per model call. A call's thinking and cost are held here until the loop
 	// reports the call's commands (onRound), which always follows its `complete` and precedes the next.
 	const traceRounds: ChatTrace['rounds'] = [];
 	let roundThinking = '';
-	let roundUse = { cost: 0, prompt: 0, completion: 0 };
+	let roundUse: { cost: number; prompt: number; completion: number; cached: number | null } = { cost: 0, prompt: 0, completion: 0, cached: null };
 	let firstPictureTokens: number | null = null;
 	let blockedNote: string | null = null;
 	const soFar = () => [...done, streamed].map((t) => t.trim()).filter(Boolean).join('\n\n');
@@ -260,12 +275,12 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 		roundPictureUsd = pictureUsd;
 		firstPictureTokens ??= pictureTokens;
 		roundThinking = '';
-		roundUse = { cost: 0, prompt: 0, completion: 0 };
+		roundUse = { cost: 0, prompt: 0, completion: 0, cached: null };
 		if (streamed.trim()) done.push(streamed);
 		streamed = '';
 		genId = null;
 		roundPrompt = convo;
-		const blk = await cloudBudgetBlock(model, convo, systemTokens + docTokens + pictureTokens + attachedTokens, CHAT_MAX_TOKENS, pictureUsd);
+		const blk = await cloudBudgetBlock(model, convo, systemTokens + schemaTokens + docTokens + pictureTokens + attachedTokens, CHAT_MAX_TOKENS, pictureUsd);
 		if (blk) {
 			blockedNote = blk;
 			const e = new Error(blk);
@@ -313,12 +328,33 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 			onUsage: (u) => {
 				recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0), turnDeck);
 				tally(u);
-				roundUse = { cost: Number(u?.cost) || 0, prompt: Number(u?.prompt_tokens) || 0, completion: Number(u?.completion_tokens) || 0 };
+				roundUse = { cost: Number(u?.cost) || 0, prompt: Number(u?.prompt_tokens) || 0, completion: Number(u?.completion_tokens) || 0, cached: cachedOf(u) };
 			},
 		});
 		roundOpen = false;
 		rounds++;
 		return { text, toolCalls: calls.filter((c) => c?.function?.name), truncated: finish === 'length' };
+	};
+	/**
+	 * Charge the round in flight as an ESTIMATE: it was sent, it never reported its usage, and a missing report is not a free
+	 * round (#3533 S01). The estimate covers the prompt and the tool definitions it carried at the full input rate (an upper
+	 * bound: part of it was likely read from cache) plus the prose seen; it goes to the spend ledger, the reply's usage line
+	 * and the trace, each marked estimated. The generation id, when one arrived, later corrects the ledger to the exact figure.
+	 */
+	const chargeOpenRound = (): number => {
+		roundOpen = false;
+		const out = Math.ceil(streamed.length / 4);
+		const inTokens = estTokens(roundPrompt) + docTokens + systemTokens + schemaTokens + roundPictureTokens + attachedTokens;
+		const est = estimateUsd(roundPrompt, model.openRouterModelPrice?.() ?? null, out, docTokens + systemTokens + schemaTokens + roundPictureTokens + attachedTokens, roundPictureUsd) ?? 0;
+		if (est) recordSpend(est, out, turnDeck);
+		used.rounds++;
+		used.cost += est;
+		used.prompt = inTokens;
+		used.completion += out;
+		used.cached = null;
+		used.estimated = true;
+		traceRounds.push({ ...(roundThinking.trim() ? { reasoning: roundThinking } : {}), ...(streamed.trim() ? { text: streamed } : {}), calls: [], cost: est, prompt: inTokens, completion: out, cached: null, estimated: true });
+		return est;
 	};
 	let reply = '';
 	const notes: string[] = [];
@@ -361,9 +397,8 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 			// recorded as $0 with the exact-cost lookup skipped (checker). The estimate covers the
 			// prompt plus the prose seen; the generation id, when it arrived, replaces it with the
 			// exact figure.
-			if (roundOpen && (streamed || genId)) {
-				const est = estimateUsd(roundPrompt, model.openRouterModelPrice?.() ?? null, Math.ceil(streamed.length / 4), docTokens + systemTokens + roundPictureTokens + attachedTokens, roundPictureUsd) ?? 0;
-				if (est) recordSpend(est, Math.ceil(streamed.length / 4), turnDeck);
+			if (roundOpen) {
+				const est = chargeOpenRound();
 				if (genId && model.openRouterGenerationCost) {
 					void model
 						.openRouterGenerationCost(genId)
@@ -393,6 +428,9 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 			// is the likeliest) gets its own cause and remedy; anything else is a dropped
 			// connection, with the error's own words when it was not the network.
 			reply = soFar();
+			// A round that was in flight when the connection failed was sent and may be billed: count it as an estimate rather than
+			// as nothing (#3533 S01).
+			if (roundOpen) chargeOpenRound();
 			const msg = String((e as { message?: string })?.message ?? e ?? '');
 			if (MODEL_ERROR.test(msg)) notes.push(`This turn stopped partway. ${describeModelError(msg)}`);
 			else if (!msg || /fetch|network|load failed/i.test(msg)) notes.push('The model connection dropped partway through this turn.');

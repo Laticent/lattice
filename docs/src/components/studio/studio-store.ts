@@ -951,15 +951,17 @@ export type ChatUsage = {
 	cost: number;
 	prompt: number;
 	completion: number;
-	/** Of `prompt`, the tokens served from the prompt cache (the last round's, like `prompt`). */
-	cached: number;
+	/** Of `prompt`, the tokens served from the prompt cache (the last round's, like `prompt`). null when the provider reported no
+	 *  cache figure: unknown, never 0 (#3533 S02). A thread saved before this reads its 0 as 0. */
+	cached: number | null;
 	/** Output tokens the model spent thinking (already inside `completion`). 0 on a model that does not report it. */
 	reasoning: number;
 	rounds: number;
 	/** The model's context window in tokens, or null when the catalog did not know it. */
 	window: number | null;
 	model: string;
-	/** True after a compaction, until the next reply: `prompt` is then our estimate of the smaller thread, not the provider's count. */
+	/** True when a figure here is ours, not the provider's: after a compaction (until the next reply) `prompt` estimates the
+	 *  smaller thread, and on a stopped or failed turn the round that never reported its usage is priced as an estimate (#3533 S01). */
 	estimated?: boolean;
 };
 
@@ -976,6 +978,11 @@ export type ChatTraceRound = {
 	/** This call's input and output tokens. */
 	prompt: number;
 	completion: number;
+	/** Of `prompt`, the tokens read from the prompt cache; null when the provider reported none (unknown, not 0). Absent on a
+	 *  trace saved before this was kept. */
+	cached?: number | null;
+	/** The call was stopped or failed before it reported its usage, so `cost` and the tokens are our estimate (#3533 S01). */
+	estimated?: boolean;
 };
 
 /** Everything "Show work" lists for a reply. Bounded by `boundTrace` (chat-trace.ts) before it is saved. */

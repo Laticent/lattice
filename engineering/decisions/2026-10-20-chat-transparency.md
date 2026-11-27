@@ -132,3 +132,26 @@ rule that stops iOS zooming) and the box grew around it. `PanelSearch` now has `
 row, which the Library and its loading shell use off the phone. Measured on an 810 px and a 1080 px iPad profile in WebKit:
 44 → 32 px, equal to the button. `e2e/library-header-search.spec.ts` holds it at 1440 and 820 in Chromium, WebKit and
 Firefox with touch on.
+
+## 10. Follow-up: usage and cache truth (#3533 S01–S03, 2026-11-27)
+
+Four figures the metrics dropdown and Show work read were wrong in a way that looked right.
+
+| Figure | Before | Now |
+|---|---|---|
+| The cache share, when the provider sends none | `cached: 0`, shown as "0% read from cache" | `cached: null`, shown as "unknown" (`cachedOf` in `chat-agent.ts`). A thread saved before keeps its 0 |
+| The cache share on Anthropic's own key | Always 0: that key reports `cache_read_input_tokens`, and the chat read only `prompt_tokens_details.cached_tokens` | `anthropicUsage` reports both, and `cachedOf` reads either |
+| A cache write's price on a direct Anthropic key | 1.25× for every write | From Anthropic's own `cache_creation` split, 1.25× for 5-minute and 2× for 1-hour tokens; without the split, the rate the request's own marks ask for (`requestWriteRate`). The direct key writes 5-minute marks today, so its old flat 1.25× happened to be right |
+| A round stopped or failed before it reported usage | Charged only when prose or a generation id had arrived; never in the usage line or Show work | Always charged as an estimate (`chargeOpenRound`): in the spend ledger, the usage line and Show work, each marked estimated. The generation id, when one arrived, still corrects the ledger to the exact cost |
+| The budget gate and the Stop estimate | Left out the tool definitions, about 3K tokens a round in Review | Count them (`schemaTokens`) |
+
+**Show work's ledger.** Each call reads its cost, input with its cached share (or "cache unknown"), and output, and a stopped
+call is marked "stopped, estimated" with `≈` figures. The total line keeps cumulative input across the calls apart from the
+largest single call: the first is what was billed, the second is how full the window got.
+
+**What stays an estimate.** OpenRouter's `usage.cost` is the provider's own figure and is used as is. A stopped round's estimate
+prices its whole input at the full input rate, an upper bound, because the provider never said how much of it was cached.
+
+**Verified.** `architect-agent.chat.test.ts` drives the real wiring with a scripted backend (no network, no spend): a Stop
+before any token is charged and listed; a missing cache report reads as unknown. `direct-providers.test.ts` streams a
+1-hour write and a cache read through the Anthropic transport. Each test goes red with its source at `origin/main`.
