@@ -1,15 +1,22 @@
 name: Agent pack eval nightly
 
-# Does the agent pack make a model write a good deck? A model gets ONE pack file as its whole
-# system prompt (start.md for a capable model, the solo paste text for a small one), writes a
-# deck from each of three fixed briefs, and every deck goes through lint:deck and a real render.
-# tools/agent-pack-eval.mjs holds the briefs and the pass bar.
-# engineering/decisions/2026-11-17-agent-pack.md §4.5; the owner chose a nightly CI eval.
+# Does the agent pack make a model write a good deck? tools/agent-pack-eval.mjs gives a model the
+# agent kit's start.md, lets it read the kit files start.md links to (the retrieval arm: two turns),
+# and judges every deck with lint:deck and a real render. It holds the ten fixed briefs and the pass bar.
+# engineering/decisions/2026-11-17-agent-pack.md §4.5 and §4.9.
+#
+# Nightly: the retrieval arm, ten briefs, ONE model a night: Haiku 5.5 and DeepSeek V4.1 Flash
+# alternate by day (`--model nightly`; the owner's call, desk session_015KSkL4AtPNjvKkBShG56Nu,
+# 2026-11-27: "mix it up, not stack"). Dispatch runs anything else, e.g. the per-release Sonnet check
+# (RELEASE.md) or a paired old-vs-new start.md comparison (old_ref).
 #
 # Spends OUR OpenRouter key (HARD RULE #24), so it is nightly + dispatch only, never on the PR
 # path, and sanctioned in tools/check-ownership.js (SANCTIONED_OPENROUTER_WORKFLOWS). It FAILS
-# when the secret is unset rather than skipping green (#1931). Cost: six completions over an
-# ~11k-token prompt, about USD 0.15 to 0.26 a night (measured 2026-11-19); the tool prints the real figure.
+# when the secret is unset rather than skipping green (#1931). The tool stops hard at --max-usd
+# (USD 0.25 a night), pricing each call's worst case at the model's dearest provider, and prints
+# OpenRouter's own figure. Cost: about USD 0.02 to 0.06 a night on either model at the cheapest
+# provider, which the request asks for first; priced 2026-11-27 from OpenRouter's live list for ten
+# two-turn decks over the ~11.7k-token start.md. Replace it with R1's measured figure once that run reports.
 
 on:
   schedule:
@@ -17,9 +24,34 @@ on:
   workflow_dispatch:
     inputs:
       arm:
-        description: 'One arm only: start or small. Empty = both.'
+        description: 'start, small or retrieval. Empty = retrieval.'
         required: false
         default: ''
+      model:
+        description: 'An OpenRouter model id, or "nightly" (Haiku and DeepSeek by day). Empty = nightly.'
+        required: false
+        default: ''
+      repeat:
+        description: 'Runs per brief (seed = repeat index). Use temperature above 0 with more than 1.'
+        required: false
+        default: '1'
+      temperature:
+        description: 'Sampling temperature.'
+        required: false
+        default: '0'
+      max_usd:
+        description: 'Hard cap in USD; the run stops before a call could cross it.'
+        required: false
+        default: '0.25'
+      old_ref:
+        description: 'Paired mode: a git ref whose built start.md is the OLD arm (the new one is this checkout).'
+        required: false
+        default: ''
+      probe:
+        description: 'Only count prompt tokens (one max_tokens-1 call per start.md); no decks.'
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
@@ -31,7 +63,7 @@ concurrency:
 jobs:
   eval:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 90 # a paired run (60 decks plus a second build) is estimated near an hour; a nightly ~15 min
     steps:
       - name: Require the OpenRouter key
         run: |
@@ -58,16 +90,39 @@ jobs:
         timeout-minutes: 5 # a stalled download fails here, not at the job cap
       - name: Build the agent kit and the CLI
         run: npm run build
+      # Paired mode: check the old ref out beside this one, build it with its own dependencies,
+      # and keep only its start.md. The judge (lint:deck, the render) stays this checkout's.
+      - uses: actions/checkout@v4
+        if: ${{ inputs.old_ref != '' }}
+        with:
+          ref: ${{ inputs.old_ref }}
+          path: old-tree
+          persist-credentials: false
+      - name: Build the old start.md
+        if: ${{ inputs.old_ref != '' }}
+        run: |
+          set -euo pipefail
+          (cd old-tree && npm ci && npm run build)
+          cp old-tree/dist/agent-kit/start.md "$RUNNER_TEMP/old-start.md"
       - name: Run the eval
         env:
           OPEN_ROUTER_KEY: ${{ secrets.OPEN_ROUTER_KEY }}
           OPENROUTER_ALLOW_SPEND: '1'
           ARM: ${{ inputs.arm }}
+          MODEL: ${{ inputs.model }}
+          REPEAT: ${{ inputs.repeat }}
+          TEMPERATURE: ${{ inputs.temperature }}
+          MAX_USD: ${{ inputs.max_usd }}
+          OLD_REF: ${{ inputs.old_ref }}
+          PROBE: ${{ inputs.probe }}
         # pipefail: without it the step takes tee's exit code, and a failed deck goes green.
+        # A schedule run has no inputs, so every one falls back to the nightly default here.
         run: |
           set -euo pipefail
-          args=(--out eval-out)
-          if [ -n "${ARM:-}" ]; then args+=(--arm "$ARM"); fi
+          args=(--out eval-out --arm "${ARM:-retrieval}" --model "${MODEL:-nightly}" --repeat "${REPEAT:-1}"
+                --temperature "${TEMPERATURE:-0}" --max-usd "${MAX_USD:-0.25}")
+          if [ -n "${OLD_REF:-}" ]; then args+=(--old "$RUNNER_TEMP/old-start.md"); fi
+          if [ "${PROBE:-false}" = 'true' ]; then args+=(--probe); fi
           node tools/agent-pack-eval.mjs "${args[@]}" | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Upload the decks, PDFs and summary
         if: always()
