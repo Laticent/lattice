@@ -3100,6 +3100,46 @@ in 20 s against #3353's 748 MB in 23 s. Five rules follow:
    security bump the security desk's, and the command center never starts a flaky
    fix while a `desk:flaky` session is live.
 
+**When two parties disagree: the escalation ladder** (owner, 2026-11-27, relayed from the command
+center: "we need conflict resolution escalation rules when there is disagreement"). It covers four
+kinds of split: **session vs session** (two fixes for one cause, who rebases onto whom); **maker vs
+checker** on a card's level; **desk vs line-of-work session** over who owns an item; and **two docs
+that contradict each other**. Three rungs, climbed in order, each at most once:
+
+1. **Trade evidence once, in writing.** Each party posts its position with its numbers (a measured
+   table, a run link, the file:line it reads) in the PR's living handoff comment; with no PR, on the
+   issue. One round each, then stop: a second round of the same argument is the signal to climb. Rule 1
+   above sets what counts (correct first, then measured cost, then how far along).
+2. **The owner of the kind of problem decides, by the written rules only.** The desk whose lane it is
+   decides: a red or flaky test, the 🧪 flake desk; merge order or a queue ejection, the 🚦 merge desk;
+   a Dependabot or nightly red, 📦 deps + nightly; a security finding, 🛡️ security; two docs that
+   disagree, 📚 docs. No desk owns it, or the desk is a party: the command center decides. The decider
+   cites the rule it applied (doc and section) in the same living comment, and "no rule covers this" is
+   a valid finding that sends it up a rung, never a license to invent one. A maker vs checker split
+   skips this rung: the checker's level stands, and the maker's only move is to raise the change
+   (§Who grades).
+3. **The owner decides.** Climb here when rung 2 is still split, when no written rule covers it, or when
+   the decision touches any of CLAUDE.md's five SECOND FILTER rows (shared state, the CI or hook
+   contract, a number the owner set, a canonical doc's meaning, anything irreversible). It goes as one
+   item on a ❓ decision card carrying **both positions in each party's own words and numbers**, a
+   recommendation and a default-if-silent (§❓ Decision card), on the PR and to the command center.
+   Two docs that contradict each other always end here unless one of them already says it yields: the
+   decider at rung 2 picks which one to *follow* meanwhile, but only the owner changes what a canonical
+   doc means.
+
+Four limits hold at every rung:
+- **No rung overrides a baton** (#31). A decision at any rung is a request to the baton holder, who
+  carries it out on its own branch, or answers with its numbers and puts it to the owner in its own
+  session. Only the owner's own word (or a checked relay) frees a branch or drops a session's work
+  (rule 3 above).
+- **A checker's level is never lowered by the maker.** Not at rung 1, not by re-asking a second checker
+  until one agrees. The maker raises the change or ships the card as graded.
+- **Nothing escalated blocks unrelated work.** Both parties keep working on everything the split does
+  not touch. A PR in the merge queue keeps its place unless the owner pulls it (rule 2 above), and the
+  ❓ item says so.
+- **The default-if-silent is the status quo, never the more destructive side.** Silence keeps the
+  queued PR queued, the baton with its holder and the current doc wording in force.
+
 **Budget: about 10 new sessions or agents per lane per day** (owner's decision,
 HARD RULE #25), per lane so a second or restarted desk does not get another 10.
 The count is not kept in the desk's memory, which a compaction would reset: it is
