@@ -3,8 +3,9 @@
 **One storage interface for every kind of Studio data, shaped like a folder.**
 
 Design: `engineering/decisions/2026-11-22-local-first-drive-storage.md` §6.2 and §6.4. Slice 1, as built:
-`engineering/decisions/2026-11-22-vault-slice-1-as-built.md`. **No Studio code calls this yet**; slices 2
-and 3 move assets and decks into it.
+`engineering/decisions/2026-11-22-vault-slice-1-as-built.md`; slice 2: `2026-11-27-vault-slice-2-as-built.md`.
+**The first caller is Library photos and videos** (`docs/src/components/studio/media-vault.ts`): their bytes
+live here, and their metadata stays in the Workbench `assets` store. Slice 3 moves decks in.
 
 ## The interface
 
@@ -49,7 +50,8 @@ given, so a string and its bytes always make the same blob.
 | `core.ts` | Every rule above storage: ids, revisions, tombstones, the journal, the change feed, the startup scan |
 | `memory.ts` | The memory backing |
 | `idb-index.ts` | The browser index: IndexedDB `lattice-vault` (`entries`, `journal`, `meta`) |
-| `browser.ts` | The browser backing: OPFS blobs, the worker client, `openBrowserVault()` |
+| `browser.ts` | The browser backing: OPFS blobs, the worker client, `openBrowserVault()` and which blob store it keeps |
+| `idb-blobs.ts` | The blob store where OPFS is refused: IndexedDB `lattice-vault-blobs`, a Blob or an ArrayBuffer per blob |
 | `opfs.worker.ts` · `opfs-write.ts` | The dedicated worker every browser write goes through, and its write core |
 | `desktop-seam.js` | The desktop host's typed seam (slice 10). Returns null until #2354 lands |
 
@@ -71,6 +73,12 @@ backing that reads, yields and writes, as the desktop's JSON index will.
 for a write or a remove (0 when there was none, even if a tombstone sits there), the file at `from` for a
 move. It is what `write`'s `baseRevision` option is checked against.
 
+**`.lattice/backups/` never syncs.** The move into the vault keeps its one workspace backup there (slice 2).
+It holds a copy of every deck and photo, so sync (slice 6) must leave that folder on the device.
+
+**A file-backed read dies with its file**, which today means a delete (a photo is never rewritten in place).
+Sync's remote overwrites (slice 6) reopen the question of a read grace window.
+
 **The device id** lives in the index's `meta` store, never in a file, so a backup built from `list` and
 `read` cannot carry it, and a restore on another device gets that device's own id.
 
@@ -79,13 +87,17 @@ otherwise, and counts which. `docs/e2e/vault.spec.ts` proves Chromium, Linux Web
 the sync-access-handle path, and `PROBE=vault` on the iOS Simulator (`docs/scripts/ios-safari/vault-probe.js`)
 proves Mobile Safari 26.5 does too, on iPhone and iPad, with every file read back after a real reload.
 
-**No OPFS, no vault.** WebKit refuses OPFS in an ephemeral session (`getDirectory()` throws UnknownError
-in Playwright's default WebKit context; IndexedDB still works), and a private window may too.
-`openBrowserVault()` probes first and throws `VaultError('unavailable')`, so a host can fall back. The owner chose
-the fallback (D1, 2026-11-22): an IndexedDB blob backing, which slice 2 builds.
+**No OPFS: IndexedDB blobs** (slice 2, D1 option B). WebKit refuses OPFS in an ephemeral session
+(`getDirectory()` throws UnknownError in Playwright's default WebKit context; IndexedDB still works), and a
+private window may too. There `openBrowserVault()` keeps its bytes in IndexedDB `lattice-vault-blobs`
+(`idb-blobs.ts`): a Blob per blob, or an ArrayBuffer once the engine refuses a Blob, as a Safari private window
+does. The vault records which store it chose (`blobBacking` in `meta`) and keeps it: a vault that chose OPFS
+and finds it refused throws `VaultError('unavailable')` rather than open on empty blobs, which the startup scan
+would read as every file damaged. `unavailable` otherwise means no IndexedDB at all.
 
 ## Tests
 
-`vault.test.ts` runs the contract over four backings (memory; memory blobs with the IndexedDB index; OPFS
-blobs through each write path with the IndexedDB index), then the crash window, the locks, the worker
+`vault.test.ts` runs the contract over five backings (memory; memory blobs with the IndexedDB index; IndexedDB
+blobs with the IndexedDB index; OPFS blobs through each write path with the IndexedDB index), then the blob
+store's Blob refusal and the recorded choice, then the crash window, the locks, the worker
 client and a seeded model test. `docs/e2e/vault.spec.ts` drives `/proto/vault/` on `desktop`, `webkit-phone` and `gecko`.
