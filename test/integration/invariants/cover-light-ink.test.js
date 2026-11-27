@@ -1,7 +1,7 @@
 /**
  * A LIGHT COVER'S INKS READ ON THE LIGHT CANVAS — measured in real Chromium against the real bundle.
  *
- * `cover: light` (lib/core/resolve-cover.js) repaints title and closing on `var(--bg)` and reaches
+ * `cover-layout: light` (lib/core/resolve-cover-layout.js) repaints title and closing on `var(--bg)` and reaches
  * their inks by remapping tokens (`--text-display`, `--on-dark-*`), not element by element
  * (base.modifiers.css, the light-cover block). A remap that is deleted or misnamed leaves one ink
  * on its dark-panel value, white on white, and the CSS stays valid, so only a computed-value

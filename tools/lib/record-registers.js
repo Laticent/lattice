@@ -26,7 +26,7 @@ const lift = require('../../lib/core/resolve-lift');
 const stamp = require('../../lib/core/resolve-stamp');
 const tone = require('../../lib/core/resolve-tone-style');
 const corners = require('../../lib/core/resolve-corners');
-const cover = require('../../lib/core/resolve-cover');
+const cover = require('../../lib/core/resolve-cover-layout');
 
 /** key → [value names, value → front-matter class words, the register's token set (null: no list)]. */
 const SOURCES = [
@@ -41,7 +41,7 @@ const SOURCES = [
   ['stamp', stamp.STAMP_STYLE_NAMES, stamp.stampClass, stamp.STAMP_STYLE_TOKENS],
   ['tone', tone.TONE_STYLE_NAMES, tone.toneStyleClass, tone.TONE_STYLE_TOKENS],
   ['corners', corners.CORNERS_NAMES, corners.cornersClass, corners.CORNERS_TOKENS],
-  ['cover', cover.COVER_NAMES, (v) => cover.coverClasses(v).join(' '), cover.COVER_TOKENS],
+  ['cover-layout', cover.COVER_NAMES, (v) => cover.coverClasses(v).join(' '), cover.COVER_TOKENS],
 ];
 
 /** The one-slide word for each register's default (front matter writes none for it). */
@@ -52,8 +52,8 @@ const RESTORE = Object.freeze({
   'eyebrow:plain': 'eyebrow-plain',
   'lift:off': 'flat',
   'corners:square': 'corners-square',
-  'cover:inverse': 'cover-inverse',
-  'cover:plain': 'cover-plain',
+  'cover-layout:inverse': 'cover-inverse',
+  'cover-layout:plain': 'cover-plain',
 });
 
 /**

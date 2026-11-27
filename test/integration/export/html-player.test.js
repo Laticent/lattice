@@ -541,7 +541,7 @@ describe('html-player export — a baked diagram follows the toggle', () => {
 // stayed on-dark — white on white, 1.00:1, in the as-exported view.
 //
 // Then it grew `:not(.cover-light)`, on the pin arm and on both bookend arms: a light cover
-// (`cover: light`, lib/core/resolve-cover.js) paints the light canvas, so it is pinned light, and
+// (`cover-layout: light`, lib/core/resolve-cover-layout.js) paints the light canvas, so it is pinned light, and
 // a `title cover-light dark` slide is not a dark panel.
 // THE SCOPE IS THREE ARMS, AND THIS FILE MUST CHECK ALL THREE. An earlier cut pinned the
 // single-compound `:where(:not(.light):not(.color-light), .title, .closing)` spelling. That

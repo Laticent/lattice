@@ -1288,8 +1288,8 @@ section.color-inherited {
  * `.print` DOES win, and must: it remaps the surface to the ink-on-white band, so the
  * panel genuinely stops being dark (measured: `title print` renders 21:1 on white).
  * `divider.light` is the bright variant — it REPLACES the canvas with `--bg`, so it keeps
- * the light scheme it declares beside that background. `cover-light` (the `cover: light`
- * register, lib/core/resolve-cover.js) does the same for title and closing, so it is carved out
+ * the light scheme it declares beside that background. `cover-light` (the `cover-layout: light`
+ * register, lib/core/resolve-cover-layout.js) does the same for title and closing, so it is carved out
  * here too — inside the `:not()` that already held `.print`, which keeps the selector at the
  * (0,2,1) it always had. The light cover's own block follows the chrome rule below. */
 section:is(.title, .closing):not(.print, .cover-light),
@@ -1333,9 +1333,9 @@ section:where(.title:not(.cover-light), .closing:not(.cover-light), .divider:not
   --marp-slide-pagination-color: var(--on-inverse-muted, var(--text-muted));
 }
 
-/* ── THE LIGHT COVER (`cover: light` → `cover-light`, title and closing only) ────────────────
+/* ── THE LIGHT COVER (`cover-layout: light` → `cover-light`, title and closing only) ────────────────
  * The front and back cover on the deck's own light canvas instead of the inverse panel. The
- * register is lib/core/resolve-cover.js, which also says why this is a register of its own and not
+ * register is lib/core/resolve-cover-layout.js, which also says why this is a register of its own and not
  * the `light` mood token.
  *
  * ONE RULE, BECAUSE THE PANEL'S INKS ARE TOKENS. Every dark-cover ink on these two layouts is

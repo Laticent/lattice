@@ -47,7 +47,7 @@ model, see `design/concepts.md`.
 | [`align:`](#the-align-front-matter-register-where-content-sits) | Where content sits, up and down and side to side | *(the component's)* |
 | [`tag:`](#the-tag-front-matter-register-card-tags) | The look of every card tag: its color, size, placement on the card and text alignment | *(the component's)* |
 | [`image-card:`](#the-image-card-front-matter-register-the-text-card-on-a-photo) | The text card on every image slide that floats its words over the photo: placement, backing, ink, size, density, shape | *(bottom-left, solid, md)* |
-| [`cover:`](#the-cover-front-matter-register-the-front-and-back-cover) | The title and closing slides: their surface (the dark inverse panel or the deck's light canvas) and their composition (`masthead`, `ledger`, `column`, `label`, `stage`, `frame`, `poster`) | `inverse plain` |
+| [`cover-layout:`](#the-cover-layout-front-matter-register-the-front-and-back-cover) | The title and closing slides: their surface (the dark inverse panel or the deck's light canvas) and their composition (`masthead`, `ledger`, `column`, `label`, `stage`, `frame`, `poster`) | `inverse plain` |
 | [`corners:`](#the-slides-corner--corners) | Whether the slide's own surface is square or rounded | `square` |
 | [`fit:`](#the-fit-front-matter-register-what-the-engine-may-do-to-make-a-slide-fit) | What the engine may do to make a slide fit (was `guards:`) | `pack` |
 | [`callout:`](#the-callout-front-matter-register-chart-callouts) | Whether the callout plugin's callouts are drawn | `on` |
@@ -1367,14 +1367,14 @@ In the Studio: Deck settings → **Image**, one control per axis (backing is a s
 inspector's **Image** tab shows the same five controls, each defaulting to the deck's value.
 Full catalog of the classes: `lib/components/imagery/image/image.docs.md`.
 
-## The `cover:` front-matter register (the front and back cover)
+## The `cover-layout:` front-matter register (the front and back cover)
 
 The `title` and `closing` slides are the deck's covers, and by default both paint the dark
-inverse panel with a centered heading. `cover:` sets both covers at once, with up to two words in
+inverse panel with a centered heading. `cover-layout:` sets both covers at once, with up to two words in
 either order: a **surface** and a **composition**.
 
 ```yaml
-cover: light column
+cover-layout: light column
 ```
 
 ### Surface
@@ -1392,7 +1392,7 @@ a separate layout variant.
 `divider light` is, because the scheme travels with the surface. A dark deck that wants dark
 covers leaves the key out.
 
-**A slide opts out with `cover-inverse`:** in a `cover: light` deck, `@meta{layout=closing, class=cover-inverse}`
+**A slide opts out with `cover-inverse`:** in a `cover-layout: light` deck, `@meta{layout=closing, class=cover-inverse}`
 keeps the dark panel on the back cover. A per-slide `@meta{layout=title, class=cover-light}` makes one light
 cover in a deck without the key.
 
@@ -1417,8 +1417,8 @@ components, so a slide can also name it in its record (`@meta{layout=title, clas
 | `poster` | `cover-poster` | The heading at the display size, heavy and tight, set left |
 
 **Every composition works on both surfaces.** Rules, boxes and the column are drawn in the
-heading's ink or the accent, which `cover-light` repoints for the light canvas, so `cover: light
-ledger` and `cover: ledger` both read in either color mode, with or without a `finish:`.
+heading's ink or the accent, which `cover-light` repoints for the light canvas, so `cover-layout: light
+ledger` and `cover-layout: ledger` both read in either color mode, with or without a `finish:`.
 
 **A `headline:` register still wins.** The four left-set compositions (`masthead`, `column`,
 `label`, `poster`) only change the default alignment, so `headline: center` centers them.
@@ -1431,7 +1431,7 @@ band is a keep-out: a heading long enough to reach it is reported as overflow (t
 overflow line, the Studio ring), never drawn into the footer. Shorten it, or add `cover-plain` to
 that slide.
 
-The register is `lib/core/resolve-cover.js`. It has no Studio control on purpose: presets set it
+The register is `lib/core/resolve-cover-layout.js`. It has no Studio control on purpose: presets set it
 (deck-preset study, decision D10), and the Studio's Basic tier gains no new controls for the
 ingredients presets use.
 
