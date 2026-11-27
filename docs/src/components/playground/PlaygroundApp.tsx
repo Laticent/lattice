@@ -151,9 +151,9 @@ const SCROLL_IDLE_MS = 120;
 /** How many times `landWalk` starts over when the scroll it performed did not put the
  *  target slide on screen. Each attempt re-waits for the geometry, so this is a budget in
  *  settle windows, not in frames; two is enough for the late-FIT case that forced it. */
+const LAND_ATTEMPTS = 2;
 /** How many guard windows a walk scroll still on its way may hold the observer for (see `walkEnRoute`). */
 const WALK_GUARD_CEILING = 4;
-const LAND_ATTEMPTS = 2;
 /** The reveal's own backstop, and it MUST outlast the land's worst case
  *  (`LAND_SETTLE_MS x (1 + LAND_ATTEMPTS)`) or the frame fades in and then jumps — the
  *  #1588 shape the reveal gate exists to prevent. Derived rather than written as a
