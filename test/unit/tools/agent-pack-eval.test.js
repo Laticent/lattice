@@ -121,8 +121,9 @@ test('nightlyModel alternates Haiku and DeepSeek day by day, across the year end
   assert.deepEqual(new Set(days), new Set([MODELS.haiku, MODELS.deepseek]));
 });
 
-test('parseArgs: --model nightly resolves, bad options throw', async () => {
-  const { parseArgs, nightlyModel } = await load();
+test('parseArgs: the small arm defaults to Haiku 5.5, --model nightly resolves, bad options throw', async () => {
+  const { parseArgs, ARMS, nightlyModel } = await load();
+  assert.equal(ARMS.small.model, process.env.AGENT_PACK_SMALL_MODEL || 'anthropic/claude-haiku-5.5');
   const when = new Date('2026-11-27T03:17:00Z');
   const o = parseArgs(['--arm', 'retrieval', '--model', 'nightly', '--repeat', '3', '--max-usd', '0.5'], when);
   assert.deepEqual([o.arms, o.model, o.repeat, o.maxUsd, o.limit], [['retrieval'], nightlyModel(when), 3, 0.5, 3]);

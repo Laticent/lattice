@@ -7,7 +7,7 @@
  * human's would: `lint:deck` and a real render through `dist/lattice.js`. Three arms:
  *
  *   start      dist/agent-kit/start.md                            one turn  (default anthropic/claude-sonnet-5.5)
- *   small      dist/agent-kit/paste/lattice-instructions-solo.md  one turn  (default openai/gpt-4o-mini)
+ *   small      dist/agent-kit/paste/lattice-instructions-solo.md  one turn  (default anthropic/claude-haiku-5.5)
  *   retrieval  dist/agent-kit/start.md                            two turns: the model may name up to six kit
  *              files start.md links to (`READ: ./agents/layouts.md`), the harness serves them from
  *              dist/agent-kit, and the model then writes the deck  (default anthropic/claude-sonnet-5.5)
@@ -68,7 +68,7 @@ export const MODELS = {
 
 export const ARMS = {
   start: { file: 'start.md', model: process.env.AGENT_PACK_MODEL || MODELS.sonnet, turns: 1 },
-  small: { file: 'paste/lattice-instructions-solo.md', model: process.env.AGENT_PACK_SMALL_MODEL || 'openai/gpt-4o-mini', turns: 1 },
+  small: { file: 'paste/lattice-instructions-solo.md', model: process.env.AGENT_PACK_SMALL_MODEL || MODELS.haiku, turns: 1 },
   retrieval: { file: 'start.md', model: process.env.AGENT_PACK_MODEL || MODELS.sonnet, turns: 2 },
 };
 
