@@ -824,8 +824,8 @@ test('Fix all is offered exactly when something can be fixed, and then it fixes 
 	await setDeck(page, '<!-- @meta{class=kpii} -->\n\n# One\n');
 	await expect.poll(() => fixAll.isEnabled()).toBe(true);
 	await fixAll.click();
-	// Fix all fixes the typo, then (last) writes the old comment as a record, typing `kpi` as the layout.
-	await expect.poll(() => editorDoc(page)).toContain('<!-- @meta{layout=kpi} -->');
+	// Fix all fixes the typo in the record and keeps the author's field: `class=kpii` becomes `class=kpi`.
+	await expect.poll(() => editorDoc(page)).toContain('<!-- @meta{class=kpi} -->');
 });
 
 // ── The walk itself ─────────────────────────────────────────────────────────

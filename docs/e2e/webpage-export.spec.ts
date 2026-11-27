@@ -218,7 +218,7 @@ test('the Studio webpage export honors Strip speaker notes, including on a slide
 	expect(envelopeSource, 'the note on the nested-markup slide is scrubbed from the envelope').not.toContain(SECRET);
 	expect(envelopeSource, 'the ordinary slide is scrubbed too').not.toContain('An ordinary note.');
 	// The scrub removes notes, not the deck: a directive must survive it intact.
-	expect(envelopeSource, 'the scrub does not eat directives').toContain('_class: diagram');
+	expect(envelopeSource, 'the scrub does not eat directives').toContain('<!-- @meta{layout=diagram} -->');
 	// The accessible description is a text alternative, not private speaker copy — it stays.
 	expect(html, 'the a11y description survives a notes strip').toContain('class="lattice-description"');
 });

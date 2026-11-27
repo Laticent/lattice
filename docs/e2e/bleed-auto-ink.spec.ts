@@ -15,7 +15,7 @@ for (const [name, deck, ink, mode] of [
 	test(`${name} in the Studio preview @webkit-tablet @gecko`, async ({ page }) => {
 		await gotoStudio(page);
 		await typeDeck(page, deck);
-		await expect.poll(() => persistedSource(page)).toContain('content bleed');
+		await expect.poll(() => persistedSource(page)).toContain('layout=content, class=bleed');
 		const slide = livePreview(page).locator('section.bleed').first();
 		await expect(slide).toHaveAttribute('data-bleed-ink', ink, { timeout: 20_000 });
 		await expect(slide).toHaveClass(new RegExp(`(^|\\s)${mode}(\\s|$)`));
@@ -25,7 +25,7 @@ for (const [name, deck, ink, mode] of [
 test('a slide whose own class names its mode keeps it in the Studio preview @webkit-tablet @gecko', async ({ page }) => {
 	await gotoStudio(page);
 	await typeDeck(page, AUTHOR_DARK);
-	await expect.poll(() => persistedSource(page)).toContain('content bleed dark');
+	await expect.poll(() => persistedSource(page)).toContain('layout=content, class=bleed dark');
 	const slide = livePreview(page).locator('section.bleed').first();
 	await expect(slide).toHaveClass(/(^|\s)dark(\s|$)/, { timeout: 20_000 });
 	await expect(slide).not.toHaveAttribute('data-bleed-ink', /./);

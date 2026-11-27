@@ -144,7 +144,7 @@ for (const tag of ['', ' @webkit-tablet']) {
 	});
 
 	test(`slide settings: an ink the slide names is left alone${tag}`, async ({ page }) => {
-		await setEditorContent(page, `---\ntitle: Photos\n---\n\n${SLIDE.replace('image spotlight', 'image spotlight image-card-dark')}`);
+		await setEditorContent(page, `---\ntitle: Photos\n---\n\n${SLIDE.replace('class=spotlight', 'class=spotlight image-card-dark')}`);
 		await openSlideImageTab(page);
 		await slider(page, 'Slide card backing').fill('35');
 		await expect.poll(() => persistedSource(page)).toContain('image-card-35');
@@ -241,7 +241,7 @@ for (const [label, width, height] of [
 	});
 
 	test(`@crosswidth the slide Image tab at ${label} (${width}px)`, async ({ page }, info) => {
-		await setEditorContent(page, `---\ntitle: Photos\nimage-card: top-right soft\n---\n\n${SLIDE.replace('image spotlight', 'image spotlight image-card-sm')}`);
+		await setEditorContent(page, `---\ntitle: Photos\nimage-card: top-right soft\n---\n\n${SLIDE.replace('class=spotlight', 'class=spotlight image-card-sm')}`);
 		await page.setViewportSize({ width, height });
 		await openSlideImageTab(page);
 		const size = page.getByRole('combobox', { name: 'Slide card size' }).filter({ visible: true }).first();

@@ -29,10 +29,10 @@ test('@crosswidth @webkit-phone @gecko the slot contract marks the wrong forms i
 	const errors = page.locator('.cm-lintRange-error');
 	const warnings = page.locator('.cm-lintRange-warning');
 	// slot-contract: `agenda` with no heading, and `cards-grid` under a `#` heading.
-	await expect(errors.filter({ hasText: '_class: agenda' }).first()).toBeVisible({ timeout: 15_000 });
-	await expect(errors.filter({ hasText: '_class: cards-grid' }).first()).toBeVisible();
+	await expect(errors.filter({ hasText: 'layout=agenda' }).first()).toBeVisible({ timeout: 15_000 });
+	await expect(errors.filter({ hasText: 'layout=cards-grid' }).first()).toBeVisible();
 	// foreign-variant: `gallery` is image's, scene's and video's, not kpi's.
-	await expect(warnings.filter({ hasText: '_class: kpi gallery' }).first()).toBeVisible();
+	await expect(warnings.filter({ hasText: 'layout=kpi, class=gallery' }).first()).toBeVisible();
 	const wrong = info.outputPath(`slot-contract-wrong-${width}.png`);
 	await page.screenshot({ path: wrong });
 	await info.attach(`slot-contract-wrong-${width}.png`, { path: wrong, contentType: 'image/png' });
@@ -40,9 +40,9 @@ test('@crosswidth @webkit-phone @gecko the slot contract marks the wrong forms i
 	await setEditorContent(page, deck([AGENDA_DASH, CARDS_H2, KPI_OWN]));
 	// The marks clear once the slides are written right. A count of zero needs the pass to have
 	// run on the new text first: wait for the agenda mark to go, then read the rest.
-	await expect(errors.filter({ hasText: '_class: agenda' })).toHaveCount(0, { timeout: 15_000 });
-	await expect(errors.filter({ hasText: '_class: cards-grid' })).toHaveCount(0);
-	await expect(warnings.filter({ hasText: '_class: kpi' })).toHaveCount(0);
+	await expect(errors.filter({ hasText: 'layout=agenda' })).toHaveCount(0, { timeout: 15_000 });
+	await expect(errors.filter({ hasText: 'layout=cards-grid' })).toHaveCount(0);
+	await expect(warnings.filter({ hasText: 'layout=kpi' })).toHaveCount(0);
 
 	// list-depth-unsupported: the sublist line gets the warning, and the flat agenda above stays clean.
 	await setEditorContent(page, deck([AGENDA_SUBLIST]));

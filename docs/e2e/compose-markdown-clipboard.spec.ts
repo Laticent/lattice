@@ -76,7 +76,7 @@ test.describe('Markdown on the Compose clipboard', () => {
 		await expect.poll(() => savedDeck(page)).toContain('## Risks');
 		const saved = await savedDeck(page);
 		expect(saved).toContain('Gross margin is up. More here.');
-		expect(saved.match(/_class: big-number/g)).toHaveLength(1);
+		expect(saved.match(/@meta\{layout=big-number\}/g)).toHaveLength(1);
 		await expect(page.locator('.cs-slide')).toHaveCount(3);
 	});
 
