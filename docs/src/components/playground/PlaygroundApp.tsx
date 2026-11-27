@@ -2705,16 +2705,18 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		// if the gesture turns out to have been a step. See `onDeckTouchEnd`.
 		if (t) touchRef.current = { x: t.clientX, y: t.clientY, multi: false, driveWas: driveAtRef.current };
 	}, []);
-	/** A press held in the frame and MOVED while it scrolls: the reader dragging the deck, by a scrollbar of any kind
-	 *  (classic, overlay, left-hand in a right-to-left frame) or anything else they hold. `onDeckScroll` stamps the input
-	 *  clock once the held pointer has moved, so a walk scroll still on its way stands down (`walkEnRoute`). A press
-	 *  alone, held still, stamps nothing: a click on a slide during a land must not tell the land the reader took over
-	 *  (`done()`'s `oursInFlight`), however long the click is held while the land scrolls. */
-	const pressRef = React.useRef<{ x: number; y: number; moved: boolean } | null>(null);
+	/** A press held in the frame while it scrolls, that is the reader dragging the deck: a press ON THE ROOT ELEMENT
+	 *  (where a press on the frame's scrollbar lands; a scrollbar drag sends the page no pointer moves, measured in
+	 *  Chromium) or a press whose pointer has MOVED (a drag anywhere else). `onDeckScroll` stamps the input clock while
+	 *  it holds, so a walk scroll still on its way stands down (`walkEnRoute`). A click on a slide, held still, is
+	 *  neither, and stamps nothing: it must not tell a land the reader took over (`done()`'s `oursInFlight`). */
+	const pressRef = React.useRef<{ x: number; y: number; drag: boolean } | null>(null);
 	const onDeckPress = React.useCallback((e: PointerEvent) => {
-		if (e.type === 'pointerdown') pressRef.current = { x: e.clientX, y: e.clientY, moved: false };
-		else if (e.type === 'pointermove' && e.buttons !== 0 && pressRef.current) {
-			if (Math.hypot(e.clientX - pressRef.current.x, e.clientY - pressRef.current.y) > 3) pressRef.current.moved = true;
+		if (e.type === 'pointerdown') {
+			const t = e.target as Element | null;
+			pressRef.current = { x: e.clientX, y: e.clientY, drag: !!t && t === t.ownerDocument?.documentElement };
+		} else if (e.type === 'pointermove' && e.buttons !== 0 && pressRef.current) {
+			if (Math.hypot(e.clientX - pressRef.current.x, e.clientY - pressRef.current.y) > 3) pressRef.current.drag = true;
 		} else pressRef.current = null;
 	}, []);
 	/** A wheel or a finger actually moving the deck. Separate from the swipe rule above: a
@@ -2852,8 +2854,8 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 
 	const scrollRafRef = React.useRef<number | null>(null);
 	const onDeckScroll = React.useCallback(() => {
-		// A scroll under a held, moved press is the reader dragging the deck (`onDeckPress`).
-		if (pressRef.current?.moved) userInputAtRef.current = Date.now();
+		// A scroll under a press that is a drag is the reader dragging the deck (`onDeckPress`).
+		if (pressRef.current?.drag) userInputAtRef.current = Date.now();
 		if (scrollRafRef.current != null) return; // one read per frame
 		scrollRafRef.current = requestAnimationFrame(() => {
 			scrollRafRef.current = null;
