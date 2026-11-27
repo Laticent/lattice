@@ -63,6 +63,14 @@ declare global {
 
 async function open(page: Page): Promise<void> {
 	await page.goto(HARNESS);
+	await waitOpen(page);
+}
+
+/** Wait for the harness's vault to open, WITHOUT navigating. After a reload, call this and not `open`: a second
+ *  navigation loads the page twice, and when the reload's load runs the startup scan before the `goto` replaces it
+ *  (more likely under load), the scan the test asserts on has already run (`verified: 0`, seen once in a loaded
+ *  run on `desktop`). */
+async function waitOpen(page: Page): Promise<void> {
 	await expect(page.locator('body')).toHaveAttribute('data-ready', /yes|failed/);
 	await expect(page.locator('#status')).toHaveText('ready');
 }
@@ -86,7 +94,7 @@ test.describe('storage vault @crosswidth @webkit-phone @gecko', () => {
 		const deviceId = await page.evaluate(() => window.vaultHarness.deviceId());
 
 		await page.reload();
-		await open(page);
+		await waitOpen(page);
 		const after = await page.evaluate(async () => {
 			const h = window.vaultHarness;
 			return {
@@ -127,7 +135,7 @@ test.describe('storage vault @crosswidth @webkit-phone @gecko', () => {
 			await h.settled();
 		});
 		await page.reload();
-		await open(page);
+		await waitOpen(page);
 		const state = await page.evaluate(async () => ({
 			paths: (await window.vaultHarness.list('')).map((e) => e.path),
 			a: await window.vaultHarness.readText('Decks/a.md'),
@@ -158,7 +166,7 @@ test.describe('storage vault @crosswidth @webkit-phone @gecko', () => {
 		const big = await page.evaluate(() => window.vaultHarness.writeBytes('Library/Videos/clip.mp4', 1024 * 1024, 3));
 		await page.evaluate(() => window.vaultHarness.write('Decks/Q3.md', '# Q3'));
 		await page.reload();
-		await open(page);
+		await waitOpen(page);
 		expect(await page.evaluate(() => window.vaultHarness.readText('Decks/Q3.md'))).toBe('# Q3');
 		expect(await page.evaluate(() => window.vaultHarness.readSize('Library/Videos/clip.mp4'))).toBe(big.bytes);
 		expect(await page.evaluate(() => window.vaultHarness.recovery())).toMatchObject({ damaged: [], orphans: 0 });
