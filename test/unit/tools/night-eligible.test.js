@@ -15,8 +15,9 @@ const TOOL = path.join(__dirname, '..', '..', '..', 'tools', 'night-eligible.mjs
 let reasons;
 let pathReason;
 let isBreakingRecord;
+let MAIN_GUARDS;
 before(async () => {
-  ({ reasons, pathReason, isBreakingRecord } = await import(TOOL));
+  ({ reasons, pathReason, isBreakingRecord, MAIN_GUARDS } = await import(TOOL));
 });
 
 const HEAD = 'abcdef1234567890';
@@ -164,4 +165,9 @@ test('a .changeset file may merge at night, unless it bumps a package major (D3)
   assert.equal(isBreakingRecord('.changeset/a.md', `${cs('patch')}\n**Breaking:** x\n`), true);
   assert.equal(isBreakingRecord('changelog.d/a.changed.md', '"x": major'), false, 'a fragment has no front matter');
   assert.match(why({ files: [{ filename: '.changeset/a.md' }], changedFiles: 1, breakingFragments: ['.changeset/a.md'] }), /breaking-change changelog record/);
+});
+
+test("the main guards are the workflows that test main itself, not the merge queue's CI (D5)", () => {
+  assert.deepEqual(Object.keys(MAIN_GUARDS).sort(), ['Golden bless (nightly)', 'Integration nightly (render-regression tier)']);
+  for (const q of Object.values(MAIN_GUARDS)) assert.match(q, /branch=main$/, q);
 });

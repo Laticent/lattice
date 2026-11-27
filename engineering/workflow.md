@@ -3023,9 +3023,10 @@ itself, finds on GitHub that:
   HOLD stays put), names a checker on its graded-by line, and names the PR's current head sha.
   `npm run card` has no head field, so put the short sha in the card's `ran` line;
 - **it is green on a green base:** `ci` from GitHub Actions succeeded on the head; GitHub reports
-  the PR clean or only behind `main`; and the latest CI, golden-bless and integration-nightly
-  runs on `main` are not red. `ci.yml` never runs on a push to `main`, so CI's run there is
-  the newest completed merge-queue run; a guard with no run to read counts as red;
+  the PR clean or only behind `main`; and the latest golden-bless and integration-nightly runs
+  on `main` are not red (a guard with no run to read counts as red). CI is not a guard (owner's
+  decision, 2026-11-27): it never runs on `main`, and a merge-queue run fails when one PR is
+  ejected, not when `main` breaks;
 - **it is non-visual and outside the control plane:** every changed path, old name and new, is
   under `lib/`, `tools/`, `test/`, `engineering/`, `design/`, `followups.d/` or `changelog.d/`,
   or is a changeset file directly in `.changeset/` (owner's decision, 2026-11-27).
@@ -3035,6 +3036,9 @@ itself, finds on GitHub that:
   `house-style.md`, the gate and its tests, `.changeset/README.md`). It also carries no breaking
   record (a `**Breaking:**` line, or a changeset that bumps a package `major`), no release, and
   no `security`, `release`, `dependencies` or `breaking` label.
+  The owner chose to leave the slide-drawing kernel (`lib/engine`, `lib/core`,
+  `lib/transformers`) and the build tools (`tools/build-*`) mergeable at night (2026-11-27),
+  knowing the 01:07 golden bless then re-records the reference PDFs to match.
 
 Anything unreadable, missing, or over 300 files is a no. There is no cap on merges a night
 (owner's choice). **Visual PRs wait for the owner's eyes**: the desk puts the VERY HIGH ones in

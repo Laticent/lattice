@@ -33,8 +33,9 @@ replaces it (HARD RULE #31). Merge only through `enable_pr_auto_merge` (the queu
 - the newest 🚦 card was posted by the owner's account and never edited, reads VERY HIGH on
   its confidence line, picks MERGE, names a checker on its graded-by line, and names the PR's
   current head sha (in its `ran` line: `npm run card` has no head field);
-- `ci` from GitHub Actions is green on that head, the PR is clean or behind, and no CI,
-  golden-bless or integration-nightly run on `main` is red (a guard with no run counts as red);
+- `ci` from GitHub Actions is green on that head, the PR is clean or behind, and no
+  golden-bless or integration-nightly run on `main` is red (a guard with no run counts as red;
+  CI is not a guard, because a queue ejection turns its run red);
 - every changed path is under `lib/`, `tools/`, `test/`, `engineering/`, `design/`,
   `followups.d/` or `changelog.d/`, or is a changeset file in `.changeset/`, and is not
   visual, export, security or control-plane;
@@ -66,7 +67,7 @@ raise.
    one you checked, `disable_pr_auto_merge` at once and put the PR back on the list. Then
    `send_message` the PR's session:
    "#N queued by the night desk at <sha>; do not push to it until it lands." Watch for a queue
-   ejection and route it back. If a CI, golden-bless or integration-nightly run on `main` goes
+   ejection and route it back. If a golden-bless or integration-nightly run on `main` goes
    red, stop merging until it is green.
 5. **Decide like the owner, inside the lane.** `owner.md` decides only your own reversible
    choices, such as which PR to ask about first. It never answers a ❓ item, judges a

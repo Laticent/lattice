@@ -60,14 +60,14 @@ export const NEVER_PATHS = [
 ];
 
 const NEVER_LABELS = /security|release|depend|breaking/i;
-/** Workflows on `main` that must not be red: a red base stops the night. */
 /**
- * Each guard's newest completed run on main, read from its own workflow (a repo-wide run list
- * holds only hours of triage runs). ci.yml has no `push: main` trigger, so its run on main is
- * the merge queue's.
+ * Workflows that test `main` itself and must not be red: a red base stops the night. Each
+ * guard's newest completed run, read from its own workflow (a repo-wide run list holds only
+ * hours of triage runs). CI is not one (owner's decision, 2026-11-27): ci.yml never runs on
+ * `main`, and its merge-queue run goes red when one PR is ejected, while the queue merges only
+ * green code, so it reported ejections, never a red `main`.
  */
 export const MAIN_GUARDS = {
-  CI: 'ci.yml/runs?event=merge_group',
   'Golden bless (nightly)': 'golden-bless.yml/runs?branch=main',
   'Integration nightly (render-regression tier)': 'integration-nightly.yml/runs?branch=main',
 };
