@@ -76,7 +76,8 @@ move. It is what `write`'s `baseRevision` option is checked against.
 
 **Write paths.** The worker uses `createSyncAccessHandle` where the engine has it and `createWritable`
 otherwise, and counts which. `docs/e2e/vault.spec.ts` proves Chromium, Linux WebKit and Gecko all take
-the sync-access-handle path. iOS Safari is UNVERIFIED until the iOS Simulator suite or a device covers it.
+the sync-access-handle path, and `PROBE=vault` on the iOS Simulator (`docs/scripts/ios-safari/vault-probe.js`)
+proves Mobile Safari 26.5 does too, on iPhone and iPad, with every file read back after a real reload.
 
 **No OPFS, no vault.** WebKit refuses OPFS in an ephemeral session (`getDirectory()` throws UnknownError
 in Playwright's default WebKit context; IndexedDB still works), and a private window may too.

@@ -85,7 +85,12 @@ Slice 2 builds it.
   profile): write a deck, a 1 MB file and 100 small files, reload, read them back; every blob write took
   `sync-access-handle` on all three engines; move and remove survive a reload; a write in one tab reaches
   another; in an ephemeral session WebKit's vault refuses with `unavailable` and the other engines open.
-- **UNVERIFIED:** iOS Safari. `webkit-phone` is Linux WebKit.
+- **iOS Safari (Simulator):** `PROBE=vault` (`docs/scripts/ios-safari/vault-probe.js`) passed every step on an
+  iPhone (402 px) and an iPad Pro 13" (1032 px), Safari 26.5 on iOS 26.5, in warm harness run 46012788685 at
+  `3b692ea` (reply: PR #3442 comment 7221237068). The vault opened, all 22 blob writes took
+  `sync-access-handle` (0 `writable`), and after a real reload every file read back with its id and sha, the device
+  id held, and the startup scan verified 22/22 with nothing damaged or orphaned. A real device is still untried;
+  the Simulator runs the same WebKit and the same storage stack.
 - **Speed:** not claimed. No bench row, because the slice makes no speed claim (HARD RULE #19); slice 2's
   storage bench measures the vault when assets move into it.
 
