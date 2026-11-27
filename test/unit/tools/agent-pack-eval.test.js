@@ -292,3 +292,26 @@ test('the cap is priced from the dearest provider, and a price that could void i
     assert.equal(calls.length, 0);
   }
 });
+
+test('a call that fails counts its ceiling, since the provider may have billed it, so the cap still holds', async (t) => {
+  const { run, parseArgs } = await load();
+  const calls = [];
+  const out = tmpDir(t);
+  const failing = async (req) => {
+    calls.push(req);
+    throw new Error('The operation was aborted due to timeout');
+  };
+  const code = await run(parseArgs(['--arm', 'start', '--model', 'test/cheap', '--repeat', '2', '--max-usd', '0.2', '--out', out]), { ...deps(t, calls), complete: failing });
+  assert.equal(code, 3);
+  assert.equal(calls.length, 3, 'three failed ceilings of ~0.0602 fit under 0.2, a fourth does not');
+  const summary = JSON.parse(fs.readFileSync(path.join(out, 'summary.json'), 'utf8'));
+  assert.ok(summary.cost > 0.18 && summary.cost <= 0.2, `spent ${summary.cost}`);
+});
+
+test('the token ceiling counts ASCII at half a token and every other byte at a whole one', async () => {
+  const { tokenCeiling } = await load();
+  assert.equal(tokenCeiling('abcd'), 2);
+  assert.equal(tokenCeiling('abc'), 2);
+  assert.equal(tokenCeiling('日本'), 6, 'two 3-byte characters');
+  assert.equal(tokenCeiling('ab日'), 4);
+});

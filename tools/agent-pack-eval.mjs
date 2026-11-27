@@ -281,10 +281,23 @@ export async function loadPrice(model, fetchImpl = fetch) {
   return { in: Math.max(...prices.map((p) => p.in)), out: Math.max(...prices.map((p) => p.out)) };
 }
 
-const bytesOf = (messages) => messages.reduce((n, m) => n + Buffer.byteLength(m.content), 0);
-/** The most one call can cost: every 2 bytes of prompt a token, the reply as long as max_tokens allows. */
-export function worstCase(promptBytes, maxTokens, price) {
-  return Math.ceil(promptBytes / 2) * price.in + maxTokens * price.out;
+/**
+ * The most prompt tokens a text can cost: an ASCII character half a token, and every UTF-8 byte of
+ * any other character a whole one, because CJK or emoji can tokenize close to one token a byte.
+ */
+export function tokenCeiling(text) {
+  let ascii = 0;
+  let other = 0;
+  for (const ch of text) {
+    if (ch.charCodeAt(0) < 0x80) ascii++;
+    else other += Buffer.byteLength(ch);
+  }
+  return Math.ceil(ascii / 2) + other;
+}
+const tokensOf = (messages) => messages.reduce((n, m) => n + tokenCeiling(m.content), 0);
+/** The most one call can cost: the prompt at its token ceiling, the reply as long as max_tokens allows. */
+export function worstCase(promptTokens, maxTokens, price) {
+  return promptTokens * price.in + maxTokens * price.out;
 }
 
 /** One chat completion. Returns what OpenRouter reported; a call cut at max_tokens returns, so its cost still counts. */
@@ -420,7 +433,7 @@ const firstUser = (job) => (job.probe ? 'Reply OK.' : `${job.brief.text}\n\n${AR
 
 /** The worst case of a job's FIRST call. A retrieval deck's second call is checked when its prompt is known. */
 export function firstCallWorstCase(job, price) {
-  return worstCase(Buffer.byteLength(job.system) + Buffer.byteLength(firstUser(job)), job.probe ? 1 : MAX_TOKENS, price);
+  return worstCase(tokenCeiling(job.system) + tokenCeiling(firstUser(job)), job.probe ? 1 : MAX_TOKENS, price);
 }
 
 /**
@@ -429,9 +442,10 @@ export function firstCallWorstCase(job, price) {
  * generous), the served files, and up to 2,000 bytes of headers, notes and the closing ask.
  */
 export function jobWorstCase(job, price) {
-  const first = Buffer.byteLength(job.system) + Buffer.byteLength(firstUser(job));
+  const first = tokenCeiling(job.system) + tokenCeiling(firstUser(job));
   let usd = firstCallWorstCase(job, price);
-  if (!job.probe && ARMS[job.arm].turns === 2) usd += worstCase(first + MAX_TOKENS * 4 + SERVE_MAX_BYTES + 2000, MAX_TOKENS, price);
+  // The served files and the closing ask are capped in bytes, so a byte each is their ceiling.
+  if (!job.probe && ARMS[job.arm].turns === 2) usd += worstCase(first + MAX_TOKENS + SERVE_MAX_BYTES + 2000, MAX_TOKENS, price);
   return usd;
 }
 
@@ -455,14 +469,22 @@ async function runJob(job, opts, deps, spent) {
     latencyMs: 0,
   };
   const call = async (messages, maxTokens) => {
-    const ceiling = worstCase(bytesOf(messages), maxTokens, deps.price);
+    const ceiling = worstCase(tokensOf(messages), maxTokens, deps.price);
     if (spent.usd + ceiling > opts.maxUsd) throw new CapStop(`USD ${spent.usd.toFixed(4)} spent; the next call could cost up to USD ${ceiling.toFixed(4)}, past the USD ${opts.maxUsd} cap`);
-    const r = await deps.complete({ model: job.model, messages, maxTokens, temperature: opts.temperature, seed: job.repeat }, deps);
+    let r;
+    try {
+      r = await deps.complete({ model: job.model, messages, maxTokens, temperature: opts.temperature, seed: job.repeat }, deps);
+    } catch (err) {
+      // A call that failed or timed out may still have been billed for what it generated: count its ceiling.
+      row.cost += ceiling;
+      spent.usd += ceiling;
+      throw err;
+    }
     row.calls++;
     row.tokensIn += r.tokensIn;
     row.tokensOut += r.tokensOut;
     // A cost OpenRouter did not report is counted at its worst case: the cap stays a cap.
-    const usd = r.costReported ? r.cost : worstCase(bytesOf(messages), maxTokens, deps.price);
+    const usd = r.costReported ? r.cost : ceiling;
     row.cost += usd;
     spent.usd += usd;
     row.latencyMs += r.latencyMs;
