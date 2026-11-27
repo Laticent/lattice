@@ -46,7 +46,8 @@ or externally visible**. Finding a better option mid-analysis is a reason to re-
 floor. 3. **Cheapest path that meets the bar**; batch questions, never re-ask a settled point.
 4. **Rebase on a conflict, never on drift** (#16). 5. **Run the gates yourself** before declaring done.
 6. **Docs + changeset in the same change** (#10). 7. **Open the PR, drive it green, then ASK to
-merge**: a human approves every merge, authorization covers one head, squash by default; while a
+merge**: a human approves every merge (or `desk:night` on my "good night", `workflow.md` §Desks),
+authorization covers one head, squash by default; while a
 `desk:merge` session is live the PR card is the ask (§Merging). Four bot PR classes auto-merge (backlog
 mirror, release, patch/minor deps, nightly bless); none licenses auto-merging your work.
 
