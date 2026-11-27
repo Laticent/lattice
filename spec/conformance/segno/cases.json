@@ -1,0 +1,551 @@
+{
+  "spec": "SEGNO-1.0",
+  "about": "Each case is one span (the text of an inline code span, without the backticks) and what a conformant reader returns for it: the item tree, or a refusal with its code. Positions are not compared. See README.md for the tree shape.",
+  "cases": [
+    {
+      "section": "4.1",
+      "title": "A record: a first value, then more",
+      "input": "{BETA, tag, c4}",
+      "item": {
+        "value": {
+          "kind": "record",
+          "items": [
+            {
+              "value": {
+                "kind": "scalar",
+                "text": "BETA"
+              }
+            },
+            {
+              "value": {
+                "kind": "scalar",
+                "text": "tag"
+              }
+            },
+            {
+              "value": {
+                "kind": "scalar",
+                "text": "c4"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "section": "4.1",
+      "title": "A named item inside a record",
+      "input": "{who=sales, mood=5}",
+      "item": {
+        "value": {
+          "kind": "record",
+          "items": [
+            {
+              "name": "who",
+              "value": {
+                "kind": "scalar",
+                "text": "sales"
+              }
+            },
+            {
+              "name": "mood",
+              "value": {
+                "kind": "scalar",
+                "text": "5"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "section": "4.2",
+      "title": "A name is read in lower case",
+      "input": "{Shape=Tag}",
+      "item": {
+        "value": {
+          "kind": "record",
+          "items": [
+            {
+              "name": "shape",
+              "value": {
+                "kind": "scalar",
+                "text": "Tag"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "section": "4.2",
+      "title": "A name may hold digits and hyphens after its first letter",
+      "input": "{c-12x=on}",
+      "item": {
+        "value": {
+          "kind": "record",
+          "items": [
+            {
+              "name": "c-12x",
+              "value": {
+                "kind": "scalar",
+                "text": "on"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "section": "4.3",
+      "title": "A bare value keeps its inner spaces and loses its trailing ones",
+      "input": "{12 14 17  , end}",
+      "item": {
+        "value": {
+          "kind": "record",
+          "items": [
+            {
+              "value": {
+                "kind": "scalar",
+                "text": "12 14 17"
+              }
+            },
+            {
+              "value": {
+                "kind": "scalar",
+                "text": "end"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "section": "4.3",
+      "title": "Space after a comma and after = is not part of the value",
+      "input": "{a,   b=  c}",
+      "item": {
+        "value": {
+          "kind": "record",
+          "items": [
+            {
+              "value": {
+                "kind": "scalar",
+                "text": "a"
+              }
+            },
+            {
+              "name": "b",
+              "value": {
+                "kind": "scalar",
+                "text": "c"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "section": "4.3",
+      "title": "A no-break space is a space",
+      "input": "{a, b }",
+      "item": {
+        "value": {
+          "kind": "record",
+          "items": [
+            {
+              "value": {
+                "kind": "scalar",
+                "text": "a"
+              }
+            },
+            {
+              "value": {
+                "kind": "scalar",
+                "text": "b"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "section": "2",
+      "title": "A line break is not a space: it stays in a bare value",
+      "input": "{a\n}",
+      "item": {
+        "value": {
+          "kind": "record",
+          "items": [
+            {
+              "value": {
+                "kind": "scalar",
+                "text": "a\n"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "section": "4.4",
+      "title": "Quoted text protects separators",
+      "input": "{\"Cost, excluding tax\"}",
+      "item": {
+        "value": {
+          "kind": "record",
+          "items": [
+            {
+              "value": {
+                "kind": "scalar",
+                "text": "Cost, excluding tax",
+                "quoted": true
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "section": "4.4",
+      "title": "Inside quotes, backslash escapes only a quote or a backslash",
+      "input": "\"a \\\"b\\\" \\\\ \\n\"",
+      "item": {
+        "value": {
+          "kind": "scalar",
+          "text": "a \"b\" \\ \\n",
+          "quoted": true
+        }
+      }
+    },
+    {
+      "section": "4.4",
+      "title": "Quoted text keeps its spaces",
+      "input": "{\"  padded  \"}",
+      "item": {
+        "value": {
+          "kind": "record",
+          "items": [
+            {
+              "value": {
+                "kind": "scalar",
+                "text": "  padded  ",
+                "quoted": true
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "section": "4.5",
+      "title": "A list of values",
+      "input": "[a, b, c]",
+      "item": {
+        "value": {
+          "kind": "list",
+          "items": [
+            {
+              "kind": "scalar",
+              "text": "a"
+            },
+            {
+              "kind": "scalar",
+              "text": "b"
+            },
+            {
+              "kind": "scalar",
+              "text": "c"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "section": "4.5",
+      "title": "An empty element holds its place",
+      "input": "[, Reach]",
+      "item": {
+        "value": {
+          "kind": "list",
+          "items": [
+            null,
+            {
+              "kind": "scalar",
+              "text": "Reach"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "section": "4.5",
+      "title": "Trailing empty elements are dropped",
+      "input": "[a, , ]",
+      "item": {
+        "value": {
+          "kind": "list",
+          "items": [
+            {
+              "kind": "scalar",
+              "text": "a"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "section": "4.5",
+      "title": "An empty list",
+      "input": "[]",
+      "item": {
+        "value": {
+          "kind": "list",
+          "items": []
+        }
+      }
+    },
+    {
+      "section": "4.5",
+      "title": "Records and lists nest",
+      "input": "[{Effort, 0..10}, Reach]",
+      "item": {
+        "value": {
+          "kind": "list",
+          "items": [
+            {
+              "kind": "record",
+              "items": [
+                {
+                  "value": {
+                    "kind": "scalar",
+                    "text": "Effort"
+                  }
+                },
+                {
+                  "value": {
+                    "kind": "scalar",
+                    "text": "0..10"
+                  }
+                }
+              ]
+            },
+            {
+              "kind": "scalar",
+              "text": "Reach"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "section": "4.6",
+      "title": "A tag before the span's record",
+      "input": "~{12 14 17, end}",
+      "item": {
+        "tag": "~",
+        "value": {
+          "kind": "record",
+          "items": [
+            {
+              "value": {
+                "kind": "scalar",
+                "text": "12 14 17"
+              }
+            },
+            {
+              "value": {
+                "kind": "scalar",
+                "text": "end"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "section": "4.6",
+      "title": "Inside a record, a tag character is ordinary text",
+      "input": "{~5 min}",
+      "item": {
+        "value": {
+          "kind": "record",
+          "items": [
+            {
+              "value": {
+                "kind": "scalar",
+                "text": "~5 min"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "section": "4.7",
+      "title": "A description: prose to the first unescaped closing brace",
+      "input": "{> Slipped a week, back on track \\} ok}",
+      "item": {
+        "value": {
+          "kind": "description",
+          "text": "Slipped a week, back on track } ok"
+        }
+      }
+    },
+    {
+      "section": "4.7",
+      "title": "A > after the first item is ordinary text",
+      "input": "{3, >5}",
+      "item": {
+        "value": {
+          "kind": "record",
+          "items": [
+            {
+              "value": {
+                "kind": "scalar",
+                "text": "3"
+              }
+            },
+            {
+              "value": {
+                "kind": "scalar",
+                "text": ">5"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "section": "4.8",
+      "title": "A named item on its own",
+      "input": "after=Design",
+      "item": {
+        "name": "after",
+        "value": {
+          "kind": "scalar",
+          "text": "Design"
+        }
+      }
+    },
+    {
+      "section": "4.8",
+      "title": "A bare value on its own",
+      "input": "$4.2M",
+      "item": {
+        "value": {
+          "kind": "scalar",
+          "text": "$4.2M"
+        }
+      }
+    },
+    {
+      "section": "4.8",
+      "title": "Leading space before the span's value is skipped",
+      "input": "  {x}",
+      "item": {
+        "value": {
+          "kind": "record",
+          "items": [
+            {
+              "value": {
+                "kind": "scalar",
+                "text": "x"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "section": "5",
+      "title": "A pipe is reserved",
+      "input": "{a|b}",
+      "refuse": "reserved-pipe"
+    },
+    {
+      "section": "5",
+      "title": "A quote that never closes",
+      "input": "{\"open}",
+      "refuse": "unclosed-quote"
+    },
+    {
+      "section": "5",
+      "title": "An = with no name before it",
+      "input": "{=>, Main path}",
+      "refuse": "stray-equals"
+    },
+    {
+      "section": "5",
+      "title": "A second = inside one item",
+      "input": "{a=b=c}",
+      "refuse": "stray-equals"
+    },
+    {
+      "section": "5",
+      "title": "A space directly after the opening brace",
+      "input": "{ ok, scene }",
+      "refuse": "space-after-brace"
+    },
+    {
+      "section": "5",
+      "title": "A record that never closes",
+      "input": "{a, b",
+      "refuse": "unclosed-bracket"
+    },
+    {
+      "section": "5",
+      "title": "A name with a dot is not a name",
+      "input": "{acme.tally=3}",
+      "refuse": "bad-name"
+    },
+    {
+      "section": "5",
+      "title": "A name with a colon is not a name",
+      "input": "{acme:tally=3}",
+      "refuse": "bad-name"
+    },
+    {
+      "section": "5",
+      "title": "A name must start with a letter",
+      "input": "{1st=x}",
+      "refuse": "bad-name"
+    },
+    {
+      "section": "5",
+      "title": "A list holds values, not named items",
+      "input": "[a=1]",
+      "refuse": "named-in-list"
+    },
+    {
+      "section": "5",
+      "title": "An empty record is not a record",
+      "input": "{}",
+      "refuse": "syntax"
+    },
+    {
+      "section": "5",
+      "title": "A tag character cannot start a bare span",
+      "input": "~/path",
+      "refuse": "syntax"
+    },
+    {
+      "section": "5",
+      "title": "Text after the span's value",
+      "input": "{a} b",
+      "refuse": "syntax"
+    },
+    {
+      "section": "6",
+      "title": "32 levels of brackets read",
+      "input": "[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[x]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]",
+      "ok": true
+    },
+    {
+      "section": "6",
+      "title": "33 levels of brackets are refused",
+      "input": "[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[x]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]",
+      "refuse": "too-deep"
+    }
+  ]
+}
