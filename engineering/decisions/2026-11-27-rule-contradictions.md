@@ -205,6 +205,25 @@ did not retry or route around either refusal. Each needs the owner to apply it o
      merge, which the command center makes itself.
    - §Relay rule 10 and §Desks "The receiving side" say the same in one line each. The desk-brief text
      drops "the owner's own word in this session".
+   - **The owner's refinements** (typed in the command center: D1 answer "relays from the command center
+     count as my word", event `5ab1534b-71f6-4498-ba8f-2598671f0cca`; then "i'm aligned",
+     `a6f4248c-9edd-4c44-96ea-9de248bb78ab`, to the four points below):
+     1. **Every gate decision goes through the command center's question tool**: a merge, a ❓ pick,
+        anything a checker grades on. That record holds the question, the options and the pick, with
+        `permission_decision.source` `"user_temporary"`, so it explains itself. A typed turn is direction
+        and carries authority; a gate needs the question-tool record, or a typed reply that quotes the
+        exact option.
+     2. **One `get_event`, three tests.** (a) The event belongs to the session tagged `command-center`.
+        (b) A person made it: a typed turn with `client_platform` set, or a question-tool answer with
+        source `user_temporary`. (c) Its words or selection match the relay. Any mismatch voids the
+        relay, and the receiver reports it to the command center.
+     3. **A GitHub comment is never proof on its own**, because agents post as the owner's account. Only
+        the `get_event` read is.
+     4. **The limit, named honestly:** the record proves the owner's account and device, not who was
+        holding them.
+   - The classifier refused the third attempt too (2026-11-27, at the step that applied this patch, before
+     any commit), with the same reason and the advice that "the user can add a permission rule for Bash to
+     their settings".
 
 **CLAUDE.md wording for (g), (i) and the card ping**, all waiting on the owner. Each adds tokens, so each
 lands with the index (item D1) or with a trade.
