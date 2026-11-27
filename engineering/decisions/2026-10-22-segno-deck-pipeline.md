@@ -1204,7 +1204,7 @@ readers that ship.
 | export/player-prune.js: `@font-face` blocks (×3) | the font faces the player keeps | 5 | no | yes |
 | export/player-fonts.js: `FACE`, `DATA_URI` | the embedded woff2 faces | 3 | no | yes |
 | export/player-assets.mjs, player-images.mjs: data-URL `url()` | inlined data URLs | 1, 2 | no | yes |
-| export/katex-inline.js: `woff2Src`, the `@font-face` split | KaTeX's font faces | 3 | no | yes |
+| export/katex-inline.js: `woff2Src`, the `@font-face` split (**moved in P5b:** `woff2Srcs` and `faceRules` read tokens; byte-identical on KaTeX's sheet, test/unit/export/katex-inline-differential.test.js) | KaTeX's font faces | 3 | no | yes |
 | export/marp-bundle.js: `FONT_URL`, the emoji `@font-face` drop | font paths; one face removed | 6 | no | yes (Marp export) |
 | export/marp-vscode-stub.js, marp-bundle-math.js `STYLE_VALUE` | theme imports; a math style value | 3, 2 | no | yes |
 | export/pdf-asset-reader.js | a local sheet's `@font-face` blocks | 2 | no | yes (PDF) |

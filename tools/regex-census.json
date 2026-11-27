@@ -96,7 +96,6 @@
     "lib/export/deck-assets.js": 1,
     "lib/export/html-player.js": 1,
     "lib/export/image-set.js": 1,
-    "lib/export/katex-inline.js": 3,
     "lib/export/locked-figures.js": 1,
     "lib/export/marp-bundle-html.js": 5,
     "lib/export/marp-bundle.js": 5,
@@ -2948,10 +2947,6 @@
     "/script-src-(elem|attr)/": "safe",
     "/spectrum/": "safe",
     "/split/i": "safe",
-    "/src:url\\(\\s*(['\"]?)fonts\\/([^)'\"]+\\.woff2)\\1\\s*\\)\\s*format\\((['\"]?)woff2\\3\\)[^;}]*/g": {
-      "verdict": "unknown",
-      "why": "recheck cannot model it: back-reference"
-    },
     "/srcset$/i": "safe",
     "/stroke=\"#[0-9a-fA-F]{3,6}\"/g": "safe",
     "/tabular-nums/": "safe",

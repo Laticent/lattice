@@ -9037,7 +9037,6 @@ const SANCTIONED_SPINE_READERS = Object.freeze([
   { file: 'lib/engine/css.js', shape: 'url-reader', count: 1, why: 'FAILS CLOSED: theme assembly drops every `@import` but `lattice` from a registered theme.' },
   // ── Lattice's own assets ──
   { file: 'lib/core/css-url.js', shape: 'url-reader', count: 1, why: 'OWN ASSETS: the runtime\'s first-url() reader for the engine\'s own picture styles (data: and relative), a linear scan written for WebKit (2026-11-03-pictures-at-drawn-size.md); it decides a size, not a fetch.' },
-  { file: 'lib/export/katex-inline.js', shape: 'url-reader', count: 1, why: 'OWN ASSETS: inlines KaTeX\'s own `fonts/*.woff2` in its own stylesheet.' },
   { file: 'lib/export/marp-bundle.js', shape: 'url-reader', count: 1, why: 'OWN ASSETS: rewrites Lattice\'s own `fonts/…` paths in the bundled stylesheet.' },
   { file: 'lib/export/marp-bundle.js', shape: 'attr-reader', count: 2, why: 'OWN ASSETS: strips Lattice\'s own runtime `<script src>` tags from the Marp bundle, and (2026-11-10) the one `<link rel="stylesheet" href>` to its own VS Code stylesheet, matched against the exact list of its own file names (`lattice-vscode.css`, the kit\'s `lattice-vscode-min.css`).' },
   { file: 'lib/export/marp-bundle-html.js', shape: 'attr-reader', count: 2, why: 'OWN ASSETS: matches Lattice\'s own runtime `<script src>` lines, and the one `<link rel="stylesheet">` to the bundle\'s own VS Code-shaped stylesheet (2026-11-10), each against an exact list of the bundle\'s own file names, to let them through.' },
