@@ -534,7 +534,7 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
   ~10 agents *across the session*, not per-fan-out, my explicit OK first,
   bundled into one question — the only exemptions are **pre-registered**: a
   fan-out CLAUDE.md already mandates without asking, e.g. the QUALITY BAR's
-  visual sweep, or a named workflow with a committed hard cap; a shape-name
+  visual sweep, a desk's ~10 per lane per day, or a named workflow with a committed hard cap; a shape-name
   coined on the fly is not an exemption, and serial sub-10 fan-outs still
   sum), **budgeted** (token target + `budget.remaining()`
   guards; refine loops cap at ~3 or stop when a round changes nothing), and
