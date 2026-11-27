@@ -86,7 +86,10 @@ export function nightlyModel(date = new Date()) {
   return Math.floor(date.getTime() / 86_400_000) % 2 === 0 ? MODELS.haiku : MODELS.deepseek;
 }
 
-/** Three briefs, three registers: a board ask, a teaching deck, a data-led review. Fixed, so nights compare. */
+/**
+ * Ten briefs in ten registers, fixed so nights compare: never reword one, add a new slug instead.
+ * The first three are the 2026-11-17 set; the other seven were added 2026-11-27.
+ */
 export const BRIEFS = [
   {
     slug: 'board-ask',
@@ -113,6 +116,73 @@ export const BRIEFS = [
       'response 2.1 hours (target 2.0); customer satisfaction 91% (Q2: 88%); tickets by channel: email 52%, ' +
       'chat 31%, phone 17%; top three causes: login problems 24%, billing questions 19%, export errors 11%. ' +
       'Recommend one change for Q4.',
+  },
+  {
+    slug: 'postmortem',
+    text:
+      'Write an incident postmortem deck for the engineering all-hands. On 4 November checkout was down for ' +
+      '47 minutes (14:02 to 14:49 UTC). Cause: a database migration added an index without CONCURRENTLY and ' +
+      'locked the orders table. Impact: about 3,100 failed orders, EUR 210k delayed revenue, no data lost. ' +
+      'Detection took 9 minutes because the alert watched error rate, not order volume. Timeline: 14:02 deploy, ' +
+      '14:11 page, 14:24 cause found, 14:41 migration killed, 14:49 recovered. Actions: a migration linter, an ' +
+      'order-volume alert, and a staged rollout for schema changes, each with an owner and a date. Blameless tone.',
+  },
+  {
+    slug: 'launch',
+    text:
+      'Write a product launch deck for the sales team. We are launching Ledgerline, an expense tool for teams ' +
+      'of 10 to 200 people, on 15 January. Three features: receipts read from a photo in under 3 seconds, ' +
+      'approvals in Slack, and a monthly close that takes one hour instead of two days. Pricing: EUR 6 per user ' +
+      'per month, EUR 4 on an annual plan. Main competitors are Expensify and Pleo; we are cheaper than both and ' +
+      'the only one with Slack approvals. Pilot customers: 14 companies, 92% kept using it after 60 days. ' +
+      'End with what each salesperson should do in the first week.',
+  },
+  {
+    slug: 'investor-update',
+    text:
+      'Write a quarterly investor update deck for a seed-stage startup. Q3: monthly recurring revenue grew from ' +
+      'USD 82k to USD 131k; 38 new customers, 3 lost; gross margin 78%; burn USD 290k a month; 19 months of ' +
+      'runway. Wins: signed our first enterprise customer (USD 9k a month) and shipped SSO. Misses: the mobile ' +
+      'app slipped a quarter; hiring a head of sales took longer than planned. Asks of investors: two intros to ' +
+      'logistics companies and feedback on our Series A timing.',
+  },
+  {
+    slug: 'architecture',
+    text:
+      'Write a deck proposing an architecture change to the engineering leads. Today every service reads the ' +
+      'shared Postgres database directly: 23 services, 4 of them write to the same tables, and schema changes ' +
+      'need sign-off from 6 teams. Proposal: each table gets one owning service with an API, and others read ' +
+      'through it or through change events. Cost: about 3 engineer-quarters, done in four phases over a year. ' +
+      'Risks: added latency (measured 4 ms per call in a prototype) and a period of running both paths. Compare ' +
+      'it with the option of keeping the shared database and adding a schema review board. Ask for a go on phase one.',
+  },
+  {
+    slug: 'research',
+    text:
+      'Write a deck presenting user research findings to the product team. We interviewed 24 small-business ' +
+      'owners and ran a survey with 610 answers. Findings: 71% do their bookkeeping after 8 pm; the top pain is ' +
+      'matching bank payments to invoices (named by 58%); 2 in 3 have tried an accounting app and quit within ' +
+      'a month, mostly because setup took too long; trust in automatic categorization is low (34% trust it). ' +
+      'Include two short quotes, what we are confident about versus not, and three product bets the findings support.',
+  },
+  {
+    slug: 'all-hands-policy',
+    text:
+      'Write a deck for a company all-hands announcing a new hybrid work policy from 1 March. Everyone works in ' +
+      'the office on Tuesdays and Thursdays; the other three days are your choice; teams may pick one extra ' +
+      'shared day. The company will pay EUR 50 a month toward home internet. Why: survey of 340 staff, 64% ' +
+      'wanted fewer office days but 72% said they miss in-person planning. Answer the three most likely ' +
+      'questions: what about people far from an office, what happens on holidays, and how exceptions are asked for. ' +
+      'Warm, plain tone.',
+  },
+  {
+    slug: 'fundraising',
+    text:
+      'Write a fundraising deck for a nonprofit that teaches coding to refugees in Berlin, for a meeting with a ' +
+      'foundation. Since 2022: 412 graduates, 68% employed in tech within six months, average starting salary ' +
+      'EUR 41k. Each student costs EUR 3,800 for a 16-week course. We are asking for EUR 250k over two years to ' +
+      'open a second classroom and double intake to 160 students a year. Include one graduate story, how the ' +
+      'money would be spent (60% teachers, 25% laptops and space, 15% job placement), and how we report results.',
   },
 ];
 

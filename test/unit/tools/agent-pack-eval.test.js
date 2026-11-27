@@ -126,12 +126,21 @@ test('parseArgs: the small arm defaults to Haiku 5.5, --model nightly resolves, 
   assert.equal(ARMS.small.model, process.env.AGENT_PACK_SMALL_MODEL || 'anthropic/claude-haiku-5.5');
   const when = new Date('2026-11-27T03:17:00Z');
   const o = parseArgs(['--arm', 'retrieval', '--model', 'nightly', '--repeat', '3', '--max-usd', '0.5'], when);
-  assert.deepEqual([o.arms, o.model, o.repeat, o.maxUsd, o.limit], [['retrieval'], nightlyModel(when), 3, 0.5, 3]);
+  assert.deepEqual([o.arms, o.model, o.repeat, o.maxUsd, o.limit], [['retrieval'], nightlyModel(when), 3, 0.5, 10]);
   assert.equal(parseArgs([]).maxUsd, 1, 'a cap is always set');
   assert.throws(() => parseArgs(['--arm', 'small', '--old', 'x.md']), /compares start\.md/);
   assert.throws(() => parseArgs(['--max-usd', '0']), /out of range/);
   assert.throws(() => parseArgs(['--repeat', '1.5']), /out of range/);
   assert.throws(() => parseArgs(['--arm', 'nope']), /unknown arm/);
+});
+
+test('ten fixed briefs, unique slugs, the first three unchanged so nights compare', async () => {
+  const { BRIEFS } = await load();
+  assert.deepEqual(
+    BRIEFS.map((b) => b.slug),
+    ['board-ask', 'teaching', 'data-review', 'postmortem', 'launch', 'investor-update', 'architecture', 'research', 'all-hands-policy', 'fundraising'],
+  );
+  assert.match(BRIEFS[0].text, /^Write a deck for a board meeting\. Our company wants approval to open a second warehouse in Rotterdam\./);
 });
 
 test('readRequests takes READ lines only from a reply that holds no deck; serveKitFiles stays inside the kit', async (t) => {
@@ -157,7 +166,7 @@ test('a dry run prices the plan and makes no chat call', async (t) => {
   const code = await run(parseArgs(['--arm', 'retrieval', '--model', 'test/cheap', '--out', tmpDir(t)]), d);
   assert.equal(code, 0);
   assert.equal(calls.length, 0);
-  assert.match(logs.join('\n'), /3 deck\(s\) on test\/cheap.*Dry run/s);
+  assert.match(logs.join('\n'), /10 deck\(s\) on test\/cheap.*Dry run/s);
 });
 
 test('--max-usd stops before the call that could cross it, and exits 3', async (t) => {
