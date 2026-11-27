@@ -947,7 +947,10 @@ of the deck-presets Wave 1 round docked every preset for it (#3470). A flowchart
 (`svg[aria-roledescription="flowchart-v2"]`) now paints a pale `--accent` tint mixed into
 `--bg`, outlined in `--accent` and inked `--text-heading`, so the whole diagram follows
 the theme's accent and the color mode. State, ER, sankey and treemap keep the cycle. To
-mark a category on a flowchart, the author says so with `classDef` / `style`.
+mark a category on a flowchart, the author says so with `classDef` / `style`, and sets
+`color:` whenever it sets `fill:`: without it the label keeps the canvas ink, which is
+pale in dark mode, so a pale author fill such as `fill:#fff7d6` reads at about 1.05:1 on
+cuoio dark (`followups.d/3496-p2-flowchart-author-fill-without-ink.md`).
 
 Legibility is **gated**, not assumed —
 `test/unit/palette/containment-contrast.test.js` holds every theme in both schemes

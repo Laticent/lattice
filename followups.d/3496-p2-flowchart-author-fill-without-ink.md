@@ -5,7 +5,7 @@ recorded: 2026-11-23
 area: diagram
 severity: medium
 swimlane: engineering/mermaid.md
-deferred: blocked — both halves need something a stylesheet cannot see. The ink: the right one depends on a color the author chose (a lint rule's job). The sketch fill: Mermaid hands an author's classDef to rough.js as plain attributes and marks the node only with the author's class name, which CSS cannot tell from Mermaid's own, so the bake must tag author-styled nodes. Both are pre-existing, and #3496 leaves both no worse than main (measured below)
+deferred: off-path — both halves are pre-existing on main and outside the two surfaces #3496 changes; #3496 fixes what it teaches (engineering/mermaid.md now tells authors to set color: with fill:). The ink: the right one depends on a color the author chose, so it needs a new lint-core warn rule. The sketch fill: Mermaid hands an author's classDef to rough.js as plain attributes and marks the node only with the author's class name, which CSS cannot tell from Mermaid's own, so the bake must tag author-styled nodes. Both are pre-existing, and #3496 leaves both no worse than main (measured below)
 source: https://github.com/Laticent/lattice/pull/3496
 ---
 
