@@ -94,6 +94,40 @@ async function armDropSeen(page: Page) {
 	return () => expect.poll(() => page.evaluate(() => (window as unknown as { __drops?: number }).__drops ?? 0), { message: 'the drop was never dispatched' }).toBeGreaterThan(0);
 }
 
+/**
+ * #3463's witness. The sign arm failed about 2 runs in 35 on one runner with "element(s) not found", and no trace survived.
+ * This records, from inside the page, every file `dragover` the window sees: what was under the pointer, which owned zone
+ * (`OWN_DROP_ZONES`) it sat in, and whether anything accepted the drag. `whyNoSign` reads it back with what is under the
+ * drag point now, so the next failure names its cause in the error itself. It reads; it changes nothing the shell decides.
+ */
+const DRAG_WITNESS = () => {
+	const w = window as unknown as { __dragLog?: string[] };
+	if (w.__dragLog) return;
+	w.__dragLog = [];
+	const own = '[data-file-drop], .cm-editor, [role="dialog"], [role="alertdialog"]';
+	const name = (el: Element | null) => (el ? el.tagName.toLowerCase() + (el.getAttribute('role') ? `[role=${el.getAttribute('role')}]` : '') + (el.getAttribute('aria-label') ? `[aria-label="${el.getAttribute('aria-label')}"]` : '') : 'null');
+	window.addEventListener('dragover', (e) => {
+		const t = e.target as Element | null;
+		const inRoot = !!t?.closest?.('[data-studio-root]');
+		w.__dragLog!.push(`over ${e.clientX},${e.clientY} target=${name(t)} owned=${name(t?.closest?.(own) ?? null)} inStudioRoot=${inRoot}`);
+	}, true);
+	window.addEventListener('dragover', (e) => {
+		w.__dragLog!.push(`  handled defaultPrevented=${e.defaultPrevented} dropEffect=${e.dataTransfer?.dropEffect}`);
+	});
+};
+
+async function whyNoSign(page: Page, target: Locator): Promise<string> {
+	const box = await target.boundingBox().catch(() => null);
+	return page.evaluate((b) => {
+		const w = window as unknown as { __dragLog?: string[] };
+		const at = b ? { x: b.x + b.width / 2, y: b.y + b.height / 2 } : null;
+		const chain: string[] = [];
+		for (let el = at ? document.elementFromPoint(at.x, at.y) : null; el && chain.length < 8; el = el.parentElement) chain.push(el.tagName.toLowerCase() + (el.getAttribute('role') ? `[role=${el.getAttribute('role')}]` : '') + (el.id ? `#${el.id}` : ''));
+		const dialogs = [...document.querySelectorAll('[role="dialog"], [role="alertdialog"]')].map((d) => `${d.getAttribute('aria-label') ?? d.querySelector('h2,h3')?.textContent?.slice(0, 40) ?? '?'} ${JSON.stringify(d.getBoundingClientRect())}`);
+		return [`viewport ${innerWidth}x${innerHeight} mode=${document.documentElement.dataset.mode} studioRoot=${!!document.querySelector('[data-studio-root]')}`, `drag point ${JSON.stringify(at)} under: ${chain.join(' < ')}`, `dialogs: ${dialogs.join(' | ') || 'none'}`, `dragover log (${w.__dragLog?.length ?? 'no witness'}):`, ...(w.__dragLog ?? []).slice(-12)].join('\n');
+	}, box);
+}
+
 const sign = (page: Page) => page.locator('[data-deck-drop-sign]');
 const preview = (page: Page) => page.locator('[aria-label="Live deck preview"]').first();
 
@@ -277,6 +311,8 @@ test.describe('native drags (Chromium CDP)', () => {
 		// page's clock is stopped while the drag is held: the timer cannot fire, which is the state a real drag keeps
 		// it in (HARD RULE #32).
 		await page.clock.install();
+		await page.addInitScript(DRAG_WITNESS);
+		await page.evaluate(DRAG_WITNESS);
 		for (const [label, width, height, colorScheme] of shots) {
 			await page.setViewportSize({ width, height });
 			if (colorScheme === 'dark') {
@@ -289,7 +325,9 @@ test.describe('native drags (Chromium CDP)', () => {
 			await nativeDrag(page, page.locator('header').first(), [files.pdf], {
 				drop: false,
 				before: async () => {
-					await expect(sign(page)).toBeVisible();
+					await expect(sign(page)).toBeVisible().catch(async (err) => {
+						throw new Error(`${err.message}\n\n#3463 witness at ${label}:\n${await whyNoSign(page, page.locator('header').first())}`);
+					});
 					const box = await sign(page).boundingBox();
 					expect(box && box.x >= 0 && box.y >= 0 && box.x + box.width <= width && box.y + box.height <= height, `sign inside the ${label}px viewport`).toBe(true);
 					const out = process.env.DROP_SHOTS ? join(process.env.DROP_SHOTS, `drop-sign-${label}.png`) : info.outputPath(`drop-sign-${label}.png`);
