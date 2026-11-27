@@ -152,6 +152,10 @@ const SCROLL_IDLE_MS = 120;
  *  target slide on screen. Each attempt re-waits for the geometry, so this is a budget in
  *  settle windows, not in frames; two is enough for the late-FIT case that forced it. */
 const LAND_ATTEMPTS = 2;
+/** How many guard windows a walk scroll still on its way may hold the observer for (see `walkEnRoute`). */
+const WALK_GUARD_CEILING = 4;
+/** Keys the browser scrolls a document for by itself. Pressing one is the reader moving the deck. */
+const NATIVE_SCROLL_KEYS = new Set(['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' ']);
 /** The reveal's own backstop, and it MUST outlast the land's worst case
  *  (`LAND_SETTLE_MS x (1 + LAND_ATTEMPTS)`) or the frame fades in and then jumps — the
  *  #1588 shape the reveal gate exists to prevent. Derived rather than written as a
@@ -406,8 +410,10 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	const scrollWalkRef = React.useRef<(smooth: boolean) => void>(() => {});
 	const landWalkRef = React.useRef<(attempt?: number) => void>(() => {});
 	/** The in-flight programmatic scroll: the index it is traveling to, and when the
-	 *  observer stops deferring to it. Cleared the moment the frame actually arrives. */
-	const walkScrollRef = React.useRef<{ index: number; until: number; armedAt: number } | null>(null);
+	 *  observer stops deferring to it. Cleared the moment the frame actually arrives.
+	 *  `from` and `to` are the offsets it left and is going to, and `hardUntil` is the latest
+	 *  the guard may hold while the scroll is still between the two: see `walkEnRoute`. */
+	const walkScrollRef = React.useRef<{ index: number; until: number; armedAt: number; from: number; to: number; hardUntil: number } | null>(null);
 	/** Fires when the guard above expires. The guard cannot be released by "the next scroll
 	 *  event" alone: a single jumping scroll inside the window is never followed by one, so
 	 *  the index stays where the step aimed while a different slide fills the pane. */
@@ -1830,6 +1836,28 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// an index back from a scroll. A smooth scroll emits a scroll event per frame all
 	// the way there, so without the guard a step from slide 2 to 9 would report — and
 	// address-bar — every slide in between.
+	/**
+	 * Whether the walk's own scroll is STILL ON ITS WAY: short of where it is going, and between there and where it
+	 * started, with the reader silent since it began. The guard's window is how long a smooth scroll takes on an idle
+	 * page, and that is a guess a loaded page breaks. Measured on the built Playground at `?c=kpi` with the map open,
+	 * under `--workers=4`: "Map, last slide" scrolled for 1.9s (the main thread was blocked for 1.4s of it), the guard
+	 * let go at 1.2s, the observer renamed the walk to slide 11 from the offset the scroll was passing, and the next
+	 * step started from there while the scroll went on to slide 14 — the bar read "14 / 14" after "Map, previous
+	 * slide", or "1 / 14" after "Next". So the window decides only once the scroll has stopped being ours. The same
+	 * rule as the Edit sync's `enRoute` (lib/playground-sync.ts), for the same failure.
+	 *
+	 * NOT "still moving": a blocked main thread stops a smooth scroll between two looks, and that stillness is the
+	 * very case this exists for (tried, and the flake came back: 2 in 144). What lets go of a scroll the READER
+	 * canceled is the input clock: the native scroll keys and a drag in the frame stamp it
+	 * (`onDeckKey`, `onDeckPress`), so their scroll releases the guard as a wheel's does. `hardUntil` is the ceiling
+	 * over the rest: a scroll that never arrives does not hold the observer shut for good.
+	 */
+	const walkEnRoute = React.useCallback((p: { armedAt: number; from: number; to: number; hardUntil: number }) => {
+		if (Date.now() >= p.hardUntil || userInputAtRef.current > p.armedAt) return false;
+		const y = frameRef.current?.contentWindow?.scrollY;
+		if (y == null) return false;
+		return Math.abs(y - p.to) >= 1 && y >= Math.min(p.from, p.to) - 1 && y <= Math.max(p.from, p.to) + 1;
+	}, []);
 	const scrollWalk = React.useCallback((smooth: boolean) => {
 		const frame = frameRef.current;
 		const w = walkRef.current;
@@ -1848,7 +1876,8 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		// it back from.
 		bandSigRef.current = bandSig(frameBands(frame, walkRef.current?.kind === 'plan'));
 		const window_ms = animated ? 1200 : 400;
-		walkScrollRef.current = { index: w.index, until: now + window_ms, armedAt: now };
+		// `to` is filled in below, once the destination is computed; until then nothing reads it.
+		walkScrollRef.current = { index: w.index, until: now + window_ms, armedAt: now, from: win.scrollY, to: win.scrollY, hardUntil: now + window_ms * WALK_GUARD_CEILING };
 		// ARM A TIMER TOO, not just a deadline other code checks when it happens to run. The
 		// deadline alone is only ever read from `onDeckScroll`, so it needs a LATER scroll to
 		// take effect — and the case it exists for is precisely a scroll with no successor
@@ -1856,9 +1885,16 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		// Measured: a step to slide 2 then one jump to slide 10 left the bar on "2 / 13"
 		// forever. Found by an independent checker.
 		if (guardTimerRef.current) clearTimeout(guardTimerRef.current);
-		guardTimerRef.current = setTimeout(() => {
+		const expire = () => {
 			guardTimerRef.current = null;
-			if (!walkScrollRef.current) return; // released normally
+			const p = walkScrollRef.current;
+			if (!p) return; // released normally
+			// STILL ON ITS WAY: the window is a guess at how long the scroll takes, and a loaded page
+			// takes longer. Hold, and look again, until the scroll arrives or the ceiling passes.
+			if (walkEnRoute(p)) {
+				guardTimerRef.current = setTimeout(expire, Math.min(window_ms, Math.max(40, p.hardUntil - Date.now())));
+				return;
+			}
 			walkScrollRef.current = null;
 			// NOT WHILE A LAND OWNS THE POSITION. This timer exists to un-strand a scroll that
 			// no later event will correct; a land in flight IS that later correction, and it is
@@ -1868,7 +1904,8 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			// what the reader asked for.
 			if (landPendingRef.current) return;
 			reconcileRef.current();
-		}, window_ms + 40);
+		};
+		guardTimerRef.current = setTimeout(expire, window_ms + 40);
 		// Where the slide lands. When it nearly fills the pane (Explore's one-slide stage),
 		// CENTER it: one whole slide with an even margin above and below. When the pane is much
 		// taller than a slide (a tablet or phone filmstrip), centering would leave the previous
@@ -1885,8 +1922,13 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		// run, is already where this lands it — pinning it 16px down moved the whole filmstrip
 		// 20px up under the reader the moment the app went live (measured at 390px).
 		const pinnedFirst = w.index === 0 && spare > 40;
-		win.scrollTo({ top: pinnedFirst ? 0 : Math.max(0, (band ? band.top : win.scrollY + target.getBoundingClientRect().top) - inset), behavior: animated ? 'smooth' : 'auto' });
-	}, [mountAroundIndex]);
+		const want = pinnedFirst ? 0 : Math.max(0, (band ? band.top : win.scrollY + target.getBoundingClientRect().top) - inset);
+		// Where the scroll will actually stop: the document clamps it, and `walkEnRoute` must know the real end.
+		const se = frame.contentDocument?.scrollingElement;
+		const dest = se?.scrollHeight ? Math.min(want, Math.max(0, se.scrollHeight - se.clientHeight)) : want;
+		if (walkScrollRef.current) walkScrollRef.current.to = dest;
+		win.scrollTo({ top: want, behavior: animated ? 'smooth' : 'auto' });
+	}, [mountAroundIndex, walkEnRoute]);
 	scrollWalkRef.current = scrollWalk;
 
 	/**
@@ -2621,6 +2663,10 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			// selection the keystroke asked for never happened. One text-editing keystroke
 			// replaced the reader's deck. Found by an independent checker.
 			if (isTypingTarget(e.target as Element | null)) return;
+			// A key the browser scrolls the frame for on its own (no shell action claims it) is the reader moving the
+			// deck too, and a walk scroll still on its way must stand down for it (`walkEnRoute`).
+			// Only inside the frame: the same key on the page outside it scrolls the page, not the deck.
+			if (NATIVE_SCROLL_KEYS.has(e.key) && (e.target as Node | null)?.ownerDocument !== document) userInputAtRef.current = Date.now();
 			// Shift+Arrow jumps a whole component. Checked ahead of the kernel because the
 			// shell rule refuses every modified chord — correctly, since it cannot know
 			// which chords this surface has claimed.
@@ -2658,6 +2704,20 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		// `driveWas` is the drive clock BEFORE this gesture, kept so `touchend` can put it back
 		// if the gesture turns out to have been a step. See `onDeckTouchEnd`.
 		if (t) touchRef.current = { x: t.clientX, y: t.clientY, multi: false, driveWas: driveAtRef.current };
+	}, []);
+	/** A press held in the frame while it scrolls, that is the reader dragging the deck: a press ON THE ROOT ELEMENT
+	 *  (where a press on the frame's scrollbar lands; a scrollbar drag sends the page no pointer moves, measured in
+	 *  Chromium) or a press whose pointer has MOVED (a drag anywhere else). `onDeckScroll` stamps the input clock while
+	 *  it holds, so a walk scroll still on its way stands down (`walkEnRoute`). A click on a slide, held still, is
+	 *  neither, and stamps nothing: it must not tell a land the reader took over (`done()`'s `oursInFlight`). */
+	const pressRef = React.useRef<{ x: number; y: number; drag: boolean } | null>(null);
+	const onDeckPress = React.useCallback((e: PointerEvent) => {
+		if (e.type === 'pointerdown') {
+			const t = e.target as Element | null;
+			pressRef.current = { x: e.clientX, y: e.clientY, drag: !!t && t === t.ownerDocument?.documentElement };
+		} else if (e.type === 'pointermove' && e.buttons !== 0 && pressRef.current) {
+			if (Math.hypot(e.clientX - pressRef.current.x, e.clientY - pressRef.current.y) > 3) pressRef.current.drag = true;
+		} else pressRef.current = null;
 	}, []);
 	/** A wheel or a finger actually moving the deck. Separate from the swipe rule above: a
 	 *  drag that never clears the swipe threshold is still the reader scrolling. */
@@ -2794,6 +2854,8 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 
 	const scrollRafRef = React.useRef<number | null>(null);
 	const onDeckScroll = React.useCallback(() => {
+		// A scroll under a press that is a drag is the reader dragging the deck (`onDeckPress`).
+		if (pressRef.current?.drag) userInputAtRef.current = Date.now();
 		if (scrollRafRef.current != null) return; // one read per frame
 		scrollRafRef.current = requestAnimationFrame(() => {
 			scrollRafRef.current = null;
@@ -2826,7 +2888,12 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				// target. Measured: a step to slide 2 followed 80ms later by one jump to
 				// slide 10 left the bar reading "2 / 13" with slide 10 filling the pane.
 				// Found by an independent checker.
-				if (Date.now() >= pending.until) walkScrollRef.current = null;
+				//
+				// …UNLESS IT IS STILL ON ITS WAY (`walkEnRoute`): the window is how long a smooth scroll takes
+				// on an idle page, and a loaded one takes longer. Releasing a scroll that is still traveling
+				// renames the walk from wherever it happens to be passing, and it then goes on to arrive
+				// somewhere else.
+				if (Date.now() >= pending.until && !walkEnRoute(pending)) walkScrollRef.current = null;
 			}
 			if (walkScrollRef.current) {
 				const p2 = walkScrollRef.current;
@@ -2851,7 +2918,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			setWalk(moved);
 			walkRef.current = moved;
 		});
-	}, []);
+	}, [walkEnRoute]);
 	React.useEffect(
 		() => () => {
 			if (scrollRafRef.current != null) cancelAnimationFrame(scrollRafRef.current);
@@ -2879,6 +2946,8 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		win.addEventListener('scroll', onDeckScroll, { passive: true });
 		win.addEventListener('scroll', () => syncRef.current?.previewScrolled(), { passive: true });
 		doc.addEventListener('click', onFrameClick as EventListener);
+		// A press in the frame is the reader taking hold of the deck (a scrollbar drag among them): see `onDeckPress`.
+		for (const type of ['pointerdown', 'pointerup', 'pointercancel', 'pointermove']) doc.addEventListener(type, onDeckPress as EventListener, { passive: true });
 		win.addEventListener('wheel', onDeckDrive, { passive: true });
 		// The frame's OWN ResizeObserver, on the filmstrip the fit agent rescales. Created
 		// from the frame's window so it belongs to that document and dies with it — there is
@@ -2893,7 +2962,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		doc.addEventListener('touchend', onDeckTouchEnd as EventListener, { passive: true });
 		// No teardown: the listeners die with the document they are on. The parent-side
 		// copies below are the ones with a lifetime worth managing.
-	}, [onDeckScroll, onDeckKey, onDeckTouchStart, onDeckTouchEnd, onDeckDrive, onDeckGeometry, onFrameClick]);
+	}, [onDeckScroll, onDeckKey, onDeckTouchStart, onDeckTouchEnd, onDeckDrive, onDeckPress, onDeckGeometry, onFrameClick]);
 	bindDeckInputRef.current = bindDeckInput;
 
 	// The parent-side half of the same three verbs: a reader who has not touched the deck
