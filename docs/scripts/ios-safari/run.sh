@@ -114,6 +114,14 @@ else
 fi
 for _ in $(seq 1 120); do curl -sf "$ready" >/dev/null && break; sleep 1; done
 curl -sf "$ready" >/dev/null
+# The page must come from THIS job's server. A server left running by an earlier job on the same runner (the warm
+# harness runs many) answers the readiness check too, while ours died with "Port $PORT is already in use"; it then
+# serves a docs/dist that a later build rewrites under the open page (harness run 45965226985: jobs 2-5 all served by
+# job 1's server, and job 4's iPhone page showed "Lattice couldn't load part of the app"). Exit 3: infrastructure.
+if ! kill -0 "$server" 2>/dev/null; then
+  echo "the site server for this job exited before the probes ran (another process holds port $PORT?); see $OUT/preview.log" >&2
+  exit 3
+fi
 
 sudo safaridriver --enable
 driver=
@@ -137,7 +145,9 @@ start_driver() {
 bounded() { local secs=$1; shift; perl -e 'alarm shift @ARGV; exec @ARGV or die "exec: $!"' "$secs" "$@"; }
 # The most a Safari launch may take before the device counts as stuck (seconds); see the launch below.
 LAUNCH_LIMIT=${LAUNCH_LIMIT:-480}
-trap 'kill "$driver" "$server" 2>/dev/null || true; xcrun simctl shutdown all || true' EXIT
+# The server runs in a subshell (`(cd docs && node …) &`), so `$server` is the subshell: kill its children too, or the
+# Node server outlives the job and holds the port for the next one.
+trap 'pkill -P "$server" 2>/dev/null; kill "$driver" "$server" 2>/dev/null || true; xcrun simctl shutdown all || true' EXIT
 start_driver
 
 status=0
