@@ -254,3 +254,55 @@ explicitly.
 - **Contrast is the cost nobody sees.** Today's formulas exist mostly to guarantee contrast (the mindmap's 3:1, the
   chart ink's 7:1). An alias guarantees nothing; the gate has to check every plugin token against its surface in
   every theme, so `lib/theme/gate.js` grows from theme tokens to plugin tokens.
+
+### 7.6 Chart category colors, and what the model does to the token count (2026-11-27)
+
+The owner (event `6057f90b`, typed on iOS): "i am aligned but what about the chart categorical colors?" The command
+center reads "aligned" as agreement with the two-step model (a theme picks colors by job; a plugin points its parts at
+a job, with no math), and not as a decision on timing or freezing.
+
+**What a theme picks for categories today (indaco).** 12 categories, each a fill, a mark and a text ink, each as a
+light and dark pair: 36 hand-picked pairs. Charts have their own 8 solids (`--chart-cat1` … `--chart-cat8`) and 8 inks
+on them, also hand-picked (written once by `tools/curate-chart-solids.js`, then committed). Caveat: the contract says
+fill and mark are two tiers of one hue, and indaco's categories 2 and 3 break it (§7.2).
+
+**Where the chart family computes a category shade instead of reading one.**
+
+| Shade | How it is computed | Where it shows |
+|---|---|---|
+| `--chart-cat-N-fill`, the pale tier | 24% of the solid mixed into the page (light), 40% into black (dark), `chart-family.styles.css:320` | slot fills, flowchart slots, quadrant and pie variants; not a default bar, pie or flowchart |
+| `--chart-cat-N-ink` | the theme's `--chart-catN-ink`, else a mix of the solid with the heading ink (`:359`); word clouds always mix, 75% (`word-cloud.styles.css:213`) | labels on category color |
+| `--chart-cat-N-hue` fallback | the engine's own hex when a theme leaves out `--chart-catN` | any theme without chart solids |
+| heatmap cells | the theme picks 5 mix percentages and 5 inks; the color is a mix of two poles (`heatmap.styles.css:82`) | heatmap, journey |
+| map base | 16% of `--muted-mark` into the page (`map/*.css:18`) | choropleth map |
+| waterfall, risk matrix, matrix grid | 13 mixes between them | those kinds |
+
+No hover, selected or muted state token exists in the chart family's CSS.
+
+**Past the curated set.** Charts pick 8 series colors, but grouped bars and slope charts repeat after 6
+(`bar.transform.js:427`, `slope.transform.js:393`: `i % 6`), so series 7 and 8 never show there. Nothing anywhere
+goes past 12. There is one sequential ramp (the heatmap's) and no curated diverging scale.
+
+**Recommendation.** Categories: the theme picks, per category, a fill and a mark of one hue in both modes, and the
+chart solids become the category's "solid" job, so charts and the rest of the deck draw category 3 from the same
+family. Ramps: a theme picks one 5-step sequential ramp and one diverging scale (two ends and a middle), each step a
+real color plus its ink, written once by a solver and committed for review, the way chart solids already are; nothing
+mixes at render time. Past 12 series: no invented colors. A chart repeats the cycle and adds the texture channel the
+a11y themes already ship (`--cat-N-texture`), and lint tells the author to group the tail into "Other". The `i % 6`
+repeat is a defect to fix on its own.
+
+**Token counts under the model** (measured where marked; "about" where the answer depends on the choices above).
+
+| | Today | Under the model |
+|---|---|---|
+| Names a theme declares | 164–201 (measured, 5 themes) | about the same: the jobs stay; a dark value moves into its light name's pair |
+| …of which repeat another name's exact value | 21–34 (measured) | 0 is the goal: one name per job |
+| Required list in the spec | 132 (THEME 1.0) | about 122 (the 10 `--scheme-dark-*` fold into pairs), plus 10 per ramp step pair and any new job such as a line color per category (+12) |
+| Mermaid's own named colors | 0 (206 settings point at 41 theme tokens) | about 41, one per job it uses, each an alias |
+| Chart family's own names | 274 (measured) | about the same count; the 167 formula or engine-hex definitions become aliases or theme reads |
+| Sparks / icons | 22 / 14 (12 / 3 formulas) | same names, no formulas |
+| Two-color formulas at definition | about 195 (167 chart, 13 Mermaid, 12 sparks, 3 icons) | 0, apart from see-through washes |
+
+The model does not cut the total much. It cuts the formulas to zero, moves plugin colors out of the theme spec into
+the plugins, and turns the duplicates into one name per job. What a theme author must pick stays about the same,
+because the curated colors already exist.
