@@ -3283,7 +3283,7 @@ const START_TOKEN_MAX = 990;
  * Why 990 and not 1,500. The gate counts offline with o200k_base (OpenAI's tokenizer, the one
  * this repo ships); the build makes no network call. Claude is the main reader, and Claude 5's
  * own counter (Anthropic's free count_tokens endpoint, 2026-11-27) read this file at 1.51 to
- * 1.54 times its o200k count: 1,956 for the 1,273-token draft, 1,476 for the 984-token file.
+ * 1.54 times its o200k count: 1,956 for the 1,273-token draft, 1,459 for the 981-token file.
  * Gemini 3.x read 1.06 to 1.07 times. So 990 o200k is about 1,495 Claude tokens, the owner's
  * 1,500. The ratio is this file's, measured; re-count start.md on Claude's and Gemini's
  * counters in the per-release check (2026-11-17-agent-pack.md §4.9), and move this number if
@@ -3329,6 +3329,20 @@ function noteLine() {
   return NOTE_NAMES.map((n) => `\`<!-- @${n}{…} -->\` ${JOB[n]}`).join(', ');
 }
 
+/**
+ * How a number-led row reads, on the layouts lib/core/list-shapes.js `NUMBER_SLOT_LAYOUTS` names.
+ * The agent-pack eval of 2026-11-27 (run 46023640639) wrote a `kpi` slide as
+ * `- Customer satisfaction: 91%` with a sentence under it, and the export clipped it: start.md
+ * then carried no `kpi` or `stats` skeleton. The example is each skeleton's own first row.
+ */
+function numberRowRule(cat) {
+  const { NUMBER_SLOT_LAYOUTS } = require(path.join(ROOT, 'lib', 'core', 'list-shapes.js'));
+  const first = NUMBER_SLOT_LAYOUTS[0];
+  const row = String(cat.get(first)?.skeleton || '').match(/^1\. (.+)\n {3}- (.+)$/m);
+  if (!row) throw new Error(`build-agent-kit: the ${first} skeleton no longer opens its rows with \`1. <number>\` and a nested label.`);
+  return `- Under a numbered \`1.\` row, indent the nested line three spaces. On ${NUMBER_SLOT_LAYOUTS.map((n) => `\`${n}\``).join(' and ')} the row is a number: \`1. ${row[1]}\` then \`   - ${row[2]}\`.`;
+}
+
 function startDoc(cat) {
   const { DECK_CANON_SHORT } = require(path.join(ROOT, 'lib', 'authoring', 'deck-canon.js'));
   const { UNIVERSAL_GROUPS } = require(path.join(ROOT, 'lib', 'components', 'index.js'));
@@ -3352,7 +3366,9 @@ function startDoc(cat) {
   // Section 1 already says each slide opens with a record, and the canon how cards nest and
   // how the title slide reads; a rule that says it again is tokens start.md cannot spare.
   // Each drop must match exactly one essential.
-  const canonSays = [/^Every slide starts with/, /^Card layouts nest:/, /^The title slide is/];
+  // `numberRowRule` restates the three-space indent with an example, and the linter reports an
+  // unclosed comment as an error (`unterminated-comment`), so neither needs its own line here.
+  const canonSays = [/^Every slide starts with/, /^Card layouts nest:/, /^The title slide is/, /^Under a numbered `1\.` row/, /^Every `<!-- -->` comment is closed/];
   // Scoped to the layouts start.md lists, as the solo text is: a rule about a layout the reader
   // cannot pick from here is tokens spent on nothing.
   const rules = essentials(SOLO_LAYOUTS);
@@ -3370,13 +3386,13 @@ function startDoc(cat) {
   return [
     `# Write a Lattice deck (engine ${ENGINE_VERSION})`,
     '',
-    `One Markdown file, one deck. All ${cat.size} layouts: [layouts.md](./layouts.md).`,
+    `All ${cat.size} layouts: [layouts.md](./layouts.md).`,
     '',
     '## 1. The file',
     '',
     ...fenced(deck, 'markdown'),
     '',
-    `\`${theme.key}:\` picks the palette; \`${mode.key}: ${dark}\` goes dark. Each slide opens with one \`${LAYOUT_RECORD}\`; modifiers follow, as \`${metaClass('cards-grid dark')}\`.`,
+    `\`${theme.key}:\` picks the palette; \`${mode.key}: ${dark}\` goes dark. Each slide opens with one \`${LAYOUT_RECORD}\`.`,
     '',
     '## 2. What a good deck is',
     '',
@@ -3385,17 +3401,18 @@ function startDoc(cat) {
     '## 3. Rules',
     '',
     ...rules.filter((r) => !canonSays.some((re) => re.test(r))).map((r) => `- ${r}`),
-    `- Notes never show on the slide: ${noteLine()}.`,
+    numberRowRule(cat),
+    `- Notes (never shown on the slide): ${noteLine()}.`,
     '',
     `## 4. The ${SOLO_LAYOUTS.length} common layouts`,
     '',
     ...layouts,
     '',
-    `Copy the skeleton from components/NAME.md. Nothing fits? Use \`content\` or \`list\`; never invent a name.`,
+    `Skeletons: components/NAME.md. Nothing fits? \`content\` or \`list\`; never invent a name.`,
     '',
     '## 5. Modifiers',
     '',
-    `Add them after the layout name: ${groups.join(', ')} and more in [authoring/modifiers.md](./${AUTHORING}/modifiers.md).`,
+    `As \`${metaClass('cards-grid dark')}\`: ${groups.join(', ')}; more in [authoring/modifiers.md](./${AUTHORING}/modifiers.md).`,
     '',
     '## 6. Check, render, read more',
     '',
