@@ -73,7 +73,33 @@ who adds a front-matter key, a record field, a note or a rule ID gives it a pref
 | note | `@acme.recap{…}` |
 | rule ID | `acme/tally-missing` |
 
-<!-- PENDING owner D4 and the Segno desk: the separator, and whether a prefixed name is accepted at all. -->
+The prefix is the name of the plugin that owns the name: `acme.tally` belongs to the plugin `acme`. A spec's own
+registries never use a prefix.
+
+<!-- PENDING the Segno desk: whether `.` is the separator its grammar accepts in a record field name and after `@`. -->
+
+### 4.1 A prefixed value is untrusted, and only a sanitizer lets it reach a rendered document
+
+A prefixed value is text an author or a third party wrote, and a renderer MUST treat it as untrusted:
+
+1. **Only its owner reads it.** A renderer hands a prefixed key's value to the plugin that owns the prefix and to no
+   other code. With no such plugin loaded, the renderer ignores the value (§5).
+2. **A renderer never reflects it raw.** A renderer MUST NOT write a prefixed value into the rendered document
+   itself: not as markup, not inside a `<style>` element or a `style` attribute, not inside a script, not as a class
+   or an element name. If a host puts one in an ordinary attribute value (a `data-` attribute, say), it MUST escape
+   it for that attribute.
+3. **The host sanitizes what a plugin returns, and the plugin cannot opt out.** A plugin MUST escape author text it
+   writes into markup. Whatever markup or stylesheet text the plugin returns then passes through the host's markup
+   sanitizer and its stylesheet sanitizer before it reaches the document. A document has two channels, markup and
+   stylesheet, and each has its own sanitizer: a `</style>` inside stylesheet text ends the element and the rest
+   parses as markup, so sanitizing the markup alone is not enough.
+4. **Keeping it is not rendering it.** A writer keeps a prefixed value byte for byte in the source (§5). The
+   sanitizer guards the rendered document, never the source.
+
+*Informative.* In the reference implementation the two sanitizers are `sanitizeSlideHtml`
+(`docs/src/lib/sanitize-slide-html.js`) and `sanitizeStyleText` (`lib/core/sanitize-style-text.mjs`). The rule that
+every path into a rendered document goes through them is the project's HARD RULE #22, with its threat model in
+`engineering/decisions/2026-08-17-theme-css-is-a-preview-sink.md` §5 and §9.
 
 ## 5. A reader ignores what it does not know
 
@@ -81,13 +107,11 @@ When a renderer meets a key, record field, register word, note name or fence it 
 document as if that thing were absent. It MUST NOT show it: an unknown note stays private, exactly as a plain comment
 does.
 
-<!-- PENDING owner D4: the next two paragraphs. -->
-
 A tool that writes a document back (an editor, an export, a migration) MUST keep every unknown key, field, note and
 fence as it found it.
 
 A linter SHOULD report an unknown name with no prefix (`unknown-key`, a warning), because that is how a misspelled key
-(`finsh: halo`) is caught. It SHOULD NOT report a name with a prefix.
+(`finsh: halo`) is caught. It SHOULD NOT report a name with a prefix that a loaded plugin owns.
 
 ## 6. A document MAY state its version
 
