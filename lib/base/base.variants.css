@@ -483,7 +483,7 @@ section.divider:not(.light).no-spectrum {
 /* ── STATE ── meta markers about the slide, rendered by an orthogonal STYLE axis.
    The SEMANTIC class (confidential/wip/…) sets ONLY a label + a palette color; a
    `stamp-shape-<style>` class sets the SHAPE. They compose, so `confidential stamp-shape-seal`
-   is the Confidential label in the seal shape. The default (no stamp-* class) is the
+   is the Confidential label in the seal shape. The default (no stamp-shape-* class) is the
    corner TAB, so a no-config, mixed-marker deck reads as ONE family. All color is a
    palette token, so every style is on-brand across themes/palettes automatically.
    See engineering/decisions/2026-07-03-status-marker-style-variants.md. */
@@ -711,7 +711,7 @@ section.stamp-shape-pin::before {
    `content: var(--insight-label, <default>)`. Setting --insight-label on the
    section — through one of the curated `insight-*` modifiers below, or a
    deck-wide frontmatter `class:` — swaps the word while every default stays put
-   (the var() fallback). Same custom-property-as-content idiom as the stamp-*
+   (the var() fallback). Same custom-property-as-content idiom as the stamp-shape-*
    markers above; the vocabulary is deliberately small and curated (a highly
    edited boardroom heading, not free text). The two defaults are themselves
    modifiers (insight-key / insight-recommendation), so either word can move to

@@ -226,7 +226,7 @@ export function setSpectrumAxis(chunk: string, key: SpectrumKey, axis: SpectrumA
 }
 
 // ── rule (heading underline) / eyebrow (kicker) / headline ─────────────────────────────────────
-// Sibling "override" axes: a per-slide token (`rule-<v>` / `eyebrow-<v>` / `head-<v>`) overrides
+// Sibling "override" axes: a per-slide token (`heading-rule-<v>` / `eyebrow-<v>` / `headline-align-<v>`) overrides
 // the deck register. The DEFAULT value (auto/plain) renders with no token, and also has a RESTORE
 // token (`heading-rule-auto`, `eyebrow-plain`, `headline-align-auto`)
 // that a slide carries to return to it inside a deck that set another value (the engine evicts

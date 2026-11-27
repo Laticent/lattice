@@ -238,7 +238,7 @@ section.sketch.split-compare .option :is(ul, ol) > li::marker {
  * than roughened alongside it.
  *
  * Do not reinstate this rule to "bring the underline back". If a heading
- * underline is wanted again it is a rule-* finish question for
+ * underline is wanted again it is a heading-rule-* finish question for
  * base.accent-finish.css, which already owns the four-way answer
  * (full / none / short / accent) for where a heading rule lives — not a
  * finish-layer override that runs in parallel with it. */

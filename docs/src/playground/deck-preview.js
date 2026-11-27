@@ -180,7 +180,7 @@ export function docStyleText({ css, mode, geom, padding = 18, background = null,
 	// (`.db-bar`, placed by markPreviewPages in components/playground/reading-page.ts), so it paints over the slide and
 	// takes nothing from it.
 	const barRule = activeBar ? 'body{position:relative;}.db-bar{position:absolute;width:6px;z-index:5;pointer-events:none;display:none;background:' + activeBar + ';}' : '';
-	const activeHeadingRule = activeOutline
+	const activeRule = activeOutline
 		? '.lattice>section.db-active{outline:3px solid ' + activeOutline + ';outline-offset:4px;}'
 		: '';
 	const printCss = printRules ? buildPrintCss(gw, gh, printOpts) : '';
@@ -206,7 +206,7 @@ export function docStyleText({ css, mode, geom, padding = 18, background = null,
 		// tiny + jitter. See frame-css.js + engineering/gotchas.md.
 		slideBox(gw, gh) +
 		sectionRule +
-		activeHeadingRule +
+		activeRule +
 		barRule +
 		// HARD RULE #22, stylesheet channel. The engine sheet carries a theme's own
 		// comment header, and a Studio theme's label/description ride in it — so this

@@ -1,6 +1,6 @@
 /**
  * Unit: the `headline-align:` register resolver (lib/core/resolve-headline-align.js) — the HEADLINE
- * ALIGNMENT register. Maps the deck front-matter `headline-align:` value to the `head-<value>`
+ * ALIGNMENT register. Maps the deck front-matter `headline-align:` value to the `headline-align-<value>`
  * class token both render paths append to every section. `auto` is the default and carries
  * NO token (the component keeps its baked alignment); `left` and `center` carry tokens.
  * (`right` is a deferred follow-up — same box machinery as center, rarely wanted.)

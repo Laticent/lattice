@@ -12,3 +12,8 @@
   `unknown-rule`, `unknown-headline` and `unknown-stamp`.
 - The presets set the new keys: `editorial`, `brand` and `minimal` write `headline-align:`, `heading-rule:`,
   `card-lift:` and `slide-corners:` where they wrote the old ones.
+- An old class in the deck-wide `class:` line is reported and fixed too (`class: lifted` becomes
+  `class: card-lift-on`), and so are the `marks-*` classes Q4 renamed. A line with several old classes is fixed in
+  one `--fix` run; before, three or more on one line stalled the fix.
+- An `@meta` record field is its key, so `{headline=left}` is `{headline-align=left}`. An old field name is still
+  refused, and the message now names the new one.

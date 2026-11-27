@@ -536,8 +536,8 @@ listing them risks drift if the universal set changes later.
 **Which modifiers a component is offered: surfaces, not lists.** Every modifier
 a slide accepts without a manifest declaring it lives in ONE grouped registry,
 `MODIFIER_GROUPS` in `lib/components/index.js`: the Tier 1 and Tier 2 sets above,
-plus the register tokens (`rule-*`, `eyebrow-*`, `headline-align-*`, `cards-*`,
-`card-lift-on`/`card-lift-off`, `corners-*`, the `spectrum-*` bar and card rail, `stamp-shape-*`/`tone-*`
+plus the register tokens (`heading-rule-*`, `eyebrow-*`, `headline-align-*`, `cards-*`,
+`card-lift-on`/`card-lift-off`, `slide-corners-*`, the `spectrum-*` bar and card rail, `stamp-shape-*`/`tone-*`
 shapes), the stage-frame controls (`align-*`, `fill-*`, `footer-inset`) and the
 motion hooks. Each group names the **surface** it acts on, meaning the part of the
 slide it changes:
@@ -545,7 +545,7 @@ slide it changes:
 | Surface | Modifiers acting on it | Which components have it |
 |---|---|---|
 | slide | `dark`, `light`, `silent`, `no-*`, state stamps, `tone-*`, brand bar, tints, frame, `scale-*` | every component |
-| heading | `rule-*`, `headline-align-*`, `with-period` / `no-period` | a slot selects an h1–h6, or the sample writes one |
+| heading | `heading-rule-*`, `headline-align-*`, `with-period` / `no-period` | a slot selects an h1–h6, or the sample writes one |
 | eyebrow | `eyebrow-*` | the sample opens a block with a lone inline-code line |
 | table | `table-plain`, `table-fill`, `state-cells`, `with-row-label` | a slot selects a table, or the sample writes one |
 | card-row | `cards-*` | the manifest declares a `cards` composition |

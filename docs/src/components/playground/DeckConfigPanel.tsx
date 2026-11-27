@@ -194,7 +194,7 @@ export function DeckConfigPanel({
 			{lookRow('heading-rule', 'Heading rule', 'The line under each slide’s heading')}
 			{lookRow('eyebrow', 'Eyebrow', 'The mark before the small label above a heading')}
 			{lookRow('slide-corners', 'Slide corners', 'Square, or rounded at the theme’s radius')}
-			{show('card-lift') && <SwitchRow label="Card lift" hint="Lift card surfaces off the slide with a subtle shadow — reads in light & dark, safe in the PDF export" on={fm.lift} onChange={(on) => apply('card-lift', on)} />}
+			{show('card-lift') && <SwitchRow label="Card lift" hint="Lift card surfaces off the slide with a subtle shadow — reads in light & dark, safe in the PDF export" on={fm['card-lift']} onChange={(on) => apply('card-lift', on)} />}
 			{show('mode') && selectRow('mode', 'Mode', 'The rendering hand — clean or sketch — applies to the whole deck', [{ options: withUnknown(catalogOptions(MODES), fm.mode) }], fm.mode, 'boardroom')}
 
 			{group('Format', ['size', 'venue', 'split'])}
