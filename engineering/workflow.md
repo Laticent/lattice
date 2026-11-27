@@ -3116,7 +3116,9 @@ it concerns, opening with the desk's name, so the owner sees it in either place.
 sidebar. No session archives itself or another on its own: `archive_session` is
 for after a human has said the session is done, and an archived desk cannot be
 messaged. The command center proposes archiving finished worker sessions as a
-numbered action; the owner's `go` is that acknowledgment.
+numbered action; the owner's `go` is that acknowledgment. The one exception is
+**Auto-archive** below: the owner's standing order is the acknowledgment for every
+session that passes its checks, and only for those.
 
 **When a session can be archived.** Archiving frees the session's machine: its
 transcript survives and the session can be unarchived, but any file it never pushed
@@ -3154,9 +3156,11 @@ all four hold, and names the failing check for every session that stays:
 The owner's `go` on the board's numbered action archives exactly the sessions that
 passed. The audit is read-only and can run as one subagent; it never archives.
 
-**Auto-archive (the owner's standing rule, 2026-11-27).** The command center archives finished
-sessions on its own, without a board or a `go`, so that idle sessions stop holding machines and
-nobody pays to wake them. Its recurring check-in (`.claude/skills/fleet/SKILL.md`) archives a
+**Auto-archive (the owner's standing rule, 2026-11-27).** The owner asked, in the command
+center, for an "auto archive feature managed by you to ensure sessions that have completed all work
+and nothing pending are archived. we should strive to minimize token usage", then said "make auto
+archive a standing rule". So the command center archives finished sessions on its own, without a
+board or a `go`, and idle sessions stop holding machines without anyone paying to wake them. Its recurring check-in (`.claude/skills/fleet/SKILL.md`) archives a
 session only when all of these hold, read fresh in the same run, with `get_session` called
 immediately before `archive_session`:
 
@@ -3164,13 +3168,20 @@ immediately before `archive_session`:
    names it in `persistent_session_id`.
 2. It is idle, and its `updated_at` is at least 60 minutes old.
 3. Every PR it owns is merged or closed, no 🚦 card of its waits on the owner, and its summary
-   holds no `needs_action` and no question for the owner.
+   holds no `needs_action` and no question for the owner. A session with no PR must also say in
+   its summary (`post_turn_summary`) that its task is finished; silence is not finished.
 4. `external_metadata.unpushed_work` is present and `false`. This fresh flag stands in for
    check 3 above, where the session's own `git status -sb` reply would cost a full reload of its
    context. When the flag is `true` or missing, the session stays, nobody wakes it to ask, and it
    goes on the owner's list. A session can say it discarded its work while the flag still reads
-   `true`: the 2026-11-27 Compose session still held a local branch and a stash.
-5. Its leftovers are durable (check 2 above): on `main`, in an open issue, or on a PR comment.
+   `true`: the 2026-11-27 Compose session still held a local branch and a stash. The flag is
+   real but undocumented: `get_session` returned `"unpushed_work": true` for that session and
+   `"unpushed_work": false` for the Crash Issue session the same day, and some records leave it
+   out, which is why missing counts as not clear.
+5. Its leftovers are durable (check 2 above): every follow-up its summary names is found on
+   `main` (`followups.d/`), in an open issue, or in a comment on one of its PRs. The command
+   center reads the summary and checks those places; if a named item cannot be found, or the
+   summary cannot be read, the session stays.
 6. No child session of it is still live.
 
 If anything changed between the reads, the session waits for the next run. Each archive adds one
