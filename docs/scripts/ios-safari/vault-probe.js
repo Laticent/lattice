@@ -27,7 +27,7 @@ async function vaultProbeReady() {
 // biome-ignore lint/correctness/noUnusedVariables: a global for WebDriver's execute-script
 async function latticeVaultProbe() {
 	const steps = [];
-	const step = (name, ok, detail) => steps.push({ name, ok, detail });
+	const step = (name, pass, detail) => steps.push({ name, pass: !!pass, detail });
 	const out = { ok: false, error: null, steps, ua: navigator.userAgent, width: innerWidth, seed: null };
 	try {
 		const ready = await vaultProbeReady();
@@ -41,7 +41,7 @@ async function latticeVaultProbe() {
 		const paths = await h.writePaths();
 		step('every blob went through the sync handle', paths['sync-access-handle'] === VAULT_SMALL + 2 && paths.writable === 0, JSON.stringify(paths));
 		out.seed = { deckSha: deck.sha256, deckId: deck.id, bigSha: big.sha256, deviceId: await h.deviceId() };
-		out.ok = steps.every((s) => s.ok);
+		out.ok = steps.every((s) => s.pass);
 	} catch (e) {
 		out.error = String(e);
 	}
@@ -51,7 +51,7 @@ async function latticeVaultProbe() {
 // biome-ignore lint/correctness/noUnusedVariables: a global for WebDriver's execute-script
 async function latticeVaultAfterReload(seed) {
 	const steps = [];
-	const step = (name, ok, detail) => steps.push({ name, ok, detail });
+	const step = (name, pass, detail) => steps.push({ name, pass: !!pass, detail });
 	const out = { ok: false, error: null, steps, ua: navigator.userAgent, width: innerWidth };
 	try {
 		const ready = await vaultProbeReady();
@@ -68,7 +68,7 @@ async function latticeVaultAfterReload(seed) {
 		step('device id kept', (await h.deviceId()) === seed.deviceId, 'same id');
 		const rec = await h.recovery();
 		step('startup scan verified every file', rec.verified === VAULT_SMALL + 2 && rec.damaged.length === 0 && rec.orphans === 0, JSON.stringify(rec));
-		out.ok = steps.every((s) => s.ok);
+		out.ok = steps.every((s) => s.pass);
 	} catch (e) {
 		out.error = String(e);
 	}
