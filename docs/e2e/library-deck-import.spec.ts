@@ -273,6 +273,10 @@ async function decksSection(page: Page, testInfo: TestInfo) {
 	await gotoStudio(page);
 	await openLibrary(page);
 	const tabs = page.getByRole('tablist', { name: 'Library sections' });
+	// One standing listener keeps Playwright's picker interception on for the page's whole life. Without it, Firefox can
+	// open a real picker on the third import that a headless browser never answers (measured: 1 in 10 on `gecko`, on the
+	// third import). The same race and fix as library-single-import.spec.ts `importFiles`.
+	page.on('filechooser', () => {});
 	const importFiles = async (files: { name: string; mimeType: string; buffer: Buffer }[]) => {
 		const chooser = page.waitForEvent('filechooser');
 		await page.getByRole('button', { name: 'Import files', exact: true }).click();

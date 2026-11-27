@@ -84,9 +84,11 @@ test('the docked Library at its 280px minimum keeps one still row, folding the l
 	// The keyboard path of the resize handle (role="separator"): Home is the pane's minimum.
 	await page.keyboard.press('Home');
 	await expect.poll(async () => Math.round((await page.locator('[data-studio-pane]').first().boundingBox())?.width ?? 0)).toBe(280);
-	const first = await rowHolds(page, 1440);
-	// Beside the kinds button's place, six icons outgrow 280px, so the least used fold.
-	expect(first.some((p) => p.name.startsWith('More') || p.name.endsWith(', more'))).toBe(true);
+	// The pane reaches 280px a moment before the strip's ResizeObserver refolds it, so wait for the fold itself: beside
+	// the kinds button's place, six icons outgrow 280px and the least used fold into More. Measuring the row before
+	// this measured six pills that were about to fold (a race with the resize, never a refold under a tap).
+	await expect(page.getByRole('button', { name: 'More library sections' })).toBeVisible();
+	await rowHolds(page, 1440);
 });
 
 test('the phone Library shows the six sections as named icons @webkit-phone', async ({ page }) => {
@@ -101,7 +103,12 @@ test('a keyboard user sees each icon pill named in a hint as the arrows move thr
 	await gotoStudio(page);
 	await openLibrary(page, 1440);
 	const strip = page.getByRole('tablist', { name: 'Library sections' });
-	await strip.getByRole('tab', { name: 'All', exact: true }).focus();
+	// Click, not focus(): until the Library loads, its shell draws an inert copy of this strip, and focus() does not wait
+	// for a control that takes input, so it could land on the copy the real strip then replaces. A click waits for the
+	// live pill; the focus check is the signal the arrow will reach it.
+	const all = strip.getByRole('tab', { name: 'All', exact: true });
+	await all.click();
+	await expect(all).toBeFocused();
 	await page.keyboard.press('ArrowRight');
 	await expect(strip.getByRole('tab', { name: 'Decks', exact: true })).toBeFocused();
 	await expect(page.getByRole('tooltip').filter({ hasText: 'Decks' })).toBeVisible();
