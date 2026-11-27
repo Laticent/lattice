@@ -1,5 +1,5 @@
 studio: +1640
-playground: +680
+playground: +760
 home: +660
 The measured split (`fit: pack`, engineering/decisions/2026-10-28-fit-everywhere-model.md §16, §17) runs on
 every preview surface, so each one carries its eager entry point: a one-line check for a `fit:` line
@@ -60,3 +60,5 @@ The second review's fixes (2026-11-27: the retry stands down for a newer render,
 time and coalesce count to the perf overlay) add 49 B to single-slide-render: CI on 492ee4b measured +1588 B gz on studio
 (+436 single-slide-render) and +621 on home. Declared +1640 and +660 for gzip variation, inside the 2048 B a PR may
 declare.
+
+CI on 6521d4c measured playground +734 B: e9c342f keeps `:is()`/`:where()`/`:has()` in the first-paint snapshot probe (+54 B in PlaygroundIsland). Declared +760.
