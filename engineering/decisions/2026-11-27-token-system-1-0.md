@@ -400,7 +400,7 @@ part of the core's audience: they read the core category colors and ramps direct
 
 | Job | Tokens (light and dark each) | Today |
 |---|---|---|
-| Surfaces | page, alternate page, inverse surface, border, containers | `--bg` `--bg-alt` `--surface-inverse` `--border`, `--c-*` (moves to core as containers) |
+| Surfaces | page, alternate page, inverse surface, border | `--bg` `--bg-alt` `--surface-inverse` `--border` |
 | Text | display, heading, body, secondary, label, muted | `--text-*` |
 | Accent | accent, soft accent, ink on each | `--accent` `--accent-soft` `--on-accent` … |
 | Status | pass, warn, fail, info, muted: each a strong color, a pale background and the ink on each | `--pass` … and their tiers |
@@ -409,7 +409,7 @@ part of the core's audience: they read the core category colors and ramps direct
 | Diverging ramp | 5 steps (two ends, a middle, two between), each a color and its ink | none today |
 | Code | inline code ink, code block text | `--code-*` |
 
-**Strong and pale are two jobs, held to two rules.** The experiment of §7.8 (below) measured why: a strong category
+**Strong and pale are two jobs, held to two rules.** The experiment of §8.7 measured why: a strong category
 color carries white text at 4.6:1 or better and stands 3.7:1 or better off the page, so it can be a bar, a line or a
 box; a pale one stands only 1.3:1 off a light page, so it may sit only BEHIND text, never as a mark on the page. The
 contrast check enforces both rules.
@@ -457,7 +457,7 @@ indaco category pairs that disagree in hue (§7.2); the two ramps for all 33 the
 plugin files for Mermaid and code highlighting; the manifest field and its build step; the contrast-pair checker. A
 rename changes exported class and token names, so it owes the dark and light export sign-off.
 
-### 7.8 The swap experiment (scratch, 2026-11-27)
+### 8.7 The swap experiment (scratch, 2026-11-27)
 
 Rendered at the owner's request: Mermaid (flowchart, mind map, sequence) drawn with the chart colors, and charts (bar,
 pie, line) drawn with Mermaid's diagram colors, in indaco and cuoio, light and dark, beside today's. Scratch themes,
