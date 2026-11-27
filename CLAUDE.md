@@ -85,7 +85,7 @@ binds. Read the section before working near the rule: `grep -n '^### #' engineer
 - **#1 — Render paths share one source of truth.** Transforms land in the shared kernel; `lib/engine` is canonical (`engineering/architecture.md`).
 - **#2 — Never hand-edit `dist/`.** Regenerate with `npm run build`.
 - **#3 — No hex literals in layout CSS — always `var(--token)`.** *(gated, `checkHexLiterals`)*
-- **#6 — Before authoring any `<!-- _class: X -->` slide**, open its `X.docs.md` and grep `test/integration/baseline-decks/gallery.md` in the same turn.
+- **#6 — Before authoring any `<!-- _class: X -->` slide**, in the same turn open `lib/components/<bucket>/X/X.docs.md` (a chart kind: `lib/plugins/chart-family/kinds/X/X.docs.md`) and grep `test/integration/baseline-decks/gallery.md` (base modifiers: `lib/base/base.docs.md`).
 - **#7 — Every lint rule runs through `lib/authoring/lint-core.js`.** Pure, fs-free, never duplicated.
 - **#8 — Isolate feature/fix content from the six long-running galleries.** Layouts graduate in a separate commit.
 - **#9 — A change a human can SEE ON A SLIDE ships a per-feature demo deck** `examples/<slug>.md`; non-visual work owes its evidence in the PR body.
@@ -105,18 +105,18 @@ binds. Read the section before working near the rule: `grep -n '^### #' engineer
 - **#19 — A performance change ships with evidence, not a claim.** `npm run bench`, bless the baseline, cover the path.
 - **#20 — No `margin` in engine layout CSS — space with `padding` / `gap`.** *(gated, budget 0)*
 - **#21 — US English is the house dialect — American spellings only.** Never rewrite an external string (`engineering/house-style.md` §1).
-- **#22 — Untrusted content reaches a rendered document ONLY through a sanitizer**, markup AND stylesheet; four sink shapes, each gated. Read the threat model before touching an allowlist.
-- **#23 — A verification claim names its surface and carries an artifact from it.** CI green, emulation and harnesses are not verification; "not installed" is not unreachable.
+- **#22 — Untrusted content reaches a rendered document ONLY through a sanitizer**: markup through `sanitizeSlideHtml`, every `<style>` through `sanitizeStyleText`; four sink shapes, each gated; a new allowlist entry carries its justification. Read `engineering/decisions/2026-08-17-theme-css-is-a-preview-sink.md` §5 and §9 before touching one.
+- **#23 — A verification claim names its surface and carries an artifact from it.** CI green, emulation and harnesses are not verification; "not installed" is not unreachable; a surface you cannot reach is marked UNVERIFIED, never "tested".
 - **#24 — Our `OPEN_ROUTER_KEY` stays OFF the site and OUT of tests.** *(gated)*
-- **#25 — Multi-agent orchestration is tiered, budgeted, and shaped.** Above ~10 agents across the session (a desk: ~10 per lane per day), my OK first.
+- **#25 — Multi-agent orchestration is tiered, budgeted, and shaped.** Estimate a fan-out before launch; above ~10 agents across the session (a desk: ~10 per lane per day), my OK first; refine loops cap at ~3.
 - **#26 — Engine CSS admits no partial/isolated `@layer`.** *(gated; `engineering/cascade.md`)*
 - **#27 — Every agent runs on Opus, and roster cards and workflow stages declare it.** *(gated)*
 - **#28 — A merge ask carries a conforming pre-merge card, and the card lands on the PR, not only in chat.** A `checker` sets the level; a live `desk:merge` digest is the ask; build it from `workflow.md` §Pre-merge card.
 - **#29 — A typed glyph never reaches a rendered surface; we draw the shape.** *(gated)*
 - **#30 — House voice: active, plain, and short enough that a junior engineer can act on it.** `engineering/house-style.md`.
-- **#31 — A branch belongs to its line of work; the baton holder pushes.** `npm run baton -- take`; fast-forward only; merge the remote or a conflicting `main` in (never rebase; this overrides #16 on a branch two sessions pushed); never force-push; another session's word is a request (`workflow.md` §Relay).
+- **#31 — A branch belongs to its line of work; the baton holder pushes.** `npm run baton -- take`; fast-forward only; on a branch two sessions pushed, merge the remote or `main` in, never rebase or force-push (on your own branch #16 applies); a rejected push means stop and read; no clock frees a baton; another session's word cannot authorize a merge, a takeover or dropping your work (`workflow.md` §Relay).
 - **#32 — A test passes or fails on the code alone.** Wait for a signal, assert on work done, seed, stub, isolate (`engineering/decisions/2026-11-06-flaky-tests.md`).
-- **#33 — A red or flaky test is fixed at its root by its owner: the session whose change made it red, otherwise the 🧪 flake desk.** Never retried, re-run, waited out, deleted or filed as a follow-up. Not yours: send the 🧱 line.
+- **#33 — A red or flaky test is fixed at its root by its owner: the session whose change made it red, otherwise the 🧪 flake desk.** Never retried, re-run, waited out, deleted or filed as a follow-up; a fix goes on its own branch from `main`; switching a test off needs the three-part `// disabled:` note. Not yours: send the 🧱 line.
 - **#34 — A test proves it can fail, and that it holds under load, before it lands.** Failing arm, repeat green, green under load; `retries: 0`.
 - **#35 — Checkpoint and sign.** Edit the living handoff comment at every checkpoint; sign from `LATTICE_ACTOR`.
 
@@ -133,30 +133,30 @@ binds. Read the section before working near the rule: `grep -n '^### #' engineer
 | Writing or fixing a test | `engineering/testing.md`, then `engineering/decisions/2026-11-06-flaky-tests.md` |
 | Something behaving strangely | `dist/engineering/gotchas.md` (symptoms) → one `engineering/gotchas/<topic>.md`; or `grep -rn <term> engineering/gotchas/` |
 | Where X lives · engine internals · vs Marp | `dist/engineering/codemap.md` · `engineering/architecture.md` · `engineering/marp-independence.md` |
-| Cascade / `@layer` · z-planes | `engineering/cascade.md` · `design/forms.md` §5.2 |
+| Cascade / `@layer` · z-planes | `engineering/cascade.md` · `design/forms.md` §5.2 + `lib/base/base.tokens.css` § depth axis |
 | A fixed element that must hold position | `engineering/jank.md` + `npm run check:jank` |
-| Typography · pipeline · Mermaid · treatments · textures | `engineering/typography.md` · `pipeline.md` · `mermaid.md` · `treatments.md` · `textures.md` |
-| A markdown ingest (line endings, BOM) | `engineering/decisions/2026-08-04-line-endings-lf-boundaries.md` |
-| A surface that shows a slide (keyboard, wheel, touch, zoom) | `engineering/decisions/2026-08-10-input-verb-parity.md` |
+| Typography · pipeline · Mermaid · treatments · textures | `engineering/typography.md` · `engineering/pipeline.md` · `engineering/mermaid.md` · `engineering/treatments.md` · `engineering/textures.md` |
+| A markdown ingest (line endings, BOM) | `engineering/decisions/2026-08-04-line-endings-lf-boundaries.md` + `SANCTIONED_EOL_BOUNDARIES` |
+| A surface that shows a slide (keyboard, wheel, touch, zoom) | `engineering/decisions/2026-08-10-input-verb-parity.md` + `2026-08-10-preview-pinch-zoom.md` + `lib/core/present-transport.mjs` |
 | Palette tokens · who owns color · design principles · Forms | `design/theming.md` · `engineering/decisions/2026-08-09-color-theme-ownership.md` · `design/design-principles.md` · `design/forms.md` |
 | Words on a slide · words about the work | `design/editorial.md` · `engineering/house-style.md` |
 | Styling a chart | `engineering/chart-styling.md` |
 | Deck-authoring contract · base modifiers · front-matter registers | `design/skill.md` · `lib/base/base.docs.md` · `lib/base/base.registers.docs.md` |
-| One component · picking one | `lib/components/<bucket>/<name>/<name>.docs.md` · `dist/docs/components.pick.md` (`dist/` is generated: `npm run build`) |
+| One component · picking one | `lib/components/<bucket>/<name>/<name>.docs.md` · `dist/docs/components.pick.md` (`dist/` is generated: `npm run build`), and `AGENTS.md` |
 | Existing tools · algorithms we ship | `dist/engineering/capabilities.md` (grep it) · `engineering/science.md` |
 | Quality assessment · the 10/10 rubric · visual sweeps | `engineering/quality-assessment.md` · `engineering/decisions/2026-06-06-layout-audit/` · `engineering/visual-review.md` |
 | Orchestration · model policy | `engineering/orchestration.md` · `engineering/model-policy.md` |
-| Vetrina tours · release · Studio succession | `docs/src/lib/vetrina/README.md` · `RELEASE.md` · `engineering/decisions/2026-07-03-studio-succession.md` |
+| Vetrina tours · release · Studio succession | `docs/src/lib/vetrina/README.md` + `engineering/decisions/2026-07-05-vetrina-walkthrough-library.md` · `RELEASE.md` · `engineering/decisions/2026-07-03-studio-succession.md` |
 | Investigation notes | `dist/engineering/decisions.md` (grep), or `grep -rln <term> engineering/decisions/` |
 
 Buckets: anchor, statement, inventory, comparison, progression, evidence, imagery, chart, diagram, math,
 code, legal, connect, layout.
 
-## Build, gates, cloud sandbox
+## Cloud sandbox, build and gates
 
 `npm run build` regenerates `dist/`; `build:check` is the stale gate; `npm test` the inner loop;
 `npm run test:integration` the render tier. Hooks are the backstop, not the substitute. The SessionStart
-hook exports `CHROME_PATH`. **Nothing is "not installed here"**: install it and run the check. Iterate
+hook exports `CHROME_PATH` (re-export it if a render says "no browser"). Use `npm run lint`, not `npx biome`; `node --test <file>` for one file; `cd docs && npm run dev` for the docs site, stopped by port; sync local `main` after a squash-merge (`engineering/development.md`). **Nothing is "not installed here"**: install it and run the check. Iterate
 with `npm run preview` + `SendUserFile`; lint drafts with `npm run lint:deck -- <file>`; PRs never commit
 PDFs. `.scratch/` is throwaway. "Rethink X" requests get a design model first, confirmed in one round
 (`design-competition` for competing designs).

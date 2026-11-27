@@ -14,7 +14,8 @@ summary: >
 **Date:** 2026-11-27 · **Asked by:** the owner, through the command center (item c of this PR) ·
 **Status:** shipped on this PR. The owner answered D3 A, typed in the command center, event
 `304a47dc-6353-404a-84c4-5b84e3888db4` ("D3 A"), as drafted, without the optional guard of keeping
-five rules in full. As built: CLAUDE.md is 3,757 o200k tokens (14,081 bytes). The rebuilt appendix picks
+five rules in full. As built: CLAUDE.md is 3,757 o200k tokens at the cut, and 4,064 after the checker's review put back six
+prohibitions (#6, #22, #23, #25, #31, #33), six routing entries and the sandbox cheatsheet. The rebuilt appendix picks
 up the D4 and D5 wording. `engineering/hard-rules.md` (9,346 tokens) and `engineering/operating-mode.md`
 (4,880) hold the moved text, checked line by line against the pre-cut CLAUDE.md: 0 lines missing or
 reordered. `ROUTER_TOKEN_CEILING` is 4,500, the index plus 20%. The ladder row (§F of the contradictions
@@ -94,7 +95,9 @@ core**, so a session that reads nothing else still knows what not to do.
    `git show 14fcd931:CLAUDE.md` and see that no sentence changed.
 2. **Keep the anchors parseable.** `tools/build-agent-kit.mjs` reads rule titles with
    `/^- \*\*#(\d+) — (.+?)\*\*/gm`. All 35 anchors in the appendix match it, and the titles are
-   identical after its trailing-period strip, so the generated glossary does not move.
+   identical after its trailing-period strip. The glossary does gain rows: in the old file 7 titles (#16, #18,
+   #22, #27, #28, #30, #33) wrapped across lines and failed the regex, so the generated skills glossary
+   never listed them. Now all 35 parse, and those 7 appear when a shipped skill cites them.
 3. **Re-set the ceiling.** Lower `ROUTER_TOKEN_CEILING` from 16,500 to about 4,400 (the index plus the
    owner's usual +20% headroom), and rewrite the gate's "do not route text behind a pointer" message.
    That is a number the owner set (SECOND FILTER row 3), so it is part of this decision. Amend
