@@ -743,10 +743,9 @@ test('the inline Quick fix applies the repair its underline promised', async ({ 
 	await setDeck(page, '<!-- @meta{class=kpii} -->\n\n# One\n');
 	const marker = page.locator('.cm-lint-marker').first();
 	await marker.waitFor();
-	// The marker carries two findings: `unknown-class` (this test's) and `legacy-directive-comment`, whose own action
-	// reads "Quick fix". Under load the marker can appear on a pass that holds only the legacy finding, and a lint popup
-	// keeps the findings it opened with. So take the action from the finding this test is about, never `.first()`, and
-	// hover again until the popup shows it: waiting on the finding, not on a duration (HARD RULE #32).
+	// Take the action from the finding this test is about (`unknown-class`), never `.first()`: a lint popup keeps the
+	// findings it opened with, so hover again until the popup shows it, waiting on the finding, not on a duration
+	// (HARD RULE #32).
 	const action = page.locator('.cm-tooltip-lint .cm-diagnostic', { hasText: 'unknown-class' }).locator('.cm-diagnosticAction');
 	// Move away and wait for an open popup to close first: it covers the marker, and a hover that lands on it keeps it open.
 	// Away means the editor's far corner, not the page's: the gutter popup closes on a mouse move it sees inside the
@@ -763,8 +762,34 @@ test('the inline Quick fix applies the repair its underline promised', async ({ 
 	await action.click();
 	await expect
 		.poll(() => editorDoc(page), { message: 'the Quick fix did not repair the directive' })
-		.toContain('<!-- @meta{layout=kpi} -->');
+		// The typo fix keeps the author's field: `class=kpii` becomes `class=kpi`.
+		.toContain('<!-- @meta{class=kpi} -->');
 	expect(await editorDoc(page), 'the typo must be gone, not merely joined by the fix').not.toContain('kpii');
+});
+
+// Since the cut (record note §15, slice E) an old setting comment sets nothing, and its finding's own Quick fix is the
+// whole-deck migration: one click writes the record `lattice migrate meta` writes. Written OLD on purpose.
+test('the Quick fix on an old setting comment migrates it to a record', async ({ page }) => {
+	await setDeck(page, '<!-- _class: kpi -->\n\n# One\n\n---\n\n<!-- _class: quote -->\n\ntext here\n');
+	const marker = page.locator('.cm-lint-marker').first();
+	await marker.waitFor();
+	const action = page.locator('.cm-tooltip-lint .cm-diagnostic', { hasText: 'legacy-directive-comment' }).locator('.cm-diagnosticAction');
+	const editor = page.locator('.cm-editor').first();
+	await expect(async () => {
+		const box = await editor.boundingBox();
+		if (box) await page.mouse.move(box.x + box.width - 4, box.y + box.height - 4);
+		await expect(page.locator('.cm-tooltip-lint')).toHaveCount(0, { timeout: 2_000 });
+		await marker.hover({ timeout: 2_000 });
+		await expect(action).toBeVisible({ timeout: 2_000 });
+	}).toPass({ timeout: 30_000 });
+	await action.click();
+	await expect
+		.poll(() => editorDoc(page), { message: 'the Quick fix did not migrate the old comment' })
+		.toContain('<!-- @meta{layout=kpi} -->');
+	const doc = await editorDoc(page);
+	// The whole deck, not only the line clicked: the second slide's old comment is a record too.
+	expect(doc).toContain('<!-- @meta{layout=quote} -->');
+	expect(doc).not.toMatch(/<!-- _class:/);
 });
 
 // ── "Fix all issues" is offered exactly when something can be fixed ─────────
