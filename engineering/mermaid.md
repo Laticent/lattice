@@ -7,7 +7,7 @@ the same thing and so does the engine. That is the whole authoring surface — t
 engine owns the render on both paths, and neither one is Marp's built-in Mermaid:
 
 ````markdown
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 ## How signals move from input to decision.
 
@@ -938,6 +938,19 @@ part of the 96-token per-theme contract, so every theme curates it (they differ
 sharply — indaco `#E8F0F7`, concrete `#A8A8A8`). This only reaches PLAIN
 clusters: a `.section-N` cluster (mindmap, timeline, kanban) is overridden to
 `--cat-N-fill` by `mermaid.css`'s band cycle.
+
+**A flowchart's nodes are one family, not a category cycle.** Sankey and treemap color
+each node from the categorical palette by its position, because there each node IS a
+category. That cycle used to reach flowchart nodes too, so a five-step process drew
+five category colors, as if every step belonged to a different group; both blind judges
+of the deck-presets Wave 1 round docked every preset for it (#3470). A flowchart node
+(`svg[aria-roledescription="flowchart-v2"]`) now paints a pale `--accent` tint mixed into
+`--bg`, outlined in `--accent` and inked `--text-heading`, so the whole diagram follows
+the theme's accent and the color mode. State, ER, sankey and treemap keep the cycle. To
+mark a category on a flowchart, the author says so with `classDef` / `style`, and sets
+`color:` whenever it sets `fill:`: without it the label keeps the canvas ink, which is
+pale in dark mode, so a pale author fill such as `fill:#fff7d6` reads at about 1.05:1 on
+cuoio dark (`followups.d/3496-p2-flowchart-author-fill-without-ink.md`).
 
 Legibility is **gated**, not assumed —
 `test/unit/palette/containment-contrast.test.js` holds every theme in both schemes

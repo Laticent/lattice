@@ -148,7 +148,7 @@
       "selector": "p",
       "match": { "kind": "paragraph" },
       "required": false,
-      "description": "One-sentence framing paragraph under the feature."
+      "description": "One-sentence framing paragraph under the feature. The eyebrow, heading and lede form the panel's masthead, which centers in the panel between the running header and footer; a longer masthead grows from the top and uses the whole panel."
     },
     "points": {
       "selector": "ul > li",

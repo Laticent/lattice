@@ -140,7 +140,7 @@ the `marp: true` key do not carry over either. `lint:deck` names each one.
    ---
    size: 4k
    theme: indaco
-   paginate: true
+   pagination: true
    header: "Short deck name · Audience"
    ---
    ```

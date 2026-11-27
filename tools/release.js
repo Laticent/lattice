@@ -18,11 +18,13 @@
  *   --prepare   cut the release COMMIT on the current branch. No tag, no publish, no push.
  *     1. Check the tree, the publish set (strict), every changeset and every fragment.
  *     2. Ask npm whether the engine's current version is published.
- *        - BOOTSTRAP (the engine is 1.0.0, not on npm, and untagged): the first release. Nothing is
- *          bumped: the engine ships at 1.0.0 and each library at the version it already carries
- *          (0.1.0). Pending fragments and changesets are archived into
+ *        - BOOTSTRAP (the engine is 1.0.0 or a 1.0.0-rc.N, not on npm, and untagged): the first
+ *          release. Nothing is bumped: the engine ships at the version it carries and each library
+ *          at its own (0.1.0). Pending fragments and changesets are archived into
  *          changelog/pre-release-archive.md, because the curated release-notes/1.0.0.md covers
- *          1.0.0. Each package's CHANGELOG.md gets its first section.
+ *          1.0.0 and its candidates. Each package's CHANGELOG.md gets its first section.
+ *        - A release candidate already on npm (1.0.0-rc.1) versions like any other release: any
+ *          pending engine changeset, whatever its bump, takes 1.0.0-rc.N to 1.0.0.
  *        - Otherwise the engine's version must already be on npm; an unpublished one means the
  *          previous release never finished, and the fix is a Release (publish) run, not a bump.
  *     3. Convert every pending changelog.d/ fragment into a changeset for the engine
@@ -37,7 +39,8 @@
  *        August v1.0.0 tag must be retired first, slice D), write the GitHub Release notes and
  *        build the release zip. Both happen BEFORE anything reaches npm, so their failure leaves
  *        nothing half-published.
- *     4. `changeset publish`: npm publish in each package folder, in dependency order (it sorts
+ *     4. `changeset publish` (`--tag next` when the engine ships a pre-release, so npm's `latest`
+ *        is never moved to a candidate by us): npm publish in each package folder, in dependency order (it sorts
  *        the plan into rounds with @pnpm/deps.graph-sequencer, so ltt and the other leaf
  *        libraries go before cadenza, and the engine goes last). Provenance comes from
  *        NPM_CONFIG_PROVENANCE, which release-publish.yml sets.
@@ -64,12 +67,34 @@ const rp = require('./release-packages.js');
 
 const ROOT = path.resolve(__dirname, '..');
 const NOTES_DIR = 'release-notes';
-/** The one version the bootstrap release ships as it stands. */
+/** The one version the bootstrap release ships as it stands (or one of its release candidates). */
 const BOOTSTRAP_VERSION = '1.0.0';
+/** A release candidate of the bootstrap version: `1.0.0-rc.1`, `1.0.0-rc.2`, … (issue #3518, owner answer 1). */
+const BOOTSTRAP_RC = /^1\.0\.0-rc\.[1-9]\d*$/;
+/**
+ * The npm dist-tag a pre-release publishes under. We never point `latest` at a candidate ourselves; whether the
+ * registry sets `latest` on a brand-new package's first publish anyway is unverified (RELEASE.md).
+ */
+const PRERELEASE_DIST_TAG = 'next';
 const REPO_URL = 'https://github.com/Laticent/lattice';
 const CHANGESET_BIN = path.join(ROOT, 'node_modules', '.bin', 'changeset');
 
 // ── small helpers ────────────────────────────────────────────────────────────
+
+/** Is this the first release's version: 1.0.0 itself or one of its release candidates? */
+function isBootstrapVersion(version) {
+  return version === BOOTSTRAP_VERSION || BOOTSTRAP_RC.test(String(version));
+}
+
+/** A semver pre-release carries a `-` before any `+build` suffix: `1.0.0-rc.1`, never `1.0.0`. */
+function isPrerelease(version) {
+  return String(version).split('+')[0].includes('-');
+}
+
+/** The version whose curated notes a release uses: `1.0.0-rc.1` → `1.0.0`. */
+function notesVersion(version) {
+  return String(version).split('+')[0].split('-')[0];
+}
 
 function git(args, opts = {}) {
   return execFileSync('git', args, { cwd: opts.cwd || ROOT, encoding: 'utf8', ...opts }).trim();
@@ -166,8 +191,17 @@ function changelogFirstLines(file, version) {
  * exists, then one line per package published with it, built from the first line of each entry.
  */
 function releaseNotes(root, version, items) {
-  const curated = path.join(root, NOTES_DIR, `${version}.md`);
+  // A candidate's own curated notes win; without them it borrows the notes of the version it leads to.
+  const own = path.join(root, NOTES_DIR, `${version}.md`);
+  const curated = fs.existsSync(own) ? own : path.join(root, NOTES_DIR, `${notesVersion(version)}.md`);
   const out = [];
+  if (isPrerelease(version)) {
+    out.push(
+      `> **Release candidate.** \`${version}\` is on npm under the \`${PRERELEASE_DIST_TAG}\` tag: ` +
+      `\`npm install @laticent/lattice@${PRERELEASE_DIST_TAG}\`. The notes below describe ${notesVersion(version)}, which follows it.`,
+      '',
+    );
+  }
   if (fs.existsSync(curated)) out.push(fs.readFileSync(curated, 'utf8').trim(), '');
   const engineFirst = [...items].sort((a, b) => (b.name === rp.ENGINE) - (a.name === rp.ENGINE) || a.name.localeCompare(b.name));
   out.push('## Packages in this release', '');
@@ -187,13 +221,26 @@ function releaseNotes(root, version, items) {
  * Decide what this release is. Pure apart from `registry` and the tag lookup, both injectable.
  * @returns {{ mode: 'bootstrap'|'version', engine: object }}
  */
-function releaseMode(root, { registry = npmHasVersion, hasTag = (t) => tagExists(t, root) } = {}) {
+function releaseMode(root, {
+  registry = npmHasVersion, hasTag = (t) => tagExists(t, root),
+  engineTags = () => git(['tag', '--list', `${rp.ENGINE}@*`], { cwd: root }).split('\n').filter(Boolean),
+} = {}) {
   const engine = rp.workspacePackages(root).find((p) => p.name === rp.ENGINE);
   if (!engine) throw new Error(`no workspace declares ${rp.ENGINE}`);
   const published = registry(engine.name, engine.version);
   const tagged = hasTag(`${engine.name}@${engine.version}`);
-  if (!published && !tagged && engine.version === BOOTSTRAP_VERSION) return { mode: 'bootstrap', engine };
+  // The bootstrap is the FIRST release only. Once any engine version is tagged (1.0.0-rc.1, say), a hand-set
+  // 1.0.0 or rc.2 must not re-run it: it would archive the pending changesets unbumped and call 1.0.0 a
+  // "first release". Those versions come from `changeset version` instead.
+  const shipped = engineTags();
+  if (!published && !tagged && isBootstrapVersion(engine.version) && !shipped.length) return { mode: 'bootstrap', engine };
   if (!published) {
+    if (!tagged && shipped.length && isBootstrapVersion(engine.version)) {
+      throw new Error(
+        `${engine.name}@${engine.version} is not on npm, but ${shipped.join(', ')} already shipped, so this is not the first release. ` +
+        'Set the engine back to the version npm has and let a changeset move it (RELEASE.md § After rc.1).',
+      );
+    }
     throw new Error(
       `${engine.name}@${engine.version} is versioned but not on npm, so the previous release never finished. ` +
       'Run Release (publish) on main (workflow_dispatch) to publish it; do not cut another version on top.',
@@ -208,11 +255,14 @@ function bootstrapPrepare(root, { dry, date }) {
   const fragments = cl.readFragments(path.join(root, cl.FRAGMENT_DIRNAME)).filter((f) => f.body.trim());
   const changesets = cs.readChangesets(path.join(root, cs.CHANGESET_DIRNAME));
   const pkgs = rp.publishable(root);
+  const version = pkgs.find((p) => p.name === rp.ENGINE).version;
+  const rc = isPrerelease(version);
 
   console.log(`Release plan: BOOTSTRAP — the first npm release, nothing is bumped.`);
+  if (rc) console.log(`  pre-release: every package publishes under the npm \`${PRERELEASE_DIST_TAG}\` tag`);
   for (const p of pkgs) console.log(`  ${p.name}@${p.version}`);
   console.log(`  archive: ${fragments.length} fragment(s) and ${changesets.length} changeset(s) → changelog/pre-release-archive.md`);
-  if (dry) return { name: `v${BOOTSTRAP_VERSION}` };
+  if (dry) return { name: `v${version}` };
 
   if (fragments.length || changesets.length) {
     const body = [
@@ -220,8 +270,8 @@ function bootstrapPrepare(root, { dry, date }) {
       changesets.length ? `### Changesets\n\n${cs.changesetsAsMarkdown(changesets) || '(empty changesets only)'}` : '',
     ].filter(Boolean).join('\n\n');
     cs.appendToArchive(
-      `Folded into 1.0.0 at release (${date})`,
-      `Entries that landed after the Changesets cutover and before the first npm release. 1.0.0 ships them; its notes are the curated \`release-notes/1.0.0.md\`, so they are archived here verbatim, as the earlier fragments were.`,
+      `Folded into ${version} at release (${date})`,
+      `Entries that landed after the Changesets cutover and before the first npm release. ${version} ships them; its notes are the curated \`release-notes/1.0.0.md\`, so they are archived here verbatim, as the earlier fragments were.`,
       body,
       path.join(root, 'changelog', 'pre-release-archive.md'),
     );
@@ -229,12 +279,14 @@ function bootstrapPrepare(root, { dry, date }) {
     for (const c of changesets) fs.rmSync(c.file);
   }
   for (const p of pkgs) {
-    const line = p.name === rp.ENGINE
-      ? `- First release on npm. What it does, and how to install it: [release notes](${REPO_URL}/blob/main/${NOTES_DIR}/${BOOTSTRAP_VERSION}.md).`
-      : '- First release on npm.';
+    const notesLink = `[release notes](${REPO_URL}/blob/main/${NOTES_DIR}/${BOOTSTRAP_VERSION}.md)`;
+    let line;
+    if (p.name !== rp.ENGINE) line = rc ? `- First release on npm, under the \`${PRERELEASE_DIST_TAG}\` tag with ${rp.ENGINE} ${version}.` : '- First release on npm.';
+    else if (rc) line = `- Release candidate for ${BOOTSTRAP_VERSION}, on npm under the \`${PRERELEASE_DIST_TAG}\` tag: \`npm install ${rp.ENGINE}@${PRERELEASE_DIST_TAG}\`. What ${BOOTSTRAP_VERSION} does: ${notesLink}.`;
+    else line = `- First release on npm. What it does, and how to install it: ${notesLink}.`;
     prependChangelogSection(path.join(p.dir, 'CHANGELOG.md'), p.name, p.version, line);
   }
-  return { name: `v${BOOTSTRAP_VERSION}` };
+  return { name: `v${version}` };
 }
 
 function versionPrepare(root, { dry, date, engine, lock = true }) {
@@ -244,6 +296,12 @@ function versionPrepare(root, { dry, date, engine, lock = true }) {
   if (!fragments.length && !changesets.length) {
     throw new Error('nothing to release: no pending changeset in .changeset/ and no fragment in changelog.d/.');
   }
+  // A release candidate becomes the release only on purpose. A library changeset alone can still move the
+  // engine, because Changesets patches a dependent whose range the library leaves, and semver's patch of
+  // 1.0.0-rc.1 is 1.0.0: that would publish 1.0.0 to `latest` as a side effect. Fragments all become engine
+  // changesets, so they count as naming it.
+  const namesEngine = fragments.length > 0
+    || changesets.some((c) => (cs.parseChangeset(c.text).releases || []).some((r) => r.name === rp.ENGINE));
   const tally = {};
   for (const f of fragments) tally[cs.fragmentBump(f)] = (tally[cs.fragmentBump(f)] || 0) + 1;
   console.log('Release plan: version with Changesets.');
@@ -259,6 +317,13 @@ function versionPrepare(root, { dry, date, engine, lock = true }) {
   if (lock) run('npm', ['install', '--package-lock-only', '--ignore-scripts', '--no-audit', '--no-fund'], { cwd: root });
   const afterAll = rp.workspacePackages(root);
   const after = afterAll.find((p) => p.name === rp.ENGINE);
+  if (isPrerelease(engine.version) && !isPrerelease(after.version) && !namesEngine) {
+    throw new Error(
+      `this release would move ${rp.ENGINE} ${engine.version} → ${after.version} although no pending changeset names the engine ` +
+      '(a library bump left the engine\'s dependency range). The real release needs its own engine changeset; add one, or hold the ' +
+      'library bump. Discard this working tree: nothing was committed.',
+    );
+  }
   const majors = afterAll.filter((p) => crossesMajor(before.get(p.name), p.version)).map((p) => `${p.name} ${before.get(p.name)} → ${p.version}`);
   return { name: after.version !== engine.version ? `v${after.version}` : `libraries-${date}`, majors };
 }
@@ -396,7 +461,7 @@ function publish({
     );
   }
   if (releaseDue) {
-    if (engine.version === BOOTSTRAP_VERSION && !fs.existsSync(path.join(root, NOTES_DIR, `${BOOTSTRAP_VERSION}.md`))) {
+    if (isBootstrapVersion(engine.version) && !fs.existsSync(path.join(root, NOTES_DIR, `${BOOTSTRAP_VERSION}.md`))) {
       throw new Error(`${NOTES_DIR}/${BOOTSTRAP_VERSION}.md is missing; the first release ships its curated notes. Nothing was published.`);
     }
     // Notes and zip BEFORE npm: either failing must leave nothing half-published.
@@ -412,7 +477,15 @@ function publish({
 
   const env = { ...process.env };
   if (dry) env.npm_config_dry_run = 'true';
-  const status = plan.some((p) => !p.onNpm) ? run(changesetBin, ['publish'], { cwd: root, env, allowFail: true }) : 0;
+  // A pre-release engine takes the whole run to `next`: the libraries it ships with are its candidates too.
+  // A libraries-only run keeps npm's default.
+  // A recovery run at the candidate's own commit (the engine published and tagged, a library left over) is
+  // still the candidate's run: the engine's tag on HEAD says so.
+  const workspaceEngine = rp.workspacePackages(root).find((p) => p.name === rp.ENGINE);
+  const engineAtHead = git(['tag', '--points-at', 'HEAD'], { cwd: root }).split('\n').includes(`${rp.ENGINE}@${workspaceEngine.version}`);
+  const prerelease = isPrerelease(workspaceEngine.version) && Boolean(engine || engineAtHead);
+  const publishArgs = prerelease ? ['publish', '--tag', PRERELEASE_DIST_TAG] : ['publish'];
+  const status = plan.some((p) => !p.onNpm) ? run(changesetBin, publishArgs, { cwd: root, env, allowFail: true }) : 0;
 
   // Tag what npm now has. A dry run counts a successful `changeset publish` as "would publish".
   const tags = [];
@@ -428,13 +501,13 @@ function publish({
   if (engineReleased && !hasTag(vtag)) { git(['tag', vtag], { cwd: root }); tags.push(vtag); }
   if (push && !dry && tags.length) run('git', ['push', 'origin', ...tags.map((t) => `refs/tags/${t}`)], { cwd: root });
 
-  emit({ release: 'true', engine_released: String(engineReleased), version: engine ? engine.version : '' });
+  emit({ release: 'true', engine_released: String(engineReleased), version: engine ? engine.version : '', prerelease: String(prerelease) });
   console.log(`\n${dry ? '[dry-run] would publish and tag' : 'Tagged'}: ${tags.join(', ') || 'nothing'}${push && !dry ? ' (pushed)' : ''}`);
   if (notesFile) console.log(`  notes: ${path.relative(root, notesFile)}`);
   if (missing.length) {
     throw new Error(`not on npm after \`changeset publish\` (exit ${status}): ${missing.join(', ')}. Re-run Release (publish) to retry only these.`);
   }
-  return { published: plan, tags, notesFile, engineReleased };
+  return { published: plan, tags, notesFile, engineReleased, distTag: prerelease ? PRERELEASE_DIST_TAG : null };
 }
 
 // ── CLI ──────────────────────────────────────────────────────────────────────
@@ -470,6 +543,10 @@ if (require.main === module) {
 
 module.exports = {
   BOOTSTRAP_VERSION,
+  PRERELEASE_DIST_TAG,
+  isBootstrapVersion,
+  isPrerelease,
+  notesVersion,
   npmHasVersion,
   prependChangelogSection,
   changelogFirstLines,
