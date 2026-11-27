@@ -21,6 +21,17 @@ describe('catalog-wire', () => {
 		expect(typeof w.searchTerms).toBe('string');
 	});
 
+	it('sends a family label once and restores it on every member', () => {
+		const items = [item({ name: 'a' }), item({ name: 'b' }), item({ name: 'c', family: 'g', familyLabel: 'G' }), item({ name: 'd' })];
+		const wire = packCatalog(items);
+		expect(wire.map((w) => w.familyLabel)).toEqual(['F', undefined, 'G', undefined]);
+		expect(unpackCatalog(wire)).toEqual(items);
+	});
+
+	it('refuses two labels for one family instead of dropping one silently', () => {
+		expect(() => packCatalog([item(), item({ name: 'b', familyLabel: 'Other' })])).toThrow(/two labels/);
+	});
+
 	it('refuses a word that contains the separator instead of splitting it silently', () => {
 		expect(() => packCatalog([item({ searchTerms: ['a|b', 'c', 'd'] })])).toThrow(/contains/);
 	});
