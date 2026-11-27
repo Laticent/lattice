@@ -136,8 +136,9 @@ below are the canonical identifiers the reference implementation emits, and
 **A rule from outside this registry** carries a prefix naming its owner: `acme/slide-too-long`. An unprefixed ID
 is this registry's. **A renamed rule keeps its old ID** as a retired alias, listed with the ID that replaced it, so a
 tool that suppresses the old ID keeps working; renaming a rule is a minor version, never a break. Some IDs still
-carry a front-matter key's old name (`unknown-mode`, `unknown-lift`, `unknown-corners`, `unknown-headline`); whether
-they are renamed before Lattice 1.0 or after it, with aliases, is the owner's decision (#3531 D2).
+carry a front-matter key's old name (`unknown-mode`, `unknown-lift`, `unknown-corners`, `unknown-headline`): they are
+renamed with their keys before Lattice 1.0 (owner, #3531 D2, relayed by the agent-native desk), and from 1.0 on a
+rename keeps the old ID as an alias.
 
 **The registry is complete.** Every rule ID the reference implementation can
 emit is listed here, and every ID listed here is one it emits.
@@ -527,6 +528,10 @@ apply it without prompting the author. The reference implementation exposes:
 
 A conformant L2 tool MAY implement its own fixer; it MUST NOT mark a finding
 `autofixable` unless the rewrite is deterministic and unique.
+
+**A fix is idempotent.** Linting the output of an autofixable fix MUST produce no further finding of that rule at that
+place, so a tool may apply fixes until none remain and stop. (The reference fix driver refuses a fix that leaves its
+own finding in place.)
 
 ## 5. Producing diagnostics
 
