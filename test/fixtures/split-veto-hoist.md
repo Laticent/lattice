@@ -1,11 +1,11 @@
 ---
 size: portrait
 theme: indaco
-paginate: true
+pagination: true
 footer: "split veto — hoist-aware headroom"
 ---
 
-<!-- _class: checklist -->
+<!-- @meta{layout=checklist} -->
 
 ## The readiness checklist for the scoring policy rollout.
 

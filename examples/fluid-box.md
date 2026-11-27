@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · fluid-box viewer"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Viewer · Responsive reading`
 
@@ -15,8 +15,8 @@ header: "Lattice · fluid-box viewer"
 
 ---
 
-<!-- _class: list -->
-<!-- _footer: "What fluid-box does" -->
+<!-- @meta{layout=list, footer=What fluid-box does} -->
+
 
 ## The deck stays fixed. The reading goes fluid.
 
@@ -29,8 +29,8 @@ header: "Lattice · fluid-box viewer"
 
 ---
 
-<!-- _class: stats -->
-<!-- _footer: "stats · reflows 4-across to stacked" -->
+<!-- @meta{layout=stats, footer=stats · reflows 4-across to stacked} -->
+
 
 `Impact · Pilot Results`
 
@@ -49,8 +49,8 @@ header: "Lattice · fluid-box viewer"
 
 ---
 
-<!-- _class: kpi -->
-<!-- _footer: "kpi · value + nested detail, reflows box-locally" -->
+<!-- @meta{layout=kpi, footer="kpi · value + nested detail, reflows box-locally"} -->
+
 
 ## Revenue ahead of plan; margin and cash both expanded.
 
@@ -69,8 +69,8 @@ header: "Lattice · fluid-box viewer"
 
 ---
 
-<!-- _class: list -->
-<!-- _footer: "How to use it" -->
+<!-- @meta{layout=list, footer=How to use it} -->
+
 
 ## One flag, one toggle.
 
@@ -83,7 +83,7 @@ header: "Lattice · fluid-box viewer"
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 ## Same deck. A reading that fits the screen.
 

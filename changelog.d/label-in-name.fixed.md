@@ -1,0 +1,1 @@
+- **Buttons on the docs site and in the Studio now say in their accessible name what they show on screen**, so a speech-input user can say what they see (WCAG 2.5.3, Label in Name). Affected: the docs search, the playground's Prev, and in the Studio the workspace launcher, the command palette pill, the slide rail, Compose's H1 and H2 buttons and the reader-view menu.

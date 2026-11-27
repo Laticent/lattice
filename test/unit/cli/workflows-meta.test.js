@@ -4,14 +4,14 @@
 // they are NOT standard Node modules: they can't be require()'d and are excluded
 // from Biome. That leaves them un-linted and un-run by anything else, so this is
 // their only automated guard against silent rot — it checks two things a
-// regression would break: (1) each script still parses, and (2) each declares the
+// regression would break: (1) each script still parses as the harness runs it, and (2) each declares the
 // hard agent cap the >10-agent gate exemption reads (orchestration.md §cost-controls).
 
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { execFileSync } = require('node:child_process');
+const vm = require('node:vm');
 
 const WORKFLOWS_DIR = path.join(__dirname, '../../../.claude/workflows');
 
@@ -29,11 +29,17 @@ describe('.claude/workflows meta', () => {
   for (const file of scripts) {
     const full = path.join(WORKFLOWS_DIR, file);
 
-    test(`${file} parses under node --check`, () => {
-      // node --check on the path uses Node's tolerant ambiguous-module detection,
-      // which accepts the harness idiom (export + top-level return). A syntax
-      // regression throws here with the parser's message.
-      assert.doesNotThrow(() => execFileSync(process.execPath, ['--check', full], { stdio: 'pipe' }));
+    test(`${file} parses as the harness runs it`, () => {
+      // Parsed the way the Workflow harness runs it: the body of an async function, so a top-level
+      // `return` and `await` are legal, with `export` dropped from the `meta` line. This used to be
+      // `node --check`, which leaned on Node 22's tolerant module detection; Node 24 parses a file with
+      // `export` as an ES module, where a top-level `return` is illegal, and failed a script that runs.
+      // `vm.Script` only compiles: nothing in the script runs. A syntax regression throws here with the
+      // parser's message and the file name. STRICT on purpose: this repo does not pin whether the harness
+      // runs a script strict or sloppy, and a strict parse is at least as strict as either, so a script that
+      // passes here cannot fail the harness on a strict-only error (`with`, a legacy octal, duplicate params).
+      const body = fs.readFileSync(full, 'utf8').replace(/^export\s+(?=const\s)/gm, '');
+      assert.doesNotThrow(() => new vm.Script(`(async function () {\n'use strict';\n${body}\n})`, { filename: full }));
     });
 
     test(`${file} declares a positive maxAgents cap`, () => {

@@ -107,6 +107,14 @@ export type NotifyOptions = {
 	 * default belongs to the kind, an override belongs to the thing being said.
 	 */
 	duration?: number;
+	/**
+	 * Where this one message sits, when the toaster's own place (bottom-center) would cover
+	 * the control it tells the reader to use. Rare, and owned by the call site that knows its
+	 * surface: the Share sheet raises its failures at the top, because its action row is at the
+	 * bottom at every width and a failure says "try again" (followups.d/3457, PR 3559).
+	 * Unset, the toaster's place.
+	 */
+	position?: 'top-center' | 'bottom-center';
 };
 
 export type ActionOptions = NotifyOptions & {
@@ -223,6 +231,9 @@ export function notify(message: string, opts: NotifyOptions = {}): void {
 		// button surviving onto a message with nothing to undo.
 		description: opts.description,
 		action: undefined,
+		// Unconditional, like the two above (trap 1): an omitted key would inherit the previous
+		// message's place, so a Share failure at the top would drag the next plain notice there.
+		position: opts.position,
 	});
 }
 
@@ -290,7 +301,12 @@ export function notifySticky(message: string, opts: ActionOptions): NoticeHandle
 	return raiseSlot(
 		'sticky',
 		message,
-		{ duration: Number.POSITIVE_INFINITY, description: opts.description },
+		// AT THE BOTTOM, at every width. Below 1024px the toaster stands at the top (ui/sonner.tsx, note 5), which is
+		// right for a message that leaves on its own and wrong for one that never does: measured on the Playground at
+		// 390px, "This page is out of date · Reload" at the top covered the whole top bar (home, search, Menu, the
+		// Explore/Edit tabs, Slide map, Focus, Deck settings) until dismissed; at the bottom it covered only the two
+		// disabled walk buttons. The owner's call on PR 3559: transient toasts at the top, sticky ones at the bottom.
+		{ duration: Number.POSITIVE_INFINITY, description: opts.description, position: 'bottom-center' },
 		// Same unreported close path as `notifyAction` — see its docblock.
 		(closed) => ({
 			action: {

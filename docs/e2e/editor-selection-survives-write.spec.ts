@@ -39,8 +39,8 @@ test('a range held in Source survives a Slide settings write above it, and one D
 	// A localized write ABOVE the range: Compact spacing rewrites the slide's class comment.
 	await openSlideLook(page);
 	await page.getByRole('switch', { name: 'Compact spacing' }).filter({ visible: true }).first().click();
-	await expect.poll(() => persistedSource(page)).toContain('<!-- _class: kpi compact -->');
-	await expect.poll(() => deckEditorText(page)).toContain('<!-- _class: kpi compact -->');
+	await expect.poll(() => persistedSource(page)).toContain('<!-- @meta{layout=kpi, class=compact} -->');
+	await expect.poll(() => deckEditorText(page)).toContain('<!-- @meta{layout=kpi, class=compact} -->');
 
 	// The range is still held, whole.
 	expect(await selectedText(page), 'the write collapsed the held range').toBe(RANGE);

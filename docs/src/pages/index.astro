@@ -13,6 +13,7 @@
 // <DeckPreview> bridge (src/components/DeckPreview.tsx → src/playground/single-slide-render.ts)
 // — it never reimplements the engine render.
 // See engineering/decisions/2026-06-09-shadcn-migration.md §0.
+import { slideClassValue } from '../../../lib/core/class-entries.mjs';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
@@ -44,6 +45,7 @@ import { assetBase, engineAsset } from '../playground/asset-version.mjs';
 import { joinBase } from '../lib/base-url.mjs';
 import ResourceHints from '../components/site/ResourceHints.astro';
 import PageMeta from '../components/site/PageMeta.astro';
+import { HOME_HEAD_LINKS } from '../lib/discovery.mjs';
 import EngineWarm from '../components/site/EngineWarm.astro';
 import PlaygroundWarm from '../components/site/PlaygroundWarm.astro';
 import { sourceHasDrawnFence } from '../../../lib/plugins/drawn-probe.mjs';
@@ -74,14 +76,15 @@ const titleCase = (s) => s.replace(/(^|-)(\w)/g, (_, sep, c) => (sep ? ' ' : '')
 // board decision authored for the home page (room-decks.ts HERO_SLIDE), not a
 // manifest sample: a sample describes its own layout, and the hero is the first
 // slide every visitor sees (positioning audit §12).
-const heroClass = HERO_SLIDE.match(/_class:\s*([\w-]+)/)[1];
+// The layout through the shared reader, so the hero reads the same written as a `_class` comment or a `@meta{…}` record.
+const heroClass = slideClassValue(HERO_SLIDE).trim().split(/\s+/)[0];
 const escapeHtml = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const heroSource = HERO_SLIDE.trim();
 const heroCodeHtml = heroSource
 	.split('\n')
 	.map((line) => {
 		let cls = 'ln-dim';
-		if (/^<!--\s*_class/.test(line)) cls = 'ln-class';
+		if (/^<!--\s*(?:_class|@meta\{)/.test(line)) cls = 'ln-class';
 		else if (/^#{1,6}\s/.test(line)) cls = 'ln-h';
 		return `<span class="${cls}">${escapeHtml(line) || ' '}</span>`;
 	})
@@ -204,6 +207,10 @@ const nextSteps = nextStepsFor(url);
 			title="Lattice — Markdown to boardroom-ready slide decks (PDF, PPTX)"
 			description="Write plain Markdown, pick a layout per slide, and Lattice renders a polished PDF, PPTX, or HTML deck with one palette and zero design work. Free, offline, open source (AGPL-3.0)."
 		/>
+		{/* Where an agent starts (#3522 E2-S01): the authoring entry, in the initial HTML. The
+		    llms.txt describedby tag every page carries is written by scripts/md-twins.mjs. The
+		    visible anchor in ByomSection is the hop that needs no convention. */}
+		{HOME_HEAD_LINKS.map((l) => <link rel={l.rel} type={l.type} href={url(l.href.slice(1))} title={l.title} />)}
 		<link rel="icon" type="image/svg+xml" href={url('favicon.svg')} />
 		<!-- Set palette/mode before first paint to avoid a flash. Shares the
 		     portal's localStorage keys so a choice carries across the jump. -->

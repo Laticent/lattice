@@ -57,7 +57,7 @@ Use for a process or decision flow, an org chart, a data flow or a system map: a
 ## Authoring
 
 ```markdown
-<!-- _class: flowchart -->
+<!-- @meta{layout=flowchart} -->
 
 ## The flow in one line.
 
@@ -90,7 +90,7 @@ Use for a process or decision flow, an org chart, a data flow or a system map: a
 Pins the flow left to right.
 
 ```markdown
-<!-- _class: flowchart lr -->
+<!-- @meta{layout=flowchart, class=lr} -->
 
 ## Events land in the warehouse within a minute.
 
@@ -106,7 +106,7 @@ Pins the flow left to right.
 Pins the flow top to bottom.
 
 ```markdown
-<!-- _class: flowchart tb -->
+<!-- @meta{layout=flowchart, class=tb} -->
 
 ## The operating model has three lines of reporting.
 
@@ -123,7 +123,7 @@ Pins the flow top to bottom.
 Generously rounded corners on the router's lines.
 
 ```markdown
-<!-- _class: flowchart curved -->
+<!-- @meta{layout=flowchart, class=curved} -->
 
 ## Every page reaches a human within 15 minutes.
 
@@ -141,7 +141,7 @@ Generously rounded corners on the router's lines.
 Shapes may leave their written order when that draws a cleaner chart.
 
 ```markdown
-<!-- _class: flowchart rearrange -->
+<!-- @meta{layout=flowchart, class=rearrange} -->
 
 ## rearrange lets a detour sit beside the step it leaves.
 

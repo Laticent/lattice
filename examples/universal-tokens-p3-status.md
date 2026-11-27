@@ -2,14 +2,14 @@
 marp: true
 theme: indaco
 size: hd
-paginate: true
+pagination: true
 header: "Lattice · universal token system"
 footer: "Phase 3 — status + diagram lifecycle"
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=title, header="", footer=""} -->
+
+
 
 # Two honest axes, not three muddled ones.
 
@@ -19,7 +19,7 @@ footer: "Phase 3 — status + diagram lifecycle"
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 ## Status is not lifecycle.
 
@@ -34,7 +34,7 @@ footer: "Phase 3 — status + diagram lifecycle"
 
 ---
 
-<!-- _class: checklist -->
+<!-- @meta{layout=checklist} -->
 
 ## Status axis — the state-discs.
 
@@ -46,7 +46,7 @@ footer: "Phase 3 — status + diagram lifecycle"
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `01 · Gantt`
 
@@ -66,7 +66,7 @@ gantt
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `02 · Sequence + note`
 
@@ -85,9 +85,9 @@ sequenceDiagram
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 
 ## One status vocabulary; an honest lifecycle.
 

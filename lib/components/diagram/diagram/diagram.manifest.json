@@ -39,9 +39,9 @@
       "description": "Fenced ```mermaid block, pre-rendered to SVG at build time."
     }
   },
-  "skeleton": "<!-- _class: diagram -->\n\n## How signals move from input to decision.\n\n```mermaid\nflowchart LR\n  A[Input] --> B[Process]\n  B --> C{Decision}\n  C -->|yes| D[Path A]\n  C -->|no| E[Path B]\n```\n",
+  "skeleton": "<!-- @meta{layout=diagram} -->\n\n## How signals move from input to decision.\n\n```mermaid\nflowchart LR\n  A[Input] --> B[Process]\n  B --> C{Decision}\n  C -->|yes| D[Path A]\n  C -->|no| E[Path B]\n```\n",
   "anatomyBlock": "diagram-canvas",
-  "sample": "<!-- _class: diagram -->\n\n## How a signal moves from input to decision.\n\n```mermaid\nflowchart LR\n  A[\"Raw signals\"] --> B[\"Classify\"]\n  B --> C[\"Score & weight\"]\n  C --> D[\"Decision log\"]\n  D --> E[\"Calibration\"]\n  E -.->|\"adjust weights\"| C\n```\n",
+  "sample": "<!-- @meta{layout=diagram} -->\n\n## How a signal moves from input to decision.\n\n```mermaid\nflowchart LR\n  A[\"Raw signals\"] --> B[\"Classify\"]\n  B --> C[\"Score & weight\"]\n  C --> D[\"Decision log\"]\n  D --> E[\"Calibration\"]\n  E -.->|\"adjust weights\"| C\n```\n",
   "whenToUse": [
     {
       "title": "Relational structure is the message",

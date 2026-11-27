@@ -52,6 +52,9 @@ test('tagging an inherited view materializes it — it survives turning the sett
 	await page.getByRole('button', { name: 'Accept all' }).click();
 	// Tagging materializes it into the deck source — written, but still UNAPPROVED (no reader sees it yet).
 	await expect.poll(() => persistedSource(page)).toMatch(/\bbrief:/);
+	// Each tag is the `lens` field of the slide's `@meta` record (docs/src/lib/lente-host.ts), never a `_lens` comment.
+	await expect.poll(() => persistedSource(page)).toMatch(/<!-- @meta\{[^}]*\blens=/);
+	expect(await persistedSource(page)).not.toMatch(/<!--\s*_lens\s*:/);
 	// Now turn Default reader views OFF.
 	await page.getByRole('button', { name: 'Workspace settings' }).click();
 	await page.getByRole('tab', { name: 'General' }).click();

@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · big-number"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # big-number
 
@@ -15,8 +15,7 @@ Single oversized number as the focal claim.
 
 ---
 
-<!-- _class: big-number -->
-<!-- _footer: "Default · big-number" -->
+<!-- @meta{layout=big-number, footer=Default · big-number} -->
 
 `big-number · one number, the whole canvas`
 
@@ -26,9 +25,8 @@ Single oversized number as the focal claim.
 
 ---
 
-<!-- _class: big-number -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · big-number — Ten digits is the practical ceiling." -->
+<!-- @meta{layout=big-number, footer="Stress test · big-number — Ten digits is the practical ceiling."} -->
+<!-- @meta{stress-slide} -->
 
 `big-number · stress — the longest number that still lands`
 
@@ -38,8 +36,7 @@ Single oversized number as the focal claim.
 
 ---
 
-<!-- _class: big-number dark -->
-<!-- _footer: "Composition: dark · big-number dark" -->
+<!-- @meta{layout=big-number, class=dark, footer=Composition: dark · big-number dark} -->
 
 `big-number · one number, the whole canvas`
 
@@ -49,8 +46,7 @@ Single oversized number as the focal claim.
 
 ---
 
-<!-- _class: big-number compact -->
-<!-- _footer: "Composition: compact · big-number compact" -->
+<!-- @meta{layout=big-number, class=compact, footer=Composition: compact · big-number compact} -->
 
 `big-number · one number, the whole canvas`
 
@@ -60,8 +56,7 @@ Single oversized number as the focal claim.
 
 ---
 
-<!-- _class: big-number accent -->
-<!-- _footer: "Composition: accent · big-number accent" -->
+<!-- @meta{layout=big-number, class=accent, footer=Composition: accent · big-number accent} -->
 
 `big-number · one number, the whole canvas`
 
@@ -71,8 +66,7 @@ Single oversized number as the focal claim.
 
 ---
 
-<!-- _class: cards-grid three claim-hero -->
-<!-- _footer: "Anti-patterns · big-number" -->
+<!-- @meta{layout=cards-grid, class=three claim-hero, footer=Anti-patterns · big-number} -->
 
 ## When NOT to reach for big-number.
 
@@ -85,7 +79,7 @@ Single oversized number as the focal claim.
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

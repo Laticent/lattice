@@ -2,11 +2,11 @@
 marp: true
 theme: indaco
 size: 16:9
-paginate: true
+pagination: true
 header: "Lattice · Flowchart"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 `Lattice · Feature deck`
 
@@ -16,8 +16,8 @@ Every item is a shape, a sub-list makes a group, and an arrow in a row draws a l
 
 ---
 
-<!-- _class: flowchart -->
-<!-- _footer: "A decision flow — outlines, a status, labeled lines, hidden detail and the key" -->
+<!-- @meta{layout=flowchart, footer="A decision flow — outlines, a status, labeled lines, hidden detail and the key"} -->
+
 
 `Incident response`
 
@@ -38,8 +38,8 @@ Every item is a shape, a sub-list makes a group, and an arrow in a row draws a l
 
 ---
 
-<!-- _class: flowchart tb -->
-<!-- _footer: "An org chart — `--` draws a line with no head, `&` fans out, `loose` stays out of the layout" -->
+<!-- @meta{layout=flowchart, class=tb, footer="An org chart — `--` draws a line with no head, `&` fans out, `loose` stays out of the layout"} -->
+
 
 `Operating model`
 
@@ -58,8 +58,8 @@ Every item is a shape, a sub-list makes a group, and an arrow in a row draws a l
 
 ---
 
-<!-- _class: flowchart lr -->
-<!-- _footer: "A data flow — groups, the io, cylinder and doc outlines, a line out of a group" -->
+<!-- @meta{layout=flowchart, class=lr, footer="A data flow — groups, the io, cylinder and doc outlines, a line out of a group"} -->
+
 
 `Analytics`
 
@@ -86,8 +86,8 @@ Every item is a shape, a sub-list makes a group, and an arrow in a row draws a l
 
 ---
 
-<!-- _class: flowchart -->
-<!-- _footer: "A system map — tinted groups, a two-way line, a group-to-shape line and a shape with no lines" -->
+<!-- @meta{layout=flowchart, footer="A system map — tinted groups, a two-way line, a group-to-shape line and a shape with no lines"} -->
+
 
 `Platform`
 
@@ -113,8 +113,8 @@ Every item is a shape, a sub-list makes a group, and an arrow in a row draws a l
 
 ---
 
-<!-- _class: flowchart lr -->
-<!-- _footer: "Lines — heavy, dashed, dotted; open, dot and cross heads; two-way; a slot color" -->
+<!-- @meta{layout=flowchart, class=lr, footer="Lines — heavy, dashed, dotted; open, dot and cross heads; two-way; a slot color"} -->
+
 
 `Line vocabulary`
 
@@ -133,8 +133,8 @@ Every item is a shape, a sub-list makes a group, and an arrow in a row draws a l
 
 ---
 
-<!-- _class: flowchart -->
-<!-- _footer: "Written flat — every row names its source, and the chart is the same as the nested form" -->
+<!-- @meta{layout=flowchart, footer="Written flat — every row names its source, and the chart is the same as the nested form"} -->
+
 
 `Checkout`
 
@@ -148,8 +148,8 @@ Every item is a shape, a sub-list makes a group, and an arrow in a row draws a l
 
 ---
 
-<!-- _class: flowchart compact -->
-<!-- _footer: "Compact — the universal modifier tightens the spacing so a dense chart keeps its type" -->
+<!-- @meta{layout=flowchart, class=compact, footer="Compact — the universal modifier tightens the spacing so a dense chart keeps its type"} -->
+
 
 `Release train`
 
@@ -168,8 +168,8 @@ Every item is a shape, a sub-list makes a group, and an arrow in a row draws a l
 
 ---
 
-<!-- _class: flowchart -->
-<!-- _footer: "Wrapping — a long flow keeps its type by breaking into rows in reading order" -->
+<!-- @meta{layout=flowchart, footer="Wrapping — a long flow keeps its type by breaking into rows in reading order"} -->
+
 
 `Onboarding`
 

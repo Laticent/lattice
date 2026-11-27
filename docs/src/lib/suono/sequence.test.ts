@@ -672,3 +672,146 @@ describe('onStarve', () => {
 		expect(stage.played.length).toBe(1);
 	});
 });
+
+// The decoded-audio window (SequenceOptions.decodeAhead): a long narrated deck must hold the clip playing and the next
+// few, not every clip it has decoded (the iPhone reload, 2026-11-17). A stage that tracks which decoded clips are alive.
+function windowStage() {
+	const live = new Set<string>();
+	let peak = 0;
+	const forgotten: string[] = [];
+	const decoded: string[] = [];
+	const stage: SequenceStage = {
+		async decode(_b: Bytes, key?: string): Promise<Clip> {
+			if (key) {
+				decoded.push(key);
+				live.add(key);
+				peak = Math.max(peak, live.size);
+			}
+			return { buffer: {} as AudioBuffer, durationMs: 10 };
+		},
+		forget(key: string) {
+			forgotten.push(key);
+			live.delete(key);
+		},
+		play(clip: Clip, o?: PlayOptions) {
+			o?.onStart?.({ onsetMs: 0, durationMs: clip.durationMs });
+			return { done: Promise.resolve({ ok: true }), stop() {} };
+		},
+		suspend: vi.fn(),
+		resume: vi.fn(),
+		state: (): StageState => 'running',
+	};
+	return { stage, live, forgotten, decoded, peak: () => peak };
+}
+
+describe('makeSequence — decodeAhead (the decoded-audio window)', () => {
+	const items = Array.from({ length: 12 }, (_, i) => i);
+	const run = (stage: SequenceStage, decodeAhead?: number) =>
+		new Promise<void>((resolve) => {
+			const seq = makeSequence(stage, { items, produce: async () => bytes(), keyOf: (i) => `k${i}`, concurrency: 4, gapMs: () => 0, decodeAhead, onState: (e) => !e.playing && resolve() });
+			seq.play();
+		});
+
+	it('holds at most the clip playing and the next two, and releases each one it has played', async () => {
+		const w = windowStage();
+		await run(w.stage, 2);
+		expect(w.peak()).toBeLessThanOrEqual(3);
+		expect(w.forgotten).toEqual(items.map((i) => `k${i}`));
+		expect(w.live.size).toBe(0);
+	});
+
+	it('decodes ahead only once a clip is heard: a skip before its onset decodes nothing it will throw away', async () => {
+		// A stage whose clips never start (a suspended context, or a presenter who moves on first): play() returns a
+		// handle that never reaches onStart and only ends when stopped.
+		const w = windowStage();
+		w.stage.play = (_clip: Clip, o?: PlayOptions) => {
+			let end: (v: { ok: boolean }) => void = () => {};
+			const done = new Promise<{ ok: boolean }>((r) => (end = r));
+			o?.signal?.addEventListener('abort', () => end({ ok: false }));
+			return { done, stop: () => end({ ok: false }) };
+		};
+		let produced = 0;
+		const seq = makeSequence(w.stage, { items, produce: async () => {
+			produced++;
+			return bytes();
+		}, keyOf: (i) => `k${i}`, concurrency: 4, gapMs: () => 0, decodeAhead: 2 });
+		seq.play();
+		// Signals, not a duration: k0 is decoded and playing, and the bytes for k1 and k2 are fetched, so a look-ahead
+		// WOULD find them now. It must not run, because k0 is never heard.
+		await vi.waitFor(() => expect(w.decoded).toContain('k0'));
+		await vi.waitFor(() => expect(produced).toBeGreaterThanOrEqual(3));
+		expect(w.decoded).toEqual(['k0']);
+		seq.stop();
+	});
+
+	it('decodes nothing ahead while the context is suspended, even when the stage reports an onset', async () => {
+		// The real stage calls onStart at source.start(), suspended or not; a suspended context plays nothing audible.
+		const w = windowStage();
+		w.stage.state = () => 'suspended';
+		let produced = 0;
+		let end: (v: { ok: boolean }) => void = () => {};
+		w.stage.play = (clip: Clip, o?: PlayOptions) => {
+			o?.onStart?.({ onsetMs: 0, durationMs: clip.durationMs });
+			const done = new Promise<{ ok: boolean }>((r) => (end = r));
+			o?.signal?.addEventListener('abort', () => end({ ok: false }));
+			return { done, stop: () => end({ ok: false }) };
+		};
+		const seq = makeSequence(w.stage, { items, produce: async () => {
+			produced++;
+			return bytes();
+		}, keyOf: (i) => `k${i}`, concurrency: 4, gapMs: () => 0, decodeAhead: 2 });
+		seq.play();
+		await vi.waitFor(() => expect(w.decoded).toContain('k0'));
+		await vi.waitFor(() => expect(produced).toBeGreaterThanOrEqual(3));
+		expect(w.decoded).toEqual(['k0']);
+		seq.stop();
+	});
+
+	it('decodes ahead once a resuming context starts running, so the sentence after an unlock is not decoded late', async () => {
+		// The real stage reports the onset before its ctx.resume() settles: the first clip after an unlock sees
+		// 'suspended', then the context runs.
+		const w = windowStage();
+		let state: StageState = 'suspended';
+		w.stage.state = () => state;
+		let produced = 0;
+		let end: (v: { ok: boolean }) => void = () => {};
+		w.stage.play = (clip: Clip, o?: PlayOptions) => {
+			o?.onStart?.({ onsetMs: 0, durationMs: clip.durationMs });
+			const done = new Promise<{ ok: boolean }>((r) => (end = r));
+			o?.signal?.addEventListener('abort', () => end({ ok: false }));
+			return { done, stop: () => end({ ok: false }) };
+		};
+		const seq = makeSequence(w.stage, { items, produce: async () => {
+			produced++;
+			return bytes();
+		}, keyOf: (i) => `k${i}`, concurrency: 4, gapMs: () => 0, decodeAhead: 2 });
+		seq.play();
+		await vi.waitFor(() => expect(w.decoded).toContain('k0'));
+		await vi.waitFor(() => expect(produced).toBeGreaterThanOrEqual(3));
+		expect(w.decoded).toEqual(['k0']);
+		state = 'running'; // the resume settles
+		await vi.waitFor(() => expect(w.decoded).toEqual(['k0', 'k1', 'k2']));
+		seq.stop();
+	});
+
+	it('warm() fetches bytes but decodes nothing when the window is set', async () => {
+		const w = windowStage();
+		let produced = 0;
+		const seq = makeSequence(w.stage, { items, produce: async () => {
+			produced++;
+			return bytes();
+		}, keyOf: (i) => `k${i}`, decodeAhead: 2 });
+		seq.warm(items);
+		await vi.waitFor(() => expect(produced).toBe(items.length));
+		expect(w.decoded).toEqual([]);
+	});
+
+	it('without the option, keeps the old behavior: warm decodes ahead and nothing is released', async () => {
+		const w = windowStage();
+		const seq = makeSequence(w.stage, { items: [0, 1, 2], produce: async () => bytes(), keyOf: (i) => `k${i}` });
+		seq.warm([0, 1, 2]);
+		await vi.waitFor(() => expect(w.decoded.length).toBe(3));
+		await run(w.stage);
+		expect(w.forgotten).toEqual([]);
+	});
+});

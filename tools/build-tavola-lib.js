@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Builds @laticent/tavola's dist/: ESM + CJS bundles of the core, of the Trystero adapter and
+ * Builds @laticent/tavola's dist/: ESM bundles of the core, of the Trystero adapter and
  * of the Yjs adapter, and `.d.ts` declarations. `trystero` stays an import: it is the adapter's
  * optional peer dependency, which the consumer installs. So do `yjs`, `y-protocols/*` and
  * `lib0/*` for the Yjs adapter: bundling a second copy of Yjs would make its checks (that two

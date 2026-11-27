@@ -1,1 +1,0 @@
-- Reloading with the editor collapsed no longer re-shows the "Editor collapsed." toast; only a collapse the person makes does.

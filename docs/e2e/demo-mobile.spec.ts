@@ -38,8 +38,9 @@ async function firstDeckSource(page: import('@playwright/test').Page): Promise<s
 	return (await readStorage(page, `lattice-studio-src-${id}`)) ?? '';
 }
 
-/** The `_class` slide count in a source string (one per slide). */
-const slideClasses = (src: string) => (src.match(/<!--\s*_class:/g) ?? []).length;
+/** The slide count in a source string, one class line per slide, in either spelling: the tours write a record
+ *  (`<!-- @meta{layout=title} -->`, record note §15), an older deck a `<!-- _class: … -->` comment. */
+const slideClasses = (src: string) => (src.match(/<!--\s*(?:_class:|@meta\{(?:[^}]*?[,\s])?(?:layout|class)=)/g) ?? []).length;
 
 /** The last line `first-look` types — the radar's final value. Its arrival means the whole deck,
  *  every slide in full, is in the editor (tour-kit.ts SLIDE.radar). */
@@ -73,8 +74,8 @@ test('@mobile the phone demo types the 3-slide deck across pane-swaps and comple
 	await expect.poll(() => firstDeckSource(page), { timeout: 90_000 }).toContain(DECK_END);
 	const src = await firstDeckSource(page);
 	expect(slideClasses(src)).toBe(3); // no slide dropped, none duplicated by a remount race
-	expect(src.indexOf('_class: title')).toBeLessThan(src.indexOf('_class: big-number'));
-	expect(src.indexOf('_class: big-number')).toBeLessThan(src.indexOf('_class: radar'));
+	expect(src.indexOf('@meta{layout=title}')).toBeLessThan(src.indexOf('@meta{layout=big-number}'));
+	expect(src.indexOf('@meta{layout=big-number}')).toBeLessThan(src.indexOf('@meta{layout=radar}'));
 
 	// It completes on its own: the stage detaches and the deck is LEFT BEHIND.
 	await expect(page.locator(STAGE)).toHaveCount(0, { timeout: 120_000 });
@@ -106,7 +107,7 @@ test('@mobile under prefers-reduced-motion the demo still TYPES the full deck (l
 	await expect.poll(() => firstDeckSource(page), { timeout: 90_000 }).toContain(DECK_END);
 	const src = await firstDeckSource(page);
 	expect(slideClasses(src)).toBe(3);
-	expect(src.indexOf('_class: title')).toBeLessThan(src.indexOf('_class: big-number'));
+	expect(src.indexOf('@meta{layout=title}')).toBeLessThan(src.indexOf('@meta{layout=big-number}'));
 	await expect(page.locator(STAGE)).toHaveCount(0, { timeout: 120_000 });
 });
 

@@ -16,6 +16,7 @@ describe('hasContent — the empty-deck guard (K1: never fabricate a grade)', ()
 	});
 	it('is true only with a classed slide and more than one chunk', () => {
 		expect(hasContent('<!-- _class: title -->\n# Hi\n\n---\n\n<!-- _class: statement -->\n## Point')).toBe(true);
+		expect(hasContent('<!-- @meta{layout=title} -->\n# Hi\n\n---\n\n<!-- @meta{layout=statement} -->\n## Point')).toBe(true);
 	});
 });
 
@@ -74,5 +75,28 @@ describe('rankFindings + chips', () => {
 		const card = await structureCheck('<!-- _class: title -->\n# Open\n\n---\n\n<!-- _class: decision -->\n# Approve');
 		expect(card.body[0]).toContain('Opening');
 		expect(card.body).toHaveLength(3);
+	});
+	it('a deck written in slide records gets the same ask and structure as its comment twin', async () => {
+		expect((await theAsk('<!-- @meta{layout=decision} -->\n# Approve X')).body[0]).toContain('You have a decision slide');
+		const comments = await structureCheck('<!-- _class: title -->\n# Open\n\n---\n\n<!-- _class: decision -->\n# Approve\n\n---\n\n<!-- _class: closing -->\n# End');
+		const records = await structureCheck('<!-- @meta{layout=title} -->\n# Open\n\n---\n\n<!-- @meta{layout=decision} -->\n# Approve\n\n---\n\n<!-- @meta{layout=closing} -->\n# End');
+		expect(records.body).toEqual(comments.body);
+		expect(records.body.every((l) => l.startsWith('✓'))).toBe(true);
+	});
+});
+
+// The Studio writes `@meta` records (record note §15): the Coach reads a slide's layout through the shared reader, so a
+// deck written in records is a deck, not an empty one. The failing arm was the old `/<!--\s*_class:/` test, which called
+// the default Studio deck empty and showed "Nothing to rank yet".
+describe('the Coach reads a deck written in records', () => {
+	const deck = '---\ntheme: indaco\n---\n\n<!-- @meta{layout=title} -->\n\n# Q4\n\n---\n\n<!-- @meta{layout=decision} -->\n\n## Approve the plan\n\n---\n\n<!-- @meta{layout=closing, class=silent} -->\n\n## Thank you';
+	it('has content', () => {
+		expect(hasContent(deck)).toBe(true);
+		expect(hasContent('<!-- @meta{footer=Q3} -->\n\n# Hi')).toBe(false);
+		expect(/<!--\s*_class:/.test(deck)).toBe(false);
+	});
+	it('finds the ask, the opening and the closing', async () => {
+		expect((await theAsk(deck)).body[0]).toMatch(/^You have a decision slide/);
+		expect((await structureCheck(deck)).body).toEqual(['✓ Opening / title slide', '✓ Clear ask / recommendation', '✓ Closing slide']);
 	});
 });

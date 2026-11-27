@@ -989,7 +989,8 @@ class SlideView {
 			b.className = `cs-fmt-btn${meta.mono ? ' cs-fmt-mono' : ''}${activeReg === key ? ' cs-fmt-on' : ''}`;
 			b.textContent = meta.glyph;
 			b.title = `${meta.label} — apply to this block`;
-			b.setAttribute('aria-label', meta.label);
+			// A glyph with a letter or digit in it (H1, H2, ·e·, ·s·) leads the name, so a speech user can say what they see (WCAG 2.5.3).
+			b.setAttribute('aria-label', /[A-Za-z0-9]/.test(meta.glyph) ? `${meta.glyph} ${meta.label.toLowerCase()}` : meta.label);
 			b.setAttribute('aria-pressed', activeReg === key ? 'true' : 'false');
 			b.addEventListener('mousedown', (e) => e.preventDefault(), { signal: this.ac.signal });
 			b.addEventListener('click', (e) => {
@@ -1167,7 +1168,7 @@ class SlideView {
 		const i = this.index();
 		if (i < 0) return;
 		const nodes = this.slides();
-		const blank = deckSchema.nodes.slide.create({ directives: ['<!-- _class: content -->'], raw: '', locked: false }, deckSchema.nodes.paragraph.create());
+		const blank = deckSchema.nodes.slide.create({ directives: ['<!-- @meta{layout=content} -->'], raw: '', locked: false }, deckSchema.nodes.paragraph.create());
 		nodes.splice(i + 1, 0, blank);
 		this.commit(nodes);
 	}

@@ -56,7 +56,7 @@ const ESSENTIALS: { key: EssKey; label: string; group: string }[] = [
 	{ key: 'warn', label: 'Warning', group: 'Signals' },
 	{ key: 'fail', label: 'Error', group: 'Signals' },
 ];
-const SPECIMEN = '<!-- _class: kpi -->\n\n`Theme · live specimen`\n\n## Your theme, derived & audited\n\n1. 100\n   - Tokens derived\n2. AA\n   - Contrast floor\n3. 10\n   - Colors you picked';
+const SPECIMEN = '<!-- @meta{layout=kpi} -->\n\n`Theme · live specimen`\n\n## Your theme, derived & audited\n\n1. 100\n   - Tokens derived\n2. AA\n   - Contrast floor\n3. 10\n   - Colors you picked';
 
 // Component refine chips — SEMANTIC nudges that re-prompt the model with the CURRENT
 // draft (the Motion faculty's refine, ported). Each applies ONE directed change and
@@ -162,8 +162,8 @@ function bandLabel(token: string): string {
 
 // Live specimens for the canvas — a slide (contract roles), a pie chart (the
 // chart series band) and a Mermaid flow (categorical + diagram band).
-const CHART_SPECIMEN = '<!-- _class: piechart -->\n\n`Charts · live band`\n\n## Revenue by segment\n\n- Segment A `20%`\n- Segment B `16%`\n- Segment C `14%`\n- Segment D `12%`\n- Segment E `11%`\n- Segment F `10%`\n- Segment G `9%`\n- Segment H `8%`';
-const DIAGRAM_SPECIMEN = '<!-- _class: diagram -->\n\n`Diagrams · live band`\n\n## Flow\n\n```mermaid\nflowchart LR\n  A[Plan] --> B[Build] --> C[Review] --> D[Ship]\n  D -.risk.-> B\n```';
+const CHART_SPECIMEN = '<!-- @meta{layout=piechart} -->\n\n`Charts · live band`\n\n## Revenue by segment\n\n- Segment A `20%`\n- Segment B `16%`\n- Segment C `14%`\n- Segment D `12%`\n- Segment E `11%`\n- Segment F `10%`\n- Segment G `9%`\n- Segment H `8%`';
+const DIAGRAM_SPECIMEN = '<!-- @meta{layout=diagram} -->\n\n`Diagrams · live band`\n\n## Flow\n\n```mermaid\nflowchart LR\n  A[Plan] --> B[Build] --> C[Review] --> D[Ship]\n  D -.risk.-> B\n```';
 // The native color input needs a #rrggbb seed; the swatch background shows the
 // real value (which is always 6-digit hex for a CONTRACT token).
 const normalizeHex = (v: string) => (/^#[0-9a-fA-F]{6}$/.test(v) ? v : '#000000');
@@ -483,7 +483,7 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], saved
 		const out: Finding[] = [];
 		if (compGalleryRemote) out.push({ level: 'warning', rule: 'skeleton-remote', message: `The skeleton loads ${compGalleryRemote.slice(0, 80)} from the network, so anyone you send this component to will have it refused on import. Use a relative path or a data: URI.` });
 		for (const f of gateCss(compCss, compName).findings as Finding[]) out.push(f);
-		if (!skeletonInvokes(compSkeleton, compName)) out.push({ level: 'error', rule: 'skeleton', message: `Skeleton must invoke <!-- _class: ${compName} --> so the preview applies your styles.` });
+		if (!skeletonInvokes(compSkeleton, compName)) out.push({ level: 'error', rule: 'skeleton', message: `Skeleton must invoke <!-- @meta{layout=${compName}} --> so the preview applies your styles.` });
 		if (compJsonError) out.push({ level: 'error', rule: 'manifest:json', message: compJsonError });
 		const man = validateManifest(compManifest) as { ok: boolean; errors: { field: string; message: string }[] };
 		for (const e of man.errors) out.push({ level: 'error', rule: `manifest:${e.field}`, message: e.message });

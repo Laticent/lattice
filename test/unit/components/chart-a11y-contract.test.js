@@ -39,6 +39,7 @@ const path = require('node:path');
 const { JSDOM } = require('jsdom');
 const engine = require('../../../lib/engine');
 const { narrateChart } = require('../../../lib/core/chart-narration.js');
+const { ownClassOf } = require('../../helpers/slide-class.js');
 
 const CHART_DIR = path.join(__dirname, '..', '..', '..', 'lib', 'plugins', 'chart-family', 'kinds');
 const COMPONENTS = fs
@@ -87,7 +88,8 @@ function gallerySlides(component) {
 	const fm = (src.match(/^---\n[\s\S]*?\n---\n/) || [''])[0];
 	const out = [];
 	for (const body of src.slice(fm.length).split(/\n---\n/)) {
-		const cls = body.match(/<!--\s*_class:\s*([^>]*?)\s*-->/);
+		const own = ownClassOf(body);
+		const cls = own && [own.text, own.payload];
 		if (!cls || cls[1].split(/\s+/)[0] !== component) continue;
 		const html = engine.render(fm + body, 'indaco', { preview: true }).html;
 		out.push({ md: body, cls: cls[1], doc: new JSDOM(html).window.document });
@@ -137,7 +139,7 @@ for (const component of COMPONENTS) {
 	const slides = gallerySlides(component);
 
 	test(`${component}: the gallery has chart slides to check`, () => {
-		assert.ok(slides.length > 0, `${component}.gallery.md has no \`_class: ${component}\` slide`);
+		assert.ok(slides.length > 0, `${component}.gallery.md has no \`${component}\` slide`);
 	});
 
 	test(`${component}: every chart graphic is named and described for a screen reader`, () => {

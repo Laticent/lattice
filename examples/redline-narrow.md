@@ -1,10 +1,10 @@
 ---
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · redline in a pane"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # A redline in a half pane stacks old, new and why
 
@@ -14,12 +14,12 @@ A pane is the one narrow box a wide deck has; the read-across grid now stacks th
 
 ---
 
-<!-- _footer: "three-col · stacks below 40em of pane: old, new, then why" -->
+<!-- @meta{footer="three-col · stacks below 40em of pane: old, new, then why"} -->
 
 ## A short amendment, beside its context.
 
-<!-- _class: columns ratio-50-50 -->
-<!-- _pane: redline three-col -->
+<!-- @meta{layout=columns, class=ratio-50-50} -->
+<!-- @meta{pane=redline three-col} -->
 
 > Two or more designated methods.
 
@@ -27,19 +27,19 @@ A pane is the one narrow box a wide deck has; the read-across grid now stacks th
 
 - **Floor.** One now suffices.
 
-<!-- _pane: list -->
+<!-- @meta{pane=list} -->
 
 - The floor drops to one method
 - The homepage link becomes mandatory
 
 ---
 
-<!-- _footer: "Dark · the old and new tints carry into the stack" -->
+<!-- @meta{footer=Dark · the old and new tints carry into the stack} -->
 
 ## The same stack on a dark slide.
 
-<!-- _class: columns ratio-50-50 dark -->
-<!-- _pane: redline three-col -->
+<!-- @meta{layout=columns, class=ratio-50-50 dark} -->
+<!-- @meta{pane=redline three-col} -->
 
 > Reports are due within thirty days.
 
@@ -47,33 +47,33 @@ A pane is the one narrow box a wide deck has; the read-across grid now stacks th
 
 - **Window.** The deadline roughly halves.
 
-<!-- _pane: list -->
+<!-- @meta{pane=list} -->
 
 - Finance owns the new deadline
 - The first report under it lands in March
 
 ---
 
-<!-- _footer: "split · stacks below 32em of pane" -->
+<!-- @meta{footer=split · stacks below 32em of pane} -->
 
 ## A split redline in a half pane.
 
-<!-- _class: columns ratio-50-50 -->
-<!-- _pane: redline split -->
+<!-- @meta{layout=columns, class=ratio-50-50} -->
+<!-- @meta{pane=redline split} -->
 
 > Two or more designated methods for submitting requests.
 
 > At least one designated method, including a homepage link.
 
-<!-- _pane: list -->
+<!-- @meta{pane=list} -->
 
 - The floor drops to one method
 - The homepage link becomes mandatory
 
 ---
 
-<!-- _class: redline three-col -->
-<!-- _footer: "Full width · a 16:9 slide is about 60em, so the grid stays" -->
+<!-- @meta{layout=redline, class=three-col, footer="Full width · a 16:9 slide is about 60em, so the grid stays"} -->
+
 
 ## On a full-width slide the three columns stay side by side.
 
@@ -88,6 +88,6 @@ A pane is the one narrow box a wide deck has; the read-across grid now stacks th
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 # Old, new, why: the reading order survives the narrow box

@@ -1,11 +1,11 @@
 ---
 size: portrait
 theme: indaco
-paginate: true
+pagination: true
 footer: "Auto-split — a decision, one option at a time"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # One choice, one page at a time
 
@@ -15,7 +15,7 @@ A two-way decision needs the question, both answers and the recommendation. On a
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## What this deck shows
 
@@ -29,7 +29,7 @@ pages rather than three.
 
 ---
 
-<!-- _class: split-compare -->
+<!-- @meta{layout=split-compare} -->
 
 `Decision Required`
 
@@ -48,7 +48,7 @@ Volume triples in March either way; the question is who carries the load.
 
 ---
 
-<!-- _class: split-compare -->
+<!-- @meta{layout=split-compare} -->
 
 `Renewal`
 
@@ -67,7 +67,7 @@ The customer has asked for one number they can put in a budget.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## Why the verdict gets its own page
 
@@ -79,7 +79,7 @@ and pushed the recommendation off the page entirely, with no warning.
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 ## The rule, in one line
 

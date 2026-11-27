@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · the chart form kernel"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # A chart is a Lattice
 
@@ -15,8 +15,8 @@ On a page read on a phone, the kernel draws each chart once, on a canvas the sha
 
 ---
 
-<!-- _class: bar -->
-<!-- _footer: "bar · names set whole" -->
+<!-- @meta{layout=bar, footer=bar · names set whole} -->
+
 <!-- @note{bar · the category band is as tall as its names: North America sets whole on two lines.} -->
 
 `Revenue · FY26`
@@ -30,8 +30,8 @@ On a page read on a phone, the kernel draws each chart once, on a canvas the sha
 
 ---
 
-<!-- _class: bar grouped -->
-<!-- _footer: "bar grouped · the key is a tile" -->
+<!-- @meta{layout=bar, class=grouped, footer=bar grouped · the key is a tile} -->
+
 <!-- @note{bar grouped · the key is a tile the kernel places under or beside the plot.} -->
 
 ## We beat plan everywhere but APAC.
@@ -48,8 +48,8 @@ On a page read on a phone, the kernel draws each chart once, on a canvas the sha
 
 ---
 
-<!-- _class: bar row -->
-<!-- _footer: "bar row · the name column fits" -->
+<!-- @meta{layout=bar, class=row, footer=bar row · the name column fits} -->
+
 <!-- @note{bar row · the name column widens until every name sets whole.} -->
 
 ## Every unit named in full, nothing abbreviated.
@@ -65,8 +65,8 @@ On a page read on a phone, the kernel draws each chart once, on a canvas the sha
 
 ---
 
-<!-- _class: quadrant -->
-<!-- _footer: "quadrant · names on their dots" -->
+<!-- @meta{layout=quadrant, footer=quadrant · names on their dots} -->
+
 <!-- @note{quadrant · names sit on their dots while they can, and move to a numbered key when they cannot.} -->
 
 `[{Effort, 0..10}, {Reach, 0..100}]`
@@ -88,8 +88,8 @@ On a page read on a phone, the kernel draws each chart once, on a canvas the sha
 
 ---
 
-<!-- _class: quadrant -->
-<!-- _footer: "quadrant · a numbered key" -->
+<!-- @meta{layout=quadrant, footer=quadrant · a numbered key} -->
+
 <!-- @note{quadrant · fourteen names cannot sit clear of their dots: each dot carries its number.} -->
 
 ## Fourteen initiatives, one owner.
@@ -115,8 +115,8 @@ On a page read on a phone, the kernel draws each chart once, on a canvas the sha
 
 ---
 
-<!-- _class: risk-matrix -->
-<!-- _footer: "risk-matrix · discs give way" -->
+<!-- @meta{layout=risk-matrix, footer=risk-matrix · discs give way} -->
+
 <!-- @note{risk-matrix · ten risks, three in one cell: the discs give way, the numerals never do.} -->
 
 ## Ten risks, three in the same cell.
@@ -134,8 +134,8 @@ On a page read on a phone, the kernel draws each chart once, on a canvas the sha
 
 ---
 
-<!-- _class: risk-matrix -->
-<!-- _footer: "risk-matrix · notes at role size" -->
+<!-- @meta{layout=risk-matrix, footer=risk-matrix · notes at role size} -->
+
 <!-- @note{risk-matrix · authored notes print at their role size; the grid gives them room.} -->
 
 `Enterprise risk register · Q4 2026`
@@ -153,7 +153,7 @@ On a page read on a phone, the kernel draws each chart once, on a canvas the sha
 
 ---
 
-<!-- _class: radar -->
+<!-- @meta{layout=radar} -->
 
 `Vendor scorecard · 2026`
 

@@ -2,11 +2,11 @@
 marp: true
 size: 4k
 theme: indaco
-paginate: true
+pagination: true
 header: "Verdara · Strategy proposal"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 <!-- tier: short -->
 
 `Strategy proposal · 2026`
@@ -17,7 +17,7 @@ How we enter the European market — and why a joint venture is the right door i
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## Our European demand is real, but we can't serve it from North America.
@@ -29,7 +29,7 @@ European brands are asking for Verdara's compostable packaging, and our pipeline
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## The situation: a $24M EU pipeline we structurally cannot fulfill.
@@ -41,7 +41,7 @@ Our compostable lines win on performance, but they're heavy and bulky to ship. T
 
 ---
 
-<!-- _class: big-number -->
+<!-- @meta{layout=big-number} -->
 <!-- tier: standard -->
 
 `Why exporting won't work`
@@ -51,7 +51,7 @@ Our compostable lines win on performance, but they're heavy and bulky to ship. T
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## We have three credible ways to put production on the ground in Europe.
@@ -63,7 +63,7 @@ Each route trades capital and control differently. We can build our own plant, a
 
 ---
 
-<!-- _class: verdict-grid -->
+<!-- @meta{layout=verdict-grid} -->
 <!-- tier: short -->
 
 ## A joint venture is the only route that's fast, capital-light, and de-risked.
@@ -86,7 +86,7 @@ Each route trades capital and control differently. We can build our own plant, a
 
 ---
 
-<!-- _class: matrix-2x2 -->
+<!-- @meta{layout=matrix-2x2} -->
 <!-- tier: standard -->
 
 ## The joint venture sits where speed and capital efficiency meet.
@@ -102,7 +102,7 @@ Each route trades capital and control differently. We can build our own plant, a
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 <!-- tier: full -->
 
 `JV economics · first 24 months`
@@ -120,7 +120,7 @@ Each route trades capital and control differently. We can build our own plant, a
 
 ---
 
-<!-- _class: kpi -->
+<!-- @meta{layout=kpi} -->
 <!-- tier: full -->
 
 `Plan · 2026–2028`
@@ -139,7 +139,7 @@ Each route trades capital and control differently. We can build our own plant, a
 
 ---
 
-<!-- _class: decision -->
+<!-- @meta{layout=decision} -->
 <!-- tier: short -->
 
 ## We recommend a 51% joint venture with a certified EU converter.
@@ -151,7 +151,7 @@ Each route trades capital and control differently. We can build our own plant, a
 
 ---
 
-<!-- _class: roadmap -->
+<!-- @meta{layout=roadmap} -->
 <!-- tier: standard -->
 
 `Execution · 2026–2027`
@@ -166,9 +166,9 @@ Each route trades capital and control differently. We can build our own plant, a
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 <!-- tier: short -->
 
 ## Europe is asking — let's build the door in.

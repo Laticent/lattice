@@ -11,7 +11,7 @@
  * with `--clean`.
  *
  * What it copies: every positive entry of `packages/lattice/package.json` `files` (`lattice.js`,
- * `lib/`, `dist/`, `themes/`, the shipped docs, README, CHANGELOG, the licenses), from the
+ * `lib/`, `dist/`, `themes/`, the shipped docs, README, the licenses), from the
  * repository root. The negated entries (`!**\/*.pdf`, `!dist/agent-kit/`, ...) are left to npm,
  * which applies them at pack time exactly as it did at the root, so the file set cannot drift
  * from the `files` list. Files are hard-linked where the file system allows it (no extra disk,
@@ -32,6 +32,13 @@ const path = require('node:path');
 const ROOT = path.resolve(__dirname, '..');
 const PKG_DIR = path.join(ROOT, 'packages', 'lattice');
 const MANIFEST = path.join(PKG_DIR, 'package.json');
+/**
+ * `files` entries the publish folder owns and commits itself, so they are neither staged from the
+ * root nor removed by `--clean`. `CHANGELOG.md` is the engine's own changelog, which
+ * `changeset version` writes into this folder (decision 2026-10-07-first-npm-release §11); the
+ * root CHANGELOG.md is an index of all thirteen packages' changelogs and does not ship.
+ */
+const NATIVE = new Set(['CHANGELOG.md']);
 /** The names npm packs from any folder it walks (npm-packlist's always-included set). */
 const ALWAYS_PACKED = /^(readme|license|licence|copying)(\.[^.]*)?$/i;
 
@@ -39,7 +46,8 @@ const ALWAYS_PACKED = /^(readme|license|licence|copying)(\.[^.]*)?$/i;
 function stagedEntries(manifest = JSON.parse(fs.readFileSync(MANIFEST, 'utf8'))) {
   const entries = (manifest.files || [])
     .filter((f) => !f.startsWith('!'))
-    .map((f) => (f.startsWith('/') ? f : path.posix.normalize(f).replace(/\/+$/, '')));
+    .map((f) => (f.startsWith('/') ? f : path.posix.normalize(f).replace(/\/+$/, '')))
+    .filter((f) => !NATIVE.has(f));
   for (const e of entries) {
     // A glob or a parent path would copy something the list does not name, or write outside the
     // folder; `.` (from `./`) would make clean() remove the folder, manifest and all; `packages`
@@ -118,4 +126,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { PKG_DIR, MANIFEST, stagedEntries, stage, clean };
+module.exports = { PKG_DIR, MANIFEST, NATIVE, stagedEntries, stage, clean };

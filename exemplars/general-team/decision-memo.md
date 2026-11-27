@@ -2,11 +2,11 @@
 marp: true
 size: 4k
 theme: indaco
-paginate: true
+pagination: true
 header: "Data platform · Decision memo"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 <!-- tier: short -->
 
 `Decision memo · 10 June 2026`
@@ -17,7 +17,7 @@ We recommend moving to a managed warehouse. Here is the reasoning and the ask.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## Recommendation: move to a managed warehouse, and do it this quarter.
@@ -26,7 +26,7 @@ Our self-hosted warehouse is consuming an engineer full-time and still falling b
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## The problem: we are paying for a warehouse twice over.
@@ -38,7 +38,7 @@ We pay for the servers and we pay an engineer to keep them running. Queries that
 
 ---
 
-<!-- _class: big-number -->
+<!-- @meta{layout=big-number} -->
 <!-- tier: standard -->
 
 `The hidden cost`
@@ -48,7 +48,7 @@ We pay for the servers and we pay an engineer to keep them running. Queries that
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## We evaluated three paths against four criteria.
@@ -60,7 +60,7 @@ We compared staying self-hosted, moving to Managed-A, and moving to Managed-B. T
 
 ---
 
-<!-- _class: table -->
+<!-- @meta{layout=table} -->
 <!-- tier: short -->
 
 ## The three options, side by side.
@@ -75,7 +75,7 @@ We compared staying self-hosted, moving to Managed-A, and moving to Managed-B. T
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 <!-- tier: full -->
 
 `Managed-A · modeled outcome`
@@ -95,7 +95,7 @@ We compared staying self-hosted, moving to Managed-A, and moving to Managed-B. T
 
 ---
 
-<!-- _class: matrix-2x2 -->
+<!-- @meta{layout=matrix-2x2} -->
 <!-- tier: short -->
 
 ## Where each option lands on cost and operational burden.
@@ -111,7 +111,7 @@ We compared staying self-hosted, moving to Managed-A, and moving to Managed-B. T
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- @meta{layout=list, class=takeaway} -->
 <!-- tier: full -->
 
 ## Why Managed-A clears every criterion that matters.
@@ -127,7 +127,7 @@ We compared staying self-hosted, moving to Managed-A, and moving to Managed-B. T
 
 ---
 
-<!-- _class: decision -->
+<!-- @meta{layout=decision} -->
 <!-- tier: short -->
 
 ## Decision: migrate to Managed-A this quarter.
@@ -141,9 +141,9 @@ We compared staying self-hosted, moving to Managed-A, and moving to Managed-B. T
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 <!-- tier: short -->
 
 ## The ask: approve the Managed-A migration this quarter.

@@ -1,14 +1,14 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · Backdrop keep-outs"
 footer: "Q3 operating review · Board pack"
 finish: strata
 backdrop: clear-hero
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # Keep the pattern off the chrome
 
@@ -29,7 +29,7 @@ Strata is a dot finish. `clear` empties the whole content box, which throws the 
 
 ---
 
-<!-- _class: backdrop-open -->
+<!-- @meta{class=backdrop-open} -->
 
 `backdrop-open · for contrast`
 
@@ -41,7 +41,7 @@ The keep-outs exist for that edge.
 
 ---
 
-<!-- _class: big-number -->
+<!-- @meta{layout=big-number} -->
 
 `Net revenue retention · FY26`
 
@@ -50,7 +50,7 @@ The keep-outs exist for that edge.
 
 ---
 
-<!-- _class: big-number backdrop-clear-footer -->
+<!-- @meta{layout=big-number, class=backdrop-clear-footer} -->
 
 `clear-footer · for contrast`
 
@@ -59,7 +59,7 @@ The keep-outs exist for that edge.
 
 ---
 
-<!-- _class: split-panel metric -->
+<!-- @meta{layout=split-panel, class=metric} -->
 
 `Split slides too`
 
@@ -72,7 +72,7 @@ The keep-outs exist for that edge.
 
 ---
 
-<!-- _class: backdrop-clear -->
+<!-- @meta{class=backdrop-clear} -->
 
 `backdrop-clear · unchanged`
 
@@ -82,7 +82,7 @@ A deck that already says `clear` renders exactly as before. Use it for a wash; u
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 # Pick the keep-out for the finish
 

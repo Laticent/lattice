@@ -746,7 +746,7 @@ describe('notes-core: the say channel (@say)', () => {
     // whole fence. Neither changes the render, so the export's fidelity guard could not see it,
     // and the envelope's "verbatim source for lossless re-import" quietly was not.
     for (const src of [
-      '---\ntheme: indaco\npaginate: true\n\n---\n\n# Slide one\n',       // blank line before the fence
+      '---\ntheme: indaco\npagination: true\n\n---\n\n# Slide one\n',       // blank line before the fence
       '---\n\n---\n\nIntro paragraph.\n\n---\n\n# Slide two\n',            // empty front matter
       '---\ntheme: indaco\n---\n\n# S\n',                                  // ordinary
       '---\r\ntheme: indaco\r\n\r\n---\r\n\r\n# S\r\n',                    // CRLF, blank before the fence
@@ -1830,7 +1830,7 @@ describe('notes-core: a directive is never a note', () => {
     assert.ok(!core.isDirectiveComment('color: we should discuss the palette'));
     assert.ok(!core.isDirectiveComment('class: title'));
     assert.ok(!core.isDirectiveComment('footer: ask about the discount'));
-    assert.equal(core.isPrivateComment('paginate: true'), false);
+    assert.equal(core.isPrivateComment('pagination: true'), false);
     assert.equal(core.isPrivateComment('color: SECRET discuss the palette'), false);
     assert.equal(core.auditStrippedSource('<!-- color: SECRET discuss the palette -->').length, 1);
   });
@@ -1933,14 +1933,14 @@ describe('notes-core: auditStrippedSource', () => {
     assert.equal(core.directiveShapedProse('paginate: only after the break'), 'paginate');
     assert.equal(core.directiveShapedProse('color: crimson'), null);
     assert.equal(core.directiveShapedProse('color: #FF0044'), null);
-    assert.equal(core.directiveShapedProse('paginate: skip'), null);
+    assert.equal(core.directiveShapedProse('pagination: skip'), null);
     assert.equal(core.directiveShapedProse('size: 4K'), null);
     assert.equal(core.directiveShapedProse('_color: we should discuss the palette'), 'color', 'spot form too');
     assert.equal(core.directiveShapedProse('color: "a quoted literal"'), null, 'a quoted value is an author, not prose');
     // The engine cuts an unquoted value at the first whitespace-preceded `#`, so these are
     // values it applies perfectly — reporting them would be the false alarm to end all.
     assert.equal(core.directiveShapedProse('theme: cuoio  # brand'), null);
-    assert.equal(core.directiveShapedProse('paginate: true # only after the break'), null);
+    assert.equal(core.directiveShapedProse('pagination: true # only after the break'), null);
     assert.equal(core.directiveShapedProse('color: #A1B2C3 # brand blue'), null);
     assert.equal(core.directiveShapedProse('footer: three whole words'), null, 'free-text directive');
     assert.equal(core.directiveShapedProse('Remember: mention the pricing caveat'), null, 'not a directive at all');

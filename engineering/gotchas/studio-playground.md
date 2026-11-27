@@ -477,7 +477,7 @@ never turn "passed in headless" into "works on iOS."
 
 - **Symptom:** a leveled deck's `split-panel proof` slides each show their own categorical tint in
   the Playground and the exported PDF, but in the Studio (Present, its overview grid, the editor
-  preview) they all paint the SAME hue, always `cat-1`. Add `paginate: true` to the front matter and
+  preview) they all paint the SAME hue, always `cat-1`. Add `pagination: true` to the front matter and
   the colors come right — which is the confusing part, because pagination has nothing to do with
   color.
 
@@ -512,7 +512,7 @@ never turn "passed in headless" into "works on iOS."
 
 ## A live preview prints "1" as the page number on every slide
 
-- **Symptom:** a deck with `paginate: true` shows the page number `1` on every slide in a
+- **Symptom:** a deck with `pagination: true` shows the page number `1` on every slide in a
   preview — most visibly the Studio's Present slide-overview grid, where every tile reads
   "1". Navigating slides doesn't change it. The exported PDF/HTML numbers correctly, and the
   Playground's filmstrip numbers correctly, so it looks like a Studio-only rendering bug.
@@ -888,6 +888,21 @@ never turn "passed in headless" into "works on iOS."
   the class list.
 - **Triggered by:** any `toast(title, { description })` call. See
   `engineering/decisions/2026-08-10-studio-crash-sentinel.md` § 5.
+
+## On a phone, a toast covers a panel's bottom search field
+
+- **Symptom:** at phone width, "Added 1 reference file." (or any toast) sits on the
+  Library's search field for as long as it shows. Measured at 390px: toast y 774-828,
+  field y 801-823.
+- **Cause:** the toaster is bottom-center with Sonner's 16px phone offset, and a phone
+  panel docks its one field at the bottom too (`PanelDock`, `docs/src/components/ui/panel.tsx`).
+- **Fix (shipped, #3356):** `PanelDock` carries the `panel-dock` class, and one rule in
+  `docs/src/styles/tailwind.css` lifts a phone toast 4.5rem while a dock is open
+  (`:root:has(.panel-dock) [data-sonner-toaster][data-y-position="bottom"]`). It is CSS,
+  not a measuring hook, because the hook cost 170 gzip bytes of eager JS on every route and
+  pushed the Studio past its route-budget ceiling. 4.5rem clears a one-field dock (65px
+  measured); a taller dock, or a bottom field outside `PanelDock`, needs its own lift. Pinned by
+  `docs/e2e/library-deck-import.spec.ts` ("the import toast stands above").
 
 ## A status toast shows text from the message BEFORE it, or the wrong shape
 
@@ -2022,12 +2037,12 @@ never turn "passed in headless" into "works on iOS."
 
 ## A product change does not reach the e2e build, though `npm run build:e2e` ran
 
-- **Symptom** — you edit `docs/src/lib/cadenza/cadence.ts` (or `vetrina/stage.ts`), rebuild the docs site, and the
-  built Studio behaves exactly as before. A mutation meant to turn a test red leaves it green.
-- **Cause** — `@/lib/cadenza` and `@/lib/vetrina` are directory imports of packages with their own `package.json`, and
+- **Symptom** — you edit `docs/src/lib/cadenza/cadence.ts` (or `vetrina/stage.ts`, or `lente/tags.ts`), rebuild the docs
+  site, and the built Studio behaves exactly as before. A mutation meant to turn a test red leaves it green.
+- **Cause** — `@/lib/cadenza`, `@/lib/vetrina` and `@/lib/lente` are directory imports of packages with their own `package.json`, and
   Vite resolves a directory import through its `module` field: `dist/index.mjs`, not the `.ts` source. The site
   build does not rebuild those `dist/` files.
-- **Fix** — rebuild the package first (`npm run vetrina-lib:build`, or the package's own build script), then
+- **Fix** — rebuild the package first (`npm run vetrina-lib:build`, `npm run lente-lib:build`, or the package's own build script), then
   `npm run build:e2e`. For a quick arm, mutate the package's `dist/` file directly and restore it. Importing a file
   by path (`@/lib/vetrina/index.js`) reaches the source; a bare directory does not.
 
@@ -2261,3 +2276,18 @@ never turn "passed in headless" into "works on iOS."
   fix (`ChatCost.tsx`) keeps both rows for a priced source and shows a dash until the price arrives;
   `model-spine.spec.ts` "the source switch stays where it was when the turn prices land" holds the catalog and checks
   the switch's box before and after.
+
+## The iOS Simulator's WebDriver taps never raise the software keyboard
+
+- **Symptom** — a probe in `docs/scripts/ios-safari/run.mjs` taps a text field with a WebDriver touch action and waits
+  for `visualViewport.height` to shrink, and it never does, even with the Simulator's hardware keyboard disconnected
+  (`defaults write com.apple.iphonesimulator ConnectHardwareKeyboard -bool false` before the boot). Typing into the field
+  over WebDriver then shows no results either.
+- **Cause** — under safaridriver, a touch action is not taken as a user gesture there. Five harness runs on #3484
+  (2026-11-23, iOS 26.5 runtime, iPhone 17 Pro type): the same touch did not press a Studio button either, and the
+  gallery opened only by a script `click()`; the tap on the search field then raised no keyboard. iOS raises the
+  keyboard only for a real gesture, so this runner cannot show any layout that depends on the keyboard being up.
+- **Fix** — none in CI today. Verify keyboard layouts on a real iPhone (the PR preview link works; the owner's
+  screenshots closed #3484), and keep the in-browser half (`:has(input:focus)`, `--kb`, `--vvh`) under Playwright with
+  the keyboard height set by hand, as `docs/e2e/slide-picker-fit.spec.ts` does. Do not spend another harness round
+  trying: the probe is in #3484's history (`ef8c977` to `a3df11e`) if a future runner can raise the keyboard.

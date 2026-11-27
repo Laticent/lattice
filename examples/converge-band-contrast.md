@@ -1,14 +1,14 @@
 ---
 marp: true
 theme: cuoio
-paginate: true
+pagination: true
 header: "Lattice · list-steps converge contrast"
 lexicon:
   "4.5:1": four and a half to one
   "3.51:1": three point five one to one
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # A funnel you can read on every band.
 
@@ -18,8 +18,8 @@ The two middle bands of `list-steps converge` now keep their text at 4.5:1 or be
 
 ---
 
-<!-- _class: list-steps converge -->
-<!-- _footer: "Four bands, light. The second band was 3.51:1 in cuoio before this fix." -->
+<!-- @meta{layout=list-steps, class=converge, footer="Four bands, light. The second band was 3.51:1 in cuoio before this fix."} -->
+
 
 ## Four concerns narrow onto one launch.
 
@@ -34,8 +34,8 @@ The two middle bands of `list-steps converge` now keep their text at 4.5:1 or be
 
 ---
 
-<!-- _class: list-steps converge dark -->
-<!-- _footer: "Four bands, dark. The third band was below 4.5:1 in most themes before this fix." -->
+<!-- @meta{layout=list-steps, class=converge dark, footer="Four bands, dark. The third band was below 4.5:1 in most themes before this fix."} -->
+
 
 ## The same launch funnel, in dark.
 
@@ -50,8 +50,8 @@ The two middle bands of `list-steps converge` now keep their text at 4.5:1 or be
 
 ---
 
-<!-- _class: list-steps converge -->
-<!-- _footer: "Three bands, light. The last band is the old 66% mix's slot, now 92% accent." -->
+<!-- @meta{layout=list-steps, class=converge, footer="Three bands, light. The last band is the old 66% mix's slot, now 92% accent."} -->
+
 
 ## Three inputs become one plan.
 
@@ -64,8 +64,8 @@ The two middle bands of `list-steps converge` now keep their text at 4.5:1 or be
 
 ---
 
-<!-- _class: list-steps converge dark -->
-<!-- _footer: "Three bands, dark." -->
+<!-- @meta{layout=list-steps, class=converge dark, footer="Three bands, dark."} -->
+
 
 ## The same plan funnel, in dark.
 
@@ -84,7 +84,7 @@ A mix halfway between the soft fill and the accent leaves neither ink enough con
 
 ---
 
-<!-- _class: list-steps -->
+<!-- @meta{layout=list-steps} -->
 
 ## What changed
 

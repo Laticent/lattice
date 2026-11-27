@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · contact"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # contact
 
@@ -15,8 +15,7 @@ An identity card that encodes a vCard: name, title and contact lines beside a QR
 
 ---
 
-<!-- _class: contact -->
-<!-- _footer: "Default · contact" -->
+<!-- @meta{layout=contact, footer=Default · contact} -->
 
 - Ada Slide `name`
 - One scan saves the speaker `title`
@@ -28,8 +27,7 @@ An identity card that encodes a vCard: name, title and contact lines beside a QR
 
 ---
 
-<!-- _class: contact dark -->
-<!-- _footer: "Composition: dark · contact dark" -->
+<!-- @meta{layout=contact, class=dark, footer=Composition: dark · contact dark} -->
 
 - Ada Slide `name`
 - One scan saves the speaker `title`
@@ -41,8 +39,7 @@ An identity card that encodes a vCard: name, title and contact lines beside a QR
 
 ---
 
-<!-- _class: contact accent -->
-<!-- _footer: "Composition: accent · contact accent" -->
+<!-- @meta{layout=contact, class=accent, footer=Composition: accent · contact accent} -->
 
 - Ada Slide `name`
 - One scan saves the speaker `title`
@@ -54,8 +51,7 @@ An identity card that encodes a vCard: name, title and contact lines beside a QR
 
 ---
 
-<!-- _class: cards-grid claim-hero -->
-<!-- _footer: "Anti-patterns · contact" -->
+<!-- @meta{layout=cards-grid, class=claim-hero, footer=Anti-patterns · contact} -->
 
 ## When NOT to reach for contact.
 
@@ -66,7 +62,7 @@ An identity card that encodes a vCard: name, title and contact lines beside a QR
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

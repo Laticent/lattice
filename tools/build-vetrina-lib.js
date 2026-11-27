@@ -1,11 +1,10 @@
 #!/usr/bin/env node
 /**
- * Build the Vetrina library's consumable dist/ — the ESM + CJS entries + type
+ * Build the Vetrina library's consumable dist/ — the ESM entries + type
  * declarations that make it a publishable unit (2026-07-08-library-shape-cadenza-vetrina.md).
  *
  *   docs/src/lib/vetrina/*.ts  (source, docs-side ESM/TS)
  *     →  dist/index.mjs + dist/react.mjs   (bundled ESM, esbuild)
- *     →  dist/index.cjs + dist/react.cjs   (bundled CJS, esbuild)
  *     →  dist/*.d.ts                        (declarations, tsc)
  *
  * Same recipe as tools/build-cadenza-lib.js, with Vetrina's two differences:
@@ -18,8 +17,8 @@
  *
  * Bundler = the in-tree esbuild; declarations = `tsc --emitDeclarationOnly`. Docs +
  * Vitest import the TS SOURCE through the `@/lib/*` path ALIAS (not the package name);
- * this dist/ is what an external consumer resolves — `require` → dist/*.cjs, `import`
- * → dist/*.mjs (the `import` condition used to point at raw ./index.ts and crashed a
+ * this dist/ is what an external consumer resolves — dist/*.mjs, for `import` and
+ * `require` alike (the `import` condition used to point at raw ./index.ts and crashed a
  * plain Node-ESM consumer), + future npm publish.
  *
  * The build itself is tools/lib/build-workspace-lib.js, one builder for every workspace

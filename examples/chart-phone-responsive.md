@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · charts on a phone page"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Charts that fit a phone page
 
@@ -15,7 +15,7 @@ Render at `--size mobile`, `story`, `4:5` or `square`: each chart fits its page 
 
 ---
 
-<!-- _class: kanban -->
+<!-- @meta{layout=kanban} -->
 
 `chart · kanban`
 
@@ -32,7 +32,7 @@ Render at `--size mobile`, `story`, `4:5` or `square`: each chart fits its page 
 
 ---
 
-<!-- _class: roadmap -->
+<!-- @meta{layout=roadmap} -->
 
 `H2 2026 · Rollout plan`
 
@@ -46,7 +46,7 @@ Render at `--size mobile`, `story`, `4:5` or `square`: each chart fits its page 
 
 ---
 
-<!-- _class: journey -->
+<!-- @meta{layout=journey} -->
 
 ## The journey scores each stage of the path.
 
@@ -63,7 +63,7 @@ Render at `--size mobile`, `story`, `4:5` or `square`: each chart fits its page 
 
 ---
 
-<!-- _class: progress -->
+<!-- @meta{layout=progress} -->
 
 `H1 2026 · Phase 1 readiness`
 
@@ -79,7 +79,7 @@ Snapshot at 14:00 UTC. Status pills reflect the most optimistic reading of the a
 
 ---
 
-<!-- _class: timeline-list -->
+<!-- @meta{layout=timeline-list} -->
 
 `chart · timeline-list`
 
@@ -98,7 +98,7 @@ Four milestones show the shape; the date chips carry the when.
 
 ---
 
-<!-- _class: timeline-list -->
+<!-- @meta{layout=timeline-list} -->
 
 `chart · timeline-list · six entries`
 
@@ -121,7 +121,7 @@ On a square page this spine does not fit at 11pt, so it is drawn whole and a lit
 
 ---
 
-<!-- _class: flowchart -->
+<!-- @meta{layout=flowchart} -->
 
 `chart · flowchart · notes`
 
@@ -139,7 +139,7 @@ On a square page this spine does not fit at 11pt, so it is drawn whole and a lit
 
 ---
 
-<!-- _class: word-cloud -->
+<!-- @meta{layout=word-cloud} -->
 
 ## Weight is meaning in a word cloud.
 
@@ -155,7 +155,7 @@ On a square page this spine does not fit at 11pt, so it is drawn whole and a lit
 
 ---
 
-<!-- _class: slope -->
+<!-- @meta{layout=slope} -->
 
 ## Kestrel took the lead; Northwind gave it up.
 

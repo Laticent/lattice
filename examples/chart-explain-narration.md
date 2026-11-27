@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 color-mode: dark
 footer: "Laticent · charts explained, not just read"
 acronyms:
@@ -10,7 +10,7 @@ acronyms:
   LATAM: Latin America
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # A chart read aloud is not a chart explained.
 
@@ -22,7 +22,7 @@ Every picture-bound chart now opens with what its encoding means, and three of t
 
 ---
 
-<!-- _class: bullet -->
+<!-- @meta{layout=bullet} -->
 
 `Q3 2026 · commercial plan`
 
@@ -38,7 +38,7 @@ Every picture-bound chart now opens with what its encoding means, and three of t
 
 ---
 
-<!-- _class: bullet -->
+<!-- @meta{layout=bullet} -->
 
 `Service levels · the floor case`
 
@@ -53,7 +53,7 @@ Every picture-bound chart now opens with what its encoding means, and three of t
 
 ---
 
-<!-- _class: word-cloud -->
+<!-- @meta{layout=word-cloud} -->
 
 ## What the team called out this quarter.
 
@@ -71,7 +71,7 @@ Every picture-bound chart now opens with what its encoding means, and three of t
 
 ---
 
-<!-- _class: word-cloud dense -->
+<!-- @meta{layout=word-cloud, class=dense} -->
 
 ## Twenty terms is where reciting counts stops working.
 
@@ -100,7 +100,7 @@ Every picture-bound chart now opens with what its encoding means, and three of t
 
 ---
 
-<!-- _class: word-cloud -->
+<!-- @meta{layout=word-cloud} -->
 
 ## A tie at the top is not a leader.
 
@@ -116,7 +116,7 @@ Every picture-bound chart now opens with what its encoding means, and three of t
 
 ---
 
-<!-- _class: state-chart lr -->
+<!-- @meta{layout=state-chart, class=lr} -->
 
 `Submission lifecycle`
 
@@ -134,7 +134,7 @@ Every picture-bound chart now opens with what its encoding means, and three of t
 
 ---
 
-<!-- _class: state-chart -->
+<!-- @meta{layout=state-chart} -->
 
 ## Three hazards nothing else names.
 
@@ -150,7 +150,7 @@ Every picture-bound chart now opens with what its encoding means, and three of t
 
 ---
 
-<!-- _class: bar -->
+<!-- @meta{layout=bar} -->
 
 `Revenue · FY26`
 
@@ -165,7 +165,7 @@ Every picture-bound chart now opens with what its encoding means, and three of t
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 ## The heading is still yours.
 

@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · topic"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # topic
 
@@ -15,9 +15,8 @@ Topic anchor inside a section. A horizontal cut: the topic above, the section's 
 
 ---
 
-<!-- _class: topic -->
-<!-- _footer: "Default · topic" -->
-<!-- _track: Cost to win | Lifetime value | [Payback] | The assumptions -->
+<!-- @meta{layout=topic, track="Cost to win | Lifetime value | [Payback] | The assumptions", footer=Default · topic} -->
+
 
 `Section 02 · Unit economics`
 
@@ -28,8 +27,7 @@ Fourteen months blended, against a nine-month plan.
 
 ---
 
-<!-- _class: topic fact -->
-<!-- _footer: "fact · topic fact — One flat canvas. The claim becomes the display line, the name a label on a rule, and a mono basis line states what the claim rests on." -->
+<!-- @meta{layout=topic, class=fact, footer="fact · topic fact — One flat canvas. The claim becomes the display line, the name a label on a rule, and a mono basis line states what the claim rests on."} -->
 
 `Section 02 · Unit economics`
 
@@ -42,10 +40,9 @@ Fourteen months blended, against a nine-month plan.
 
 ---
 
-<!-- _class: topic -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · topic — a nine-topic section — the track at its documented ceiling, labels stepped down two rungs" -->
-<!-- _track: Intake | Triage | Ownership | Runbooks | On-call | [Escalation paths] | Postmortems | Action tracking | Review cadence -->
+<!-- @meta{layout=topic, track="Intake | Triage | Ownership | Runbooks | On-call | [Escalation paths] | Postmortems | Action tracking | Review cadence", footer="Stress test · topic — a nine-topic section — the track at its documented ceiling, labels stepped down two rungs"} -->
+<!-- @meta{stress-slide} -->
+
 
 `Section 04 · Operating review`
 
@@ -56,8 +53,7 @@ Three of the nine paths route to a team that no longer owns the service.
 
 ---
 
-<!-- _class: cards-grid claim-hero -->
-<!-- _footer: "Anti-patterns · topic · 1 of 2" -->
+<!-- @meta{layout=cards-grid, class=claim-hero, footer=Anti-patterns · topic · 1 of 2} -->
 
 ## When NOT to reach for topic.
 
@@ -68,8 +64,7 @@ Three of the nine paths route to a team that no longer owns the service.
 
 ---
 
-<!-- _class: cards-grid claim-hero -->
-<!-- _footer: "Anti-patterns · topic · 2 of 2" -->
+<!-- @meta{layout=cards-grid, class=claim-hero, footer=Anti-patterns · topic · 2 of 2} -->
 
 ## When NOT to reach for topic.
 
@@ -80,7 +75,7 @@ Three of the nine paths route to a team that no longer owns the service.
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

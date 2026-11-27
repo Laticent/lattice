@@ -1,12 +1,12 @@
 ---
 marp: true
 theme: carta
-paginate: true
+pagination: true
 class: sketch
 header: "Lattice · sketch finish"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Finish · the sketch modifier`
 
@@ -16,8 +16,8 @@ The `sketch` finish swaps Lattice into a hand-drawn skin — felt-tip headings, 
 
 ---
 
-<!-- _class: content -->
-<!-- _footer: "One class, every slide — class: sketch in front matter" -->
+<!-- @meta{layout=content, footer="One class, every slide — class: sketch in front matter"} -->
+
 
 `How it works`
 
@@ -27,8 +27,8 @@ Turn it on once with `class: sketch` in the front matter and it propagates to ev
 
 ---
 
-<!-- _class: cards-grid three -->
-<!-- _footer: "cards-grid — hand-drawn boxes with a per-card tilt" -->
+<!-- @meta{layout=cards-grid, class=three, footer="cards-grid — hand-drawn boxes with a per-card tilt"} -->
+
 
 `Why it reads as hand-made`
 
@@ -43,8 +43,8 @@ Turn it on once with `class: sketch` in the front matter and it propagates to ev
 
 ---
 
-<!-- _class: cards-stack -->
-<!-- _footer: "cards-stack — the same finish on a stacked form" -->
+<!-- @meta{layout=cards-stack, footer="cards-stack — the same finish on a stacked form"} -->
+
 
 `The finish travels`
 
@@ -59,8 +59,8 @@ Turn it on once with `class: sketch` in the front matter and it propagates to ev
 
 ---
 
-<!-- _class: verdict-grid -->
-<!-- _footer: "Every card layout gets the drawn box — and the chips ride the hand too" -->
+<!-- @meta{layout=verdict-grid, footer="Every card layout gets the drawn box — and the chips ride the hand too"} -->
+
 
 `One hand, every surface`
 
@@ -79,8 +79,8 @@ Turn it on once with `class: sketch` in the front matter and it propagates to ev
 
 ---
 
-<!-- _class: piechart -->
-<!-- _footer: "Charts — sketch reskins the heading and legend; the SVG marks stay clean" -->
+<!-- @meta{layout=piechart, footer="Charts — sketch reskins the heading and legend; the SVG marks stay clean"} -->
+
 
 `Charts under sketch`
 
@@ -96,8 +96,8 @@ The finish draws the lines a slide rules for itself, and reskins the heading and
 
 ---
 
-<!-- _class: gantt -->
-<!-- _footer: "gantt — the date axis wears the hand, and the tick math follows the face" -->
+<!-- @meta{layout=gantt, footer="gantt — the date axis wears the hand, and the tick math follows the face"} -->
+
 
 `[{Timeline, 2026-01-01 .. 2027-03-31, today=2026-08-01}]`
 
@@ -117,8 +117,8 @@ axis thins itself and the months that remain keep their air.
 
 ---
 
-<!-- _class: word-cloud -->
-<!-- _footer: "word-cloud — the key legend joins the words on the hand face" -->
+<!-- @meta{layout=word-cloud, footer="word-cloud — the key legend joins the words on the hand face"} -->
+
 
 `The last machine-faced labels`
 
@@ -139,8 +139,8 @@ The words were always hand-drawn; the small print was not. The
 
 ---
 
-<!-- _class: list-tabular -->
-<!-- _footer: "Counters, column values and row labels all ride the --font-label seam" -->
+<!-- @meta{layout=list-tabular, footer="Counters, column values and row labels all ride the --font-label seam"} -->
+
 
 `Nothing is left machine-faced`
 
@@ -164,8 +164,8 @@ The words were always hand-drawn; the small print was not. The
 
 ---
 
-<!-- _class: diagram -->
-<!-- _footer: "Diagrams — mode: sketch bakes Mermaid's own hand-drawn renderer" -->
+<!-- @meta{layout=diagram, footer="Diagrams — mode: sketch bakes Mermaid's own hand-drawn renderer"} -->
+
 
 `Diagrams under sketch`
 
@@ -180,8 +180,8 @@ flowchart LR
 
 ---
 
-<!-- _class: table -->
-<!-- _footer: "Tables get a drawn frame and ink rules — not just the cards" -->
+<!-- @meta{layout=table, footer="Tables get a drawn frame and ink rules — not just the cards"} -->
+
 
 `Beyond the cards`
 
@@ -199,8 +199,8 @@ _Every rule here is a seeded rough.js stroke, drawn over the measured box. Cards
 
 ---
 
-<!-- _class: actors -->
-<!-- _footer: "actors — bordered rows take the hand corners, the per-actor hue stays" -->
+<!-- @meta{layout=actors, footer="actors — bordered rows take the hand corners, the per-actor hue stays"} -->
+
 
 `Rows, drawn`
 
@@ -215,8 +215,8 @@ _Every rule here is a seeded rough.js stroke, drawn over the measured box. Cards
 
 ---
 
-<!-- _class: list -->
-<!-- _footer: "list — bordered rows get the hand box, just like the cards" -->
+<!-- @meta{layout=list, footer="list — bordered rows get the hand box, just like the cards"} -->
+
 
 `The list family, drawn`
 
@@ -228,8 +228,8 @@ _Every rule here is a seeded rough.js stroke, drawn over the measured box. Cards
 
 ---
 
-<!-- _class: checklist -->
-<!-- _footer: "checklist — the left spine keeps its state hue; corners go hand" -->
+<!-- @meta{layout=checklist, footer="checklist — the left spine keeps its state hue; corners go hand"} -->
+
 
 `Readiness, by hand`
 
@@ -243,8 +243,8 @@ _Every rule here is a seeded rough.js stroke, drawn over the measured box. Cards
 
 ---
 
-<!-- _class: agenda -->
-<!-- _footer: "agenda — the row rules ink up; the numerals take the hand" -->
+<!-- @meta{layout=agenda, footer="agenda — the row rules ink up; the numerals take the hand"} -->
+
 
 `What the finish now covers`
 
@@ -257,8 +257,8 @@ _Every rule here is a seeded rough.js stroke, drawn over the measured box. Cards
 
 ---
 
-<!-- _class: closing -->
-<!-- _footer: "theme: carta · class: sketch" -->
+<!-- @meta{layout=closing, footer=theme: carta · class: sketch} -->
+
 
 `Finish · sketch`
 

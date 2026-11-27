@@ -86,7 +86,7 @@ async function addPhotos(page: Page, files: { name: string; width: number; heigh
 			const blob: Blob = await new Promise((r) => c.toBlob((b) => r(b as Blob), 'image/jpeg', 0.92));
 			dt.items.add(new File([blob], s.name, { type: 'image/jpeg' }));
 		}
-		const input = document.querySelector('input[type="file"][accept*="image"]') as HTMLInputElement;
+		const input = document.querySelector('[data-testid="library-import-input"]') as HTMLInputElement;
 		input.files = dt.files;
 		input.dispatchEvent(new Event('change', { bubbles: true }));
 	}, files);
@@ -247,7 +247,7 @@ const readout = async (page: Page) => {
 	return question != null && edit != null ? { question, edit } : null;
 };
 
-test('the cost readout rises by a few tenths of a cent when the Library gains photos', async ({ page }) => {
+test('the cost readout rises by a few tenths of a cent when the Library gains photos @gecko', async ({ page }) => {
 	test.setTimeout(180_000);
 	await mockModel(page, true, []);
 	// A real user has the model catalog cached (it is fetched when the picker opens or a turn runs), and the

@@ -82,7 +82,7 @@ function shapePage({ outerCss = '', cellCss = '', inner, font = '16px/normal Ari
     .outer{${outerCss}}
     .cell-stage{width:800px;height:600px;overflow:hidden;${cellCss}}
   </style>
-  <div class="outer"><section data-lattice-slide class="guards-strict">
+  <div class="outer"><section data-lattice-slide class="fit-trim">
     <div class="cell-stage">${inner}</div>
   </section></div>`;
 }

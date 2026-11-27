@@ -1,12 +1,12 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · collage"
 footer: "Sample photographs from lib/samples"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Feature demo · imagery`
 
@@ -16,7 +16,7 @@ The packer reads each photo's shape and fits them edge to edge with no cropping.
 
 ---
 
-<!-- _class: collage -->
+<!-- @meta{layout=collage} -->
 
 `The default`
 
@@ -34,7 +34,7 @@ Tall, wide, square, panorama and column photos pack into one flush grid. Hover a
 
 ---
 
-<!-- _class: collage -->
+<!-- @meta{layout=collage} -->
 
 `Photo hints`
 
@@ -51,7 +51,7 @@ The first photo is marked `hero`. A focal word such as `top` keeps that part of 
 
 ---
 
-<!-- _class: collage -->
+<!-- @meta{layout=collage} -->
 
 `EXIF rotation`
 
@@ -68,7 +68,7 @@ The first photo is stored as landscape pixels with EXIF Orientation 6. The packe
 
 ---
 
-<!-- _class: collage ordered -->
+<!-- @meta{layout=collage, class=ordered} -->
 
 `ordered`
 
@@ -87,7 +87,7 @@ Use `ordered` when the sequence matters, such as a process shot from first step 
 
 ---
 
-<!-- _class: collage fill -->
+<!-- @meta{layout=collage, class=fill} -->
 
 `fill`
 
@@ -104,7 +104,7 @@ With four photos the tightest fit can leave a margin. `fill` stretches the grid 
 
 ---
 
-<!-- _class: collage above -->
+<!-- @meta{layout=collage, class=above} -->
 
 `above`
 
@@ -121,7 +121,7 @@ Use `above` when the description is short and the photos are mostly landscape.
 
 ---
 
-<!-- _class: collage mirror -->
+<!-- @meta{layout=collage, class=mirror} -->
 
 `mirror`
 
@@ -139,7 +139,7 @@ Use `above` when the description is short and the photos are mostly landscape.
 
 ---
 
-<!-- _class: collage bleed -->
+<!-- @meta{layout=collage, class=bleed} -->
 
 `bleed`
 
@@ -156,8 +156,8 @@ The description sits in the same card, under the header rule, so the photos behi
 
 ---
 
-<!-- _class: collage -->
-<!-- _focus: item 3 -->
+<!-- @meta{layout=collage, focus=item 3} -->
+
 
 `_focus`
 

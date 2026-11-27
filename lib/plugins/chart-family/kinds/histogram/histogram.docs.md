@@ -46,7 +46,7 @@ Use when the question is how a quantity is spread: annual losses, claim sizes, d
 ## Authoring
 
 ```markdown
-<!-- _class: histogram -->
+<!-- @meta{layout=histogram} -->
 
 ## Most values sit in the first band.
 

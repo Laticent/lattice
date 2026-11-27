@@ -47,7 +47,7 @@ Use when the table IS the slide. A plain markdown table on any slide already get
 ## Authoring
 
 ```markdown
-<!-- _class: table -->
+<!-- @meta{layout=table} -->
 
 ## Heading framing the comparison.
 

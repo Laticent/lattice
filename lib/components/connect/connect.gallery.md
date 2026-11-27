@@ -1,4 +1,4 @@
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # connect
 
@@ -9,8 +9,7 @@ Connect — cards the room can scan: join the network, save the speaker.
 
 ---
 
-<!-- _class: contact -->
-<!-- _footer: "contact · connect survey" -->
+<!-- @meta{layout=contact, footer=contact · connect survey} -->
 
 - Ada Slide `name`
 - One scan saves the speaker `title`
@@ -21,8 +20,7 @@ Connect — cards the room can scan: join the network, save the speaker.
 
 ---
 
-<!-- _class: gift-card -->
-<!-- _footer: "gift-card · connect survey" -->
+<!-- @meta{layout=gift-card, footer=gift-card · connect survey} -->
 
 `connect · gift-card`
 
@@ -34,8 +32,7 @@ Connect — cards the room can scan: join the network, save the speaker.
 
 ---
 
-<!-- _class: wifi -->
-<!-- _footer: "wifi · connect survey" -->
+<!-- @meta{layout=wifi, footer=wifi · connect survey} -->
 
 `connect · wifi`
 

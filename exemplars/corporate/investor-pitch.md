@@ -2,11 +2,11 @@
 marp: true
 size: 4k
 theme: indaco
-paginate: true
+pagination: true
 header: "Saffron · Series B"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 <!-- tier: short -->
 
 `Series B · raising $32M`
@@ -17,7 +17,7 @@ Autonomous accounts payable for mid-market manufacturers.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## Saffron runs accounts payable on its own — so finance teams stop chasing paper.
@@ -26,7 +26,7 @@ Saffron is autonomous accounts payable for mid-market manufacturers. We ingest e
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## Mid-market manufacturers still run accounts payable by hand.
@@ -38,7 +38,7 @@ A $200M manufacturer processes 40,000 invoices a year across email, EDI, and pap
 
 ---
 
-<!-- _class: big-number -->
+<!-- @meta{layout=big-number} -->
 <!-- tier: short -->
 
 `The cost of manual AP`
@@ -48,7 +48,7 @@ A $200M manufacturer processes 40,000 invoices a year across email, EDI, and pap
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## Two shifts just made autonomous AP inevitable.
@@ -60,7 +60,7 @@ E-invoicing mandates are going live across the EU and US, forcing structured inv
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## One platform takes accounts payable from inbox to paid — untouched.
@@ -69,7 +69,7 @@ Saffron connects to the ERP a manufacturer already runs, learns its approval pol
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 <!-- tier: full -->
 
 ## Four steps, no inbox: how Saffron closes an invoice on its own.
@@ -85,7 +85,7 @@ Saffron connects to the ERP a manufacturer already runs, learns its approval pol
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 <!-- tier: standard -->
 
 `Impact · Customers in production`
@@ -105,7 +105,7 @@ Saffron connects to the ERP a manufacturer already runs, learns its approval pol
 
 ---
 
-<!-- _class: big-number -->
+<!-- @meta{layout=big-number} -->
 <!-- tier: standard -->
 
 `$18B market · growing 12% a year`
@@ -115,7 +115,7 @@ Saffron connects to the ERP a manufacturer already runs, learns its approval pol
 
 ---
 
-<!-- _class: kpi compact -->
+<!-- @meta{layout=kpi, class=compact} -->
 <!-- tier: short -->
 
 ## Revenue tripled in a year as customers expanded fast.
@@ -132,7 +132,7 @@ Saffron connects to the ERP a manufacturer already runs, learns its approval pol
 
 ---
 
-<!-- _class: quote -->
+<!-- @meta{layout=quote} -->
 <!-- tier: standard -->
 
 > We cut invoice processing time by 80% and moved two full-time clerks to higher-value work. Saffron paid for itself in the first quarter.
@@ -141,7 +141,7 @@ Saffron connects to the ERP a manufacturer already runs, learns its approval pol
 
 ---
 
-<!-- _class: matrix-2x2 -->
+<!-- @meta{layout=matrix-2x2} -->
 <!-- tier: full -->
 
 ## Saffron is the only autonomous option built for the mid-market.
@@ -157,7 +157,7 @@ Saffron connects to the ERP a manufacturer already runs, learns its approval pol
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 <!-- tier: full -->
 
 `Unit economics · FY2026`
@@ -175,7 +175,7 @@ Saffron connects to the ERP a manufacturer already runs, learns its approval pol
 
 ---
 
-<!-- _class: roadmap -->
+<!-- @meta{layout=roadmap} -->
 <!-- tier: short -->
 
 `The raise · 24-month plan`
@@ -190,7 +190,7 @@ Saffron connects to the ERP a manufacturer already runs, learns its approval pol
 
 ---
 
-<!-- _class: actors -->
+<!-- @meta{layout=actors} -->
 <!-- tier: standard -->
 
 ## A team that has built and sold AP automation before.
@@ -204,7 +204,7 @@ Saffron connects to the ERP a manufacturer already runs, learns its approval pol
 
 ---
 
-<!-- _class: kpi compact -->
+<!-- @meta{layout=kpi, class=compact} -->
 <!-- tier: full -->
 
 ## A clear path from $6.4M to $25M ARR in 24 months.
@@ -221,7 +221,7 @@ Saffron connects to the ERP a manufacturer already runs, learns its approval pol
 
 ---
 
-<!-- _class: decision -->
+<!-- @meta{layout=decision} -->
 <!-- tier: short -->
 
 ## We are raising $32M to make autonomous AP the default for the mid-market.
@@ -233,9 +233,9 @@ Saffron connects to the ERP a manufacturer already runs, learns its approval pol
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 <!-- tier: short -->
 
 ## Let's make autonomous AP the default.

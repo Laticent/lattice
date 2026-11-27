@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canonicalUrl, isIndexable, llmsTxt, robotsTxt, twinPath } from './discovery.mjs';
+import { canonicalUrl, DESCRIBEDBY_TAG, isIndexable, llmsTxt, robotsTxt, twinPath, withDescribedBy } from './discovery.mjs';
 
 const SITE = new URL('https://lattice.style');
 
@@ -55,5 +55,19 @@ describe('twinPath', () => {
 		expect(twinPath('/guides/cli/')).toBe('/guides/cli.md');
 		expect(twinPath('/')).toBe('/index.md');
 		expect(twinPath('/components/')).toBe('/components.md');
+	});
+});
+
+describe('withDescribedBy', () => {
+	it('adds the llms.txt describedby tag at the end of <head>, once', () => {
+		const once = withDescribedBy('<html><head><title>x</title></head><body></body></html>');
+		expect(once).toBe(`<html><head><title>x</title>${DESCRIBEDBY_TAG}</head><body></body></html>`);
+		expect(withDescribedBy(once)).toBe(once);
+	});
+	it('leaves a document with no </head> alone', () => {
+		expect(withDescribedBy('<p>fragment</p>')).toBe('<p>fragment</p>');
+	});
+	it('writes the tag homeAgentEntryProblems looks for', () => {
+		expect(DESCRIBEDBY_TAG).toBe('<link rel="describedby" type="text/plain" href="/llms.txt">');
 	});
 });

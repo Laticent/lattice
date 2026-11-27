@@ -2,14 +2,14 @@
 marp: true
 theme: carbone
 size: hd
-paginate: true
+pagination: true
 header: "Lattice · carbone's first category"
 footer: "Blue leads; green is second"
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=title, header="", footer=""} -->
+
+
 
 # Carbone's charts now lead with blue, so "no status" never reads as on track.
 
@@ -17,7 +17,7 @@ footer: "Blue leads; green is second"
 
 ---
 
-<!-- _class: state-chart lr -->
+<!-- @meta{layout=state-chart, class=lr} -->
 
 `Decision lifecycle`
 
@@ -35,7 +35,7 @@ footer: "Blue leads; green is second"
 
 ---
 
-<!-- _class: gantt -->
+<!-- @meta{layout=gantt} -->
 
 `[{Timeline, 2026 Q1 .. 2026 Q4}]`
 
@@ -50,7 +50,7 @@ footer: "Blue leads; green is second"
 
 ---
 
-<!-- _class: bar grouped -->
+<!-- @meta{layout=bar, class=grouped} -->
 
 `Revenue · FY26`
 
@@ -68,7 +68,7 @@ footer: "Blue leads; green is second"
 
 ---
 
-<!-- _class: bar -->
+<!-- @meta{layout=bar} -->
 
 `Pipeline · Q4`
 
@@ -81,7 +81,7 @@ footer: "Blue leads; green is second"
 
 ---
 
-<!-- _class: heatmap -->
+<!-- @meta{layout=heatmap} -->
 
 `Retention · 2026 cohorts`
 
@@ -96,9 +96,9 @@ footer: "Blue leads; green is second"
 
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=title, header="", footer=""} -->
+
+
 
 # The green is still carbone's; it is the second color now.
 

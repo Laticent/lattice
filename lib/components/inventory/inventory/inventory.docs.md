@@ -54,7 +54,7 @@ Use for a small register of related items where each carries similar weight. Aut
 ## Authoring
 
 ```markdown
-<!-- _class: inventory -->
+<!-- @meta{layout=inventory} -->
 
 `Eyebrow`
 
@@ -95,7 +95,7 @@ Use for a small register of related items where each carries similar weight. Aut
 The register as tiles with a pull-quote.
 
 ```markdown
-<!-- _class: inventory cards -->
+<!-- @meta{layout=inventory, class=cards} -->
 
 `inventory cards`
 
@@ -112,7 +112,7 @@ The register as tiles with a pull-quote.
 A numbered run along a line.
 
 ```markdown
-<!-- _class: inventory timeline -->
+<!-- @meta{layout=inventory, class=timeline} -->
 
 `inventory timeline`
 
@@ -129,7 +129,7 @@ A numbered run along a line.
 A magazine split with a sidebar takeaway.
 
 ```markdown
-<!-- _class: inventory editorial -->
+<!-- @meta{layout=inventory, class=editorial} -->
 
 `inventory editorial`
 

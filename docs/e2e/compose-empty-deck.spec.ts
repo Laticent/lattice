@@ -78,6 +78,45 @@ test('@crosswidth @webkit-phone @gecko typing starts a content slide, and one Un
 	await expect(page.locator('.cs-slide-bar')).toBeHidden();
 });
 
+test('@parity @webkit-phone a touch tap on the grid canvas puts the caret even when the browser withholds its click', async ({ page }) => {
+	// iOS Safari sometimes delivers a tap's pointer and touch events and then no mouse events and no click (three simulator
+	// runs: jobs 137060162549, 137066156788, 137285553830). Cancelling touchend is the same withheld click on every engine:
+	// the browser then synthesizes no mousedown and no click for the tap, and the grid's fallback puts the caret.
+	await openEmptyDeck(page);
+	await expect(editor(page)).not.toBeFocused();
+	await page.evaluate(() => {
+		const w = window as unknown as { __clicks: number };
+		w.__clicks = 0;
+		document.addEventListener('touchend', (e) => e.preventDefault(), { capture: true, passive: false });
+		document.addEventListener('click', () => w.__clicks++, true);
+	});
+	const box = await page.locator('[data-start-grid]').boundingBox();
+	if (!box) throw new Error('the start grid has no box');
+	// The left padding, halfway down: grid background, no control under it.
+	await page.touchscreen.tap(box.x + 6, box.y + box.height / 2);
+	await expect(editor(page)).toBeFocused();
+	expect(await page.evaluate(() => (window as unknown as { __clicks: number }).__clicks), 'the browser did withhold the click').toBe(0);
+});
+
+test('@parity @webkit-phone a plain touch tap on the grid canvas leaves the caret on the empty line', async ({ page }) => {
+	// The other half: when the browser DOES send the tap's mouse events, the click puts the caret, as it always did, and
+	// nothing after it takes the focus away. PR 3436's first head put the caret on the release, and the tap's later
+	// mousedown on the grid (a plain div) took the focus away on the iPhone simulator; this test catches that shape.
+	await openEmptyDeck(page);
+	const box = await page.locator('[data-start-grid]').boundingBox();
+	if (!box) throw new Error('the start grid has no box');
+	await page.evaluate(() => {
+		const w = window as unknown as { __clicks: number };
+		w.__clicks = 0;
+		document.addEventListener('click', () => w.__clicks++, true);
+	});
+	await page.touchscreen.tap(box.x + 6, box.y + box.height / 2);
+	// Wait for the tap's own click, the last of its late mouse events, then judge the focus.
+	await expect.poll(() => page.evaluate(() => (window as unknown as { __clicks: number }).__clicks)).toBe(1);
+	await expect(editor(page)).toBeFocused();
+	expect(await page.evaluate(() => document.getSelection()?.anchorNode?.parentElement?.closest('p') != null || document.getSelection()?.anchorNode?.nodeName === 'P'), 'the caret is in the empty line').toBe(true);
+});
+
 test('@crosswidth keys that write nothing leave the deck empty, and Tab reaches the grid', async ({ page }) => {
 	await openEmptyDeck(page);
 	await caretOnEmptyLine(page);
@@ -93,7 +132,7 @@ test('@crosswidth keys that write nothing leave the deck empty, and Tab reaches 
 test('@crosswidth @webkit-phone @gecko a tile makes slide 1 in its layout, and Undo empties the deck again', async ({ page }) => {
 	await openEmptyDeck(page);
 	await tiles(page).first().click();
-	await expect.poll(() => deckSource(page)).toMatch(/^<!-- _class: title -->\n/);
+	await expect.poll(() => deckSource(page)).toMatch(/^<!-- @meta\{layout=title\} -->\n/);
 	// One slide, not a blank one before it.
 	await expect(page.locator('.cs-slide')).toHaveCount(1);
 	await expect(start(page)).toBeHidden();
@@ -106,7 +145,7 @@ test('@crosswidth a whole deck pasted into an empty one arrives as its own slide
 	await openEmptyDeck(page);
 	await caretOnEmptyLine(page);
 	// A whole deck, settings included: its front matter becomes the deck's, its breaks become slides.
-	const deck = '---\ntheme: cuoio\npaginate: true\n---\n\n# One\n\nFirst point.\n\n---\n\n<!-- _class: big-number -->\n\n# 93%';
+	const deck = '---\ntheme: cuoio\npagination: true\n---\n\n# One\n\nFirst point.\n\n---\n\n<!-- _class: big-number -->\n\n# 93%';
 	const lineTop = await topOf(page, '.cs-host .cs-slide-content > *');
 	if (browserName === 'firefox') {
 		await page.evaluate((t) => navigator.clipboard.writeText(t), deck);
@@ -122,7 +161,7 @@ test('@crosswidth a whole deck pasted into an empty one arrives as its own slide
 	// The save is debounced: wait for the pasted deck to be the deck, then check nothing blank sits before it.
 	await expect.poll(() => deckSource(page)).toContain('<!-- _class: big-number -->');
 	const src = await deckSource(page);
-	expect(src.startsWith('---\ntheme: cuoio\npaginate: true\n---\n'), `the pasted settings did not become the deck's: ${JSON.stringify(src)}`).toBe(true);
+	expect(src.startsWith('---\ntheme: cuoio\npagination: true\n---\n'), `the pasted settings did not become the deck's: ${JSON.stringify(src)}`).toBe(true);
 	expect(src.replace(/^---\n[\s\S]*?\n---\n/, '').trimStart().startsWith('# One'), `a blank slide was left before the pasted deck: ${JSON.stringify(src)}`).toBe(true);
 	await expect(start(page)).toBeHidden();
 	// The first pasted line lands where the empty line was: the reserved bar means nothing above it moves.

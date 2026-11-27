@@ -43,7 +43,7 @@ Use for milestone history or annotated timelines. Each event sits on a left-to-r
 ## Authoring
 
 ```markdown
-<!-- _class: timeline-list -->
+<!-- @meta{layout=timeline-list} -->
 
 `Eyebrow · context`
 

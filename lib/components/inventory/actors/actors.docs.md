@@ -43,7 +43,7 @@ Use to show 'who owns what' across a process, scoring policy, or org chart. Two-
 ## Authoring
 
 ```markdown
-<!-- _class: actors -->
+<!-- @meta{layout=actors} -->
 
 ## Who owns each part of the process.
 

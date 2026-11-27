@@ -172,7 +172,7 @@ test('MR6 growth alone is never movement, whichever reference is pinned', () => 
 
 test('MR7 the regression itself — the engine page number, as the rig reports it', () => {
   // THE RIG'S OWN COLUMNS, not a reconstruction. Dumped out of `check-jank` on a 12-page
-  // deck (`content`, wide, indaco, `paginate: true`, `--anchor 'span.lat-pagination'`):
+  // deck (`content`, wide, indaco, `pagination: true`, `--anchor 'span.lat-pagination'`):
   //
   //   L [1241 x9, 1232 x3]      R [1250 x12]
   //

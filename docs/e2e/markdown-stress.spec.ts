@@ -519,7 +519,7 @@ async function revealEditor(page: Page): Promise<void> {
 // front-matter anchor — so the front matter stops being front matter and parses as a setext
 // heading instead. Measured on the pre-fix build with the SAME deck pasted twice:
 //
-//   clean  slide 1 renders `One body`, and the deck's `paginate: true` paints its mark
+//   clean  slide 1 renders `One body`, and the deck's `pagination: true` paints its mark
 //   BOM    slide 1 renders `theme: indaco paginate: true` — the YAML itself, set as the
 //          slide — and no pagination mark, because `paginate:` was never read
 //
@@ -528,7 +528,7 @@ async function revealEditor(page: Page): Promise<void> {
 // exact defect class (#1349/#1388) and lists the boundaries that guard against it; the
 // Studio's file-open door was on that list and its PASTE door was not.
 test('@smoke a pasted BOM never reaches the deck source', async ({ page }) => {
-	const DECK = '---\ntheme: indaco\npaginate: true\n---\n\n# One\n\nbody\n\n---\n\n# Two\n';
+	const DECK = '---\ntheme: indaco\npagination: true\n---\n\n# One\n\nbody\n\n---\n\n# Two\n';
 	await pasteDeck(page, BOM + DECK);
 
 	// 1. The document is canonical.
@@ -561,7 +561,7 @@ test('@smoke a pasted BOM never reaches the deck source', async ({ page }) => {
 // and this is the arm that fails without the seed-time strip.
 test('a deck already STORED with a BOM opens canonical', async ({ page }) => {
 	test.setTimeout(120_000); // two first paints
-	const DECK = '---\ntheme: indaco\npaginate: true\n---\n\n# One\n\nbody\n\n---\n\n# Two\n';
+	const DECK = '---\ntheme: indaco\npagination: true\n---\n\n# One\n\nbody\n\n---\n\n# Two\n';
 	await setDeck(page, DECK);
 	await expect.poll(() => persistedDeck(page)).toBe(DECK);
 
@@ -897,7 +897,7 @@ test('a randomized walk over the markdown-pane ops holds the structural invarian
 		async frontMatter() {
 			await focusEditor(page);
 			await page.keyboard.press('ControlOrMeta+Home');
-			await page.keyboard.type(pick(['---\ntheme: cuoio\n---\n', 'paginate: true\n', '---\n']));
+			await page.keyboard.type(pick(['---\ntheme: cuoio\n---\n', 'pagination: true\n', '---\n']));
 		},
 		async dropSeparator() {
 			// Delete a `---` line, merging two slides. The direction no spec covered: every

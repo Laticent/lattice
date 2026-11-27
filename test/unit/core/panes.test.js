@@ -49,7 +49,7 @@ test('the trailing Key Insight and below-note belong to the slide, not to pane 2
 });
 
 test('the host never gains `content` or keeps a component class, and keeps its own classes', () => {
-  assert.equal(hostClass(render(DECK)), 'lat-pane-host marks-pigment marks-muted form'); // the HOST carries the finish; a pane cell below never does
+  assert.equal(hostClass(render(DECK)), 'lat-pane-host chart-finish-pigment color-intensity-muted form'); // the HOST carries the finish; a pane cell below never does
   // A spot directive placed AFTER the panes still applies to the slide.
   const late = hostClass(render(`## T\n\n${PANES}\n\n<!-- _class: invert -->\n`));
   assert.match(late, /\binvert\b/);
@@ -630,7 +630,7 @@ test('widenStyleBlocks slices the document it scans: a length-changing lower-cas
 });
 
 test('a pane carries no footer Cell or page number of its own — the host slide owns them (#2826 regression)', () => {
-  const html = render(`---\npaginate: true\n---\n\n${DECK}`);
+  const html = render(`---\npagination: true\n---\n\n${DECK}`);
   const paneHtml = [...html.matchAll(/<lat-pane\b[\s\S]*?<\/lat-pane>/g)].map((m) => m[0]);
   assert.ok(paneHtml.length >= 2, 'the deck renders its panes');
   for (const p of paneHtml) {
@@ -640,7 +640,7 @@ test('a pane carries no footer Cell or page number of its own — the host slide
 });
 
 test('dropFooter cuts the engine\'s footer Cell, not a `cell-footer` an author wrote in a comment', () => {
-  const md = `---\npaginate: true\n---\n\n## T\n\n<!-- panes: 50/50 -->\n\n<!-- pane: list -->\n\n- one <!-- <div class="cell-footer"> -->\n- two\n- three\n\n<!-- pane: table -->\n\n| A | B |\n|---|---|\n| 1 | 2 |\n`;
+  const md = `---\npagination: true\n---\n\n## T\n\n<!-- panes: 50/50 -->\n\n<!-- pane: list -->\n\n- one <!-- <div class="cell-footer"> -->\n- two\n- three\n\n<!-- pane: table -->\n\n| A | B |\n|---|---|\n| 1 | 2 |\n`;
   const html = render(md);
   const list = html.match(/<lat-pane class="list form"[\s\S]*?<\/lat-pane>/)[0];
   assert.match(list, /<li>two<\/li>/);

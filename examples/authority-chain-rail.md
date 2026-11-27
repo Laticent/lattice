@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · authority-chain rail and trail"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Authority chains line up, and the trail holds at every venue.
 
@@ -17,8 +17,8 @@ too long for its column.
 
 ---
 
-<!-- _class: authority-chain -->
-<!-- _footer: "Was: the Enforcement row's citation started 12.6px right of the others at 1280px. Now: all five start at 289.9px." -->
+<!-- @meta{layout=authority-chain, footer=Was: the Enforcement row's citation started 12.6px right of the others at 1280px. Now: all five start at 289.9px.} -->
+
 
 `COPPA · Five tiers, no glosses`
 
@@ -37,8 +37,8 @@ too long for its column.
 
 ---
 
-<!-- _class: authority-chain -->
-<!-- _footer: "The rail widens to the longest word in any label, Enforcement here, and every row takes that width." -->
+<!-- @meta{layout=authority-chain, footer="The rail widens to the longest word in any label, Enforcement here, and every row takes that width."} -->
+
 
 `COPPA · Four tiers with glosses`
 
@@ -59,8 +59,8 @@ too long for its column.
 
 ---
 
-<!-- _class: authority-chain bracket -->
-<!-- _footer: "bracket shares the rail too. A two-word label (Agency guidance) still wraps inside it rather than widening it." -->
+<!-- @meta{layout=authority-chain, class=bracket, footer="bracket shares the rail too. A two-word label (Agency guidance) still wraps inside it rather than widening it."} -->
+
 
 `COPPA · bracket`
 
@@ -81,8 +81,8 @@ too long for its column.
 
 ---
 
-<!-- _class: authority-chain -->
-<!-- _footer: "Short labels only: the rail stays at 14cqi and nothing moves from before." -->
+<!-- @meta{layout=authority-chain, footer=Short labels only: the rail stays at 14cqi and nothing moves from before.} -->
+
 
 `COPPA · Short labels`
 
@@ -103,8 +103,8 @@ too long for its column.
 
 ---
 
-<!-- _class: authority-chain trail -->
-<!-- _footer: "Was: a 161px label band and arrows inside the cards. Now: cite under label, arrows on the edge." -->
+<!-- @meta{layout=authority-chain, class=trail, footer="Was: a 161px label band and arrows inside the cards. Now: cite under label, arrows on the edge."} -->
+
 
 `COPPA · trail at laptop`
 
@@ -125,8 +125,8 @@ too long for its column.
 
 ---
 
-<!-- _class: authority-chain trail scale-xl -->
-<!-- _footer: "Conference. Was: the body wrapped beside the label and clipped. Now: it stacks." -->
+<!-- @meta{layout=authority-chain, class=trail scale-xl, footer=Conference. Was: the body wrapped beside the label and clipped. Now: it stacks.} -->
+
 
 `COPPA · trail at conference`
 
@@ -147,8 +147,8 @@ too long for its column.
 
 ---
 
-<!-- _class: authority-chain trail scale-2xl -->
-<!-- _footer: "Hall scale, four tiers. A citation wraps at its spaces." -->
+<!-- @meta{layout=authority-chain, class=trail scale-2xl, footer="Hall scale, four tiers. A citation wraps at its spaces."} -->
+
 
 `COPPA · trail at hall`
 

@@ -53,7 +53,7 @@ Use for part-to-whole breakdowns with three to six slices. Add the `donut` modif
 ## Authoring
 
 ```markdown
-<!-- _class: piechart donut -->
+<!-- @meta{layout=piechart, class=donut} -->
 
 `Eyebrow · context`
 
@@ -88,7 +88,7 @@ Use for part-to-whole breakdowns with three to six slices. Add the `donut` modif
 The center carries the total.
 
 ```markdown
-<!-- _class: piechart donut -->
+<!-- @meta{layout=piechart, class=donut} -->
 
 `H1 2026 · 1,840 person-hours`
 

@@ -17,6 +17,7 @@ import { Tip } from '@/components/ui/tooltip';
 import { notify } from '@/lib/notify';
 import { cn } from '@/lib/utils';
 import type { SingleSlideOptions } from '@/playground/single-slide-render';
+import { metaClass } from '../../../../lib/core/meta-comment.mjs';
 import { connectOpenRouter, generateFinish, useArchitectStatus } from './architect';
 import { CodeField } from './CodeField';
 import { downloadText } from './download';
@@ -72,7 +73,7 @@ const PREVIEW_SLUG = 'preview';
 // stamps — so the generated rule's opaque export face shows live (the flatter PDF/PPTX
 // look the designer would otherwise never see until after export).
 const specimen = (exporting: boolean) =>
-	`<!-- _class: finish finish-${PREVIEW_SLUG}${exporting ? ' lattice-exporting' : ''} -->\n\n\`Finish · live preview\`\n\n## Your finish, behind real content\n\nThe layers stay faint so body text keeps its contrast — no scrim needed.\n\n- Palette-blind\n  - Recolors with the theme accent automatically.\n- Export-safe\n  - Pure CSS gradients — survives PDF and PPTX.`;
+	`${metaClass(`finish finish-${PREVIEW_SLUG}${exporting ? ' lattice-exporting' : ''}`)}\n\n\`Finish · live preview\`\n\n## Your finish, behind real content\n\nThe layers stay faint so body text keeps its contrast — no scrim needed.\n\n- Palette-blind\n  - Recolors with the theme accent automatically.\n- Export-safe\n  - Pure CSS gradients — survives PDF and PPTX.`;
 
 export function FinishStudio({
 	options,
@@ -298,7 +299,7 @@ export function FinishStudio({
 		const css = generateFinishCss(slug, recipe);
 		downloadText(
 			`${slug}.finish.css`,
-			`/* Lattice finish "${slug}" — apply per slide with <!-- _class: ${cls} --> or deck-wide with class: ${cls} */\n${css}\n`,
+			`/* Lattice finish "${slug}" — apply per slide with ${metaClass(cls)} or deck-wide with class: ${cls} */\n${css}\n`,
 			'text/css',
 		);
 		notify(`Exported ${slug}.finish.css — apply with _class: ${cls}.`);

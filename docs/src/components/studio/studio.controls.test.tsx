@@ -120,7 +120,7 @@ async function setup() {
  *  vitest happened to run first, and passed for every later one. Explicit budget for the same
  *  reason `editorReady` carries one. */
 async function openFabricate(user: ReturnType<typeof userEvent.setup>) {
-	await user.click(screen.getByRole('button', { name: 'Workspace launcher' }));
+	await user.click(screen.getByRole('button', { name: 'Lattice — workspace launcher' }));
 	await user.click(await screen.findByText('Fabricate'));
 	await screen.findByRole('button', { name: /Component/ }, { timeout: 15000 });
 }
@@ -941,19 +941,19 @@ describe('Studio — Inspector controls respond', () => {
 		void user;
 	});
 
-	it('the Page-numbers switch writes paginate front-matter to the source', async () => {
+	it('the Page-numbers switch writes pagination front-matter to the source', async () => {
 		const user = await setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
 		await clickSection(user, 'Chrome');
 		const sw = await screen.findByRole('switch', { name: 'Page numbers' });
-		// On by default (no front-matter); turning it off writes `paginate: false`.
+		// On by default (no front-matter); turning it off writes `pagination: false`.
 		expect(sw).toBeChecked();
 		await user.click(sw);
 		expect(sw).not.toBeChecked();
-		expect(screen.getByLabelText('Deck source').textContent).toMatch(/paginate:\s*false/);
+		expect(screen.getByLabelText('Deck source').textContent).toMatch(/pagination:\s*false/);
 		// Turning it back on removes the directive again.
 		await user.click(screen.getByRole('switch', { name: 'Page numbers' }));
-		expect(screen.getByLabelText('Deck source').textContent).not.toMatch(/paginate/);
+		expect(screen.getByLabelText('Deck source').textContent).not.toMatch(/paginat/);
 	});
 
 	// The toast's Undo, found inside the toast: the edit bar has its own Undo (it acts on the deck's history, not this change).
@@ -974,13 +974,13 @@ describe('Studio — Inspector controls respond', () => {
 		await clickSection(user, 'Chrome');
 		const sw = await screen.findByRole('switch', { name: 'Page numbers' });
 		await user.click(sw);
-		expect(screen.getByLabelText('Deck source').textContent).toMatch(/paginate:\s*false/);
+		expect(screen.getByLabelText('Deck source').textContent).toMatch(/pagination:\s*false/);
 		// The change surfaces a one-click Undo, labeled by what changed.
 		const undo = await findToastUndo();
 		expect(screen.getByText('Page numbers off')).toBeInTheDocument();
 		// One click reverts the source to before the change and dismisses the toast.
 		await user.click(undo);
-		await waitFor(() => expect(screen.getByLabelText('Deck source').textContent).not.toMatch(/paginate/));
+		await waitFor(() => expect(screen.getByLabelText('Deck source').textContent).not.toMatch(/paginat/));
 		// Sonner dismisses the toast through an exit animation, so the button leaves the
 		// DOM a beat after the click (the hand-rolled pill removed it synchronously).
 		await waitFor(() => expect(toastUndo()).toBeUndefined());
@@ -1225,13 +1225,13 @@ describe('Studio — Inspector covers the registers that had no control', () => 
 		await user.click(await screen.findByRole('option', { name: option }));
 	}
 
-	it('Marks writes and clears the `marks:` register', async () => {
+	it('Marks writes and clears the `chart-finish:` key', async () => {
 		const user = await setup();
 		await openDeckTab(user, 'Look');
 		await pick(user, 'Choose marks', /^Tone/);
-		await waitFor(() => expect(source()).toMatch(/marks: tone/));
-		await pick(user, 'Choose marks', 'Auto — Pigment'); // the default → no key, never `marks: pigment`
-		await waitFor(() => expect(source()).not.toMatch(/marks:/));
+		await waitFor(() => expect(source()).toMatch(/chart-finish: tone/));
+		await pick(user, 'Choose marks', 'Auto — Pigment'); // the default → no key, never `chart-finish: pigment`
+		await waitFor(() => expect(source()).not.toMatch(/chart-finish:/));
 	});
 
 	it('Corners writes and clears the `corners:` register', async () => {

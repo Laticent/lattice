@@ -16,7 +16,7 @@ which is an anti-pattern in lattice (anyone else does this today we need to fix 
 CSS-driven, recorded as S8 in `engineering/decisions/2026-11-21-spectrum-keys.md`. Two cases exist
 outside presets:
 
-1. `tools/build-marks-css.js` writes `chart-family.styles.generated.css` (#3349 extended it).
+1. `tools/build-chart-finish-css.js` writes `chart-family.styles.generated.css` (#3349 extended it).
 2. The finish generator (`lib/finishes/`, checked by `checkFinishPackages`) turns recipes into CSS;
    N2 and N5 of preset Waves 2 and 3 are planned on it.
 

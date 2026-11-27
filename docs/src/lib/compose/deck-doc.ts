@@ -89,6 +89,14 @@ const nodes = proseSchema.spec.nodes
  *  boundary (or open a front-matter fence) when `composeSlideChunk` joins it into the source. */
 const DIRECTIVE_SHAPE = /^<!--\s*_[A-Za-z][\w-]*:[^\n\r>]*-->$/;
 
+/** A slide's settings RECORD, the form the Studio writes since the clean break (`<!-- @meta{layout=kpi} -->`, record note
+ *  §15; the bare `<!-- {…} -->` too): one line, braces closing before the comment does, and the comment closing exactly
+ *  once, at its end. Without this a copied slide lost its record on paste and fell back to the default layout (the
+ *  compose-stress walk, #3433). A record sets no key a directive could not, so the trust is the directive's: provenance
+ *  first, this shape second. */
+const RECORD_SHAPE = /^<!--[ \t]*(?:@meta)?\{[^\n\r]*\}[ \t]*-->$/;
+const oneRecord = (d: string) => RECORD_SHAPE.test(d) && !d.slice(4, -3).includes('--');
+
 /** Read the `data-directives` bridge back off a copied slide's DOM.
  *
  *  Two gates, and both are load-bearing. PROVENANCE (`data-lattice-origin` must be this
@@ -102,7 +110,7 @@ function readDirectives(raw: string | null, origin: string | null): string[] {
 	try {
 		const v = JSON.parse(raw);
 		if (!Array.isArray(v)) return [];
-		return v.filter((d): d is string => typeof d === 'string' && d.length <= 512 && DIRECTIVE_SHAPE.test(d)).slice(0, 16);
+		return v.filter((d): d is string => typeof d === 'string' && d.length <= 512 && (DIRECTIVE_SHAPE.test(d) || oneRecord(d))).slice(0, 16);
 	} catch {
 		return [];
 	}

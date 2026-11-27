@@ -2,11 +2,11 @@
 marp: true
 size: 4k
 theme: indaco
-paginate: true
+pagination: true
 header: "Joint Flood Task Force · Inter-Agency Briefing"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 <!-- tier: short -->
 
 `Inter-agency coordination · April 2027`
@@ -17,7 +17,7 @@ Standing up a joint command for the Bayshore levee district before the autumn st
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## The ask: agree a single joint command and a shared funding split by 1 June.
@@ -26,7 +26,7 @@ Four agencies hold pieces of the Bayshore flood response and none holds the whol
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## Last autumn's response failed on coordination, not capability.
@@ -35,7 +35,7 @@ When the King Tide breached the Bayshore levee in November, three agencies deplo
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## Each agency owns a piece; no one owns the outcome.
@@ -44,7 +44,7 @@ The levees, the pumps, the evacuation order, and the recovery funds sit in four 
 
 ---
 
-<!-- _class: actors -->
+<!-- @meta{layout=actors} -->
 <!-- tier: short -->
 
 ## Who owns what under the proposed joint command.
@@ -60,7 +60,7 @@ The levees, the pumps, the evacuation order, and the recovery funds sit in four 
 
 ---
 
-<!-- _class: actors -->
+<!-- @meta{layout=actors} -->
 <!-- tier: full -->
 
 ## The supporting roles the command draws on during an activation.
@@ -74,7 +74,7 @@ The levees, the pumps, the evacuation order, and the recovery funds sit in four 
 
 ---
 
-<!-- _class: roadmap -->
+<!-- @meta{layout=roadmap} -->
 <!-- tier: short -->
 
 ## What each workstream delivers before storm season.
@@ -88,7 +88,7 @@ The levees, the pumps, the evacuation order, and the recovery funds sit in four 
 
 ---
 
-<!-- _class: roadmap -->
+<!-- @meta{layout=roadmap} -->
 <!-- tier: full -->
 
 ## Where each agency stands on stand-up commitments.
@@ -102,7 +102,7 @@ The levees, the pumps, the evacuation order, and the recovery funds sit in four 
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## The pooled fund is the part that needs a decision today.
@@ -111,7 +111,7 @@ The command structure can be chartered administratively, but the $46M readiness 
 
 ---
 
-<!-- _class: decision -->
+<!-- @meta{layout=decision} -->
 <!-- tier: short -->
 
 ## Charter the joint command and pool the readiness fund before 1 June.
@@ -125,9 +125,9 @@ The command structure can be chartered administratively, but the $46M readiness 
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 <!-- tier: short -->
 
 ## One command, one fund, ready before the water rises.

@@ -2,11 +2,11 @@
 marp: true
 size: story
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · gantt + state-chart portrait"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Native diagrams, made for the tall box.
 
@@ -16,7 +16,7 @@ A Gantt is a horizontal time axis and a state machine is a graph — neither is 
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## Two charts, two different levers.
 
@@ -28,8 +28,8 @@ A Gantt is a horizontal time axis and a state machine is a graph — neither is 
 
 ---
 
-<!-- _class: gantt -->
-<!-- _footer: "gantt · lane labels over full-width bars" -->
+<!-- @meta{layout=gantt, footer=gantt · lane labels over full-width bars} -->
+
 
 `2026 Q1 .. 2026 Q4`
 
@@ -48,8 +48,8 @@ A Gantt is a horizontal time axis and a state machine is a graph — neither is 
 
 ---
 
-<!-- _class: state-chart -->
-<!-- _footer: "state-chart · a column on a tall stage" -->
+<!-- @meta{layout=state-chart, footer=state-chart · a column on a tall stage} -->
+
 
 `Submission lifecycle`
 
@@ -69,8 +69,8 @@ A Gantt is a horizontal time axis and a state machine is a graph — neither is 
 
 ---
 
-<!-- _class: state-chart lr -->
-<!-- _footer: "state-chart lr · falls back to vertical" -->
+<!-- @meta{layout=state-chart, class=lr, footer=state-chart lr · falls back to vertical} -->
+
 
 `Incident response`
 
@@ -89,7 +89,7 @@ A Gantt is a horizontal time axis and a state machine is a graph — neither is 
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## Restyle, don't rearrange.
 

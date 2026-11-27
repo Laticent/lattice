@@ -53,7 +53,7 @@ Use when a quarter's regulatory motion needs a single-slide digest. Each row car
 ## Authoring
 
 ```markdown
-<!-- _class: regulatory-update -->
+<!-- @meta{layout=regulatory-update} -->
 
 ## Headline naming the period or theme.
 
@@ -95,7 +95,7 @@ Use when a quarter's regulatory motion needs a single-slide digest. Each row car
 Ordered by effective date.
 
 ```markdown
-<!-- _class: regulatory-update timeline -->
+<!-- @meta{layout=regulatory-update, class=timeline} -->
 
 ## timeline orders the changes by effective date.
 
@@ -124,7 +124,7 @@ Ordered by effective date.
 Ranked by exposure.
 
 ```markdown
-<!-- _class: regulatory-update priority -->
+<!-- @meta{layout=regulatory-update, class=priority} -->
 
 ## priority ranks the changes by exposure.
 
@@ -149,7 +149,7 @@ Ranked by exposure.
 One tile per change.
 
 ```markdown
-<!-- _class: regulatory-update cards -->
+<!-- @meta{layout=regulatory-update, class=cards} -->
 
 ## cards deals each change its own tile.
 
@@ -178,7 +178,7 @@ One tile per change.
 Changed versus stayed.
 
 ```markdown
-<!-- _class: regulatory-update diff-bands -->
+<!-- @meta{layout=regulatory-update, class=diff-bands} -->
 
 ## diff-bands shades what changed versus stayed.
 

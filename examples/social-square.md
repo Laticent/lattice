@@ -2,10 +2,10 @@
 marp: true
 theme: indaco
 size: square
-paginate: false
+pagination: false
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 `Lattice · Social formats`
 
@@ -15,7 +15,7 @@ Native 1:1 square for the Instagram, Facebook and LinkedIn feed — same engine,
 
 ---
 
-<!-- _class: big-number -->
+<!-- @meta{layout=big-number} -->
 
 `Why it matters`
 
@@ -24,7 +24,7 @@ Native 1:1 square for the Instagram, Facebook and LinkedIn feed — same engine,
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `The idea`
 
@@ -34,7 +34,7 @@ Set the `size:` directive in the front matter and the layouts adapt to the talle
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 
 `Formats shipped`
 
@@ -51,7 +51,7 @@ Set the `size:` directive in the front matter and the layouts adapt to the talle
 
 ---
 
-<!-- _class: quote -->
+<!-- @meta{layout=quote} -->
 
 > The best deck is the one that meets your audience where they already are — and right now, that's a phone held upright.
 
@@ -59,7 +59,7 @@ Set the `size:` directive in the front matter and the layouts adapt to the talle
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 `Section 02`
 
@@ -67,7 +67,7 @@ Set the `size:` directive in the front matter and the layouts adapt to the talle
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `One directive`
 
@@ -77,7 +77,7 @@ Set `size:` to `story`, `square`, `portrait` or `mobile` in the front matter. Co
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 `Ship it`
 

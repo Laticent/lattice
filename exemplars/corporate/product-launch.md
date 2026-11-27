@@ -2,11 +2,11 @@
 marp: true
 size: 4k
 theme: indaco
-paginate: true
+pagination: true
 header: "Lumen · Trace launch"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 <!-- tier: short -->
 
 `Product launch · 2026`
@@ -17,7 +17,7 @@ Find the cause of an incident in seconds — not by reading logs, but by asking.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## Debugging production has shifted from searching logs to asking questions.
@@ -29,7 +29,7 @@ For twenty years, finding the cause of an outage meant grepping logs and squinti
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## Every minute of an outage is measured in revenue, and the clock is the cause.
@@ -41,7 +41,7 @@ The median production incident takes 47 minutes to diagnose — most of it spent
 
 ---
 
-<!-- _class: big-number -->
+<!-- @meta{layout=big-number} -->
 <!-- tier: standard -->
 
 `Where the outage clock runs`
@@ -51,7 +51,7 @@ The median production incident takes 47 minutes to diagnose — most of it spent
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## Imagine asking "why did checkout fail?" and getting the answer, with proof.
@@ -60,7 +60,7 @@ Lumen Trace correlates every log, metric, and trace into a causal graph. You ask
 
 ---
 
-<!-- _class: cards-stack compact -->
+<!-- @meta{layout=cards-stack, class=compact} -->
 <!-- tier: standard -->
 
 ## Lumen Trace answers the question; the platform keeps you ahead of it.
@@ -76,7 +76,7 @@ Lumen Trace correlates every log, metric, and trace into a causal graph. You ask
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 <!-- tier: full -->
 
 ## Four ways Lumen Trace gets to the cause faster than a human can.
@@ -92,7 +92,7 @@ Lumen Trace correlates every log, metric, and trace into a causal graph. You ask
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 <!-- tier: full -->
 
 `Beta · Early-access teams`
@@ -112,7 +112,7 @@ Lumen Trace correlates every log, metric, and trace into a causal graph. You ask
 
 ---
 
-<!-- _class: kpi compact -->
+<!-- @meta{layout=kpi, class=compact} -->
 <!-- tier: short -->
 
 ## Beta teams cut diagnosis time by two-thirds.
@@ -129,7 +129,7 @@ Lumen Trace correlates every log, metric, and trace into a causal graph. You ask
 
 ---
 
-<!-- _class: roadmap -->
+<!-- @meta{layout=roadmap} -->
 <!-- tier: short -->
 
 `Launch · H2 2026`
@@ -144,9 +144,9 @@ Lumen Trace correlates every log, metric, and trace into a causal graph. You ask
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 <!-- tier: short -->
 
 ## Stop searching. Start asking.

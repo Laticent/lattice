@@ -602,7 +602,7 @@ test('the kernel emits no color; the stylesheet carries no hex, margin or @layer
 });
 
 // ── the chart finish (#2451) ─────────────────────────────────────────────────────
-// A finish reaches a mark only through the mark contract (tools/build-marks-css.js).
+// A finish reaches a mark only through the mark contract (tools/build-chart-finish-css.js).
 // These pin what hub-spoke hands it: the hub nothing, a neutral satellite nothing, a group
 // disc and its key swatch the contract, a status disc the status channel; and what the
 // finish hands back: the status row and tone's re-point of the group property.
@@ -625,17 +625,17 @@ describe('hub-spoke under a chart finish', () => {
     const html = T.buildHubSpoke(model('Hub', [['A', ['blocked']], ['B'], ['C']])).html;
     assert.match(html.match(/<path class="hub-spoke-node"[^>]*data-label="A"[^>]*>/)[0], /data-s="blocked"[^>]*data-paint="fill"/);
     // One rule serves every finish: the finish sets only the level it reads (--finish-status).
-    const rule = finishCss.match(/section:is\(\.marks-pigment, \.marks-etch, \.marks-tone\) :where\(:is\(\.hub-spoke-node, \.hub-spoke-leaf\)\[data-s\]\)[^{]*\{([^}]*)\}/);
+    const rule = finishCss.match(/section:is\(\.chart-finish-pigment, \.chart-finish-etch, \.chart-finish-tone\) :where\(:is\(\.hub-spoke-node, \.hub-spoke-leaf\)\[data-s\]\)[^{]*\{([^}]*)\}/);
     assert.ok(rule, 'no status rule for hub-spoke');
     assert.match(rule[1], /var\(--hs-state-hue\)/);
     assert.match(rule[1], /stroke: var\(--hs-state-ink\)/);
   });
   test('under tone, a group\'s band, arrowhead and name join the one hue through --hs-group-*', () => {
-    const rule = finishCss.match(/section\.marks-tone :where\(:is\(\.hub-spoke-neck, \.hub-spoke-twig, \.hub-spoke-arrow, \.hub-spoke-name\)\[data-hue\]\)[^{]*\{([^}]*)\}/);
+    const rule = finishCss.match(/section\.chart-finish-tone :where\(:is\(\.hub-spoke-neck, \.hub-spoke-twig, \.hub-spoke-arrow, \.hub-spoke-name\)\[data-hue\]\)[^{]*\{([^}]*)\}/);
     assert.ok(rule, 'no tone re-point for hub-spoke');
     assert.match(rule[1], /--hs-group-hue: var\(--finish-one\) !important/);
     assert.match(rule[1], /--hs-group-ink: var\(--finish-one-ink\) !important/);
-    assert.doesNotMatch(finishCss, /marks-(pigment|etch) :where\([^)]*hub-spoke-neck/, 'only tone re-points the group property');
+    assert.doesNotMatch(finishCss, /chart-finish-(pigment|etch) :where\([^)]*hub-spoke-neck/, 'only tone re-points the group property');
     const css = fs.readFileSync(path.join(ROOT, 'lib/plugins/chart-family/kinds/hub-spoke/hub-spoke.styles.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
     // The band, arrowhead and name read the member property, never the family slot table,
     // or the re-point above would land on nothing.
@@ -648,20 +648,20 @@ describe('hub-spoke under a chart finish', () => {
   test('with groups on the slide, tone puts the hub back on the full heading ink', () => {
     // On dark, tone's top step reaches the dimmed hub's own lightness (OKLab 0.08 on mustard-dark, under the 0.15 floor). The rule
     // lives in the generator with the other tone-only treatments, not in the member: no member stylesheet names a finish.
-    const m = finishCss.match(/section\.marks-tone :where\(\.hub-spoke-svg:has\(:is\(\.hub-spoke-node, \.hub-spoke-leaf\)\[data-hue\]\) \.hub-spoke-hub\)[^{]*\{([^}]*)\}/);
+    const m = finishCss.match(/section\.chart-finish-tone :where\(\.hub-spoke-svg:has\(:is\(\.hub-spoke-node, \.hub-spoke-leaf\)\[data-hue\]\) \.hub-spoke-hub\)[^{]*\{([^}]*)\}/);
     assert.ok(m, 'the grouped-hub lift is missing or no longer scoped to grouped charts under tone');
     assert.match(m[1], /fill: var\(--text-heading\) !important/);
     // Pigment's and etch's hub is the first hue on a plain chart, and the NEUTRAL solid (or whisper) on a chart that draws groups:
     // the first hue is group 1's, so a first-hue hub or satellite read as a member of group 1. Neither needs tone's heading-ink lift.
     for (const f of ['pigment', 'etch']) {
-      const grouped = new RegExp(`section\\.marks-${f}:has\\(:is\\(\\.hub-spoke-node, \\.hub-spoke-leaf\\)\\[data-hue\\]\\) :where\\(\\.hub-spoke-hub\\)`);
+      const grouped = new RegExp(`section\\.chart-finish-${f}:has\\(:is\\(\\.hub-spoke-node, \\.hub-spoke-leaf\\)\\[data-hue\\]\\) :where\\(\\.hub-spoke-hub\\)`);
       assert.match(finishCss, grouped, `${f} keeps a neutral hub on a grouped chart`);
-      const plain = new RegExp(`section\\.marks-${f}:not\\(:has\\(:is\\(\\.hub-spoke-node, \\.hub-spoke-leaf\\)\\[data-hue\\]\\)\\) :where\\(\\.hub-spoke-hub\\)`);
+      const plain = new RegExp(`section\\.chart-finish-${f}:not\\(:has\\(:is\\(\\.hub-spoke-node, \\.hub-spoke-leaf\\)\\[data-hue\\]\\)\\) :where\\(\\.hub-spoke-hub\\)`);
       assert.match(finishCss, plain, `${f} draws the first-hue hub only on a plain chart`);
     }
-    assert.doesNotMatch(finishCss, /marks-(pigment|etch) :where\(\.hub-spoke-svg:has/);
+    assert.doesNotMatch(finishCss, /chart-finish-(pigment|etch) :where\(\.hub-spoke-svg:has/);
     const member = fs.readFileSync(path.join(ROOT, 'lib/plugins/chart-family/kinds/hub-spoke/hub-spoke.styles.css'), 'utf8');
-    assert.doesNotMatch(member, /\.marks-(pigment|etch|tone)/, 'the member does not name a finish');
+    assert.doesNotMatch(member, /\.chart-finish-(pigment|etch|tone)/, 'the member does not name a finish');
   });
 });
 
@@ -791,9 +791,9 @@ describe('hub-spoke — icon ink under a chart finish', () => {
   const sheet = fs.readFileSync(path.join(ROOT, 'lib/plugins/chart-family/chart-family.styles.generated.css'), 'utf8')
     .replace(/\/\*[\s\S]*?\*\//g, '').replace(/@supports[^{]*\{/g, '');
   const rulesOf = [...sheet.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ sel: m[1].trim(), body: m[2] }));
-  const ALL = 'section:is(.marks-pigment, .marks-etch, .marks-tone) :where(';
-  const MOVERS = 'section:is(.marks-etch, .marks-tone) :where(';
-  const PIGMENT = 'section.marks-pigment :where(';
+  const ALL = 'section:is(.chart-finish-pigment, .chart-finish-etch, .chart-finish-tone) :where(';
+  const MOVERS = 'section:is(.chart-finish-etch, .chart-finish-tone) :where(';
+  const PIGMENT = 'section.chart-finish-pigment :where(';
   const SLOTS = ':is([data-hue="1"], [data-hue="2"], [data-hue="3"], [data-hue="4"], [data-hue="5"], [data-hue="6"], [data-hue="7"], [data-hue="8"])';
   const bodyOf = (head, mark) => {
     const r = rulesOf.find((x) => x.sel.startsWith(`${head}${mark}),`));

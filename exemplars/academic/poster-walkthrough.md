@@ -2,11 +2,11 @@
 marp: true
 size: 4k
 theme: indaco
-paginate: true
+pagination: true
 header: "Self-healing polymer · Poster walkthrough"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 <!-- tier: short -->
 
 `Materials Symposium · Poster 214`
@@ -17,7 +17,7 @@ Reversible bonds give a structural plastic that recovers 90% of its strength aft
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## We built a load-bearing plastic that heals a clean break in ten minutes at room temperature.
@@ -26,7 +26,7 @@ Most self-healing polymers are soft gels or need an oven to recover. Ours is a r
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## The problem: structural plastics fail at invisible micro-cracks.
@@ -38,7 +38,7 @@ In load-bearing components, fracture starts as micro-cracks far below the surfac
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## Our idea: two bond types — strong ones for strength, weak ones for healing.
@@ -47,7 +47,7 @@ We weave two networks into one polymer. Permanent covalent bonds carry the load 
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 <!-- tier: short -->
 
 ## How the dual network absorbs a crack and closes it.
@@ -63,7 +63,7 @@ flowchart LR
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## The mechanism: sacrificial bonds dissipate energy, then reconnect.
@@ -75,7 +75,7 @@ When stress hits, the weak hydrogen bonds rupture and absorb the energy that wou
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 <!-- tier: short -->
 
 `Mechanical testing · n = 30 specimens`
@@ -95,7 +95,7 @@ When stress hits, the weak hydrogen bonds rupture and absorb the energy that wou
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## It heals many times over — not just once.
@@ -107,7 +107,7 @@ We fractured and healed the same specimen fifty times before recovery dropped be
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## The trade-off we are still negotiating: heat softens the healing bonds.
@@ -119,7 +119,7 @@ Above 60°C the reversible network loosens and the material creeps under sustain
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## Where this goes: components that report and repair their own fatigue.
@@ -131,9 +131,9 @@ We are blending the healing chemistry with a strain-responsive dye so a part cha
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 <!-- tier: short -->
 
 ## Build the weakness in on purpose, and the material learns to heal.

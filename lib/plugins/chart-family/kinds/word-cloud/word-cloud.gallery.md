@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · word-cloud"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # word-cloud
 
@@ -15,8 +15,7 @@ Spiral-packed word cloud — items sized by weight.
 
 ---
 
-<!-- _class: word-cloud -->
-<!-- _footer: "Default · word-cloud" -->
+<!-- @meta{layout=word-cloud, footer=Default · word-cloud} -->
 
 ## Weight is meaning in a word cloud.
 
@@ -33,8 +32,7 @@ Spiral-packed word cloud — items sized by weight.
 
 ---
 
-<!-- _class: word-cloud constellation -->
-<!-- _footer: "constellation · word-cloud constellation — Words scattered like stars." -->
+<!-- @meta{layout=word-cloud, class=constellation, footer="constellation · word-cloud constellation — Words scattered like stars."} -->
 
 ## constellation scatters the words like stars.
 
@@ -48,8 +46,7 @@ Spiral-packed word cloud — items sized by weight.
 
 ---
 
-<!-- _class: word-cloud dense -->
-<!-- _footer: "dense · word-cloud dense — The cloud packed tight." -->
+<!-- @meta{layout=word-cloud, class=dense, footer="dense · word-cloud dense — The cloud packed tight."} -->
 
 ## dense packs the cloud tight.
 
@@ -72,8 +69,7 @@ Spiral-packed word cloud — items sized by weight.
 
 ---
 
-<!-- _class: word-cloud spectrum -->
-<!-- _footer: "spectrum · word-cloud spectrum — Words colored along a scale." -->
+<!-- @meta{layout=word-cloud, class=spectrum, footer="spectrum · word-cloud spectrum — Words colored along a scale."} -->
 
 ## spectrum colors the words along a scale.
 
@@ -89,8 +85,7 @@ Spiral-packed word cloud — items sized by weight.
 
 ---
 
-<!-- _class: word-cloud focal -->
-<!-- _footer: "focal · word-cloud focal — One word crowned the center." -->
+<!-- @meta{layout=word-cloud, class=focal, footer="focal · word-cloud focal — One word crowned the center."} -->
 
 ## focal crowns one word the center.
 
@@ -103,9 +98,8 @@ Spiral-packed word cloud — items sized by weight.
 
 ---
 
-<!-- _class: word-cloud dense -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · word-cloud — The densest cloud that still reads." -->
+<!-- @meta{layout=word-cloud, class=dense, footer="Stress test · word-cloud — The densest cloud that still reads."} -->
+<!-- @meta{stress-slide} -->
 
 ## Stress test — 20 terms, raw frequency counts, 512 down to 5.
 
@@ -133,8 +127,7 @@ Spiral-packed word cloud — items sized by weight.
 
 ---
 
-<!-- _class: word-cloud dark -->
-<!-- _footer: "Composition: dark · word-cloud dark" -->
+<!-- @meta{layout=word-cloud, class=dark, footer=Composition: dark · word-cloud dark} -->
 
 ## Weight is meaning in a word cloud.
 
@@ -151,8 +144,7 @@ Spiral-packed word cloud — items sized by weight.
 
 ---
 
-<!-- _class: word-cloud compact -->
-<!-- _footer: "Composition: compact · word-cloud compact" -->
+<!-- @meta{layout=word-cloud, class=compact, footer=Composition: compact · word-cloud compact} -->
 
 ## Weight is meaning in a word cloud.
 
@@ -169,8 +161,7 @@ Spiral-packed word cloud — items sized by weight.
 
 ---
 
-<!-- _class: word-cloud accent -->
-<!-- _footer: "Composition: accent · word-cloud accent" -->
+<!-- @meta{layout=word-cloud, class=accent, footer=Composition: accent · word-cloud accent} -->
 
 ## Weight is meaning in a word cloud.
 
@@ -187,8 +178,7 @@ Spiral-packed word cloud — items sized by weight.
 
 ---
 
-<!-- _class: cards-grid three claim-hero -->
-<!-- _footer: "Anti-patterns · word-cloud" -->
+<!-- @meta{layout=cards-grid, class=three claim-hero, footer=Anti-patterns · word-cloud} -->
 
 ## When NOT to reach for word-cloud.
 
@@ -201,7 +191,7 @@ Spiral-packed word cloud — items sized by weight.
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

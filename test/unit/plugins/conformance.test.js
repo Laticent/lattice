@@ -14,7 +14,7 @@
  *     `usesPlugin`: the plugin's own `detect`, or the probe it derives from the fence names). It may say true more often (math's pre-scan
  *     over-matches on purpose); it may never miss, because a miss ships unrendered content.
  *     "The parser" is BOTH a bare commonmark instance with only this plugin's grammar AND the
- *     engine's own parser (`_tokens`), unioned — see `pluginTokens` for why neither alone does;
+ *     engine's own parser (`engineTokens`, lib/engine/test-seams.js), unioned — see `pluginTokens` for why neither alone does;
  *   - with the plugin disabled, none of its rules or renderers are installed, and the render
  *     still does not throw.
  *
@@ -32,6 +32,7 @@ const path = require('node:path');
 const MarkdownIt = require('markdown-it');
 
 const { createEngine } = require('../../../lib/engine');
+const { engineTokens } = require('../../../lib/engine/test-seams.js');
 const { PLUGINS, failSoft, installPlugins } = require('../../../lib/plugins/host');
 
 const PLUGINS_DIR = path.join(__dirname, '../../../lib/plugins');
@@ -97,7 +98,7 @@ function fenceClaims(plugin) {
  *
  *   - a bare CommonMark instance with only this plugin's grammar, which sees what the plugin's
  *     rules do on their own; and
- *   - the ENGINE's own parser (`createEngine()._tokens`, the memoized markdown-it `render` uses,
+ *   - the ENGINE's own parser (`engineTokens(createEngine(), src)`, the memoized markdown-it `render` uses,
  *     with `html: true`, every other plugin and every LATTICE_PLUGINS rule), which sees what a
  *     render sees.
  *
@@ -111,7 +112,7 @@ function fenceClaims(plugin) {
  * @param {string} src
  * @param {(src: string) => object[]} [engineParse]  injectable, so the arm itself can be tested
  */
-function pluginTokens(plugin, src, engineParse = (s) => sharedEngine()._tokens(s)) {
+function pluginTokens(plugin, src, engineParse = (s) => engineTokens(sharedEngine(), s)) {
   const md = new MarkdownIt('commonmark');
   const { installGrammar } = requireGrammarHost();
   installGrammar(md, { grammar: [plugin] });
@@ -283,7 +284,7 @@ describe('the detect-superset arm reads the engine\'s parse too', () => {
   });
   test('the default engine parse is the real one: a math fixture tokenizes through it', () => {
     const math = PLUGINS.find((p) => p.name === 'math');
-    const onlyEngine = pluginTokens(math, 'The area is $\\pi r^2$.', (s) => sharedEngine()._tokens(s));
+    const onlyEngine = pluginTokens(math, 'The area is $\\pi r^2$.', (s) => engineTokens(sharedEngine(), s));
     assert.ok(onlyEngine.has('math_inline'));
   });
 });

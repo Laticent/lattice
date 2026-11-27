@@ -1,1 +1,0 @@
-- A diagram slide's narration now speaks exactly the Mermaid diagram the slide shows: the narrator reads the same fences the export draws, as the engine parses them, so a block the engine reads as HTML, math or code is never narrated as a diagram.

@@ -10,7 +10,7 @@
  * WHY a bundle: all four source modules are CJS (`require`/`module.exports`), and
  * Vite's dev server doesn't transform CJS `require` in arbitrary source. esbuild
  * resolves the whole graph (including the `require('@laticent/cadenza')` →
- * its built `dist/index.cjs`) into one browser ESM module. Same packaging step as
+ * its built `dist/index.mjs`) into one browser ESM module. Same packaging step as
  * tools/build-player-core.js — each kernel has exactly one source (shared
  * byte-identically with the CLI `--captions` flag AND the export's chart-narration
  * substitution); this only makes it reachable from the browser (HARD RULE #1 — no
@@ -42,7 +42,7 @@ const silent = argv.includes('--silent') || check;
 
 // Both source modules are CJS — re-export their named exports as ESM. esbuild's
 // bundler resolves `require('@laticent/cadenza')` through the workspace
-// package's `require` condition (its built dist/index.cjs), inlining the whole
+// package's `default` export (its built dist/index.mjs; the libraries are ES modules only), inlining the whole
 // (zero-dep) engine into this one file.
 const ENTRY_CONTENTS = `
 const { buildReadAlong, emphasisForResolved, mergeNarration, plainSay } = require('./read-along-build.js');
@@ -78,7 +78,7 @@ const BUILD_OPTIONS = {
   minify: false, // readable: this is committed source the docs build serves
   legalComments: 'none',
   // Pin the TS config INLINE so esbuild never auto-discovers docs/tsconfig.json —
-  // the require() chain resolves into docs/src/lib/cadenza/dist/index.cjs (the
+  // the require() chain resolves into docs/src/lib/cadenza/dist/index.mjs (the
   // Cadenza workspace package), and esbuild's tsconfig walk-up from THAT resolved
   // path can reach docs/tsconfig.json (whose `extends: astro/tsconfigs/strict`
   // resolves unevenly across environments — astro is a docs-only dep). Left

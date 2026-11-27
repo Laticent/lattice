@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · Headline alignment"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Accent axis · framing alignment`
 
@@ -15,7 +15,7 @@ The alignment of a slide's **framing text** — eyebrow, heading, rule, subtitle
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Register · auto`
 
@@ -27,7 +27,7 @@ By default the register emits nothing and each layout renders exactly as before 
 
 ---
 
-<!-- _class: title head-left -->
+<!-- @meta{layout=title, class=head-left} -->
 
 `Same title · head-left`
 
@@ -37,7 +37,7 @@ A title centers by default. `_class: head-left` pins its eyebrow, heading, and s
 
 ---
 
-<!-- _class: stats head-left -->
+<!-- @meta{layout=stats, class=head-left} -->
 
 `Metrics · head-left`
 
@@ -54,7 +54,7 @@ A title centers by default. `_class: head-left` pins its eyebrow, heading, and s
 
 ---
 
-<!-- _class: content head-center -->
+<!-- @meta{layout=content, class=head-center} -->
 
 `Register · head-center`
 
@@ -66,7 +66,7 @@ A content masthead lefts by default, so before this there was no way to center i
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Deck-wide · front matter`
 
@@ -81,7 +81,7 @@ Add `headline: left` to the front matter and every slide left-aligns its framing
 
 ---
 
-<!-- _class: content head-right -->
+<!-- @meta{layout=content, class=head-right} -->
 
 `Register · head-right`
 
@@ -93,7 +93,7 @@ The full set now ships — `auto`, `left`, `center`, `right`. `right` pins the w
 
 ---
 
-<!-- _class: closing head-left -->
+<!-- @meta{layout=closing, class=head-left} -->
 
 `Wrap`
 

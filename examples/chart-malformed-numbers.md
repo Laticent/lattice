@@ -1,12 +1,12 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · chart values"
 footer: "A mistyped value is no value, never a different one"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # A mistyped value no longer plots as a different number
 
@@ -14,7 +14,7 @@ footer: "A mistyped value is no value, never a different one"
 
 ---
 
-<!-- _class: bar -->
+<!-- @meta{layout=bar} -->
 
 `Variance to plan · $ thousand`
 
@@ -29,7 +29,7 @@ footer: "A mistyped value is no value, never a different one"
 
 ---
 
-<!-- _class: bar -->
+<!-- @meta{layout=bar} -->
 
 `Headcount by region`
 
@@ -44,7 +44,7 @@ Before, North drew a bar at -5, and the narration said "down negative five".
 
 ---
 
-<!-- _class: bar -->
+<!-- @meta{layout=bar} -->
 
 `Units shipped · thousand`
 
@@ -59,7 +59,7 @@ Before, North drew at 1.2 and East at 1,234, taller than every real bar.
 
 ---
 
-<!-- _class: funnel -->
+<!-- @meta{layout=funnel} -->
 
 ## An unpaired parenthesis reads as zero, not as 840.
 
@@ -70,7 +70,7 @@ Before, North drew at 1.2 and East at 1,234, taller than every real bar.
 
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Lint names each one, and why
 

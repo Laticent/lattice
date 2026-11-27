@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · kanban"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # kanban
 
@@ -15,8 +15,7 @@ Kanban board — columns of cards by stage.
 
 ---
 
-<!-- _class: kanban -->
-<!-- _footer: "Default · kanban" -->
+<!-- @meta{layout=kanban, footer=Default · kanban} -->
 
 `chart · kanban`
 
@@ -34,8 +33,7 @@ Kanban board — columns of cards by stage.
 
 ---
 
-<!-- _class: kanban keyline -->
-<!-- _footer: "keyline · kanban keyline — Hairlines rule the lanes apart." -->
+<!-- @meta{layout=kanban, class=keyline, footer="keyline · kanban keyline — Hairlines rule the lanes apart."} -->
 
 `kanban keyline`
 
@@ -51,8 +49,7 @@ Kanban board — columns of cards by stage.
 
 ---
 
-<!-- _class: kanban tinted -->
-<!-- _footer: "tinted · kanban tinted — Each lane takes a colored wash." -->
+<!-- @meta{layout=kanban, class=tinted, footer="tinted · kanban tinted — Each lane takes a colored wash."} -->
 
 `kanban tinted`
 
@@ -68,9 +65,8 @@ Kanban board — columns of cards by stage.
 
 ---
 
-<!-- _class: kanban compact -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · kanban — Six lanes — the board's hard ceiling." -->
+<!-- @meta{layout=kanban, class=compact, footer="Stress test · kanban — Six lanes — the board's hard ceiling."} -->
+<!-- @meta{stress-slide} -->
 
 `kanban · stress`
 
@@ -93,8 +89,7 @@ Kanban board — columns of cards by stage.
 
 ---
 
-<!-- _class: kanban dark -->
-<!-- _footer: "Composition: dark · kanban dark" -->
+<!-- @meta{layout=kanban, class=dark, footer=Composition: dark · kanban dark} -->
 
 `chart · kanban`
 
@@ -112,8 +107,7 @@ Kanban board — columns of cards by stage.
 
 ---
 
-<!-- _class: kanban compact -->
-<!-- _footer: "Composition: compact · kanban compact" -->
+<!-- @meta{layout=kanban, class=compact, footer=Composition: compact · kanban compact} -->
 
 `chart · kanban`
 
@@ -131,8 +125,7 @@ Kanban board — columns of cards by stage.
 
 ---
 
-<!-- _class: kanban accent -->
-<!-- _footer: "Composition: accent · kanban accent" -->
+<!-- @meta{layout=kanban, class=accent, footer=Composition: accent · kanban accent} -->
 
 `chart · kanban`
 
@@ -150,8 +143,7 @@ Kanban board — columns of cards by stage.
 
 ---
 
-<!-- _class: cards-grid three claim-hero -->
-<!-- _footer: "Anti-patterns · kanban" -->
+<!-- @meta{layout=cards-grid, class=three claim-hero, footer=Anti-patterns · kanban} -->
 
 ## When NOT to reach for kanban.
 
@@ -164,7 +156,7 @@ Kanban board — columns of cards by stage.
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

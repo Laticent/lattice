@@ -1,12 +1,12 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · chart values"
 footer: "A European number plots at its own value"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # A pasted European number plots at its own value
 
@@ -14,7 +14,7 @@ footer: "A European number plots at its own value"
 
 ---
 
-<!-- _class: bar -->
+<!-- @meta{layout=bar} -->
 
 `Revenue · FY26 · € thousand`
 
@@ -27,7 +27,7 @@ footer: "A European number plots at its own value"
 
 ---
 
-<!-- _class: bar -->
+<!-- @meta{layout=bar} -->
 
 `Revenue · FY26 · € thousand`
 
@@ -40,7 +40,7 @@ footer: "A European number plots at its own value"
 
 ---
 
-<!-- _class: line -->
+<!-- @meta{layout=line} -->
 
 `Monthly active teams`
 
@@ -53,7 +53,7 @@ footer: "A European number plots at its own value"
 
 ---
 
-<!-- _class: funnel -->
+<!-- @meta{layout=funnel} -->
 
 ## Each stage is its own value, grouped with dots.
 
@@ -64,7 +64,7 @@ footer: "A European number plots at its own value"
 
 ---
 
-<!-- _class: heatmap -->
+<!-- @meta{layout=heatmap} -->
 
 `Orders per region · thousand`
 
@@ -78,7 +78,7 @@ footer: "A European number plots at its own value"
 
 ---
 
-<!-- _class: bar -->
+<!-- @meta{layout=bar} -->
 
 `Unit price · €`
 
@@ -92,7 +92,7 @@ footer: "A European number plots at its own value"
 
 ---
 
-<!-- _class: bar -->
+<!-- @meta{layout=bar} -->
 
 `Revenue · FY26 · € thousand`
 
@@ -105,7 +105,7 @@ footer: "A European number plots at its own value"
 
 ---
 
-<!-- _class: bar -->
+<!-- @meta{layout=bar} -->
 
 `Revenue · FY26 · € thousand`
 

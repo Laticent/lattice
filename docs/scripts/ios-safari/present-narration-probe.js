@@ -202,14 +202,16 @@ function latticeNarrationVoice(provider = 'openrouter-gemini') {
 			});
 		};
 	}
+	// Throwaway keys, joined at run time so no literal in the file has a key's shape
+	// (engineering/testing.md §Test data). This body runs in the page, so it cannot import fakeKey.
 	if (provider === 'openrouter-gemini') {
-		localStorage.setItem('lattice-db-or-key', 'sk-or-v1-probe-present-narration-0d0d');
+		localStorage.setItem('lattice-db-or-key', ['sk-or-v1-', 'probe-present-narration-0d0d'].join(''));
 		localStorage.setItem('lattice-studio-voice-selection', JSON.stringify({ v: 1, last: {}, source: 'cloud', provider: 'openrouter', model: 'google/gemini-3.1-flash-tts-preview', voice: 'Kore' }));
 	} else if (provider === 'gemini') {
-		localStorage.setItem('lattice-db-gemini-key', 'AIzaProbePresentNarration000d0d');
+		localStorage.setItem('lattice-db-gemini-key', ['AIza', 'ProbePresentNarration000d0d'].join(''));
 		localStorage.setItem('lattice-studio-voice-selection', JSON.stringify({ v: 1, last: {}, source: 'cloud', provider: 'gemini', model: 'gemini-3.8-flash-tts', voice: 'Kore' }));
 	} else {
-		localStorage.setItem('lattice-db-or-key', 'sk-or-v1-probe-present-narration-0d0d');
+		localStorage.setItem('lattice-db-or-key', ['sk-or-v1-', 'probe-present-narration-0d0d'].join(''));
 		localStorage.setItem('lattice-studio-voice-selection', JSON.stringify({ v: 1, last: {}, source: 'cloud', provider: 'openrouter', model: 'hexgrad/kokoro-82m', voice: 'af_heart' }));
 	}
 	return { ok: true, provider };
@@ -337,5 +339,28 @@ function latticeNarrationSample() {
 	return { slide: h.counter()?.[0] ?? null, audio, speech: s.speech || 0, pcm: s.pcm || 0, clips: s.clips || 0, decodedMB: round(s.decodedMB), liveMB: round(s.liveMB), sampleRate: s.sampleRate || 0, mark: window.__latticeNarrationMark || null };
 }
 
+/** After the judged arm (reported, never judged): push the page to collect, then read the audio still uncollected.
+ *  `liveMB` counts each decoded AudioBuffer until its FinalizationRegistry callback runs, which is "not yet collected",
+ *  not "still referenced". JavaScriptCore collects lazily, so a climbing `liveMB` reads the same whether a clip is held
+ *  or just not swept yet. Allocating and dropping a burst of memory makes a full collection very likely; a `liveMB` that
+ *  then falls to a few clips was collection lag, one that stays high is audio something still holds (#3304's grade). */
+async function latticeNarrationPressure() {
+	const s = window.__latticeNarration || {};
+	const before = s.liveMB || 0;
+	const tick = () => new Promise((r) => setTimeout(r, 50)); // flaky-ok: yields for finalization callbacks in a probe, reported and never judged
+	for (let round = 0; round < 3; round++) {
+		let junk = [];
+		for (let i = 0; i < 24; i++) {
+			const a = new Uint8Array(8 * 1024 * 1024);
+			a[a.length - 1] = i; // touch it so the pages are real
+			junk.push(a);
+		}
+		junk = null;
+		for (let k = 0; k < 6; k++) await tick();
+	}
+	const round1 = (n) => Math.round((n || 0) * 10) / 10;
+	return { beforeMB: round1(before), afterMB: round1(s.liveMB), clips: s.clips || 0, decodedMB: round1(s.decodedMB) };
+}
+
 // Reached by name from source text (run.mjs's execute-script, probe.selftest.mjs's evaluate), so put on the global object.
-Object.assign(globalThis, { latticeNarrationReceive, latticeNarrationImport, latticeNarrationVoice, latticeNarrationReady, latticeNarrationEvents, latticeNarrationDock, latticeNarrationScriptClick, latticeNarrationNext, latticeNarrationPlayButton, latticeNarrationStarted, latticeNarrationSample });
+Object.assign(globalThis, { latticeNarrationReceive, latticeNarrationImport, latticeNarrationVoice, latticeNarrationReady, latticeNarrationEvents, latticeNarrationDock, latticeNarrationScriptClick, latticeNarrationNext, latticeNarrationPlayButton, latticeNarrationStarted, latticeNarrationSample, latticeNarrationPressure });

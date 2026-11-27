@@ -19,7 +19,7 @@ test.describe.configure({ timeout: 120_000 });
 // human to eyeball through the real Share sheet on any export-pipeline change.
 const FIXTURE = path.join(path.dirname(new URL(import.meta.url).pathname), '..', '..', '..', 'test', 'fixtures', 'export-coverage-deck.md');
 const DECK = fs.readFileSync(FIXTURE, 'utf8');
-const SLIDES = (DECK.match(/<!-- _class:/g) || []).length; // every fixture slide declares a class
+const SLIDES = (DECK.match(/<!-- @meta\{layout=/g) || []).length; // every fixture slide declares its layout in a record
 // Each slide's first heading, from the source: what tells one slide in the live preview from another.
 const HEADINGS = DECK.replace(/^---\n[\s\S]*?\n---\n/, '')
 	.split(/\n---\n/)
@@ -74,6 +74,9 @@ async function exportMatchesScreen({ page }: { page: Page }) {
 		// (PENDING_FIGURES, lib/plugins/host-browser.mjs, what the export itself waits on), then two equal reads in a row
 		// for fonts and late layout. Polled, never a fixed sleep (#32).
 		await expect(sec).toContainText(HEADINGS[i]);
+		// The frame's agents ran (lib/core/frame-agents.mjs marks the root when its file loads): the font gate and
+		// fit are what reveal and scale the slide, so a picture taken without them would be the wrong slide state.
+		await expect(page.frameLocator(LIVE_PREVIEW).locator('html[data-latt-agents]')).toHaveCount(1);
 		await expect(sec.locator(PENDING_FIGURES)).toHaveCount(0, { timeout: 60_000 });
 		let last = '';
 		await expect

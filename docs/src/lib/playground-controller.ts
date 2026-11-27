@@ -6,6 +6,7 @@
 // the React layer through window.LatticePlayground / window.LatticeDeckPreview —
 // those irreducible, scar-tissued pieces are WRAPPED, never reimplemented.
 
+
 export type VariantDoc = { key: string; label: string; caption: string; sample: string };
 export type CatalogEntry = { skeleton: string; sample: string; variants: VariantDoc[] };
 export type Catalog = Record<string, CatalogEntry>;
@@ -270,8 +271,43 @@ export function slideTranscript(md: string): string {
  * actually edited the class line), never on every keystroke elsewhere.
  */
 export function classTokenLine(src: string): string {
-	const m = /<!--\s*_class:\s*([^>]*?)\s*-->/.exec(src || '');
-	return m ? m[1].trim().replace(/\s+/g, ' ') : '';
+	return firstSpotClass(src).trim().replace(/\s+/g, ' ');
+}
+
+/** The words of the first spot class the engine reads, from a `_class` comment or a record (`@meta{layout=cards}`),
+ *  through the shared reader (lib/core/class-entries.mjs). One entry of memo: both callers ask about the same
+ *  source on a keystroke. */
+let classMemo: { src: string; value: string } = { src: '\u0000', value: '' };
+
+/** The shared reader, loaded on demand: a static import put the deck scanner (and the slide-boundary parser under it)
+ *  in the Playground's and the home page's EAGER bundle, +21 KB gz on the route budget. The prefix read lives in its own
+ *  lazy module (first-spot-class.mjs `firstSpotClass`, beside this file). Until it arrives the picker reads no class; the
+ *  Playground calls `loadClassReader()` on mount and syncs its pickers again when it resolves. */
+let firstSpotClassFn: ((source: string) => string) | null = null;
+let classReaderLoad: Promise<void> | null = null;
+export function loadClassReader(): Promise<void> {
+	classReaderLoad ||= import('./first-spot-class.mjs').then(
+		(m) => {
+			firstSpotClassFn = m.firstSpotClass;
+			classMemo = { src: '\u0000', value: '' };
+		},
+		(err) => {
+			// Not cached: the next call tries the import again (offline, or a chunk gone after a deploy).
+			classReaderLoad = null;
+			throw err;
+		},
+	);
+	return classReaderLoad;
+}
+
+function firstSpotClass(src: string): string {
+	const s = src || '';
+	if (classMemo.src !== s) classMemo = { src: s, value: readFirstSpotClass(s) };
+	return classMemo.value;
+}
+
+function readFirstSpotClass(src: string): string {
+	return firstSpotClassFn ? firstSpotClassFn(src) : '';
 }
 
 /**
@@ -283,9 +319,8 @@ export function classTokenLine(src: string): string {
  * recognized. Faithful port of the inline `detectComponent`.
  */
 export function detectComponent(catalog: Catalog, src: string): { name: string; variant: string } | null {
-	const m = /<!--\s*_class:\s*([^>]*?)\s*-->/.exec(src || '');
-	if (!m) return null;
-	const tokens = m[1].trim().split(/\s+/).filter(Boolean);
+	const tokens = firstSpotClass(src).trim().split(/\s+/).filter(Boolean);
+	if (!tokens.length) return null;
 	let name: string | null = null;
 	for (const tok of tokens) {
 		if (catalog[tok]) {

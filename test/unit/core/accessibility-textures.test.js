@@ -157,6 +157,16 @@ test('the reference scan does not confuse a set with its longer-named sibling', 
   assert.deepEqual(texturePrefixesReferencedIn(undefined), []);
 });
 
+test('texturePrefixesReferencedIn errs toward finding too much: a reference after an unclosed comment or string still counts', () => {
+  // The runtime glues every <style> text to the SVG `fill` / `stroke` / `style` values it finds (lib/runtime/index.js
+  // `referencedTextureSets`), so the text is not one stylesheet. A miss is the bad side: a `url(#…)` with no pattern
+  // paints BLACK. A CSS tokenizer read of the glued text would drop every reference after an unclosed comment or string,
+  // which is why this scan stays a plain match (the Segno pipeline doc's §P5 census, "Reviewed and kept as it is").
+  assert.deepEqual(texturePrefixesReferencedIn('p{} /* an unclosed note url(#latt-a11y-tex-1)'), ['latt-a11y-tex']);
+  assert.deepEqual(texturePrefixesReferencedIn('p{content:"open url(#latt-onyx-tex-2)'), ['latt-onyx-tex']);
+  assert.deepEqual(texturePrefixesReferencedIn('x{}/*url(#latt-a11y-tex-3)*/'), ['latt-a11y-tex']);
+});
+
 // ── ACCEPTANCE #3: both emission sites derive the SAME answer ────────────────
 //
 // lattice.js scans the assembled deck stylesheet (theme chain files on

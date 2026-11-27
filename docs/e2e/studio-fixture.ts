@@ -143,7 +143,7 @@ export const CHROME = {
 	brandHome: 'Lattice — home',
 	/** The workspace launcher in the top bar — the wordmark + chevron that opens Decks /
 	 *  Fabricate / Import. It used to be the brand mark too; `brandHome` is the mark now. */
-	workspaceLauncher: 'Workspace launcher',
+	workspaceLauncher: 'Lattice — workspace launcher',
 	/** The workspace-settings sheet trigger. */
 	workspaceSettings: 'Workspace settings',
 	/** The version-history sheet trigger — DECK checkpoints. Distinct from an ASSET's
@@ -484,13 +484,16 @@ export function persistedCheckpoints(page: Page): Promise<Record<string, number>
 }
 
 /**
- * The app toast text — Sonner's bottom-center pill region (`ui/sonner.tsx`).
+ * The app toast text — Sonner's toast region (`ui/sonner.tsx`).
  *
- * Targets the TOASTER (the single `<ol data-sonner-toaster>`), not an individual
- * `[data-sonner-toast]`: Sonner stacks up to three at once, so a per-toast locator
- * would trip Playwright strict mode exactly when a spec chains two actions. The
- * container is always present and always exactly one, and `toContainText` against
- * it means "some visible toast said this" — which is what every call site wants.
+ * Targets the REGION (Sonner's one wrapping `<section aria-label="Notifications …">`),
+ * not an individual `[data-sonner-toast]`: Sonner stacks up to three at once, so a
+ * per-toast locator would trip Playwright strict mode exactly when a spec chains two
+ * actions. Not the `<ol data-sonner-toaster>` either: Sonner draws one list per place
+ * in use, so a message raised at its own place (the Share sheet's failures stand at
+ * the top, PR 3559) puts a second list beside the toaster's own. The section is always
+ * present and always exactly one, and `toContainText` against it means "some visible
+ * toast said this" — which is what every call site wants.
  *
  * Do NOT reach for `[role="status"]` here. Sonner's toast carries neither `role`
  * nor `aria-live` on the `<li>` (its live region is the wrapping
@@ -499,7 +502,7 @@ export function persistedCheckpoints(page: Page): Promise<Record<string, number>
  * PresentCaption) that a broad match would collide with.
  */
 export function toastText(page: Page): Locator {
-	return page.locator('[data-sonner-toaster]');
+	return page.locator('section[aria-label^="Notifications"]');
 }
 
 /** What the New slide door says after an add, in the door itself (2026-10-27-slide-structure-strip.md §5). */
@@ -1069,6 +1072,28 @@ export async function openSlideLook(page: Page): Promise<void> {
 export async function setEditorContent(page: Page, text: string): Promise<void> {
 	await focusEditor(page);
 	await selectAllInEditor(page);
+	// THE iOS KEY PATH. CodeMirror reads the user agent, and on an iPhone or iPad (`browser.ios`) it does not run Delete,
+	// Backspace or Enter at keydown: it lets the browser edit the DOM natively, then reconciles, and 250 ms later sends the
+	// key itself if it saw no change (@codemirror/view `InputState.keydown`, `PendingKeys`, `flushIOSKey`). Playwright's
+	// `webkit-phone` project is Linux WebKit with an iPhone user agent, so a Delete right after a select-all is reconciled
+	// as a collapsed selection and the deferred Delete then removes ONE character (measured: 164 -> 163, 5 runs in 5; with a
+	// pause after the select-all it cleared the deck, which is why the failure looked like a late write). Replacing the
+	// selection by inserting text is a plain selection replacement on that path (5 in 5 exact). So on the iOS path the deck
+	// goes in over the selection, and an empty deck is a space taken back by one Backspace from a collapsed caret, the case
+	// that path handles. Every other engine keeps the Delete below (switch-controls.spec.ts:118, HARD RULE #33).
+	const iosKeyPath = await page.evaluate(() => /iP(?:hone|ad|od)/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 2));
+	if (iosKeyPath) {
+		await page.keyboard.insertText(text || ' ');
+		if (!text) {
+			await expect.poll(() => deckEditorLength(page), { message: 'setEditorContent: the space did not replace the selection' }).toBe(1);
+			await page.keyboard.press('Backspace');
+			await expect.poll(() => deckEditorLength(page), { message: 'setEditorContent: the Backspace left the space behind' }).toBe(0);
+		}
+		await expect
+			.poll(() => deckEditorFingerprint(page), { message: 'setEditorContent: the editor does not hold exactly the deck it was given' })
+			.toEqual(fingerprint(text));
+		return;
+	}
 	await page.keyboard.press('Delete');
 	// The select-all and the Delete are two events, and a source write that lands between them (a
 	// boot-time hydration, a mapped selection) collapses the selection, so the Delete removes one
@@ -1259,6 +1284,22 @@ export async function openAddSlide(page: Page, _compact = false, side: 'before' 
 	await page.getByRole('button', { name: CHROME.addSlide, exact: true }).filter({ visible: true }).first().click();
 	await chooseSide(page, side);
 	await addSlideReady(page);
+}
+
+/**
+ * Pick a family in the add-slide gallery, wherever its pill is: in the one-row strip, or folded into
+ * the "More ▾" menu when the row runs out of room (a phone folds most of them, 2026-11-23). A spec
+ * that clicked only the visible pill skipped the folded ones without saying so.
+ */
+export async function chooseGalleryFamily(page: Page, family: string): Promise<void> {
+	const tabs = page.getByRole('tablist', { name: 'Slide categories' }).filter({ visible: true });
+	const pill = tabs.getByRole('tab', { name: family, exact: true });
+	if (await pill.count()) {
+		await pill.click();
+		return;
+	}
+	await page.getByRole('button', { name: /^More slide categories$|^Slide categories: .*, more$/ }).filter({ visible: true }).click();
+	await page.getByRole('menuitemradio', { name: family, exact: true }).click();
 }
 
 /** New slide splits in place into Before | After (2026-10-27-slide-structure-strip.md §5); the gallery opens on the choice. */

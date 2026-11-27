@@ -1,10 +1,10 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # Accessible by export
 
@@ -15,7 +15,7 @@ paginate: true
 
 ---
 
-<!-- _class: big-number -->
+<!-- @meta{layout=big-number} -->
 
 `Invisible without alt text`
 
@@ -26,7 +26,7 @@ paginate: true
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 
 `What the alt note does`
 
@@ -44,7 +44,7 @@ paginate: true
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 # It reads itself
 
