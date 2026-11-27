@@ -4,7 +4,7 @@ theme: indaco
 pagination: true
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Unit economics, end to end.
 
@@ -12,7 +12,7 @@ pagination: true
 
 ---
 
-<!-- _class: divider silent -->
+<!-- @meta{layout=divider, class=silent} -->
 
 `Section 01`
 
@@ -20,7 +20,7 @@ pagination: true
 
 ---
 
-<!-- _class: topic -->
+<!-- @meta{layout=topic} -->
 
 `Section 01 · Unit economics`
 
@@ -30,7 +30,7 @@ Fully loaded acquisition cost is $4,100, against $2,970 in the plan.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## Acquisition cost rose fastest where we spent least.
 
@@ -43,7 +43,7 @@ Fully loaded acquisition cost is $4,100, against $2,970 in the plan.
 
 ---
 
-<!-- _class: topic -->
+<!-- @meta{layout=topic} -->
 
 ## Lifetime value
 
@@ -51,7 +51,7 @@ Gross-margin LTV is $11,800, and the mix keeps shifting to the durable tier.
 
 ---
 
-<!-- _class: topic -->
+<!-- @meta{layout=topic} -->
 
 ## Payback
 
@@ -59,7 +59,7 @@ Fourteen months blended, against a nine-month plan.
 
 ---
 
-<!-- _class: divider silent -->
+<!-- @meta{layout=divider, class=silent} -->
 
 `Section 02`
 
@@ -67,7 +67,7 @@ Fourteen months blended, against a nine-month plan.
 
 ---
 
-<!-- _class: topic fact -->
+<!-- @meta{layout=topic, class=fact} -->
 
 `Section 02 · Model risk`
 
@@ -79,8 +79,8 @@ Four points of retention is $2.1m of ARR, and it compounds into next year.
 
 ---
 
-<!-- _class: topic -->
-<!-- _track: Renewal | [Retention] | Pricing -->
+<!-- @meta{layout=topic, track="Renewal | [Retention] | Pricing"} -->
+
 
 ## Logo retention
 
@@ -88,8 +88,8 @@ Four points of retention is $2.1m of ARR, and it compounds into next year.
 
 ---
 
-<!-- _class: topic -->
-<!-- _track: Renewal | Retention | [Pricing] -->
+<!-- @meta{layout=topic, track="Renewal | Retention | [Pricing]"} -->
+
 
 ## Pricing floor
 
@@ -97,6 +97,6 @@ Two of the three at-risk accounts renewed below the floor, and both name the sam
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 ## Payback is the number to fix first.

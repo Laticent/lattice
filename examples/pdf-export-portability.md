@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · PDF export portability"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # The PDF that opens everywhere
 
@@ -17,9 +17,9 @@ The deck stays vector — selectable text, embedded fonts, crisp at any zoom. On
 
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=divider, header="", footer=""} -->
+
+
 
 `The problem`
 
@@ -29,8 +29,8 @@ The deck stays vector — selectable text, embedded fonts, crisp at any zoom. On
 
 ---
 
-<!-- _class: image spotlight -->
-<!-- _footer: "full-bleed SVG panorama — the placement that broke on iOS" -->
+<!-- @meta{layout=image, class=spotlight, footer="full-bleed SVG panorama — the placement that broke on iOS"} -->
+
 
 ## A panorama earns the full frame.
 
@@ -42,8 +42,8 @@ On iOS, this full-bleed SVG used to draw only a top band over bare canvas. It no
 
 ---
 
-<!-- _class: image split -->
-<!-- _footer: "full-height SVG column — the placement iOS dropped entirely" -->
+<!-- @meta{layout=image, class=split, footer="full-height SVG column — the placement iOS dropped entirely"} -->
+
 
 ## Built for the long climb.
 
@@ -55,7 +55,7 @@ The tall photo column vanished outright in Quartz viewers. Same fix: the SVG is 
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## What the exporter now does by default
 
@@ -70,7 +70,7 @@ The tall photo column vanished outright in Quartz viewers. Same fix: the SVG is 
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## Two delivery flags for the artifact itself
 
@@ -83,9 +83,9 @@ The tall photo column vanished outright in Quartz viewers. Same fix: the SVG is 
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 
 ## Beautiful is the floor. Portable is the contract.
 

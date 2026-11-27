@@ -6,7 +6,7 @@ size: hd
 pagination: false
 ---
 
-<!-- _class: glossary -->
+<!-- @meta{layout=glossary} -->
 
 ## Glossary
 

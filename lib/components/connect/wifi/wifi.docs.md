@@ -39,7 +39,7 @@ Use to get a room onto the Wi-Fi without reading a password aloud. The QR encode
 ## Authoring
 
 ```markdown
-<!-- _class: wifi -->
+<!-- @meta{layout=wifi} -->
 
 `Room Wi-Fi`
 

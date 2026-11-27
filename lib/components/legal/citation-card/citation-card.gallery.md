@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · citation-card"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # citation-card
 
@@ -15,8 +15,7 @@ Single authoritative reference — heading + citation + verbatim quote + plain-E
 
 ---
 
-<!-- _class: citation-card -->
-<!-- _footer: "Default · citation-card" -->
+<!-- @meta{layout=citation-card, footer=Default · citation-card} -->
 
 ## The card quotes the law verbatim, cited.
 
@@ -31,8 +30,7 @@ Single authoritative reference — heading + citation + verbatim quote + plain-E
 
 ---
 
-<!-- _class: citation-card pull-quote -->
-<!-- _footer: "pull-quote · citation-card pull-quote — The operative phrase, lifted." -->
+<!-- @meta{layout=citation-card, class=pull-quote, footer="pull-quote · citation-card pull-quote — The operative phrase, lifted."} -->
 
 ## pull-quote lifts the operative phrase.
 
@@ -46,8 +44,7 @@ Single authoritative reference — heading + citation + verbatim quote + plain-E
 
 ---
 
-<!-- _class: citation-card split -->
-<!-- _footer: "split · citation-card split — Quote beside plain reading." -->
+<!-- @meta{layout=citation-card, class=split, footer="split · citation-card split — Quote beside plain reading."} -->
 
 ## split pairs the quote with its plain reading.
 
@@ -61,8 +58,7 @@ Single authoritative reference — heading + citation + verbatim quote + plain-E
 
 ---
 
-<!-- _class: citation-card margin -->
-<!-- _footer: "margin · citation-card margin — The cite in the gutter." -->
+<!-- @meta{layout=citation-card, class=margin, footer="margin · citation-card margin — The cite in the gutter."} -->
 
 ## margin hangs the cite in the gutter.
 
@@ -76,8 +72,7 @@ Single authoritative reference — heading + citation + verbatim quote + plain-E
 
 ---
 
-<!-- _class: citation-card triptych -->
-<!-- _footer: "triptych · citation-card triptych — Three authorities abreast." -->
+<!-- @meta{layout=citation-card, class=triptych, footer="triptych · citation-card triptych — Three authorities abreast."} -->
 
 ## triptych sets three authorities abreast.
 
@@ -93,9 +88,8 @@ Single authoritative reference — heading + citation + verbatim quote + plain-E
 
 ---
 
-<!-- _class: citation-card -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · citation-card — The longest quotable block." -->
+<!-- @meta{layout=citation-card, footer="Stress test · citation-card — The longest quotable block."} -->
+<!-- @meta{stress-slide} -->
 
 ## The longest quote one card should carry.
 
@@ -108,8 +102,7 @@ Single authoritative reference — heading + citation + verbatim quote + plain-E
 
 ---
 
-<!-- _class: citation-card dark -->
-<!-- _footer: "Composition: dark · citation-card dark" -->
+<!-- @meta{layout=citation-card, class=dark, footer=Composition: dark · citation-card dark} -->
 
 ## The card quotes the law verbatim, cited.
 
@@ -124,8 +117,7 @@ Single authoritative reference — heading + citation + verbatim quote + plain-E
 
 ---
 
-<!-- _class: citation-card compact -->
-<!-- _footer: "Composition: compact · citation-card compact" -->
+<!-- @meta{layout=citation-card, class=compact, footer=Composition: compact · citation-card compact} -->
 
 ## The card quotes the law verbatim, cited.
 
@@ -140,8 +132,7 @@ Single authoritative reference — heading + citation + verbatim quote + plain-E
 
 ---
 
-<!-- _class: citation-card accent -->
-<!-- _footer: "Composition: accent · citation-card accent" -->
+<!-- @meta{layout=citation-card, class=accent, footer=Composition: accent · citation-card accent} -->
 
 ## The card quotes the law verbatim, cited.
 
@@ -156,8 +147,7 @@ Single authoritative reference — heading + citation + verbatim quote + plain-E
 
 ---
 
-<!-- _class: cards-grid claim-hero -->
-<!-- _footer: "Anti-patterns · citation-card · 1 of 2" -->
+<!-- @meta{layout=cards-grid, class=claim-hero, footer=Anti-patterns · citation-card · 1 of 2} -->
 
 ## When NOT to reach for citation-card.
 
@@ -168,8 +158,7 @@ Single authoritative reference — heading + citation + verbatim quote + plain-E
 
 ---
 
-<!-- _class: cards-grid claim-hero -->
-<!-- _footer: "Anti-patterns · citation-card · 2 of 2" -->
+<!-- @meta{layout=cards-grid, class=claim-hero, footer=Anti-patterns · citation-card · 2 of 2} -->
 
 ## When NOT to reach for citation-card.
 
@@ -180,7 +169,7 @@ Single authoritative reference — heading + citation + verbatim quote + plain-E
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

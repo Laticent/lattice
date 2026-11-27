@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · state-chart"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # state-chart
 
@@ -15,8 +15,7 @@ Native state machine diagram — states as a list, transitions as arrows to a st
 
 ---
 
-<!-- _class: state-chart lr -->
-<!-- _footer: "Default · state-chart" -->
+<!-- @meta{layout=state-chart, class=lr, footer=Default · state-chart} -->
 
 `Submission lifecycle`
 
@@ -42,8 +41,7 @@ How a draft moves from author to publication.
 
 ---
 
-<!-- _class: state-chart lr -->
-<!-- _footer: "Left-to-right · state-chart lr — States flow left to right." -->
+<!-- @meta{layout=state-chart, class=lr, footer="Left-to-right · state-chart lr — States flow left to right."} -->
 
 ## lr flows the states left to right.
 
@@ -59,8 +57,7 @@ How a draft moves from author to publication.
 
 ---
 
-<!-- _class: state-chart tb -->
-<!-- _footer: "Top-to-bottom · state-chart tb — States flow top to bottom, whatever the stage." -->
+<!-- @meta{layout=state-chart, class=tb, footer="Top-to-bottom · state-chart tb — States flow top to bottom, whatever the stage."} -->
 
 ## tb stacks the states top to bottom.
 
@@ -74,8 +71,7 @@ How a draft moves from author to publication.
 
 ---
 
-<!-- _class: state-chart inline -->
-<!-- _footer: "Inline · state-chart inline — The machine as rows with transition chips, beside its prose." -->
+<!-- @meta{layout=state-chart, class=inline, footer="Inline · state-chart inline — The machine as rows with transition chips, beside its prose."} -->
 
 ## inline sets the chart beside its prose.
 
@@ -90,8 +86,7 @@ How a draft moves from author to publication.
 
 ---
 
-<!-- _class: state-chart curved -->
-<!-- _footer: "Curved · state-chart curved — Generously rounded corners on the router's lines." -->
+<!-- @meta{layout=state-chart, class=curved, footer="Curved · state-chart curved — Generously rounded corners on the router's lines."} -->
 
 ## curved rounds the lines between states.
 
@@ -111,8 +106,7 @@ How a draft moves from author to publication.
 
 ---
 
-<!-- _class: state-chart unnumbered -->
-<!-- _footer: "Unnumbered · state-chart unnumbered — No badges: the states show no place in the list." -->
+<!-- @meta{layout=state-chart, class=unnumbered, footer="Unnumbered · state-chart unnumbered — No badges: the states show no place in the list."} -->
 
 ## unnumbered drops the badges.
 
@@ -125,8 +119,7 @@ How a draft moves from author to publication.
 
 ---
 
-<!-- _class: state-chart rearrange -->
-<!-- _footer: "Rearrange · state-chart rearrange — States may leave their written order when that draws a cleaner chart." -->
+<!-- @meta{layout=state-chart, class=rearrange, footer="Rearrange · state-chart rearrange — States may leave their written order when that draws a cleaner chart."} -->
 
 ## rearrange lets a side state sit beside the state it leaves.
 
@@ -153,9 +146,8 @@ How a draft moves from author to publication.
 
 ---
 
-<!-- _class: state-chart -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · state-chart — A dense machine of states." -->
+<!-- @meta{layout=state-chart, footer="Stress test · state-chart — A dense machine of states."} -->
+<!-- @meta{stress-slide} -->
 
 `Submission lifecycle`
 
@@ -180,8 +172,7 @@ How a draft moves from author to publication.
 
 ---
 
-<!-- _class: state-chart lr dark -->
-<!-- _footer: "Composition: dark · state-chart dark" -->
+<!-- @meta{layout=state-chart, class=lr dark, footer=Composition: dark · state-chart dark} -->
 
 `Submission lifecycle`
 
@@ -207,8 +198,7 @@ How a draft moves from author to publication.
 
 ---
 
-<!-- _class: state-chart lr compact -->
-<!-- _footer: "Composition: compact · state-chart compact" -->
+<!-- @meta{layout=state-chart, class=lr compact, footer=Composition: compact · state-chart compact} -->
 
 `Submission lifecycle`
 
@@ -234,8 +224,7 @@ How a draft moves from author to publication.
 
 ---
 
-<!-- _class: state-chart lr accent -->
-<!-- _footer: "Composition: accent · state-chart accent" -->
+<!-- @meta{layout=state-chart, class=lr accent, footer=Composition: accent · state-chart accent} -->
 
 `Submission lifecycle`
 
@@ -261,8 +250,7 @@ How a draft moves from author to publication.
 
 ---
 
-<!-- _class: cards-grid three claim-hero -->
-<!-- _footer: "Anti-patterns · state-chart" -->
+<!-- @meta{layout=cards-grid, class=three claim-hero, footer=Anti-patterns · state-chart} -->
 
 ## When NOT to reach for state-chart.
 
@@ -275,7 +263,7 @@ How a draft moves from author to publication.
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

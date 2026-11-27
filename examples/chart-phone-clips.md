@@ -5,7 +5,7 @@ pagination: true
 footer: "Charts on a phone page — nothing cut"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # Charts on a phone page
 
@@ -15,7 +15,7 @@ Five charts that printed past their own edges on a phone page, each drawn whole.
 
 ---
 
-<!-- _class: hub-spoke tiered -->
+<!-- @meta{layout=hub-spoke, class=tiered} -->
 
 `Platform organization · 2026`
 
@@ -37,7 +37,7 @@ Five charts that printed past their own edges on a phone page, each drawn whole.
 
 ---
 
-<!-- _class: slope -->
+<!-- @meta{layout=slope} -->
 
 `Market share · 2023 to 2026`
 
@@ -58,7 +58,7 @@ Five charts that printed past their own edges on a phone page, each drawn whole.
 
 ---
 
-<!-- _class: stacked-bar -->
+<!-- @meta{layout=stacked-bar} -->
 
 `Revenue mix by segment`
 
@@ -82,7 +82,7 @@ Five charts that printed past their own edges on a phone page, each drawn whole.
 
 ---
 
-<!-- _class: bullet -->
+<!-- @meta{layout=bullet} -->
 
 `Sales attainment · Q3 against plan`
 
@@ -94,7 +94,7 @@ Five charts that printed past their own edges on a phone page, each drawn whole.
 
 ---
 
-<!-- _class: piechart -->
+<!-- @meta{layout=piechart} -->
 
 `H1 2026 · 1,840 person-hours`
 

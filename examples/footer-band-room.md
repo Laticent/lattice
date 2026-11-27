@@ -7,7 +7,7 @@ footer: "Acme · Q3 board review"
 progress-rail: on
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # The footer keeps its room
 
@@ -17,14 +17,14 @@ A slide without a section rail gives the rail's space back to the footer's words
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 ## Slides without a rail
 
 ---
 
-<!-- _class: no-progress -->
-<!-- _footer: "Was: the band kept a gap for an empty rail column, so a footer this long ended in an ellipsis. Now it all reads." -->
+<!-- @meta{class=no-progress, footer="Was: the band kept a gap for an empty rail column, so a footer this long ended in an ellipsis. Now it all reads."} -->
+
 
 ## The footer reads to the end
 
@@ -34,8 +34,8 @@ A slide without a section rail gives the rail's space back to the footer's words
 
 ---
 
-<!-- _class: no-progress -->
-<!-- _footer: "A long footer on a slide with no rail now runs to the page number's column" -->
+<!-- @meta{class=no-progress, footer=A long footer on a slide with no rail now runs to the page number's column} -->
+
 
 ## Ten example decks print their footers in full again
 
@@ -45,7 +45,7 @@ A slide without a section rail gives the rail's space back to the footer's words
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 ## Slides with a rail
 
@@ -67,7 +67,7 @@ A slide without a section rail gives the rail's space back to the footer's words
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 ## Room for the words, a fixed rail
 

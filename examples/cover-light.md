@@ -7,7 +7,7 @@ footer: "Lattice · cover register"
 logo: sample:logo-acme-mark.svg
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # The cover can sit on the light canvas.
 
@@ -28,7 +28,7 @@ One line in the front matter repaints the title and the closing slide together.
 
 ---
 
-<!-- _class: title cover-inverse -->
+<!-- @meta{layout=title, class=cover-inverse} -->
 
 # The default cover, for comparison.
 
@@ -38,7 +38,7 @@ A slide that names `cover-inverse` keeps the inverse panel.
 
 ---
 
-<!-- _class: title finish finish-atrium -->
+<!-- @meta{layout=title, class=finish finish-atrium} -->
 
 # A finish mixes toward the light canvas.
 
@@ -48,7 +48,7 @@ The backdrop and its clearance mask read the surface the cover paints.
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 ## Dividers keep their own surface.
 
@@ -67,7 +67,7 @@ The backdrop and its clearance mask read the surface the cover paints.
 
 ---
 
-<!-- _class: closing index -->
+<!-- @meta{layout=closing, class=index} -->
 
 ## Where the light cover reaches.
 
@@ -79,7 +79,7 @@ The backdrop and its clearance mask read the surface the cover paints.
 
 ---
 
-<!-- _class: closing cover-inverse -->
+<!-- @meta{layout=closing, class=cover-inverse} -->
 
 ## The default back cover, for comparison.
 

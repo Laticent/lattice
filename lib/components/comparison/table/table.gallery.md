@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · table"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # table
 
@@ -15,8 +15,7 @@ The table component — a GFM pipe table with a row capacity, autosplit, and the
 
 ---
 
-<!-- _class: table -->
-<!-- _footer: "Default · table" -->
+<!-- @meta{layout=table, footer=Default · table} -->
 
 ## The table compares rows on consistent columns.
 
@@ -29,9 +28,8 @@ The table component — a GFM pipe table with a row capacity, autosplit, and the
 
 ---
 
-<!-- _class: table -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · table — Eight rows — the hard ceiling." -->
+<!-- @meta{layout=table, footer="Stress test · table — Eight rows — the hard ceiling."} -->
+<!-- @meta{stress-slide} -->
 
 ## Eight rows is the table's hard ceiling.
 
@@ -49,8 +47,7 @@ The table component — a GFM pipe table with a row capacity, autosplit, and the
 
 ---
 
-<!-- _class: table dark -->
-<!-- _footer: "Composition: dark · table dark" -->
+<!-- @meta{layout=table, class=dark, footer=Composition: dark · table dark} -->
 
 ## The table compares rows on consistent columns.
 
@@ -63,8 +60,7 @@ The table component — a GFM pipe table with a row capacity, autosplit, and the
 
 ---
 
-<!-- _class: table compact -->
-<!-- _footer: "Composition: compact · table compact" -->
+<!-- @meta{layout=table, class=compact, footer=Composition: compact · table compact} -->
 
 ## The table compares rows on consistent columns.
 
@@ -77,8 +73,7 @@ The table component — a GFM pipe table with a row capacity, autosplit, and the
 
 ---
 
-<!-- _class: table accent -->
-<!-- _footer: "Composition: accent · table accent" -->
+<!-- @meta{layout=table, class=accent, footer=Composition: accent · table accent} -->
 
 ## The table compares rows on consistent columns.
 
@@ -91,8 +86,7 @@ The table component — a GFM pipe table with a row capacity, autosplit, and the
 
 ---
 
-<!-- _class: cards-grid claim-hero -->
-<!-- _footer: "Anti-patterns · table · 1 of 2" -->
+<!-- @meta{layout=cards-grid, class=claim-hero, footer=Anti-patterns · table · 1 of 2} -->
 
 ## When NOT to reach for table.
 
@@ -103,8 +97,7 @@ The table component — a GFM pipe table with a row capacity, autosplit, and the
 
 ---
 
-<!-- _class: cards-grid claim-hero -->
-<!-- _footer: "Anti-patterns · table · 2 of 2" -->
+<!-- @meta{layout=cards-grid, class=claim-hero, footer=Anti-patterns · table · 2 of 2} -->
 
 ## When NOT to reach for table.
 
@@ -115,7 +108,7 @@ The table component — a GFM pipe table with a row capacity, autosplit, and the
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

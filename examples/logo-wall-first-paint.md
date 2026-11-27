@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · logo-wall"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # A logo wall paints once, already packed.
 
@@ -15,7 +15,7 @@ In the editing preview, a wall stays hidden until its marks are measured, so it 
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## The preview used to paint the grid for one frame first.
 
@@ -27,7 +27,7 @@ The Studio packs a wall in the live preview: it measures each mark, then sets th
 
 ---
 
-<!-- _class: logo-wall -->
+<!-- @meta{layout=logo-wall} -->
 
 `Four shapes`
 
@@ -40,7 +40,7 @@ The Studio packs a wall in the live preview: it measures each mark, then sets th
 
 ---
 
-<!-- _class: logo-wall -->
+<!-- @meta{layout=logo-wall} -->
 
 `With captions`
 
@@ -60,7 +60,7 @@ The Studio packs a wall in the live preview: it measures each mark, then sets th
 
 ---
 
-<!-- _class: logo-wall dense -->
+<!-- @meta{layout=logo-wall, class=dense} -->
 
 `Dense`
 
@@ -81,7 +81,7 @@ The Studio packs a wall in the live preview: it measures each mark, then sets th
 
 ---
 
-<!-- _class: logo-wall color -->
+<!-- @meta{layout=logo-wall, class=color} -->
 
 `Color`
 
@@ -96,7 +96,7 @@ The Studio packs a wall in the live preview: it measures each mark, then sets th
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## A wall the packer never takes is never hidden.
 

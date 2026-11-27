@@ -6,7 +6,7 @@ lift: on
 header: "Lattice · Struck elevation"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Feature demo · card elevation`
 
@@ -19,8 +19,8 @@ card floats without ever changing its fill.
 
 ---
 
-<!-- _class: cards-grid -->
-<!-- _footer: "2×2 grid · cards-grid" -->
+<!-- @meta{layout=cards-grid, footer="2×2 grid · cards-grid"} -->
+
 
 ## The elevation reads the same way to every audience.
 
@@ -35,8 +35,8 @@ card floats without ever changing its fill.
 
 ---
 
-<!-- _class: cards-grid three -->
-<!-- _footer: "Three-up · cards-grid three" -->
+<!-- @meta{layout=cards-grid, class=three, footer=Three-up · cards-grid three} -->
+
 
 ## Depth holds at any card count.
 
@@ -49,8 +49,8 @@ card floats without ever changing its fill.
 
 ---
 
-<!-- _class: cards-grid four compact -->
-<!-- _footer: "Four-up · every card lifts" -->
+<!-- @meta{layout=cards-grid, class=four compact, footer=Four-up · every card lifts} -->
+
 
 ## Every card in a dense grid gets the same lift.
 
@@ -65,8 +65,8 @@ card floats without ever changing its fill.
 
 ---
 
-<!-- _class: stats -->
-<!-- _footer: "Stat tiles · stats" -->
+<!-- @meta{layout=stats, footer=Stat tiles · stats} -->
+
 
 ## The numbers now sit on tiles, too.
 
@@ -81,8 +81,8 @@ card floats without ever changing its fill.
 
 ---
 
-<!-- _class: cards-stack -->
-<!-- _footer: "Vertical stack · cards-stack" -->
+<!-- @meta{layout=cards-stack, footer=Vertical stack · cards-stack} -->
+
 
 ## Stacked cards gain separation without rules between them.
 
@@ -93,8 +93,8 @@ card floats without ever changing its fill.
 
 ---
 
-<!-- _class: kpi ops -->
-<!-- _footer: "SLO tiles · kpi ops" -->
+<!-- @meta{layout=kpi, class=ops, footer=SLO tiles · kpi ops} -->
+
 
 ## The lift carries onto metric tiles, too.
 
@@ -113,8 +113,8 @@ card floats without ever changing its fill.
 
 ---
 
-<!-- _class: quote -->
-<!-- _footer: "Pull quote · quote" -->
+<!-- @meta{layout=quote, footer=Pull quote · quote} -->
+
 
 > The dark deck used to look flat — every card melted into the background. Now they sit up off the page, and nobody had to touch a single color.
 
@@ -122,8 +122,8 @@ card floats without ever changing its fill.
 
 ---
 
-<!-- _class: pricing -->
-<!-- _footer: "Tier cards · pricing" -->
+<!-- @meta{layout=pricing, footer=Tier cards · pricing} -->
+
 
 ## The elevated tier both pops and floats.
 
@@ -142,7 +142,7 @@ card floats without ever changing its fill.
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 `One token · every card · both canvases`
 

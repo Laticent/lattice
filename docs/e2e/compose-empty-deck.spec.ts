@@ -132,7 +132,7 @@ test('@crosswidth keys that write nothing leave the deck empty, and Tab reaches 
 test('@crosswidth @webkit-phone @gecko a tile makes slide 1 in its layout, and Undo empties the deck again', async ({ page }) => {
 	await openEmptyDeck(page);
 	await tiles(page).first().click();
-	await expect.poll(() => deckSource(page)).toMatch(/^<!-- _class: title -->\n/);
+	await expect.poll(() => deckSource(page)).toMatch(/^<!-- @meta\{layout=title\} -->\n/);
 	// One slide, not a blank one before it.
 	await expect(page.locator('.cs-slide')).toHaveCount(1);
 	await expect(start(page)).toBeHidden();

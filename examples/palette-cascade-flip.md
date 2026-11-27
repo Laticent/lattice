@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · palette cascade (#1527)"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # The palette wins the cascade
 
@@ -15,8 +15,8 @@ Every surface on this deck is painted from a token the exported PDF used to igno
 
 ---
 
-<!-- _class: content -->
-<!-- _footer: "What changed" -->
+<!-- @meta{layout=content, footer=What changed} -->
+
 
 `the one-line change`
 
@@ -33,8 +33,8 @@ Render this deck at any palette: what you see is what that palette's author wrot
 
 ---
 
-<!-- _class: code -->
-<!-- _footer: "The twelve --syntax-* tokens" -->
+<!-- @meta{layout=code, footer="The twelve --syntax-* tokens"} -->
+
 
 ## Each palette's own syntax ramp paints now.
 
@@ -57,8 +57,8 @@ Try `cuoio` for warm terracotta and amber, `ardesia` for muted slate and teal.
 
 ---
 
-<!-- _class: checklist -->
-<!-- _footer: "--pass · --warn · the state marks" -->
+<!-- @meta{layout=checklist, footer="--pass · --warn · the state marks"} -->
+
 
 ## The status trio comes from the palette, not the engine.
 
@@ -73,8 +73,8 @@ On `a11y-achromatopsia` these were engine green and amber — one gray to the re
 
 ---
 
-<!-- _class: gantt -->
-<!-- _footer: "The --diagram-* state family" -->
+<!-- @meta{layout=gantt, footer="The --diagram-* state family"} -->
+
 
 `[{Timeline, 2026 Q1 .. 2026 Q4, today=Q3}]`
 
@@ -92,8 +92,8 @@ Nine of these tokens used to resolve two ways in one render — the baked SVG fr
 
 ---
 
-<!-- _class: redline -->
-<!-- _footer: "Own-hue bands: --pass-bg / --fail-bg" -->
+<!-- @meta{layout=redline, footer=Own-hue bands: --pass-bg / --fail-bg} -->
+
 
 ## The struck clause sits on a tint of the palette's own red.
 
@@ -105,8 +105,8 @@ Nine of these tokens used to resolve two ways in one render — the baked SVG fr
 
 ---
 
-<!-- _class: closing -->
-<!-- _footer: "#1527" -->
+<!-- @meta{layout=closing, footer=#1527} -->
+
 
 # Same deck, same palette, one cascade
 

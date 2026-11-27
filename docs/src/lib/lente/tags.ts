@@ -99,14 +99,38 @@ export function allDirectiveBodies(src: string, key: 'lens' | 'class'): string[]
 	return out;
 }
 
-/** Parse the include/exclude tokens off a slide's first non-fenced `_lens` comment. `id`/`+id`
- *  include; `-id` exclude. A `_lens` shown inside a code fence (documentation) is ignored. */
+/** Where a slide's lens tag lives, read and written. This package is zero-dependency and does not carry a host's
+ *  slide-settings grammar, so a host injects its own carrier (as `suggestMembership` takes a `classOf`): Lattice stores
+ *  the tag as a field of the slide's `<!-- @meta{lens=…} -->` record (docs/src/lib/lente-host.ts). The default, for a
+ *  host without one, is the `<!-- _lens: … -->` comment. */
+export interface LensTagCarrier {
+	/** The tag's token text on this slide (`brief -evidence`), or null when it carries none. */
+	read(slideSrc: string): string | null;
+	/** The slide with its tag set to `tokens`, or removed when `tokens` is empty. */
+	write(slideSrc: string, tokens: string): string;
+}
+
+/** The default carrier: the slide's first non-fenced `<!-- _lens: … -->` comment. */
+export const commentLensCarrier: LensTagCarrier = {
+	read: (slideSrc) => findDirectiveComment(slideSrc, 'lens')?.body ?? null,
+	write: writeCommentTag,
+};
+
+let carrier: LensTagCarrier = commentLensCarrier;
+
+/** Install the host's carrier for every read and write of a lens tag; null restores the comment default. */
+export function setLensTagCarrier(next: LensTagCarrier | null): void {
+	carrier = next ?? commentLensCarrier;
+}
+
+/** Parse the include/exclude tokens off a slide's lens tag (the installed carrier's). `id`/`+id`
+ *  include; `-id` exclude. A tag shown inside a code fence (documentation) is ignored. */
 export function parseSlideTags(slideSrc: string): SlideTags {
 	const include = new Set<string>();
 	const exclude = new Set<string>();
-	const found = findDirectiveComment(slideSrc, 'lens');
+	const found = carrier.read(slideSrc);
 	if (found) {
-		for (const tok of found.body.split(/\s+/).filter(Boolean)) {
+		for (const tok of found.split(/\s+/).filter(Boolean)) {
 			if (tok.startsWith('-')) exclude.add(tok.slice(1));
 			else if (tok.startsWith('+')) include.add(tok.slice(1));
 			else include.add(tok);
@@ -139,12 +163,15 @@ function emitTokens(tags: SlideTags): string {
 	return [...inc, ...exc].join(' ');
 }
 
-/** Write the `<!-- _lens: … -->` comment for a slide from its token sets. Replaces the slide's first
- *  NON-fenced `_lens` comment (a fenced example is left untouched); removes it when empty; inserts a
- *  new one right after the `_class` comment (or at the top) when none exists. */
+/** Write the slide's tag from its token sets, through the installed carrier. */
 function writeTags(slideSrc: string, tags: SlideTags): string {
-	const src = String(slideSrc ?? '');
-	const tokens = emitTokens(tags);
+	return carrier.write(String(slideSrc ?? ''), emitTokens(tags));
+}
+
+/** The comment carrier's writer. Replaces the slide's first NON-fenced `_lens` comment (a fenced example is left
+ *  untouched); removes it when empty; inserts a new one right after the `_class` comment (or at the top) when none
+ *  exists. */
+function writeCommentTag(src: string, tokens: string): string {
 	const comment = `<!-- _lens: ${tokens} -->`;
 	const existing = findDirectiveComment(src, 'lens');
 	if (existing) {

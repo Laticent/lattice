@@ -5,7 +5,8 @@ import DeckPreview from './DeckPreview';
 
 // A shared renderInto spy so we can assert what the component asked the renderer
 // to draw across re-renders. The engine itself is never involved.
-const { renderInto, dispose } = vi.hoisted(() => ({
+const { renderInto, dispose, whenReady } = vi.hoisted(() => ({
+	whenReady: vi.fn(() => Promise.resolve()),
 	renderInto: vi.fn(
 		(
 			_host: HTMLElement,
@@ -27,7 +28,7 @@ const created = vi.hoisted(() => [] as Array<Record<string, unknown>>);
 vi.mock('@/playground/single-slide-render', () => ({
 	createSingleSlideRenderer: (o: Record<string, unknown>) => (created.push(o), {
 		renderInto,
-		whenReady: () => Promise.resolve(),
+		whenReady,
 		onThemeChange: () => () => {},
 		scaleFrame() {},
 		ready: () => true,
@@ -53,6 +54,8 @@ beforeEach(() => {
 	renderInto.mockReset();
 	renderInto.mockImplementation(() => Promise.resolve({ ok: true, slides: 1, error: null }));
 	dispose.mockClear();
+	whenReady.mockReset();
+	whenReady.mockImplementation(() => Promise.resolve());
 });
 
 describe('DeckPreview — theme threading', () => {
@@ -329,6 +332,188 @@ describe('DeckPreview — render failure affordance (#1164)', () => {
 		// …and the card carries the renderer's REASON, not a bare "couldn't render". The
 		// reason is the actionable half; without it the author cannot tell what to change.
 		expect(container.querySelector('.nacre-failed__text')?.textContent).toContain('renders as 2 slides');
+	});
+
+	it('an engine that did not load shows the failure card with its reason on a LOADER host, and Retry imports again', async () => {
+		// The Studio's preview is a loader host. whenReady() rejecting used to throw into the frame scheduler's
+		// `.catch`, which swallowed it: no card, and the skeleton spun for good (PR #3368's first-render notes).
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		whenReady.mockImplementation(() => Promise.reject(new Error('Importing a module script failed.')));
+		const { container, getByText } = render(<DeckPreview options={opts} sample="# A" drawn={false} loader aria-label="p" />);
+		await waitFor(() => expect(container.querySelector('.nacre-failed')).toBeTruthy());
+		expect(container.querySelector('.nacre-failed__text')?.textContent).toContain('the slide engine did not load; check the connection, then Retry');
+		// The browser's message (a module URL, wider than a phone) is the console's, not the card's.
+		expect(container.querySelector('.nacre-failed__text')?.textContent).not.toContain('Importing a module script failed');
+		expect(warn).toHaveBeenCalledWith('[preview] the slide engine did not load:', expect.any(Error));
+		warn.mockRestore();
+		expect(container.querySelector('.nacre-loader')).toBeNull();
+		expect(renderInto).not.toHaveBeenCalled();
+		// The engine loads on Retry (load-engine drops a rejected import, so it really imports again): the slide renders.
+		whenReady.mockImplementation(() => Promise.resolve());
+		fireEvent.click(getByText('Retry'));
+		await waitFor(() => expect(renderInto).toHaveBeenCalled());
+		await waitFor(() => expect(container.querySelector('.nacre-failed')).toBeNull());
+	});
+
+	it('an engine that fails while a slide is ALREADY SHOWING (the newcomer bake) leaves the slide visible: a bar, not a cover', async () => {
+		// Measured on Chromium and WebKit: the head seed's bake had painted a correct slide when the engine import failed,
+		// and the full card hid it. Now the card is a bar along the slide's foot and the slide stays in the a11y tree.
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		let fail: (e: Error) => void = () => {};
+		whenReady.mockImplementation(() => new Promise<void>((_, reject) => (fail = reject)));
+		const { container } = render(<DeckPreview options={opts} sample="# A" drawn={false} loader aria-label="p" />);
+		const fr = document.createElement('iframe');
+		fr.className = 'live';
+		fr.style.opacity = '1';
+		container.querySelector('figure')?.appendChild(fr);
+		await waitFor(() => expect(whenReady).toHaveBeenCalled());
+		fail(new Error('Importing a module script failed.'));
+		await waitFor(() => expect(container.querySelector('.nacre-failed')).toBeTruthy());
+		expect(container.querySelector('.nacre-failed')?.classList.contains('nacre-failed--bar')).toBe(true);
+		// The slide shown IS right, so the bar does not say it couldn't render: it says edits will not show.
+		expect(container.querySelector('.nacre-failed__text')?.textContent).toBe('The slide engine did not load, so edits will not show here.');
+		expect(fr.hasAttribute('aria-hidden')).toBe(false);
+		warn.mockRestore();
+	});
+
+	it('an engine that fails with NO slide on screen covers the box, and hides the parked frame from the a11y tree', async () => {
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		let fail: (e: Error) => void = () => {};
+		whenReady.mockImplementation(() => new Promise<void>((_, reject) => (fail = reject)));
+		const { container } = render(<DeckPreview options={opts} sample="# A" drawn={false} loader aria-label="p" />);
+		const fr = document.createElement('iframe');
+		fr.className = 'live';
+		fr.style.opacity = '0';
+		container.querySelector('figure')?.appendChild(fr);
+		await waitFor(() => expect(whenReady).toHaveBeenCalled());
+		fail(new Error('Importing a module script failed.'));
+		await waitFor(() => expect(container.querySelector('.nacre-failed')).toBeTruthy());
+		expect(container.querySelector('.nacre-failed')?.classList.contains('nacre-failed--bar')).toBe(false);
+		await waitFor(() => expect(fr.getAttribute('aria-hidden')).toBe('true'));
+		// The newcomer bake can land AFTER the failure: that slide is correct, so the cover becomes the bar over it and the
+		// frame leaves aria-hidden (the checker on PR #3385 saw the full card over a revealed slide in 3 of 4 desktop runs).
+		fr.style.opacity = '1';
+		await waitFor(() => expect(container.querySelector('.nacre-failed')?.classList.contains('nacre-failed--bar')).toBe(true));
+		expect(container.querySelector('.nacre-failed__text')?.textContent).toBe('The slide engine did not load, so edits will not show here.');
+		await waitFor(() => expect(fr.hasAttribute('aria-hidden')).toBe(false));
+		warn.mockRestore();
+	});
+
+	it('an engine that fails AGAIN after Retry offers Reload: an in-page retry cannot fetch a sub-file the browser cached as failed', async () => {
+		// A browser build that keeps a failed engine SUB-FILE's error in the page replays it on a second in-page retry, since
+		// `?retry=N` renames only the entry (measured, PR #3385). A reload, or a new tab, is what recovers it there.
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		const reload = vi.fn();
+		const realLocation = window.location;
+		Object.defineProperty(window, 'location', { configurable: true, value: { ...realLocation, reload } });
+		try {
+			whenReady.mockImplementation(() => Promise.reject(new Error('Importing a module script failed.')));
+			const { container, getByText, rerender } = render(<DeckPreview options={opts} sample="# A" drawn={false} loader reloadSafe aria-label="p" />);
+			await waitFor(() => expect(getByText('Retry')).toBeTruthy());
+			fireEvent.click(getByText('Retry'));
+			await waitFor(() => expect(getByText('Reload')).toBeTruthy());
+			expect(container.querySelector('.nacre-failed__text')?.textContent).toContain('the slide engine still did not load; reload, or open the page in a new tab');
+			// An edit schedules another render, which fails too: the card stays Reload (it is sticky until the engine loads).
+			const calls = whenReady.mock.calls.length;
+			rerender(<DeckPreview options={opts} sample="# B" drawn={false} loader reloadSafe aria-label="p" />);
+			await waitFor(() => expect(whenReady.mock.calls.length).toBeGreaterThan(calls));
+			await waitFor(() => expect(getByText('Reload')).toBeTruthy());
+			fireEvent.click(getByText('Reload'));
+			expect(reload).toHaveBeenCalledTimes(1);
+			// The engine arriving (an edit's render succeeding) clears it all.
+			whenReady.mockImplementation(() => Promise.resolve());
+			rerender(<DeckPreview options={opts} sample="# C" drawn={false} loader reloadSafe aria-label="p" />);
+			await waitFor(() => expect(renderInto).toHaveBeenCalled());
+			await waitFor(() => expect(container.querySelector('.nacre-failed')).toBeNull());
+		} finally {
+			Object.defineProperty(window, 'location', { configurable: true, value: realLocation });
+			warn.mockRestore();
+		}
+	});
+
+	it('a page the Reload button reloaded, where the engine fails again, says to close the tab and open the page again: no button', async () => {
+		// The iOS Simulator probe (engine-retry.mjs, PR #3385): in Mobile Safari a reload, and a tab the page opens, both failed
+		// on a cut engine sub-file without one request; a tab the person opened loaded it. So the card offers no button there.
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		const open = vi.spyOn(window, 'open').mockImplementation(() => null);
+		sessionStorage.setItem('lattice-preview-engine-reloaded', '1');
+		try {
+			whenReady.mockImplementation(() => Promise.reject(new Error('Importing a module script failed.')));
+			const { container, rerender } = render(<DeckPreview options={opts} sample="# A" drawn={false} loader reloadSafe aria-label="p" />);
+			await waitFor(() => expect(container.querySelector('.nacre-failed__text')?.textContent).toContain('still did not load after a reload; close this tab and open the page again'));
+			expect(container.querySelector('.nacre-failed__retry')).toBeNull();
+			expect(open).not.toHaveBeenCalled();
+			// The engine arriving clears the state, and the mark.
+			whenReady.mockImplementation(() => Promise.resolve());
+			rerender(<DeckPreview options={opts} sample="# B" drawn={false} loader reloadSafe aria-label="p" />);
+			await waitFor(() => expect(container.querySelector('.nacre-failed')).toBeNull());
+			expect(sessionStorage.getItem('lattice-preview-engine-reloaded')).toBeNull();
+		} finally {
+			sessionStorage.removeItem('lattice-preview-engine-reloaded');
+			open.mockRestore();
+			warn.mockRestore();
+		}
+	});
+
+	it('the Reload button marks the tab before it reloads, so the reloaded page knows', async () => {
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		const reload = vi.fn();
+		const realLocation = window.location;
+		Object.defineProperty(window, 'location', { configurable: true, value: { ...realLocation, reload } });
+		try {
+			whenReady.mockImplementation(() => Promise.reject(new Error('Importing a module script failed.')));
+			const { getByText } = render(<DeckPreview options={opts} sample="# A" drawn={false} loader reloadSafe aria-label="p" />);
+			await waitFor(() => expect(getByText('Retry')).toBeTruthy());
+			fireEvent.click(getByText('Retry'));
+			await waitFor(() => expect(getByText('Reload')).toBeTruthy());
+			fireEvent.click(getByText('Reload'));
+			expect(sessionStorage.getItem('lattice-preview-engine-reloaded')).toBe('1');
+			expect(reload).toHaveBeenCalledTimes(1);
+		} finally {
+			sessionStorage.removeItem('lattice-preview-engine-reloaded');
+			Object.defineProperty(window, 'location', { configurable: true, value: realLocation });
+			warn.mockRestore();
+		}
+	});
+
+	it('a host that is NOT reload-safe ignores a reloaded mark: it keeps Retry', async () => {
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		sessionStorage.setItem('lattice-preview-engine-reloaded', '1');
+		try {
+			whenReady.mockImplementation(() => Promise.reject(new Error('Importing a module script failed.')));
+			const { container, getByText, queryByText } = render(<DeckPreview options={opts} sample="# A" drawn={false} aria-label="p" />);
+			await waitFor(() => expect(getByText('Retry')).toBeTruthy());
+			expect(queryByText('Reload')).toBeNull();
+			// Its first failure reads as a first failure: the mark is the Studio deck's, not this host's.
+			expect(container.querySelector('.nacre-failed__text')?.textContent).toContain('check the connection, then Retry');
+		} finally {
+			sessionStorage.removeItem('lattice-preview-engine-reloaded');
+			warn.mockRestore();
+		}
+	});
+
+	it('a host that is NOT reload-safe never offers Reload: it keeps Retry and says to save first', async () => {
+		// The theme editor and the component lab hold unsaved work in React state alone, so a reload there would lose it
+		// (the checker on PR #3385). Only the Studio's deck preview, saved on pagehide, sets `reloadSafe`.
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		const reload = vi.fn();
+		const realLocation = window.location;
+		Object.defineProperty(window, 'location', { configurable: true, value: { ...realLocation, reload } });
+		try {
+			whenReady.mockImplementation(() => Promise.reject(new Error('Importing a module script failed.')));
+			const { container, getByText, queryByText } = render(<DeckPreview options={opts} sample="# A" drawn={false} aria-label="p" />);
+			await waitFor(() => expect(getByText('Retry')).toBeTruthy());
+			fireEvent.click(getByText('Retry'));
+			await waitFor(() => expect(container.querySelector('.nacre-failed__text')?.textContent).toContain('save your work, then reload the page or open it in a new tab'));
+			expect(queryByText('Reload')).toBeNull();
+			const calls = whenReady.mock.calls.length;
+			fireEvent.click(getByText('Retry'));
+			await waitFor(() => expect(whenReady.mock.calls.length).toBeGreaterThan(calls));
+			expect(reload).not.toHaveBeenCalled();
+		} finally {
+			Object.defineProperty(window, 'location', { configurable: true, value: realLocation });
+			warn.mockRestore();
+		}
 	});
 
 	it('a transient "renderer disposed" (host detached mid-render) does NOT trip the failure affordance', async () => {

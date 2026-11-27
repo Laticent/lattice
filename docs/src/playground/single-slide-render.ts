@@ -25,8 +25,10 @@
 import { unclosedSectionAt } from '@laticent/markup';
 import { analysisText } from '@/lib/payload-elision';
 import { paneComponentsSig } from '@/playground/pane-sheet-sig.js';
+import cssTokensLib from '../../../lib/core/css-tokens.js';
 import { agentTag, frameAgentsUrl } from '../../../lib/core/frame-agents.mjs';
 import { withoutAutoGlossary } from '../../../lib/core/glossary-auto.mjs';
+import { readRecord } from '../../../lib/core/meta-door.mjs';
 import { sanitizeStyleText } from '../../../lib/core/sanitize-style-text.mjs';
 import { deckSizeOf, screenCanvas } from '../../../lib/core/screen-canvas.mjs';
 import { slideEdgeK } from '../../../lib/core/slide-frame.mjs';
@@ -69,6 +71,8 @@ const PREVIEW_SCRIPT_NONCE = PAGE_SCRIPT_NONCE;
 
 import { installVideoBridge } from '../playground/video-overlay.js';
 import { hasVizScanListeners, recordVizScan, scanBlackFills } from '../playground/viz-findings';
+
+const { rewriteCssUrls } = cssTokensLib;
 
 // The math plugin's own `detect` (math.syntax.mjs `sourceHasMath`), through the generated detector
 // table, never by importing the plugin's folder (tools/structure.js holds that line).
@@ -573,11 +577,31 @@ function narrowToSlide(html: string, index: number, slideCount?: number, deck = 
 	return out + html.slice(pos);
 }
 
-/** A raw, over-matching probe for a class word in a slide RECORD (`<!-- @meta{layout=divider} -->`), the record arm
- *  beside each `_class` probe below. Raw on purpose, like them: a word in code or prose costs one whole-deck render,
- *  and a miss would preview a wrong slide. */
+/** Each slide RECORD in the text (`<!-- @meta{layout=divider} -->`, `<!-- {…} -->`), read through the shared door: its
+ *  class words (`readRecord` folds `layout`, `variant`, `universal` and `modifiers` into `class`) and whether it carries.
+ *  Raw on purpose, like the `_class` probes below: a record in code or prose still counts, which costs one whole-deck
+ *  render, and a miss would preview a wrong slide. But only the CLASS is read: a footer, a note or an alt text that says
+ *  "proof", "carry" or "agenda" is prose (a footer saying "A proof chain" sent the math gallery's preview to the
+ *  whole-deck route and typeset all of its math).
+ *
+ *  It starts only at a record OPENER (`<!--` then `{` or `@meta{`). Pairing every `<!--` with the next `-->` let an
+ *  unclosed `<!--` in inline code or a fence swallow the record after it, and the preview lost a `carry` the engine
+ *  applies (the checker on #3433). */
+function slideRecords(text: string): Array<{ words: Set<string>; carry: boolean }> {
+	const out: Array<{ words: Set<string>; carry: boolean }> = [];
+	const opener = /<!--(?=\s*(?:@meta)?\{)/g;
+	for (let m = opener.exec(text); m; m = opener.exec(text)) {
+		const end = text.indexOf('-->', m.index + 4);
+		if (end < 0) break;
+		const rec = readRecord(text.slice(m.index + 4, end));
+		if (rec?.ok) out.push({ words: new Set(String(rec.d.class ?? '').split(/\s+/).filter(Boolean)), carry: !!rec.carry });
+	}
+	return out;
+}
+
+/** A class word in a slide record, the record arm beside each `_class` probe below. */
 function recordHasWord(text: string, word: string): boolean {
-	return new RegExp(`<!--\\s*(?:@meta)?\\{(?:(?!-->)[\\s\\S])*?\\b${word}\\b`).test(text);
+	return slideRecords(text).some((r) => r.words.has(word));
 }
 
 // ── Does this deck need a whole-deck render at all? ──────────────────────────
@@ -659,7 +683,8 @@ export const DECK_DERIVED_FACTS: ReadonlyArray<{
 		fact: 'running-global directive',
 		why: 'a directive comment without the `_` spot prefix (other than header and footer, and a paginate comment, which does nothing) applies to its slide AND every one after, so a slice loses what it inherited',
 		// A record that carries (`<!-- @meta{class=dark, carry} -->`) is the same running global in the record spelling.
-		probes: [/<!--\s*(?!_)[a-zA-Z][\w-]*\s*:/, /<!--\s*(?:@meta)?\{(?:(?!-->)[\s\S])*?\bcarry\b/],
+		probes: [/<!--\s*(?!_)[a-zA-Z][\w-]*\s*:/],
+		test: (deck) => slideRecords(deck).some((r) => r.carry),
 	},
 
 	{
@@ -716,9 +741,10 @@ export const DECK_DERIVED_FACTS: ReadonlyArray<{
 		why: 'cat-N is assigned from the slide\'s ordinal among the deck\'s proof slides, so a lone slice always takes cat-1',
 		probes: [
 			/<!--\s*_?class\s*:[^>]*\b(?:proof|capstone)\b/, // directive comment
-			/<!--\s*(?:@meta)?\{(?:(?!-->)[\s\S])*?\b(?:proof|capstone)\b/, // slide record
 			/^\s*class\s*:[^\n]*\b(?:proof|capstone)\b/m, // front matter / global
 		],
+		// A slide record (`<!-- @meta{layout=split-panel, class=proof} -->`), by its class words only.
+		test: (deck) => slideRecords(deck).some((r) => r.words.has('proof') || r.words.has('capstone')),
 	},
 ];
 
@@ -1079,19 +1105,27 @@ const SHEET_CACHE_MAX = 6;
  *
  * `data:` and `blob:` values are already absolute and left alone.
  */
-function absolutizeUrls(css: string): string {
-	const base = typeof document !== 'undefined' ? document.baseURI : '';
+function absolutizeUrls(css: string, base: string = typeof document !== 'undefined' ? document.baseURI : ''): string {
 	if (!base) return css;
-	return css.replace(/url\((\s*)(['"]?)([^'")]+)\2(\s*)\)/g, (whole, pre, quote, raw) => {
-		const value = String(raw).trim();
-		if (!value || /^(?:[a-z][a-z0-9+.-]*:|#)/i.test(value)) return whole; // data:, blob:, https:, #frag
+	// Each real `url(…)`, read by the CSS tokenizer (Segno P5): one in a comment or a string is not rewritten, and an escaped
+	// address is resolved as the browser decodes it. The resolved address goes back where the written one was, so it is
+	// escaped for that place: inside quotes, its quote, a backslash and a newline; unquoted, also the characters an unquoted
+	// url() cannot hold (quotes, parentheses, whitespace). `new URL()` leaves `'` and `(` as they are.
+	return rewriteCssUrls(css, (_raw, { value, quoted, rawFrom }) => {
+		if (!value || /^(?:[a-z][a-z0-9+.-]*:|#)/i.test(value)) return undefined; // data:, blob:, https:, #frag
+		let href: string;
 		try {
-			return `url(${pre}${quote}${new URL(value, base).href}${quote}${''})`;
+			href = new URL(value, base).href;
 		} catch {
-			return whole;
+			return undefined;
 		}
+		const quote = quoted ? css[rawFrom - 1] : '';
+		return href.replace(quoted ? /[\\\n]|["']/g : /[\\\s"'()]/g, (c) => (quoted && (c === '"' || c === "'") && c !== quote ? c : c === '\n' ? '\\a ' : `\\${c}`));
 	});
 }
+
+/** For tests only: `absolutizeUrls` against an explicit base. */
+export const __absolutizeUrlsForTest = absolutizeUrls;
 
 /**
  * A URL serving `css`, shared with every other frame that wants the same bytes — or `null`

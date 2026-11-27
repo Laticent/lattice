@@ -5,8 +5,8 @@ pagination: true
 header: "Lattice · The stage owns the outer inset"
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
+<!-- @meta{layout=title, header=""} -->
+
 
 # One box, one inset
 
@@ -16,8 +16,8 @@ Chart and diagram paid the frame inset twice. Every figure after this slide is 1
 
 ---
 
-<!-- _class: table -->
-<!-- _footer: "The rule · table" -->
+<!-- @meta{layout=table, footer=The rule · table} -->
+
 
 ## Six buckets, one rule, two that broke it.
 
@@ -34,8 +34,8 @@ _Measured on a 1280×720 indaco render — distance in px from the slide edge, b
 
 ---
 
-<!-- _class: quadrant -->
-<!-- _footer: "Chart — the reclaimed inline axis · quadrant" -->
+<!-- @meta{layout=quadrant, footer="Chart — the reclaimed inline axis · quadrant"} -->
+
 
 `[{Effort, 0..10}, {Reach, 0..100}]`
 
@@ -58,8 +58,8 @@ The figure box goes 896 to 1024; the letterboxed drawing is height-bound, so the
 
 ---
 
-<!-- _class: progress -->
-<!-- _footer: "Chart — an HTML body genuinely widens · progress" -->
+<!-- @meta{layout=progress, footer="Chart — an HTML body genuinely widens · progress"} -->
+
 
 `H1 2026 · Phase 1 readiness`
 
@@ -73,8 +73,8 @@ The figure box goes 896 to 1024; the letterboxed drawing is height-bound, so the
 
 ---
 
-<!-- _class: diagram -->
-<!-- _footer: "Diagram — aligned with its own title · diagram" -->
+<!-- @meta{layout=diagram, footer="Diagram — aligned with its own title · diagram"} -->
+
 
 `Architecture · The box chain`
 
@@ -95,8 +95,8 @@ flowchart LR
 
 ---
 
-<!-- _class: content -->
-<!-- _footer: "What a body may still own · content" -->
+<!-- @meta{layout=content, footer=What a body may still own · content} -->
+
 
 `The second clause`
 
@@ -113,8 +113,8 @@ _The gate tests this by measurement — a non-transparent background, a backgrou
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
+<!-- @meta{layout=closing, header=""} -->
+
 
 ## The inset is one number, in one place.
 

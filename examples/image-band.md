@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · image band"
 ---
 
-<!-- _class: image spotlight image-card-bottom image-card-band -->
+<!-- @meta{layout=image, class=spotlight image-card-bottom image-card-band} -->
 
 ## A band keeps the middle of the photo clear.
 
@@ -15,7 +15,7 @@ The card stretches the full width along the bottom edge. The heading takes the l
 
 ---
 
-<!-- _class: image spotlight image-card-top image-card-band image-card-soft -->
+<!-- @meta{layout=image, class=spotlight image-card-top image-card-band image-card-soft} -->
 
 ## The same strip along the top.
 
@@ -25,7 +25,7 @@ Soft backing lets the sky show through, and whatever sits below the strip stays 
 
 ---
 
-<!-- _class: image statement image-card-bottom image-card-band -->
+<!-- @meta{layout=image, class=statement image-card-bottom image-card-band} -->
 
 ## On a statement, the scrim becomes the band.
 
@@ -35,7 +35,7 @@ The title steps down one size to fit its column, and the scrim fades out sooner 
 
 ---
 
-<!-- _class: image statement image-card-top image-card-band image-card-dark -->
+<!-- @meta{layout=image, class=statement image-card-top image-card-band image-card-dark} -->
 
 ## Dark words on a light strip, top edge.
 
@@ -45,7 +45,7 @@ The title steps down one size to fit its column, and the scrim fades out sooner 
 
 ---
 
-<!-- _class: image spotlight image-card-bottom image-card-band image-card-sm compact image-card-compact -->
+<!-- @meta{layout=image, class=spotlight image-card-bottom image-card-band image-card-sm compact image-card-compact} -->
 
 ## Small and compact for a quiet caption.
 
@@ -55,7 +55,7 @@ The title steps down one size to fit its column, and the scrim fades out sooner 
 
 ---
 
-<!-- _class: image spotlight image-card-bottom image-card-band image-card-lg -->
+<!-- @meta{layout=image, class=spotlight image-card-bottom image-card-band image-card-lg} -->
 
 ## A heading alone fills the strip.
 
@@ -63,7 +63,7 @@ The title steps down one size to fit its column, and the scrim fades out sooner 
 
 ---
 
-<!-- _class: image spotlight image-card-bottom-left image-card-band -->
+<!-- @meta{layout=image, class=spotlight image-card-bottom-left image-card-band} -->
 
 ## Band needs a top or bottom placement.
 
@@ -73,7 +73,7 @@ On a corner it does nothing, so this card stays a corner card.
 
 ---
 
-<!-- _class: image spotlight image-card-bottom image-card-band image-card-65 image-card-light trim-spectrum-rainbow -->
+<!-- @meta{layout=image, class=spotlight image-card-bottom image-card-band image-card-65 image-card-light trim-spectrum-rainbow} -->
 
 ## A band, 65% dark, spectrum trim on.
 
@@ -83,7 +83,7 @@ The divider takes the trim's style: a quiet accent tint by default, the theme's 
 
 ---
 
-<!-- _class: image spotlight image-card-35 image-card-light -->
+<!-- @meta{layout=image, class=spotlight image-card-35 image-card-light} -->
 
 ## A stacked card at 35%, light ink.
 
@@ -93,7 +93,7 @@ A thin backing needs a matching ink. The line under the heading takes no space.
 
 ---
 
-<!-- _class: image statement image-card-bottom no-heading-rule -->
+<!-- @meta{layout=image, class=statement image-card-bottom no-heading-rule} -->
 
 ## rule: none drops the hairline.
 

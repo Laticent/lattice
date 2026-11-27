@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · gantt"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # gantt
 
@@ -15,8 +15,7 @@ Gantt chart — task bars across a date axis.
 
 ---
 
-<!-- _class: gantt -->
-<!-- _footer: "Default · gantt" -->
+<!-- @meta{layout=gantt, footer=Default · gantt} -->
 
 `[{Timeline, 2026 Q1 .. 2026 Q4, today=Q3}]`
 
@@ -38,9 +37,8 @@ Bars are spans, diamonds are moments, color is status, and tasks that run at the
 
 ---
 
-<!-- _class: gantt -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · gantt — Twelve months, every lane overlapping." -->
+<!-- @meta{layout=gantt, footer="Stress test · gantt — Twelve months, every lane overlapping."} -->
+<!-- @meta{stress-slide} -->
 
 `[{Timeline, 2026 Jan .. 2026 Dec}]`
 
@@ -60,8 +58,7 @@ Bars are spans, diamonds are moments, color is status, and tasks that run at the
 
 ---
 
-<!-- _class: gantt dark -->
-<!-- _footer: "Composition: dark · gantt dark" -->
+<!-- @meta{layout=gantt, class=dark, footer=Composition: dark · gantt dark} -->
 
 `[{Timeline, 2026 Q1 .. 2026 Q4, today=Q3}]`
 
@@ -83,8 +80,7 @@ Bars are spans, diamonds are moments, color is status, and tasks that run at the
 
 ---
 
-<!-- _class: gantt compact -->
-<!-- _footer: "Composition: compact · gantt compact" -->
+<!-- @meta{layout=gantt, class=compact, footer=Composition: compact · gantt compact} -->
 
 `[{Timeline, 2026 Q1 .. 2026 Q4, today=Q3}]`
 
@@ -106,8 +102,7 @@ Bars are spans, diamonds are moments, color is status, and tasks that run at the
 
 ---
 
-<!-- _class: gantt accent -->
-<!-- _footer: "Composition: accent · gantt accent" -->
+<!-- @meta{layout=gantt, class=accent, footer=Composition: accent · gantt accent} -->
 
 `[{Timeline, 2026 Q1 .. 2026 Q4, today=Q3}]`
 
@@ -129,8 +124,7 @@ Bars are spans, diamonds are moments, color is status, and tasks that run at the
 
 ---
 
-<!-- _class: cards-grid three claim-hero -->
-<!-- _footer: "Anti-patterns · gantt" -->
+<!-- @meta{layout=cards-grid, class=three claim-hero, footer=Anti-patterns · gantt} -->
 
 ## When NOT to reach for gantt.
 
@@ -143,7 +137,7 @@ Bars are spans, diamonds are moments, color is status, and tasks that run at the
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

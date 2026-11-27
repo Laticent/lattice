@@ -6,8 +6,8 @@ mode: sketch
 header: "Meridian Freight · platform review"
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
+<!-- @meta{layout=title, header=""} -->
+
 
 `Diagram type · engine`
 
@@ -17,7 +17,7 @@ A sketch deck used to wrap hand-drawn shapes around machine-faced labels. Now th
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `Flowchart · consignment intake`
 
@@ -38,7 +38,7 @@ flowchart LR
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `State diagram · consignment lifecycle`
 
@@ -61,7 +61,7 @@ stateDiagram-v2
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `Class diagram · domain model`
 
@@ -97,7 +97,7 @@ classDiagram
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `Entity relationship · settlement schema`
 
@@ -116,7 +116,7 @@ erDiagram
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Why it was never a CSS fix`
 
@@ -131,7 +131,7 @@ erDiagram
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `Sequence · legacy renderer`
 
@@ -154,7 +154,7 @@ sequenceDiagram
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `Gantt · legacy renderer`
 
@@ -177,8 +177,8 @@ gantt
 
 ---
 
-<!-- _class: diagram boardroom -->
-<!-- _header: "Meridian Freight · platform review · opted out" -->
+<!-- @meta{layout=diagram, class=boardroom, header=Meridian Freight · platform review · opted out} -->
+
 
 `Per-slide opt-out`
 
@@ -193,7 +193,7 @@ flowchart LR
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Where the shape answer stops`
 

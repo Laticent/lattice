@@ -6,7 +6,7 @@ pagination: true
 header: "Computational neuroscience · Course overview"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 <!-- tier: short -->
 
 `NEUR 540 · Graduate Seminar · Fall 2026`
@@ -17,7 +17,7 @@ A twelve-week graduate course modeling how neurons compute, individually and tog
 
 ---
 
-<!-- _class: agenda -->
+<!-- @meta{layout=agenda} -->
 <!-- tier: short -->
 
 ## What this first session covers.
@@ -29,7 +29,7 @@ A twelve-week graduate course modeling how neurons compute, individually and tog
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## This course builds a working brain model, one layer at a time.
@@ -38,7 +38,7 @@ We start from a single neuron's electrical behavior and end with networks that l
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## Who this course is for, and what it assumes.
@@ -50,7 +50,7 @@ This is a graduate seminar for students with calculus, basic linear algebra, and
 
 ---
 
-<!-- _class: roadmap -->
+<!-- @meta{layout=roadmap} -->
 <!-- tier: short -->
 
 `Twelve weeks · three modules`
@@ -65,7 +65,7 @@ This is a graduate seminar for students with calculus, basic linear algebra, and
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- @meta{layout=list, class=takeaway} -->
 <!-- tier: short -->
 
 ## By the end of the course, you will be able to:
@@ -81,7 +81,7 @@ This is a graduate seminar for students with calculus, basic linear algebra, and
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## How you are assessed: code more than exams.
@@ -93,7 +93,7 @@ Grades come mostly from the weekly coding labs, where you build the models we de
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## The final project: model one phenomenon end to end.
@@ -105,7 +105,7 @@ In the last month you will pick a neural phenomenon — a visual illusion, a dec
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## Course policies, briefly.
@@ -117,7 +117,7 @@ Labs are due Fridays at 5pm; two no-questions late days are yours to spend acros
 
 ---
 
-<!-- _class: checklist -->
+<!-- @meta{layout=checklist} -->
 <!-- tier: short -->
 
 ## What to do before next week.
@@ -130,7 +130,7 @@ Labs are due Fridays at 5pm; two no-questions late days are yours to spend acros
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## Office hours and how to get unstuck.
@@ -142,9 +142,9 @@ I hold office hours Tuesdays and Thursdays, and the TA runs a lab clinic before 
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 <!-- tier: short -->
 
 ## By December, you will have built a brain that learns — line by line.

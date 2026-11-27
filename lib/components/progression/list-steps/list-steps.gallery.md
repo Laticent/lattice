@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · list-steps"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # list-steps
 
@@ -15,8 +15,7 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 
 ---
 
-<!-- _class: list-steps -->
-<!-- _footer: "Default · list-steps" -->
+<!-- @meta{layout=list-steps, footer=Default · list-steps} -->
 
 ## Steps promise an order and keep it.
 
@@ -32,8 +31,7 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 
 ---
 
-<!-- _class: list-steps vertical compact -->
-<!-- _footer: "vertical · list-steps vertical — Steps stack down the page." -->
+<!-- @meta{layout=list-steps, class=vertical compact, footer="vertical · list-steps vertical — Steps stack down the page."} -->
 
 ## vertical stacks the steps down the page.
 
@@ -47,8 +45,7 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 
 ---
 
-<!-- _class: list-steps chevron -->
-<!-- _footer: "chevron · list-steps chevron — Down-chevron tabs cascade into keyed description cards." -->
+<!-- @meta{layout=list-steps, class=chevron, footer="chevron · list-steps chevron — Down-chevron tabs cascade into keyed description cards."} -->
 
 ## Make the case, one stage at a time.
 
@@ -64,8 +61,7 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 
 ---
 
-<!-- _class: list-steps converge -->
-<!-- _footer: "converge · list-steps converge — Tapering bands narrow onto the final stage (a qualitative funnel)." -->
+<!-- @meta{layout=list-steps, class=converge, footer="converge · list-steps converge — Tapering bands narrow onto the final stage (a qualitative funnel)."} -->
 
 ## Many concerns narrow onto one plan.
 
@@ -79,8 +75,7 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 
 ---
 
-<!-- _class: list-steps ghost -->
-<!-- _footer: "ghost · list-steps ghost — Faint chevron watermark, eyebrow label, hero description — editorial." -->
+<!-- @meta{layout=list-steps, class=ghost, footer="ghost · list-steps ghost — Faint chevron watermark, eyebrow label, hero description — editorial."} -->
 
 ## The argument, stated plainly.
 
@@ -94,8 +89,7 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 
 ---
 
-<!-- _class: list-steps timeline -->
-<!-- _footer: "timeline · list-steps timeline — Steps string along a line." -->
+<!-- @meta{layout=list-steps, class=timeline, footer="timeline · list-steps timeline — Steps string along a line."} -->
 
 ## timeline strings the steps along a line.
 
@@ -109,8 +103,7 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 
 ---
 
-<!-- _class: list-steps phase -->
-<!-- _footer: "phase · list-steps phase — Each step blocks as an era." -->
+<!-- @meta{layout=list-steps, class=phase, footer="phase · list-steps phase — Each step blocks as an era."} -->
 
 ## phase blocks each step as an era.
 
@@ -124,8 +117,7 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 
 ---
 
-<!-- _class: list-steps milestone lettered -->
-<!-- _footer: "milestone · list-steps milestone — Steps mark as checkpoints." -->
+<!-- @meta{layout=list-steps, class=milestone lettered, footer="milestone · list-steps milestone — Steps mark as checkpoints."} -->
 
 ## milestone marks the steps as checkpoints.
 
@@ -139,8 +131,7 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 
 ---
 
-<!-- _class: list-steps lettered -->
-<!-- _footer: "lettered · list-steps lettered — Letters count the steps." -->
+<!-- @meta{layout=list-steps, class=lettered, footer="lettered · list-steps lettered — Letters count the steps."} -->
 
 ## lettered counts the steps with letters.
 
@@ -154,8 +145,7 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 
 ---
 
-<!-- _class: list-steps stage -->
-<!-- _footer: "Stage · list-steps stage — Stage tags prefix each step." -->
+<!-- @meta{layout=list-steps, class=stage, footer="Stage · list-steps stage — Stage tags prefix each step."} -->
 
 ## stage prefixes each step with its stage tag.
 
@@ -169,8 +159,7 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 
 ---
 
-<!-- _class: list-steps rank -->
-<!-- _footer: "Rank · list-steps rank — Numbers read as standings." -->
+<!-- @meta{layout=list-steps, class=rank, footer="Rank · list-steps rank — Numbers read as standings."} -->
 
 ## rank reads the numbers as standings.
 
@@ -184,8 +173,7 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 
 ---
 
-<!-- _class: list-steps tier roman -->
-<!-- _footer: "Tier · list-steps tier — Steps render as service tiers." -->
+<!-- @meta{layout=list-steps, class=tier roman, footer="Tier · list-steps tier — Steps render as service tiers."} -->
 
 ## tier renders the steps as service tiers.
 
@@ -199,8 +187,7 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 
 ---
 
-<!-- _class: list-steps phase roman -->
-<!-- _footer: "Roman numerals · list-steps roman — Numerals count the phases." -->
+<!-- @meta{layout=list-steps, class=phase roman, footer="Roman numerals · list-steps roman — Numerals count the phases."} -->
 
 ## roman counts the phases in numerals.
 
@@ -214,8 +201,7 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 
 ---
 
-<!-- _class: list-steps capsule -->
-<!-- _footer: "capsule · list-steps capsule — Centered, editorial: pill badges, serif titles, no connectors." -->
+<!-- @meta{layout=list-steps, class=capsule, footer="capsule · list-steps capsule — Centered, editorial: pill badges, serif titles, no connectors."} -->
 
 ## Turn the framework into a habit.
 
@@ -229,9 +215,8 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 
 ---
 
-<!-- _class: list-steps -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · list-steps — Six steps — the last honest sequence." -->
+<!-- @meta{layout=list-steps, footer="Stress test · list-steps — Six steps — the last honest sequence."} -->
+<!-- @meta{stress-slide} -->
 
 ## Five steps is the last honest sequence.
 
@@ -249,8 +234,7 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 
 ---
 
-<!-- _class: list-steps dark -->
-<!-- _footer: "Composition: dark · list-steps dark" -->
+<!-- @meta{layout=list-steps, class=dark, footer=Composition: dark · list-steps dark} -->
 
 ## Steps promise an order and keep it.
 
@@ -266,8 +250,7 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 
 ---
 
-<!-- _class: list-steps compact -->
-<!-- _footer: "Composition: compact · list-steps compact" -->
+<!-- @meta{layout=list-steps, class=compact, footer=Composition: compact · list-steps compact} -->
 
 ## Steps promise an order and keep it.
 
@@ -283,8 +266,7 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 
 ---
 
-<!-- _class: list-steps accent -->
-<!-- _footer: "Composition: accent · list-steps accent" -->
+<!-- @meta{layout=list-steps, class=accent, footer=Composition: accent · list-steps accent} -->
 
 ## Steps promise an order and keep it.
 
@@ -300,8 +282,7 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 
 ---
 
-<!-- _class: cards-grid three claim-hero -->
-<!-- _footer: "Anti-patterns · list-steps" -->
+<!-- @meta{layout=cards-grid, class=three claim-hero, footer=Anti-patterns · list-steps} -->
 
 ## When NOT to reach for list-steps.
 
@@ -314,7 +295,7 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

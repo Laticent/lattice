@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · status word agreement"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Status words agree
 
@@ -15,7 +15,7 @@ A status word colors the same way wherever the engine accepts it.
 
 ---
 
-<!-- _class: kanban -->
+<!-- @meta{layout=kanban} -->
 
 `kanban · capitals`
 
@@ -41,7 +41,7 @@ A status word colors the same way wherever the engine accepts it.
 
 ---
 
-<!-- _class: progress -->
+<!-- @meta{layout=progress} -->
 
 `progress · capitals`
 
@@ -58,7 +58,7 @@ A status word colors the same way wherever the engine accepts it.
 
 ---
 
-<!-- _class: timeline-list -->
+<!-- @meta{layout=timeline-list} -->
 
 `timeline-list · capitals`
 
@@ -75,7 +75,7 @@ A status word colors the same way wherever the engine accepts it.
 
 ---
 
-<!-- _class: gantt -->
+<!-- @meta{layout=gantt} -->
 
 `[{Timeline, 2026 Q1 .. 2026 Q4}]`
 
@@ -93,7 +93,7 @@ A status word colors the same way wherever the engine accepts it.
 
 ---
 
-<!-- _class: state-chart lr -->
+<!-- @meta{layout=state-chart, class=lr} -->
 
 `Submission lifecycle · lr`
 
@@ -110,7 +110,7 @@ A status word colors the same way wherever the engine accepts it.
 
 ---
 
-<!-- _class: slope -->
+<!-- @meta{layout=slope} -->
 
 `slope · entity status`
 
@@ -128,7 +128,7 @@ A status word colors the same way wherever the engine accepts it.
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 # Same word, same color.
 

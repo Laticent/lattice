@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · inventory"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # inventory
 
@@ -15,8 +15,7 @@ A parallel set of related items of similar weight — one content shape, four in
 
 ---
 
-<!-- _class: inventory -->
-<!-- _footer: "Default · inventory" -->
+<!-- @meta{layout=inventory, footer=Default · inventory} -->
 
 `inventory · the parts ledger`
 
@@ -30,8 +29,7 @@ A parallel set of related items of similar weight — one content shape, four in
 
 ---
 
-<!-- _class: inventory cards -->
-<!-- _footer: "Cards · inventory cards — The register as tiles with a pull-quote." -->
+<!-- @meta{layout=inventory, class=cards, footer="Cards · inventory cards — The register as tiles with a pull-quote."} -->
 
 `inventory cards`
 
@@ -45,8 +43,7 @@ A parallel set of related items of similar weight — one content shape, four in
 
 ---
 
-<!-- _class: inventory timeline -->
-<!-- _footer: "Timeline · inventory timeline — A numbered run along a line." -->
+<!-- @meta{layout=inventory, class=timeline, footer="Timeline · inventory timeline — A numbered run along a line."} -->
 
 `inventory timeline`
 
@@ -60,8 +57,7 @@ A parallel set of related items of similar weight — one content shape, four in
 
 ---
 
-<!-- _class: inventory editorial -->
-<!-- _footer: "Editorial · inventory editorial — A magazine split with a sidebar takeaway." -->
+<!-- @meta{layout=inventory, class=editorial, footer="Editorial · inventory editorial — A magazine split with a sidebar takeaway."} -->
 
 `inventory editorial`
 
@@ -77,9 +73,8 @@ A parallel set of related items of similar weight — one content shape, four in
 
 ---
 
-<!-- _class: inventory compact -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · inventory — Five full rows are the 16:9 ceiling; a sixth clips." -->
+<!-- @meta{layout=inventory, class=compact, footer="Stress test · inventory — Five full rows are the 16:9 ceiling; a sixth clips."} -->
+<!-- @meta{stress-slide} -->
 
 ## The ledger clips past five full rows.
 
@@ -92,8 +87,7 @@ A parallel set of related items of similar weight — one content shape, four in
 
 ---
 
-<!-- _class: inventory dark -->
-<!-- _footer: "Composition: dark · inventory dark" -->
+<!-- @meta{layout=inventory, class=dark, footer=Composition: dark · inventory dark} -->
 
 `inventory · the parts ledger`
 
@@ -107,8 +101,7 @@ A parallel set of related items of similar weight — one content shape, four in
 
 ---
 
-<!-- _class: inventory compact -->
-<!-- _footer: "Composition: compact · inventory compact" -->
+<!-- @meta{layout=inventory, class=compact, footer=Composition: compact · inventory compact} -->
 
 `inventory · the parts ledger`
 
@@ -122,8 +115,7 @@ A parallel set of related items of similar weight — one content shape, four in
 
 ---
 
-<!-- _class: inventory accent -->
-<!-- _footer: "Composition: accent · inventory accent" -->
+<!-- @meta{layout=inventory, class=accent, footer=Composition: accent · inventory accent} -->
 
 `inventory · the parts ledger`
 
@@ -137,8 +129,7 @@ A parallel set of related items of similar weight — one content shape, four in
 
 ---
 
-<!-- _class: cards-grid claim-hero -->
-<!-- _footer: "Anti-patterns · inventory · 1 of 2" -->
+<!-- @meta{layout=cards-grid, class=claim-hero, footer=Anti-patterns · inventory · 1 of 2} -->
 
 ## When NOT to reach for inventory.
 
@@ -149,8 +140,7 @@ A parallel set of related items of similar weight — one content shape, four in
 
 ---
 
-<!-- _class: cards-grid claim-hero -->
-<!-- _footer: "Anti-patterns · inventory · 2 of 2" -->
+<!-- @meta{layout=cards-grid, class=claim-hero, footer=Anti-patterns · inventory · 2 of 2} -->
 
 ## When NOT to reach for inventory.
 
@@ -161,7 +151,7 @@ A parallel set of related items of similar weight — one content shape, four in
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

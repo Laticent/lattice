@@ -7,9 +7,9 @@ header: "Lattice · sequential ramp"
 footer: "Canvas-relative stops · #1697"
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=title, header="", footer=""} -->
+
+
 
 # The ramp learns which canvas it is on.
 
@@ -19,8 +19,8 @@ footer: "Canvas-relative stops · #1697"
 
 ---
 
-<!-- _class: cards-grid three -->
-<!-- _footer: "The defect · #1697" -->
+<!-- @meta{layout=cards-grid, class=three, footer=The defect · #1697} -->
+
 
 ## One direction cannot serve two canvases.
 
@@ -33,8 +33,8 @@ footer: "Canvas-relative stops · #1697"
 
 ---
 
-<!-- _class: word-cloud spectrum -->
-<!-- _footer: "The four loud tiers are ramp stops · light canvas" -->
+<!-- @meta{layout=word-cloud, class=spectrum, footer=The four loud tiers are ramp stops · light canvas} -->
+
 
 ## Weight reads as heat on a light canvas.
 
@@ -54,8 +54,8 @@ footer: "Canvas-relative stops · #1697"
 
 ---
 
-<!-- _class: word-cloud spectrum dark -->
-<!-- _footer: "The same words, the same order, the opposite direction · dark canvas" -->
+<!-- @meta{layout=word-cloud, class=spectrum dark, footer="The same words, the same order, the opposite direction · dark canvas"} -->
+
 
 ## And the same heat on a dark one.
 
@@ -75,8 +75,8 @@ footer: "Canvas-relative stops · #1697"
 
 ---
 
-<!-- _class: cards-grid three -->
-<!-- _footer: "The mechanism · two poles" -->
+<!-- @meta{layout=cards-grid, class=three, footer=The mechanism · two poles} -->
+
 
 ## The stops interpolate toward a pair, not toward black.
 
@@ -89,8 +89,8 @@ footer: "Canvas-relative stops · #1697"
 
 ---
 
-<!-- _class: cards-grid three -->
-<!-- _footer: "The half a pole pair does not fix · headroom" -->
+<!-- @meta{layout=cards-grid, class=three, footer=The half a pole pair does not fix · headroom} -->
+
 
 ## Poles fix the direction. The anchor owns the headroom.
 
@@ -103,8 +103,8 @@ footer: "Canvas-relative stops · #1697"
 
 ---
 
-<!-- _class: divider dark -->
-<!-- _footer: "" -->
+<!-- @meta{layout=divider, class=dark, footer=""} -->
+
 
 ## A brand hue is not a stop on a scale.
 
@@ -114,8 +114,8 @@ An accent's lightness is whatever the palette needed for an accent, so weight 4 
 
 ---
 
-<!-- _class: closing -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, footer=""} -->
+
 
 # 38 of 38 encodings ordered.
 

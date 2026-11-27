@@ -6,7 +6,7 @@ header: "Lattice · charts"
 footer: "Chart lead paragraphs — every paragraph before the figure renders"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Every paragraph before a chart renders
 
@@ -14,7 +14,7 @@ footer: "Chart lead paragraphs — every paragraph before the figure renders"
 
 ---
 
-<!-- _class: bar -->
+<!-- @meta{layout=bar} -->
 
 `Revenue mix · FY26`
 
@@ -33,7 +33,7 @@ Bookings, not billings: a multi-year deal counts in the quarter it closed.
 
 ---
 
-<!-- _class: line -->
+<!-- @meta{layout=line} -->
 
 `Pipeline · weekly`
 
@@ -60,7 +60,7 @@ A third paragraph renders too, in the order it was written.
 
 ---
 
-<!-- _class: progress -->
+<!-- @meta{layout=progress} -->
 
 `H1 2026 · Phase 1 readiness`
 
@@ -81,8 +81,8 @@ Adoption is blocked on the data-sharing agreement, not on engineering.
 
 ## A pane keeps its second paragraph too.
 
-<!-- _class: columns ratio-55-45 -->
-<!-- _pane: bar -->
+<!-- @meta{layout=columns, class=ratio-55-45} -->
+<!-- @meta{pane=bar} -->
 
 Revenue by line, $M.
 
@@ -92,7 +92,7 @@ Bookings, not billings.
 - Services `47`
 - Support `18`
 
-<!-- _pane: list -->
+<!-- @meta{pane=list} -->
 
 - Services crossed licenses in March
 - Support margin is the steadiest line
@@ -100,7 +100,7 @@ Bookings, not billings.
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 # Nothing an author writes is dropped
 

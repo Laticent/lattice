@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · obligation-matrix"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # obligation-matrix
 
@@ -15,8 +15,7 @@ Regulation × obligation grid — state-marker cells encode applies / partial / 
 
 ---
 
-<!-- _class: obligation-matrix -->
-<!-- _footer: "Default · obligation-matrix" -->
+<!-- @meta{layout=obligation-matrix, footer=Default · obligation-matrix} -->
 
 ## The matrix grids obligations across regimes.
 
@@ -34,8 +33,7 @@ Neutral ink — data first.
 
 ---
 
-<!-- _class: obligation-matrix heat -->
-<!-- _footer: "heat · obligation-matrix heat — Cells shaded by burden." -->
+<!-- @meta{layout=obligation-matrix, class=heat, footer="heat · obligation-matrix heat — Cells shaded by burden."} -->
 
 ## heat shades the cells by burden.
 
@@ -53,8 +51,7 @@ Heat marks burden, not relief — exempt cells stay neutral.
 
 ---
 
-<!-- _class: obligation-matrix asymmetric -->
-<!-- _footer: "asymmetric · obligation-matrix asymmetric — Regimes differ in kind." -->
+<!-- @meta{layout=obligation-matrix, class=asymmetric, footer="asymmetric · obligation-matrix asymmetric — Regimes differ in kind."} -->
 
 ## asymmetric admits the regimes differ in kind.
 
@@ -69,8 +66,7 @@ Each row promotes to a card with body-level breathing room.
 
 ---
 
-<!-- _class: obligation-matrix pills -->
-<!-- _footer: "pills · obligation-matrix pills — Cells as status words." -->
+<!-- @meta{layout=obligation-matrix, class=pills, footer="pills · obligation-matrix pills — Cells as status words."} -->
 
 ## pills spell each cell as a status word.
 
@@ -88,8 +84,7 @@ Same data, neutral chrome — the state pills carry the meaning without the heat
 
 ---
 
-<!-- _class: obligation-matrix lanes -->
-<!-- _footer: "lanes · obligation-matrix lanes — One regime per band." -->
+<!-- @meta{layout=obligation-matrix, class=lanes, footer="lanes · obligation-matrix lanes — One regime per band."} -->
 
 ## lanes walks one regime per band.
 
@@ -107,9 +102,8 @@ Each lane stripe signals that the row is its own regime, not a rank.
 
 ---
 
-<!-- _class: obligation-matrix -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · obligation-matrix — Six regimes by five duties." -->
+<!-- @meta{layout=obligation-matrix, footer="Stress test · obligation-matrix — Six regimes by five duties."} -->
+<!-- @meta{stress-slide} -->
 
 ## Six regimes by five duties is the grid ceiling.
 
@@ -125,8 +119,7 @@ Each lane stripe signals that the row is its own regime, not a rank.
 
 ---
 
-<!-- _class: obligation-matrix dark -->
-<!-- _footer: "Composition: dark · obligation-matrix dark" -->
+<!-- @meta{layout=obligation-matrix, class=dark, footer=Composition: dark · obligation-matrix dark} -->
 
 ## The matrix grids obligations across regimes.
 
@@ -144,8 +137,7 @@ Neutral ink — data first.
 
 ---
 
-<!-- _class: obligation-matrix compact -->
-<!-- _footer: "Composition: compact · obligation-matrix compact" -->
+<!-- @meta{layout=obligation-matrix, class=compact, footer=Composition: compact · obligation-matrix compact} -->
 
 ## The matrix grids obligations across regimes.
 
@@ -163,8 +155,7 @@ Neutral ink — data first.
 
 ---
 
-<!-- _class: obligation-matrix accent -->
-<!-- _footer: "Composition: accent · obligation-matrix accent" -->
+<!-- @meta{layout=obligation-matrix, class=accent, footer=Composition: accent · obligation-matrix accent} -->
 
 ## The matrix grids obligations across regimes.
 
@@ -182,8 +173,7 @@ Neutral ink — data first.
 
 ---
 
-<!-- _class: cards-grid claim-hero -->
-<!-- _footer: "Anti-patterns · obligation-matrix · 1 of 2" -->
+<!-- @meta{layout=cards-grid, class=claim-hero, footer=Anti-patterns · obligation-matrix · 1 of 2} -->
 
 ## When NOT to reach for obligation-matrix.
 
@@ -194,8 +184,7 @@ Neutral ink — data first.
 
 ---
 
-<!-- _class: cards-grid claim-hero -->
-<!-- _footer: "Anti-patterns · obligation-matrix · 2 of 2" -->
+<!-- @meta{layout=cards-grid, class=claim-hero, footer=Anti-patterns · obligation-matrix · 2 of 2} -->
 
 ## When NOT to reach for obligation-matrix.
 
@@ -204,7 +193,7 @@ Neutral ink — data first.
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

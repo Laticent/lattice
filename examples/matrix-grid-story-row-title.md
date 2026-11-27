@@ -6,7 +6,7 @@ size: story
 header: "Lattice · matrix-grid on a 9:16 box"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Charts · matrix-grid`
 
@@ -16,8 +16,8 @@ On a portrait or story box the row title lies flat above the grid, and the colum
 
 ---
 
-<!-- _class: matrix-grid -->
-<!-- _footer: "The ceiling · six by five" -->
+<!-- @meta{layout=matrix-grid, footer=The ceiling · six by five} -->
+
 
 `[Wider reach, Deeper cognition]`
 
@@ -34,8 +34,8 @@ On a portrait or story box the row title lies flat above the grid, and the colum
 
 ---
 
-<!-- _class: matrix-grid -->
-<!-- _footer: "Four columns · the same flat row title" -->
+<!-- @meta{layout=matrix-grid, footer=Four columns · the same flat row title} -->
+
 
 `[Wider reach, Deeper cognition]`
 
@@ -50,8 +50,8 @@ On a portrait or story box the row title lies flat above the grid, and the colum
 
 ---
 
-<!-- _class: matrix-grid -->
-<!-- _footer: "Long axis names · stacked" -->
+<!-- @meta{layout=matrix-grid, footer=Long axis names · stacked} -->
+
 
 `[Breadth of organizational reach, Depth of judgment required]`
 
@@ -65,8 +65,8 @@ On a portrait or story box the row title lies flat above the grid, and the colum
 
 ---
 
-<!-- _class: matrix-grid -->
-<!-- _footer: "A very long title · it wraps" -->
+<!-- @meta{layout=matrix-grid, footer=A very long title · it wraps} -->
+
 
 `[Breadth of reach across the whole organization and beyond it, Depth of judgment and cognition required for the role at hand]`
 
@@ -80,8 +80,8 @@ On a portrait or story box the row title lies flat above the grid, and the colum
 
 ---
 
-<!-- _class: matrix-grid -->
-<!-- _footer: "Row axis only · the flat title alone" -->
+<!-- @meta{layout=matrix-grid, footer=Row axis only · the flat title alone} -->
+
 
 `[, Deeper cognition]`
 
@@ -95,8 +95,8 @@ On a portrait or story box the row title lies flat above the grid, and the colum
 
 ---
 
-<!-- _class: matrix-grid -->
-<!-- _footer: "Column axis only · it wraps too" -->
+<!-- @meta{layout=matrix-grid, footer=Column axis only · it wraps too} -->
+
 
 `[Breadth of reach across the whole organization and beyond it]`
 

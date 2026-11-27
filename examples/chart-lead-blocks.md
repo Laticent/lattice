@@ -6,7 +6,7 @@ header: "Lattice · charts"
 footer: "Chart lead blocks — every block before the figure renders"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Every block before a chart renders
 
@@ -14,7 +14,7 @@ footer: "Chart lead blocks — every block before the figure renders"
 
 ---
 
-<!-- _class: bar -->
+<!-- @meta{layout=bar} -->
 
 `Query cost · p95`
 
@@ -35,7 +35,7 @@ CREATE INDEX orders_by_region
 
 ---
 
-<!-- _class: line -->
+<!-- @meta{layout=line} -->
 
 `Churn · monthly`
 
@@ -58,7 +58,7 @@ Logo churn, percent of accounts.
 
 ---
 
-<!-- _class: bar -->
+<!-- @meta{layout=bar} -->
 
 `Revenue mix · FY26`
 
@@ -77,7 +77,7 @@ Revenue by line, $M.
 
 ---
 
-<!-- _class: progress -->
+<!-- @meta{layout=progress} -->
 
 `H1 2026 · Phase 1 readiness`
 
@@ -98,8 +98,8 @@ Percent of exit criteria met.
 
 ## A pane keeps its code block too.
 
-<!-- _class: columns ratio-55-45 -->
-<!-- _pane: bar -->
+<!-- @meta{layout=columns, class=ratio-55-45} -->
+<!-- @meta{pane=bar} -->
 
 p95 milliseconds.
 
@@ -111,7 +111,7 @@ CREATE INDEX ON orders (region);
 - After `190`
 - Budget `250`
 
-<!-- _pane: list -->
+<!-- @meta{pane=list} -->
 
 - The report query was a full scan
 - One composite index fixed it
@@ -119,7 +119,7 @@ CREATE INDEX ON orders (region);
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 # Nothing an author writes is dropped
 

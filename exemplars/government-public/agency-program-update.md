@@ -6,7 +6,7 @@ pagination: true
 header: "Digital Benefits Service · Program Update"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 <!-- tier: short -->
 
 `Quarterly program review · Q2 FY2027`
@@ -17,7 +17,7 @@ Where the rebuild of the state's unemployment-insurance claims system stands at 
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## The headline: the new system now handles 70% of claims, on time and on budget.
@@ -26,7 +26,7 @@ Two years in, the modernised platform processes seven of every ten initial claim
 
 ---
 
-<!-- _class: kpi compact -->
+<!-- @meta{layout=kpi, class=compact} -->
 <!-- tier: short -->
 
 ## Ahead on adoption, inside cost and quality targets.
@@ -43,7 +43,7 @@ Two years in, the modernised platform processes seven of every ten initial claim
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 <!-- tier: short -->
 
 `Outcomes · Claimant experience`
@@ -63,7 +63,7 @@ Two years in, the modernised platform processes seven of every ten initial claim
 
 ---
 
-<!-- _class: kpi compact -->
+<!-- @meta{layout=kpi, class=compact} -->
 <!-- tier: standard -->
 
 ## Meeting availability and accuracy service levels.
@@ -80,7 +80,7 @@ Two years in, the modernised platform processes seven of every ten initial claim
 
 ---
 
-<!-- _class: roadmap -->
+<!-- @meta{layout=roadmap} -->
 <!-- tier: short -->
 
 `Plan · FY2027 – FY2028`
@@ -96,7 +96,7 @@ Two years in, the modernised platform processes seven of every ten initial claim
 
 ---
 
-<!-- _class: roadmap -->
+<!-- @meta{layout=roadmap} -->
 <!-- tier: full -->
 
 `Status · As-of this review`
@@ -112,7 +112,7 @@ Two years in, the modernised platform processes seven of every ten initial claim
 
 ---
 
-<!-- _class: matrix-2x2 -->
+<!-- @meta{layout=matrix-2x2} -->
 <!-- tier: standard -->
 
 ## Where the open program risks sit on likelihood against impact.
@@ -128,7 +128,7 @@ Two years in, the modernised platform processes seven of every ten initial claim
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## The one risk worth the board's attention: the mainframe retirement date.
@@ -137,9 +137,9 @@ Retiring the legacy mainframe in Q4 depends on the appeals module shipping on ti
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 <!-- tier: short -->
 
 ## On track to retire the mainframe and finish the rebuild on budget.

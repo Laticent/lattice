@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · pricing feature rows wrap"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # A pricing feature row wraps inside its card.
 
@@ -15,8 +15,8 @@ A feature row used to stay on one line however narrow its tier was, so the card 
 
 ---
 
-<!-- _class: pricing -->
-<!-- _footer: "The default sample · \"Checks accumulate up the ladder\" ran 11px past the Growth card and was cut" -->
+<!-- @meta{layout=pricing, footer="The default sample · \\\"Checks accumulate up the ladder\\\" ran 11px past the Growth card and was cut"} -->
+
 
 ## Three tiers, one recommended column.
 
@@ -38,8 +38,8 @@ A feature row used to stay on one line however narrow its tier was, so the card 
 
 ---
 
-<!-- _class: pricing -->
-<!-- _footer: "Long rows · each wraps under its own text; the mark stays on the first line" -->
+<!-- @meta{layout=pricing, footer="Long rows · each wraps under its own text; the mark stays on the first line"} -->
+
 
 ## Real feature names run longer than the sample.
 
@@ -61,8 +61,8 @@ A feature row used to stay on one line however narrow its tier was, so the card 
 
 ---
 
-<!-- _class: pricing four -->
-<!-- _footer: "four · the narrowest columns, where wrapping matters most" -->
+<!-- @meta{layout=pricing, class=four, footer="four · the narrowest columns, where wrapping matters most"} -->
+
 
 ## Four tiers narrow the columns.
 
@@ -89,8 +89,8 @@ A feature row used to stay on one line however narrow its tier was, so the card 
 
 ---
 
-<!-- _class: pricing two -->
-<!-- _footer: "two · short rows still sit on one line" -->
+<!-- @meta{layout=pricing, class=two, footer=two · short rows still sit on one line} -->
+
 
 ## Two plans, head to head.
 
@@ -105,8 +105,8 @@ A feature row used to stay on one line however narrow its tier was, so the card 
 
 ---
 
-<!-- _class: pricing dark -->
-<!-- _footer: "dark · the wrapped row keeps its strike-through and its muted color" -->
+<!-- @meta{layout=pricing, class=dark, footer=dark · the wrapped row keeps its strike-through and its muted color} -->
+
 
 ## Dark mode wraps the same way.
 
@@ -128,8 +128,8 @@ A feature row used to stay on one line however narrow its tier was, so the card 
 
 ---
 
-<!-- _class: pricing compact -->
-<!-- _footer: "compact · tighter spacing, same wrap" -->
+<!-- @meta{layout=pricing, class=compact, footer="compact · tighter spacing, same wrap"} -->
+
 
 ## Compact spacing keeps the wrap.
 
@@ -151,7 +151,7 @@ A feature row used to stay on one line however narrow its tier was, so the card 
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 ## A feature row now wraps instead of being cut.
 

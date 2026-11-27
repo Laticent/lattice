@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · label attribution"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Which dot is this name?
 
@@ -15,7 +15,7 @@ A crowded plot asks the reader two questions. **Which mark does this name belong
 
 ---
 
-<!-- _class: statement silent -->
+<!-- @meta{class=statement silent} -->
 
 ## Beside is not the same as nearest.
 
@@ -23,8 +23,8 @@ A crowded plot asks the reader two questions. **Which mark does this name belong
 
 ---
 
-<!-- _class: quadrant -->
-<!-- _footer: "Ordinary density — nothing travelled, nothing drawn" -->
+<!-- @meta{layout=quadrant, footer="Ordinary density — nothing travelled, nothing drawn"} -->
+
 
 `[{Effort, 0..10}, {Reach, 0..100}]`
 
@@ -45,8 +45,8 @@ A leader is drawn only where a name could not sit against its own dot. None had 
 
 ---
 
-<!-- _class: quadrant -->
-<!-- _footer: "Fourteen initiatives — every name names its dot" -->
+<!-- @meta{layout=quadrant, footer="Fourteen initiatives — every name names its dot"} -->
+
 
 `[{Effort, 0..10}, {Reach, 0..100}]`
 
@@ -75,8 +75,8 @@ Eight names travelled far enough to need a line. Trace any one and it lands on i
 
 ---
 
-<!-- _class: scatter -->
-<!-- _footer: "The column reads in the dots’ own order" -->
+<!-- @meta{layout=scatter, footer="The column reads in the dots’ own order"} -->
+
 
 `[Annual cost, Teams adopting]`
 
@@ -99,8 +99,8 @@ Four sit within four points of each other and their dots overlap. The stacked na
 
 ---
 
-<!-- _class: quadrant -->
-<!-- _footer: "A column you can check against the dots" -->
+<!-- @meta{layout=quadrant, footer=A column you can check against the dots} -->
+
 
 `[{Effort, 0..10}, {Reach, 0..100}]`
 
@@ -123,7 +123,7 @@ Five names in one corner, and their dots far enough apart to check the reading. 
 
 ---
 
-<!-- _class: statement silent -->
+<!-- @meta{class=statement silent} -->
 
 ## One emitter, one hairline, one rule.
 

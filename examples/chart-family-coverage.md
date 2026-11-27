@@ -6,9 +6,9 @@ pagination: true
 header: "Lattice · Chart family coverage"
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=title, header="", footer=""} -->
+
+
 
 # More charts join the family
 
@@ -18,8 +18,8 @@ header: "Lattice · Chart family coverage"
 
 ---
 
-<!-- _class: content -->
-<!-- _footer: "Why fold them in · content" -->
+<!-- @meta{layout=content, footer=Why fold them in · content} -->
+
 
 ## One family, defined by the frame — not the bucket.
 
@@ -27,8 +27,8 @@ A chart-family member is any layout the engine wraps in `.chart-frame`. That net
 
 ---
 
-<!-- _class: journey -->
-<!-- _footer: "journey — now framed · chart family" -->
+<!-- @meta{layout=journey, footer="journey — now framed · chart family"} -->
+
 
 ## Customer onboarding · trial to activation.
 
@@ -45,8 +45,8 @@ A chart-family member is any layout the engine wraps in `.chart-frame`. That net
 
 ---
 
-<!-- _class: journey curve -->
-<!-- _footer: "journey curve — the affect contour · chart family" -->
+<!-- @meta{layout=journey, class=curve, footer="journey curve — the affect contour · chart family"} -->
+
 
 ## Curve · the affect contour.
 
@@ -62,8 +62,8 @@ A chart-family member is any layout the engine wraps in `.chart-frame`. That net
 
 ---
 
-<!-- _class: word-cloud -->
-<!-- _footer: "word-cloud — now framed · chart family" -->
+<!-- @meta{layout=word-cloud, footer="word-cloud — now framed · chart family"} -->
+
 
 ## What 38 win/loss interviews kept saying, by frequency.
 
@@ -79,8 +79,8 @@ A chart-family member is any layout the engine wraps in `.chart-frame`. That net
 
 ---
 
-<!-- _class: word-cloud spectrum -->
-<!-- _footer: "word-cloud spectrum — heat ramp by weight · chart family" -->
+<!-- @meta{layout=word-cloud, class=spectrum, footer="word-cloud spectrum — heat ramp by weight · chart family"} -->
+
 
 ## Retro themes, ramped hottest-first.
 
@@ -95,8 +95,8 @@ A chart-family member is any layout the engine wraps in `.chart-frame`. That net
 
 ---
 
-<!-- _class: roadmap -->
-<!-- _footer: "roadmap — now framed, shape-distinct markers · chart family" -->
+<!-- @meta{layout=roadmap, footer="roadmap — now framed, shape-distinct markers · chart family"} -->
+
 
 ## What ships in each phase, by workstream.
 
@@ -109,8 +109,8 @@ A chart-family member is any layout the engine wraps in `.chart-frame`. That net
 
 ---
 
-<!-- _class: progress -->
-<!-- _footer: "progress — an established member, same skeleton · chart family" -->
+<!-- @meta{layout=progress, footer="progress — an established member, same skeleton · chart family"} -->
+
 
 `H1 2026 · Phase 1 readiness`
 
@@ -126,7 +126,7 @@ Same chart-frame header and caption as the two new members above.
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 `Lattice · Chart family`
 

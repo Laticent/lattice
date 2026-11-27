@@ -12,7 +12,7 @@ acronyms:
   KPI: key performance indicator
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # The deck that writes its own glossary.
 
@@ -24,7 +24,7 @@ Add `glossary: auto` to the front matter and the acronym registry's definitions 
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 ## You already wrote the definitions.
 
@@ -54,7 +54,7 @@ The generated page lists each defined term alphabetically, with the runtime's au
 
 ---
 
-<!-- _class: light -->
+<!-- @meta{class=light} -->
 
 ## It also rides in the manifest.
 

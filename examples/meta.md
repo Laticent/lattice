@@ -5,7 +5,7 @@ header: "Lattice · slide records"
 footer: "One record per slide"
 ---
 
-<!-- {layout=title, footer=""} -->
+<!-- @meta{layout=title, footer=""} -->
 <!-- @note{Open on the record itself: everything a slide is told lives in one comment.} -->
 <!-- @handout{Every slide in this deck sets its layout and footer with one record comment, and each note with its own. Nothing else is configured.} -->
 
@@ -17,7 +17,7 @@ A slide's settings live in one comment; each note lives in its own.
 
 ---
 
-<!-- {layout=list-steps, footer="How a record is read"} -->
+<!-- @meta{layout=list-steps, footer="How a record is read"} -->
 
 ## A record is read in four steps.
 
@@ -32,11 +32,11 @@ A slide's settings live in one comment; each note lives in its own.
 
 ---
 
-<!-- {layout=columns, footer="Panes take a record too"} -->
+<!-- @meta{layout=columns, footer="Panes take a record too"} -->
 
 ## A pane is one more field.
 
-<!-- {pane=bar} -->
+<!-- @meta{pane=bar} -->
 ### Directive comments today
 `by key, example and gallery decks`
 
@@ -44,7 +44,7 @@ A slide's settings live in one comment; each note lives in its own.
 - Footer `936`
 - Header `166`
 
-<!-- {pane=list} -->
+<!-- @meta{pane=list} -->
 <!-- @note{The pane record mixes with any other field.} -->
 ### What a record replaces
 
@@ -55,7 +55,7 @@ A slide's settings live in one comment; each note lives in its own.
 
 ---
 
-<!-- {layout=list-steps, focus-steps="item 1 | item 2 | item 3", footer="Focus steps walk one item at a time"} -->
+<!-- @meta{layout=list-steps, focus-steps="item 1 | item 2 | item 3", footer="Focus steps walk one item at a time"} -->
 
 ## Focus steps still walk the slide.
 
@@ -68,7 +68,7 @@ A slide's settings live in one comment; each note lives in its own.
 
 ---
 
-<!-- {layout=list-steps, footer="Settings in the record, notes beside it"} -->
+<!-- @meta{layout=list-steps, footer="Settings in the record, notes beside it"} -->
 <!-- @note{Two paragraphs of speaker note.
 
 The second one says the arrow --\> needs an escape inside a comment.} -->
@@ -85,7 +85,7 @@ The second one says the arrow --\> needs an escape inside a comment.} -->
 
 ---
 
-<!-- {layout=title, footer=""} -->
+<!-- @meta{layout=title, footer=""} -->
 
 # Same slides, one grammar.
 

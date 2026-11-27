@@ -21,7 +21,7 @@ style: |
   }
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Tokens · for presets`
 
@@ -31,7 +31,7 @@ A preset can now set the heading rule's weight, style and ink, the card rail's t
 
 ---
 
-<!-- _class: cards-grid three -->
+<!-- @meta{layout=cards-grid, class=three} -->
 
 `Unset · today's render`
 
@@ -48,7 +48,7 @@ The hooks read today's values as their fallbacks, so every existing deck keeps i
 
 ---
 
-<!-- _class: cards-grid three rule-auto -->
+<!-- @meta{layout=cards-grid, class=three rule-auto} -->
 
 `Set · a heavier hand`
 
@@ -65,7 +65,7 @@ One rule in the deck's `style:` block sets `--rule-w`, `--rule-mark`, `--rail-w`
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 
 `Set · a ledger rule`
 
@@ -80,7 +80,7 @@ One rule in the deck's `style:` block sets `--rule-w`, `--rule-mark`, `--rail-w`
 
 ---
 
-<!-- _class: list-steps rule-auto -->
+<!-- @meta{layout=list-steps, class=rule-auto} -->
 
 `Set · on steps`
 
@@ -95,7 +95,7 @@ One rule in the deck's `style:` block sets `--rule-w`, `--rule-mark`, `--rail-w`
 
 ---
 
-<!-- _class: content rule-short -->
+<!-- @meta{layout=content, class=rule-short} -->
 
 `Set · on the short rule`
 
@@ -108,7 +108,7 @@ One rule in the deck's `style:` block sets `--rule-w`, `--rule-mark`, `--rail-w`
 
 ---
 
-<!-- _class: decision rule-auto -->
+<!-- @meta{layout=decision, class=rule-auto} -->
 
 ## Square cards keep square tags.
 
@@ -123,7 +123,7 @@ One rule in the deck's `style:` block sets `--rule-w`, `--rule-mark`, `--rail-w`
 
 ---
 
-<!-- _class: cards-grid three dark rule-auto -->
+<!-- @meta{layout=cards-grid, class=three dark rule-auto} -->
 
 `Set · in dark mode`
 
@@ -138,7 +138,7 @@ One rule in the deck's `style:` block sets `--rule-w`, `--rule-mark`, `--rail-w`
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 ## Presets set these; authors do not have to.
 

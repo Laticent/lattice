@@ -4,7 +4,7 @@ theme: indaco
 pagination: true
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # One record per row, every field drawn.
 
@@ -14,7 +14,7 @@ A chart row is a label plus one record in braces. Bullet's band and floor and pr
 
 ---
 
-<!-- _class: bullet -->
+<!-- @meta{layout=bullet} -->
 
 `Service levels · Q3`
 
@@ -28,7 +28,7 @@ The record carries the floor and the cut point, so the zones and the axis come f
 
 ---
 
-<!-- _class: bullet -->
+<!-- @meta{layout=bullet} -->
 
 `Service levels · Q3 · the same rows, written as nested keyword rows`
 
@@ -48,7 +48,7 @@ Both spellings read through the same row schema until the codemod rewrites the o
 
 ---
 
-<!-- _class: progress -->
+<!-- @meta{layout=progress} -->
 
 `Launch readiness`
 
@@ -61,7 +61,7 @@ Both spellings read through the same row schema until the codemod rewrites the o
 
 ---
 
-<!-- _class: heatmap -->
+<!-- @meta{layout=heatmap} -->
 
 `Retention · 2026 cohorts`
 
@@ -77,7 +77,7 @@ A description after a value notes the cell, one in a header cell notes the colum
 
 ---
 
-<!-- _class: statement silent -->
+<!-- @meta{class=statement silent} -->
 
 ## What stays the same.
 

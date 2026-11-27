@@ -4,7 +4,7 @@ pagination: true
 header: "Prose with code"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 `Engine · prose-code.js`
 
@@ -14,7 +14,7 @@ The `:only-child` selector cannot see text, so this line used to render as a mut
 
 ---
 
-<!-- _class: topic -->
+<!-- @meta{layout=topic} -->
 
 `Section 01 · The panel`
 
@@ -24,7 +24,7 @@ The `background:` shorthand clears every longhand at once.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## A body slide keeps its sentence
 
@@ -37,7 +37,7 @@ The `--field-accent` slot names the color a finish draws in, and the pill stays 
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## A real subtitle still reads as one
 
@@ -50,7 +50,7 @@ The `--field-accent` slot names the color a finish draws in, and the pill stays 
 
 ---
 
-<!-- _class: authority-chain branching -->
+<!-- @meta{layout=authority-chain, class=branching} -->
 
 ## A list item follows the same rule, so every branch reads alike.
 
@@ -61,7 +61,7 @@ The `--field-accent` slot names the color a finish draws in, and the pill stays 
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 `#2308`
 

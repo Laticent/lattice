@@ -4,7 +4,7 @@ theme: indaco
 logo: ./acme-logo.svg
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # Slide One
 
@@ -19,7 +19,7 @@ Body slide — also tagged because every slide carries the logo by default.
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 ## Slide Three
 
@@ -27,7 +27,7 @@ Divider slide — also tagged for the same reason.
 
 ---
 
-<!-- _class: finish finish-aurora -->
+<!-- @meta{class=finish finish-aurora} -->
 
 ## Slide Four
 

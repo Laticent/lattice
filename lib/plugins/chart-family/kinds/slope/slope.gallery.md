@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · slope"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # slope
 
@@ -15,8 +15,7 @@ Two labeled columns joined by one line per entity, so a change in ranking reads 
 
 ---
 
-<!-- _class: slope -->
-<!-- _footer: "Default · slope" -->
+<!-- @meta{layout=slope, footer=Default · slope} -->
 
 ## Kestrel took the lead; Northwind gave it up.
 
@@ -39,8 +38,7 @@ Two labeled columns joined by one line per entity, so a change in ranking reads 
 
 ---
 
-<!-- _class: slope dumbbell -->
-<!-- _footer: "Dumbbell · slope dumbbell — The same before/after model as one row per entity: two dots joined by a bar on a shared value axis, with the first point hollow and the last solid." -->
+<!-- @meta{layout=slope, class=dumbbell, footer="Dumbbell · slope dumbbell — The same before/after model as one row per entity: two dots joined by a bar on a shared value axis, with the first point hollow and the last solid."} -->
 
 ## Every team came in over plan except two.
 
@@ -63,8 +61,7 @@ Two labeled columns joined by one line per entity, so a change in ranking reads 
 
 ---
 
-<!-- _class: slope signal -->
-<!-- _footer: "Signal · slope signal — Colors each line by direction — rising reads pass, falling reads fail. Opt-in, because the chart cannot know whether up is good news." -->
+<!-- @meta{layout=slope, class=signal, footer="Signal · slope signal — Colors each line by direction — rising reads pass, falling reads fail. Opt-in, because the chart cannot know whether up is good news."} -->
 
 ## Adoption rose everywhere but the two legacy regions.
 
@@ -87,9 +84,8 @@ Two labeled columns joined by one line per entity, so a change in ranking reads 
 
 ---
 
-<!-- _class: slope -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · slope — Eight entities with four of them inside 1.2 points of each other at the same date — the label collision a slopegraph lives or dies on." -->
+<!-- @meta{layout=slope, footer="Stress test · slope — Eight entities with four of them inside 1.2 points of each other at the same date — the label collision a slopegraph lives or dies on."} -->
+<!-- @meta{stress-slide} -->
 
 ## Eight suppliers, four in a dead heat.
 
@@ -121,8 +117,7 @@ Two labeled columns joined by one line per entity, so a change in ranking reads 
 
 ---
 
-<!-- _class: slope dark -->
-<!-- _footer: "Composition: dark · slope dark" -->
+<!-- @meta{layout=slope, class=dark, footer=Composition: dark · slope dark} -->
 
 ## Kestrel took the lead; Northwind gave it up.
 
@@ -145,8 +140,7 @@ Two labeled columns joined by one line per entity, so a change in ranking reads 
 
 ---
 
-<!-- _class: slope compact -->
-<!-- _footer: "Composition: compact · slope compact" -->
+<!-- @meta{layout=slope, class=compact, footer=Composition: compact · slope compact} -->
 
 ## Kestrel took the lead; Northwind gave it up.
 
@@ -169,8 +163,7 @@ Two labeled columns joined by one line per entity, so a change in ranking reads 
 
 ---
 
-<!-- _class: slope accent -->
-<!-- _footer: "Composition: accent · slope accent" -->
+<!-- @meta{layout=slope, class=accent, footer=Composition: accent · slope accent} -->
 
 ## Kestrel took the lead; Northwind gave it up.
 
@@ -193,8 +186,7 @@ Two labeled columns joined by one line per entity, so a change in ranking reads 
 
 ---
 
-<!-- _class: cards-grid claim-hero -->
-<!-- _footer: "Anti-patterns · slope · 1 of 2" -->
+<!-- @meta{layout=cards-grid, class=claim-hero, footer=Anti-patterns · slope · 1 of 2} -->
 
 ## When NOT to reach for slope.
 
@@ -205,8 +197,7 @@ Two labeled columns joined by one line per entity, so a change in ranking reads 
 
 ---
 
-<!-- _class: cards-grid claim-hero -->
-<!-- _footer: "Anti-patterns · slope · 2 of 2" -->
+<!-- @meta{layout=cards-grid, class=claim-hero, footer=Anti-patterns · slope · 2 of 2} -->
 
 ## When NOT to reach for slope.
 
@@ -217,7 +208,7 @@ Two labeled columns joined by one line per entity, so a change in ranking reads 
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

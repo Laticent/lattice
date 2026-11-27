@@ -6,7 +6,7 @@ header: "Lattice · line motion"
 motion: on
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # A plain line chart builds, too.
 
@@ -18,8 +18,8 @@ that had no detail bullets. The exported PDF is unchanged.
 
 ---
 
-<!-- _class: line -->
-<!-- _footer: "Default build · no detail bullets on this chart" -->
+<!-- @meta{layout=line, footer=Default build · no detail bullets on this chart} -->
+
 
 `Revenue by segment · $M`
 
@@ -52,8 +52,8 @@ that had no detail bullets. The exported PDF is unchanged.
 
 ---
 
-<!-- _class: line area -->
-<!-- _footer: "area · one series, and the fill builds with it" -->
+<!-- @meta{layout=line, class=area, footer="area · one series, and the fill builds with it"} -->
+
 
 `Cash on hand · months of runway`
 
@@ -68,8 +68,8 @@ that had no detail bullets. The exported PDF is unchanged.
 
 ---
 
-<!-- _class: line step motion-together -->
-<!-- _footer: "step · motion-together · the whole chart resolves at once" -->
+<!-- @meta{layout=line, class=step motion-together, footer=step · motion-together · the whole chart resolves at once} -->
+
 
 `List price · per seat`
 
@@ -84,8 +84,8 @@ that had no detail bullets. The exported PDF is unchanged.
 
 ---
 
-<!-- _class: line stacked-area motion-rise -->
-<!-- _footer: "stacked-area · motion-rise · each band slides up into place" -->
+<!-- @meta{layout=line, class=stacked-area motion-rise, footer=stacked-area · motion-rise · each band slides up into place} -->
+
 
 `Revenue mix · $M`
 
@@ -110,8 +110,8 @@ that had no detail bullets. The exported PDF is unchanged.
 
 ---
 
-<!-- _class: line no-motion -->
-<!-- _footer: "no-motion · the control, so the difference is visible" -->
+<!-- @meta{layout=line, class=no-motion, footer="no-motion · the control, so the difference is visible"} -->
+
 
 `Median latency · ms`
 
@@ -126,8 +126,8 @@ that had no detail bullets. The exported PDF is unchanged.
 
 ---
 
-<!-- _class: content -->
-<!-- _footer: "What the reader gets on each surface" -->
+<!-- @meta{layout=content, footer=What the reader gets on each surface} -->
+
 
 ## One source, four surfaces.
 

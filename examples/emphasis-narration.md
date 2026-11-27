@@ -7,9 +7,9 @@ header: "Lattice · emphasis narration"
 footer: "read-aloud holds a beat after what matters"
 ---
 
-<!-- _class: title -->
-<!-- _footer: '' -->
-<!-- _header: '' -->
+<!-- @meta{layout=title, footer="", header=""} -->
+
+
 
 # Narration that knows what matters.
 

@@ -9,7 +9,7 @@ acronyms:
   II: two
 ---
 
-<!-- _class: title silent spectrum -->
+<!-- @meta{layout=title, class=silent spectrum} -->
 
 # From Remembering to Creating
 
@@ -19,8 +19,8 @@ A level-guided journey for software engineers.
 
 ---
 
-<!-- _class: quote bare -->
-<!-- _footer: "Hook · quote bare" -->
+<!-- @meta{layout=quote, class=bare, footer=Hook · quote bare} -->
+
 
 > The difference between a senior engineer and a staff engineer isn't what they ship — it's how they think about what to ship.
 
@@ -28,8 +28,8 @@ A level-guided journey for software engineers.
 
 ---
 
-<!-- _class: premise -->
-<!-- _footer: "Premise · premise" -->
+<!-- @meta{layout=premise, footer=Premise · premise} -->
+
 
 ## Growth is a change in thinking, not title.
 
@@ -56,8 +56,8 @@ Six cognitive verbs map the questions an engineer learns to ask — your level i
 
 ---
 
-<!-- _class: split-panel proof -->
-<!-- _footer: "Level 1 · split-panel proof" -->
+<!-- @meta{layout=split-panel, class=proof, footer=Level 1 · split-panel proof} -->
+
 
 `Level 1 · Remembering`
 
@@ -74,8 +74,8 @@ Six cognitive verbs map the questions an engineer learns to ask — your level i
 
 ---
 
-<!-- _class: split-panel proof -->
-<!-- _footer: "Level 2 · split-panel proof" -->
+<!-- @meta{layout=split-panel, class=proof, footer=Level 2 · split-panel proof} -->
+
 
 `Level 2 · Understanding`
 
@@ -92,8 +92,8 @@ Six cognitive verbs map the questions an engineer learns to ask — your level i
 
 ---
 
-<!-- _class: split-panel proof -->
-<!-- _footer: "Level 3 · split-panel proof" -->
+<!-- @meta{layout=split-panel, class=proof, footer=Level 3 · split-panel proof} -->
+
 
 `Level 3 · Applying`
 
@@ -110,8 +110,8 @@ Six cognitive verbs map the questions an engineer learns to ask — your level i
 
 ---
 
-<!-- _class: split-panel proof -->
-<!-- _footer: "Level 4 · split-panel proof" -->
+<!-- @meta{layout=split-panel, class=proof, footer=Level 4 · split-panel proof} -->
+
 
 `Level 4 · Analyzing`
 
@@ -128,8 +128,8 @@ Six cognitive verbs map the questions an engineer learns to ask — your level i
 
 ---
 
-<!-- _class: split-panel proof -->
-<!-- _footer: "Level 5 · split-panel proof" -->
+<!-- @meta{layout=split-panel, class=proof, footer=Level 5 · split-panel proof} -->
+
 
 `Level 5 · Evaluating`
 
@@ -146,8 +146,8 @@ Six cognitive verbs map the questions an engineer learns to ask — your level i
 
 ---
 
-<!-- _class: split-panel capstone -->
-<!-- _footer: "Level 6 · split-panel capstone" -->
+<!-- @meta{layout=split-panel, class=capstone, footer=Level 6 · split-panel capstone} -->
+
 
 `Level 6 · Creating`
 
@@ -164,8 +164,8 @@ Six cognitive verbs map the questions an engineer learns to ask — your level i
 
 ---
 
-<!-- _class: compare-prose axis -->
-<!-- _footer: "The second axis · compare-prose axis" -->
+<!-- @meta{layout=compare-prose, class=axis, footer=The second axis · compare-prose axis} -->
+
 
 ## The second axis: how far it reaches.
 
@@ -180,8 +180,8 @@ The verb is one axis — how you think. **Reach** is the other — how far what 
 
 ---
 
-<!-- _class: matrix-grid head-center -->
-<!-- _footer: "The matrix · matrix-grid" -->
+<!-- @meta{layout=matrix-grid, class=head-center, footer=The matrix · matrix-grid} -->
+
 
 ## Your level is a cell, not a rung.
 
@@ -202,8 +202,8 @@ Your title is the diagonal — the same verb at a wider reach is a different lev
 
 ---
 
-<!-- _class: list-steps capsule -->
-<!-- _footer: "How to use this tomorrow · list-steps capsule" -->
+<!-- @meta{layout=list-steps, class=capsule, footer=How to use this tomorrow · list-steps capsule} -->
+
 
 ## How to use this tomorrow.
 
@@ -216,7 +216,7 @@ Your title is the diagonal — the same verb at a wider reach is a different lev
 
 ---
 
-<!-- _class: closing silent spectrum -->
+<!-- @meta{layout=closing, class=silent spectrum} -->
 
 ## Grow on two axes, not one.
 

@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · divider"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # divider
 
@@ -15,8 +15,7 @@ Section boundary slide. Dark canvas with a single heading.
 
 ---
 
-<!-- _class: divider silent -->
-<!-- _footer: "Default · divider" -->
+<!-- @meta{layout=divider, class=silent, footer=Default · divider} -->
 
 `divider · Section 03`
 
@@ -25,8 +24,7 @@ Section boundary slide. Dark canvas with a single heading.
 
 ---
 
-<!-- _class: divider silent numbered -->
-<!-- _footer: "numbered · divider numbered — Masthead — the running section number over a hairline, top-left." -->
+<!-- @meta{layout=divider, class=silent numbered, footer="numbered · divider numbered — Masthead — the running section number over a hairline, top-left."} -->
 
 `divider numbered`
 
@@ -35,8 +33,7 @@ Section boundary slide. Dark canvas with a single heading.
 
 ---
 
-<!-- _class: divider light -->
-<!-- _footer: "light · divider light — Bright canvas, sentence-length waypoint." -->
+<!-- @meta{layout=divider, class=light, footer="light · divider light — Bright canvas, sentence-length waypoint."} -->
 
 `divider light`
 
@@ -45,8 +42,7 @@ Section boundary slide. Dark canvas with a single heading.
 
 ---
 
-<!-- _class: divider qr -->
-<!-- _footer: "qr · divider qr — The payload bullet becomes a code." -->
+<!-- @meta{layout=divider, class=qr, footer="qr · divider qr — The payload bullet becomes a code."} -->
 
 `divider qr`
 
@@ -58,8 +54,7 @@ Section boundary slide. Dark canvas with a single heading.
 
 ---
 
-<!-- _class: cards-grid three claim-hero -->
-<!-- _footer: "Anti-patterns · divider" -->
+<!-- @meta{layout=cards-grid, class=three claim-hero, footer=Anti-patterns · divider} -->
 
 ## When NOT to reach for divider.
 
@@ -72,7 +67,7 @@ Section boundary slide. Dark canvas with a single heading.
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

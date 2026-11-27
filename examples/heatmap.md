@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · heatmap"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Where does it concentrate?
 
@@ -15,8 +15,8 @@ The chart family could compare magnitudes, decompose a total, plot a trend and s
 
 ---
 
-<!-- _class: heatmap -->
-<!-- _footer: "Four cohorts, four months — the shape first, the number on it" -->
+<!-- @meta{layout=heatmap, footer="Four cohorts, four months — the shape first, the number on it"} -->
+
 
 `Retention · 2026 cohorts`
 
@@ -31,7 +31,7 @@ The chart family could compare magnitudes, decompose a total, plot a trend and s
 
 ---
 
-<!-- _class: statement silent -->
+<!-- @meta{class=statement silent} -->
 
 ## A missing cell is not a zero.
 
@@ -39,7 +39,7 @@ April has no month-three number because April has not reached month three. That 
 
 ---
 
-<!-- _class: statement silent -->
+<!-- @meta{class=statement silent} -->
 
 ## The ramp is the choropleth's, not a new one.
 
@@ -47,7 +47,7 @@ A heatmap and a `map` encode the same thing — one continuous value as one inte
 
 ---
 
-<!-- _class: statement silent -->
+<!-- @meta{class=statement silent} -->
 
 ## The ramp is five stops, so the number can sit on it.
 
@@ -55,8 +55,8 @@ Text on a colored fill is the one placement this family will not otherwise guara
 
 ---
 
-<!-- _class: heatmap -->
-<!-- _footer: "Ten by twelve — the ceiling, with a ragged tail" -->
+<!-- @meta{layout=heatmap, footer="Ten by twelve — the ceiling, with a ragged tail"} -->
+
 
 `Retention · the ceiling`
 
@@ -77,7 +77,7 @@ Text on a colored fill is the one placement this family will not otherwise guara
 
 ---
 
-<!-- _class: statement silent -->
+<!-- @meta{class=statement silent} -->
 
 ## When not to reach for it.
 

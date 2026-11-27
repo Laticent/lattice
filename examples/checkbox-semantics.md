@@ -6,7 +6,7 @@ header: "Lattice · checkbox semantics"
 footer: "Six answers, one meaning each"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Fix demo · state markers`
 
@@ -16,7 +16,7 @@ Yes, partly, no, unknown, open, and does not apply — in every layout that draw
 
 ---
 
-<!-- _class: checklist -->
+<!-- @meta{layout=checklist} -->
 
 ## The six marks, read the same way in every layout.
 
@@ -29,7 +29,7 @@ Yes, partly, no, unknown, open, and does not apply — in every layout that draw
 
 ---
 
-<!-- _class: pricing -->
+<!-- @meta{layout=pricing} -->
 
 ## The legend under the cards now matches the cards.
 
@@ -56,7 +56,7 @@ Yes, partly, no, unknown, open, and does not apply — in every layout that draw
 
 ---
 
-<!-- _class: table state-cells -->
+<!-- @meta{layout=table, class=state-cells} -->
 
 ## A comparison table can finally say "no".
 
@@ -71,7 +71,7 @@ Yes, partly, no, unknown, open, and does not apply — in every layout that draw
 
 ---
 
-<!-- _class: verdict-grid -->
+<!-- @meta{layout=verdict-grid} -->
 
 ## Verdict-grid: "no" and "not assessed" stop sharing a mark.
 
@@ -90,7 +90,7 @@ Yes, partly, no, unknown, open, and does not apply — in every layout that draw
 
 ---
 
-<!-- _class: obligation-matrix -->
+<!-- @meta{layout=obligation-matrix} -->
 
 ## Obligation-matrix names the same six in its own words.
 
@@ -103,7 +103,7 @@ Yes, partly, no, unknown, open, and does not apply — in every layout that draw
 
 ---
 
-<!-- _class: roadmap -->
+<!-- @meta{layout=roadmap} -->
 
 ## Roadmap does too: missed and uncertain join the plan.
 
@@ -115,7 +115,7 @@ Yes, partly, no, unknown, open, and does not apply — in every layout that draw
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## A mark in a sentence draws the same shape.
 
@@ -130,7 +130,7 @@ Write a mark in inline code and it draws the disc, wherever inline code can go.
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 `State markers · one vocabulary`
 

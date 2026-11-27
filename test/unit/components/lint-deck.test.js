@@ -8,10 +8,6 @@
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 const { lintText, buildVocab, isKnownModifier } = require('../../../lib/authoring/lint');
-const { LEGACY_META_RULES } = require('../../../lib/authoring/legacy-meta-rules');
-// The old comment spellings warn on every legacy deck (record note §15). Until the sweep (slice D) rewrites these
-// fixtures and the corpus as `@meta` records, a "clean" assertion sets those two rules aside; the sweep deletes this.
-const notOldSpelling = (f) => !LEGACY_META_RULES.includes(f.rule);
 const { discoverDecks, narrationText, main } = require('../../../tools/lint-deck');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -36,8 +32,8 @@ describe('deck linter', () => {
   });
 
   test('accepts the nested-list shape on a card-style slide', () => {
-    const src = `${FM}<!-- _class: cards-grid -->\n\n## H.\n\n- First\n  - body text.\n`;
-    assert.equal(lintText(src, { vocab }).filter(notOldSpelling).length, 0);
+    const src = `${FM}<!-- @meta{layout=cards-grid} -->\n\n## H.\n\n- First\n  - body text.\n`;
+    assert.equal(lintText(src, { vocab }).length, 0);
   });
 
   test('flags **bold** inside an ordered-list statement (error)', () => {
@@ -123,8 +119,8 @@ describe('deck linter', () => {
   });
 
   test('does not flag known components or modifiers', () => {
-    const src = `${FM}<!-- _class: cards-grid dark compact -->\n\n## H.\n\n- A\n  - b\n`;
-    assert.equal(lintText(src, { vocab }).filter(notOldSpelling).length, 0);
+    const src = `${FM}<!-- @meta{layout=cards-grid, class=dark compact} -->\n\n## H.\n\n- A\n  - b\n`;
+    assert.equal(lintText(src, { vocab }).length, 0);
   });
 
   test('does not flag decoration/position modifier fragments', () => {
@@ -135,8 +131,8 @@ describe('deck linter', () => {
   });
 
   test('front matter is not treated as a slide', () => {
-    const src = `${FM}<!-- _class: content -->\n\n## H.\n`;
-    assert.equal(lintText(src, { vocab }).filter(notOldSpelling).length, 0);
+    const src = `${FM}<!-- @meta{layout=content} -->\n\n## H.\n`;
+    assert.equal(lintText(src, { vocab }).length, 0);
   });
 
   test('isKnownModifier recognizes prefix families', () => {
@@ -720,7 +716,6 @@ describe('deck linter', () => {
       const rel = path.relative(REPO_ROOT, deck).split(path.sep).join('/');
       const findings = lintText(fs.readFileSync(deck, 'utf8'), { vocab })
         .filter((f) => f.severity !== 'info' && f.severity !== 'suggestion')
-        .filter(notOldSpelling)
         .filter((f) => !(f.rule === 'typed-shape-glyph' && glyphExempt.has(rel)))
         .filter((f) => !isSubjectFinding(rel, f.rule));
       if (findings.length) {

@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · fluid chart redraw"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Charts redraw for a phone
 
@@ -15,7 +15,7 @@ Export with `--fluid` and open on a phone: each chart is drawn again for the tal
 
 ---
 
-<!-- _class: line -->
+<!-- @meta{layout=line} -->
 
 ## Services grew into the gap enterprise left.
 
@@ -46,7 +46,7 @@ Export with `--fluid` and open on a phone: each chart is drawn again for the tal
 
 ---
 
-<!-- _class: stacked-bar -->
+<!-- @meta{layout=stacked-bar} -->
 
 ## Each bar is a total; the bands inside it are the mix.
 
@@ -65,7 +65,7 @@ Export with `--fluid` and open on a phone: each chart is drawn again for the tal
 
 ---
 
-<!-- _class: waterfall -->
+<!-- @meta{layout=waterfall} -->
 
 `FY26 plan · actual`
 
@@ -82,7 +82,7 @@ Export with `--fluid` and open on a phone: each chart is drawn again for the tal
 
 ---
 
-<!-- _class: heatmap -->
+<!-- @meta{layout=heatmap} -->
 
 `Retention · 2026 cohorts`
 
@@ -97,7 +97,7 @@ Export with `--fluid` and open on a phone: each chart is drawn again for the tal
 
 ---
 
-<!-- _class: piechart -->
+<!-- @meta{layout=piechart} -->
 
 `H1 2026 · 1,840 person-hours`
 
@@ -115,7 +115,7 @@ Nearly half went to producing decks; the deciding itself was the smallest slice.
 
 ---
 
-<!-- _class: roadmap -->
+<!-- @meta{layout=roadmap} -->
 
 `H2 2026 · Rollout plan`
 
@@ -129,7 +129,7 @@ Nearly half went to producing decks; the deciding itself was the smallest slice.
 
 ---
 
-<!-- _class: tower -->
+<!-- @meta{layout=tower} -->
 
 `Property catastrophe program · 2027`
 
@@ -150,7 +150,7 @@ Nearly half went to producing decks; the deciding itself was the smallest slice.
 
 ---
 
-<!-- _class: quadrant -->
+<!-- @meta{layout=quadrant} -->
 
 `[{Effort, 0..10}, {Reach, 0..100}]`
 
@@ -175,7 +175,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 ---
 
-<!-- _class: risk-matrix -->
+<!-- @meta{layout=risk-matrix} -->
 
 `Enterprise risk register · Q4 2026`
 

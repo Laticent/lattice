@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · label sets"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Name the bands, or let the chart do it.
 
@@ -17,8 +17,8 @@ the words matter.
 
 ---
 
-<!-- _class: heatmap -->
-<!-- _footer: "No key · the default, unchanged" -->
+<!-- @meta{layout=heatmap, footer="No key · the default, unchanged"} -->
+
 
 `Retention · 2026 cohorts`
 
@@ -33,8 +33,8 @@ the words matter.
 
 ---
 
-<!-- _class: heatmap scale -->
-<!-- _footer: "Derived · the chart names its own bands" -->
+<!-- @meta{layout=heatmap, class=scale, footer=Derived · the chart names its own bands} -->
+
 
 `Retention · 2026 cohorts`
 
@@ -49,8 +49,8 @@ the words matter.
 
 ---
 
-<!-- _class: heatmap -->
-<!-- _footer: "Authored · the words the room needs" -->
+<!-- @meta{layout=heatmap, footer=Authored · the words the room needs} -->
+
 
 `Risk · by system and quarter`
 
@@ -69,8 +69,8 @@ The key binds to the ramp STEP, one through five — not to a value in the table
 
 ---
 
-<!-- _class: heatmap -->
-<!-- _footer: "Partial · name what matters, keep the rest" -->
+<!-- @meta{layout=heatmap, footer="Partial · name what matters, keep the rest"} -->
+
 
 `Margin · by region`
 
@@ -86,8 +86,8 @@ The key binds to the ramp STEP, one through five — not to a value in the table
 
 ---
 
-<!-- _class: heatmap scale -->
-<!-- _footer: "Per-cell detail · the why behind one crossing" -->
+<!-- @meta{layout=heatmap, class=scale, footer=Per-cell detail · the why behind one crossing} -->
+
 
 `Retention · 2026 cohorts`
 
@@ -101,8 +101,8 @@ The key binds to the ramp STEP, one through five — not to a value in the table
 
 ---
 
-<!-- _class: content -->
-<!-- _footer: "One shape, three ways to write it" -->
+<!-- @meta{layout=content, footer="One shape, three ways to write it"} -->
+
 
 ## One entry, three ways to write it.
 

@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · position marks"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # A stacked 2×2 still says where each card sits
 
@@ -13,8 +13,8 @@ header: "Lattice · position marks"
 
 ---
 
-<!-- _class: matrix-2x2 -->
-<!-- _footer: "Eisenhower · the mark fills its corner" -->
+<!-- @meta{layout=matrix-2x2, footer=Eisenhower · the mark fills its corner} -->
+
 
 ## Four kinds of work, sorted by impact and effort.
 
@@ -31,8 +31,8 @@ header: "Lattice · position marks"
 
 ---
 
-<!-- _class: matrix-2x2 -->
-<!-- _footer: "Build or buy · the outcome ring travels" -->
+<!-- @meta{layout=matrix-2x2, footer=Build or buy · the outcome ring travels} -->
+
 
 ## Where each vendor lands on coverage and cost.
 
@@ -49,8 +49,8 @@ header: "Lattice · position marks"
 
 ---
 
-<!-- _class: matrix-2x2 dark -->
-<!-- _footer: "Dark · the mark reads on a dark ground" -->
+<!-- @meta{layout=matrix-2x2, class=dark, footer=Dark · the mark reads on a dark ground} -->
+
 
 ## Risk against readiness, on a dark slide.
 
@@ -67,8 +67,8 @@ header: "Lattice · position marks"
 
 ---
 
-<!-- _class: matrix-2x2 compact -->
-<!-- _footer: "Compact · the mark keeps its size" -->
+<!-- @meta{layout=matrix-2x2, class=compact, footer=Compact · the mark keeps its size} -->
+
 
 ## Markets by growth and share.
 
@@ -85,6 +85,6 @@ header: "Lattice · position marks"
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 # The mark gives the place; the title gives the meaning

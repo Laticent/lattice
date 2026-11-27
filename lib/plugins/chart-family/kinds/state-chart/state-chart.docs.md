@@ -57,7 +57,7 @@ Use to show a finite-state machine — the discrete states a system can be in an
 ## Authoring
 
 ```markdown
-<!-- _class: state-chart -->
+<!-- @meta{layout=state-chart} -->
 
 `Submission lifecycle`
 
@@ -105,7 +105,7 @@ How a draft moves from author to archive.
 States flow left to right.
 
 ```markdown
-<!-- _class: state-chart lr -->
+<!-- @meta{layout=state-chart, class=lr} -->
 
 ## lr flows the states left to right.
 
@@ -124,7 +124,7 @@ States flow left to right.
 States flow top to bottom, whatever the stage.
 
 ```markdown
-<!-- _class: state-chart tb -->
+<!-- @meta{layout=state-chart, class=tb} -->
 
 ## tb stacks the states top to bottom.
 
@@ -141,7 +141,7 @@ States flow top to bottom, whatever the stage.
 The machine as rows with transition chips, beside its prose.
 
 ```markdown
-<!-- _class: state-chart inline -->
+<!-- @meta{layout=state-chart, class=inline} -->
 
 ## inline sets the chart beside its prose.
 
@@ -159,7 +159,7 @@ The machine as rows with transition chips, beside its prose.
 Generously rounded corners on the router's lines.
 
 ```markdown
-<!-- _class: state-chart curved -->
+<!-- @meta{layout=state-chart, class=curved} -->
 
 ## curved rounds the lines between states.
 
@@ -182,7 +182,7 @@ Generously rounded corners on the router's lines.
 No badges: the states show no place in the list.
 
 ```markdown
-<!-- _class: state-chart unnumbered -->
+<!-- @meta{layout=state-chart, class=unnumbered} -->
 
 ## unnumbered drops the badges.
 
@@ -198,7 +198,7 @@ No badges: the states show no place in the list.
 States may leave their written order when that draws a cleaner chart.
 
 ```markdown
-<!-- _class: state-chart rearrange -->
+<!-- @meta{layout=state-chart, class=rearrange} -->
 
 ## rearrange lets a side state sit beside the state it leaves.
 

@@ -237,7 +237,7 @@ export function buildDeck(cards, { size = 'us', cap = 1 } = {}) {
 	const front = ['---', `size: ${size === 'iso' ? 'card-iso' : 'card'}`, 'theme: cuoio', 'pagination: false', 'spectrum: off', '---', ''].join('\n');
 	const slides = cards.map((c) =>
 		[
-			'<!-- _class: gift-card -->',
+			'<!-- @meta{layout=gift-card} -->',
 			'',
 			'`A deck on us`',
 			'',

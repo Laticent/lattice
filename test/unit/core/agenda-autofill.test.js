@@ -109,7 +109,7 @@ test('the fill is idempotent: a filled deck fills to itself', () => {
 
 test('the Q3 board fixture: emptying its agenda and filling it reproduces the hand-written list', () => {
   const src = fs.readFileSync(path.join(ROOT, 'test', 'fixtures', 'q3-board-review.md'), 'utf8');
-  const emptied = src.replace(/(<!-- _class: agenda -->[\s\S]*?\n)((?:\d+\. .*\n)+)/, '$1');
+  const emptied = src.replace(/(<!-- @meta\{layout=agenda\} -->[\s\S]*?\n)((?:\d+\. .*\n)+)/, '$1');
   assert.notEqual(emptied, src);
   const squash = (s) => s.replace(/\n{2,}/g, '\n\n').trim();
   // The filled agenda also carries the page-number marker; the hand-written one did not.
@@ -146,7 +146,8 @@ test('the lint plan and the kernel agree on every empty agenda and the section c
     const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : (e.name.endsWith('.md') && !e.name.endsWith('.tmp.md')) ? [path.join(d, e.name)] : []));
     for (const f of walk(path.join(ROOT, dir))) {
       const s = fs.readFileSync(f, 'utf8');
-      if (/_?class\s*:[^\n]*\bagenda\b/.test(s)) decks.push(s);
+      // A comment (`_class: agenda`) or a record (`@meta{layout=agenda}`) names the layout.
+      if (/(?:_?class\s*:|\b(?:layout|class)\s*=)[^\n]*\bagenda\b/.test(s)) decks.push(s);
     }
   }
   assert.ok(decks.length > 15, `read ${decks.length} decks`);

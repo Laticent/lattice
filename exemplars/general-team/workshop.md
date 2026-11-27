@@ -6,7 +6,7 @@ pagination: true
 header: "Roadmap workshop · Q3 planning"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 <!-- tier: short -->
 
 `Workshop · half day · 13 June 2026`
@@ -17,7 +17,7 @@ We have twenty ideas and room for six. Today we decide which six, together.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## Today we turn twenty ideas into a ranked Q3 roadmap of six.
@@ -26,7 +26,7 @@ The backlog has twenty candidate initiatives and we can staff six next quarter. 
 
 ---
 
-<!-- _class: agenda -->
+<!-- @meta{layout=agenda} -->
 <!-- tier: short -->
 
 ## How the afternoon runs.
@@ -38,7 +38,7 @@ The backlog has twenty candidate initiatives and we can staff six next quarter. 
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## Frame: the constraint is six slots, and they're real.
@@ -50,7 +50,7 @@ We have three squads for one quarter — six initiatives, no more. The job today
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- @meta{layout=list, class=takeaway} -->
 <!-- tier: standard -->
 
 ## The two criteria we score every idea against.
@@ -64,7 +64,7 @@ We have three squads for one quarter — six initiatives, no more. The job today
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 <!-- tier: short -->
 
 ## Activity one: the four idea clusters on the table.
@@ -80,7 +80,7 @@ We have three squads for one quarter — six initiatives, no more. The job today
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## How activity one works: dot-vote, then discuss the outliers.
@@ -92,7 +92,7 @@ Each of you gets five dots to place across the twenty ideas on the wall. We tall
 
 ---
 
-<!-- _class: matrix-2x2 -->
+<!-- @meta{layout=matrix-2x2} -->
 <!-- tier: short -->
 
 ## Activity two: place each cluster by impact and effort.
@@ -108,7 +108,7 @@ Each of you gets five dots to place across the twenty ideas on the wall. We tall
 
 ---
 
-<!-- _class: list-steps -->
+<!-- @meta{layout=list-steps} -->
 <!-- tier: full -->
 
 ## How we get from the grid to a committed roadmap.
@@ -124,7 +124,7 @@ Each of you gets five dots to place across the twenty ideas on the wall. We tall
 
 ---
 
-<!-- _class: list-steps -->
+<!-- @meta{layout=list-steps} -->
 <!-- tier: short -->
 
 ## Next steps: who does what before Monday.
@@ -138,9 +138,9 @@ Each of you gets five dots to place across the twenty ideas on the wall. We tall
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 <!-- tier: short -->
 
 ## Twenty ideas, six chosen together — that's the roadmap.

@@ -47,7 +47,7 @@ describe('new-slide CLI', () => {
       const { result, stdout, stderr } = captureStdio(() => emitSkeleton('cards-grid'));
       assert.equal(result, 0);
       assert.equal(stderr, '');
-      assert.match(stdout, /<!-- _class: cards-grid -->/);
+      assert.match(stdout, /<!-- @meta\{layout=cards-grid\} -->/);
       assert.match(stdout, /## Slide heading/);
     });
 
@@ -134,7 +134,7 @@ describe('new-slide CLI', () => {
     test('returns 0 and emits skeleton on a single valid name', () => {
       const { result, stdout } = captureStdio(() => main(['quote']));
       assert.equal(result, 0);
-      assert.match(stdout, /<!-- _class: quote -->/);
+      assert.match(stdout, /<!-- @meta\{layout=quote\} -->/);
     });
 
     test('returns 1 on unknown component name', () => {

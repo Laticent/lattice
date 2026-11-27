@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · journey"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # journey
 
@@ -15,8 +15,7 @@ Native user-journey chart — sections of tasks, each tagged with actor(s) and a
 
 ---
 
-<!-- _class: journey -->
-<!-- _footer: "Default · journey" -->
+<!-- @meta{layout=journey, footer=Default · journey} -->
 
 ## The journey scores each stage of the path.
 
@@ -34,8 +33,7 @@ Native user-journey chart — sections of tasks, each tagged with actor(s) and a
 
 ---
 
-<!-- _class: journey heatmap -->
-<!-- _footer: "heatmap · journey heatmap — Stages shade by score." -->
+<!-- @meta{layout=journey, class=heatmap, footer="heatmap · journey heatmap — Stages shade by score."} -->
 
 ## heatmap shades the stages by score.
 
@@ -52,8 +50,7 @@ Native user-journey chart — sections of tasks, each tagged with actor(s) and a
 
 ---
 
-<!-- _class: journey curve -->
-<!-- _footer: "curve · journey curve — A sentiment line rides the stages." -->
+<!-- @meta{layout=journey, class=curve, footer="curve · journey curve — A sentiment line rides the stages."} -->
 
 ## curve draws the sentiment line.
 
@@ -70,8 +67,7 @@ Native user-journey chart — sections of tasks, each tagged with actor(s) and a
 
 ---
 
-<!-- _class: journey swimlane -->
-<!-- _footer: "swimlane · journey swimlane — One lane per actor." -->
+<!-- @meta{layout=journey, class=swimlane, footer="swimlane · journey swimlane — One lane per actor."} -->
 
 ## swimlane splits the journey by actor.
 
@@ -88,8 +84,7 @@ Native user-journey chart — sections of tasks, each tagged with actor(s) and a
 
 ---
 
-<!-- _class: journey weighted -->
-<!-- _footer: "weighted · journey weighted — Stage size carries weight." -->
+<!-- @meta{layout=journey, class=weighted, footer="weighted · journey weighted — Stage size carries weight."} -->
 
 ## weighted sizes the stages by importance.
 
@@ -106,9 +101,8 @@ Native user-journey chart — sections of tasks, each tagged with actor(s) and a
 
 ---
 
-<!-- _class: journey -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · journey — Five stages, twelve tasks — the ceiling." -->
+<!-- @meta{layout=journey, footer="Stress test · journey — Five stages, twelve tasks — the ceiling."} -->
+<!-- @meta{stress-slide} -->
 
 ## Five stages of twelve tasks is the ceiling.
 
@@ -133,8 +127,7 @@ Native user-journey chart — sections of tasks, each tagged with actor(s) and a
 
 ---
 
-<!-- _class: journey dark -->
-<!-- _footer: "Composition: dark · journey dark" -->
+<!-- @meta{layout=journey, class=dark, footer=Composition: dark · journey dark} -->
 
 ## The journey scores each stage of the path.
 
@@ -152,8 +145,7 @@ Native user-journey chart — sections of tasks, each tagged with actor(s) and a
 
 ---
 
-<!-- _class: journey compact -->
-<!-- _footer: "Composition: compact · journey compact" -->
+<!-- @meta{layout=journey, class=compact, footer=Composition: compact · journey compact} -->
 
 ## The journey scores each stage of the path.
 
@@ -171,8 +163,7 @@ Native user-journey chart — sections of tasks, each tagged with actor(s) and a
 
 ---
 
-<!-- _class: journey accent -->
-<!-- _footer: "Composition: accent · journey accent" -->
+<!-- @meta{layout=journey, class=accent, footer=Composition: accent · journey accent} -->
 
 ## The journey scores each stage of the path.
 
@@ -190,8 +181,7 @@ Native user-journey chart — sections of tasks, each tagged with actor(s) and a
 
 ---
 
-<!-- _class: cards-grid three claim-hero -->
-<!-- _footer: "Anti-patterns · journey" -->
+<!-- @meta{layout=cards-grid, class=three claim-hero, footer=Anti-patterns · journey} -->
 
 ## When NOT to reach for journey.
 
@@ -204,7 +194,7 @@ Native user-journey chart — sections of tasks, each tagged with actor(s) and a
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

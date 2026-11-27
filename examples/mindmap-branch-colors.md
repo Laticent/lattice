@@ -7,8 +7,8 @@ header: "Lattice · mindmap branch colors"
 footer: "Feature deck"
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
+<!-- @meta{layout=title, header=""} -->
+
 
 # One branch, one color
 
@@ -18,7 +18,7 @@ Every node in a mindmap branch now takes that branch's color, whatever its shape
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `01 · The repro, light`
 
@@ -49,7 +49,7 @@ mindmap
 
 ---
 
-<!-- _class: diagram dark -->
+<!-- @meta{layout=diagram, class=dark} -->
 
 `02 · The repro, dark`
 
@@ -80,7 +80,7 @@ mindmap
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `03 · Every node shape, light`
 
@@ -110,7 +110,7 @@ mindmap
 
 ---
 
-<!-- _class: diagram dark -->
+<!-- @meta{layout=diagram, class=dark} -->
 
 `04 · Every node shape, dark`
 
@@ -140,7 +140,7 @@ mindmap
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `05 · Eight branches, light`
 
@@ -177,7 +177,7 @@ mindmap
 
 ---
 
-<!-- _class: diagram dark -->
+<!-- @meta{layout=diagram, class=dark} -->
 
 `06 · Eight branches, dark`
 
@@ -214,7 +214,7 @@ mindmap
 
 ---
 
-<!-- _class: diagram sketch -->
+<!-- @meta{layout=diagram, class=sketch} -->
 
 `07 · Hand-drawn look`
 
@@ -239,7 +239,7 @@ mindmap
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `08 · Sankey, unchanged`
 
@@ -258,7 +258,7 @@ Savings,Cash,60
 
 ---
 
-<!-- _class: cards-grid four -->
+<!-- @meta{layout=cards-grid, class=four} -->
 
 `09 · What changed`
 

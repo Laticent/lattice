@@ -7,7 +7,7 @@ meta: "Engine fences · the export draws exactly the Mermaid fences the engine p
 spectrum: duo
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # The export draws the fences the engine reads
 
@@ -17,7 +17,7 @@ The live preview and the exported file now agree on which blocks are diagrams, b
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## What changed, and why
 
@@ -29,7 +29,7 @@ Before, the export found Mermaid fences with a reader of its own. It disagreed w
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 ## An ordinary fence draws as it always did.
 
@@ -41,7 +41,7 @@ flowchart LR
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## A fence in a list item keeps its place
 
@@ -56,7 +56,7 @@ flowchart LR
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## A fence inside an HTML block is HTML
 
@@ -71,7 +71,7 @@ The engine reads this whole block as HTML, so the preview never drew it. The exp
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## One reader, two surfaces
 

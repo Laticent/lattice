@@ -6,7 +6,7 @@ pagination: true
 header: "cycle — a closed loop of stages"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Work that loops.
 
@@ -16,7 +16,7 @@ For the processes that have no beginning and no end — only a turn that feeds t
 
 ---
 
-<!-- _class: cycle -->
+<!-- @meta{layout=cycle} -->
 
 `The build–measure–learn loop`
 
@@ -31,7 +31,7 @@ For the processes that have no beginning and no end — only a turn that feeds t
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## A cycle is not a timeline — reach for it when the end feeds the start.
 
@@ -41,7 +41,7 @@ Use **`cycle`** when the last stage hands off to the first and the loop is the p
 
 ---
 
-<!-- _class: cycle -->
+<!-- @meta{layout=cycle} -->
 
 `The content flywheel`
 
@@ -58,7 +58,7 @@ Use **`cycle`** when the last stage hands off to the first and the loop is the p
 
 ---
 
-<!-- _class: cycle -->
+<!-- @meta{layout=cycle} -->
 
 `The water cycle`
 
@@ -75,7 +75,7 @@ Use **`cycle`** when the last stage hands off to the first and the loop is the p
 
 ---
 
-<!-- _class: cycle -->
+<!-- @meta{layout=cycle} -->
 
 `The carbon cycle · five stages, the comfortable ceiling`
 
@@ -94,7 +94,7 @@ Use **`cycle`** when the last stage hands off to the first and the loop is the p
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## Keep it to three–six stages, one clause each.
 
@@ -104,7 +104,7 @@ Each stage is a short name and a single clause; the arrows carry the sequence, a
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 ## Find the loop, and you find the leverage.
 

@@ -233,7 +233,7 @@ export function applyPreset(source: string, name: string): string {
  * the title hid the bar, the rule and the cards; the table hid the cards.
  */
 export const PRESET_SAMPLE = `
-<!-- _class: cards-grid three -->
+<!-- @meta{layout=cards-grid, class=three} -->
 
 \`Q4 · Review\`
 

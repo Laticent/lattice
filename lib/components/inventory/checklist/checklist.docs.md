@@ -43,7 +43,7 @@ Use for completion reports, readiness audits, or pre-flight checks. State marker
 ## Authoring
 
 ```markdown
-<!-- _class: checklist -->
+<!-- @meta{layout=checklist} -->
 
 ## Pre-launch readiness.
 

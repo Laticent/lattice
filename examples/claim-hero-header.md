@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · running header"
 ---
 
-<!-- _class: cards-grid three claim-hero -->
+<!-- @meta{layout=cards-grid, class=three claim-hero} -->
 
 ## The running header steps aside at hero.
 
@@ -18,7 +18,7 @@ header: "Lattice · running header"
 
 ---
 
-<!-- _class: cards-grid three -->
+<!-- @meta{layout=cards-grid, class=three} -->
 
 ## A standard slide keeps its header.
 

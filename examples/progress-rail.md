@@ -7,7 +7,7 @@ footer: "Acme · Q3 board review"
 progress-rail: on
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 `Lattice · Feature deck`
 
@@ -17,7 +17,7 @@ The section rail answers "which part", and the page number answers "how far".
 
 ---
 
-<!-- _class: agenda -->
+<!-- @meta{layout=agenda} -->
 
 ## Three parts, and the mark each one wears
 
@@ -27,8 +27,8 @@ The section rail answers "which part", and the page number answers "how far".
 
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
+<!-- @meta{layout=divider, header=""} -->
+
 
 ## What the rail means
 
@@ -43,14 +43,14 @@ The section rail answers "which part", and the page number answers "how far".
 
 ---
 
-<!-- _class: divider light -->
-<!-- _header: '' -->
+<!-- @meta{layout=divider, class=light, header=""} -->
+
 
 ## Where it sits
 
 ---
 
-<!-- _class: progress-rail-center -->
+<!-- @meta{class=progress-rail-center} -->
 
 ## The rail can sit on the center line
 
@@ -60,7 +60,7 @@ The section rail answers "which part", and the page number answers "how far".
 
 ---
 
-<!-- _class: progress-rail-edge -->
+<!-- @meta{class=progress-rail-edge} -->
 
 ## Or stand upright on the right edge
 
@@ -70,14 +70,14 @@ The section rail answers "which part", and the page number answers "how far".
 
 ---
 
-<!-- _class: divider numbered -->
-<!-- _header: '' -->
+<!-- @meta{layout=divider, class=numbered, header=""} -->
+
 
 ## How it looks
 
 ---
 
-<!-- _class: progress-rail-bar -->
+<!-- @meta{class=progress-rail-bar} -->
 
 ## A bar instead of dots
 
@@ -87,7 +87,7 @@ The section rail answers "which part", and the page number answers "how far".
 
 ---
 
-<!-- _class: topic -->
+<!-- @meta{layout=topic} -->
 
 ## Topics name their section
 

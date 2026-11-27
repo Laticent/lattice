@@ -6,7 +6,7 @@ header: "Lattice · Deck presets"
 meta: "Deck presets · four looks"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 `Classic · the default`
 
@@ -16,7 +16,7 @@ One word in the front matter sets the backdrop, the alignment, the bar, the rule
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Preset · what it sets`
 
@@ -31,7 +31,7 @@ One word in the front matter sets the backdrop, the alignment, the bar, the rule
 
 ---
 
-<!-- _class: title finish-ledger head-left eyebrow-bar -->
+<!-- @meta{layout=title, class=finish-ledger head-left eyebrow-bar} -->
 
 `Editorial · preset: editorial`
 
@@ -41,7 +41,7 @@ The ledger backdrop draws a rail down the left edge and faint rules behind the c
 
 ---
 
-<!-- _class: title finish-strata head-center eyebrow-dot -->
+<!-- @meta{layout=title, class=finish-strata head-center eyebrow-dot} -->
 
 `Brand-forward · preset: brand`
 
@@ -51,7 +51,7 @@ Centered, with corner marks over a faint grid. Set the theme accent to a client'
 
 ---
 
-<!-- _class: title head-left corners-rounded -->
+<!-- @meta{layout=title, class=head-left corners-rounded} -->
 
 `Minimal · preset: minimal`
 
@@ -61,7 +61,7 @@ Flush left, no backdrop, no bar and no heading rule. Rounded slide corners on sc
 
 ---
 
-<!-- _class: content finish-ledger head-left rule-short eyebrow-bar trim-spectrum-mono lifted -->
+<!-- @meta{layout=content, class=finish-ledger head-left rule-short eyebrow-bar trim-spectrum-mono lifted} -->
 
 `Editorial · a content slide`
 
@@ -74,7 +74,7 @@ Every other line has at least 15% headroom. Line 3 has six, and the Q4 forecast 
 
 ---
 
-<!-- _class: cards-grid three finish-strata head-center spectrum-solid card-spectrum-solid trim-spectrum-solid rule-accent eyebrow-dot lifted -->
+<!-- @meta{layout=cards-grid, class=three finish-strata head-center spectrum-solid card-spectrum-solid trim-spectrum-solid rule-accent eyebrow-dot lifted} -->
 
 `Brand-forward · a card slide`
 
@@ -89,7 +89,7 @@ Every other line has at least 15% headroom. Line 3 has six, and the Q4 forecast 
 
 ---
 
-<!-- _class: code -->
+<!-- @meta{layout=code} -->
 
 `Preset · overrides`
 
@@ -107,7 +107,7 @@ The Studio shows each preset as a picture of one sample slide, counts your overr
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Studio · basic and advanced`
 
@@ -122,7 +122,7 @@ The Studio shows each preset as a picture of one sample slide, counts your overr
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 `Deck presets`
 

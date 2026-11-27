@@ -7,9 +7,9 @@ header: "Lattice · typed-diagram narration"
 footer: "read-aloud narrates the whole first-wave Mermaid family"
 ---
 
-<!-- _class: title -->
-<!-- _footer: '' -->
-<!-- _header: '' -->
+<!-- @meta{layout=title, footer="", header=""} -->
+
+
 
 # Read-aloud that reads the model.
 
@@ -19,7 +19,7 @@ footer: "read-aloud narrates the whole first-wave Mermaid family"
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `01 · classDiagram`
 
@@ -38,7 +38,7 @@ classDiagram
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `02 · stateDiagram`
 
@@ -56,7 +56,7 @@ stateDiagram-v2
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `03 · erDiagram`
 
@@ -76,7 +76,7 @@ erDiagram
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `04 · C4`
 
@@ -96,7 +96,7 @@ C4Context
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `05 · pie`
 
@@ -114,7 +114,7 @@ pie showData title Where the budget goes
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `06 · Honest bail`
 
@@ -133,8 +133,8 @@ mindmap
 
 ---
 
-<!-- _class: closing -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, footer=""} -->
+
 
 # The model is spoken now.
 

@@ -6,7 +6,7 @@ pagination: true
 header: "Lattice · Chart+Diagram Fixture"
 ---
 
-<!-- _class: piechart -->
+<!-- @meta{layout=piechart} -->
 
 `Fixture · keyed chart`
 
@@ -18,7 +18,7 @@ header: "Lattice · Chart+Diagram Fixture"
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `Fixture · Mermaid diagram`
 

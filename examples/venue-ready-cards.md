@@ -6,7 +6,7 @@ pagination: true
 header: "Lattice · venue-ready QR cards"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Cards that hold in a hall
 
@@ -16,8 +16,8 @@ A deck set for the back row of a large room. The identity card and the Wi-Fi car
 
 ---
 
-<!-- _class: contact -->
-<!-- _footer: "Default · the full vCard, two typed phone lines" -->
+<!-- @meta{layout=contact, footer="Default · the full vCard, two typed phone lines"} -->
+
 
 - Sharmarke Aden `name`
 - Founder & Chief Executive Officer `title`
@@ -29,8 +29,8 @@ A deck set for the back row of a large room. The identity card and the Wi-Fi car
 
 ---
 
-<!-- _class: contact -->
-<!-- _footer: "qr: tel · a 27-module code that dials the first line" -->
+<!-- @meta{layout=contact, footer=qr: tel · a 27-module code that dials the first line} -->
+
 
 - Sharmarke Aden `name`
 - Founder & Chief Executive Officer `title`
@@ -43,8 +43,8 @@ A deck set for the back row of a large room. The identity card and the Wi-Fi car
 
 ---
 
-<!-- _class: contact -->
-<!-- _footer: "qr: url · a short code that opens a page" -->
+<!-- @meta{layout=contact, footer=qr: url · a short code that opens a page} -->
+
 
 - Sharmarke Aden `name`
 - Founder & Chief Executive Officer `title`
@@ -56,8 +56,8 @@ A deck set for the back row of a large room. The identity card and the Wi-Fi car
 
 ---
 
-<!-- _class: contact dark -->
-<!-- _footer: "Dark · the code keeps its paper and ink" -->
+<!-- @meta{layout=contact, class=dark, footer=Dark · the code keeps its paper and ink} -->
+
 
 - Ada Slide `name`
 - One scan saves the speaker `title`
@@ -68,8 +68,8 @@ A deck set for the back row of a large room. The identity card and the Wi-Fi car
 
 ---
 
-<!-- _class: wifi -->
-<!-- _footer: "wifi · network, password and code in frame" -->
+<!-- @meta{layout=wifi, footer="wifi · network, password and code in frame"} -->
+
 
 `Room Wi-Fi`
 

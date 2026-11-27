@@ -6,7 +6,7 @@ pagination: true
 header: "Office of Wildfire Resilience · Policy Briefing"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 <!-- tier: short -->
 
 `Cabinet briefing · March 2027`
@@ -17,7 +17,7 @@ Whether to mandate 30-meter vegetation clearance for the 41,000 homes in the wil
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## The bottom line: mandate the clearance standard, phased over three fire seasons.
@@ -26,7 +26,7 @@ A statewide 30-meter defensible-space requirement is the single intervention tha
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## Last season's losses concentrated where vegetation met structures.
@@ -38,7 +38,7 @@ The 2026 Coyote Ridge fire destroyed 612 homes. Post-incident survey found 83% o
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## Voluntary guidance has not moved compliance in eight years.
@@ -47,7 +47,7 @@ The interface has carried a *recommended* 30-meter guideline since 2019. Self-re
 
 ---
 
-<!-- _class: verdict-grid -->
+<!-- @meta{layout=verdict-grid} -->
 <!-- tier: short -->
 
 ## Three policy paths, scored against what the standard must achieve.
@@ -70,7 +70,7 @@ The interface has carried a *recommended* 30-meter guideline since 2019. Self-re
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 <!-- tier: short -->
 
 `Evidence · Modeled outcomes`
@@ -90,7 +90,7 @@ The interface has carried a *recommended* 30-meter guideline since 2019. Self-re
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- @meta{layout=list, class=takeaway} -->
 <!-- tier: standard -->
 
 ## What any acceptable standard had to satisfy.
@@ -106,7 +106,7 @@ The interface has carried a *recommended* 30-meter guideline since 2019. Self-re
 
 ---
 
-<!-- _class: matrix-2x2 -->
+<!-- @meta{layout=matrix-2x2} -->
 <!-- tier: full -->
 
 ## Where each path sits on enforceability against equity.
@@ -122,7 +122,7 @@ The interface has carried a *recommended* 30-meter guideline since 2019. Self-re
 
 ---
 
-<!-- _class: list-tabular -->
+<!-- @meta{layout=list-tabular} -->
 <!-- tier: full -->
 
 ## What the standard costs across the three-season phase-in.
@@ -138,7 +138,7 @@ The interface has carried a *recommended* 30-meter guideline since 2019. Self-re
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## The chief risk is enforcement capacity, and it is addressable.
@@ -147,7 +147,7 @@ Inspecting 41,000 parcels needs roughly 40 additional seasonal inspectors. We pr
 
 ---
 
-<!-- _class: decision -->
+<!-- @meta{layout=decision} -->
 <!-- tier: short -->
 
 ## Adopt the mandated 30-meter standard with hardship grants, phased over three seasons.
@@ -161,9 +161,9 @@ Inspecting 41,000 parcels needs roughly 40 additional seasonal inspectors. We pr
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 <!-- tier: short -->
 
 ## A standard that survives the next fire season, not just this briefing.

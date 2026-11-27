@@ -6,7 +6,7 @@ pagination: true
 header: "Spaced retrieval · Research findings"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 <!-- tier: short -->
 
 `Learning Sciences Lab · Study Brief`
@@ -17,7 +17,7 @@ A classroom randomized trial of spaced retrieval across 1,800 students.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## Short daily quizzes raised final-exam scores by 11 points over re-reading.
@@ -26,7 +26,7 @@ We ran a year-long randomized trial in introductory biology. Students who ended 
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## The gap we set out to close: lab effects rarely survive a real classroom.
@@ -38,7 +38,7 @@ Retrieval practice is one of the best-replicated findings in cognitive psycholog
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## Design: 1,800 students, 24 sections, randomized within instructor.
@@ -50,7 +50,7 @@ Across four campuses, 24 sections of introductory biology were randomized at the
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## What each condition actually did in the last five minutes of class.
@@ -62,7 +62,7 @@ Retrieval sections answered three short free-recall questions, then saw the answ
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 <!-- tier: short -->
 
 `Primary outcome · cumulative final exam`
@@ -82,7 +82,7 @@ Retrieval sections answered three short free-recall questions, then saw the answ
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## The benefit was largest for the students who started behind.
@@ -94,7 +94,7 @@ When we split by incoming GPA, the lowest-performing quartile gained 16 points; 
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## Durability: the advantage was larger at the final than at the unit test.
@@ -106,7 +106,7 @@ On the weekly unit tests the retrieval gap was 7 points; on the cumulative final
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## Why it works: producing an answer is a different act than recognizing one.
@@ -118,7 +118,7 @@ Re-reading creates fluency — the comfortable sense that you know the material.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## Limits: it is one subject, and the quizzes were ungraded.
@@ -130,9 +130,9 @@ We tested introductory biology; transfer to writing-heavy or skills-based course
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 <!-- tier: short -->
 
 ## The cheapest intervention we tested was also the most effective.

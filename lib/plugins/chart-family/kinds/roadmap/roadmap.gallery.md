@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · roadmap"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # roadmap
 
@@ -15,8 +15,7 @@ Phased multi-workstream grid — phases across the top, workstreams down the sid
 
 ---
 
-<!-- _class: roadmap -->
-<!-- _footer: "Default · roadmap" -->
+<!-- @meta{layout=roadmap, footer=Default · roadmap} -->
 
 `H2 2026 · Rollout plan`
 
@@ -31,8 +30,7 @@ Phased multi-workstream grid — phases across the top, workstreams down the sid
 
 ---
 
-<!-- _class: roadmap horizons -->
-<!-- _footer: "horizons · roadmap horizons — Bets spread across three horizons." -->
+<!-- @meta{layout=roadmap, class=horizons, footer="horizons · roadmap horizons — Bets spread across three horizons."} -->
 
 `Three-horizon planning`
 
@@ -46,8 +44,7 @@ Phased multi-workstream grid — phases across the top, workstreams down the sid
 
 ---
 
-<!-- _class: roadmap status -->
-<!-- _footer: "status · roadmap status — Delivery state at a glance." -->
+<!-- @meta{layout=roadmap, class=status, footer="status · roadmap status — Delivery state at a glance."} -->
 
 `Layout · roadmap status`
 
@@ -62,8 +59,7 @@ Phased multi-workstream grid — phases across the top, workstreams down the sid
 
 ---
 
-<!-- _class: roadmap swimlane -->
-<!-- _footer: "swimlane · roadmap swimlane — One track per team." -->
+<!-- @meta{layout=roadmap, class=swimlane, footer="swimlane · roadmap swimlane — One track per team."} -->
 
 `Layout · roadmap swimlane`
 
@@ -78,8 +74,7 @@ Phased multi-workstream grid — phases across the top, workstreams down the sid
 
 ---
 
-<!-- _class: roadmap milestones -->
-<!-- _footer: "milestones · roadmap milestones — The dated path, pinned." -->
+<!-- @meta{layout=roadmap, class=milestones, footer="milestones · roadmap milestones — The dated path, pinned."} -->
 
 `Layout · roadmap milestones`
 
@@ -94,9 +89,8 @@ Phased multi-workstream grid — phases across the top, workstreams down the sid
 
 ---
 
-<!-- _class: roadmap -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · roadmap — Four phases — the ceiling, and what portrait paginates." -->
+<!-- @meta{layout=roadmap, footer="Stress test · roadmap — Four phases — the ceiling, and what portrait paginates."} -->
+<!-- @meta{stress-slide} -->
 
 `roadmap · stress`
 
@@ -111,8 +105,7 @@ Phased multi-workstream grid — phases across the top, workstreams down the sid
 
 ---
 
-<!-- _class: roadmap dark -->
-<!-- _footer: "Composition: dark · roadmap dark" -->
+<!-- @meta{layout=roadmap, class=dark, footer=Composition: dark · roadmap dark} -->
 
 `H2 2026 · Rollout plan`
 
@@ -127,8 +120,7 @@ Phased multi-workstream grid — phases across the top, workstreams down the sid
 
 ---
 
-<!-- _class: roadmap compact -->
-<!-- _footer: "Composition: compact · roadmap compact" -->
+<!-- @meta{layout=roadmap, class=compact, footer=Composition: compact · roadmap compact} -->
 
 `H2 2026 · Rollout plan`
 
@@ -143,8 +135,7 @@ Phased multi-workstream grid — phases across the top, workstreams down the sid
 
 ---
 
-<!-- _class: roadmap accent -->
-<!-- _footer: "Composition: accent · roadmap accent" -->
+<!-- @meta{layout=roadmap, class=accent, footer=Composition: accent · roadmap accent} -->
 
 `H2 2026 · Rollout plan`
 
@@ -159,8 +150,7 @@ Phased multi-workstream grid — phases across the top, workstreams down the sid
 
 ---
 
-<!-- _class: cards-grid three claim-hero -->
-<!-- _footer: "Anti-patterns · roadmap" -->
+<!-- @meta{layout=cards-grid, class=three claim-hero, footer=Anti-patterns · roadmap} -->
 
 ## When NOT to reach for roadmap.
 
@@ -173,7 +163,7 @@ Phased multi-workstream grid — phases across the top, workstreams down the sid
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

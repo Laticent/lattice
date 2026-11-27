@@ -19,7 +19,7 @@
  * counted, because in each the border is STRUCTURE rather than a row separator —
  * the same criterion #2055 used to exempt roadmap and obligation-matrix's heat
  * and asymmetric variants:
- *   - a full `border:` shorthand, or a border paired with a left/right rail — a
+ *   - a full `border:` shorthand, or a border paired with a left/right (or inline-start/end) rail — a
  *     CARD's edge (list-steps' step cards, statute-stack's jurisdiction cards);
  *   - a gapped stack, where the rows do not touch and there is no shared edge;
  *   - `kpi`'s banding — `:nth-child` rules and a heavier `--text-heading` rule
@@ -66,7 +66,9 @@ function offenders() {
       if (!sides.length) continue;
       if (/(?<![-\w])border\s*:\s*[0-9]/.test(body)) continue;              // a card's box
       if (new Set(sides.map((m) => m[1])).size > 1) continue;               // both sides = a box
-      if (/border-(left|right)\s*:\s*[0-9]/.test(body)) continue;           // a card's rail
+      // A card's rail, in the physical or the logical spelling (the logical-properties clause moves
+      // components from `border-left` to `border-inline-start`; the rail is the same structure).
+      if (/border-(left|right|inline-start|inline-end)\s*:\s*[0-9]/.test(body)) continue;
       if (STRUCTURAL.some((re) => re.test(s0))) continue;
       // Interior-only already? `li + li` / `li ~ li` / `:not(:last-child)`.
       if (/\+\s*li|~\s*li|:not\(:(first|last)-child\)/.test(s0)) continue;

@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · waterfall"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # waterfall
 
@@ -15,8 +15,7 @@ A bridge from one total to another through signed contributions, each bar starti
 
 ---
 
-<!-- _class: waterfall -->
-<!-- _footer: "Default · waterfall" -->
+<!-- @meta{layout=waterfall, footer=Default · waterfall} -->
 
 `FY26 plan · actual`
 
@@ -34,8 +33,7 @@ A bridge from one total to another through signed contributions, each bar starti
 
 ---
 
-<!-- _class: waterfall zoom -->
-<!-- _footer: "zoom · waterfall zoom — Re-bases the axis on the walk; the tear marks the clipped anchors." -->
+<!-- @meta{layout=waterfall, class=zoom, footer="zoom · waterfall zoom — Re-bases the axis on the walk; the tear marks the clipped anchors."} -->
 
 `FY26 · cash`
 
@@ -51,8 +49,7 @@ A bridge from one total to another through signed contributions, each bar starti
 
 ---
 
-<!-- _class: waterfall lower-is-better -->
-<!-- _footer: "lower-is-better · waterfall lower-is-better — For walks where a rise is bad news: a rise wears the fail hue." -->
+<!-- @meta{layout=waterfall, class=lower-is-better, footer="lower-is-better · waterfall lower-is-better — For walks where a rise is bad news: a rise wears the fail hue."} -->
 
 `Combined ratio · %`
 
@@ -68,9 +65,8 @@ A bridge from one total to another through signed contributions, each bar starti
 
 ---
 
-<!-- _class: waterfall -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · waterfall — A subtotal mid-walk, a step below zero and back, and a level authored as a negative." -->
+<!-- @meta{layout=waterfall, footer="Stress test · waterfall — A subtotal mid-walk, a step below zero and back, and a level authored as a negative."} -->
+<!-- @meta{stress-slide} -->
 
 ## The quarter we went negative and came back.
 
@@ -86,8 +82,7 @@ A bridge from one total to another through signed contributions, each bar starti
 
 ---
 
-<!-- _class: waterfall dark -->
-<!-- _footer: "Composition: dark · waterfall dark" -->
+<!-- @meta{layout=waterfall, class=dark, footer=Composition: dark · waterfall dark} -->
 
 `FY26 plan · actual`
 
@@ -105,8 +100,7 @@ A bridge from one total to another through signed contributions, each bar starti
 
 ---
 
-<!-- _class: waterfall compact -->
-<!-- _footer: "Composition: compact · waterfall compact" -->
+<!-- @meta{layout=waterfall, class=compact, footer=Composition: compact · waterfall compact} -->
 
 `FY26 plan · actual`
 
@@ -124,8 +118,7 @@ A bridge from one total to another through signed contributions, each bar starti
 
 ---
 
-<!-- _class: waterfall accent -->
-<!-- _footer: "Composition: accent · waterfall accent" -->
+<!-- @meta{layout=waterfall, class=accent, footer=Composition: accent · waterfall accent} -->
 
 `FY26 plan · actual`
 
@@ -143,8 +136,7 @@ A bridge from one total to another through signed contributions, each bar starti
 
 ---
 
-<!-- _class: cards-grid claim-hero -->
-<!-- _footer: "Anti-patterns · waterfall · 1 of 2" -->
+<!-- @meta{layout=cards-grid, class=claim-hero, footer=Anti-patterns · waterfall · 1 of 2} -->
 
 ## When NOT to reach for waterfall.
 
@@ -155,8 +147,7 @@ A bridge from one total to another through signed contributions, each bar starti
 
 ---
 
-<!-- _class: cards-grid claim-hero -->
-<!-- _footer: "Anti-patterns · waterfall · 2 of 2" -->
+<!-- @meta{layout=cards-grid, class=claim-hero, footer=Anti-patterns · waterfall · 2 of 2} -->
 
 ## When NOT to reach for waterfall.
 
@@ -167,7 +158,7 @@ A bridge from one total to another through signed contributions, each bar starti
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

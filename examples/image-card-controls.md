@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · image card controls"
 ---
 
-<!-- _class: image spotlight -->
+<!-- @meta{layout=image, class=spotlight} -->
 
 ## The default card sits bottom left.
 
@@ -15,7 +15,7 @@ Solid, medium, theme ink. Every control below changes one thing about it.
 
 ---
 
-<!-- _class: image spotlight image-card-top-right image-card-sm -->
+<!-- @meta{layout=image, class=spotlight image-card-top-right image-card-sm} -->
 
 ## A small card, top right.
 
@@ -25,7 +25,7 @@ The small card steps the type down, so the photo carries the slide.
 
 ---
 
-<!-- _class: image spotlight image-card-bottom image-card-soft image-card-light -->
+<!-- @meta{layout=image, class=spotlight image-card-bottom image-card-soft image-card-light} -->
 
 ## A soft dark card, centered low.
 
@@ -37,7 +37,7 @@ The small card steps the type down, so the photo carries the slide.
 
 ---
 
-<!-- _class: image spotlight image-card-top-left image-card-sheer image-card-dark -->
+<!-- @meta{layout=image, class=spotlight image-card-top-left image-card-sheer image-card-dark} -->
 
 ## A sheer light card, top left.
 
@@ -47,7 +47,7 @@ The small card steps the type down, so the photo carries the slide.
 
 ---
 
-<!-- _class: image spotlight image-card-center image-card-lg -->
+<!-- @meta{layout=image, class=spotlight image-card-center image-card-lg} -->
 
 ## image-card-lg lets the message lead.
 
@@ -57,7 +57,7 @@ A wider card and a larger heading, centered on the slide.
 
 ---
 
-<!-- _class: image statement image-card-top image-card-sm -->
+<!-- @meta{layout=image, class=statement image-card-top image-card-sm} -->
 
 ## A discreet title, top center.
 
@@ -67,7 +67,7 @@ The scrim follows the words to the top edge.
 
 ---
 
-<!-- _class: image statement image-card-bottom-right image-card-sheer -->
+<!-- @meta{layout=image, class=statement image-card-bottom-right image-card-sheer} -->
 
 ## The scrim flips to the right.
 
@@ -77,7 +77,7 @@ The scrim follows the words to the top edge.
 
 ---
 
-<!-- _class: image statement image-card-center image-card-dark image-card-lg -->
+<!-- @meta{layout=image, class=statement image-card-center image-card-dark image-card-lg} -->
 
 ## Dark ink on a light scrim.
 
@@ -87,7 +87,7 @@ For a bright photo, the title goes dark and the scrim turns light.
 
 ---
 
-<!-- _class: image spotlight compact image-card-compact image-card-sm image-card-bottom-right -->
+<!-- @meta{layout=image, class=spotlight compact image-card-compact image-card-sm image-card-bottom-right} -->
 
 ## image-card-compact tightens the card.
 
@@ -97,7 +97,7 @@ Padding and the edge inset drop to 70%, so a small card hugs its corner.
 
 ---
 
-<!-- _class: image statement compact image-card-compact image-card-bottom-left -->
+<!-- @meta{layout=image, class=statement compact image-card-compact image-card-bottom-left} -->
 
 ## A compact statement.
 

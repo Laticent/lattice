@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · scene"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # scene
 
@@ -15,8 +15,7 @@ An Anima motion scene as its poster still — an inline, palette-blind SVG that 
 
 ---
 
-<!-- _class: scene gallery -->
-<!-- _footer: "Default · scene" -->
+<!-- @meta{layout=scene, class=gallery, footer=Default · scene} -->
 
 ## The rotor spins inside its fixed housing.
 
@@ -43,8 +42,7 @@ The poster freezes the hero frame; on screen the rotor turns and a bead traces i
 
 ---
 
-<!-- _class: scene clean -->
-<!-- _footer: "clean · scene clean — A card shaped to the still, beside its point." -->
+<!-- @meta{layout=scene, class=clean, footer="clean · scene clean — A card shaped to the still, beside its point."} -->
 
 ## clean seats the scene beside its claim.
 
@@ -55,8 +53,7 @@ The still floats in a card; the argument runs alongside.
 
 ---
 
-<!-- _class: scene split -->
-<!-- _footer: "split · scene split — A tall scene gets its own column." -->
+<!-- @meta{layout=scene, class=split, footer="split · scene split — A tall scene gets its own column."} -->
 
 ## split gives a tall scene its full column.
 
@@ -67,8 +64,7 @@ A portrait scene wants its height; the claim leads beside it.
 
 ---
 
-<!-- _class: scene spotlight -->
-<!-- _footer: "spotlight · scene spotlight — A wide scene owns the frame." -->
+<!-- @meta{layout=scene, class=spotlight, footer="spotlight · scene spotlight — A wide scene owns the frame."} -->
 
 ## spotlight lets a wide scene carry the slide.
 
@@ -79,8 +75,7 @@ When the scene already matches the canvas, let it own the frame.
 
 ---
 
-<!-- _class: scene gallery -->
-<!-- _footer: "gallery · scene gallery — The whole still contained on a matte." -->
+<!-- @meta{layout=scene, class=gallery, footer="gallery · scene gallery — The whole still contained on a matte."} -->
 
 ## gallery mats the scene like an exhibit.
 
@@ -91,8 +86,7 @@ The whole scene on a matte — the default when the shape is the point.
 
 ---
 
-<!-- _class: scene statement -->
-<!-- _footer: "statement · scene statement — The title rides an editorial band below the scene." -->
+<!-- @meta{layout=scene, class=statement, footer="statement · scene statement — The title rides an editorial band below the scene."} -->
 
 ## statement rides the title below the scene.
 
@@ -103,8 +97,7 @@ The still sits on a matte stage; the title rides an editorial band beneath it.
 
 ---
 
-<!-- _class: scene mirror -->
-<!-- _footer: "mirror · scene mirror — The scene lands on the left." -->
+<!-- @meta{layout=scene, class=mirror, footer="mirror · scene mirror — The scene lands on the left."} -->
 
 ## mirror lands the scene on the left.
 
@@ -115,8 +108,7 @@ Scene anchors from the left; the text leads from the right.
 
 ---
 
-<!-- _class: scene gallery dark -->
-<!-- _footer: "Composition: dark · scene dark" -->
+<!-- @meta{layout=scene, class=gallery dark, footer=Composition: dark · scene dark} -->
 
 ## The rotor spins inside its fixed housing.
 
@@ -143,8 +135,7 @@ The poster freezes the hero frame; on screen the rotor turns and a bead traces i
 
 ---
 
-<!-- _class: scene gallery compact -->
-<!-- _footer: "Composition: compact · scene compact" -->
+<!-- @meta{layout=scene, class=gallery compact, footer=Composition: compact · scene compact} -->
 
 ## The rotor spins inside its fixed housing.
 
@@ -171,8 +162,7 @@ The poster freezes the hero frame; on screen the rotor turns and a bead traces i
 
 ---
 
-<!-- _class: scene gallery accent -->
-<!-- _footer: "Composition: accent · scene accent" -->
+<!-- @meta{layout=scene, class=gallery accent, footer=Composition: accent · scene accent} -->
 
 ## The rotor spins inside its fixed housing.
 
@@ -199,8 +189,7 @@ The poster freezes the hero frame; on screen the rotor turns and a bead traces i
 
 ---
 
-<!-- _class: cards-grid three claim-hero -->
-<!-- _footer: "Anti-patterns · scene" -->
+<!-- @meta{layout=cards-grid, class=three claim-hero, footer=Anti-patterns · scene} -->
 
 ## When NOT to reach for scene.
 
@@ -213,7 +202,7 @@ The poster freezes the hero frame; on screen the rotor turns and a bead traces i
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

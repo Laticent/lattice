@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · team-profile"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # team-profile
 
@@ -15,8 +15,7 @@ A roster of named people, each under a portrait, with the role they own.
 
 ---
 
-<!-- _class: team-profile -->
-<!-- _footer: "Default · team-profile" -->
+<!-- @meta{layout=team-profile, footer=Default · team-profile} -->
 
 `inventory · team-profile`
 
@@ -50,8 +49,7 @@ A roster of named people, each under a portrait, with the role they own.
 
 ---
 
-<!-- _class: team-profile lead -->
-<!-- _footer: "lead · team-profile lead — The first person takes a hero cell; the rest rank beneath." -->
+<!-- @meta{layout=team-profile, class=lead, footer="lead · team-profile lead — The first person takes a hero cell; the rest rank beneath."} -->
 
 `team-profile lead`
 
@@ -77,8 +75,7 @@ A roster of named people, each under a portrait, with the role they own.
 
 ---
 
-<!-- _class: team-profile bench -->
-<!-- _footer: "bench · team-profile bench — The long roster, packed to a face, a name and a role." -->
+<!-- @meta{layout=team-profile, class=bench, footer="bench · team-profile bench — The long roster, packed to a face, a name and a role."} -->
 
 `team-profile bench`
 
@@ -120,8 +117,7 @@ A roster of named people, each under a portrait, with the role they own.
 
 ---
 
-<!-- _class: team-profile sides -->
-<!-- _footer: "sides · team-profile sides — Two labeled rosters facing each other across the slide." -->
+<!-- @meta{layout=team-profile, class=sides, footer="sides · team-profile sides — Two labeled rosters facing each other across the slide."} -->
 
 `team-profile sides`
 
@@ -148,8 +144,7 @@ A roster of named people, each under a portrait, with the role they own.
 
 ---
 
-<!-- _class: team-profile bio -->
-<!-- _footer: "bio · team-profile bio — One person per row, with room for a real sentence." -->
+<!-- @meta{layout=team-profile, class=bio, footer="bio · team-profile bio — One person per row, with room for a real sentence."} -->
 
 `team-profile bio`
 
@@ -175,9 +170,8 @@ A roster of named people, each under a portrait, with the role they own.
 
 ---
 
-<!-- _class: team-profile bench -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · team-profile — Twelve people with a note each — the hard ceiling, where the grid spends the last of its breathing room." -->
+<!-- @meta{layout=team-profile, class=bench, footer="Stress test · team-profile — Twelve people with a note each — the hard ceiling, where the grid spends the last of its breathing room."} -->
+<!-- @meta{stress-slide} -->
 
 `team-profile at the ceiling`
 
@@ -219,8 +213,7 @@ A roster of named people, each under a portrait, with the role they own.
 
 ---
 
-<!-- _class: team-profile dark -->
-<!-- _footer: "Composition: dark · team-profile dark" -->
+<!-- @meta{layout=team-profile, class=dark, footer=Composition: dark · team-profile dark} -->
 
 `inventory · team-profile`
 
@@ -254,8 +247,7 @@ A roster of named people, each under a portrait, with the role they own.
 
 ---
 
-<!-- _class: team-profile compact -->
-<!-- _footer: "Composition: compact · team-profile compact" -->
+<!-- @meta{layout=team-profile, class=compact, footer=Composition: compact · team-profile compact} -->
 
 `inventory · team-profile`
 
@@ -289,8 +281,7 @@ A roster of named people, each under a portrait, with the role they own.
 
 ---
 
-<!-- _class: team-profile accent -->
-<!-- _footer: "Composition: accent · team-profile accent" -->
+<!-- @meta{layout=team-profile, class=accent, footer=Composition: accent · team-profile accent} -->
 
 `inventory · team-profile`
 

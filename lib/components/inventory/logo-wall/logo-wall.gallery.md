@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · logo-wall"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # logo-wall
 
@@ -15,8 +15,7 @@ A grid of customer, partner, or funder logos as social proof.
 
 ---
 
-<!-- _class: logo-wall -->
-<!-- _footer: "Default · logo-wall" -->
+<!-- @meta{layout=logo-wall, footer=Default · logo-wall} -->
 
 `inventory · logo-wall`
 
@@ -50,8 +49,7 @@ A grid of customer, partner, or funder logos as social proof.
 
 ---
 
-<!-- _class: logo-wall color -->
-<!-- _footer: "color · logo-wall color — Marks keep their brand hues." -->
+<!-- @meta{layout=logo-wall, class=color, footer="color · logo-wall color — Marks keep their brand hues."} -->
 
 `logo-wall color`
 
@@ -69,8 +67,7 @@ A grid of customer, partner, or funder logos as social proof.
 
 ---
 
-<!-- _class: logo-wall dense -->
-<!-- _footer: "dense · logo-wall dense — Six columns for the long roster." -->
+<!-- @meta{layout=logo-wall, class=dense, footer="dense · logo-wall dense — Six columns for the long roster."} -->
 
 `logo-wall dense`
 
@@ -92,8 +89,7 @@ A grid of customer, partner, or funder logos as social proof.
 
 ---
 
-<!-- _class: logo-wall dark -->
-<!-- _footer: "Composition: dark · logo-wall dark" -->
+<!-- @meta{layout=logo-wall, class=dark, footer=Composition: dark · logo-wall dark} -->
 
 `inventory · logo-wall`
 
@@ -127,8 +123,7 @@ A grid of customer, partner, or funder logos as social proof.
 
 ---
 
-<!-- _class: logo-wall compact -->
-<!-- _footer: "Composition: compact · logo-wall compact" -->
+<!-- @meta{layout=logo-wall, class=compact, footer=Composition: compact · logo-wall compact} -->
 
 `inventory · logo-wall`
 
@@ -162,8 +157,7 @@ A grid of customer, partner, or funder logos as social proof.
 
 ---
 
-<!-- _class: cards-grid three claim-hero -->
-<!-- _footer: "Anti-patterns · logo-wall" -->
+<!-- @meta{layout=cards-grid, class=three claim-hero, footer=Anti-patterns · logo-wall} -->
 
 ## When NOT to reach for logo-wall.
 
@@ -176,7 +170,7 @@ A grid of customer, partner, or funder logos as social proof.
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

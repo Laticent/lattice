@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · histogram"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # histogram
 
@@ -15,8 +15,7 @@ One quantity cut into bands that join end to end: each bar is as wide as its ban
 
 ---
 
-<!-- _class: histogram -->
-<!-- _footer: "Default · histogram" -->
+<!-- @meta{layout=histogram, footer=Default · histogram} -->
 
 `[{Annual loss, $1M..$250M, log}, {Share of years}]`
 
@@ -30,9 +29,8 @@ One quantity cut into bands that join end to end: each bar is as wide as its ban
 
 ---
 
-<!-- _class: histogram -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · histogram — Twelve equal bands on a linear axis, the tail bands under one percent." -->
+<!-- @meta{layout=histogram, footer="Stress test · histogram — Twelve equal bands on a linear axis, the tail bands under one percent."} -->
+<!-- @meta{stress-slide} -->
 
 `[{Claim size}, {Share of claims}]`
 
@@ -54,8 +52,7 @@ One quantity cut into bands that join end to end: each bar is as wide as its ban
 
 ---
 
-<!-- _class: histogram dark -->
-<!-- _footer: "Composition: dark · histogram dark" -->
+<!-- @meta{layout=histogram, class=dark, footer=Composition: dark · histogram dark} -->
 
 `[{Annual loss, $1M..$250M, log}, {Share of years}]`
 
@@ -69,8 +66,7 @@ One quantity cut into bands that join end to end: each bar is as wide as its ban
 
 ---
 
-<!-- _class: histogram compact -->
-<!-- _footer: "Composition: compact · histogram compact" -->
+<!-- @meta{layout=histogram, class=compact, footer=Composition: compact · histogram compact} -->
 
 `[{Annual loss, $1M..$250M, log}, {Share of years}]`
 
@@ -84,8 +80,7 @@ One quantity cut into bands that join end to end: each bar is as wide as its ban
 
 ---
 
-<!-- _class: histogram accent -->
-<!-- _footer: "Composition: accent · histogram accent" -->
+<!-- @meta{layout=histogram, class=accent, footer=Composition: accent · histogram accent} -->
 
 `[{Annual loss, $1M..$250M, log}, {Share of years}]`
 
@@ -99,8 +94,7 @@ One quantity cut into bands that join end to end: each bar is as wide as its ban
 
 ---
 
-<!-- _class: cards-grid claim-hero -->
-<!-- _footer: "Anti-patterns · histogram" -->
+<!-- @meta{layout=cards-grid, class=claim-hero, footer=Anti-patterns · histogram} -->
 
 ## When NOT to reach for histogram.
 
@@ -111,7 +105,7 @@ One quantity cut into bands that join end to end: each bar is as wide as its ban
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

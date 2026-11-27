@@ -4,7 +4,7 @@ theme: indaco
 pagination: true
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # A pill in a label stays in the label
 
@@ -12,7 +12,7 @@ An inline pill, check or bold word in the middle of a list item no longer splits
 
 ---
 
-<!-- _class: list-steps -->
+<!-- @meta{layout=list-steps} -->
 
 ## Step titles keep the pill in the sentence.
 
@@ -25,7 +25,7 @@ An inline pill, check or bold word in the middle of a list item no longer splits
 
 ---
 
-<!-- _class: checklist -->
+<!-- @meta{layout=checklist} -->
 
 ## A status tag in the middle of a row stays in the row.
 
@@ -36,7 +36,7 @@ An inline pill, check or bold word in the middle of a list item no longer splits
 
 ---
 
-<!-- _class: pricing -->
+<!-- @meta{layout=pricing} -->
 
 ## Plan names keep their pills, and the price keeps its slot.
 
@@ -55,7 +55,7 @@ An inline pill, check or bold word in the middle of a list item no longer splits
 
 ---
 
-<!-- _class: verdict-grid -->
+<!-- @meta{layout=verdict-grid} -->
 
 ## A verdict title can carry a pill without stretching it.
 
@@ -78,7 +78,7 @@ An inline pill, check or bold word in the middle of a list item no longer splits
 
 ---
 
-<!-- _class: matrix-2x2 -->
+<!-- @meta{layout=matrix-2x2} -->
 
 ## Quadrant titles hold a pill and a slash on one line.
 
@@ -95,7 +95,7 @@ An inline pill, check or bold word in the middle of a list item no longer splits
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 ## Card titles take a mid-title pill and a bold word.
 
@@ -110,7 +110,7 @@ An inline pill, check or bold word in the middle of a list item no longer splits
 
 ---
 
-<!-- _class: list -->
+<!-- @meta{layout=list} -->
 
 ## Plain lists flow around inline code and bold words.
 

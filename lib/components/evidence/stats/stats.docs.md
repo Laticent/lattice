@@ -45,7 +45,7 @@ Use for at-a-glance metric rows — quarterly results, headline KPIs. Each tile 
 ## Authoring
 
 ```markdown
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 
 `Impact · Pilot Results`
 

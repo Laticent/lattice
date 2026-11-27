@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · cycle"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # cycle
 
@@ -15,8 +15,7 @@ A closed loop of 3-6 stages that returns to its start — for a process with no 
 
 ---
 
-<!-- _class: cycle -->
-<!-- _footer: "Default · cycle" -->
+<!-- @meta{layout=cycle, footer=Default · cycle} -->
 
 `The water cycle`
 
@@ -34,9 +33,8 @@ A closed loop of 3-6 stages that returns to its start — for a process with no 
 
 ---
 
-<!-- _class: cycle -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · cycle — Six stages — the last legible ring." -->
+<!-- @meta{layout=cycle, footer="Stress test · cycle — Six stages — the last legible ring."} -->
+<!-- @meta{stress-slide} -->
 
 `The carbon cycle`
 
@@ -58,8 +56,7 @@ A closed loop of 3-6 stages that returns to its start — for a process with no 
 
 ---
 
-<!-- _class: cycle dark -->
-<!-- _footer: "Composition: dark · cycle dark" -->
+<!-- @meta{layout=cycle, class=dark, footer=Composition: dark · cycle dark} -->
 
 `The water cycle`
 
@@ -77,8 +74,7 @@ A closed loop of 3-6 stages that returns to its start — for a process with no 
 
 ---
 
-<!-- _class: cycle compact -->
-<!-- _footer: "Composition: compact · cycle compact" -->
+<!-- @meta{layout=cycle, class=compact, footer=Composition: compact · cycle compact} -->
 
 `The water cycle`
 
@@ -96,8 +92,7 @@ A closed loop of 3-6 stages that returns to its start — for a process with no 
 
 ---
 
-<!-- _class: cycle accent -->
-<!-- _footer: "Composition: accent · cycle accent" -->
+<!-- @meta{layout=cycle, class=accent, footer=Composition: accent · cycle accent} -->
 
 `The water cycle`
 
@@ -115,8 +110,7 @@ A closed loop of 3-6 stages that returns to its start — for a process with no 
 
 ---
 
-<!-- _class: cards-grid three claim-hero -->
-<!-- _footer: "Anti-patterns · cycle" -->
+<!-- @meta{layout=cards-grid, class=three claim-hero, footer=Anti-patterns · cycle} -->
 
 ## When NOT to reach for cycle.
 
@@ -129,7 +123,7 @@ A closed loop of 3-6 stages that returns to its start — for a process with no 
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

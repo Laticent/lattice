@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · #1715"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # The muted tier, split
 
@@ -15,8 +15,8 @@ Four color tokens whose declared contract did not match what they painted.
 
 ---
 
-<!-- _class: split-compare -->
-<!-- _footer: "Part 2 · --text-muted gained AA; --muted-mark took the decoration" -->
+<!-- @meta{layout=split-compare, footer="Part 2 · --text-muted gained AA; --muted-mark took the decoration"} -->
+
 
 ## One token was doing two jobs with two different floors.
 
@@ -27,8 +27,8 @@ Four color tokens whose declared contract did not match what they painted.
 
 ---
 
-<!-- _class: table -->
-<!-- _footer: "Part 2 · the muted text tier at its new floor, on --bg-alt" -->
+<!-- @meta{layout=table, footer="Part 2 · the muted text tier at its new floor, on --bg-alt"} -->
+
 
 ## Muted text still reads as muted — and now it reads.
 
@@ -41,8 +41,8 @@ Four color tokens whose declared contract did not match what they painted.
 
 ---
 
-<!-- _class: checklist -->
-<!-- _footer: "Part 2 · skipped marks and rules now read --muted-mark" -->
+<!-- @meta{layout=checklist, footer=Part 2 · skipped marks and rules now read --muted-mark} -->
+
 
 ## The decoration tier keeps its quiet.
 
@@ -53,8 +53,8 @@ Four color tokens whose declared contract did not match what they painted.
 
 ---
 
-<!-- _class: code -->
-<!-- _footer: "Part 3 · the slide code panel — re-theme this deck to an a11y palette" -->
+<!-- @meta{layout=code, footer="Part 3 · the slide code panel — re-theme this deck to an a11y palette"} -->
+
 
 ## Syntax colors are grouped by what survives the condition.
 
@@ -70,8 +70,8 @@ function separationUnder(condition, roles) {
 
 ---
 
-<!-- _class: finish finish-halo -->
-<!-- _footer: "Part 1 · the finish-halo vignette rim, now a neutral ink" -->
+<!-- @meta{class=finish finish-halo, footer="Part 1 · the finish-halo vignette rim, now a neutral ink"} -->
+
 
 ## The rim is ink again, not the brand hue.
 
@@ -79,8 +79,8 @@ A token declared nowhere means the fallback wins on every theme, forever — and
 
 ---
 
-<!-- _class: finish finish-nimbus -->
-<!-- _footer: "Part 1 · finish-nimbus, the same repair" -->
+<!-- @meta{class=finish finish-nimbus, footer="Part 1 · finish-nimbus, the same repair"} -->
+
 
 ## Same phantom, same repair.
 
@@ -88,8 +88,8 @@ Both rims now read a contract token directly, so they need no fallback at all �
 
 ---
 
-<!-- _class: decision -->
-<!-- _footer: "#1715 · what the gates now hold" -->
+<!-- @meta{layout=decision, footer=#1715 · what the gates now hold} -->
+
 
 ## Three gates, each one bitten before its green was trusted.
 

@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · compare-prose"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # compare-prose
 
@@ -15,8 +15,7 @@ Two prose options side-by-side with a labeled corner tag on each.
 
 ---
 
-<!-- _class: compare-prose -->
-<!-- _footer: "Default · compare-prose" -->
+<!-- @meta{layout=compare-prose, footer=Default · compare-prose} -->
 
 ## Two options, equal footing, corner tags.
 
@@ -28,8 +27,7 @@ Two prose options side-by-side with a labeled corner tag on each.
 
 ---
 
-<!-- _class: compare-prose transition -->
-<!-- _footer: "transition · compare-prose transition — Left reads as before, right as after." -->
+<!-- @meta{layout=compare-prose, class=transition, footer="transition · compare-prose transition — Left reads as before, right as after."} -->
 
 ## transition reads left as before, right as after.
 
@@ -41,8 +39,7 @@ Two prose options side-by-side with a labeled corner tag on each.
 
 ---
 
-<!-- _class: compare-prose mirror -->
-<!-- _footer: "mirror · compare-prose mirror — Swaps the reading order." -->
+<!-- @meta{layout=compare-prose, class=mirror, footer="mirror · compare-prose mirror — Swaps the reading order."} -->
 
 ## mirror swaps the reading order.
 
@@ -54,8 +51,7 @@ Two prose options side-by-side with a labeled corner tag on each.
 
 ---
 
-<!-- _class: compare-prose chosen -->
-<!-- _footer: "chosen · compare-prose chosen — Crowns the right pane the winner." -->
+<!-- @meta{layout=compare-prose, class=chosen, footer="chosen · compare-prose chosen — Crowns the right pane the winner."} -->
 
 ## chosen crowns the right pane the winner.
 
@@ -67,8 +63,7 @@ Two prose options side-by-side with a labeled corner tag on each.
 
 ---
 
-<!-- _class: compare-prose decision -->
-<!-- _footer: "decision · compare-prose decision — Stamps the verdict banner across the pair." -->
+<!-- @meta{layout=compare-prose, class=decision, footer="decision · compare-prose decision — Stamps the verdict banner across the pair."} -->
 
 ## decision stamps the verdict banner across the pair.
 
@@ -80,8 +75,7 @@ Two prose options side-by-side with a labeled corner tag on each.
 
 ---
 
-<!-- _class: compare-prose vertical -->
-<!-- _footer: "vertical · compare-prose vertical — Stacks the panes for longer cases." -->
+<!-- @meta{layout=compare-prose, class=vertical, footer="vertical · compare-prose vertical — Stacks the panes for longer cases."} -->
 
 ## vertical stacks the panes for longer cases.
 
@@ -93,8 +87,7 @@ Two prose options side-by-side with a labeled corner tag on each.
 
 ---
 
-<!-- _class: compare-prose tag-band -->
-<!-- _footer: "tag-band · compare-prose tag-band — Corner tags become banners." -->
+<!-- @meta{layout=compare-prose, class=tag-band, footer="tag-band · compare-prose tag-band — Corner tags become banners."} -->
 
 ## tag-band fills the corner tags at banner weight.
 
@@ -106,8 +99,7 @@ Two prose options side-by-side with a labeled corner tag on each.
 
 ---
 
-<!-- _class: compare-prose rejected -->
-<!-- _footer: "Rejected · compare-prose rejected — Strikes the losing pane." -->
+<!-- @meta{layout=compare-prose, class=rejected, footer="Rejected · compare-prose rejected — Strikes the losing pane."} -->
 
 ## rejected strikes the losing pane.
 
@@ -119,8 +111,7 @@ Two prose options side-by-side with a labeled corner tag on each.
 
 ---
 
-<!-- _class: compare-prose axis -->
-<!-- _footer: "axis · compare-prose axis — A lede above, numeral-led facet cards, a closing note below." -->
+<!-- @meta{layout=compare-prose, class=axis, footer="axis · compare-prose axis — A lede above, numeral-led facet cards, a closing note below."} -->
 
 ## The second axis: how far it reaches.
 
@@ -136,9 +127,8 @@ The verb is one axis — how you think. **Reach** is the other — how far what 
 
 ---
 
-<!-- _class: compare-prose vertical -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · compare-prose — Both panes at the ceiling." -->
+<!-- @meta{layout=compare-prose, class=vertical, footer="Stress test · compare-prose — Both panes at the ceiling."} -->
+<!-- @meta{stress-slide} -->
 
 ## Two full cases is the most this pair holds.
 
@@ -150,8 +140,7 @@ The verb is one axis — how you think. **Reach** is the other — how far what 
 
 ---
 
-<!-- _class: compare-prose dark -->
-<!-- _footer: "Composition: dark · compare-prose dark" -->
+<!-- @meta{layout=compare-prose, class=dark, footer=Composition: dark · compare-prose dark} -->
 
 ## Two options, equal footing, corner tags.
 
@@ -163,8 +152,7 @@ The verb is one axis — how you think. **Reach** is the other — how far what 
 
 ---
 
-<!-- _class: compare-prose compact -->
-<!-- _footer: "Composition: compact · compare-prose compact" -->
+<!-- @meta{layout=compare-prose, class=compact, footer=Composition: compact · compare-prose compact} -->
 
 ## Two options, equal footing, corner tags.
 
@@ -176,8 +164,7 @@ The verb is one axis — how you think. **Reach** is the other — how far what 
 
 ---
 
-<!-- _class: compare-prose accent -->
-<!-- _footer: "Composition: accent · compare-prose accent" -->
+<!-- @meta{layout=compare-prose, class=accent, footer=Composition: accent · compare-prose accent} -->
 
 ## Two options, equal footing, corner tags.
 
@@ -189,8 +176,7 @@ The verb is one axis — how you think. **Reach** is the other — how far what 
 
 ---
 
-<!-- _class: cards-grid three claim-hero -->
-<!-- _footer: "Anti-patterns · compare-prose" -->
+<!-- @meta{layout=cards-grid, class=three claim-hero, footer=Anti-patterns · compare-prose} -->
 
 ## When NOT to reach for compare-prose.
 
@@ -203,7 +189,7 @@ The verb is one axis — how you think. **Reach** is the other — how far what 
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

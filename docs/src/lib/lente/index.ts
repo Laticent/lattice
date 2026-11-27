@@ -20,7 +20,7 @@ export { emitRegistry, emitRegistryDelta, isPristineInherited, parseLensRegistry
 // Suggest path — a SEPARATE module; pure, no AI, proposes membership, writes nothing.
 export { catalogFromComponents, commentClassReader, type SlideClassReader, suggestMembership } from './suggest.js';
 // Tags — the per-slide membership carrier.
-export { applyTag, parseSlideTags, taggedLensIds } from './tags.js';
+export { applyTag, commentLensCarrier, type LensTagCarrier, parseSlideTags, setLensTagCarrier, taggedLensIds } from './tags.js';
 export type {
 	ComponentCatalog,
 	ComponentInfo,

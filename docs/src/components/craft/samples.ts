@@ -6,7 +6,7 @@
 // is real Lattice source: paste any of them into the Playground and they render.
 
 /** A KPI slide — three figures, each with a label, a delta and status tags. */
-export const SLIDE_KPI = `<!-- _class: kpi -->
+export const SLIDE_KPI = `<!-- @meta{layout=kpi} -->
 
 ## Revenue ahead of plan; margin and cash both expanded.
 
@@ -22,7 +22,7 @@ export const SLIDE_KPI = `<!-- _class: kpi -->
 `;
 
 /** Four cards — the plainest way to see surfaces, borders and body ink at once. */
-export const SLIDE_CARDS = `<!-- _class: cards-grid -->
+export const SLIDE_CARDS = `<!-- @meta{layout=cards-grid} -->
 
 ## Four things the quarter proved.
 
@@ -37,7 +37,7 @@ export const SLIDE_CARDS = `<!-- _class: cards-grid -->
 `;
 
 /** A title slide — the inverse bookend, where the canvas flips to the dark surface. */
-export const SLIDE_TITLE = `<!-- _class: title -->
+export const SLIDE_TITLE = `<!-- @meta{layout=title} -->
 
 # Fourth quarter review
 
@@ -47,7 +47,7 @@ Results, risks, and what we do next.
 `;
 
 /** A code slide — every syntax color on the screen at once. */
-export const SLIDE_CODE = `<!-- _class: code -->
+export const SLIDE_CODE = `<!-- @meta{layout=code} -->
 
 ## The renderer reads the theme, never a color.
 
@@ -62,7 +62,7 @@ function panelStyle(theme) {
 `;
 
 /** A flowchart — where the categorical colors show up. */
-export const SLIDE_DIAGRAM = `<!-- _class: diagram -->
+export const SLIDE_DIAGRAM = `<!-- @meta{layout=diagram} -->
 
 ## How a deck becomes a PDF.
 
@@ -232,7 +232,7 @@ export const THEME_EVERGREEN = `/* @theme evergreen
 `;
 
 /** The slide the component labs style. Plain markdown, no component class yet. */
-export const SLIDE_PLAIN = `<!-- _class: content -->
+export const SLIDE_PLAIN = `<!-- @meta{layout=content} -->
 
 ## A slide with nothing but a heading and a paragraph.
 
@@ -241,7 +241,7 @@ past that is the component's CSS.
 `;
 
 /** A hand-written component: the smallest thing that counts as one. */
-export const SLIDE_CUSTOM_COMPONENT = `<!-- _class: takeaway -->
+export const SLIDE_CUSTOM_COMPONENT = `<!-- @meta{class=takeaway} -->
 
 ## We should renew the contract.
 
@@ -308,7 +308,7 @@ section.takeaway {
 
 /** The slide the finished-finish example paints behind — its class matches the
  *  real preset name, so the lab shows exactly the CSS a shipped finish carries. */
-export const SLIDE_FINISH_QUARRY = `<!-- _class: content finish-quarry -->
+export const SLIDE_FINISH_QUARRY = `<!-- @meta{layout=content, class=finish-quarry} -->
 
 ## Atmosphere behind the words, never ornament on top of them.
 `;
@@ -363,7 +363,7 @@ export const CSS_FINISH_QUARRY = `section.finish-quarry {
 `;
 
 /** The slide every finish lab paints behind. `finish-lab` is a per-slide finish class. */
-export const SLIDE_FINISH = `<!-- _class: content finish-lab -->
+export const SLIDE_FINISH = `<!-- @meta{layout=content, class=finish-lab} -->
 
 ## Atmosphere behind the words, never ornament on top of them.
 `;

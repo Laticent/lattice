@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · gantt redesign"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # The gantt, rebuilt on real time.
 
@@ -15,8 +15,8 @@ Same nested-list muscle memory, now with validated tokens, milestones, dependenc
 
 ---
 
-<!-- _class: gantt -->
-<!-- _footer: "Quarters, a milestone, and a today line · gantt" -->
+<!-- @meta{layout=gantt, footer="Quarters, a milestone, and a today line · gantt"} -->
+
 
 `[{Timeline, 2026 Q1 .. 2026 Q4, today=Q3}]`
 
@@ -35,8 +35,8 @@ The at-risk bar quietly gates the rollout; GA is a milestone; the today line mar
 
 ---
 
-<!-- _class: gantt -->
-<!-- _footer: "Real calendar dates, axis auto-derived · gantt" -->
+<!-- @meta{layout=gantt, footer="Real calendar dates, axis auto-derived · gantt"} -->
+
 
 `[{Timeline, today=2026-04-01}]`
 
@@ -54,8 +54,8 @@ Write ISO dates and the bars land on a day-accurate scale — the month ticks co
 
 ---
 
-<!-- _class: gantt -->
-<!-- _footer: "Multi-year, year-qualified quarters · gantt" -->
+<!-- @meta{layout=gantt, footer="Multi-year, year-qualified quarters · gantt"} -->
+
 
 `[{Timeline, 2027 Q3 .. 2028 Q4}]`
 
@@ -72,8 +72,8 @@ Qualify a quarter with its year (`2027 Q3`) and a plan can cross the calendar bo
 
 ---
 
-<!-- _class: gantt dark -->
-<!-- _footer: "Dark composition · gantt dark" -->
+<!-- @meta{layout=gantt, class=dark, footer=Dark composition · gantt dark} -->
+
 
 `[{Timeline, 2026 Q1 .. 2026 Q4, today=Q3}]`
 
@@ -91,8 +91,8 @@ Qualify a quarter with its year (`2027 Q3`) and a plan can cross the calendar bo
 
 ---
 
-<!-- _class: gantt compact -->
-<!-- _footer: "Portrait reflow adapts the same source · gantt compact" -->
+<!-- @meta{layout=gantt, class=compact, footer=Portrait reflow adapts the same source · gantt compact} -->
+
 
 `[{Timeline, Jan .. Jun}]`
 
@@ -108,8 +108,8 @@ Qualify a quarter with its year (`2027 Q3`) and a plan can cross the calendar bo
 
 ---
 
-<!-- _class: list -->
-<!-- _footer: "What the linter now catches · gantt" -->
+<!-- @meta{layout=list, footer=What the linter now catches · gantt} -->
+
 
 ## Loud at author time, never silent garbage.
 
@@ -120,7 +120,7 @@ Qualify a quarter with its year (`2027 Q3`) and a plan can cross the calendar bo
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 ## See also.
 

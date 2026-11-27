@@ -7,9 +7,9 @@ header: "Lattice · radar narration"
 footer: "read-aloud narrates the radar chart"
 ---
 
-<!-- _class: title -->
-<!-- _footer: '' -->
-<!-- _header: '' -->
+<!-- @meta{layout=title, footer="", header=""} -->
+
+
 
 # Read-aloud that reads the radar.
 
@@ -19,7 +19,7 @@ footer: "read-aloud narrates the radar chart"
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `01 · Positional values`
 
@@ -38,7 +38,7 @@ radar-beta
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `02 · Keyed values`
 
@@ -54,7 +54,7 @@ radar-beta
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `03 · The scale, stated`
 
@@ -70,7 +70,7 @@ radar-beta
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `04 · When it's a lot`
 
@@ -88,7 +88,7 @@ radar-beta
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `05 · Honest bail`
 
@@ -104,8 +104,8 @@ radar-beta
 
 ---
 
-<!-- _class: closing -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, footer=""} -->
+
 
 # The radar is spoken now.
 

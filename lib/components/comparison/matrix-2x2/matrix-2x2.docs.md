@@ -49,7 +49,7 @@ Use for categorical 2×2 reasoning when the items are fixed and you control whic
 ## Authoring
 
 ```markdown
-<!-- _class: matrix-2x2 -->
+<!-- @meta{layout=matrix-2x2} -->
 
 ## Where each option lives.
 

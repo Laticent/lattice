@@ -150,7 +150,7 @@ export function llmsTxt({ site }) {
 	const out = [
 		'# Lattice',
 		'',
-		'> A slide-deck engine that renders boardroom-ready PDF, PPTX and HTML decks from plain Markdown. Each slide picks a layout with `<!-- _class: name -->`; a theme supplies the palette. Open source (AGPL-3.0), runs offline.',
+		'> A slide-deck engine that renders boardroom-ready PDF, PPTX and HTML decks from plain Markdown. Each slide picks a layout with `<!-- @meta{class=name} -->`; a theme supplies the palette. Open source (AGPL-3.0), runs offline.',
 		'',
 		'To write a deck, read /agents/start.md first, then the file for each layout you use. Everything an agent needs is on this domain, in plain Markdown.',
 		'',

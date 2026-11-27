@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · obligation-matrix label sets"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # The key you used to retype.
 
@@ -17,8 +17,8 @@ authoring mistake. The grid now draws the key from the markers in its cells.
 
 ---
 
-<!-- _class: obligation-matrix -->
-<!-- _footer: "Derived · nothing authored" -->
+<!-- @meta{layout=obligation-matrix, footer=Derived · nothing authored} -->
+
 
 ## The grid names its own markers.
 
@@ -32,8 +32,8 @@ Nothing is authored here. The key under the grid is built from the cells.
 
 ---
 
-<!-- _class: obligation-matrix -->
-<!-- _footer: "Derived · only the markers present get a row" -->
+<!-- @meta{layout=obligation-matrix, footer=Derived · only the markers present get a row} -->
+
 
 ## A key never names a marker the grid does not carry.
 
@@ -47,8 +47,8 @@ cell is one the reader cannot find.
 
 ---
 
-<!-- _class: obligation-matrix -->
-<!-- _footer: "Overridden · compliance words become licensing words" -->
+<!-- @meta{layout=obligation-matrix, footer=Overridden · compliance words become licensing words} -->
+
 
 `[{[x], In force}, {[/], Not subject}]`
 
@@ -64,8 +64,8 @@ Two markers renamed; the third keeps its default.
 
 ---
 
-<!-- _class: obligation-matrix heat -->
-<!-- _footer: "heat · the key follows the cells, whatever they paint" -->
+<!-- @meta{layout=obligation-matrix, class=heat, footer="heat · the key follows the cells, whatever they paint"} -->
+
 
 `[{[x], Exposed}, {[/], Carved out}]`
 
@@ -81,8 +81,8 @@ take the cells' own classes, so one stylesheet rule paints both.
 
 ---
 
-<!-- _class: list -->
-<!-- _footer: "What the label set changed here" -->
+<!-- @meta{layout=list, footer=What the label set changed here} -->
+
 
 ## What changed.
 
