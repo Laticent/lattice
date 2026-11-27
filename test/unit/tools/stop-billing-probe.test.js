@@ -35,7 +35,8 @@ describe('stop-billing-probe', () => {
 	it('names a ledger rule for every case it runs', () => {
 		assert.deepEqual(Object.keys(LEDGER_RULE).sort(), [...CASES].sort());
 		assert.equal(LEDGER_RULE['before-200'], 'nothing');
-		assert.equal(LEDGER_RULE['at-200'], 'estimate');
+		assert.equal(LEDGER_RULE['at-200'], 'nothing', 'measured: a Stop on the 200, before any chunk, is not billed');
+		assert.equal(LEDGER_RULE['first-chunk'], 'estimate');
 	});
 
 	it('sends enough input that the early stops land while the provider is still reading it', () => {
@@ -51,8 +52,10 @@ describe('stop-billing-probe', () => {
 	it('reads each case against what the key was billed, and never turns "unsettled" into 0', () => {
 		assert.match(verdict({ case: 'before-200', billed: 0.0031, estimate: 0 }), /^UNDERCHARGED/);
 		assert.match(verdict({ case: 'before-200', billed: 0, estimate: 0 }), /^match: not billed/);
-		assert.match(verdict({ case: 'at-200', billed: 0, estimate: 0.006 }), /^OVERCHARGED/);
-		assert.match(verdict({ case: 'at-200', billed: 0.003, estimate: 0.006 }), /2\.00x/);
+		assert.match(verdict({ case: 'at-200', billed: 0, estimate: 0 }), /^match: not billed/);
+		assert.match(verdict({ case: 'at-200', billed: 0.003, estimate: 0 }), /^UNDERCHARGED/);
+		assert.match(verdict({ case: 'first-chunk', billed: 0, estimate: 0.006 }), /^OVERCHARGED/);
+		assert.match(verdict({ case: 'first-chunk', billed: 0.003, estimate: 0.006 }), /2\.00x/);
 		assert.match(verdict({ case: 'mid-stream', billed: null, estimate: 0.006 }), /^unsettled/);
 	});
 

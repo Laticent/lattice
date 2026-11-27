@@ -3,11 +3,13 @@
  * Does OpenRouter bill a chat request that the author stopped, and from which point?
  *
  * The Studio chat settles a round a Stop ended (#3533 S01, `settleOpenRound` in
- * docs/src/components/studio/chat-agent.ts) on one rule: a request is billed once the provider
- * took it, meaning its HTTP 200, and not before. So a Stop before the 200 costs nothing in the
- * ledger, and a Stop after it is charged an estimate. That rule is a design assumption. This tool
- * measures it: it sends the same request several times, stops each at a different point, and
- * reads what the key was actually billed for each.
+ * docs/src/components/studio/chat-agent.ts) on one rule: a request is billed from its first chunk
+ * (a token, a thought, a tool call or a generation id), so a Stop before that chunk costs nothing in
+ * the ledger and a Stop after it is charged an estimate. This tool measured that rule: it sends the
+ * same request several times, stops each at a different point, and reads what the key was actually
+ * billed for each. Run 46071814895 (2026-11-27) found a Stop on the HTTP 200, before any chunk, is
+ * not billed; the ledger charged it then, and the rule above is the fix. Re-run it to check the rule
+ * still holds.
  *
  *   control       read to the end (the exact cost, the yardstick)
  *   before-200    abort as soon as the request is sent, before the response headers
@@ -34,7 +36,7 @@ import fs from 'node:fs';
 const API = 'https://openrouter.ai/api/v1';
 export const CASES = ['control', 'before-200', 'at-200', 'first-chunk', 'mid-stream'];
 /** What the Studio's ledger does with each case today: charge nothing, an estimate, or the exact reported cost. */
-export const LEDGER_RULE = { control: 'exact', 'before-200': 'nothing', 'at-200': 'estimate', 'first-chunk': 'estimate', 'mid-stream': 'estimate' };
+export const LEDGER_RULE = { control: 'exact', 'before-200': 'nothing', 'at-200': 'nothing', 'first-chunk': 'estimate', 'mid-stream': 'estimate' };
 
 /** The prompt: about 6K tokens of input, so the provider is still reading it when the early cases stop. */
 export function probePrompt() {
