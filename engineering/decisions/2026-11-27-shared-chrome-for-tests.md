@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: shipped
 summary: >
   Should integration tests share Chrome? A census (111 of 203 integration files launch their own
   Chrome, 139 launch sites; 104 spawn the CLI, which launches another inside it) and five arms
@@ -11,14 +11,14 @@ summary: >
   measured things: one dead Chrome failed 17 of 41 files, background tabs in a shared window get no
   animation frames, and calco-logo's transparent screenshot went opaque in 2 of 21 isolated-context runs (a third
   failure there went unidentified).
-  Recommends a pool of contexts, keyed by flag set and supervised, only if the owner wants the speed;
-  otherwise keep per-file launches and find the timeout's real cause. Nothing is built.
+  Decided 2026-11-27 by the owner: keep one Chrome per test file and skip Chrome sharing. No arm is
+  built; the lab stays as a measurement tool.
 ---
 
 # Shared Chrome for integration tests: census, five arms, measured
 
 **Date:** 2026-11-27 · **Asked by:** the owner on #3518 (answer 2) and D1 on #3415, through Kirk's 🧪
-flake desk · **Decided by:** nobody yet; this note sets out the options for the owner's pick ·
+flake desk · **Decided by:** the owner, 2026-11-27: option 0, keep per-file launches, no sharing ·
 **Trigger:** `test/integration/export/calco-chips.test.js` timed out in `puppeteer.launch` ("Timed out
 after 30000 ms while waiting for the WS endpoint URL to appear in stdout!") during
 `npm run test:integration:pr` with a release build on the same machine, canceling 7 tests. It passes
@@ -255,7 +255,14 @@ reads as many slow, unrelated test failures. A pool needs a health probe (for ex
 `browser.version()` against a short deadline, run by the supervisor rather than by a test) to turn
 that into one named error.
 
-## Recommendation
+## Decision (2026-11-27)
+
+The owner chose **option 0**: "we keep what we have and skip chrome sharing." Integration tests keep
+launching their own Chrome, as they do today. None of arms (a) to (d) will be built, and nothing in
+the suite, the CLI or CI changes. `tools/shared-chrome-lab/` stays, because its baseline arm times every
+launch and can serve if the launch timeout is chased again.
+
+## Recommendation (as written before the decision)
 
 **Do not adopt a shared Chrome to fix the calco-chips timeout. It does not address the cause this
 note could measure.** Today's launch held under four times CPU oversubscription. The 30 s timeout
@@ -279,7 +286,6 @@ memory.
 
 ## Not decided here
 
-- Which option to build. That is the owner's pick, through the flake desk.
 - Any CI job or step change. Running the suite at a different concurrency or adding a global-setup
   step would change the CI contract (CLAUDE.md, SECOND FILTER), so it is proposed, not made.
 - A CLI endpoint hook (`lattice.js` connecting to a shared browser). It is a product change.
