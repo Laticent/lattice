@@ -117,6 +117,7 @@ const FOLDERS = {
   'docs/src/lib/code-packages/': 'The code-package door: how the Studio runs a code package a deck uses, sandboxed and only with consent.',
   'docs/src/lib/compose/': "Compose, the Studio's rich-text editor: the whole deck as one editable document, and the commands that edit it.",
   'docs/src/lib/deck-outline/': 'The deck as an outline, so the Markdown and Compose editors keep the same place in it.',
+  'docs/src/lib/vault/': 'The vault: one folder-shaped storage interface for Studio data, backed by OPFS and IndexedDB in the browser and by memory in tests.',
   'docs/src/lib/vetrina-exemplars/': 'Exemplar walkthroughs and a stress battery that prove the Vetrina library on a host other than the Studio.',
   'docs/src/lib/vetrina-narration/': 'The seam that lets a Vetrina walkthrough narrate with Cadenza timing, with no audio needed.',
   // tools/
@@ -127,6 +128,7 @@ const FOLDERS = {
   'tools/kit-branch/': 'Files the publish-kits workflow copies to the root of the `dist-kits` branch, kept here so they are reviewed on `main`.',
   'tools/lastra-corpus/': 'Generates the lastra image decoder\'s test pictures and their expected results, and benchmarks its speed.',
   'tools/lib/': 'Shared modules the scripts in `tools/` import, so no script reimplements another.',
+  'tools/shared-chrome-lab/': 'Throwaway scripts that measured five ways to share Chrome across integration tests (2026-11-27 decision note); wired into no script or CI job.',
   'tools/office-conformance/': 'The Open XML SDK checker that validates exported Office files against the official schemas.',
   'tools/parser-bakeoff/': 'A measured bake-off of inline-notation parsers against the shipped kernel as the control.',
   'tools/pdfkit-check/': 'Draws the finish demo PDF through Apple PDFKit on a macOS runner and compares it with the screen (the `pdf-pdfkit` platform suite).',

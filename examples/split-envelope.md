@@ -21,7 +21,7 @@ A slide that outgrows its box becomes several. Now it always becomes the same *s
 ## Cover, body, insight
 
 - **Cover — always.** A masthead worth a lead-in
-- **Body — the split content**, heading repeated, `(cont.)` from the second on
+- **Body — the split content and nothing else**: the heading stays on the cover
 - **Key insight — its own page, only when earned.** The takeaway never shares a page
 - **Below-note — the last body page**, one size down
 

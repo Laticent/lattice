@@ -218,3 +218,30 @@ describe('core: tex-linebreak — weight counts glyphs, not characters', () => {
     assert.ok(_weight('\\sigma\\sigma') < '\\sigma\\sigma'.length / 2);
   });
 });
+
+// A MATRIX is one term (owner, 2026-11-06: break a long equation into lines rather than set it
+// smaller). A factorization is all pmatrix groups, and the old blanket refusal of any `\begin{`
+// left it one line wider than a phone slide; now the pass breaks BETWEEN matrices, never inside.
+const FACTOR = '\n\\begin{pmatrix} 2 & 1 \\\\ 4 & 3 \\end{pmatrix}\n=\n\\begin{pmatrix} 1 & 0 \\\\ 2 & 1 \\end{pmatrix}\n\\begin{pmatrix} 2 & 1 \\\\ 0 & 1 \\end{pmatrix}\n';
+test('tex-linebreak: a factorization breaks at its = and between its matrices, never inside one', () => {
+  const r = reflowDisplayTex(FACTOR);
+  assert.equal(r.lines, 2);
+  assert.match(r.tex, /^\\begin\{aligned\}/);
+  // Every matrix survives whole, rows and all.
+  for (const m of ['\\begin{pmatrix} 2 & 1 \\\\ 4 & 3 \\end{pmatrix}', '\\begin{pmatrix} 1 & 0 \\\\ 2 & 1 \\end{pmatrix}', '\\begin{pmatrix} 2 & 1 \\\\ 0 & 1 \\end{pmatrix}']) {
+    assert.ok(r.tex.includes(m), m);
+  }
+  assert.match(r.tex, /=\{\}& \\begin\{pmatrix\} 1 & 0/, 'the = sets the alignment column');
+  assert.match(r.tex, /&\\quad +\\begin\{pmatrix\} 2 & 1 \\\\ 0 & 1/, 'the second factor starts the next line');
+});
+
+test('tex-linebreak: an author layout at depth 0 is still refused, matrices or not', () => {
+  const pad = ' + x_1 + x_2 + x_3 + x_4 + x_5 + x_6 + x_7 + x_8 + x_9 + x_{10} + x_{11} + x_{12}';
+  for (const src of [
+    `a = b \\\\ c = d${pad}`,
+    `f(x) = \\begin{cases} 1 & x > 0 \\\\ 0 & x \\le 0 \\end{cases}${pad}`,
+    `\\begin{aligned} a &= b \\end{aligned}${pad}`,
+  ]) assert.equal(reflowDisplayTex(src).lines, 1, src);
+  // One matrix alone has nothing to break between.
+  assert.equal(reflowDisplayTex(`\\begin{pmatrix} ${'1 & 2 & 3 & 4 \\\\ '.repeat(6)} \\end{pmatrix}`).lines, 1);
+});

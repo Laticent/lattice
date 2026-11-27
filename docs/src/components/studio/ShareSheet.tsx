@@ -183,7 +183,12 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 				// blames the deck and leaks a hashed asset URL into boardroom-facing copy (#1242).
 				// A cancel the author asked for is not a failure, and must not be reported as one.
 				if ((e as Error)?.name === 'AbortError') notify(`${label} canceled.`);
-				else notify(isChunkLoadError(e) ? chunkLoadMessage() : `${label} failed: ${(e as Error)?.message || 'unexpected error'}`);
+				// AT THE TOP. A failure tells the author to try again, and the button to try again with
+				// is this sheet's action row, at the bottom at every width. The toaster's bottom-center
+				// place covered it: on a 390-wide phone the toast overlapped the Download button and a
+				// press on it missed for the toast's whole dwell; at 820 it cut the label to
+				// "ownload webpage" (PR 3559). Only this message moves; every other toast keeps its place.
+				else notify(isChunkLoadError(e) ? chunkLoadMessage() : `${label} failed: ${(e as Error)?.message || 'unexpected error'}`, { position: 'top-center' });
 			} finally {
 				setBusy(null);
 				setProgress(null);
