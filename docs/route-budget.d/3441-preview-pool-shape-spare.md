@@ -4,4 +4,4 @@ The preview pool (`preview-pool`, +151) chooses a frame by the deck's look as we
 
 Studio measured +138 and +140 on two merges of the same code (gzip moves a few bytes with its neighbors), then +156 with the empty-search fix on the rebased head; +165 covers the drift.
 
-On 2026-11-27 CI measured studio +230 (`preview-pool` +224, `StudioIsland` +6) and playground +130 against main at 5d42727, after two changes: the pool now runs a pass when an animation or transition on its surface ends, so a reopened phone sheet shows every tile (+59 B gz, measured locally), and main moved under the Playground chunk. +240 and +140 cover the drift seen between merges of the same code.
+On 2026-11-27 CI measured studio +230 (`preview-pool` +224, `StudioIsland` +6) and playground +130 against main at 5d42727, after two changes: the pool now runs a pass when an animation or transition on its surface ends, so a reopened phone sheet shows every tile (the pool's chunk went from +151 to +224 against main), and main moved under the Playground chunk. +240 and +140 cover the drift seen between merges of the same code.
