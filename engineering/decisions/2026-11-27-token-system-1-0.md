@@ -185,20 +185,29 @@ leaves to Mermaid is the first step of §7.4). The map's own comments record two
 were mapped: the ER row bands (`lighten(background)`) and the flowchart arrowhead (`invert(background)`, a light
 peach on a dark deck).
 
-### 7.2 Concrete examples
+### 7.2 Concrete examples, checked on rendered slides
 
-1. **A bar chart ignores the theme's categorical color.** indaco curates category 1's fill as `#BCD5EC` (light) and
-   `#006398` (dark) in `--cat-1-fill`. A chart's category-1 bar does not use it: the chart family computes
-   `--chart-cat-1-fill` as 24% of the category's hue mixed into the page color (light), or 40% mixed into black (dark)
-   (`chart-family.styles.css:320`). The same category is two different blues on one slide, one picked and one
-   computed.
-2. **Chart text ink is a formula.** `--chart-cat-1-ink` is 65% of the hue mixed into the heading ink, unless the
-   theme states `--chart-cat1-ink` (`:359`).
-3. **Mindmap edges are an engine-chosen gray.** `mermaid.styles.css:1210` paints each mindmap edge at a fixed
-   lightness (`oklch(0.47 none none)` light, `0.8` dark), whatever the theme says.
-4. **A missing chart hue falls back to the engine's hex.** `--chart-cat-1-hue` is
-   `var(--chart-cat1, light-dark(#0053B3, #2B73D6))`: a theme that does not curate `--chart-cat1` gets the engine's
-   blue, which breaks HARD RULE #3's spirit (color belongs to the theme) while passing its letter.
+Rendered in indaco, light and dark, with `dist/lattice.js` to HTML and Playwright (scratch only, `.scratch/tok/`).
+Two of the four first-draft examples were wrong, and are corrected here.
+
+1. **Default charts paint curated colors.** A bar, a pie and a flowchart in indaco all paint category 1 with
+   `#005D8F`, the theme's curated `--chart-cat1` solid. The computed tier `--chart-cat-1-fill` (24% of that hue
+   mixed into the page, `chart-family.styles.css:320`) reaches a slide only where an author opts into a slot fill
+   (`data-slot`, `data-fill`) or a kind that paints the pale tier. The first draft said bars ignore the theme; that
+   was wrong. What is true: category 1 has two curated colors in indaco, `--cat-1-fill` `#BCD5EC` and
+   `--chart-cat1` `#005D8F`, plus computed tiers between them.
+2. **Chart text ink is a formula** where the theme states no `--chart-catN-ink` (`:359`). Unchanged.
+3. **Mindmap lines keep each branch's hue and take an engine-set lightness** (`mermaid.styles.css:1197–1222`):
+   0.47 on a light slide, 0.8 on a dark one. They are not a gray (the first draft said so); the comment there
+   records why: every line clears 3:1 on all 14 color themes.
+4. **A missing chart hue falls back to the engine's hex** (`--chart-cat-1-hue`). Unchanged.
+
+**What the mindmap mock-up showed.** Swapping those lines to the theme's existing `--cat-N-mark` made both modes
+worse. In light mode the lines no longer match their boxes, because indaco's curated pairs disagree in hue: category 2
+is a yellow fill (`#EBE2B8`) with a red mark (`#863236`), category 3 a pink fill with an olive mark. In dark mode every
+`--cat-N-mark` is near-white (`#E7D5D6`), so the lines wash out. So "curate, don't derive" needs a curated role made
+for the job (a line color per category, in both modes), and the curated pairs need auditing: the 2026-07-15
+categorical contract says fill and mark are tiers of ONE hue, and indaco's slots 2 and 3 break it.
 
 ### 7.3 Answers to the three questions
 
@@ -223,3 +232,25 @@ What can freeze at 1.0 is the CONTRACT: the curated required list, the two deriv
 renderers compute no color. The renderer work then lands as fixes against that contract, each a visible improvement
 with before/after renders, and no outside theme breaks because the theme side is already curated. This goes to the
 owner as a visual explainer through the command center, not as a card.
+
+### 7.5 The command center's two-layer proposal, tested against the code
+
+The proposal: theme tokens are brand roles, hand-picked; each plugin declares its own tokens whose defaults point at
+a theme role (an alias, never a formula); a theme may override a plugin token; Mermaid receives every setting
+explicitly.
+
+- **Mermaid already works this way.** `mermaid-theme-map.js` maps 206 Mermaid settings onto 41 theme tokens, every one
+  an alias. What remains is (a) the 13 CSS mixes in `mermaid.styles.css` (the mindmap lines among them) and (b) the
+  settings Mermaid fills itself, to be measured.
+- **The chart family is the real work.** It declares 274 tokens; 167 declaration lines are formulas or engine hex.
+- **The manifest cannot carry it yet.** `contributes.tokens` (`plugin.schema.json:485`, LPM §3.4) lists the tokens a
+  plugin's CSS READS; it has no place for a token the plugin DEFINES with a default. The proposal needs a new field
+  (for example `defines: { "--mermaid-edge": "--rule" }`), a schema change, an LPM change and a generator. LPM is a
+  draft, so this is allowed, but it is new work.
+- **What an alias cannot do.** §7.2's mock-up is the counterexample: an alias to an existing role gave the wrong
+  color, because no role was picked for that job. Under the proposal the theme would need a role for it, or the
+  plugin token's default would be wrong until a theme overrides it. Either way the theme's curated set grows (a line
+  tier per category is 12 more picks per mode), or the plugin keeps a formula for the gap.
+- **Contrast is the cost nobody sees.** Today's formulas exist mostly to guarantee contrast (the mindmap's 3:1, the
+  chart ink's 7:1). An alias guarantees nothing; the gate has to check every plugin token against its surface in
+  every theme, so `lib/theme/gate.js` grows from theme tokens to plugin tokens.
