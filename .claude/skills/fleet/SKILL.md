@@ -124,9 +124,10 @@ summary.
    reply, starting with the line `🚦 Merge digest`. The owner's exact answer "all" or
    "all but #N", typed here, is the merge authorization for exactly the PRs and heads
    that digest listed (`/desk-merge` step 5). `.claude/hooks/owner-merge-gate.mjs`
-   enforces it mechanically: it reads only the owner's typed turn, accepts only those
-   exact forms (or "merge #N"), and only right after your digest. If you say anything
-   else in between, post the digest again before the owner answers. For each: re-read the head and, only if it still matches, arm the merge
+   enforces it mechanically: it reads only the owner's own word, accepts only those
+   exact forms (or "merge #N"), and reads "all" against your NEWEST digest, whatever came
+   between. Asking with the question tool works too: labels that start with `#N`, plus
+   "All of the above" (`workflow.md` §Merging). For each: re-read the head and, only if it still matches, arm the merge
    queue with `enable_pr_auto_merge` (squash). `main` refuses `merge_pull_request` with
    405 "Changes must be made through the merge queue" (`workflow.md` §Merging), and
    never merge with Bash: the gate cannot see a Bash merge. A moved head is skipped and

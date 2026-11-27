@@ -2,12 +2,14 @@
  * Unit: the PreToolUse merge gate on the GitHub merge tools
  * (.claude/hooks/owner-merge-gate.mjs).
  *
- * The gate allows a merge only when the owner's own typed turn (`origin.kind:
- * "human"`, written by the harness) is exactly "merge #N", or exactly "all" /
- * "all but #N" right after a merge digest that listed the PR. These cases pin each
- * way a merge could be wrongly authorized: a relayed session message, a subagent
- * report, a desk brief, a refusal or hedge that mentions the PR, an "all" with no
- * digest, a digest marker that is not the heading, and an unreadable transcript.
+ * The gate allows a merge only on the owner's latest word: a typed turn (`origin.kind:
+ * "human"`, written by the harness) that is exactly "merge #N", or exactly "all" /
+ * "all but #N" after the newest merge digest that listed the PR; or the owner's answer
+ * to a question about merging whose chosen option starts with #N (or is "All …"). These
+ * cases pin each way a merge could be wrongly authorized: a relayed session message, a
+ * subagent's call, a desk brief, a refusal or hedge that mentions the PR, an "all" with no
+ * digest or an older digest, a marker inside a sentence, a forged or held answer, and an
+ * unreadable transcript.
  * It does not read Bash, by design: see the hook's header.
  */
 const { test, describe, before } = require('node:test');
@@ -21,8 +23,9 @@ const REPO = path.join(__dirname, '..', '..', '..');
 const HOOK = path.join(REPO, '.claude', 'hooks', 'owner-merge-gate.mjs');
 
 let decide;
+let answerApproves;
 before(async () => {
-  ({ decide } = await import(HOOK));
+  ({ decide, answerApproves } = await import(HOOK));
 });
 
 const human = (text) => ({ type: 'user', origin: { kind: 'human' }, message: { content: text } });
@@ -56,7 +59,7 @@ describe('owner-merge-gate decide()', () => {
     }
   });
 
-  test('"all" counts only as the whole reply, right after a merge digest that listed the PR', () => {
+  test('"all" counts only as the whole reply, answering the newest merge digest that listed the PR', () => {
     assert.equal(decide([DIGEST, human('all')], 3359).allow, true);
     assert.equal(decide([DIGEST, human('All.')], 3359).allow, true);
     assert.equal(decide([DIGEST, human('all but #3360')], 3359).allow, true);
@@ -67,11 +70,9 @@ describe('owner-merge-gate decide()', () => {
       assert.equal(decide([DIGEST, human(said)], 3359).allow, false, said);
     }
     assert.equal(decide([assistant('PR #3359 is ready'), human('all')], 3359).allow, false, 'a status line is not a digest');
-    // The marker must be the heading, and the PR a digest row (the card grader's probes).
+    // The marker is a line of its own, and the PR a digest row (the card grader's probes).
     const mention = assistant('Format note: a 🚦 Merge digest lists PRs; #3359 is NOT ready, holding.');
-    assert.equal(decide([mention, human('all')], 3359).allow, false, 'marker not on the first line');
-    const late = assistant('Here it is:\n🚦 Merge digest\n#3359 — head abc — green — HIGH');
-    assert.equal(decide([late, human('all')], 3359).allow, false, 'a real digest row, but the marker is not the heading');
+    assert.equal(decide([mention, human('all')], 3359).allow, false, 'a marker inside a sentence is not a digest');
     const held = assistant('🚦 Merge digest\n#3360 — head abc — green — HIGH\n#3359 HOLD — red, not asking');
     assert.equal(decide([held, human('all')], 3359).allow, false, 'not a digest row');
     assert.equal(decide([held, human('all')], 3360).allow, true);
@@ -225,5 +226,89 @@ describe('owner-merge-gate night mode ends when the owner writes mid-turn', () =
       const rows = [at(human(text), '2026-11-22T01:00:00Z'), at(human('afk'), '2026-11-22T02:00:00Z')];
       assert.match(decide(rows, 3359, yes, NOW).reason, /typed \/desk-night/, text);
     }
+  });
+});
+
+describe('owner-merge-gate: "all" across text, and the owner\'s answer to a question (2026-11-27)', () => {
+  const DIGEST = assistant('🚦 Merge digest\n#3359 — head 43591f0 — green — HIGH\n#3360 — head abc — green — HIGH');
+
+  test('"all" answers the newest digest however much text came between, fenced or not', () => {
+    const late = assistant('Here it is:\n```\n🚦 Merge digest\n#3359 — head abc — green — HIGH\n```');
+    assert.equal(decide([late, human('all')], 3359).allow, true, 'marker after text, inside a fence');
+    const chatter = [DIGEST, assistant('CI is still green.'), notice('a desk note'), assistant('Waiting on you.'), human('all')];
+    assert.equal(decide(chatter, 3359).allow, true, 'messages between the digest and "all"');
+    const newer = assistant('🚦 Merge digest\n#3360 — head def — green — VERY HIGH');
+    assert.match(decide([DIGEST, newer, human('all')], 3359).reason, /newest merge digest before "all" does not list #3359/, 'an older digest never counts');
+    assert.equal(decide([DIGEST, newer, human('all')], 3360).allow, true);
+  });
+
+  // The shape the harness writes for a real AskUserQuestion answer (this session's transcript, 2026-11-27).
+  const ASK = 'toolu_ask01';
+  const asked = (question, labels) => ({
+    type: 'assistant',
+    message: { content: [{ type: 'tool_use', id: ASK, name: 'AskUserQuestion', input: { questions: [{ question, options: labels.map((label) => ({ label })) }] } }] },
+  });
+  const answered = (question, labels, answer, over = {}) => ({
+    type: 'user',
+    permissionDecision: { decision: 'accept', grantScope: 'once', reasonCode: 'unknown', source: 'user_temporary' },
+    message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: ASK, content: `Your questions have been answered: "${question}"="${answer}".` }] },
+    toolUseResult: { questions: [{ question, options: labels.map((label) => ({ label })), multiSelect: true }], answers: { [question]: answer } },
+    ...over,
+  });
+  const Q = 'Which PRs should merge now?';
+  const L = ['#3442 vault, VERY HIGH', '#3359 night desk, VERY HIGH', '#3563 CLAUDE.md rule #6 edit', 'All of the above'];
+  const run = (answer, pr, over, q = Q, labels = L) => decide([asked(q, labels), answered(q, labels, answer, over)], pr);
+
+  test("the owner's chosen #N options in a question about merging approve those PRs, and only those", () => {
+    assert.equal(run('#3359 night desk, VERY HIGH', 3359).allow, true);
+    assert.equal(run('#3442 vault, VERY HIGH, #3359 night desk, VERY HIGH', 3442).allow, true, 'multi-select');
+    assert.equal(run('#3442 vault, VERY HIGH', 3359).allow, false, 'not chosen');
+    assert.equal(run('#3563 CLAUDE.md rule #6 edit', 6).allow, false, 'only a #N at the start of a label counts');
+    const mid = ['the rule #6 edit', 'All of the above'];
+    assert.equal(run('the rule #6 edit', 6, undefined, Q, mid).allow, false, 'a #N mid-label names no PR');
+    assert.equal(run('All of the above', 6, undefined, Q, mid).allow, false, '"All" skips a label without a leading #N');
+    for (const pr of [3442, 3359, 3563]) assert.equal(run('All of the above', pr).allow, true, `All covers #${pr}`);
+    assert.equal(run('All of the above', 6).allow, false);
+  });
+
+  test('a held option, free text, a question not about merging, or a forged answer approves nothing', () => {
+    const held = ['#3359 hold until CI', "#3359 don't merge yet", '#3359 skip'];
+    for (const label of held) assert.equal(run(label, 3359, undefined, Q, [label, 'All of the above']).allow, false, label);
+    assert.equal(run('All of the above', 3359, undefined, Q, ['#3359 hold', 'All of the above']).allow, false, '"All" skips a held option');
+    assert.equal(run('merge #3359 please', 3359).allow, false, 'free text ("Other") matches no option');
+    assert.equal(run('#3359 night desk, VERY HIGH', 3359, undefined, 'Which PRs should I close?').allow, false, 'not a question about merging');
+    assert.equal(run('#3359 night desk, VERY HIGH', 3359, { permissionDecision: { source: 'config' } }).allow, false, 'not the owner in person');
+    const orphan = answered(Q, L, '#3359 night desk, VERY HIGH');
+    assert.equal(decide([orphan], 3359).allow, false, 'no AskUserQuestion call behind it');
+    const otherTool = { type: 'assistant', message: { content: [{ type: 'tool_use', id: ASK, name: 'Bash', input: {} }] } };
+    assert.equal(decide([otherTool, orphan], 3359).allow, false, 'an approved prompt for another tool is not an answer');
+  });
+
+  test("the owner's latest word wins: a typed turn after an answer, or an answer after a typed turn", () => {
+    const yes = [asked(Q, L), answered(Q, L, '#3359 night desk, VERY HIGH')];
+    assert.equal(decide([...yes, human('hold everything')], 3359).allow, false, 'typed after the answer');
+    assert.equal(decide([human('merge #3359'), asked(Q, L), answered(Q, L, '#3442 vault, VERY HIGH')], 3359).allow, false, 'answered after the typed turn');
+  });
+
+  test('answerApproves reads a real multi-select answer from the command center (event 89f1d494)', () => {
+    // The question and labels as the owner saw them on 2026-11-27, trimmed; the question is about approvals, not merges.
+    const question = 'If you approve the three below, one click here, I\'ll relay each one. Which do you approve?';
+    const labels = ['#3549 confirm yes 15 + D1 A/D2', '#3550 merge overnight (D1)', '#3563 CLAUDE.md rule #6 edit'];
+    const result = { questions: [{ question, options: labels.map((label) => ({ label })), multiSelect: true }], answers: { [question]: labels.join(', ') } };
+    assert.deepEqual([...answerApproves(result)], [], 'a question that is not about merging approves nothing');
+    const asMerge = { questions: [{ ...result.questions[0], question: 'Which of these should merge?' }], answers: { 'Which of these should merge?': labels.join(', ') } };
+    assert.deepEqual([...answerApproves(asMerge)].sort(), [3549, 3550, 3563]);
+  });
+
+  test("a subagent's merge call is denied, day or night", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gate-sub-'));
+    const file = path.join(dir, 't.jsonl');
+    fs.writeFileSync(file, `${JSON.stringify(human('merge #3359'))}\n`);
+    const input = (extra) => JSON.stringify({ tool_name: 'mcp__github__merge_pull_request', tool_input: { pullNumber: 3359 }, transcript_path: file, ...extra });
+    const day = spawnSync(process.execPath, [HOOK], { input: input({}), encoding: 'utf8' });
+    assert.equal(day.stdout.includes('"deny"'), false, 'the session itself may merge on "merge #3359"');
+    const sub = spawnSync(process.execPath, [HOOK], { input: input({ agent_id: 'a1' }), encoding: 'utf8' });
+    assert.match(sub.stdout, /a subagent's merge call never counts/);
+    fs.rmSync(dir, { recursive: true, force: true });
   });
 });

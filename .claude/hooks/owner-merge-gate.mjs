@@ -10,13 +10,16 @@
  * `human`. Relayed session messages and desk briefs arrive as `task-notification`
  * (or inside a tool result), subagent reports as `peer`, hook feedback with none.
  *
- * The owner's latest `human` turn must be, as the whole message:
+ * The owner's latest word decides. It is either a `human` turn that is, as the whole message:
  *   - `merge #N` (or several PRs: `merge #N, #M`), or
- *   - `all` / `all but #N`, answering the newest assistant message, whose FIRST line
- *     is `🚦 Merge digest` and which lists the PR as a digest row (`#N — head …`).
- * Anything else is denied with the reason. A refusal or a hedge ("do not merge #N",
- * "hold all", "yes") never parses, so it can never read as an approval. An unreadable
- * transcript denies too (fail closed).
+ *   - `all` / `all but #N`, answering the NEWEST `🚦 Merge digest` before it, however much
+ *     text came between (the marker is a line of its own, fenced or not), when that digest
+ *     lists the PR as a row (`#N — head …`);
+ * or the owner's answer to a question about merging (a real `AskUserQuestion` call, recorded
+ * as `user_temporary`) whose chosen option starts with `#N`, or is "All …" over `#N` options
+ * (owner's decision, 2026-11-27). Anything else is denied with the reason. A refusal or a
+ * hedge ("do not merge #N", "hold all", "yes", an option that says hold) never parses, so it
+ * can never read as an approval. A subagent's call, and an unreadable transcript, deny too.
  *
  * Scope, stated plainly: this guards `merge_pull_request` and `enable_pr_auto_merge`
  * (see .claude/settings.json). It does NOT read Bash. A shell can spell a merge too
@@ -70,11 +73,75 @@ function textOf(row) {
 const isToolResult = (row) =>
   Array.isArray(row?.message?.content) && row.message.content.some((x) => x?.type === 'tool_result');
 
-/** True when `text` is a merge digest that lists `pr` as one of its rows. */
+/**
+ * True when `text` holds a merge digest that lists `pr` as one of its rows. The marker is a
+ * line of its own (it may sit inside a fenced block, after other text); the rows are the
+ * lines after it. A marker inside a sentence is not a digest.
+ */
 export function digestLists(text, pr) {
-  const lines = text.trim().split('\n');
-  if (lines[0].trim() !== DIGEST_MARKER) return false;
-  return lines.slice(1).some((l) => new RegExp(`^\\s*#${pr}\\s+—\\s+head\\s`).test(l));
+  const lines = text.split('\n');
+  const at = lines.findIndex((l) => l.trim() === DIGEST_MARKER);
+  if (at < 0) return false;
+  return lines.slice(at + 1).some((l) => new RegExp(`^\\s*#${pr}\\s+—\\s+head\\s`).test(l));
+}
+
+const hasDigest = (text) => text.split('\n').some((l) => l.trim() === DIGEST_MARKER);
+
+/** The ids of the session's `AskUserQuestion` calls, so an answer can be tied to a real one. */
+function askIds(rows) {
+  const ids = new Set();
+  for (const r of rows) {
+    if (r?.type !== 'assistant' || !Array.isArray(r.message?.content)) continue;
+    for (const c of r.message.content) if (c?.type === 'tool_use' && c.name === 'AskUserQuestion' && c.id) ids.add(c.id);
+  }
+  return ids;
+}
+
+/**
+ * True when `row` is the owner's own answer to a question (owner's decision, 2026-11-27): the
+ * result of a real `AskUserQuestion` call, carrying its answers, that the harness records as a
+ * permission the owner gave in person (`user_temporary`). A permission prompt the owner approved
+ * for any other tool carries `user_temporary` too, so all three must hold.
+ */
+export function isOwnerAnswer(row, asks) {
+  const res = row?.toolUseResult;
+  return (
+    row?.type === 'user' &&
+    isToolResult(row) &&
+    row.permissionDecision?.source === 'user_temporary' &&
+    Boolean(res) &&
+    typeof res.answers === 'object' &&
+    res.answers !== null &&
+    Array.isArray(res.questions) &&
+    row.message.content.some((x) => x?.type === 'tool_result' && asks.has(x.tool_use_id))
+  );
+}
+
+/** A label that holds a PR back approves nothing. */
+const NEGATION = /\b(hold|held|don'?t|do not|not|skip|wait|leave|never|stop|close|later|no)\b/i;
+/** The PR a label is about: a `#N` at its very start ("#3442 vault, VERY HIGH"). */
+const labelPr = (label) => Number(/^\s*#(\d+)\b/.exec(label)?.[1]) || 0;
+
+/**
+ * The PRs one question-tool answer approves. Only a question about merging counts. A chosen
+ * option that starts with `#N` approves #N; a chosen option that starts with "All" approves
+ * every `#N` option of that question; a label with a holding word approves nothing; free text
+ * typed as "Other" matches no option and approves nothing.
+ */
+export function answerApproves(result) {
+  const prs = new Set();
+  for (const q of result?.questions || []) {
+    if (!/\bmerg(e|es|ed|ing)\b/i.test(q?.question || '')) continue;
+    const answer = String(result.answers?.[q.question] ?? '');
+    const labels = (q.options || []).map((o) => String(o?.label || '')).filter(Boolean);
+    for (const label of labels.filter((l) => answer.includes(l))) {
+      if (NEGATION.test(label)) continue;
+      if (/^\s*all\b/i.test(label)) {
+        for (const o of labels) if (labelPr(o) && !NEGATION.test(o)) prs.add(labelPr(o));
+      } else if (labelPr(label)) prs.add(labelPr(label));
+    }
+  }
+  return prs;
 }
 
 /**
@@ -83,9 +150,16 @@ export function digestLists(text, pr) {
  */
 export function decide(rows, pr, night = () => ({ eligible: false, reasons: ['night mode was not checked'] }), now = Date.now()) {
   if (!Number.isInteger(pr) || pr < 1) return { allow: false, reason: 'the merge call names no PR number' };
+  const asks = askIds(rows);
   let h = -1;
   for (let i = rows.length - 1; i >= 0; i--) {
     const r = rows[i];
+    if (isOwnerAnswer(r, asks)) {
+      const prs = answerApproves(r.toolUseResult);
+      return prs.has(pr)
+        ? { allow: true, reason: `the owner chose #${pr} in a question about merging` }
+        : { allow: false, reason: `the owner's latest answer does not approve merging #${pr}` };
+    }
     if (r?.type === 'user' && !isToolResult(r) && r.origin?.kind === 'human') {
       h = i;
       break;
@@ -129,13 +203,15 @@ export function decide(rows, pr, night = () => ({ eligible: false, reasons: ['ni
   const all = ALL_FORM.exec(said);
   if (all) {
     if (numbers(all[1]).has(pr)) return { allow: false, reason: `the owner excluded #${pr} ("all but")` };
+    // The NEWEST digest before "all" decides, however much text came between (owner's
+    // decision, 2026-11-27); an older digest never counts once a newer one was posted.
     for (let i = h - 1; i >= 0; i--) {
       if (rows[i]?.type !== 'assistant') continue;
       const text = textOf(rows[i]);
-      if (!text.trim()) continue;
+      if (!hasDigest(text)) continue;
       return digestLists(text, pr)
-        ? { allow: true, reason: `the owner answered "all" to a merge digest that listed #${pr}` }
-        : { allow: false, reason: `"all" did not answer a merge digest listing #${pr}` };
+        ? { allow: true, reason: `the owner answered "all" to the newest merge digest, which listed #${pr}` }
+        : { allow: false, reason: `the newest merge digest before "all" does not list #${pr}` };
     }
     return { allow: false, reason: '"all" with no merge digest before it' };
   }
@@ -212,9 +288,9 @@ function main() {
   } catch {
     return deny('the session transcript could not be read');
   }
-  // A subagent's call never carries the owner's night grant.
-  const night = input.agent_id || input.agent_type ? () => ({ eligible: false, reasons: ['a subagent never merges at night'] }) : nightCheck;
-  const { allow, reason } = decide(rows, pr, night);
+  // A subagent's merge call never counts, day or night: the owner's word is to this session.
+  if (input.agent_id || input.agent_type) return deny("a subagent's merge call never counts; merge from the session itself");
+  const { allow, reason } = decide(rows, pr, nightCheck);
   if (!allow) deny(reason);
 }
 

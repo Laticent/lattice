@@ -1595,15 +1595,25 @@ The contract, and its limits — be precise about what it does and doesn't cover
   merges (a `$N`, a line continuation, `sudo`) and blocked ordinary commands. The gate reads the
   transcript's `origin.kind`, which the harness writes: only the owner's own turns
   are `human`; relayed session messages, desk briefs, subagent reports and hook
-  feedback never are. It allows the merge only when the owner's latest typed turn is,
-  **as the whole message**:
+  feedback never are. It allows the merge only on the owner's latest word, which is
+  either a typed turn that is, **as the whole message**:
   - `merge #N` (or `merge #N, #M`), or
-  - `all` / `all but #N`, answering the newest assistant message, whose first line
-    is exactly `🚦 Merge digest` and which lists the PR as a row `#N — head <sha> …`.
+  - `all` / `all but #N`, answering the **newest** `🚦 Merge digest` before it, however
+    much text or how many messages came between (owner's decision, 2026-11-27). The
+    marker is a line of its own, in a fenced block or not, and the digest lists the PR
+    as a row `#N — head <sha> …`. An older digest never counts once a newer one exists;
+  
+  or the owner's **answer to a question about merging** (a real `AskUserQuestion` call,
+  which the transcript records as `user_temporary`; owner's decision, 2026-11-27). A
+  chosen option that starts with `#N` approves #N, and a chosen "All …" option approves
+  every option that starts with `#N`. Ask with labels such as `#3442 vault, VERY HIGH` and
+  `All of the above`: a `#N` later in a label, an option with a holding word (hold, don't,
+  skip, wait, not …), free text typed as "Other", and a question that does not say merge
+  approve nothing.
 
   Anything else is denied with the reason: "do not merge #N", "hold all", "yes" or
-  "lgtm" do not parse, so a refusal or a hedge can never read as an approval. An
-  unreadable transcript denies too. Unlike the repo's warn-only hooks, it blocks: it
+  "lgtm" do not parse, so a refusal or a hedge can never read as an approval. A
+  subagent's merge call, and an unreadable transcript, deny too. Unlike the repo's warn-only hooks, it blocks: it
   fires only on a merge tool, and a warning does not stop one. Outside night mode it
   does not check the PR's head commit; the command center does that before it merges
   (§Merging, the digest bullet). In night mode `tools/night-eligible.mjs` checks the
