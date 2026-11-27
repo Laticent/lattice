@@ -3283,7 +3283,7 @@ const START_TOKEN_MAX = 990;
  * Why 990 and not 1,500. The gate counts offline with o200k_base (OpenAI's tokenizer, the one
  * this repo ships); the build makes no network call. Claude is the main reader, and Claude 5's
  * own counter (Anthropic's free count_tokens endpoint, 2026-11-27) read this file at 1.51 to
- * 1.54 times its o200k count: 1,956 for the 1,273-token draft, 1,460 for the 984-token file.
+ * 1.54 times its o200k count: 1,956 for the 1,273-token draft, 1,458 for the 983-token file.
  * Gemini 3.x read 1.06 to 1.07 times. So 990 o200k is about 1,495 Claude tokens, the owner's
  * 1,500. The ratio is this file's, measured; re-count start.md on Claude's and Gemini's
  * counters in the per-release check (2026-11-17-agent-pack.md §4.9), and move this number if
@@ -3330,24 +3330,43 @@ function noteLine() {
 }
 
 /**
- * How a number-led row reads, on the layouts lib/core/list-shapes.js `NUMBER_SLOT_LAYOUTS` names.
- * The agent-pack eval of 2026-11-27 (run 46023640639) wrote a `kpi` slide as
- * `- Customer satisfaction: 91%` with a sentence under it, and the export clipped it: start.md
- * then carried no `kpi` or `stats` skeleton. The example is each skeleton's own first row.
+ * Where a slide's content goes when it is not a heading, generated from two engine sources.
+ *
+ * 1. Every layout start.md lists whose slot contract (lib/authoring/slot-contract.generated.js, packed
+ *    from each manifest's `slots`) has NO heading slot. There a model's instinct, to put the main
+ *    content in a heading, empties the slot the layout draws. The eval of 2026-11-27 met it twice:
+ *    run 46026988831 wrote `big-number`'s number as `# 3.8 days` (`slot-contract`,
+ *    `big-number-hero-heading`). Each is named with the form its required slot takes, using the first
+ *    line of that form in its own skeleton.
+ * 2. lib/core/list-shapes.js `NUMBER_SLOT_LAYOUTS`, whose rows lead with the number. Run 46023640639
+ *    wrote a `kpi` row as `- Customer satisfaction: 91%` with a sentence under it, and the export
+ *    clipped it. The example is the first such layout's own first row.
+ *
+ * A new headingless layout in start.md's list enrolls itself; a slot form this cannot show fails the
+ * build rather than going unnamed.
  */
-function numberRowRule(cat) {
+const SLOT_FORM_LINE = { l: /^(?:-|1\.) .+$/m, q: /^> .+$/m };
+function slotShapeRule(cat) {
+  const { unpackContract } = require(path.join(ROOT, 'lib', 'authoring', 'slot-contract.js'));
+  const contract = unpackContract(require(path.join(ROOT, 'lib', 'authoring', 'slot-contract.generated.js')));
+  const headingless = SOLO_LAYOUTS.filter((n) => {
+    const slots = contract[n]?.slots;
+    if (!slots) throw new Error(`build-agent-kit: no slot contract for \`${n}\`.`);
+    return !Object.values(slots).some((code) => code.split(',').some((alt) => alt.startsWith('h')));
+  });
+  const shown = headingless.map((n) => {
+    const required = Object.values(contract[n].slots).find((code) => code.endsWith('!'));
+    const form = required?.[0];
+    const line = SLOT_FORM_LINE[form] && String(cat.get(n)?.skeleton || '').match(SLOT_FORM_LINE[form]);
+    if (!line) throw new Error(`build-agent-kit: start.md cannot show \`${n}\`'s required slot (${required}); add its form to SLOT_FORM_LINE.`);
+    const text = line[0].length > 24 ? `${line[0].slice(0, 2)}…` : line[0];
+    return `\`${n}\` is \`${text}\``;
+  });
   const { NUMBER_SLOT_LAYOUTS } = require(path.join(ROOT, 'lib', 'core', 'list-shapes.js'));
-  const first = NUMBER_SLOT_LAYOUTS[0];
-  const row = String(cat.get(first)?.skeleton || '').match(/^1\. (.+)\n {3}- (.+)$/m);
-  if (!row) throw new Error(`build-agent-kit: the ${first} skeleton no longer opens its rows with \`1. <number>\` and a nested label.`);
-  // big-number is the same trap with one item: the second eval run (46026988831) wrote its number
-  // as a `# 3.8 days` heading, which leaves the number slot empty (`big-number-hero-heading`).
-  const hero = String(cat.get(BIG_NUMBER)?.skeleton || '').match(/^- (.+)$/m);
-  if (!hero) throw new Error(`build-agent-kit: the ${BIG_NUMBER} skeleton no longer opens with its number as a \`- \` item.`);
-  return `- Indent a \`1.\` row's nested lines three spaces. A number is a list item, never a heading: ${NUMBER_SLOT_LAYOUTS.map((n) => `\`${n}\``).join(' and ')} rows are \`1. ${row[1]}\` then \`   - ${row[2]}\`; \`${BIG_NUMBER}\` is \`- ${hero[1]}\`.`;
+  const row = String(cat.get(NUMBER_SLOT_LAYOUTS[0])?.skeleton || '').match(/^1\. (.+)\n {3}- (.+)$/m);
+  if (!row) throw new Error(`build-agent-kit: the ${NUMBER_SLOT_LAYOUTS[0]} skeleton no longer opens its rows with \`1. <number>\` and a nested label.`);
+  return `- Content is never a heading: ${shown.join(', ')}; ${NUMBER_SLOT_LAYOUTS.map((n) => `\`${n}\``).join(' and ')} rows are \`1. ${row[1]}\` then \`   - ${row[2]}\` (three spaces under a \`1.\`).`;
 }
-/** The one-number layout, whose number is its first list item (lint: `big-number-hero-heading`). */
-const BIG_NUMBER = 'big-number';
 
 function startDoc(cat) {
   const { DECK_CANON_SHORT } = require(path.join(ROOT, 'lib', 'authoring', 'deck-canon.js'));
@@ -3372,7 +3391,7 @@ function startDoc(cat) {
   // Section 1 already says each slide opens with a record, and the canon how cards nest and
   // how the title slide reads; a rule that says it again is tokens start.md cannot spare.
   // Each drop must match exactly one essential.
-  // `numberRowRule` restates the three-space indent with an example, and the linter reports an
+  // `slotShapeRule` restates the three-space indent with an example, and the linter reports an
   // unclosed comment as an error (`unterminated-comment`), so neither needs its own line here.
   const canonSays = [/^Every slide starts with/, /^Card layouts nest:/, /^The title slide is/, /^Under a numbered `1\.` row/, /^Every `<!-- -->` comment is closed/];
   // Scoped to the layouts start.md lists, as the solo text is: a rule about a layout the reader
@@ -3407,7 +3426,7 @@ function startDoc(cat) {
     '## 3. Rules',
     '',
     ...rules.filter((r) => !canonSays.some((re) => re.test(r))).map((r) => `- ${r}`),
-    numberRowRule(cat),
+    slotShapeRule(cat),
     `- Notes, never shown: ${noteLine()}.`,
     '',
     `## 4. The ${SOLO_LAYOUTS.length} common layouts`,

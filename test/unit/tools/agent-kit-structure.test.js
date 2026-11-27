@@ -906,6 +906,28 @@ test('agent kit structure', { skip }, async (t) => {
 	});
 
 	/**
+	 * start.md shows a model, which cannot open components/<name>.md, where content goes on every
+	 * listed layout whose slot contract has no heading slot. The 2026-11-27 eval wrote `big-number`'s
+	 * number as `# 3.8 days` and a `kpi` row as `- Label: 91%`; the rule is generated from the slot
+	 * contracts and NUMBER_SLOT_LAYOUTS, so this test derives the same set and checks each is named.
+	 */
+	await t.test('start.md names where content goes on every listed layout with no heading slot', () => {
+		const { unpackContract } = require(path.join(ROOT, 'lib', 'authoring', 'slot-contract.js'));
+		const contract = unpackContract(require(path.join(ROOT, 'lib', 'authoring', 'slot-contract.generated.js')));
+		const start = readKit('start.md');
+		const listed = [...start.split(/^## \d+\. The \d+ common layouts/m)[1].split(/^## /m)[0].matchAll(/^- ([a-z0-9-]+):/gm)].map((m) => m[1]);
+		assert.ok(listed.length >= 15, `start.md lists ${listed.length} layouts`);
+		const headingless = listed.filter((n) => !Object.values(contract[n].slots).some((code) => code.split(',').some((alt) => alt.startsWith('h'))));
+		assert.ok(headingless.includes('big-number'), `headingless: ${headingless.join(', ')}`);
+		const rule = start.split('\n').find((l) => l.startsWith('- Content is never a heading:'));
+		assert.ok(rule, 'start.md carries the content-is-never-a-heading rule');
+		const unnamed = headingless.filter((n) => !rule.includes(`\`${n}\` is \``));
+		assert.deepEqual(unnamed, [], 'a listed layout with no heading slot is not named in the rule');
+		const { NUMBER_SLOT_LAYOUTS } = require(path.join(ROOT, 'lib', 'core', 'list-shapes.js'));
+		for (const n of NUMBER_SLOT_LAYOUTS) assert.ok(rule.includes(`\`${n}\``), `the rule names ${n}'s number row`);
+	});
+
+	/**
 	 * The canon says both bookends carry `silent` (lib/authoring/deck-canon.js), so every whole deck
 	 * the pack writes in its own words writes it: start.md's deck and the paste texts' worked decks.
 	 * The skeletons leave it to the author. A 2026-11-27 draft dropped it from the examples while

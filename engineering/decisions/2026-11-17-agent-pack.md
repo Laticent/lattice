@@ -85,7 +85,7 @@ on the branch alike. The folders keep the kit's names rather than new ones (`lay
 | Layer | URL | Holds | Budget |
 |---|---|---|---|
 | Router | `/llms.txt` | What Lattice is, then the pack first, the docs copies second, the 700 KB reference last | 4 KB (existing gate) |
-| Start | `/agents/start.md` | The file shape with a whole three-slide deck, the short deck canon, the rules, the 19 common layouts one line each, one modifier from each of three groups, the notes, check and render, and links on (§4.9) | **1,500 tokens** (owner, 2026-11-27) on Claude's count: gated at 990 o200k; 984 today (Claude 1,460). Was 48,000 characters |
+| Start | `/agents/start.md` | The file shape with a whole three-slide deck, the short deck canon, the rules, the 19 common layouts one line each, one modifier from each of three groups, the notes, check and render, and links on (§4.9) | **1,500 tokens** (owner, 2026-11-27) on Claude's count: gated at 990 o200k; 983 today (Claude 1,458). Was 48,000 characters |
 | All layouts | `/agents/layouts.md` | What `start.md` held until 2026-11-27, less the full canon: the rules in detail, the parts any slide can carry, the registers, every layout in one line (job, capacity, words per item, variants), the modifiers, the plugins' inline notation, skeletons for the 19 most-used layouts and 2 charts | none; read on demand (10,700 o200k tokens) |
 | Plugins | `/agents/plugins/<name>.md` | The 16 plugin docs: pills, icons, sparks, checks, avatars, image, video, callout, legend, code, math, mermaid, function-plot, anima, meta, chart-family | read when a slide uses one |
 | Small model | `/agents/paste/lattice-instructions-solo.md` | 19 layouts, self-contained, for a 4,096-token local context | 10,000 characters (existing) |
@@ -205,14 +205,14 @@ So the pack has two layers where it had one. `start.md` is the short contract an
 the reference behind it: everything `start.md` used to carry, moved whole, with the structure
 gates that guarded it (gates 4 and 5). The full canon (its traps, rhythm and chrome budgets) stays
 in `authoring/deck-canon.md`, linked from `start.md`. `start.md` keeps only what a deck cannot be
-written without (984 o200k tokens, measured):
+written without (983 o200k tokens, measured):
 
 | Section | Source | o200k tokens |
 |---|---|---|
 | Title, version, the link to all layouts | `packages/lattice/package.json` `version` | 32 |
 | The file: a whole title, list and closing deck, and how a record names a layout | `DECK_SETTINGS` (`theme`, `pagination`, `color-mode`), each layout's `skeleton`, `silent` on the bookends as the canon says | 158 |
 | What a good deck is | `DECK_CANON_SHORT`, less its RIGHT COMPONENT bullet (§4 is that bullet, as a list) | 221 |
-| Rules | `essentials(SOLO_LAYOUTS)`, less what the canon and §1 already say and the unclosed-comment rule the linter reports; the number-as-list-item shape of `NUMBER_SLOT_LAYOUTS` and `big-number`, from their skeletons' first rows; the notes, from `NOTE_NAMES` | 193 |
+| Rules | `essentials(SOLO_LAYOUTS)`, less what the canon and §1 already say and the unclosed-comment rule the linter reports; where content goes on each listed layout with no heading slot (from the slot contracts) and the `NUMBER_SLOT_LAYOUTS` row, from their skeletons; the notes, from `NOTE_NAMES` | 193 |
 | The 19 common layouts | `SOLO_LAYOUTS` + `SOLO_INTENT`, the solo text's own list | 235 |
 | Modifiers | a record with a modifier, the first token of three `UNIVERSAL_GROUPS` (mood, tone, insight), and the link | 63 |
 | Check, render, read more | the checker, `npx @laticent/lattice`, the render page, the full canon, the skills | 79 |
@@ -256,7 +256,8 @@ Gemini's `countTokens`, both free count-only endpoints, no generation), the gues
 | first draft (1,300 gate) | 1,273 | 1,360 | 1,956 |
 | first 990 push | 984 | 1,040 | 1,476 |
 | after eval run 1 (kpi rule) | 981 | 1,037 | 1,459 |
-| as merged (990 gate, after eval run 2) | 984 | 1,042 | 1,460 |
+| after eval run 2 (big-number rule) | 984 | 1,042 | 1,460 |
+| as merged (990 gate, the general rule) | 983 | 1,040 | 1,458 |
 
 Claude counts this file at **1.51×** o200k (1.54× on the draft); Gemini at 1.06–1.07×. So the gate
 is 990 o200k, about 1,495 on Claude's count (the desk picked this over keeping 1,300, 2026-11-27).
@@ -286,8 +287,14 @@ Run 2 passed data-review and failed board-ask the same way: its `big-number` sli
 `big-number-hero-heading`). The rule now says a number is a list item, never a heading, and gives
 the `big-number` skeleton's first item too. With only that slide rewritten, the deck lints clean and
 renders with no overflow. The pattern is the cost of the cut: a layout whose skeleton is not in
-`start.md` is a guess for a model that cannot open `components/<name>.md`. The two guesses that
-failed were both a number written as a heading, so the rule names that, not one layout.
+`start.md` is a guess for a model that cannot open `components/<name>.md`, and both failed guesses
+were content written as a heading. So the rule is generated, not listed by hand: every layout
+`start.md` lists whose slot contract (`lib/authoring/slot-contract.generated.js`) has no heading slot
+is named with the form its required slot takes (today `big-number`, a list item, and `quote`, a
+`>` blockquote), plus the `NUMBER_SLOT_LAYOUTS` row (`kpi`, `stats`). Every other listed layout has
+an `h2` title slot, so a heading there is right. A new headingless layout enrolls itself, and a test
+derives the same set from the contracts. The three briefs' expected-shape decks lint clean against
+it and render with no overflow. Run 3 is the last eval round for this PR (the raise-loop cap).
 
 **The engine version is stamped** into `start.md`, `layouts.md` and `/llms.txt`, read from
 `packages/lattice/package.json`. `publish-kits.yml` now republishes on a change to that file, so a
