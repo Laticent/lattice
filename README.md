@@ -468,14 +468,16 @@ Copyright © 2025–2026 Sharmarke Aden, doing business as Laticent.
 
 Lattice is free and open source. Running it on your own laptop or in CI is not
 distribution, so that use carries no copyleft obligation. The content of your
-decks (your text, images and data) was never covered by the AGPL. A PDF or
-PowerPoint export carries no engine code, so it needs no exception.
+decks (your text, images and data) was never covered by the AGPL. A PDF,
+PowerPoint or ODP export carries no engine CSS or JavaScript, so it needs no
+exception.
 
 An HTML export is different: Lattice embeds the engine and theme CSS in it, and
-a fluid HTML export also inlines the runtime JavaScript. The [Lattice Output Exception](LICENSE-EXCEPTIONS) lets you convey
-those embedded assets as part of that deck, under terms of your choice, with no
-obligation to offer their source. It covers only assets that Lattice's own
-export pipeline embeds. It does not cover:
+a fluid HTML export also inlines the runtime JavaScript. The [Lattice Output
+Exception](LICENSE-EXCEPTIONS) lets you convey those embedded assets as part of
+that deck, under terms of your choice: the AGPL does not extend to the deck as a
+whole, and you need not offer the assets' source. It covers only assets that
+Lattice's own export pipeline embeds. It does not cover:
 
 - the engine or its assets, conveyed any way other than inside a rendered deck;
 - assets extracted from a rendered deck for reuse;
