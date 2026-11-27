@@ -4,7 +4,7 @@ import { type PatternJob, type PatternRunner, runPattern } from '../../lib/deck-
 import { getFrontMatter } from '../../lib/front-matter';
 import { agentLibrary, agentLibraryInventory } from './agent-library';
 import { applyProposedEditsChecked, chatAgentDeps, loadArchitectAuthoring } from './architect';
-import { type AgentComplete, type AgentLibrary, buildAgentSystem, CANON_CARD_LINE, createToolbox, deckBrief, deckForTurn, deckSlides, GUIDE_TOPICS, INLINE_DECK_CHARS, isBlockKey, mdSections, ON_REQUEST_KEYS, proposalFromDraft, runAgentLoop, slideWords, TERM_ALIASES, type ToolCall } from './architect-agent';
+import { type AgentComplete, type AgentLibrary, buildAgentSystem, CANON_CARD_LINE, createToolbox, deckBrief, deckForTurn, deckSlides, GUIDE_TOPICS, INLINE_DECK_CHARS, isBlockKey, isOnRequestKey, mdSections, proposalFromDraft, runAgentLoop, slideWords, TERM_ALIASES, type ToolCall } from './architect-agent';
 import { checkerNote, finalizeAgent, init as initChatAgent } from './chat-agent';
 import { FRONT_MATTER_KEYS } from './editor-complete';
 
@@ -156,8 +156,10 @@ describe('the toolbox', () => {
 	it('names the on-request keys in the prompt and still serves each one in full (#3533)', async () => {
 		// The trim drops their descriptions from every request's prefix, not the keys: the prompt lists each name, and
 		// read_front_matter returns the same one-liner it always did, because the toolbox reads the whole table.
-		const known = new Set(FRONT_MATTER_KEYS.map((k) => k.key));
-		for (const key of ON_REQUEST_KEYS) expect(known.has(key), `${key} is a real key (a stale entry would hide nothing)`).toBe(true);
+		// Derived from the table's groups: today the six export switches, the seven raw-CSS keys and the debug overlay.
+		const ON_REQUEST_KEYS = FRONT_MATTER_KEYS.filter(isOnRequestKey).map((k) => k.key);
+		expect(ON_REQUEST_KEYS).toHaveLength(14);
+		expect(ON_REQUEST_KEYS).toEqual(expect.arrayContaining(['present', 'debug', 'backgroundColor', 'style']));
 		const sys = buildAgentSystem({ canon: 'C', catalog: CATALOG, frontMatterKeys: FRONT_MATTER_KEYS, themes: ['indaco'], finishes: [] });
 		const also = sys.split('\n').find((l) => l.startsWith('- Also read, for export, preview and raw CSS')) ?? '';
 		const tb = toolbox();

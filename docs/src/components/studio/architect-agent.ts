@@ -256,7 +256,7 @@ export const CANON_CARD_LINE = '• CARD-style layouts nest';
 
 /** The always-on reference: the authoring contract, what exists, and where to read more.
  *  Byte-stable for a given catalog (the cache prefix). */
-export function buildAgentSystem(opts: { canon: string; catalog: AgentComponent[]; frontMatterKeys: { key: string; info: string }[]; themes: string[]; finishes: { name: string; blurb?: string }[] }): string {
+export function buildAgentSystem(opts: { canon: string; catalog: AgentComponent[]; frontMatterKeys: { key: string; info: string; group?: string }[]; themes: string[]; finishes: { name: string; blurb?: string }[] }): string {
 	const byBucket = new Map<string, AgentComponent[]>();
 	for (const c of opts.catalog) {
 		if (!c?.name) continue;
@@ -303,22 +303,26 @@ function oneLine(s: unknown, n = 110): string {
 }
 
 /**
- * Keys the chat's static prompt names but does not describe: export and preview switches the chat agent has no reason to set
- * on an edit, and the raw-CSS escape hatches. Their rows cost about 395 tokens on every request (o200k, #3533) and several were
- * cut mid-row. read_front_matter still serves each one in full, because the toolbox reads the whole table, and the prompt still
- * lists their names, so the model knows they exist.
+ * Keys the chat's static prompt names but does not describe: the export switches and the raw-CSS escape hatches (their groups in
+ * lib/core/deck-settings.js, so a new one joins on its own) and the preview-only debug overlay. The chat agent has no reason to set
+ * them on an edit; their rows cost about 395 tokens on every request (o200k, #3533) and several were cut mid-row.
+ * read_front_matter still serves each one in full, because the toolbox reads the whole table, and the prompt still lists their
+ * names, so the model knows they exist.
  */
-export const ON_REQUEST_KEYS: ReadonlySet<string> = new Set(['present', 'read', 'fluid', 'player', 'debug', 'font-embedding', 'images', 'style', 'color', 'backgroundColor', 'backgroundImage', 'backgroundPosition', 'backgroundRepeat', 'backgroundSize']);
+const ON_REQUEST_GROUPS: ReadonlySet<string> = new Set(['export', 'raw']);
+export function isOnRequestKey(k: { key: string; group?: string }): boolean {
+	return (k.group != null && ON_REQUEST_GROUPS.has(k.group)) || k.key === 'debug';
+}
 
 /** Older spellings the `terms:` row absorbs (lib/core/glossary-auto.mjs, set_terms): named on that row, not given their own. */
 export const TERM_ALIASES: readonly string[] = ['lexicon', 'acronyms'];
 
 /** The FRONT MATTER block's rows: one per key the chat may set, then the on-request keys by name. */
-export function promptFrontMatter(keys: readonly { key: string; info: string }[]): string {
+export function promptFrontMatter(keys: readonly { key: string; info: string; group?: string }[]): string {
 	const rows = keys
-		.filter((k) => !ON_REQUEST_KEYS.has(k.key) && !TERM_ALIASES.includes(k.key))
+		.filter((k) => !isOnRequestKey(k) && !TERM_ALIASES.includes(k.key))
 		.map((k) => `- ${k.key}: ${oneLine(k.info, 140)}${k.key === 'terms' ? ` (${TERM_ALIASES.map((a) => `\`${a}:\``).join(' and ')} are older names for it, read the same way)` : ''}`);
-	const onRequest = keys.filter((k) => ON_REQUEST_KEYS.has(k.key)).map((k) => k.key);
+	const onRequest = keys.filter(isOnRequestKey).map((k) => k.key);
 	if (onRequest.length) rows.push(`- Also read, for export, preview and raw CSS (read_front_matter describes each): ${onRequest.join(', ')}.`);
 	return rows.join('\n');
 }

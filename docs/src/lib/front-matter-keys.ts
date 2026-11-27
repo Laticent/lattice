@@ -16,5 +16,6 @@ import pluginRegisters from '../../../lib/plugins/registers.generated.js';
 /** Every row the Studio offers: the table's own rows, then one per plugin-declared register. */
 export const OFFERED_SETTINGS = deckSettingsProse.withProse(deckSettings.withPluginRegisters(pluginRegisters.PLUGIN_REGISTERS)).filter((r) => r.offer !== false && r.kind !== 'retired');
 
-export const FRONT_MATTER_KEYS: { key: string; info: string }[] = OFFERED_SETTINGS.map((r) => ({ key: r.key, info: r.info }));
+/** Each offered key, its one-liner, and its table group (`export`, `raw`, `look`, …), which the chat prompt reads to decide what to describe. */
+export const FRONT_MATTER_KEYS: { key: string; info: string; group?: string }[] = OFFERED_SETTINGS.map((r) => ({ key: r.key, info: r.info, group: r.group }));
 
