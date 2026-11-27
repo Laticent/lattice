@@ -1083,12 +1083,24 @@ test('agent kit structure', { skip }, async (t) => {
 		const ls = require(path.join(ROOT, 'lib', 'core', 'list-shapes.js'));
 		const bodied = [...ls.SPLIT_SLOT_LAYOUTS, ...ls.NUMBER_SLOT_LAYOUTS];
 		for (const text of [solo, readKit('start.md')]) {
-			const line = text.split('\n').find((l) => /always has a body/.test(l));
-			assert.ok(line, 'the bodied-row rule is present');
-			const named = [...line.matchAll(/`([a-z0-9-]+)`/g)].map((m) => m[1]);
+			// start.md folds this rule into its nest line, so read only the "a row on … always has a body" clause.
+			const clause = text.match(/a row on ((?:`[a-z0-9-]+`(?:, )?)+) always has a body/i);
+			assert.ok(clause, 'the bodied-row rule is present');
+			const named = [...clause[1].matchAll(/`([a-z0-9-]+)`/g)].map((m) => m[1]);
 			assert.ok(named.length && named.every((n) => bodied.includes(n)), `the bodied-row rule names ${named.join(', ')}; lint requires a body only on ${bodied.join(', ')}`);
 			assert.ok(!named.includes('agenda'), 'agenda reads one list level; its rows take no body');
 		}
+		// The nest rule names every listed layout where lint makes `- **Title.** body` an error
+		// (card-style-inline-title: CARD_STYLE_LAYOUTS and LEDGER_LAYOUTS), less agenda. Until
+		// 2026-11-27 start.md said only "card layouts", which does not reach list-tabular.
+		const startText = readKit('start.md');
+		const listedHere = [...startText.split(/^## \d+\. The \d+ common layouts/m)[1].split(/^## /m)[0].matchAll(/^- ([a-z0-9-]+):/gm)].map((m) => m[1]);
+		const inlineError = new Set([...ls.CARD_STYLE_LAYOUTS, ...ls.LEDGER_LAYOUTS]);
+		const want = listedHere.filter((n) => inlineError.has(n) && n !== 'agenda');
+		const nestLine = startText.split('\n').find((l) => /nest the body under the title/.test(l));
+		assert.ok(nestLine, 'start.md carries the nest rule');
+		const missing = want.filter((n) => !nestLine.includes(`\`${n}\``));
+		assert.deepEqual(missing, [], 'a listed layout where inline bold is a lint error is not in the nest rule');
 		assert.doesNotMatch(solo, /statement layout|ledger or split row/, 'no rule names a class of layout it never lists');
 	});
 });

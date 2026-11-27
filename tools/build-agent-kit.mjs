@@ -1597,12 +1597,17 @@ function listShapes(only) {
   // warned on each (`list-depth-unsupported`; agent-pack eval run 46032981944).
   const ledger = [...ls.SPLIT_SLOT_LAYOUTS, ...ls.NUMBER_SLOT_LAYOUTS].filter((n) => solo.has(n));
   // A rule about a layout the reader cannot use is noise: it drops while no statement layout is solo.
-  return { ledger: fmt(ledger), statement: fmt(ls.STATEMENT_OL_LAYOUTS.filter((n) => solo.has(n))) };
+  // The layouts where `- **Title.** body` on one line is a lint ERROR (`card-style-inline-title`
+  // checks CARD_STYLE_LAYOUTS and LEDGER_LAYOUTS), less `agenda`, whose rows take no body at all.
+  // Named, not "card layouts": list-steps, list-tabular and timeline-list are ledgers, not cards,
+  // and a model told only about cards wrote inline bold on them.
+  const nested = [...ls.CARD_STYLE_LAYOUTS, ...ls.LEDGER_LAYOUTS].filter((n) => n !== 'agenda' && solo.has(n));
+  return { ledger: fmt(ledger), nested: fmt(nested), statement: fmt(ls.STATEMENT_OL_LAYOUTS.filter((n) => solo.has(n))) };
 }
 const essentials = (only) => [
   'Every slide starts with `<!-- _class: NAME -->` and NAME is a real layout.',
   'Slides are separated by a line containing only `---`, with a blank line each side.',
-  'Card layouts nest: `- Title` on one line, then `  - body` indented two spaces. Never `- **Title.** body`.',
+  `Rows on ${listShapes(only).nested} nest the body under the title, never \`- **Title.** body\`.`,
   'Under a numbered `1.` row, indent the nested line **three** spaces, not two.',
   // Name the layouts: "a ledger row" and "a statement layout" meant nothing to a small model
   // (the stand-in eval, 2026-11-19). The sets are lint-core's own, from lib/core/list-shapes.js.
@@ -3288,7 +3293,7 @@ const START_TOKEN_MAX = 990;
  * Why 990 and not 1,500. The gate counts offline with o200k_base (OpenAI's tokenizer, the one
  * this repo ships); the build makes no network call. Claude is the main reader, and Claude 5's
  * own counter (Anthropic's free count_tokens endpoint, 2026-11-27) read this file at 1.51 to
- * 1.54 times its o200k count: 1,956 for the 1,273-token draft, 1,429 for the 966-token file.
+ * 1.54 times its o200k count: 1,956 for the 1,273-token draft, 1,455 for the 981-token file.
  * Gemini 3.x read 1.06 to 1.07 times. So 990 o200k is about 1,495 Claude tokens, the owner's
  * 1,500. The ratio is this file's, measured; re-count start.md on Claude's and Gemini's
  * counters in the per-release check (2026-11-17-agent-pack.md §4.9), and move this number if
@@ -3373,6 +3378,19 @@ function slotShapeRule(cat) {
   return `- Content is never a heading: ${shown.join(', ')}; ${NUMBER_SLOT_LAYOUTS.map((n) => `\`${n}\``).join(' and ')} rows are \`1. ${row[1]}\` then \`   - ${row[2]}\` (three spaces under a \`1.\`).`;
 }
 
+/**
+ * start.md's rules: the essentials, with the bodied-row rule folded into the nest rule as one
+ * sentence. Both name layouts, and as two lines they cost tokens start.md cannot spare.
+ */
+function startRules(rules) {
+  const nest = rules.findIndex((r) => /^Rows on .* nest the body/.test(r));
+  const bodied = rules.findIndex((r) => /^A row on .* always has a body/.test(r));
+  if (nest < 0 || bodied < 0) throw new Error('build-agent-kit: start.md folds the bodied-row rule into the nest rule, and one of them is gone.');
+  const on = rules[bodied].match(/^A row on (.*) always has a body/)[1];
+  const merged = `${rules[nest].replace(/\.$/, '')}; a row on ${on} always has a body.`;
+  return rules.map((r, i) => (i === nest ? merged : r)).filter((_, i) => i !== bodied);
+}
+
 function startDoc(cat) {
   const { DECK_CANON_SHORT } = require(path.join(ROOT, 'lib', 'authoring', 'deck-canon.js'));
   const { UNIVERSAL_GROUPS } = require(path.join(ROOT, 'lib', 'components', 'index.js'));
@@ -3390,15 +3408,20 @@ function startDoc(cat) {
   };
   const deck = `${frontMatterLines().join('\n')}\n\n${START_DECK.map((n) => (START_BOOKENDS.includes(n) ? withSilent(n) : skeletonFor(cat, n))).join('\n\n---\n\n')}`;
   // The short canon, less its RIGHT COMPONENT bullet: section 4 is that bullet, as a list.
+  // The short canon, less two bullets: RIGHT COMPONENT (section 4 is that bullet, as a list) and
+  // CARD-style (section 3's nest rule says it, naming the layouts lint holds to it).
   const canonAll = DECK_CANON_SHORT.split('\n').slice(1);
-  if (canonAll.filter((l) => /^• RIGHT COMPONENT/.test(l)).length !== 1) throw new Error('build-agent-kit: start.md drops the canon\'s RIGHT COMPONENT bullet, which no longer matches exactly one line.');
-  const canon = canonAll.filter((l) => !/^• RIGHT COMPONENT/.test(l)).map((l) => l.replace(/^• /, '- '));
+  const canonDrops = [/^• RIGHT COMPONENT/, /^• CARD-style/];
+  for (const re of canonDrops) {
+    if (canonAll.filter((l) => re.test(l)).length !== 1) throw new Error(`build-agent-kit: start.md drops the canon bullet matching ${re}, which no longer matches exactly one line.`);
+  }
+  const canon = canonAll.filter((l) => !canonDrops.some((re) => re.test(l))).map((l) => l.replace(/^• /, '- '));
   // Section 1 already says each slide opens with a record, and the canon how cards nest and
   // how the title slide reads; a rule that says it again is tokens start.md cannot spare.
   // Each drop must match exactly one essential.
   // `slotShapeRule` restates the three-space indent with an example, and the linter reports an
   // unclosed comment as an error (`unterminated-comment`), so neither needs its own line here.
-  const canonSays = [/^Every slide starts with/, /^Card layouts nest:/, /^The title slide is/, /^Under a numbered `1\.` row/, /^Every `<!-- -->` comment is closed/];
+  const canonSays = [/^Every slide starts with/, /^The title slide is/, /^Under a numbered `1\.` row/, /^Every `<!-- -->` comment is closed/];
   // Scoped to the layouts start.md lists, as the solo text is: a rule about a layout the reader
   // cannot pick from here is tokens spent on nothing.
   const rules = essentials(SOLO_LAYOUTS);
@@ -3430,7 +3453,7 @@ function startDoc(cat) {
     '',
     '## 3. Rules',
     '',
-    ...rules.filter((r) => !canonSays.some((re) => re.test(r))).map((r) => `- ${r}`),
+    ...startRules(rules.filter((r) => !canonSays.some((re) => re.test(r)))).map((r) => `- ${r}`),
     slotShapeRule(cat),
     `- Notes, never shown: ${noteLine()}.`,
     '',

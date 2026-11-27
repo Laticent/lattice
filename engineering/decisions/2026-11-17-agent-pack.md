@@ -85,7 +85,7 @@ on the branch alike. The folders keep the kit's names rather than new ones (`lay
 | Layer | URL | Holds | Budget |
 |---|---|---|---|
 | Router | `/llms.txt` | What Lattice is, then the pack first, the docs copies second, the 700 KB reference last | 4 KB (existing gate) |
-| Start | `/agents/start.md` | The file shape with a whole three-slide deck, the short deck canon, the rules, the 19 common layouts one line each, one modifier from each of three groups, the notes, check and render, and links on (§4.9) | **1,500 tokens** (owner, 2026-11-27) on Claude's count: gated at 990 o200k; 966 today (Claude 1,429). Was 48,000 characters |
+| Start | `/agents/start.md` | The file shape with a whole three-slide deck, the short deck canon, the rules, the 19 common layouts one line each, one modifier from each of three groups, the notes, check and render, and links on (§4.9) | **1,500 tokens** (owner, 2026-11-27) on Claude's count: gated at 990 o200k; 981 today (Claude 1,455). Was 48,000 characters |
 | All layouts | `/agents/layouts.md` | What `start.md` held until 2026-11-27, less the full canon: the rules in detail, the parts any slide can carry, the registers, every layout in one line (job, capacity, words per item, variants), the modifiers, the plugins' inline notation, skeletons for the 19 most-used layouts and 2 charts | none; read on demand (10,700 o200k tokens) |
 | Plugins | `/agents/plugins/<name>.md` | The 16 plugin docs: pills, icons, sparks, checks, avatars, image, video, callout, legend, code, math, mermaid, function-plot, anima, meta, chart-family | read when a slide uses one |
 | Small model | `/agents/paste/lattice-instructions-solo.md` | 19 layouts, self-contained, for a 4,096-token local context | 10,000 characters (existing) |
@@ -205,14 +205,14 @@ So the pack has two layers where it had one. `start.md` is the short contract an
 the reference behind it: everything `start.md` used to carry, moved whole, with the structure
 gates that guarded it (gates 4 and 5). The full canon (its traps, rhythm and chrome budgets) stays
 in `authoring/deck-canon.md`, linked from `start.md`. `start.md` keeps only what a deck cannot be
-written without (966 o200k tokens, measured):
+written without (981 o200k tokens, measured):
 
 | Section | Source | o200k tokens |
 |---|---|---|
 | Title, version, the link to all layouts | `packages/lattice/package.json` `version` | 32 |
 | The file: a whole title, list and closing deck, and how a record names a layout | `DECK_SETTINGS` (`theme`, `pagination`, `color-mode`), each layout's `skeleton`, `silent` on the bookends as the canon says | 158 |
-| What a good deck is | `DECK_CANON_SHORT`, less its RIGHT COMPONENT bullet (§4 is that bullet, as a list) | 221 |
-| Rules | `essentials(SOLO_LAYOUTS)`, less what the canon and §1 already say and the unclosed-comment rule the linter reports; where content goes on each listed layout with no heading slot (from the slot contracts) and the `NUMBER_SLOT_LAYOUTS` row, from their skeletons; the notes, from `NOTE_NAMES` | 193 |
+| What a good deck is | `DECK_CANON_SHORT`, less its RIGHT COMPONENT bullet (§4 is that bullet, as a list) and its CARD-style bullet (§3's nest rule says it, naming the layouts) | 191 |
+| Rules | `essentials(SOLO_LAYOUTS)`, less what the canon and §1 already say and the unclosed-comment rule the linter reports, with the nest and bodied-row rules as one line; where content goes on each listed layout with no heading slot (from the slot contracts) and the `NUMBER_SLOT_LAYOUTS` row, from their skeletons; the notes, from `NOTE_NAMES` | 232 |
 | The 19 common layouts | `SOLO_LAYOUTS` + `SOLO_INTENT`, the solo text's own list | 235 |
 | Modifiers | a record with a modifier, the first token of three `UNIVERSAL_GROUPS` (mood, tone, insight), and the link | 63 |
 | Check, render, read more | the checker, `npx @laticent/lattice`, the render page, the full canon | 70 |
@@ -228,6 +228,7 @@ What `start.md` no longer says, and where each now lives:
 | The detailed rules: kpi row colors, kpi key-insight fit, the `big-number`/`quote` claim, timeline status words, `profile:` | `layouts.md` §1 and §2 |
 | The full canon: traps, rhythm, chrome word budgets | `authoring/deck-canon.md` (linked) |
 | The canon's RIGHT COMPONENT bullet | `start.md` §4's list does its job; `authoring/deck-canon.md` |
+| The canon's CARD-style bullet | `start.md` §3's nest rule, which names every listed layout lint holds to it |
 | The ledger and statement rules for layouts outside the 19 (`authority-chain`, `regulatory-update`, `split-compare`, `principles`) | the linter, which reports both (`split-bodyless-item`, `statement-ol-bold`); `main`'s `start.md` never carried them either |
 | Every modifier token but `dark`, `tone-pass` and `insight-key` (chrome, decoration, state, table and the rest) | `authoring/modifiers.md` (linked); `silent` is in §1's deck |
 | "Every `<!-- -->` comment is closed" | the linter, which reports it as an error (`unterminated-comment`) |
@@ -258,7 +259,8 @@ Gemini's `countTokens`, both free count-only endpoints, no generation), the gues
 | after eval run 1 (kpi rule) | 981 | 1,037 | 1,459 |
 | after eval run 2 (big-number rule) | 984 | 1,042 | 1,460 |
 | after the general rule | 983 | 1,040 | 1,458 |
-| as merged (after eval run 3) | 966 | 1,022 | 1,429 |
+| after eval run 3 (bodied-row fix) | 966 | 1,022 | 1,429 |
+| as merged (nest rule names its layouts) | 981 | 1,034 | 1,455 |
 
 Claude counts this file at **1.51×** o200k (1.54× on the draft); Gemini at 1.06–1.07×. So the gate
 is 990 o200k, about 1,495 on Claude's count (the desk picked this over keeping 1,300, 2026-11-27).
@@ -307,6 +309,14 @@ fixed at its source, so the paste texts, the repo drop-ins and `start.md` now na
 `split-compare`, `kpi` and `stats` only. A test pins the set to lint's. The teaching deck with its
 agenda rows left bare lints clean and renders with no overflow. No fourth run: the desk capped the
 loop at three, so the fix is verified locally, not by the eval.
+
+Narrowing that sentence opened a gap the card grader found: it had been the only text in `start.md`
+that kept `list-steps`, `list-tabular` and `timeline-list` off inline bold, which lint makes an error
+on them (`card-style-inline-title` checks `CARD_STYLE_LAYOUTS` and `LEDGER_LAYOUTS`), while the
+canon says only "CARD-style layouts". So the shared nest rule now names its layouts from those two
+sets (less `agenda`, whose rows take no body), `start.md` folds the bodied-row rule into it as one
+line, and drops the canon's CARD-style bullet, which the named rule replaces. A test pins the named
+set to lint's.
 
 **The engine version is stamped** into `start.md`, `layouts.md` and `/llms.txt`, read from
 `packages/lattice/package.json`. `publish-kits.yml` now republishes on a change to that file, so a
