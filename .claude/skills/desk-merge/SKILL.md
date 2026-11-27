@@ -31,7 +31,8 @@ facts, and §🚦 Pre-merge card. Tag this session `desk:merge` and `ui:pinned`.
    digest. A PR it lists as "rebase first" (it conflicts with `main`) stays out of
    the digest: message its session to rebase (HARD RULE #16, a real conflict). For a
    pair it orders, message the second PR's session after the first lands: "#A
-   landed, rebase #B on main" (also a real conflict). A card that says "merge #X
+   landed, rebase #B on main" (also a real conflict), or "merge `main` in" when #B is a relay branch,
+   one with commits from more than one session (HARD RULE #31 overrides #16 there). A card that says "merge #X
    first" is a claim; the tool's order is the check. Every PR comes back in exactly
    one list. `held` (built on a PR that must rebase first) stays out of the digest
    with its parent. `unordered` (a dependency cycle; the tool exits 1) and any
