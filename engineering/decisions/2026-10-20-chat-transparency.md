@@ -150,7 +150,10 @@ call is marked "stopped, estimated" with `≈` figures. The total line keeps cum
 largest single call: the first is what was billed, the second is how full the window got.
 
 **What stays an estimate.** OpenRouter's `usage.cost` is the provider's own figure and is used as is. A stopped round's estimate
-prices its whole input at the full input rate, an upper bound, because the provider never said how much of it was cached.
+prices its whole input at the full input rate, because the provider never said how much of it was cached. That is usually above
+the billed figure (most of a round's input is a cheap cache read) but it is not a bound: it counts tokens as text ÷ 4, and
+OpenRouter counts this prompt at about 1.45 times that. `e2e/chat-show-work-ledger.spec.ts` shows it: a stopped call estimated at
+about 12K input tokens beside reported calls of 17K. On OpenRouter the generation id corrects it; on a direct key it stands.
 
 **The maker-checker pass** caught two regressions in this change's first cut, both reproduced with a scripted backend: a round
 that reported its usage and then errored was charged twice ($0.0309 for $0.003), and a refused request was charged a permanent

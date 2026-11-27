@@ -371,7 +371,9 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 	 * - the provider never accepted it (refused before streaming, or stopped before it was sent): nothing was billed;
 	 * - it was accepted and never reported: a missing report is not a free round, so it is charged as an ESTIMATE in the
 	 *   ledger, the usage line and the trace, each marked estimated. The estimate prices the prompt and the tool definitions
-	 *   at the full input rate (an upper bound: part of it was likely read from cache) plus the prose seen, and the generation
+	 *   at the full input rate plus the prose seen. That is usually above the billed figure, because most of a round's input is
+	 *   a cheap cache read, but it is not a bound: it counts tokens as text ÷ 4, and OpenRouter counts this prompt at about
+	 *   1.45 times that (AGENT_TOKEN_SCALE). The generation
 	 *   id, when one arrived, later corrects the ledger to the exact figure.
 	 */
 	const settleOpenRound = (): void => {
