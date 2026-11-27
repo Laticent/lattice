@@ -299,6 +299,14 @@ h3 {
 	line-height: 1.08;
 	margin: 0;
 }
+/* Dialog and sheet titles are 18px interface headings, not display type. The display tracking above, on Playfair's
+   narrow space, closed their word gap: "Show work" read as "Showwork" (#3533). Plain rules, not a utility class: this
+   unlayered h2 rule beats any Tailwind class on the element. */
+[data-slot='dialog-title'],
+[data-slot='sheet-title'] {
+	letter-spacing: normal;
+	word-spacing: 0.08em;
+}
 code {
 	font-family: var(--font-mono);
 }
