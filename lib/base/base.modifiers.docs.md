@@ -8,7 +8,7 @@ Every class word a slide accepts without a component declaring it, by group, and
 
 | Kind | The test |
 |---|---|
-| component | The first `_class` word: a key of the component catalog (`kpi`, `cards-grid`). |
+| component | The first word of the slide's class (`@meta{layout=…}`): a key of the component catalog (`kpi`, `cards-grid`). |
 | variant | In this component's own `variants`; legal only after that component (`kpi spotlight`). |
 | modifier | In a group of this manifest; it acts on a surface, and is offered where the component has that surface (`dark`, `rule-accent`). |
 | switch | A modifier spelled `no-X` or `with-X`, X a name in lib/core/switches.mjs (`no-footer`, `with-period`). |
