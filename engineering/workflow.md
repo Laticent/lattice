@@ -2575,7 +2575,7 @@ the agent's.** Below `VERY HIGH`, before any merge ask:
 3. **If it is below `VERY HIGH`, do the `raise it` line**: drive the surface, add the
    test, fix the gap. Then grade again.
 4. **Stop after three rounds — two for a docs-only or test-only PR** (owner, 2026-11-27,
-   relayed from the command center) — or earlier when the only thing left is out of your reach:
+   "in aligned", command center event `21f75ff9-9914-4ace-99c2-e54df8267865`) — or earlier when the only thing left is out of your reach:
    a taste call on a visual, the export sign-off, something irreversible, or a surface
    no runner here or in CI can reach. Past 75% of the weekly usage, stop after one round
    (§Relay, usage checkpoints). Name which one in `raised`.
@@ -3100,8 +3100,9 @@ in 20 s against #3353's 748 MB in 23 s. Five rules follow:
    security bump the security desk's, and the command center never starts a flaky
    fix while a `desk:flaky` session is live.
 
-**When two parties disagree: the escalation ladder** (owner, 2026-11-27, relayed from the command
-center: "we need conflict resolution escalation rules when there is disagreement"). It covers four
+**When two parties disagree: the escalation ladder** (owner, 2026-11-27, typed in the command center,
+event `5f920ea2-f64b-4b8b-9ffe-8b6c0c94111c`: "we need conflict resolution escalation rules when there is
+disagreement"). It covers four
 kinds of split: **session vs session** (two fixes for one cause, who rebases onto whom); **maker vs
 checker** on a card's level; **desk vs line-of-work session** over who owns an item; and **two docs
 that contradict each other**. Three rungs, climbed in order, each at most once:
@@ -3111,8 +3112,8 @@ that contradict each other**. Three rungs, climbed in order, each at most once:
    issue. One round each, then stop: a second round of the same argument is the signal to climb. Rule 1
    above sets what counts (correct first, then measured cost, then how far along).
 2. **The owner of the kind of problem decides, by the written rules only.** The desk whose lane it is
-   decides: a red or flaky test, the 🧪 flake desk; merge order or a queue ejection, the 🚦 merge desk;
-   a Dependabot or nightly red, 📦 deps + nightly; a security finding, 🛡️ security; two docs that
+   decides: a red or flaky test in any run, the 🧪 flake desk; merge order or a queue ejection, the 🚦
+   merge desk; a Dependabot PR or a nightly red that is not a test, 📦 deps + nightly; a security finding, 🛡️ security; two docs that
    disagree, 📚 docs. No desk owns it, or the desk is a party: the command center decides. The decider
    cites the rule it applied (doc and section) in the same living comment, and "no rule covers this" is
    a valid finding that sends it up a rung, never a license to invent one. A maker vs checker split
