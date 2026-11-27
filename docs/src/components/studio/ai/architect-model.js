@@ -554,7 +554,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       writeCachedCatalog(list);
       return list;
     },
-    async complete({ messages, json, onToken, signal, onUsage, onGenerationId, onFinishReason, maxTokens, plugins, cacheTtl, tools, toolChoice, onToolCalls, onToolStart, onReasoning, cacheTail, model: modelOverride, pinnedModel, onAnsweredBy, reasoningEffort }) {
+    async complete({ messages, json, onToken, signal, onUsage, onGenerationId, onFinishReason, maxTokens, plugins, cacheTtl, tools, toolChoice, onToolCalls, onToolStart, onReasoning, cacheTail, model: modelOverride, pinnedModel, onAnsweredBy, reasoningEffort, onAccepted }) {
       const key = readOpenRouterKey();
       if (!key) throw new Error('OpenRouter not connected');
       // usage:{include:true} guarantees the authoritative per-request `usage.cost`
@@ -644,6 +644,8 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       }
       const answered = (id) => { if (onAnsweredBy && id) { try { onAnsweredBy(id); } catch {} onAnsweredBy = null; } };
       noteStatus(res.status, key); // a success clears a rejected mark this key earned earlier
+      // The provider took the request: from here on it is billed, even if a Stop lands before the first chunk (#3533 S01).
+      if (onAccepted) { try { onAccepted(); } catch {} }
       // `finish_reason` is the transport's own account of WHY the reply stopped. Nothing
       // read it before, so a reply cut off at max_tokens ('length') was indistinguishable
       // from a finished one — and the edit parser downstream then salvaged a partial slide
@@ -680,10 +682,15 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       };
       while (true) {
         const { value, done } = await reader.read();
-        if (done || signal?.aborted) break;
+        // A Stop ends the round as an abort, as a rejected read does: never as a finished reply whose partial usage and
+        // half-streamed tool calls would then be reported and run (#3533 S01).
+        if (signal?.aborted) { const e = new Error('aborted'); e.name = 'AbortError'; throw e; }
+        if (done) break;
         buf += dec.decode(value, { stream: true });
         let nl;
         while ((nl = buf.indexOf('\n')) >= 0) {
+          // Checked per line as well as per read: one read can hold the rest of the stream, `[DONE]` included.
+          if (signal?.aborted) { const e = new Error('aborted'); e.name = 'AbortError'; throw e; }
           const line = buf.slice(0, nl).trim();
           buf = buf.slice(nl + 1);
           if (!line.startsWith('data:')) continue;

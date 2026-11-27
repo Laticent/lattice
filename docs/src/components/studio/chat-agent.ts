@@ -240,13 +240,14 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 	// prices only an open round — a finished one already reported its exact cost.
 	let roundOpen = false;
 	// What the round in flight has shown (#3533 S01): `reported` once its usage arrived (its exact cost is then in the ledger),
-	// `accepted` once the provider answered with anything at all (a generation id, a token, a tool call, a thought). A round
-	// refused before it streamed (a 429, a 402) or stopped before it was sent was never billed, so it is never charged.
+	// `accepted` once the provider took the request (the transport's `onAccepted` on an HTTP 200, or any chunk at all). A round
+	// the provider refused (a 429, a 402) or a Stop before the request was taken is not charged: nothing says it was billed.
 	let roundReported = false;
 	let roundAccepted = false;
 	let rounds = 0;
-	// What the rounds that FINISHED reported, for the reply's usage line and the context meter. It comes from the same
-	// `usage` block that already feeds the spend tally, so keeping it is free; an aborted round never reports and is absent.
+	// What the turn's rounds cost, for the reply's usage line and the context meter: each finished round's own `usage` block
+	// (the same one that feeds the spend tally), plus, from settleOpenRound, the estimate for a round a Stop or an error ended
+	// before it reported (`costEstimated`).
 	// `cached` is null until a round reports it: a provider that sends no cache figure has told us nothing, and a 0 would read as
 	// "no cache hit" in the usage line and the trace (#3533 S02).
 	const used: { cost: number; prompt: number; completion: number; cached: number | null; reasoning: number; rounds: number; estimated?: boolean; costEstimated?: boolean } = { cost: 0, prompt: 0, completion: 0, cached: null, reasoning: 0, rounds: 0 };
@@ -333,6 +334,11 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 				finish = r;
 			},
 			signal: opts?.signal,
+			// The transport says so the moment the provider takes the request (an HTTP 200): billed from there, even if a Stop
+			// lands before the first chunk, while the provider is still reading the prompt.
+			onAccepted: () => {
+				roundAccepted = true;
+			},
 			onReasoning: (t: string) => {
 				roundAccepted = true;
 				// Kept to a bit more than the trace saves; a model that thinks for pages should not grow memory with it.

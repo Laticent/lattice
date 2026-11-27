@@ -212,6 +212,39 @@ describe('the transports', () => {
 		expect(usage[0].cost).toBeCloseTo(100 * p + 2000 * p * CACHE_RATES.write1h + 7000 * p * CACHE_RATES.read + 10 * 10e-6, 9);
 	});
 
+	it('a Stop mid-stream rejects as an abort and reports no partial usage or tool call (#3533 S01)', async () => {
+		// Before, the loop broke on the signal and then reported the partial usage and the half-streamed tool call as a
+		// finished reply: the round read as billed at a figure that left out its output, and the tool ran after the Stop.
+		writeProviderKey('anthropic', 'sk-ant-test-key-0000000000');
+		await openRouterKeySettled();
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(
+				async () =>
+					new Response(
+						sse([
+							'data: {"type":"message_start","message":{"usage":{"input_tokens":1000,"output_tokens":1}}}',
+							'data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hel"}}',
+							'data: {"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"tu1","name":"edit_slides"}}',
+							'data: {"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"{\\"a\\":"}}',
+							'data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":500}}',
+						]),
+						{ status: 200 },
+					),
+			),
+		);
+		const b = directBackend('anthropic', { catalog: async () => CATALOG, catalogNow: () => CATALOG });
+		const ctl = new AbortController();
+		const usage: unknown[] = [];
+		const tools: unknown[] = [];
+		const accepted: number[] = [];
+		const run = b.complete({ model: 'claude-sonnet-5-5', messages: [{ role: 'user', content: 'hi' }], signal: ctl.signal, onAccepted: () => accepted.push(1), onToken: () => ctl.abort(), onUsage: (u: unknown) => usage.push(u), onToolCalls: (c: unknown[]) => tools.push(...c) });
+		await expect(run).rejects.toMatchObject({ name: 'AbortError' });
+		expect(accepted).toEqual([1]);
+		expect(usage).toEqual([]);
+		expect(tools).toEqual([]);
+	});
+
 	it('OpenAI: the OpenRouter-shaped request at the provider base, max_completion_tokens, estimated usage', async () => {
 		writeProviderKey('openai', 'sk-proj-test-key-0000000000');
 		await openRouterKeySettled();

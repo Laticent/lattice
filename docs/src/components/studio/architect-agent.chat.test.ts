@@ -260,8 +260,8 @@ describe('checker pass: failures name their cause', () => {
 	});
 
 	// Round 2 of each case below; round 1 always reports $0.001 and asks for a tool, so the turn reaches a second round.
-	type Round2 = (o: Opts & { onUsage?: (u: unknown) => void; onGenerationId?: (id: string) => void }, ctl: AbortController) => Promise<string>;
-	async function settle(round2: Round2) {
+	type Round2 = (o: Opts & { onUsage?: (u: unknown) => void; onGenerationId?: (id: string) => void; onAccepted?: () => void }, ctl: AbortController) => Promise<string>;
+	async function settle(round2: Round2, exactCost?: (id: string) => Promise<number>) {
 		const spend = await import('./ai/spend.js');
 		const before = spend.readSpend().session;
 		const m = (await architectModel()) as unknown as Hooks & { openRouterModelPrice?: () => unknown; openRouterGenerationCost?: unknown };
@@ -287,11 +287,11 @@ describe('checker pass: failures name their cause', () => {
 		});
 		const orig = { price: m.openRouterModelPrice, cost: m.openRouterGenerationCost };
 		m.openRouterModelPrice = () => ({ promptPerM: 3, completionPerM: 15 });
-		// No exact-cost lookup: the estimate is what the ledger keeps in these cases.
-		m.openRouterGenerationCost = undefined;
+		// No exact-cost lookup unless the case gives one: the estimate is then what the ledger keeps.
+		m.openRouterGenerationCost = exactCost;
 		try {
 			const out = await chatComplete([{ role: 'user', content: 'Tighten slide 2' }], DECK, undefined, { signal: ctl.signal });
-			return { out, charged: spend.readSpend().session - before, tools: seen.tools };
+			return { out, charged: () => spend.readSpend().session - before, tools: seen.tools };
 		} finally {
 			m.openRouterModelPrice = orig.price;
 			m.openRouterGenerationCost = orig.cost;
@@ -305,11 +305,12 @@ describe('checker pass: failures name their cause', () => {
 
 	it('a Stop after the provider accepted the round, before any token, is charged as an estimate everywhere (#3533 S01)', async () => {
 		// The round was answered (a generation id) and never reported: before, it was missing from the usage line and Show work.
-		const { out, charged, tools } = await settle(async (o, ctl) => {
+		const { out, charged: chargedNow, tools } = await settle(async (o, ctl) => {
 			o.onGenerationId?.('gen-2');
 			ctl.abort();
 			throw abort();
 		});
+		const charged = chargedNow();
 		expect(out.status).toBe('ok');
 		if (out.status !== 'ok') return;
 		expect(charged).toBeGreaterThan(0.001);
@@ -327,10 +328,11 @@ describe('checker pass: failures name their cause', () => {
 
 	it('a Stop before the round was sent charges nothing for it', async () => {
 		// The signal fired before the provider answered anything: no request was billed.
-		const { out, charged } = await settle(async (_o, ctl) => {
+		const { out, charged: chargedNow } = await settle(async (_o, ctl) => {
 			ctl.abort();
 			throw abort();
 		});
+		const charged = chargedNow();
 		expect(charged).toBeCloseTo(0.001, 9);
 		if (out.status !== 'ok') throw new Error(out.status);
 		expect(out.trace?.rounds).toHaveLength(1);
@@ -341,11 +343,12 @@ describe('checker pass: failures name their cause', () => {
 	it('a round that reported its usage and then failed is charged once, at its reported cost (checker)', async () => {
 		// OpenRouter reports "what was billed so far" and then throws on an error inside a 200 stream: charging an estimate on
 		// top double-counted it (measured $0.0309 for $0.003).
-		const { out, charged } = await settle(async (o) => {
+		const { out, charged: chargedNow } = await settle(async (o) => {
 			o.onToken?.('Reading.');
 			o.onUsage?.({ cost: 0.002, total_tokens: 20, prompt_tokens: 15, completion_tokens: 5 });
 			throw new Error('OpenRouter error 502: upstream');
 		});
+		const charged = chargedNow();
 		expect(charged).toBeCloseTo(0.003, 9);
 		if (out.status !== 'ok') throw new Error(out.status);
 		expect(out.usage).toMatchObject({ rounds: 2, prompt: 15 });
@@ -356,9 +359,10 @@ describe('checker pass: failures name their cause', () => {
 
 	it('a request the provider refused (a 429) is never charged (checker)', async () => {
 		// Refused before streaming: nothing was billed, and a permanent estimate (about 28x the real cost) could trip a cap.
-		const { out, charged } = await settle(async () => {
+		const { out, charged: chargedNow } = await settle(async () => {
 			throw new Error('OpenRouter error 429: rate limited');
 		});
+		const charged = chargedNow();
 		expect(charged).toBeCloseTo(0.001, 9);
 		if (out.status !== 'ok') throw new Error(out.status);
 		expect(out.trace?.rounds).toHaveLength(1);
@@ -366,15 +370,69 @@ describe('checker pass: failures name their cause', () => {
 	});
 
 	it('a Stop between chunks, which ends the stream with a normal return and no usage, is charged as an estimate', async () => {
-		const { out, charged } = await settle(async (o, ctl) => {
+		const { out, charged: chargedNow } = await settle(async (o, ctl) => {
 			o.onToken?.('Half a sentence');
 			ctl.abort();
 			return 'Half a sentence';
 		});
+		const charged = chargedNow();
 		expect(charged).toBeGreaterThan(0.001);
 		if (out.status !== 'ok') throw new Error(out.status);
 		expect(out.usage).toMatchObject({ rounds: 2, costEstimated: true });
 		expect(out.trace?.rounds[1]).toMatchObject({ estimated: true, text: 'Half a sentence' });
+	});
+
+	it('a Stop after the provider took the request (HTTP 200) but before its first chunk is charged as an estimate (checker)', async () => {
+		// The provider was still reading the prompt (OpenRouter sends only keep-alives then): billed, though nothing streamed.
+		const { out, charged: chargedNow } = await settle(async (o, ctl) => {
+			o.onAccepted?.();
+			ctl.abort();
+			throw abort();
+		});
+		expect(chargedNow()).toBeGreaterThan(0.001);
+		if (out.status !== 'ok') throw new Error(out.status);
+		expect(out.usage).toMatchObject({ rounds: 2, costEstimated: true });
+	});
+
+	it('an error after the provider took the round corrects the estimate to the exact generation cost', async () => {
+		const looked: string[] = [];
+		const { charged: chargedNow } = await settle(
+			async (o) => {
+				o.onGenerationId?.('gen-err');
+				o.onToken?.('Half');
+				throw new Error('The model connection dropped');
+			},
+			async (id) => {
+				looked.push(id);
+				return 0.004;
+			},
+		);
+		// Round 1's reported 0.001 plus round 2 at its EXACT cost, once the lookup lands.
+		await vi.waitFor(() => {
+			expect(looked).toEqual(['gen-err']);
+			expect(chargedNow()).toBeCloseTo(0.005, 9);
+		});
+	});
+
+	it('a first round that streamed and then dropped is charged, though the turn ends blocked', async () => {
+		const spend = await import('./ai/spend.js');
+		const before = spend.readSpend().session;
+		const m = (await architectModel()) as unknown as Hooks & { openRouterModelPrice?: () => unknown; openRouterGenerationCost?: unknown };
+		const orig = { price: m.openRouterModelPrice, cost: m.openRouterGenerationCost };
+		m.openRouterModelPrice = () => ({ promptPerM: 3, completionPerM: 15 });
+		m.openRouterGenerationCost = undefined;
+		await withBackend(async (o) => {
+			o.onToken?.('Half');
+			throw new Error('OpenRouter error 502: upstream');
+		});
+		try {
+			const out = await chatComplete([{ role: 'user', content: 'Tighten slide 2' }], DECK);
+			expect(out.status).toBe('blocked');
+			expect(spend.readSpend().session - before).toBeGreaterThan(0);
+		} finally {
+			m.openRouterModelPrice = orig.price;
+			m.openRouterGenerationCost = orig.cost;
+		}
 	});
 
 	it('a reported cache figure is kept, and a missing one reads as unknown, never 0 (#3533 S02)', async () => {

@@ -76,3 +76,25 @@ describe('reasoning stream', () => {
 		expect(body.reasoning).toBeUndefined();
 	});
 });
+
+describe('a Stop on the OpenRouter stream (#3533 S01)', () => {
+	it('says the request was taken, then rejects as an abort without reporting partial usage or tool calls', async () => {
+		localStorage.setItem('lattice-db-or-key', JSON.stringify('sk-test'));
+		const frames = [
+			{ id: 'gen-1', choices: [{ delta: { content: 'Hel' } }] },
+			{ id: 'gen-1', choices: [{ delta: { tool_calls: [{ index: 0, id: 't1', type: 'function', function: { name: 'edit_slides', arguments: '{"a":' } }] } }] },
+			{ id: 'gen-1', choices: [{ delta: {}, finish_reason: 'tool_calls' }], usage: { cost: 0.002, prompt_tokens: 10, completion_tokens: 2 } },
+		];
+		vi.stubGlobal('fetch', vi.fn(async () => new Response(`${frames.map((f) => `data: ${JSON.stringify(f)}\n\n`).join('')}data: [DONE]\n\n`, { status: 200 })));
+		const m = createArchitectModel({ getSettings: () => ({}) });
+		const ctl = new AbortController();
+		const accepted: number[] = [];
+		const usage: unknown[] = [];
+		const tools: unknown[] = [];
+		const run = m.complete({ messages: [{ role: 'user', content: 'hi' }], fallback: '', tools: [{ type: 'function', function: { name: 'edit_slides', parameters: {} } }], signal: ctl.signal, onAccepted: () => accepted.push(1), onToken: () => ctl.abort(), onUsage: (u: unknown) => usage.push(u), onToolCalls: (c: unknown[]) => tools.push(...c) });
+		await expect(run).rejects.toMatchObject({ name: 'AbortError' });
+		expect(accepted).toEqual([1]);
+		expect(usage).toEqual([]);
+		expect(tools).toEqual([]);
+	});
+});

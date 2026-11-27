@@ -292,6 +292,13 @@ function openaiUsage(u, price) {
 	return { ...usage, cost: cost ?? 0, estimated: true, ...(cost == null ? { unpriced: true } : {}) };
 }
 
+/** The error a Stop raises, shaped as fetch's own abort so every caller already handles it. */
+function abortError() {
+	const e = new Error('aborted');
+	e.name = 'AbortError';
+	return e;
+}
+
 // ── The backend ──────────────────────────────────────────────────────────────────────────
 
 /**
@@ -460,7 +467,7 @@ export function directBackend(provider, { catalog, catalogNow, defaultMaxTokens 
 	}
 
 	// OpenAI and Gemini: the OpenRouter request, at the provider's base URL.
-	async function openaiComplete({ messages, json, onToken, signal, onUsage, onFinishReason, tools, toolChoice, onToolCalls, onToolStart, onReasoning, reasoningEffort, key, model, cap }) {
+	async function openaiComplete({ messages, json, onToken, signal, onUsage, onFinishReason, tools, toolChoice, onToolCalls, onToolStart, onReasoning, reasoningEffort, onAccepted, key, model, cap }) {
 		const body = { model, messages: stripCacheMarks(messages), stream: !!onToken };
 		if (onToken) body.stream_options = { include_usage: true };
 		// OpenAI's newer models refuse `max_tokens` and take `max_completion_tokens`; Gemini's
@@ -476,6 +483,8 @@ export function directBackend(provider, { catalog, catalogNow, defaultMaxTokens 
 		const res = await fetch(`${P.base}/chat/completions`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...providerHeaders(provider, key) }, body: JSON.stringify(body), signal });
 		if (!res.ok) await fail(res, key);
 		noteProviderStatus(provider, res.status, key);
+		// The provider took the request: billed from here, even if a Stop lands before the first chunk (#3533 S01).
+		report(onAccepted);
 		const priced = price(model);
 		if (!onToken || !res.body) {
 			const data = await res.json();
@@ -502,10 +511,15 @@ export function directBackend(provider, { catalog, catalogNow, defaultMaxTokens 
 		};
 		while (true) {
 			const { value, done: end } = await reader.read();
-			if (end || signal?.aborted) break;
+			// A Stop ends the round as an abort, as a rejected read does: never as a finished reply whose partial usage and
+			// half-streamed tool calls would then be reported and run (#3533 S01).
+			if (signal?.aborted) throw abortError();
+			if (end) break;
 			buf += dec.decode(value, { stream: true });
 			let nl;
 			while ((nl = buf.indexOf('\n')) >= 0) {
+				// Checked per line as well as per read: one read can hold the rest of the stream.
+				if (signal?.aborted) throw abortError();
 				const line = buf.slice(0, nl).trim();
 				buf = buf.slice(nl + 1);
 				if (!line.startsWith('data:')) continue;
@@ -551,11 +565,13 @@ export function directBackend(provider, { catalog, catalogNow, defaultMaxTokens 
 	}
 
 	// Anthropic: the Messages API, its stream events mapped back onto the same callbacks.
-	async function anthropicComplete({ messages, json, onToken, signal, onUsage, onFinishReason, tools, toolChoice, onToolCalls, onToolStart, onReasoning, reasoningEffort, key, model, cap }) {
+	async function anthropicComplete({ messages, json, onToken, signal, onUsage, onFinishReason, tools, toolChoice, onToolCalls, onToolStart, onReasoning, reasoningEffort, onAccepted, key, model, cap }) {
 		const body = toAnthropicBody({ messages, model, maxTokens: cap, json, tools, toolChoice, stream: !!onToken, reasoningEffort });
 		const res = await fetch(`${P.base}/messages`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...providerHeaders(provider, key) }, body: JSON.stringify(body), signal });
 		if (!res.ok) await fail(res, key);
 		noteProviderStatus(provider, res.status, key);
+		// The provider took the request: billed from here, even if a Stop lands before the first chunk (#3533 S01).
+		report(onAccepted);
 		const priced = price(model);
 		if (!onToken || !res.body) {
 			const data = await res.json();
@@ -585,10 +601,15 @@ export function directBackend(provider, { catalog, catalogNow, defaultMaxTokens 
 		};
 		while (true) {
 			const { value, done: end } = await reader.read();
-			if (end || signal?.aborted) break;
+			// A Stop ends the round as an abort, as a rejected read does: never as a finished reply whose partial usage and
+			// half-streamed tool calls would then be reported and run (#3533 S01).
+			if (signal?.aborted) throw abortError();
+			if (end) break;
 			buf += dec.decode(value, { stream: true });
 			let nl;
 			while ((nl = buf.indexOf('\n')) >= 0) {
+				// Checked per line as well as per read: one read can hold the rest of the stream.
+				if (signal?.aborted) throw abortError();
 				const line = buf.slice(0, nl).trim();
 				buf = buf.slice(nl + 1);
 				if (!line.startsWith('data:')) continue;
