@@ -7,6 +7,7 @@ import { classDirectiveCompletion, classTokenResult, deckSplit, recordCompletion
 import { CHART_FINISH_AXES } from '../../lib/chart-finish-words';
 import { FRONT_MATTER_KEYS, OFFERED_SETTINGS } from '../../lib/front-matter-keys';
 import { AGENDA_AXIS_ORDER, agendaWords } from './agenda';
+import { ALIGN_HORIZONTAL, ALIGN_VERTICAL } from './align-catalog';
 import { BACKDROP_MASKS, BACKDROP_STRENGTHS, CARD_TAG_AXES, IMAGE_CARD_AXIS_ORDER, imageCardWords } from './deck-axes';
 import { LOGO_FINISH_AXIS_ORDER, logoFinishWords } from './logo-finish';
 import { PROGRESS_RAIL_AXIS_ORDER, progressRailWords } from './progress-rail';
@@ -79,6 +80,7 @@ const REGISTER_AXES: Record<string, readonly (readonly string[])[]> = {
 	'progress-rail': PROGRESS_RAIL_AXIS_ORDER.map(progressRailWords),
 	agenda: AGENDA_AXIS_ORDER.map(agendaWords),
 	'chart-finish': CHART_FINISH_AXES,
+	align: [ALIGN_VERTICAL.map((e) => e.name), ALIGN_HORIZONTAL.map((e) => e.name)],
 	// The three spectrum keys (spectrum-keys.ts, pinned to lib/core/resolve-spectrum.js).
 	...Object.fromEntries(Object.entries(SPECTRUM_KEY_AXES).map(([key, axes]) => [key, axes.map((a) => a.names)])),
 };

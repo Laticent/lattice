@@ -30,13 +30,13 @@ section.gift-card .qr-card {
   grid-template-columns: auto minmax(0, 1fr);
   grid-template-rows: auto auto;
   grid-template-areas: "side head" "side foot";
-  align-content: var(--cards-align);
+  align-content: var(--align-v);
   align-items: center;
   column-gap: var(--qc-col-gap);
   row-gap: calc(var(--qc-gap) * 1.4);
   height: 100%;
 }
-section.gift-card[data-cards="center"] .qr-card { align-content: safe center; }
+section.gift-card[data-align="middle"] .qr-card { align-content: safe center; }
 
 /* Tall and strip: the code on top, the words under it. */
 section.gift-card:where([data-family="tall"], [data-family="strip"]) .qr-card {

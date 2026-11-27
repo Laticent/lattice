@@ -1,0 +1,1 @@
+- A branching `authority-chain` whose branches run past a phone page now splits between its branches, with the tier label on every page, instead of clipping.

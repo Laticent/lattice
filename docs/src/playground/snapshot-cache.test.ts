@@ -431,9 +431,25 @@ describe('stripPseudo — the probe a rule is kept by', () => {
 		expect(() => document.querySelector(stripPseudo('.p :where(:is(.q, .r)) .s'))).not.toThrow();
 	});
 	it('stands a `*` in for an emptied compound, so the combinators keep their meaning', () => {
-		expect(stripPseudo('a > :is(b) c')).toBe('a > * c');
+		expect(stripPseudo('a > :not(b) c')).toBe('a > * c');
 		expect(stripPseudo('::selection')).toBe('*');
-		expect(stripPseudo(':is(section.hub-spoke, figure.chart-frame) .hub-spoke-icon')).toBe('* .hub-spoke-icon');
+		expect(stripPseudo(':where(:is(.q, .r)) .hub-spoke-icon')).toBe('* .hub-spoke-icon');
+	});
+	// `:is()` `:where()` `:has()` keep their wrapper and lose only the pseudos inside, so the probe stays exact
+	// where it can: stripped whole, `section:where([data-family="square"])` probed as `section`, and every
+	// venue rule for a shape the slide is not rode into the snapshot (#2988).
+	it('keeps an :is()/:where()/:has() the engine can answer, stripping only what is inside it', () => {
+		expect(stripPseudo('section:where([data-family="square"]):not(.venue-laptop)')).toBe('section:where([data-family="square"])');
+		expect(stripPseudo(':is(section.hub-spoke, figure.chart-frame) .hub-spoke-icon')).toBe(':is(section.hub-spoke, figure.chart-frame) .hub-spoke-icon');
+		expect(stripPseudo('section:has(> .cell-coda:hover) .x')).toBe('section:has(> .cell-coda) .x');
+		expect(stripPseudo('a:is(.b:focus, .c)')).toBe('a:is(.b, .c)');
+	});
+	it('drops a venue rule for a slide shape the captured slide is not, and keeps the one it is', () => {
+		document.head.innerHTML = '<style>section:where([data-family="square"]):not(.venue-laptop){--fs-scale:1.4}section:where([data-family="wide"]) h1{color:blue}</style>';
+		document.body.innerHTML = '<article class="lattice"><section class="title" data-family="wide"><h1>Hi</h1></section></article>';
+		const css = extractCriticalFromDoc(document);
+		expect(css).not.toContain('square');
+		expect(css).toContain('wide');
 	});
 	it('keeps what the document can answer: :root, attribute values, quoted text', () => {
 		expect(stripPseudo(':root[data-palette] .lattice')).toBe(':root[data-palette] .lattice');

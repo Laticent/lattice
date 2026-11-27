@@ -1,0 +1,64 @@
+studio: +1640
+playground: +760
+home: +660
+The measured split (`fit: pack`, engineering/decisions/2026-10-28-fit-everywhere-model.md §16, §17) runs on
+every preview surface, so each one carries its eager entry point: a one-line check for a `fit:` line
+(`src/lib/fit-pack-wanted.ts`), the lazy `import()` of `src/lib/measured-split.ts`, and the call that
+hands it the render, the frame builder and the engine's verdict config. Since §17 the Studio's call also
+hands over its host, slide key and layout key, so the lazy `studioPlan` can reuse a slide's plan while
+the author steps through its pages and measure only when they pause; and DeckPreview listens for the
+`lattice:measured-split-ready` event that settles the preview. Measured by CI against main at 158a43c:
++478 B gz on studio (+365 single-slide-render, which home also loads: +401 there; +16 DeckPreview),
++307 on playground (+270 the Playground's render bridge). Given back first: the exact `fit:` reader,
+the Studio's per-slide memory, the plan cache, the pause timer and the frame code all live in the lazy
+module; a deck without a `fit:` line never loads it. Declared with headroom for gzip variation.
+The checker's fixes (§17) add the call that cancels a pending measurement when the shown slide
+stops taking the measured split, and hash the stylesheets into the layout key: CI on e01dea7 measured
++546 B gz on studio (+427 single-slide-render) and +463 on home.
+The handheld venues (fit-everywhere-model.md §18) then gave the Studio's venue picker a per-shape
+table and phone and tablet rows (`src/components/studio/venue.ts`), and the island reads the deck's
+shape for it: CI on a09e5df measured +1122 B gz on studio (+427 single-slide-render, +391 venue.ts,
++272 StudioIsland), +292 on playground and +463 on home, all inside the 2048 B a PR may declare.
+The `align:` register (engineering/decisions/2026-11-06-unified-align.md) added the Studio's two Align
+pickers and their catalog (`src/components/studio/align-catalog.ts`); the measured-split preview's
+orchestration moved into the lazy module (`previewPlan`) to make room. CI on 9b29219 measured +1219 B gz
+on studio (+408 venue.ts, +307 single-slide-render, +306 the chunk that carries the align catalog, +166
+StudioIsland, +16 DeckPreview).
+Merged onto `main` at 8ba6b6b, CI on 9083917 measured +1229 B gz on studio (+408 venue.ts, +306
+logo-finish, the chunk that now carries the align catalog, +306 single-slide-render, +177
+StudioIsland, +16 DeckPreview): `main`'s own chunk changes moved 10 B into this PR's count. Declared
++1260 for gzip variation.
+Merged onto `main` again at 42edd95 (190 commits), CI measured +1266 B gz on studio (+406 venue.ts,
++307 progress-rail, the chunk that now carries the align catalog, +204 StudioIsland, +187
+single-slide-render, +104 front-matter-fence) and +447 on playground. Declared +1300 and +480 for
+gzip variation. That merge also took the Studio past its eagerJsGz ceiling by 1,147 B. The owner OK'd a
+2 KB raise for it; `main` then raised the same ceiling by 2,000 B for PR 3385 (#3420), which this PR fits
+under, so the second raise was dropped in the merge rather than stacked.
+Merged onto `main` again at 84bb080 (10 commits), CI on 5590a1e measured +1307 B gz on studio (+406
+venue.ts, +368 progress-rail, +201 single-slide-render, +166 StudioIsland, +104 front-matter-fence), +458
+on playground and +333 on home. Declared +1340 for gzip variation.
+The checker's fix for the Studio preview (a chart slide whose key insight can move is measured too, split-gate.js
+`codaMayMove`) adds 61 B to single-slide-render: CI on 44ee7a8 measured +1368 B gz on studio (+406 venue.ts, +368
+progress-rail, +262 single-slide-render, +166 StudioIsland, +104 front-matter-fence) and +394 on home. Declared +1400.
+The Playground's gate fix (2026-11-23: measure only a render the split changed, the Studio's gate, so a 16:9 deck is
+never measured) reads the split's own answer and asks the engine whether a coda may move, and its fallback draws a
+render again unmeasured when the measured split does not load. CI on d0f5a3d measured +521 B gz on playground (+350
+PlaygroundIsland, +104 front-matter-fence, +47 fit-pack-wanted); the fallback adds a few bytes more. Declared +620.
+The iPhone Studio hang's fix (2026-11-24) bounds every wait the preview takes for the measured split: the lazy splitter
+and measured-split chunks wait at most 8 s (`src/lib/within-ms.ts`, imported by single-slide-render and the Playground's
+render bridge). Merged onto `main` at 4f32ecd, CI on 977883e measured +1430 B gz on studio (+409 venue.ts, +368
+progress-rail, +289 single-slide-render, +156 StudioIsland, +104 front-matter-fence) and +641 on playground (+421
+PlaygroundIsland, +104 front-matter-fence, +59 video-overlay, +47 fit-pack-wanted). Declared +1460 and +680.
+The failure-path fix (2026-11-27, a maker-checker's findings) re-enters the Studio renderer unmeasured when the
+measured split fails, so a chart is drawn for the room its key insight takes, as the Playground already did; the
+layout memory and the export's bounded waits live in the lazy module and the export chunk. Merged onto `main` at
+89405b4 (#3510's chart-finish split), CI on a2b4393 measured +1539 B gz on studio (+409 venue.ts, +387
+single-slide-render, +368 progress-rail) and +572 on home (+387 single-slide-render, +104 front-matter-fence); `main`'s
+own chunk changes moved `within-ms` and `theme-fetch` into one another (+1930, -1863). Playground is +652, under its
++680. Declared +1580 and +610 for gzip variation, inside the 2048 B a PR may declare.
+The second review's fixes (2026-11-27: the retry stands down for a newer render, and carries the failed render's start
+time and coalesce count to the perf overlay) add 49 B to single-slide-render: CI on 492ee4b measured +1588 B gz on studio
+(+436 single-slide-render) and +621 on home. Declared +1640 and +660 for gzip variation, inside the 2048 B a PR may
+declare.
+
+CI on 6521d4c measured playground +734 B: e9c342f keeps `:is()`/`:where()`/`:has()` in the first-paint snapshot probe (+54 B in PlaygroundIsland). Declared +760.

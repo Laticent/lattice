@@ -1,0 +1,1 @@
+- On a phone, a checklist row's long status pill wraps at 45% of the row instead of squeezing the row's text to one word a line and running off the slide. Short pills are unchanged.
