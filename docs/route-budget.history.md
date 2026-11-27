@@ -81,6 +81,16 @@ Why: PR #3415 (the image card gets its own `image-card-*` classes; the `guards:`
 |---|---|---|---|---|---|
 | studio | lintCoreGz | 152151 | 152151 | +0 | 172998 |
 
+### 2026-11-22 — the owner raised one ceiling by hand, for PR 2988: studio lintCoreGz to 168.9 KB
+
+Owner OK 2026-11-22, in PR 2988's session: "Raise ceiling 1 KB", chosen over dropping the `handheld-chrome-hidden` lint note the owner asked for the same day and over trimming other rules' messages in lint-core.
+
+Measured with a fresh docs build at 7c352fb plus the trimmed rule: the lint core beyond the engine is 172,121 B, 147 B over the 171,974 B ceiling the owner set by hand on 2026-11-21/22. The rule is the whole overage: an info finding for a square, portrait or story deck that writes `footer:` or `header:` and names no venue, whose phone pages hide that line (`lib/authoring/lint-core.js` `findHandheldChromeHidden`), cut to its minimum before measuring. The soft target is unchanged; the ceiling moves 1,024 B, leaving about 0.9 KB for the next rule.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | lintCoreGz | 152151 | 152151 | +0 | 172998 |
+
 ### 2026-11-22 — raise the studio chartKernelGz ceiling by 1,000 B (90,460 → 91,460), by hand, at the owner's direction
 
 Owner OK 2026-11-22, in PR 3431's session: "don't settle and create jank. raise it if that's a better option." PR 3431 deletes the dead tall-canvas code, and with it the chart dispatch's `boxAspect`, the engine's only import of `chart-box.js`. That module now loads with the lazy chart kernels that use it (the callout placement and the phone page). Measured on PR 3431's build against main's: the engine closure falls 642 B on every page load, and `chart-map.js`'s closure, the largest kernel, rises 202 B. Main measures 88.2 KB, 0.1 KB under the old ceiling, so the move needs room. The alternatives were weighed: keeping `chart-box.js` imported in the engine only to satisfy this gate puts the 0.2 KB back on every startup; the standard rebaseline (soft to about 90,324, ceiling to about 99,356) would leave about 9 KB of slack on the largest kernel, which the gate could no longer see. So this row is written by hand, as the 2026-11-22 eagerJsGz entry below is. Soft stays 82,236.

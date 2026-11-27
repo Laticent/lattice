@@ -93,7 +93,11 @@ sequenceDiagram
   Worker-->>Queue: acknowledgment
 ```
 
-> Solid, dashed, async, and lost arrows all read as the same neutral "sends to." The glyph encodes sync / async / reply / lost only by Mermaid *convention*, not authored content — so the narrator will not say "returns," "responds," or "never arrives," and asserts no "request-response" or "polling" shape. That insight lives in the glyph and the reader's domain knowledge, both of which faithfulness forbids inventing. Only the label after the colon is the author's meaning.
+> Every arrow is spoken as a neutral "sends to"; only the label after the colon carries the meaning.
+
+<!--
+Solid, dashed, async and lost arrows all read the same. The glyph encodes sync, async, reply or lost only by Mermaid convention, not authored content, so the narrator will not say "returns", "responds" or "never arrives", and asserts no request-response or polling shape. That meaning lives in the glyph and the reader's domain knowledge, both of which faithfulness forbids inventing.
+-->
 
 ---
 

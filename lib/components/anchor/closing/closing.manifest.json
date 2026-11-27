@@ -2,7 +2,7 @@
   "$schema": "../../manifest.schema.json",
   "name": "closing",
   "adapt": {
-    "mode": "native",
+    "mode": "reflow",
     "priority": [
       "heading",
       "subtitle",
@@ -146,7 +146,7 @@
     },
     {
       "variant": "index",
-      "useWhen": "The closing is a reference/see-also list of multiple next steps or resources, not a single takeaway sentence."
+      "useWhen": "The closing is a reference/see-also list of multiple next steps or resources, not a single takeaway sentence. On a square, tall or strip slide its rows read at body size, not lede size: five two-line rows at lede size ran past the footer on a phone square. It is the one closing that splits: a list that still does not fit becomes an accent cover and its rows over as many pages as they need (`split.onlyVariant`). Any other closing stays one slide, however long."
     },
     {
       "variant": "spectrum",
@@ -247,5 +247,13 @@
   },
   "gesture": {
     "archetype": "statement"
+  },
+  "split": {
+    "strategy": "cover-paginate",
+    "axis": "item",
+    "perPage": 1,
+    "onlyVariant": "index",
+    "otherwise": { "strategy": "lede-page", "note": "Any other closing whose message overflows the page (measured) keeps its eyebrow and heading and gives the message a page of its own after it, on the same canvas (owner, 2026-11-16, \"lede page, all\"; fit-everywhere-model.md §25). lib/core/carousel.js lede-page." },
+    "note": "Only the `index` variant splits (owner, 2026-11-13): a see-also list that overflows becomes an accent cover and its own rows paginated. Any other closing, one line or two, never splits (onlyVariant). lib/core/carousel.js cover-paginate."
   }
 }

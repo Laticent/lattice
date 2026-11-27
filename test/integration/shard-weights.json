@@ -168,5 +168,6 @@
   "test/integration/parity/split-slots-chromium.test.js": 1.1,
   "test/integration/parity/stage-clip-chrome-shear.test.js": 92.5,
   "test/integration/parity/viz-black-render.test.js": 35.2,
-  "test/integration/parity/wifi-overflow-preserved.test.js": 9.7
+  "test/integration/parity/wifi-overflow-preserved.test.js": 9.7,
+  "test/integration/parity/runtime-align.test.js": 17.1
 }

@@ -86,6 +86,10 @@ export type RenderMarkdownOpts = {
 	 *  for all of a deck's slides (lib/core/pane-css.js `stablePaneScope`). Set by the single-slide frame
 	 *  only; an export leaves it unset and keeps the exact-classes sheet. */
 	stablePaneSheet?: boolean;
+	/** Will this render be split by measurement (lib/engine/index.js `activeMeasured`)? Unset: the deck's `fit:` decides.
+	 *  `false` for a surface that shows a slide unsplit (the Studio's Present and slide overview), so a chart on a phone
+	 *  page keeps the room its key insight takes there instead of being drawn for a page the insight has left. */
+	measured?: boolean;
 };
 /**
  * A host's chance to add options to a render, given the source about to be rendered. The Studio
