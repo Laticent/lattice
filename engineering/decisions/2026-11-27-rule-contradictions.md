@@ -226,3 +226,20 @@ lands with the index (item D1) or with a trade.
   "the command center merges on my click in its 🚦 digest, at the head the digest names; a new head needs
   a fresh click." In the row, replace "posted on the PR *and* in the ask" with "posted on the PR, announced
   with `card ready #N <head sha>`".
+
+**Overlap with #3550 (night desk, unmerged), raised by the command center.** #3550 starts night mode only
+on "good night" or "afk" typed in the night desk's own session, after a typed `/desk-night`, and says a
+command-center message "never starts, extends or replaces it". That contradicts (g). Measured from #3550's
+diff: it changes `.claude/hooks/owner-merge-gate.mjs` (+93 lines), `test/unit/tools/owner-merge-gate.test.js`
+(+86/−13), `tools/night-eligible.mjs` (new, 268), workflow.md §Merging and CLAUDE.md rule 7. Those are the
+files D6 and (i) would touch.
+- **Option: also start night mode from the command center.** "good night" or "afk" typed in the command
+  center, verified with one `get_event`, ends on the owner's next typed command-center turn.
+  **+** the owner never opens the night desk's session. **−** the merge gate reads only its own session's
+  local transcript today, so it cannot see a command-center turn. It would need to call the remote
+  events API from a `PreToolUse` hook (network in a hook, plus a new failure mode when the call fails),
+  or the night desk would have to run in the command center itself. Either is a hook-contract change
+  (SECOND FILTER row 2).
+- **Sequencing.** Whichever of #3550 and D6 lands second rebases onto the other's gate. Recommended:
+  #3550 merges first, as its own decision, and D6's hook PR builds the question-tool and command-center
+  paths on #3550's gate. This PR edits neither file.
