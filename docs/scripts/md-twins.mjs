@@ -22,6 +22,11 @@
 // (Expressive Code puts it on `data-language`). A live CraftLab renders an empty island shell,
 // so its props, which Astro serializes onto the island, become the code blocks it would show.
 //
+// ALSO, EVERY PAGE. Each built page (twin or not, 404 included) gets the one
+// `<link rel="describedby" type="text/plain" href="/llms.txt">` that names the llms.txt router
+// (#3522; discovery.mjs DESCRIBEDBY_LINK). It lives here because this is already the step that
+// writes agent links into built heads, and many routes write their own <head>.
+//
 // Runs after the steps that rewrite <head> and before csp.mjs. Standalone: `npm run md-twins`.
 
 import fs from 'node:fs';
@@ -32,7 +37,7 @@ import { select, selectAll } from 'hast-util-select';
 import { toMdast } from 'hast-util-to-mdast';
 import { gfmToMarkdown } from 'mdast-util-gfm';
 import { toMarkdown } from 'mdast-util-to-markdown';
-import { EXISTING_TWINS, twinPath } from '../src/lib/discovery.mjs';
+import { EXISTING_TWINS, twinPath, withDescribedBy } from '../src/lib/discovery.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DIST = path.join(HERE, '..', 'dist');
@@ -338,6 +343,14 @@ function main() {
 		}
 		if (!EXISTING_TWINS[route]) fs.writeFileSync(target, md);
 		fs.writeFileSync(file, withTwinLink(html, href));
+	}
+	// Every page, twin or not, names the llms.txt router (discovery.mjs DESCRIBEDBY_LINK).
+	// check-discovery.mjs holds the result; --check leaves it to that gate.
+	if (!check) for (const file of [...routes(DIST).map((r) => r.file), path.join(DIST, '404.html')]) {
+		if (!fs.existsSync(file)) continue;
+		const html = fs.readFileSync(file, 'utf8');
+		const out = withDescribedBy(html);
+		if (out !== html) fs.writeFileSync(file, out);
 	}
 	if (errors.length) {
 		console.error(`md-twins: ${errors.length} problem(s)\n  ${errors.join('\n  ')}`);

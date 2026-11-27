@@ -57,7 +57,7 @@ lib/plugins/<name>/
                           (lib/packages/kinds.js `plugin.codeDirs`); the importers read top-level
                           files only, so a zip's copy is dropped, never installed
   styles.generated.css    a stylesheet a build tool writes, bundled right after styles.css (the chart
-                          finishes' rules, tools/build-marks-css.js)
+                          finishes' rules, tools/build-chart-finish-css.js)
   kinds/<name>/           the component packages the plugin OWNS, one folder each (manifest, transform,
                           styles, docs, gallery), read and gated as components (lib/packages/kinds.js
                           `plugin.kindsDir`, lib/packages/fs.js `listComponentFolders`). The chart family's

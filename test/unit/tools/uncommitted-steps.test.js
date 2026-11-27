@@ -160,7 +160,7 @@ const EXPECTED_PR_OWNED = new Set([
   'build-squadra-stamps.js', // lib/authoring/rules
   'skill-index.js', // design/skills/index.json + README table + .claude/skills/lattice-*
   'build-chart-registry.js', // lib/plugins/chart-family/shared/chart-registry.generated.js
-  'build-marks-css.js', // lib/plugins/chart-family/chart-family.styles.generated.css
+  'build-chart-finish-css.js', // lib/plugins/chart-family/chart-family.styles.generated.css
   // Measured 2026-09-27: writes exactly lib/plugins/grammar.generated.mjs and
   // lib/plugins/registry.generated.js, both tracked.
   'build-plugin-registry.js',

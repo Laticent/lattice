@@ -146,7 +146,7 @@ const STEPS = [
   { label: 'plugin registry (lib/plugins)', script: 'build-plugin-registry.js' },
   // The marks rules, generated from the chart manifests. BEFORE lattice.css bundles
   // them, for the same one-build-late reason as the finish presets above.
-  { label: 'chart finish rules (lib/plugins/chart-family/shared)', script: 'build-marks-css.js' },
+  { label: 'chart finish rules (lib/plugins/chart-family/shared)', script: 'build-chart-finish-css.js' },
   { label: 'lattice.css', script: 'build-css.js', uncommitted: true },
   { label: 'lattice-default.css', script: 'build-default-bundle.js', uncommitted: true },
   // Must run BEFORE lattice-runtime.js / lattice.js — those bundles

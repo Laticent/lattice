@@ -11,12 +11,12 @@
 // See engineering/decisions/2026-07-03-slide-context-editor.md §6.
 
 import { registerToken as switchToken, registerValue as switchValueOf } from '../../../../lib/core/switches.mjs';
+import { CHART_FINISH_NAMES, DEFAULT_CHART_FINISH } from '../../lib/chart-finish-words';
 import { getFrontMatter } from '../../lib/front-matter';
-import { DEFAULT_MARKS, MARKS_NAMES } from '../../lib/marks-words';
 import { getClassTokens, setClassTokens } from '../../lib/slide-directives';
+import { parseChartFinishValue } from './chart-finish-value';
 import { type BackdropAxis, backdropValues, type CardTagAxis, cardTagValues, deckBackdrop, deckCardTag, deckImageCard, type ImageCardAxis, imageCardWordOf } from './deck-axes';
 import { registerValue } from './deck-preset';
-import { parseMarksValue } from './marks-value';
 import { renderedSpectrum, type SpectrumAxis, type SpectrumKey, spectrumClass, spectrumDefault, spectrumWordOf, spectrumWords } from './spectrum-keys';
 
 // The deck-level tables, readers and writers live in deck-axes.ts (eager); re-exported so this module's
@@ -262,28 +262,29 @@ export function setRule(chunk: string, name: string | null): string {
 	return setOverride(chunk, 'rule', 'rule-', RULE_VALUES, name);
 }
 
-// The chart finish (resolve-marks.js). A look with no absent state, so the deck default is
-// `pigment` (DEFAULT_MARKS) and every value, the default included, is a real per-slide token:
+// The chart finish (resolve-chart-finish.js). A look with no absent state, so the deck default is
+// `pigment` (DEFAULT_CHART_FINISH) and every value, the default included, is a real per-slide token:
 // a slide inside a `tone` deck can ask for `pigment`.
-const MARKS_VALUES: readonly string[] = [...MARKS_NAMES];
-const LEGACY_MARKS_PREFIX = 'chart-finish-';
+const CHART_FINISH_VALUES: readonly string[] = [...CHART_FINISH_NAMES];
+const CHART_FINISH_PREFIX = 'chart-finish-';
 export function marksProvenance(chunk: string, source: string): Provenance {
-	// The deck value carries one word per axis (`tone vivid`); only its finish word is this control's, so it is
-	// read by axis rather than through registerValue, which takes a two-word value for none.
-	// A slide or deck still on the old `chart-finish` spelling is read through it (resolve-marks.js renders it too).
-	const own = getClassTokens(chunk)
-		.map((t) => (t.startsWith(LEGACY_MARKS_PREFIX) ? `marks-${t.slice(LEGACY_MARKS_PREFIX.length)}` : t))
-		.find((t) => t.startsWith('marks-') && MARKS_VALUES.includes(t.slice('marks-'.length)));
-	const deck = parseMarksValue(getFrontMatter(source, 'marks') || getFrontMatter(source, 'chart-finish')).finish;
-	const deckValue = deck && deck !== DEFAULT_MARKS ? deck : undefined;
+	// The deck's `chart-finish:` value carries one word per axis (`tone ink`); only its finish word is this control's, so
+	// it is read by axis rather than through registerValue, which takes a two-word value for none.
+	const own = getClassTokens(chunk).find((t) => t.startsWith(CHART_FINISH_PREFIX) && CHART_FINISH_VALUES.includes(t.slice(CHART_FINISH_PREFIX.length)));
+	const deck = parseChartFinishValue(getFrontMatter(source, 'chart-finish')).finish;
+	const deckValue = deck && deck !== DEFAULT_CHART_FINISH ? deck : undefined;
 	const inheritable = deckValue !== undefined;
-	if (own) return { state: 'on', value: own.slice('marks-'.length), deckValue, inheritable };
+	if (own) return { state: 'on', value: own.slice(CHART_FINISH_PREFIX.length), deckValue, inheritable };
 	if (deckValue) return { state: 'inherited', value: deckValue, deckValue, inheritable: true };
 	return { state: 'off', inheritable: false };
 }
+// The retired `marks-*` finish spelling renders nothing (renames decision Q4), so a pick drops it too: the slide never
+// keeps an old token that lint reports as an error.
+const RETIRED_FINISH_TOKEN = /^marks-(pigment|etch|tone)$/;
 export function setMarks(chunk: string, name: string | null): string {
-	// An old `chart-finish-*` token goes first, so the slide never carries both spellings.
-	return setOverride(setOverride(chunk, 'marks', LEGACY_MARKS_PREFIX, MARKS_VALUES, null), 'marks', 'marks-', MARKS_VALUES, name);
+	const tokens = getClassTokens(chunk);
+	const clean = tokens.some((t) => RETIRED_FINISH_TOKEN.test(t)) ? setClassTokens(chunk, tokens.filter((t) => !RETIRED_FINISH_TOKEN.test(t))) : chunk;
+	return setOverride(clean, 'chart-finish', CHART_FINISH_PREFIX, CHART_FINISH_VALUES, name);
 }
 
 const EYEBROW_VALUES = ['plain', 'dot', 'bar', 'arrow', 'underline'];

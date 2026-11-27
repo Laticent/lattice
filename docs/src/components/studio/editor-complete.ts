@@ -4,8 +4,8 @@ import { PACE_NAMES } from '@/lib/resolve-pace';
 import { contextSources } from '@/playground/context-sources.js';
 import { DATA_SOURCE_COMPONENTS } from '@/playground/data-source-components.js';
 import { classDirectiveCompletion, classTokenResult, deckSplit, recordCompletion, recordOptions, slideBodyAfter, slideClassAt } from '@/playground/slide-context.js';
+import { CHART_FINISH_AXES } from '../../lib/chart-finish-words';
 import { FRONT_MATTER_KEYS, OFFERED_SETTINGS } from '../../lib/front-matter-keys';
-import { MARKS_AXES } from '../../lib/marks-words';
 import { AGENDA_AXIS_ORDER, agendaWords } from './agenda';
 import { BACKDROP_MASKS, BACKDROP_STRENGTHS, CARD_TAG_AXES, IMAGE_CARD_AXIS_ORDER, imageCardWords } from './deck-axes';
 import { LOGO_FINISH_AXIS_ORDER, logoFinishWords } from './logo-finish';
@@ -78,7 +78,7 @@ const REGISTER_AXES: Record<string, readonly (readonly string[])[]> = {
 	'logo-finish': LOGO_FINISH_AXIS_ORDER.map(logoFinishWords),
 	'progress-rail': PROGRESS_RAIL_AXIS_ORDER.map(progressRailWords),
 	agenda: AGENDA_AXIS_ORDER.map(agendaWords),
-	'marks': MARKS_AXES,
+	'chart-finish': CHART_FINISH_AXES,
 	// The three spectrum keys (spectrum-keys.ts, pinned to lib/core/resolve-spectrum.js).
 	...Object.fromEntries(Object.entries(SPECTRUM_KEY_AXES).map(([key, axes]) => [key, axes.map((a) => a.names)])),
 };
