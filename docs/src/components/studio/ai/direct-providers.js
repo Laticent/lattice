@@ -467,7 +467,7 @@ export function directBackend(provider, { catalog, catalogNow, defaultMaxTokens 
 	}
 
 	// OpenAI and Gemini: the OpenRouter request, at the provider's base URL.
-	async function openaiComplete({ messages, json, onToken, signal, onUsage, onFinishReason, tools, toolChoice, onToolCalls, onToolStart, onReasoning, reasoningEffort, onAccepted, key, model, cap }) {
+	async function openaiComplete({ messages, json, onToken, signal, onUsage, onFinishReason, tools, toolChoice, onToolCalls, onToolStart, onReasoning, reasoningEffort, key, model, cap }) {
 		const body = { model, messages: stripCacheMarks(messages), stream: !!onToken };
 		if (onToken) body.stream_options = { include_usage: true };
 		// OpenAI's newer models refuse `max_tokens` and take `max_completion_tokens`; Gemini's
@@ -483,8 +483,6 @@ export function directBackend(provider, { catalog, catalogNow, defaultMaxTokens 
 		const res = await fetch(`${P.base}/chat/completions`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...providerHeaders(provider, key) }, body: JSON.stringify(body), signal });
 		if (!res.ok) await fail(res, key);
 		noteProviderStatus(provider, res.status, key);
-		// The provider took the request: billed from here, even if a Stop lands before the first chunk (#3533 S01).
-		report(onAccepted);
 		const priced = price(model);
 		if (!onToken || !res.body) {
 			const data = await res.json();
@@ -566,13 +564,11 @@ export function directBackend(provider, { catalog, catalogNow, defaultMaxTokens 
 	}
 
 	// Anthropic: the Messages API, its stream events mapped back onto the same callbacks.
-	async function anthropicComplete({ messages, json, onToken, signal, onUsage, onFinishReason, tools, toolChoice, onToolCalls, onToolStart, onReasoning, reasoningEffort, onAccepted, key, model, cap }) {
+	async function anthropicComplete({ messages, json, onToken, signal, onUsage, onFinishReason, tools, toolChoice, onToolCalls, onToolStart, onReasoning, reasoningEffort, key, model, cap }) {
 		const body = toAnthropicBody({ messages, model, maxTokens: cap, json, tools, toolChoice, stream: !!onToken, reasoningEffort });
 		const res = await fetch(`${P.base}/messages`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...providerHeaders(provider, key) }, body: JSON.stringify(body), signal });
 		if (!res.ok) await fail(res, key);
 		noteProviderStatus(provider, res.status, key);
-		// The provider took the request: billed from here, even if a Stop lands before the first chunk (#3533 S01).
-		report(onAccepted);
 		const priced = price(model);
 		if (!onToken || !res.body) {
 			const data = await res.json();

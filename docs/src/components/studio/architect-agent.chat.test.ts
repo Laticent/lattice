@@ -260,7 +260,7 @@ describe('checker pass: failures name their cause', () => {
 	});
 
 	// Round 2 of each case below; round 1 always reports $0.001 and asks for a tool, so the turn reaches a second round.
-	type Round2 = (o: Opts & { onUsage?: (u: unknown) => void; onGenerationId?: (id: string) => void; onAccepted?: () => void }, ctl: AbortController) => Promise<string>;
+	type Round2 = (o: Opts & { onUsage?: (u: unknown) => void; onGenerationId?: (id: string) => void }, ctl: AbortController) => Promise<string>;
 	async function settle(round2: Round2, exactCost?: (id: string) => Promise<number>) {
 		const spend = await import('./ai/spend.js');
 		const before = spend.readSpend().session;
@@ -303,7 +303,7 @@ describe('checker pass: failures name their cause', () => {
 		return e;
 	};
 
-	it('a Stop after the provider accepted the round, before any token, is charged as an estimate everywhere (#3533 S01)', async () => {
+	it('a Stop after the first chunk (a generation id), before any token, is charged as an estimate everywhere (#3533 S01)', async () => {
 		// The round was answered (a generation id) and never reported: before, it was missing from the usage line and Show work.
 		const { out, charged: chargedNow, tools } = await settle(async (o, ctl) => {
 			o.onGenerationId?.('gen-2');
@@ -326,8 +326,9 @@ describe('checker pass: failures name their cause', () => {
 		expect(rounds[1].prompt).toBeGreaterThan(Math.ceil(tools.length / 4));
 	});
 
-	it('a Stop before the round was sent charges nothing for it', async () => {
-		// The signal fired before the provider answered anything: no request was billed.
+	it('a Stop before the first chunk charges nothing, whether or not the HTTP 200 had arrived', async () => {
+		// No chunk arrived, so nothing says the round was billed. Measured on OpenRouter (tools/stop-billing-probe.mjs, run
+		// 46071814895): a request stopped before its 200, or on its 200, was not billed; one stopped on its first chunk was.
 		const { out, charged: chargedNow } = await settle(async (_o, ctl) => {
 			ctl.abort();
 			throw abort();
@@ -380,18 +381,6 @@ describe('checker pass: failures name their cause', () => {
 		if (out.status !== 'ok') throw new Error(out.status);
 		expect(out.usage).toMatchObject({ rounds: 2, costEstimated: true });
 		expect(out.trace?.rounds[1]).toMatchObject({ estimated: true, text: 'Half a sentence' });
-	});
-
-	it('a Stop after the provider took the request (HTTP 200) but before its first chunk is charged as an estimate (checker)', async () => {
-		// The provider was still reading the prompt (OpenRouter sends only keep-alives then): billed, though nothing streamed.
-		const { out, charged: chargedNow } = await settle(async (o, ctl) => {
-			o.onAccepted?.();
-			ctl.abort();
-			throw abort();
-		});
-		expect(chargedNow()).toBeGreaterThan(0.001);
-		if (out.status !== 'ok') throw new Error(out.status);
-		expect(out.usage).toMatchObject({ rounds: 2, costEstimated: true });
 	});
 
 	it('an error after the provider took the round corrects the estimate to the exact generation cost', async () => {

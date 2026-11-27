@@ -237,10 +237,8 @@ describe('the transports', () => {
 		const ctl = new AbortController();
 		const usage: unknown[] = [];
 		const tools: unknown[] = [];
-		const accepted: number[] = [];
-		const run = b.complete({ model: 'claude-sonnet-5-5', messages: [{ role: 'user', content: 'hi' }], signal: ctl.signal, onAccepted: () => accepted.push(1), onToken: () => ctl.abort(), onUsage: (u: unknown) => usage.push(u), onToolCalls: (c: unknown[]) => tools.push(...c) });
+		const run = b.complete({ model: 'claude-sonnet-5-5', messages: [{ role: 'user', content: 'hi' }], signal: ctl.signal, onToken: () => ctl.abort(), onUsage: (u: unknown) => usage.push(u), onToolCalls: (c: unknown[]) => tools.push(...c) });
 		await expect(run).rejects.toMatchObject({ name: 'AbortError' });
-		expect(accepted).toEqual([1]);
 		expect(usage).toEqual([]);
 		expect(tools).toEqual([]);
 	});
@@ -265,12 +263,10 @@ describe('the transports', () => {
 		);
 		const b = directBackend('openai', { catalog: async () => CATALOG, catalogNow: () => CATALOG });
 		const ctl = new AbortController();
-		const accepted: number[] = [];
 		const usage: unknown[] = [];
 		const tools: unknown[] = [];
-		const run = b.complete({ model: 'gpt-6.1-terra', messages: [{ role: 'user', content: 'hi' }], signal: ctl.signal, onAccepted: () => accepted.push(1), onToken: () => ctl.abort(), onUsage: (u: unknown) => usage.push(u), onToolCalls: (c: unknown[]) => tools.push(...c) });
+		const run = b.complete({ model: 'gpt-6.1-terra', messages: [{ role: 'user', content: 'hi' }], signal: ctl.signal, onToken: () => ctl.abort(), onUsage: (u: unknown) => usage.push(u), onToolCalls: (c: unknown[]) => tools.push(...c) });
 		await expect(run).rejects.toMatchObject({ name: 'AbortError' });
-		expect(accepted).toEqual([1]);
 		expect(usage).toEqual([]);
 		expect(tools).toEqual([]);
 	});

@@ -88,12 +88,10 @@ describe('a Stop on the OpenRouter stream (#3533 S01)', () => {
 		vi.stubGlobal('fetch', vi.fn(async () => new Response(`${frames.map((f) => `data: ${JSON.stringify(f)}\n\n`).join('')}data: [DONE]\n\n`, { status: 200 })));
 		const m = createArchitectModel({ getSettings: () => ({}) });
 		const ctl = new AbortController();
-		const accepted: number[] = [];
 		const usage: unknown[] = [];
 		const tools: unknown[] = [];
-		const run = m.complete({ messages: [{ role: 'user', content: 'hi' }], fallback: '', tools: [{ type: 'function', function: { name: 'edit_slides', parameters: {} } }], signal: ctl.signal, onAccepted: () => accepted.push(1), onToken: () => ctl.abort(), onUsage: (u: unknown) => usage.push(u), onToolCalls: (c: unknown[]) => tools.push(...c) });
+		const run = m.complete({ messages: [{ role: 'user', content: 'hi' }], fallback: '', tools: [{ type: 'function', function: { name: 'edit_slides', parameters: {} } }], signal: ctl.signal, onToken: () => ctl.abort(), onUsage: (u: unknown) => usage.push(u), onToolCalls: (c: unknown[]) => tools.push(...c) });
 		await expect(run).rejects.toMatchObject({ name: 'AbortError' });
-		expect(accepted).toEqual([1]);
 		expect(usage).toEqual([]);
 		expect(tools).toEqual([]);
 	});

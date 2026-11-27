@@ -240,8 +240,10 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 	// prices only an open round — a finished one already reported its exact cost.
 	let roundOpen = false;
 	// What the round in flight has shown (#3533 S01): `reported` once its usage arrived (its exact cost is then in the ledger),
-	// `accepted` once the provider took the request (the transport's `onAccepted` on an HTTP 200, or any chunk at all). A round
-	// the provider refused (a 429, a 402) or a Stop before the request was taken is not charged: nothing says it was billed.
+	// `accepted` once the provider sent its first chunk (a token, a thought, a tool call or a generation id). A round the
+	// provider refused (a 429, a 402), or a Stop before that first chunk, is not charged. Measured, not assumed: on OpenRouter a
+	// request stopped on its HTTP 200, before any chunk, was not billed, and one stopped on its first chunk was
+	// (tools/stop-billing-probe.mjs, run 46071814895, 2026-11-27).
 	let roundReported = false;
 	let roundAccepted = false;
 	let rounds = 0;
@@ -334,11 +336,6 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 				finish = r;
 			},
 			signal: opts?.signal,
-			// The transport says so the moment the provider takes the request (an HTTP 200): billed from there, even if a Stop
-			// lands before the first chunk, while the provider is still reading the prompt.
-			onAccepted: () => {
-				roundAccepted = true;
-			},
 			onReasoning: (t: string) => {
 				roundAccepted = true;
 				// Kept to a bit more than the trace saves; a model that thinks for pages should not grow memory with it.

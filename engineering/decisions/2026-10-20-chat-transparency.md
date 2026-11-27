@@ -142,7 +142,7 @@ Four figures the metrics dropdown and Show work read were wrong in a way that lo
 | The cache share, when the provider sends none | `cached: 0`, shown as "0% read from cache" | `cached: null`, shown as "unknown" (`cachedOf` in `chat-agent.ts`). A thread saved before keeps its 0 |
 | The cache share on Anthropic's own key | Always 0: that key reports `cache_read_input_tokens`, and the chat read only `prompt_tokens_details.cached_tokens` | `anthropicUsage` reports both, and `cachedOf` reads either |
 | A cache write's price on a direct Anthropic key | 1.25× for every write | From Anthropic's own `cache_creation` split, 1.25× for 5-minute and 2× for 1-hour tokens; without the split, the rate the request's own marks ask for (`requestWriteRate`). The direct key writes 5-minute marks today, so its old flat 1.25× happened to be right |
-| A round a Stop or an error ends | Charged only when prose or a generation id had arrived, and only on a Stop; never in the usage line or Show work | Settled once by `settleOpenRound`: a round that reported its usage is listed at that figure and charged nothing more; a round the provider never accepted (refused with a 429 or 402, or stopped before the provider took it) is charged nothing; a round accepted and never reported is charged as an estimate. Accepted means the transport's `onAccepted` fired on the HTTP 200, or any chunk arrived: OpenRouter sends only keep-alives while it reads a long prompt, so a Stop in those seconds is billed though nothing streamed in the ledger, the usage line (`costEstimated`, shown as `≈` on "Last reply") and Show work. The generation id, when one arrived, corrects the ledger to the exact cost on a Stop and on an error alike. A Stop now ends both transports' streams as an abort, checked on every line: before, the stream loops broke on the signal and then reported the partial usage and the half-streamed tool calls as a finished reply, so the round read as billed at a figure without its output and the tool ran after the Stop |
+| A round a Stop or an error ends | Charged only when prose or a generation id had arrived, and only on a Stop; never in the usage line or Show work | Settled once by `settleOpenRound`: a round that reported its usage is listed at that figure and charged nothing more; a round with no chunk yet (refused with a 429 or 402, or stopped before its first chunk, on its HTTP 200 or earlier) is charged nothing; a round that sent a chunk and never reported is charged as an estimate. A chunk means a token, a thought, a tool call or a generation id. The rule is measured, not assumed: see **Measured: when a stopped request is billed** below. The estimate shows in the ledger, the usage line (`costEstimated`, shown as `≈` on "Last reply") and Show work. The generation id, when one arrived, corrects the ledger to the exact cost on a Stop and on an error alike. A Stop now ends both transports' streams as an abort, checked on every line: before, the stream loops broke on the signal and then reported the partial usage and the half-streamed tool calls as a finished reply, so the round read as billed at a figure without its output and the tool ran after the Stop |
 | The budget gate and the Stop estimate | Left out the tool definitions, about 3K tokens a round in Review | Count them (`schemaTokens`) |
 
 **Show work's ledger.** Each call reads its cost, input with its cached share (or "cache unknown"), and output, and a stopped
@@ -155,12 +155,29 @@ the billed figure (most of a round's input is a cheap cache read) but it is not 
 OpenRouter counts this prompt at about 1.45 times that. `e2e/chat-show-work-ledger.spec.ts` shows it: a stopped call estimated at
 about 12K input tokens beside reported calls of 17K. On OpenRouter the generation id corrects it; on a direct key it stands.
 
+**Measured: when a stopped request is billed.** `tools/stop-billing-probe.mjs` sent one request of about 6.6K input tokens to
+Haiku 5.5 through OpenRouter five ways and read each against the key's own usage counter (run 46071814895 of
+`agent-pack-eval-nightly.yml`'s `stop_probe` dispatch, 2026-11-27, $0.003 billed in all; the owner approved the spend):
+
+| Stopped | Billed | Ledger |
+|---|---|---|
+| never (control) | $0.00117 | the reported cost |
+| before the HTTP 200 | nothing | nothing |
+| on the HTTP 200, before any chunk | nothing | nothing (an estimate of ≈ $0.00066 before this run) |
+| on the first chunk | $0.00087 | ≈ $0.00066 (0.76×) |
+| mid-stream, about 400 characters in | $0.00093 | ≈ $0.00071 (0.76×) |
+
+So billing starts at the first chunk, not at the 200, and the chat now counts a round as accepted from its first chunk; it charged
+the 200-only case before. The estimate runs under the bill by about a quarter here, which matches the text ÷ 4 count above; on
+OpenRouter the generation id, which arrives with the first chunk, corrects it to the exact cost. One sample per case, on one model
+and one route: a direct Anthropic, OpenAI or Gemini key was not measured, and the chat applies the same first-chunk rule to them.
+
 **The maker-checker pass** caught two regressions in this change's first cut, both reproduced with a scripted backend: a round
 that reported its usage and then errored was charged twice ($0.0309 for $0.003), and a refused request was charged a permanent
 estimate about 28 times its real cost. Both are fixed and held by tests, with the Stop-before-send and Stop-between-chunks cases.
 
 A second checker pass found that "accepted" was detected too late (a Stop after the HTTP 200 and before the first chunk was
-$0), that the direct Anthropic stream and the OpenRouter stream reported partial usage after a Stop, and that the error-path cost
+$0; the probe above later showed that request is in fact not billed, so the first-chunk rule stands), that the direct Anthropic stream and the OpenRouter stream reported partial usage after a Stop, and that the error-path cost
 correction had no test. All three are fixed and tested. The fourteen on-request keys are derived from the table's `export` and
 `raw` groups (`isOnRequestKey`) rather than listed: a hand-kept list of directive names trips `test/unit/core/meta-keys.test.js`.
 
