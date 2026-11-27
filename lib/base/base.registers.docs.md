@@ -46,7 +46,7 @@ model, see `design/concepts.md`.
 | [`cards:`](#the-cards-front-matter-register-where-a-card-row-puts-its-spare-height) | Where a card row puts the height it does not need | *(the component's)* |
 | [`tag:`](#the-tag-front-matter-register-card-tags) | The look of every card tag: its color, size, placement on the card and text alignment | *(the component's)* |
 | [`image-card:`](#the-image-card-front-matter-register-the-text-card-on-a-photo) | The text card on every image slide that floats its words over the photo: placement, backing, ink, size, density, shape | *(bottom-left, solid, md)* |
-| [`cover:`](#the-cover-front-matter-register-the-front-and-back-cover) | The title and closing slides: their surface (the dark inverse panel or the deck's light canvas) and their composition (`masthead`, `ledger`, `column`, `label`, `stage`, `frame`, `poster`) | `inverse plain` |
+| [`cover-layout:`](#the-cover-layout-front-matter-register-the-front-and-back-cover) | The title and closing slides' composition (`masthead`, `ledger`, `column`, `label`, `stage`, `frame`, `poster`); their color follows `color-mode:` | `plain` |
 | [`corners:`](#the-slides-corner--corners) | Whether the slide's own surface is square or rounded | `square` |
 | [`fit:`](#the-fit-front-matter-register-what-the-engine-may-do-to-make-a-slide-fit) | What the engine may do to make a slide fit (was `guards:`) | `heal` |
 | [`callout:`](#the-callout-front-matter-register-chart-callouts) | Whether the callout plugin's callouts are drawn | `on` |
@@ -1330,42 +1330,44 @@ In the Studio: Deck settings → **Image**, one control per axis (backing is a s
 inspector's **Image** tab shows the same five controls, each defaulting to the deck's value.
 Full catalog of the classes: `lib/components/imagery/image/image.docs.md`.
 
-## The `cover:` front-matter register (the front and back cover)
+## The `cover-layout:` front-matter register (the front and back cover)
 
-The `title` and `closing` slides are the deck's covers, and by default both paint the dark
-inverse panel with a centered heading. `cover:` sets both covers at once, with up to two words in
-either order: a **surface** and a **composition**.
+The `title` and `closing` slides are the deck's covers. `cover-layout:` sets how the heading block
+sits on both at once, with one **composition** word.
 
 ```yaml
-cover: light column
+cover-layout: column
 ```
 
-### Surface
+### Color: the covers follow the color mode
 
-| Deck value | Per-slide class | Effect |
-|---|---|---|
-| `inverse` | `cover-inverse` | The dark inverse panel with on-dark inks. **Default**: a deck value of `inverse` stamps nothing, the same as leaving the key out |
-| `light` | `cover-light` | The deck's own light canvas (`--bg`), with the inks a content slide uses for the same roles: the heading takes `--text-heading`, the subtitle, eyebrow and closing list take `--text-secondary`, and the header, footer and page number take the light canvas's muted ink. The deck logo drops its inverse treatment, and a `finish:` mixes toward the light canvas |
+A cover has no color setting of its own. It follows the deck's `color-mode:` and the slide's own
+`light` / `dark`, like every slide:
 
-**Title and closing only.** The deck's word rides only a slide whose class list names `title` or
-`closing`. Dividers and `topic` keep their own surfaces: a bright divider is `divider light`,
-a separate layout variant.
+- **Light:** the deck's canvas (`--bg`), with the inks a content slide uses for the same roles. The
+  heading takes `--text-heading`, the subtitle, eyebrow and closing list take `--text-secondary`,
+  and the header, footer and page number take the canvas's muted ink.
+- **Dark:** the theme's brand panel (`--surface-inverse`) with its on-dark inks. On most themes the
+  panel is near-black; on indaco it is the house navy.
 
-**The same in both color modes.** A light cover is the light canvas in a dark deck too, the way
-`divider light` is, because the scheme travels with the surface. A dark deck that wants dark
-covers leaves the key out.
+So a light deck opens on its light canvas, and one dark cover in it is `<!-- _class: title dark -->`.
+A dark deck's covers are dark. A `finish:` mixes toward the field the cover paints in each mode, and
+under `color-mode: print` a cover is paper.
 
-**A slide opts out with `cover-inverse`:** in a `cover: light` deck, `_class: closing cover-inverse`
-keeps the dark panel on the back cover. A per-slide `_class: title cover-light` makes one light
-cover in a deck without the key.
+**Dividers follow the mode too**, on the theme's accent: the accent inked with `--on-accent` in
+light, the accent dimmed toward the canvas and inked with the panel's light ink in dark. The small,
+centered divider layout is `divider subsection`, in either mode. `topic` keeps its own panel.
 
-**Not the same as `title light`.** The `light` mood token sets a color *scheme* and paints
-nothing, so `title light` keeps its inverse panel. That meaning is unchanged; `cover-light` is
-the word that repaints. Under `color-mode: print` a cover is paper either way.
+**Replaces `cover:` (2026-11-23).** `cover:` took a second word, the surface (`inverse` or
+`light`), which was a second way to set a slide's mode and lost to the slide's own. It is retired,
+not aliased: `lint:deck --fix` rewrites `cover: light column` to `cover-layout: column`,
+`cover: inverse column` to `cover-layout: column` plus `dark` on the title and closing slides (so
+the deck looks as it did), and a slide's `cover-light` / `cover-inverse` to `light` / `dark`
+(`retired-cover-key`, an error). Why: engineering/decisions/2026-11-23-cover-layout.md.
 
 ### Composition
 
-How the heading block sits on the surface. Each one is a variant of the `title` and `closing`
+How the heading block sits on the cover. Each one is a variant of the `title` and `closing`
 components, so a slide can also name it in `_class:` (`_class: title cover-poster`).
 
 | Deck value | Per-slide class | Effect |
@@ -1379,9 +1381,9 @@ components, so a slide can also name it in `_class:` (`_class: title cover-poste
 | `frame` | `cover-frame` | The heading boxed in a keyline. The keyline follows the `--rule-w` and `--rule-style` preset hooks |
 | `poster` | `cover-poster` | The heading at the display size, heavy and tight, set left |
 
-**Every composition works on both surfaces.** Rules, boxes and the column are drawn in the
-heading's ink or the accent, which `cover-light` repoints for the light canvas, so `cover: light
-ledger` and `cover: ledger` both read in either color mode, with or without a `finish:`.
+**Every composition works in both color modes.** Rules, boxes and the column are drawn in the
+heading's ink or the accent, which follow the mode, so `cover-layout: ledger` reads on the light
+canvas and on the brand panel, with or without a `finish:`.
 
 **A `headline:` register still wins.** The four left-set compositions (`masthead`, `column`,
 `label`, `poster`) only change the default alignment, so `headline: center` centers them.

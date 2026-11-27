@@ -144,3 +144,26 @@ ourselves to the highest standard": no jank, no tech debt, no broken windows. Be
 - **Evidence:** the cover gallery and a demo deck in light and dark, the HTML player toggled both
   ways (`tools/check-player-contrast.js`), the goldens' diff named as intended, and the overflow guard.
 - **Export bytes change** (the player), so the owner signs off the dark and light renders.
+
+## 7. Found while building (2026-11-27)
+
+Four places still assumed a bookend is always dark, or that `divider light` is the small layout.
+Each was fixed in this change, because each broke a surface that worked before it (HARD RULE #18):
+
+- **The player's system-mode logo.** `SYSTEM_LOGO_SEL` (`lib/export/player-core.mjs`) skipped
+  `title`, `closing` and `divider`, which was right while they were forced dark. With the force gone,
+  a `color-mode: system` deck in the player's dark scheme kept the light-canvas mark on a dark cover.
+  The bookends are back in that selector; `test/unit/export/html-player.test.js` asserts it.
+- **The Studio's section rail.** `isSectionBoundary` (`docs/src/components/studio/present-sections.ts`)
+  read `divider light` as a within-section waypoint. `light` is the color mode now, so a light-mode
+  divider is a section start and the waypoint is `divider subsection`.
+- **The lint rule read slides with its own `---` split.** The first `retired-cover-key` scan counted
+  `---` lines, which miscounts a `***` break and a `---` inside a fence, and hand-rolled a directive
+  reader the census forbids. It reads the shared `scanMetaSource` now, and a test pins the count.
+- **Two reports on one token.** `cover-light` / `cover-inverse` drew `retired-cover-key` and a generic
+  `unknown-class` "check the spelling". They join `RETIRED_WITH_OWN_RULE`, as `no-form` did.
+
+**Why a rule of its own and not a `KEY_RENAMES` row** (`lint-core.js`, #3506): that table renames a
+front-matter key and maps whole values. `cover:` → `cover-layout:` drops one of two words, and keeping a
+deck's look means writing `dark` (or `light`) onto its title and closing slides. A table row cannot edit
+slides, so the rename keeps its own rule.

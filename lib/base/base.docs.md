@@ -1059,7 +1059,7 @@ The numeral is `--fs-hero` in `--font-display` at weight 700, no tracking —
 the treatment every oversized mark in the engine takes. The two rungs follow
 the on-dark ramp's own division of labour: `--on-dark-secondary` for the
 numeral (text) and `--on-dark-ghost` for the hairline (a line), resetting to
-`--text-secondary` / `--border` on `divider light`.
+`--text-secondary` / `--border` on `divider subsection`.
 
 **It is pinned to the section, not to the heading, and that is load-bearing.**
 The headline block is vertically centered, so it grows away from a mark in the
@@ -1085,8 +1085,8 @@ move); three lines shifts 6.14px down, because a 3-line block is taller than the
 and pins; from there on the block pins and clearance holds at +32.0px, which is `2.5cqi`
 by construction and so the same at every size family.
 
-`divider light` and `divider qr` need the band too. A light divider carrying the lede its
-own subtitle rule styles sits at −15.2 without it, and `divider numbered qr` at −85.3 —
+`divider subsection` and `divider qr` need the band too. A subsection divider carrying the lede
+its own subtitle rule styles sits at −15.2 without it, and `divider numbered qr` at −85.3 —
 both +32.0 with it. The cost is that a block taller than the band stops centering on
 those variants, and on `qr` the payload then sits 18.9px off the frame edge.
 
@@ -1100,7 +1100,7 @@ proxy for line count, so wide-set text can clip without it firing).
 
 ```markdown
 <!-- _class: divider numbered -->         → stamps "01", then "02", …
-<!-- _class: divider light numbered -->   → same series, no restart
+<!-- _class: divider subsection light numbered -->   → same series, no restart
 ```
 
 The number is stamped as `data-lat-section` by `lib/core/section-index.js` and read
@@ -1677,12 +1677,12 @@ this the scheme and the ground went light while the INVERSE filter survived, so
 the mark came out brightened at 0.45 opacity on white. `section.light` and
 `section.color-light` now reset the token exactly as `.print` does.
 
-**A bookend is a dark panel even when the slide is pinned light.**
-`section:is(.title, .closing):not(.print)` forces `color-scheme: dark` at (0,2,1),
-so a hand-authored `title light dark` renders dark and takes the inverse mark. The
-exported player has to be told that separately — it rebuilds dark from flat rules
-and has no cascade to consult — and until it was, such a slide came out white ink
-on a white ground, 1.00:1.
+**A bookend takes the mark of its own scheme.** Until 2026-11-23 a title, closing or
+divider forced `color-scheme: dark`, so it always took the inverse mark, and the exported
+player had to be told so separately. The bookends follow the color mode now
+(engineering/decisions/2026-11-23-cover-layout.md), so they take the flip exactly as any
+slide does: inverse in dark (`.dark`, a `-dark` theme, `color-system` on a dark OS), the
+light-canvas mark in light. A hand-authored `title light dark` is light, as `dark light` is.
 
 One canvas is genuinely unanswerable, and one is not:
 
