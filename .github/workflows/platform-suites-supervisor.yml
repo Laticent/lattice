@@ -10,7 +10,7 @@ name: Platform suites supervisor
 # nothing on that first attempt; on the re-run it files whatever still fails. A run with any real finding is never
 # re-run: its alert was already filed.
 #
-# Scope: scheduled and manual runs, first attempt only, so it re-runs a run at most once. Pull-request runs are left alone:
+# Scope: scheduled and manual runs (only manual since 2026-11-27: platform-suites.yml is dispatch-only), first attempt only, so it re-runs a run at most once. Pull-request runs are left alone:
 # the PR shows the job, and gotchas/ci.md says what a no-runner job is.
 #
 # GitHub starts a `workflow_run` workflow only from the default branch, so this file takes effect once merged.

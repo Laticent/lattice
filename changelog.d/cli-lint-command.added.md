@@ -1,0 +1,4 @@
+- `lattice lint` checks a deck without rendering it, and `lattice lint --fix` rewrites what it can in place, so a deck written against an old key or class moves to the new spelling in one command.
+- Each finding names its slide, the rule, the line and the fix. `--strict` fails on warnings too, `--json` prints the findings, and `--no-review` leaves out the advisory suggestions. The exit code is 0 with no error, 1 with one, 2 when no file matched.
+- It is the same linter this repo runs as `npm run lint:deck`, now shipped in the package (`lib/cli/lint-deck.js`). The CLI's own warnings already told authors to run `lattice lint`; until now that command did not exist.
+- A renamed slide class (`marks-etch`) and a renamed key (`marks:`) are fixed by it: `marks: tone ink vivid` becomes `chart-finish: tone ink` and `color-intensity: vivid`.

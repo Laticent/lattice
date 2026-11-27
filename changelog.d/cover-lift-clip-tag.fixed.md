@@ -1,0 +1,1 @@
+- A split slide's first page no longer shows "Content clipped" in the PDF after its lede moved to the next page to make it fit.

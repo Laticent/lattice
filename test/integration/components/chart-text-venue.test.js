@@ -26,6 +26,7 @@ const os = require('os');
 const { spawnSync } = require('child_process');
 const puppeteer = require('puppeteer');
 const { labelFloorPx } = require('../../../lib/transformers/chart-text-venue');
+const { ownClassOf } = require('../../helpers/slide-class');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const CLI = path.join(ROOT, 'lattice.js');
@@ -33,10 +34,12 @@ const KINDS = path.join(ROOT, 'lib/plugins/chart-family/kinds');
 const VENUES = ['laptop', 'huddle', 'conference', 'hall'];
 const COVERED = ['bar', 'funnel', 'heatmap'];
 
-/** The first slide of a kind's gallery that draws the kind. */
+/** The first slide of a kind's gallery whose own class is the bare kind, in either spelling (a record or `_class:`). */
 function gallerySlide(kind) {
   const src = fs.readFileSync(path.join(KINDS, kind, `${kind}.gallery.md`), 'utf8').replace(/\r/g, '');
-  return src.split(/\n---\n/).slice(1).find((s) => s.includes(`_class: ${kind} -->`) || s.includes(`_class: ${kind}\n`)).trim();
+  const slide = src.split(/\n---\n/).slice(1).find((s) => ownClassOf(s)?.payload === kind);
+  assert.ok(slide, `${kind}.gallery.md has a slide whose class is exactly \`${kind}\``);
+  return slide.trim();
 }
 
 describe('chart text follows the venue', () => {

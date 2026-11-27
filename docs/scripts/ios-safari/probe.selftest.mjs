@@ -183,7 +183,7 @@ if (process.env.PROBE === 'present-narration') {
 	// Present with Guide on, voice on and then off. The voice arm walks to slide NARRATION_TARGET_SLIDE (15), as run.mjs does,
 	// with NARRATION_PLAY_S (300 s) only a ceiling; NARRATION_SILENT_S, when set, adds a reported voice-off arm.
 	const { buildNarrationDeck, NARRATION_TITLE, narrationChecks } = await import('./present-narration.mjs');
-	const NARRATION = fs.readFileSync(path.join(here, 'present-narration-probe.js'), 'utf8');
+	const NARRATION = withEditorHelper(fs.readFileSync(path.join(here, 'present-narration-probe.js'), 'utf8'));
 	const deck = await buildNarrationDeck();
 	const b64 = Buffer.from(deck.bytes).toString('base64');
 	const arm = async (voice, seconds, untilSlide = 0) => {

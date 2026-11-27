@@ -20,5 +20,7 @@ where     — docs/e2e/shard-weights.json, docs/e2e/shard-plan.mjs, `node docs/s
             .github/workflows/studio-e2e-nightly.yml (the 45-minute step, the ~1.5x re-bless note).
 done when — three consecutive scheduled nightlies have every leg ≤ 40 min and slowest ÷ mean ≤ 1.2, or the owner
             moves the target.
-evidence  — run 44906536247's per-leg times above.
+evidence  — run 44906536247's per-leg times above. Run 45838666591 (2026-11-26, main @ ba52906) is worse: 34.5,
+            33.1, 31.9, 34.5, 44.7, 31.0, 45.2 and 28.2 min. Leg 7 hit the 45-minute cap and was killed; leg 5
+            finished 18 s under it. The run's other reds were specs left stale by #3497 and #3506, a separate cause.
 verify    — the per-leg durations of the next three scheduled `Studio E2E nightly` runs.

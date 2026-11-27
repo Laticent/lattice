@@ -27,11 +27,13 @@ describe('fit-catalog ↔ FIT_NAMES', () => {
 });
 
 describe('activeFit — reads fit: as the engine does', () => {
-	it('reads fit:, else the heal default; the retired guards: is not read', () => {
+	it('reads fit:, else the pack default; the retired guards: is not read', () => {
 		expect(activeFit('report').name).toBe('report');
 		expect(activeFit(' Trim ').name).toBe('trim');
-		expect(activeFit(null).name).toBe('heal');
-		expect(activeFit('bogus').name).toBe('heal');
-		expect(activeFit('strict').name, 'the old `guards: strict` word is not a fit: value').toBe('heal');
+		expect(activeFit('heal').name).toBe('heal');
+		// No fit: is the default, which measures (lib/core/resolve-fit.js fitPacks).
+		expect(activeFit(null).name).toBe('pack');
+		expect(activeFit('bogus').name).toBe('pack');
+		expect(activeFit('strict').name, 'the old `guards: strict` word is not a fit: value').toBe('pack');
 	});
 });

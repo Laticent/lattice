@@ -3148,7 +3148,17 @@ function subjectClasses(selector) {
 }
 
 const TYPE_ROLE_TOKEN = /^--(fs-[a-z0-9-]+|venue-meta-lift|venue-compact-lift)$/;
-const RUNG_RULE = /^section\.(venue|scale)-[a-z0-9]+$/;
+// A rung is `section.venue-*` / `section.scale-*`, and (handheld venues, fit-everywhere-model.md §18)
+// a venue rung narrowed to shape families, `section.venue-x:where([data-family="…"], …)`, or a
+// family's DEFAULT venue, `section:where([data-family="…"]):not(.venue-…, …)`, which applies only
+// where the slide names no venue. The family part is in :where() so it adds no weight; nothing
+// else may follow it, so a rung cannot smuggle in a component or a modifier. The default's :not()
+// may also name `.chart-frame` and then `.keeps-laptop`, and only those: a chart keeps laptop until
+// charts reflow for a phone (owner, 2026-11-13; fit-everywhere-model.md §21), and so do code and math
+// slides (owner, 2026-11-16, §25; lib/core/resolve-venue.js `laptopKeepingToken`). Excluding a class
+// only narrows where the default applies, so it cannot raise any slide's size.
+const FAMILY_WHERE = String.raw`:where\(\[data-family="[a-z]+"\](?:,\s*\[data-family="[a-z]+"\])*\)`;
+const RUNG_RULE = new RegExp(String.raw`^section(?:\.(?:venue|scale)-[a-z0-9]+(?:${FAMILY_WHERE})?|${FAMILY_WHERE}:not\(\.venue-[a-z0-9]+(?:,\s*\.venue-[a-z0-9]+)*(?:,\s*\.chart-frame)?(?:,\s*\.keeps-laptop)?\))$`);
 const isPseudoElement = (sel) => /::?(before|after|marker|placeholder)\b/.test(sel);
 
 /** The type-size context the gate reads: component names, each component's own variant
@@ -3777,6 +3787,17 @@ const CANONICAL_LAYER_ORDER = [
 const SANCTIONED_KATEX_ONLY = [
   {
     file: 'lib/components/math/math/math.styles.css',
+    selector: 'section.math:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .katex-display > .katex',
+    why:
+      'KaTeX-only by design. It lifts KaTeX\'s own `white-space: nowrap` on display math so an equation '
+      + 'wraps at the slide\'s real width off 16:9, at the safe points `breakableTex` leaves (owner, '
+      + '2026-11-06). The wrap is between KaTeX\'s inline `.base` groups; marp-core\'s MathJax emits one '
+      + 'SVG per equation, which no white-space rule can break, so a mjx- half would match a box with '
+      + 'nothing to wrap. The display SIZE is paired: `--math-display` reaches both through every '
+      + 'variant\'s `:is(.katex-display > .katex, mjx-container[display="true"] > svg)` rule.',
+  },
+  {
+    file: 'lib/components/math/math/math.styles.css',
     selector: 'section.math.form.compare > .cell-stage .katex .katex-mathml',
     why:
       'KaTeX-only by design. This pins KaTeX\'s hidden MathML alternative out of the '
@@ -4401,9 +4422,17 @@ function decodeCssEscapes(value) {
  * introduced this gate was open, and three published measurements went stale during one
  * session. That is the argument for the gate, and the reason it now derives the number at
  * run time rather than carrying a calibration somebody has to re-check.
+ *
+ * RE-SET 2026-11-27 (owner, D3 A on #3575; `2026-11-27-claude-md-index.md`). CLAUDE.md became a
+ * 3,757-token index: each HARD RULE is a one-line anchor, and the full text moved word for word
+ * to `engineering/hard-rules.md` and `engineering/operating-mode.md`. The owner chose that trade
+ * over the "zero reads" argument above, because every session AND every subagent pays the
+ * resident text, while a rule's section is one `sed -n` of a median 282 tokens. The ceiling is
+ * the index plus the owner's usual +20% headroom: 4,500. Growth past it means rule text is
+ * creeping back into the index; it belongs in the pointed-to doc.
  */
 const ROUTER_FILE = 'CLAUDE.md';
-const ROUTER_TOKEN_CEILING = 16500;
+const ROUTER_TOKEN_CEILING = 4500;
 
 /** The router's exact o200k_base token count. Requires the tokenizer lazily — see above. */
 function routerTokenCount(text) {
@@ -4419,11 +4448,11 @@ function checkRouterBudget(errors) {
   if (tokens <= ROUTER_TOKEN_CEILING) return;
   errors.push(
     `${ROUTER_FILE} is ${tokens} o200k_base tokens (${Buffer.byteLength(text)} bytes), over the ` +
-    `${ROUTER_TOKEN_CEILING}-token ceiling (#1896). Every session pays this file unconditionally, ` +
-    'before any tool call. Raise the ceiling in the PR WITH the trade it buys, or trade something ' +
-    'out — and do not "fix" it by routing text behind a pointer: the file is on the cheap side of ' +
-    'the read boundary, so moving resident text out buys tokens by spending a read, which #1897 ' +
-    'measured as the expensive half. ROUTER_TOKEN_CEILING is in tools/check-ownership.js.',
+    `${ROUTER_TOKEN_CEILING}-token ceiling (#1896, re-set on #3575). Every session and every ` +
+    'subagent pays this file unconditionally, before any tool call. CLAUDE.md is an index: put the ' +
+    'rule text in the pointed-to doc (engineering/hard-rules.md, engineering/operating-mode.md) and ' +
+    'keep a one-line anchor here. Raise the ceiling in the PR WITH the trade it buys, and only on ' +
+    "the owner's word. ROUTER_TOKEN_CEILING is in tools/check-ownership.js.",
   );
 }
 
@@ -4937,7 +4966,7 @@ const SANCTIONED_FALLBACK_READS = [
       '120-127). The step ink is OPTIONAL by design: a palette names one only when its one curated ink does not clear ' +
       'its darker dark-face critical band (the a11y palettes name black). Without one the read lands on --fail-on-mark, ' +
       'the fail ink, which is the same text-on-the-fail-fill contract and the exact ink main painted this number with, ' +
-      'so a palette that does not name one keeps its behavior. Held by marks-css.test.js (4.5:1 on both faces of every ' +
+      'so a palette that does not name one keeps its behavior. Held by chart-finish-css.test.js (4.5:1 on both faces of every ' +
       'a11y palette).',
   },
   ...Array.from({ length: 12 }, (_, i) => ({
@@ -5286,6 +5315,13 @@ function checkAdaptDeclarations(manifests, errors) {
   // the whole square tier was silently inert. Matching the attribute (not the
   // at-rule) is what keeps this gate seeing real reflow.
   const FAMILY_REFLOW = /\[data-family\s*=/;
+  // The TEXT-ROOM rule (lib/base/base.elements.css, beside `container-name: lattice`): a width
+  // query on the slide in `em` of its body size, which reflows by the characters a line holds.
+  // It is not the retired aspect-ratio query: a width in `em` is exactly the content-box
+  // measure #1218 found unsuitable for SHAPE and is the right one for TEXT. A component that
+  // moved its family rules onto it still ships per-box layouts, so it counts as CSS reflow
+  // (engineering/decisions/2026-10-28-fit-everywhere-model.md §13).
+  const TEXT_ROOM_REFLOW = /@container\s+lattice\s*\(\s*width\s*</;
   // The shared chart-frame CSS carries a family reflow rule that restructures
   // `.chart-body` on tall boxes for EVERY chart-frame member — so a chart's reflow
   // can live there, not in its own styles.css. The anti-drift rule must see it, or a
@@ -5316,14 +5352,15 @@ function checkAdaptDeclarations(manifests, errors) {
     const stripComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '');
     let css = cssPath ? stripComments(readCssSource(cssPath)) : '';
     if (manifestBucket(m) === 'chart') css += `\n${stripComments(chartFamilyCss)}`;
-    const hasContainerReflow = FAMILY_REFLOW.test(css);
+    const hasContainerReflow = FAMILY_REFLOW.test(css) || TEXT_ROOM_REFLOW.test(css);
     // orientation defaults to BOTH when omitted (the manifest's documented default).
     const orientation = Array.isArray(m.orientation) ? m.orientation : ['landscape', 'portrait'];
 
     if (hasContainerReflow && mode !== 'reflow') {
       errors.push(
         `${m.name}: declares adapt.mode "${mode}" but its CSS uses \`[data-family=…]\` ` +
-        `(family reflow) — must be "reflow". Fix the manifest or remove the family rule.`,
+        `or a text-room \`@container lattice (width < …)\` rule (box reflow) — must be "reflow". ` +
+        `Fix the manifest or remove the rule.`,
       );
     }
     // …AND THE OTHER DIRECTION. The check above only ever caught CSS-without-a-
@@ -5387,8 +5424,8 @@ function checkAdaptDeclarations(manifests, errors) {
     const paneReflow = m.hosts === 'panes';
     if (mode === 'reflow' && !cssReflow && !transformReflow && !mermaidReflow && !splitReflow && !paneReflow) {
       errors.push(
-        `${m.name}: declares adapt.mode "reflow" but ships NONE of the four mechanisms — ` +
-        `no \`[data-family=…]\`/\`[data-orientation=…]\` CSS, no orientation-branching ` +
+        `${m.name}: declares adapt.mode "reflow" but ships NONE of the reflow mechanisms — ` +
+        `no \`[data-family=…]\`/\`[data-orientation=…]\`/text-room \`@container lattice (width < …)\` CSS, no orientation-branching ` +
         `*.transform.js, no mermaid reorient, no carousel \`split.strategy\` reshape. ` +
         `It has one composition and paints it in every ` +
         `box, while the manifest tells authoring agents it adapts. Either ship the reflow, or ` +
@@ -7174,8 +7211,9 @@ const SANCTIONED_EOL_BOUNDARIES = [
        + 'pass or fail a preset nobody chose.',
   },
   {
-    file: 'tools/lint-deck.js',
-    why: 'the file read. Without it a Windows author got DIFFERENT LINT ADVICE for identical '
+    file: 'lib/cli/lint-deck.js',
+    why: 'the file read behind `lattice lint` and `npm run lint:deck` (it moved out of tools/ so the '
+       + 'published CLI ships it). Without it a Windows author got DIFFERENT LINT ADVICE for identical '
        + 'content — the lint is a reader like any other.',
   },
   {
@@ -10169,13 +10207,14 @@ function checkPlatformSuites(errors, registryPath = path.join(ROOT, '.github', '
       errors.push(`${at}: only a suite that serves the prebuilt docs site can set \`"docs_site": true\`: an iOS Simulator suite (its \`run\` calls docs/scripts/ios-safari/run.sh) or a Playwright suite whose \`run\` sets E2E_PREBUILT=1.`);
     }
     if ('on_pull_request' in s && typeof s.on_pull_request !== 'boolean') {
-      errors.push(`${at}: \`on_pull_request\` must be true or false (false: nightly and dispatch only).`);
+      errors.push(`${at}: \`on_pull_request\` must be true or false (false: never on a pull request; the workflow is dispatch-only since 2026-11-27).`);
     }
-    // The iOS Simulator suites run nightly and on dispatch only (decisions/2026-10-29-ci-job-tiers.md). The planner derives
+    // The iOS Simulator suites never run on a pull request (decisions/2026-10-29-ci-job-tiers.md; and since 2026-11-27 the
+    // whole workflow is dispatch-only). The planner derives
     // that from the command (tools/platform-suites-plan.js offPullRequest), so a new iOS suite stays off pull requests with
     // no flag; this refuses the one entry that would read as the opposite.
     if (typeof s.run === 'string' && /docs\/scripts\/ios-safari\/run\.sh/.test(s.run) && s.on_pull_request === true) {
-      errors.push(`${at}: an iOS Simulator suite (its \`run\` calls docs/scripts/ios-safari/run.sh) cannot set \`"on_pull_request": true\` — it runs nightly and on dispatch, never on a pull request (engineering/decisions/2026-10-29-ci-job-tiers.md).`);
+      errors.push(`${at}: an iOS Simulator suite (its \`run\` calls docs/scripts/ios-safari/run.sh) cannot set \`"on_pull_request": true\` — it never runs on a pull request (engineering/decisions/2026-10-29-ci-job-tiers.md).`);
     }
     if (typeof s.why !== 'string' || s.why.trim().length < 20) {
       errors.push(`${at}: \`why\` must say what this suite proves that Linux cannot (at least a sentence).`);

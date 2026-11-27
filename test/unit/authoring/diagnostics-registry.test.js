@@ -37,7 +37,7 @@ const EMITTERS = [
   'lib/authoring/review-core.js',
   'lib/core/flowchart-grammar.js',
   'lib/core/hub-spoke-model.js',
-  'tools/lint-deck.js',
+  'lib/cli/lint-deck.js',
   // A plugin's lint role (`<name>.lint.js`, HARD RULE #7 amended 2026-11-01) emits findings lint-core runs.
   ...require('node:fs').readdirSync(path.join(ROOT, 'lib', 'plugins'), { withFileTypes: true })
     .filter((d) => d.isDirectory() && require('node:fs').existsSync(path.join(ROOT, 'lib', 'plugins', d.name, `${d.name}.lint.js`)))

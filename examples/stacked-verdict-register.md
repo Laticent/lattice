@@ -6,11 +6,11 @@ header: "Lattice · stacked verdicts"
 
 <!-- @meta{layout=title, class=silent} -->
 
-# Stacked verdict cards follow the cards register
+# Stacked verdict cards follow the align register
 
 `Fix · verdict-grid narrow form`
 
-In a narrow pane the verdict grid goes to one column. Its cards now sit where `cards:` puts them.
+In a narrow pane the verdict grid goes to one column. Its cards now sit where `align:` puts them.
 
 ---
 
@@ -36,12 +36,12 @@ A 35% pane is too narrow for two cards a row, so the grid stacks. Each card keep
 
 ---
 
-<!-- @meta{footer=cards-stretch · each card takes an equal share} -->
+<!-- @meta{footer=align-fill · each card takes an equal share} -->
 
-## Stretch shares the height among the cards.
+## Fill shares the height among the cards.
 
 <!-- @meta{layout=columns, class=ratio-35-65} -->
-<!-- @meta{pane=verdict-grid cards-stretch} -->
+<!-- @meta{pane=verdict-grid align-fill} -->
 
 - Path A · Spreadsheet
   - [x] Speed
@@ -54,16 +54,16 @@ A 35% pane is too narrow for two cards a row, so the grid stacks. Each card keep
 
 <!-- @meta{pane=content} -->
 
-Under `cards-stretch` each card grows to an equal share of the pane, and its content sits centered inside it. This is the one register that fills, and before the fix a pane never applied it: the pane set two of the register's four values.
+Under `align-fill` each card grows to an equal share of the pane, and its content sits centered inside it. This is the one register that fills, and before the fix a pane never applied it: the pane set two of the register's four values.
 
 ---
 
-<!-- @meta{footer=cards-top · the band starts at the top} -->
+<!-- @meta{footer=align-top · the band starts at the top} -->
 
 ## Top puts the stack under the pane's top edge.
 
 <!-- @meta{layout=columns, class=ratio-35-65} -->
-<!-- @meta{pane=verdict-grid cards-top} -->
+<!-- @meta{pane=verdict-grid align-top} -->
 
 - Path A · Spreadsheet
   - [x] Speed
@@ -76,16 +76,16 @@ Under `cards-stretch` each card grows to an equal share of the pane, and its con
 
 <!-- @meta{pane=content} -->
 
-Under `cards-top` the cards keep their content height and start at the top of the pane. The spare height collects below the last card.
+Under `align-top` the cards keep their content height and start at the top of the pane. The spare height collects below the last card.
 
 ---
 
-<!-- @meta{footer=cards-spread · even gaps around each card} -->
+<!-- @meta{footer=align-spread · even gaps around each card} -->
 
 ## Spread puts the spare between the cards.
 
 <!-- @meta{layout=columns, class=ratio-35-65} -->
-<!-- @meta{pane=verdict-grid cards-spread} -->
+<!-- @meta{pane=verdict-grid align-spread} -->
 
 - Path A · Spreadsheet
   - [x] Speed
@@ -98,7 +98,7 @@ Under `cards-top` the cards keep their content height and start at the top of th
 
 <!-- @meta{pane=content} -->
 
-Under `cards-spread` the spare height is shared out as even gaps around the cards, so the two options read as separate decisions rather than one block.
+Under `align-spread` the spare height is shared out as even gaps around the cards, so the two options read as separate decisions rather than one block.
 
 ---
 

@@ -1,0 +1,1 @@
+- On a phone, a table split into cards keeps a long column label to 40% of the card, so the value beside it wraps inside the card instead of running off the slide.

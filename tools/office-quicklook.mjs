@@ -5,8 +5,8 @@
  * Why: iPhone Preview (what opens a .pptx from Mail or Files) draws office files with Apple's own Office importer, and it
  * draws them unlike PowerPoint, LibreOffice or Google Slides (engineering/decisions/2026-11-01-icon-font.md § 3.6: it
  * ignores embedded fonts and collapsed every icon shape that sat inside a group to a speck). macOS Quick Look uses the
- * same importer, so `qlmanage` on a macOS runner is the reachable stand-in. It is a platform suite (dispatch and nightly,
- * never on a pull request): `.github/platform-suites.json` `office-quicklook`.
+ * same importer, so `qlmanage` on a macOS runner is the reachable stand-in. It is a platform suite (dispatch only since
+ * 2026-11-27, never on a pull request): `.github/platform-suites.json` `office-quicklook`.
  *
  * What it writes, under platform-suite-artifacts/office-quicklook/:
  *   <deck>/<variant>/slide-NN.png   Quick Look's render of each slide (each slide is cut into a one-slide file first,

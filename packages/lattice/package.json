@@ -1,6 +1,6 @@
 {
   "name": "@laticent/lattice",
-  "version": "1.0.0",
+  "version": "1.0.0-rc.1",
   "description": "A slide deck engine for boardroom-quality PDFs from Markdown. Author every slide as plain Markdown lists; render it as KaTeX math, gantt/kanban/roadmaps, all 25 Mermaid diagram types, native charts, and legal layouts — 80 components, 14 palettes, WCAG AA throughout. Lattice is the engine layer of the Laticent deck system; decks can also export to Marp for recipients who prefer that tool.",
   "keywords": [
     "slides",

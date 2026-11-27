@@ -36,6 +36,55 @@ const TAKE = `window.takeSlide = async (el, scale) => {
   return btoa(s);
 };`;
 
+// The oracle's capture. Puppeteer's element screenshot defaults to `captureBeyondViewport: true`, which makes Chrome
+// override the page's device metrics to the whole document, capture, and restore them: one resize event in the page per
+// shot (measured: 6 shots, 6 resizes), and at scale 2 that override lands right after this test's own `setViewport`. Every
+// slide is exactly the 1280x720 viewport and is scrolled into view first, so the clip already sits inside the viewport:
+// `false` captures the same pixels (byte-identical on all 60 shots of the four decks, both scales) and leaves the page's
+// metrics alone. followups.d/3489: one capture on this path stalled 180 s in CI and left no trace of why.
+const SHOT = { type: 'png', captureBeyondViewport: false };
+// Every CDP call here answers in well under a second; a whole passing test takes 8 to 15 s. A call still waiting after
+// this long is stuck, and the test fails with Chrome's state (below) while its own 240 s budget still has room for the report.
+const PROTOCOL_TIMEOUT = 60_000;
+const PROBE_MS = 10_000; // each probe of the report gets this long, so a renderer that answers nothing still reports in under a minute
+
+// One probe of the hang report, bounded: a stuck renderer answers nothing, and the report must still come back.
+function probe(work) {
+  return new Promise((resolve) => {
+    const guard = setTimeout(() => resolve(`no answer in ${PROBE_MS} ms`), PROBE_MS);
+    Promise.resolve().then(work).then((v) => resolve(v), (e) => resolve(`threw: ${e.message.split('\n')[0]}`)).finally(() => clearTimeout(guard));
+  });
+}
+
+// Chrome's state when an oracle capture fails, so a CI failure names its cause: which targets exist, whether the page is
+// visible and loaded, where the slide sits, and whether a fresh `Page.captureScreenshot` on a new CDP session answers.
+async function hangReport(browser, page, h, clip) {
+  const state = await probe(() => page.evaluate(() => ({
+    visibility: document.visibilityState, hasFocus: document.hasFocus(), readyState: document.readyState,
+    viewport: { w: innerWidth, h: innerHeight, dpr: devicePixelRatio, pageTop: visualViewport.pageTop },
+  })));
+  const box = await probe(() => h.boundingBox());
+  const targets = await probe(() => browser.targets().map((t) => `${t.type()} ${t.url().slice(0, 80)}`));
+  const params = { format: 'png', fromSurface: true, captureBeyondViewport: false, clip: { ...(clip || { x: 0, y: 0, width: 1280, height: 720 }), scale: 1 } };
+  const fresh = await probe(async () => {
+    const cdp = await page.createCDPSession();
+    const { data } = await cdp.send('Page.captureScreenshot', params);
+    await cdp.detach();
+    return `answered, ${data.length} base64 chars`;
+  });
+  return JSON.stringify({ state, box, targets, freshCapture: { params, result: fresh } }, null, 1);
+}
+
+// The oracle shot, and on a failure the report above in the error, with the step that failed.
+async function oracleShot(browser, page, h, step) {
+  try {
+    return Buffer.from(await h.screenshot(SHOT));
+  } catch (e) {
+    const clip = await probe(() => h.boundingBox());
+    throw new Error(`Chrome's own screenshot failed at ${step}: ${e.message}\nChrome's state: ${await hangReport(browser, page, h, typeof clip === 'object' ? clip : null)}`, { cause: e });
+  }
+}
+
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lat-camera-'));
 after(() => fs.rmSync(tmp, { recursive: true, force: true }));
 
@@ -74,7 +123,7 @@ for (const deck of DECKS) {
     fs.writeFileSync(fontconf, '<?xml version="1.0"?><!DOCTYPE fontconfig SYSTEM "fonts.dtd"><fontconfig><include ignore_missing="yes">/etc/fonts/fonts.conf</include>'
       + '<match target="font"><edit name="hinting" mode="assign"><bool>false</bool></edit><edit name="hintstyle" mode="assign"><const>hintnone</const></edit>'
       + '<edit name="antialias" mode="assign"><bool>true</bool></edit><edit name="rgba" mode="assign"><const>none</const></edit></match></fontconfig>');
-    const launch = { headless: 'new', args: ['--no-sandbox', '--allow-file-access-from-files', '--font-render-hinting=none'], env: { ...process.env, FONTCONFIG_FILE: fontconf } };
+    const launch = { headless: 'new', protocolTimeout: PROTOCOL_TIMEOUT, args: ['--no-sandbox', '--allow-file-access-from-files', '--font-render-hinting=none'], env: { ...process.env, FONTCONFIG_FILE: fontconf } };
     if (process.env.CHROME_PATH) launch.executablePath = process.env.CHROME_PATH;
     const browser = await puppeteer.launch(launch);
     try {
@@ -89,7 +138,7 @@ for (const deck of DECKS) {
       assert.ok(handles.length > 0, 'the deck rendered slides');
       for (const [i, h] of handles.entries()) {
         await h.evaluate((el) => el.scrollIntoView());
-        const native = Buffer.from(await h.screenshot({ type: 'png' }));
+        const native = await oracleShot(browser, page, h, `${deck} slide ${i + 1} at scale 1`);
         const b64 = await h.evaluate((el) => takeSlide(el, 1));
         const off = pixelsOff(native, Buffer.from(b64, 'base64'), PNG);
         assert.ok(off <= BAR, `${deck} slide ${i + 1}: ${off.toFixed(3)}% of pixels differ from Chrome's screenshot (bar ${BAR}%)`);
@@ -98,7 +147,7 @@ for (const deck of DECKS) {
       await page.setViewport({ width: 1280, height: 720, deviceScaleFactor: 2 });
       const h2 = (await page.$$('section[data-lattice-slide]'))[0];
       await h2.evaluate((el) => el.scrollIntoView());
-      const native2 = Buffer.from(await h2.screenshot({ type: 'png' }));
+      const native2 = await oracleShot(browser, page, h2, `${deck} slide 1 at scale 2`);
       const b64x2 = await h2.evaluate((el) => takeSlide(el, 2));
       const off2 = pixelsOff(native2, Buffer.from(b64x2, 'base64'), PNG);
       assert.ok(off2 <= BAR, `${deck} slide 1 at scale 2: ${off2.toFixed(3)}% of pixels differ (bar ${BAR}%)`);

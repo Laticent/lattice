@@ -11,6 +11,12 @@
  * writes some as inline STYLE, so the overrides carry !important. The first three traces ride
  * the editorial accents (accent → cool → warm); further traces fall back to muted so they read
  * as supporting context. */
+section .functionplot svg.function-plot {
+  /* The drawing fills its box through its viewBox. With no `--fp-scale` it was drawn at the
+   * box's own size, so this changes nothing; with one it was drawn 1/k size and scales up. */
+  width: 100%;
+  height: auto;
+}
 section .functionplot .function-plot {
   font-family: var(--font-mono);
   color: var(--text-body);
@@ -18,38 +24,42 @@ section .functionplot .function-plot {
 }
 section .functionplot .function-plot .domain {
   stroke: var(--muted-mark) !important;
+  stroke-width: calc(1px / var(--fp-scale, 1));
   opacity: 0.6 !important;
 }
 section .functionplot .function-plot .tick line {
   stroke: var(--border) !important;
+  stroke-width: calc(1px / var(--fp-scale, 1));
 }
 section .functionplot .function-plot .tick text {
   fill: var(--text-muted) !important;
-  font-size: var(--fs-meta);
+  /* `--fp-scale`: the hydrate drew the plot 1/k size and the viewBox scales it by k, so the
+   * label is set at 1/k in drawing units and shows at `--fs-meta` (function-plot.hydrate.js). */
+  font-size: calc(var(--fs-meta) / var(--fp-scale, 1));
 }
 section .functionplot .function-plot .axis-label,
 section .functionplot .function-plot .x.axis-label,
 section .functionplot .function-plot .y.axis-label {
   fill: var(--text-heading) !important;
   font-family: var(--font-body);
-  font-size: var(--fs-meta);
+  font-size: calc(var(--fs-meta) / var(--fp-scale, 1));
   font-weight: 600;
 }
 section .functionplot .function-plot .line-0 {
   stroke: var(--accent) !important;
-  stroke-width: 2.5 !important;
+  stroke-width: calc(2.5px / var(--fp-scale, 1)) !important;
 }
 section .functionplot .function-plot .line-1 {
   stroke: var(--cat-4-mark, var(--text-heading)) !important;
-  stroke-width: 2.5 !important;
+  stroke-width: calc(2.5px / var(--fp-scale, 1)) !important;
 }
 section .functionplot .function-plot .line-2 {
   stroke: var(--cat-7-mark, var(--muted-mark)) !important;
-  stroke-width: 2.5 !important;
+  stroke-width: calc(2.5px / var(--fp-scale, 1)) !important;
 }
 section .functionplot .function-plot :is(.line-3, .line-4, .line-5) {
   stroke: var(--muted-mark) !important;
-  stroke-width: 2 !important;
+  stroke-width: calc(2px / var(--fp-scale, 1)) !important;
 }
 section .functionplot .function-plot .annotations .annotation,
 section .functionplot .function-plot .annotations text {

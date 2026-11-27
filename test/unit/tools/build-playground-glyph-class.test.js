@@ -56,15 +56,17 @@ test('the shipped ESM build carries the plugin, so the engine entry does not rea
 	const outputs = result.metafile.outputs;
 	const engineKey = Object.keys(outputs).find((k) => path.basename(k) === 'engine.js');
 	assert.ok(engineKey, Object.keys(outputs).join('\n'));
+	// Static AND dynamic imports: relationship.js, the stub's one reader, loads with the splitter, which the engine
+	// imports on demand (lib/playground/index.js `splitReady`). Neither half may reach the table.
 	const seen = new Set();
 	const walk = (k) => {
 		if (seen.has(k) || !outputs[k]) return; // an external import has no output of its own
 		seen.add(k);
-		for (const i of outputs[k].imports || []) if (i.kind === 'import-statement') walk(i.path);
+		for (const i of outputs[k].imports || []) if (i.kind === 'import-statement' || i.kind === 'dynamic-import') walk(i.path);
 	};
 	walk(engineKey);
 	const engineInputs = new Set([...seen].flatMap((k) => Object.keys(outputs[k].inputs)));
-	assert.ok(!engineInputs.has('lib/core/shape-glyphs.js'), 'the engine\'s static closure reaches the glyph table');
+	assert.ok(!engineInputs.has('lib/core/shape-glyphs.js'), 'the engine reaches the glyph table');
 	assert.ok(engineInputs.has('shape-glyph-class:source'));
 });
 

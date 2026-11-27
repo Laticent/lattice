@@ -336,6 +336,20 @@ generated.push(['styles/floor.css', floorCss]);
 // so the builders name this file instead of writing the agents inline (lib/core/frame-agents.mjs).
 const { FRAME_AGENTS_FILE, frameAgentsSource } = await import('../../lib/core/frame-agents.mjs');
 generated.push([FRAME_AGENTS_FILE, frameAgentsSource()]);
+// …and the fit probes the live measured split runs in its hidden frame, for the same reason: the
+// inherited policy allows no eval, so the probes reach the frame as a file (docs/src/lib/fit-probes.mjs).
+{
+  const { FIT_PROBES_FILE, fitProbesSource } = await import('../src/lib/fit-probes.mjs');
+  const req = createRequire(import.meta.url);
+  generated.push([
+    FIT_PROBES_FILE,
+    fitProbesSource({
+      fitMeasure: req('../../lib/core/fit-measure.js'),
+      overflowProbe: req('../../lib/core/overflow-probe.js'),
+      tableReflowFit: req('../../lib/core/table-reflow-fit.js'),
+    }),
+  ]);
+}
 // …and the sandbox shell the code-package runner and the draw host load their frames through: a
 // sandboxed srcdoc would inherit the page's policy too, and refuse the frame's own hashed script
 // (lib/packages/sandbox-shell.mjs).
