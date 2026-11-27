@@ -121,6 +121,9 @@ on:
       # like end to end. Without this entry, editing an exemplar would leave the
       # published kit serving the old deck until something else happened to change.
       - 'exemplars/**'
+      # start.md and layouts.md name the engine version they describe, read from the
+      # published package's manifest, so a version bump republishes the kit.
+      - 'packages/lattice/package.json'
       # The branch-root staging files, and the publisher itself.
       - 'tools/kit-branch/**'
       - '.github/workflows/publish-kits.yml'

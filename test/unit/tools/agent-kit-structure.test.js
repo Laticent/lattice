@@ -882,27 +882,68 @@ test('agent kit structure', { skip }, async (t) => {
 	});
 
 	/**
-	 * start.md is the one file an agent reads first (2026-11-17-agent-pack.md §4.1). It
-	 * must name every layout (a layout it leaves out is one an agent never picks), stay
-	 * inside its budget, teach Lattice's own front matter, and lead to the render route.
+	 * start.md is the one file an agent reads first, at most 1,300 o200k tokens (the owner's
+	 * 1,500, less the cross-tokenizer margin; tools/build-agent-kit.mjs START_TOKEN_MAX). It
+	 * teaches Lattice's own front matter, the slide record, the engine version it describes,
+	 * leads to the render route, and hands every layout on to layouts.md.
 	 */
-	await t.test('start.md names every layout, holds its budget and teaches Lattice front matter', () => {
+	await t.test('start.md holds its token budget, names its engine and hands on to layouts.md', () => {
+		const { encode } = require('gpt-tokenizer/encoding/o200k_base');
 		const start = readKit('start.md');
-		const { components } = JSON.parse(readKit('reference/components.json'));
-		const missing = components.map((c) => c.name).filter((n) => !start.includes(`[\`${n}\`](./components/${n}.md)`));
-		assert.deepEqual(missing, [], 'start.md leaves layouts out of its catalog');
-		assert.ok(start.length <= 48000, `start.md is ${start.length} chars, over its 48000 budget`);
+		const tokens = encode(start).length;
+		assert.ok(tokens <= 1300, `start.md is ${tokens} o200k tokens, over its 1,300 budget`);
+		const { version } = JSON.parse(fs.readFileSync(path.join(ROOT, 'packages', 'lattice', 'package.json'), 'utf8'));
+		assert.ok(start.startsWith(`# Write a Lattice deck (engine ${version})\n`), 'start.md names the engine version it describes');
 		assert.match(start, /^theme: indaco$/m);
 		assert.doesNotMatch(start, /^marp:/m);
+		assert.doesNotMatch(start, /_class/, 'start.md teaches the slide record, not the retired directive');
+		assert.match(start, /`<!-- @meta\{layout=NAME\} -->`/);
 		assert.match(start, /npx @laticent\/lattice/);
+		assert.ok(start.includes('](./layouts.md)'), 'start.md links layouts.md');
+		for (const name of ['note', 'say', 'alt', 'handout']) assert.ok(start.includes(`\`<!-- @${name}{…} -->\``), `start.md teaches @${name}`);
+		assert.ok(start.includes('](./render/lattice-render-a-deck.md)'), 'start.md leads a web reader to the render page');
+		assert.ok(start.includes('](./authoring/deck-canon.md)'), 'start.md links the full canon');
+	});
+
+	/**
+	 * The canon says both bookends carry `silent` (lib/authoring/deck-canon.js), so every whole deck
+	 * the pack writes in its own words writes it: start.md's deck and the paste texts' worked decks.
+	 * The skeletons leave it to the author. A 2026-11-27 draft dropped it from the examples while
+	 * the canon beside them still said it.
+	 */
+	await t.test('every worked deck writes `silent` on its bookends, as the canon says', () => {
+		const { DECK_CANON, DECK_CANON_SHORT } = require(path.join(ROOT, 'lib', 'authoring', 'deck-canon.js'));
+		for (const canon of [DECK_CANON, DECK_CANON_SHORT]) assert.match(canon, /(?:both|both the title and the closing) carry `silent`/, 'the canon no longer says bookends carry silent; update this test and the worked decks together');
+		for (const rel of ['start.md', 'paste/lattice-instructions-solo.md', 'paste/lattice-instructions-standard.md', 'paste/lattice-instructions-max.md']) {
+			const decks = [...readKit(rel).matchAll(/```markdown\n([\s\S]*?)\n```/g)].map((m) => m[1]).filter((b) => /^---\n/.test(b));
+			if (rel === 'start.md') assert.equal(decks.length, 1, 'start.md carries one whole deck');
+			for (const deck of decks) {
+				// Either spelling: the paste texts still write directives until the @meta cut reaches them.
+				const bare = [...deck.matchAll(/^<!-- (?:@meta\{layout=(title|closing)\}|_class: (title|closing)) -->$/gm)].map((m) => m[1] || m[2]);
+				assert.deepEqual(bare, [], `${rel} writes a bookend without \`silent\``);
+			}
+		}
+	});
+
+	/**
+	 * layouts.md is the full reference behind start.md (it was start.md's body until the owner
+	 * set start.md's budget in tokens, 2026-11-27). It must name every layout (a layout it leaves
+	 * out is one an agent never picks), with its variants, every plugin, every universal part and
+	 * every front-matter register.
+	 */
+	await t.test('layouts.md names every layout, plugin, universal part and register', () => {
+		const start = readKit('layouts.md');
+		const { components } = JSON.parse(readKit('reference/components.json'));
+		const missing = components.map((c) => c.name).filter((n) => !start.includes(`[\`${n}\`](./components/${n}.md)`));
+		assert.deepEqual(missing, [], 'layouts.md leaves layouts out of its catalog');
 		// Variants and plugins: an agent that reads only start.md must know both exist.
 		const withVariants = components.filter((c) => (c.variants || []).length);
 		const noVariants = withVariants.filter((c) => !new RegExp(`\\[\`${c.name}\`\\][^\n]*Variants: [^\n]*\`${c.variants[0]}\``).test(start)).map((c) => c.name);
-		assert.deepEqual(noVariants, [], 'start.md leaves a layout\'s variants off its line');
+		assert.deepEqual(noVariants, [], 'layouts.md leaves a layout\'s variants off its line');
 		const plugins = fs.readdirSync(path.join(ROOT, 'lib', 'plugins')).filter((n) => fs.existsSync(path.join(ROOT, 'lib', 'plugins', n, `${n}.docs.md`)));
 		assert.ok(plugins.length >= 10, `found ${plugins.length} plugin docs`);
 		const unshipped = plugins.filter((n) => !fs.existsSync(path.join(KIT, 'plugins', `${n}.md`)) || !start.includes(`(./plugins/${n}.md)`));
-		assert.deepEqual(unshipped, [], 'a plugin doc is missing from the pack or from start.md');
+		assert.deepEqual(unshipped, [], 'a plugin doc is missing from the pack or from layouts.md');
 		// The universal parts and the front-matter registers (the owner: "agents also need to know
 		// universal stuff too like below note, key insights").
 		for (const rel of ['authoring/universal.md', 'authoring/registers.md']) assert.ok(fs.existsSync(path.join(KIT, rel)), `the pack does not carry ${rel}`);
@@ -910,10 +951,10 @@ test('agent kit structure', { skip }, async (t) => {
 		const patterns = base.split(/^## Auto-detected authoring patterns\s*$/m)[1].split(/^## /m)[0].split(/^### /m).slice(1).map((c) => c.split('\n')[0].trim());
 		assert.ok(patterns.includes('Key Insight panel') && patterns.includes('Below-Note'), `base.docs.md's patterns: ${patterns.join(', ')}`);
 		const unlisted = patterns.filter((h) => !start.includes(`[${h}](./authoring/universal.md#`));
-		assert.deepEqual(unlisted, [], 'start.md leaves a universal part out');
+		assert.deepEqual(unlisted, [], 'layouts.md leaves a universal part out');
 		const keys = [...fs.readFileSync(path.join(ROOT, 'lib', 'base', 'base.registers.docs.md'), 'utf8').matchAll(/^## .*?`([a-z-]+):`/gm)].map((m) => m[1]);
 		const unlistedKeys = keys.filter((k) => !start.includes(`\`${k}:\``));
-		assert.deepEqual(unlistedKeys, [], 'start.md leaves a front-matter register out');
+		assert.deepEqual(unlistedKeys, [], 'layouts.md leaves a front-matter register out');
 		const noInsight = components.filter((c) => !(c.authoring?.blocks || []).includes('key-insight')).map((c) => c.name);
 		const unmarked = noInsight.filter((n) => !new RegExp(`\\[\`${n}\`\\][^\\n]*No key insight`).test(start));
 		assert.deepEqual(unmarked, [], 'a layout that takes no key insight does not say so on its line');
@@ -925,19 +966,24 @@ test('agent kit structure', { skip }, async (t) => {
 	 * bare span for a month: three warnings in the one file the kit says to copy, and the
 	 * pills printed as plain code.
 	 */
-	await t.test('start.md skeletons and the example decks lint clean', () => {
+	await t.test('start.md\'s deck, layouts.md skeletons and the example decks lint clean', () => {
 		const { execFileSync } = require('node:child_process');
 		const os = require('node:os');
-		const start = readKit('start.md');
-		const section = start.split(/^## \d+\. Skeletons/m)[1].split(/^## \d+\./m)[0];
+		const layouts = readKit('layouts.md');
+		const section = layouts.split(/^## \d+\. Skeletons/m)[1].split(/^## \d+\./m)[0];
 		const blocks = [...section.matchAll(/```\n([\s\S]*?)\n```/g)].map((m) => m[1]);
-		assert.ok(blocks.length >= 15, `start.md section 6 holds ${blocks.length} skeletons`);
+		assert.ok(blocks.length >= 15, `layouts.md's skeleton section holds ${blocks.length} skeletons`);
+		// start.md's own example deck is a whole file: front matter and three slides.
+		const startDeck = readKit('start.md').match(/```markdown\n([\s\S]*?)\n```/)?.[1];
+		assert.ok(startDeck && /^---\n/.test(startDeck), 'start.md carries a whole example deck');
 		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-pack-'));
 		try {
 			const deck = path.join(dir, 'skeletons.md');
 			fs.writeFileSync(deck, `---\ntheme: indaco\npagination: true\n---\n\n${blocks.join('\n\n---\n\n')}\n`);
+			const startFile = path.join(dir, 'start-deck.md');
+			fs.writeFileSync(startFile, `${startDeck}\n`);
 			const examples = fs.readdirSync(path.join(KIT, 'examples')).filter((f) => f.endsWith('.md')).map((f) => path.join(KIT, 'examples', f));
-			for (const file of [deck, ...examples]) {
+			for (const file of [deck, startFile, ...examples]) {
 				let out;
 				try {
 					out = execFileSync(process.execPath, [path.join(ROOT, 'tools', 'lint-deck.js'), '--json', file], { encoding: 'utf8' });
@@ -963,7 +1009,7 @@ test('agent kit structure', { skip }, async (t) => {
 	await t.test('flattened docs keep code examples verbatim and link only real repo paths', () => {
 		assert.match(readKit('authoring/universal.md'), /`!\[\]\(asset:team-offsite\)`/);
 		assert.match(readKit('plugins/avatars.md'), /^ {2}- !\[\]\(marcus\.jpg\)$/m);
-		const files = ['start.md', 'authoring/universal.md', 'authoring/registers.md', ...fs.readdirSync(path.join(KIT, 'plugins')).map((f) => `plugins/${f}`)];
+		const files = ['start.md', 'layouts.md', 'authoring/universal.md', 'authoring/registers.md', ...fs.readdirSync(path.join(KIT, 'plugins')).map((f) => `plugins/${f}`)];
 		for (const rel of files) {
 			for (const m of readKit(rel).matchAll(/https:\/\/github\.com\/Laticent\/lattice\/(blob|tree)\/main\/([^)#\s]+)/g)) {
 				const abs = path.join(ROOT, m[2]);
@@ -979,17 +1025,19 @@ test('agent kit structure', { skip }, async (t) => {
 	 * eval, 2026-11-19): speaker notes need their syntax, a kpi pill's color comes from the row,
 	 * and a data deck needs a chart skeleton.
 	 */
-	await t.test('start.md teaches what a model writing from it alone needs', () => {
-		const start = readKit('start.md');
+	await t.test('layouts.md teaches what a model writing from the pack needs', () => {
+		const start = readKit('layouts.md');
 		const skel = start.split(/^## \d+\. Skeletons/m)[1].split(/^## \d+\./m)[0];
-		// The bookend skeletons carry no `silent`: each manifest's `chrome` field already drops the
-		// header and page number and keeps the footer on purpose (the deck's standing note).
+		// The bookend skeletons carry no `silent`: each manifest's `chrome` field sets the frame it
+		// wants (`title` drops the header and page number, `closing` the page number), and an author
+		// who wants the whole frame gone adds `silent`, as the worked decks do.
 		assert.match(skel, /^<!-- @meta\{layout=title\} -->$/m, 'title skeleton defers to its manifest chrome');
 		assert.match(skel, /^<!-- @meta\{layout=closing\} -->$/m, 'closing skeleton defers to its manifest chrome');
 		// The four notes, named (engineering/decisions/2026-11-20-four-notes.md); a plain comment reaches nothing.
 		assert.match(start, /`<!-- @note\{Pause here for questions\.\} -->` is the speaker note/);
-		for (const name of ['say', 'alt', 'handout']) assert.ok(start.includes(`\`<!-- @${name}{…} -->\``), `start.md teaches @${name}`);
-		assert.doesNotMatch(start, /<!-- (?:say|describe|reader): /, 'start.md teaches no retired note key');
+		for (const name of ['say', 'alt', 'handout']) assert.ok(start.includes(`\`<!-- @${name}{…} -->\``), `layouts.md teaches @${name}`);
+		assert.doesNotMatch(start, /<!-- (?:say|describe|reader): /, 'layouts.md teaches no retired note key');
+		assert.doesNotMatch(readKit('start.md'), /<!-- (?:say|describe|reader): /, 'start.md teaches no retired note key');
 		assert.match(start, /`kpi` row.s first pill takes its color from the row.s POSITION/);
 		assert.doesNotMatch(skel, /`\{(Board|Audit|Investor)\}`/, 'kpi skeleton carries no decorative pills');
 		for (const chart of ['bar', 'piechart']) assert.match(skel, new RegExp(`^### ${chart}$`, 'm'), `a ${chart} skeleton`);
