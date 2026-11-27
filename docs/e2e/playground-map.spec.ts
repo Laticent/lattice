@@ -385,8 +385,8 @@ test('a key that scrolls the preview mid-jump hands the walk to the reader, not 
 test('a drag on the preview scrollbar mid-jump hands the walk to the reader, not to the jump', async ({ playwright }, testInfo) => {
 	// The same rule as the key test above, for the other input that scrolls the frame by itself: the reader dragging its
 	// scrollbar (`onDeckPress`, PlaygroundApp.tsx). Playwright's Chromium hides scrollbars by default
-	// (`--hide-scrollbars`), and so do its Firefox and WebKit here, so this one browser keeps them: a press on a real
-	// 15px scrollbar lands on the frame's <html> past its client width, which is what the stamp keys on.
+	// (`--hide-scrollbars`), and so do its Firefox and WebKit here, so this one browser keeps them: the reader drags a
+	// real 15px scrollbar, and its press is what stamps the input clock.
 	const use = testInfo.project.use;
 	const browser = await playwright.chromium.launch({ ...use.launchOptions, ignoreDefaultArgs: ['--hide-scrollbars'] });
 	try {

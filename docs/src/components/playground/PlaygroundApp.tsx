@@ -1848,7 +1848,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	 *
 	 * NOT "still moving": a blocked main thread stops a smooth scroll between two looks, and that stillness is the
 	 * very case this exists for (tried, and the flake came back: 2 in 144). What lets go of a scroll the READER
-	 * canceled is the input clock: the native scroll keys and a press on the frame's scrollbar stamp it
+	 * canceled is the input clock: the native scroll keys and any press in the frame stamp it
 	 * (`onDeckKey`, `onDeckPress`), so their scroll releases the guard as a wheel's does. `hardUntil` is the ceiling
 	 * over the rest: a scroll that never arrives does not hold the observer shut for good.
 	 */
@@ -2705,13 +2705,13 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		// if the gesture turns out to have been a step. See `onDeckTouchEnd`.
 		if (t) touchRef.current = { x: t.clientX, y: t.clientY, multi: false, driveWas: driveAtRef.current };
 	}, []);
-	/** A press on the frame's scrollbar (its root element): the reader is about to drag the deck. Stamps the input
-	 *  clock only, as a key does, so a walk scroll still on its way stands down (`walkEnRoute`). */
-	const onDeckPress = React.useCallback((e: PointerEvent) => {
-		const t = e.target as Element | null;
-		// The root element is also the target of a press in any part of the frame the body does not cover, so the
-		// press must also sit in the scrollbar's own strip, right of the document's client width.
-		if (t && t === t.ownerDocument?.documentElement && e.clientX >= t.clientWidth) userInputAtRef.current = Date.now();
+	/** A press anywhere in the frame: the reader taking hold of the deck, a scrollbar drag among them. Stamps the input
+	 *  clock only, as a key does, so a walk scroll still on its way stands down (`walkEnRoute`). ANY press, not only one
+	 *  in a classic scrollbar's strip: an overlay scrollbar (macOS, and every headless engine here) has no strip, and a
+	 *  right-to-left frame puts it on the left. A press that is not a drag costs only the guard letting go early, after
+	 *  which the bar follows the frame on its way to the same slide. */
+	const onDeckPress = React.useCallback(() => {
+		userInputAtRef.current = Date.now();
 	}, []);
 	/** A wheel or a finger actually moving the deck. Separate from the swipe rule above: a
 	 *  drag that never clears the swipe threshold is still the reader scrolling. */
@@ -2938,7 +2938,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		win.addEventListener('scroll', onDeckScroll, { passive: true });
 		win.addEventListener('scroll', () => syncRef.current?.previewScrolled(), { passive: true });
 		doc.addEventListener('click', onFrameClick as EventListener);
-		// A press on the frame's own scrollbar lands on its root element, and a drag from there scrolls the deck.
+		// A press in the frame is the reader taking hold of the deck (a scrollbar drag among them): see `onDeckPress`.
 		doc.addEventListener('pointerdown', onDeckPress, { passive: true });
 		win.addEventListener('wheel', onDeckDrive, { passive: true });
 		// The frame's OWN ResizeObserver, on the filmstrip the fit agent rescales. Created
