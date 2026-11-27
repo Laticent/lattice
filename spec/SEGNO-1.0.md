@@ -96,8 +96,9 @@ order written. A record holds at least one item (or is a description, §4.7).
 ### 4.2 Names
 
 The text before `=` MUST be a name: an ASCII letter, then ASCII letters, digits and `-`
-(`[A-Za-z][A-Za-z0-9-]*`). Anything else before an `=` is refused (`bad-name`), so `acme.tally=3`
-and `acme:tally=3` are refusals in 1.0. A reader MUST return a name in lower case: `Shape=tag` and
+(`[A-Za-z][A-Za-z0-9-]*`). Space between the name and its `=` belongs to no name, and a reader MUST
+drop it: `{a =b}` and `{a<TAB>=b}` read the same as `{a=b}`. Anything else before an `=` is refused
+(`bad-name`), so `acme.tally=3` and `acme:tally=3` are refusals in 1.0. A reader MUST return a name in lower case: `Shape=tag` and
 `shape=tag` read the same. Value text keeps its case.
 
 ### 4.3 Bare values
@@ -141,6 +142,16 @@ item on its own (`after=Design`). Space before it is skipped.
 A reader MUST refuse a span that the grammar does not match, and a span whose tree breaks §4.2 or
 §4.5. It MUST NOT return a partial tree for a refused span. A reader SHOULD report the code below for
 each refusal, because the shared test cases name it; how it words its message is its own business.
+
+A span can break more than one rule. A reader that reports codes MUST then report the one this order
+picks, so two readers agree on every span:
+
+1. **The grammar first.** If the span does not match §3, report the code of the first fault met
+   reading left to right. A quote or bracket that is never closed is met at the end of the span, so
+   `{a, b|c` is `reserved-pipe`. `too-deep` is a grammar fault, met at the bracket that goes past §6.
+2. **Then the tree.** Only a span that matches §3 is checked against §4.2 and §4.5, and the first
+   fault left to right gives `bad-name` or `named-in-list`. So `{x.y=1|2}` is `reserved-pipe`, not
+   `bad-name`.
 
 | Code | When |
 |---|---|

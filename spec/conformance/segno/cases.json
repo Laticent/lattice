@@ -546,6 +546,56 @@
       "title": "33 levels of brackets are refused",
       "input": "[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[x]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]",
       "refuse": "too-deep"
+    },
+    {
+      "section": "4.2",
+      "title": "Space before = is dropped",
+      "input": "{a =b}",
+      "item": {
+        "value": {
+          "kind": "record",
+          "items": [
+            {
+              "name": "a",
+              "value": {
+                "kind": "scalar",
+                "text": "b"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "section": "4.2",
+      "title": "A tab before = is dropped",
+      "input": "{a\t=b}",
+      "item": {
+        "value": {
+          "kind": "record",
+          "items": [
+            {
+              "name": "a",
+              "value": {
+                "kind": "scalar",
+                "text": "b"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "section": "5",
+      "title": "A grammar fault is reported before a bad name",
+      "input": "{x.y=1|2}",
+      "refuse": "reserved-pipe"
+    },
+    {
+      "section": "5",
+      "title": "The first grammar fault left to right wins",
+      "input": "{d|e, a=b=c}",
+      "refuse": "reserved-pipe"
     }
   ]
 }
