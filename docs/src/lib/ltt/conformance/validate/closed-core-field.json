@@ -1,0 +1,155 @@
+{
+  "name": "a field inside the closed core is refused",
+  "why": "spec/LTT-1.0.md §The core: the core is closed, because the packed encoding carries its fields by name and would drop any other; a new core field is a new major version.",
+  "ltt": {
+    "format": "ltt",
+    "version": "1.0",
+    "source": {
+      "kind": "deck",
+      "id": "conformance-captions.md"
+    },
+    "inputs": {
+      "engine": "sha256:5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+      "pace": "moderate",
+      "deckPace": "natural",
+      "lang": "en"
+    },
+    "seekable": true,
+    "segments": [
+      {
+        "id": "d1",
+        "kind": "slide",
+        "at": {
+          "slide": 1
+        },
+        "hash": "sha256:5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+        "basis": "estimate",
+        "holdMs": 0,
+        "track": {
+          "cues": [
+            {
+              "display": "Revenue grew.",
+              "words": [
+                {
+                  "display": "Revenue",
+                  "spoken": "revenue",
+                  "startMs": 0,
+                  "endMs": 400,
+                  "charOffset": 0
+                },
+                {
+                  "display": "grew.",
+                  "spoken": "grew",
+                  "startMs": 500,
+                  "endMs": 1000,
+                  "charOffset": 8
+                }
+              ],
+              "startMs": 0,
+              "endMs": 1000,
+              "charOffset": 0,
+              "color": "red"
+            },
+            {
+              "display": "Costs held.",
+              "words": [
+                {
+                  "display": "Costs held.",
+                  "spoken": "costs held",
+                  "startMs": 1300,
+                  "endMs": 1800,
+                  "charOffset": 14
+                }
+              ],
+              "startMs": 1300,
+              "endMs": 1800,
+              "charOffset": 14
+            }
+          ],
+          "durationMs": 1800
+        },
+        "tailMs": 500
+      },
+      {
+        "id": "d2",
+        "kind": "hold",
+        "at": {
+          "slide": 2
+        },
+        "holdMs": 2000
+      },
+      {
+        "id": "d3",
+        "kind": "slide",
+        "at": {
+          "slide": 3
+        },
+        "hash": "sha256:5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+        "basis": "estimate",
+        "holdMs": 1400,
+        "track": {
+          "cues": [
+            {
+              "display": "Yes.",
+              "words": [
+                {
+                  "display": "Yes.",
+                  "spoken": "yes",
+                  "startMs": 0,
+                  "endMs": 120,
+                  "charOffset": 0
+                }
+              ],
+              "startMs": 0,
+              "endMs": 120,
+              "charOffset": 0
+            },
+            {
+              "display": "Hm",
+              "words": [
+                {
+                  "display": "Hm",
+                  "spoken": "hm",
+                  "startMs": 320,
+                  "endMs": 320,
+                  "charOffset": 5
+                }
+              ],
+              "startMs": 320,
+              "endMs": 320,
+              "charOffset": 5
+            },
+            {
+              "display": "Margin doubled.",
+              "words": [
+                {
+                  "display": "Margin",
+                  "spoken": "margin",
+                  "startMs": 520,
+                  "endMs": 700,
+                  "charOffset": 8
+                },
+                {
+                  "display": "doubled.",
+                  "spoken": "doubled",
+                  "startMs": 800,
+                  "endMs": 1020,
+                  "charOffset": 15
+                }
+              ],
+              "startMs": 520,
+              "endMs": 1020,
+              "charOffset": 8
+            }
+          ],
+          "durationMs": 1020
+        },
+        "tailMs": 400
+      }
+    ]
+  },
+  "valid": false,
+  "problems": [
+    "the core is closed"
+  ]
+}
