@@ -301,12 +301,7 @@ export function notifySticky(message: string, opts: ActionOptions): NoticeHandle
 	return raiseSlot(
 		'sticky',
 		message,
-		// AT THE BOTTOM, at every width. Below 1024px the toaster stands at the top (ui/sonner.tsx, note 5), which is
-		// right for a message that leaves on its own and wrong for one that never does: measured on the Playground at
-		// 390px, "This page is out of date · Reload" at the top covered the whole top bar (home, search, Menu, the
-		// Explore/Edit tabs, Slide map, Focus, Deck settings) until dismissed; at the bottom it covered only the two
-		// disabled walk buttons. The owner's call on PR 3559: transient toasts at the top, sticky ones at the bottom.
-		{ duration: Number.POSITIVE_INFINITY, description: opts.description, position: 'bottom-center' },
+		{ duration: Number.POSITIVE_INFINITY, description: opts.description },
 		// Same unreported close path as `notifyAction` — see its docblock.
 		(closed) => ({
 			action: {
