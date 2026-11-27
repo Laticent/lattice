@@ -120,19 +120,33 @@ export const LLMS_LINKS = Object.freeze({
 });
 
 /**
- * The homepage's agent entry (#3522 E2-S01): one hop from `/` to the instructions, for an agent
- * that has never heard of llms.txt. `AGENT_ENTRY` is the visible anchor's target (ByomSection in
- * components/landing/sections.tsx) and the first link llms.txt gives. `HOME_AGENT_LINKS` are the
- * `<link>` tags the landing page's `<head>` carries: `describedby` names the llms.txt router (the
- * relation llmstxt.org suggests), `help` names the entry. Both are site paths; the page resolves
- * them against its base. scripts/check-discovery.mjs fails the build when the built index.html
- * loses the anchor or either tag, or when a target was not built.
+ * Where an agent starts (#3522 E2-S01). `AGENT_ENTRY` is the target of the homepage's visible
+ * anchor (ByomSection in components/landing/sections.tsx) and the first link llms.txt gives.
+ *
+ * `DESCRIBEDBY_LINK` names the llms.txt router from EVERY built page, the relation the llms.txt
+ * proposal (llmstxt.org) recommends for "the llms.txt that covers this page". scripts/md-twins.mjs
+ * writes it into each page's <head> after the build (`withDescribedBy`), because many routes
+ * write their own <head> and an Astro integration can inject only scripts; one writer means no
+ * route can forget it. `HOME_HEAD_LINKS` are the extra tags only the landing page carries:
+ * `help` names the entry. scripts/check-discovery.mjs fails the build when a page lacks the
+ * describedby tag, or the homepage loses its anchor or a tag, or a target was not built.
  */
 export const AGENT_ENTRY = '/agents/start.md';
-export const HOME_AGENT_LINKS = Object.freeze([
-	Object.freeze({ rel: 'describedby', type: 'text/plain', href: '/llms.txt', title: 'Lattice for AI agents' }),
+export const DESCRIBEDBY_LINK = Object.freeze({ rel: 'describedby', type: 'text/plain', href: '/llms.txt' });
+export const HOME_HEAD_LINKS = Object.freeze([
 	Object.freeze({ rel: 'help', type: 'text/markdown', href: AGENT_ENTRY, title: 'How an agent writes a Lattice deck' }),
 ]);
+/** Every head tag the homepage must carry, the site-wide one included. */
+export const HOME_AGENT_LINKS = Object.freeze([DESCRIBEDBY_LINK, ...HOME_HEAD_LINKS]);
+
+/** The describedby tag exactly as every page carries it. */
+export const DESCRIBEDBY_TAG = `<link rel="${DESCRIBEDBY_LINK.rel}" type="${DESCRIBEDBY_LINK.type}" href="${DESCRIBEDBY_LINK.href}">`;
+
+/** Add DESCRIBEDBY_TAG to a page's <head>, once; a page with no </head> is returned as it was. */
+export function withDescribedBy(html) {
+	if (!html.includes('</head>')) return html;
+	return html.split(DESCRIBEDBY_TAG).join('').replace('</head>', `${DESCRIBEDBY_TAG}</head>`);
+}
 
 /**
  * The attributes of one start tag, as a map: double-quoted, single-quoted, unquoted or bare

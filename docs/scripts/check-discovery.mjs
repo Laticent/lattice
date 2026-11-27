@@ -14,7 +14,8 @@
 //      the size its tags declare.
 //   4. robots.txt points at a sitemap that exists, and every link in llms.txt resolves to a
 //      built file; llms.txt stays a router (under 4 KB), not an index.
-//   5. The homepage's initial HTML carries the agent entry (#3522 E2-S01): one visible anchor
+//   5. Every page (404 included, redirect stubs and playground frames not) names the llms.txt
+//      router with exactly one DESCRIBEDBY_TAG, which md-twins.mjs writes. And the homepage's initial HTML carries the agent entry (#3522 E2-S01): one visible anchor
 //      to AGENT_ENTRY and each HOME_AGENT_LINKS tag, every target a built file.
 //
 // Not checked: redirect stubs (Astro writes them with their own noindex + canonical), the
@@ -26,7 +27,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { homeAgentEntryProblems, isIndexable, LLMS_LINKS, OG_IMAGE } from '../src/lib/discovery.mjs';
+import { DESCRIBEDBY_TAG, homeAgentEntryProblems, isIndexable, LLMS_LINKS, OG_IMAGE } from '../src/lib/discovery.mjs';
 import { contentSources, hasHistory, makeLastmod } from '../src/lib/lastmod.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -71,16 +72,24 @@ if (!fs.existsSync(DIST)) {
 	process.exit(1);
 }
 
+/** Check 5, first half: one llms.txt describedby tag, exactly as md-twins.mjs writes it. */
+function describedbyProblem(route, head) {
+	const n = head.split(DESCRIBEDBY_TAG).length - 1;
+	if (n !== 1) fail(`${route} has ${n} ${DESCRIBEDBY_TAG} (want exactly 1; scripts/md-twins.mjs writes it)`);
+}
+
 // ── 1 + 3: every route's own signals ─────────────────────────────────────────
 const indexable = new Set();
 let checked = 0;
 for (const file of walk(DIST)) {
 	const route = routeOf(file);
+	if (route === '/404.html') describedbyProblem(route, fs.readFileSync(file, 'utf8').split('</head>')[0]);
 	if (route === '/404.html' || route.startsWith('/playground/v/')) continue;
 	const html = fs.readFileSync(file, 'utf8');
 	const head = html.split('</head>')[0];
 	if (/<meta http-equiv="refresh"/i.test(head)) continue; // a redirect stub
 	checked++;
+	describedbyProblem(route, head);
 	const noindex = /<meta name="robots" content="[^"]*noindex/i.test(head);
 	const want = isIndexable(route);
 	if (noindex && want) fail(`${route} says noindex, but discovery.mjs lists it as indexable — add it to NOINDEX_PREFIXES or drop the meta`);
