@@ -6,9 +6,9 @@ venue: hall
 header: "Lattice · Venue is a fixed size"
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=title, header="", footer=""} -->
+
+
 
 # The room sets the size
 
@@ -18,8 +18,8 @@ Every slide renders at 1.5x. A slide too full for the room clips and is named, a
 
 ---
 
-<!-- _class: list-steps -->
-<!-- _footer: "Fits · 3 steps, the hall budget" -->
+<!-- @meta{layout=list-steps, footer="Fits · 3 steps, the hall budget"} -->
+
 
 `Fits · list-steps`
 
@@ -34,8 +34,8 @@ Every slide renders at 1.5x. A slide too full for the room clips and is named, a
 
 ---
 
-<!-- _class: list-steps -->
-<!-- _footer: "Clips · 5 steps, past the hall budget of 3" -->
+<!-- @meta{layout=list-steps, footer="Clips · 5 steps, past the hall budget of 3"} -->
+
 
 `Too full · list-steps`
 
@@ -52,14 +52,14 @@ Every slide renders at 1.5x. A slide too full for the room clips and is named, a
 5. Hand off
    - Waits for approval, answers review comments, and leaves notes for next time.
 
-<!-- stress-slide -->
+<!-- @meta{stress-slide} -->
 
 <!-- @note{This slide clips on purpose: it is the one the demo is about. Without the stress-slide marker lint:deck warns (capacity-scale); the Studio rings it and offers "Split slide" or "Use Conference", and the export's OVERFLOW line lists this page.} -->
 
 ---
 
-<!-- _class: list-steps -->
-<!-- _footer: "Fix · Split slide, first half" -->
+<!-- @meta{layout=list-steps, footer="Fix · Split slide, first half"} -->
+
 
 `Split · list-steps`
 
@@ -74,8 +74,8 @@ Every slide renders at 1.5x. A slide too full for the room clips and is named, a
 
 ---
 
-<!-- _class: list-steps -->
-<!-- _footer: "Fix · Split slide, second half" -->
+<!-- @meta{layout=list-steps, footer="Fix · Split slide, second half"} -->
+
 
 `Split · list-steps`
 
@@ -88,8 +88,8 @@ Every slide renders at 1.5x. A slide too full for the room clips and is named, a
 
 ---
 
-<!-- _class: stats -->
-<!-- _footer: "Retired · the automatic step-down" -->
+<!-- @meta{layout=stats, footer=Retired · the automatic step-down} -->
+
 
 `Retired · STEP and LEVEL`
 
@@ -104,8 +104,8 @@ Every slide renders at 1.5x. A slide too full for the room clips and is named, a
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
+<!-- @meta{layout=closing, header=""} -->
+
 
 `Pick the room, then write for it`
 

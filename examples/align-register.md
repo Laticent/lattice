@@ -6,7 +6,7 @@ header: "Lattice · one align: key"
 align: bottom
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # One key places content up and down, and side to side
 
@@ -15,8 +15,8 @@ This deck sets `align: bottom`. Each slide below names its own words, and only t
 
 ---
 
-<!-- _class: cards-grid -->
-<!-- _footer: "deck align: bottom · the grid sits on the floor of the stage" -->
+<!-- @meta{layout=cards-grid, footer=deck align: bottom · the grid sits on the floor of the stage} -->
+
 
 ## The deck says bottom, so the cards sit on the floor.
 
@@ -29,8 +29,8 @@ This deck sets `align: bottom`. Each slide below names its own words, and only t
 
 ---
 
-<!-- _class: cards-grid align-top -->
-<!-- _footer: "_class: align-top · one slide moves up; the deck's other axis is untouched" -->
+<!-- @meta{layout=cards-grid, class=align-top, footer="_class: align-top · one slide moves up; the deck's other axis is untouched"} -->
+
 
 ## One slide asks for the top, and only this slide moves.
 
@@ -43,8 +43,8 @@ This deck sets `align: bottom`. Each slide below names its own words, and only t
 
 ---
 
-<!-- _class: content align-center -->
-<!-- _footer: "_class: align-center · alone, center centers both ways" -->
+<!-- @meta{layout=content, class=align-center, footer="_class: align-center · alone, center centers both ways"} -->
+
 
 ## Center on its own centers both ways.
 
@@ -52,8 +52,8 @@ A short statement reads as composed in the middle of the frame, not pinned under
 
 ---
 
-<!-- _class: content align-bottom-right -->
-<!-- _footer: "_class: align-bottom-right · two words in one class" -->
+<!-- @meta{layout=content, class=align-bottom-right, footer="_class: align-bottom-right · two words in one class"} -->
+
 
 ## Bottom and right, written as one class.
 
@@ -61,8 +61,8 @@ The content block ends at the right edge and sits on the floor.
 
 ---
 
-<!-- _class: verdict-grid align-spread -->
-<!-- _footer: "_class: align-spread · rows keep their height and share the spare space" -->
+<!-- @meta{layout=verdict-grid, class=align-spread, footer="_class: align-spread · rows keep their height and share the spare space"} -->
+
 
 ## Spread shares the spare height between the rows.
 
@@ -77,8 +77,8 @@ The content block ends at the right edge and sits on the floor.
 
 ---
 
-<!-- _class: verdict-grid align-fill -->
-<!-- _footer: "_class: align-fill · rows grow to fill the stage" -->
+<!-- @meta{layout=verdict-grid, class=align-fill, footer="_class: align-fill · rows grow to fill the stage"} -->
+
 
 ## Fill grows the rows to the full height.
 
@@ -93,8 +93,8 @@ The content block ends at the right edge and sits on the floor.
 
 ---
 
-<!-- _class: list align-middle align-right -->
-<!-- _footer: "_class: align-middle align-right · one word per axis" -->
+<!-- @meta{layout=list, class=align-middle align-right, footer="_class: align-middle align-right · one word per axis"} -->
+
 
 ## A list in the middle, against the right edge.
 

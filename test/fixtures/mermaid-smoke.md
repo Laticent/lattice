@@ -5,7 +5,7 @@ size: hd
 pagination: false
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # Mermaid smoke test
 
@@ -14,7 +14,7 @@ small so the test stays fast (one diagram ≈ 3-5 s through mmdc).
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 ## A to B
 

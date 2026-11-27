@@ -6,7 +6,7 @@ pagination: true
 header: "Lensing dark matter · Seminar"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 <!-- tier: short -->
 
 `Astrophysics Seminar · Department Colloquium`
@@ -17,7 +17,7 @@ A method seminar on reconstructing mass maps from gravitational lensing.
 
 ---
 
-<!-- _class: agenda -->
+<!-- @meta{layout=agenda} -->
 <!-- tier: short -->
 
 ## What this seminar covers.
@@ -29,7 +29,7 @@ A method seminar on reconstructing mass maps from gravitational lensing.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## Five-sixths of the matter in the universe emits no light at all.
@@ -38,7 +38,7 @@ Galaxies rotate too fast to hold together on their visible mass alone. The missi
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## Mass curves spacetime, and curved spacetime bends the light passing through it.
@@ -50,7 +50,7 @@ A massive cluster between us and a distant galaxy acts as a lens. The background
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## The signal is tiny — one galaxy tells you almost nothing.
@@ -62,7 +62,7 @@ A single background galaxy is shed by maybe one percent, lost in its own random 
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 <!-- tier: short -->
 
 ## How a mass map is reconstructed from distorted starlight.
@@ -78,7 +78,7 @@ flowchart LR
 
 ---
 
-<!-- _class: list-steps -->
+<!-- @meta{layout=list-steps} -->
 <!-- tier: short -->
 
 ## The reconstruction pipeline, step by step.
@@ -94,7 +94,7 @@ flowchart LR
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## The hardest step is the telescope, not the physics.
@@ -106,7 +106,7 @@ The atmosphere and the instrument blur every galaxy, mimicking the very shear we
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## A worked result: the Ophion cluster, weighed two ways.
@@ -118,7 +118,7 @@ Applying the pipeline to the Ophion cluster, we recover a total mass of 4.2 × 1
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## Where the dark and visible maps disagree is where the physics gets interesting.
@@ -130,7 +130,7 @@ In one sub-region of Ophion the mass peak sits offset from the gas — a signatu
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## What the next survey generation changes.
@@ -142,9 +142,9 @@ Wide-field surveys now imaging billions of galaxies will shrink the shape noise 
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 <!-- tier: short -->
 
 ## We cannot see dark matter — but we can watch it bend the light around it.

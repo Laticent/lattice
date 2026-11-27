@@ -64,10 +64,10 @@
   },
   "skeleton": "<!-- @meta{layout=checklist} -->\n\n## Pre-launch readiness.\n\n- [x] First item that is fully done.\n- [x] Second item that is fully done.\n- [-] Third item that is partially complete with a caveat.\n- [!] Fourth item that was checked and failed.\n- [?] Fifth item nobody can settle yet.\n- [ ] Sixth item that is not yet started.\n",
   "anatomyBlock": "checklist",
-  "sample": "<!-- _class: checklist -->\n\n## The checklist tracks readiness in six answers.\n\n- [x] Done rows take a solid check\n- [-] Half-done rows show the dash\n- [!] Failed rows take the red cross\n- [?] Unsettled rows ring a question mark\n- [ ] Open rows stay an empty ring\n- [/] Descoped rows get the slash\n",
+  "sample": "<!-- @meta{layout=checklist} -->\n\n## The checklist tracks readiness in six answers.\n\n- [x] Done rows take a solid check\n- [-] Half-done rows show the dash\n- [!] Failed rows take the red cross\n- [?] Unsettled rows ring a question mark\n- [ ] Open rows stay an empty ring\n- [/] Descoped rows get the slash\n",
   "stressDoc": {
     "summary": "Nine rows, all six answers — the ceiling.",
-    "sample": "<!-- _class: checklist -->\n\n## Nine rows is where the checklist overflows.\n\n- [x] The first rows land while attention is fresh\n- [x] Sixteen words is the budget a stress row may spend\n- [x] Three checks in a row read as momentum\n- [-] A dash admits the honest middle state\n- [!] A red cross marks the check that failed\n- [?] A ringed question admits what is unknown\n- [ ] Late rows stay short; the audience is counting now\n- [/] The slash records what was cut, visibly\n- [x] Nine is the last row this layout seats\n"
+    "sample": "<!-- @meta{layout=checklist} -->\n\n## Nine rows is where the checklist overflows.\n\n- [x] The first rows land while attention is fresh\n- [x] Sixteen words is the budget a stress row may spend\n- [x] Three checks in a row read as momentum\n- [-] A dash admits the honest middle state\n- [!] A red cross marks the check that failed\n- [?] A ringed question admits what is unknown\n- [ ] Late rows stay short; the audience is counting now\n- [/] The slash records what was cut, visibly\n- [x] Nine is the last row this layout seats\n"
   },
   "whenToUse": [
     {

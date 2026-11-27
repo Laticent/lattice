@@ -14,7 +14,7 @@ pagination: true
      is the shallowest geometry that reaches the lone-member split rule.
        node lattice.js tools/spike-card-slack/fixtures/stats-square-autosplit.md out.pdf -->
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 
 ## Operating numbers for the quarter
 

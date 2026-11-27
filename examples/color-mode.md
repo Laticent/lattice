@@ -6,7 +6,7 @@ color-mode: dark
 footer: "Laticent · color mode"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # One deck, both canvases.
 
@@ -16,7 +16,7 @@ A deck sets its own light or dark canvas, and any single slide can flip the othe
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 ## The deck is dark because it says so — not because the site is.
 
@@ -38,7 +38,7 @@ Pin a mode when the look is the point. Reach for `system` when you'd rather resp
 
 ---
 
-<!-- _class: light -->
+<!-- @meta{class=light} -->
 
 ## A bright island in a dark deck.
 
@@ -58,7 +58,7 @@ This deck is `theme: cuoio`, not the website's palette. Change the site theme al
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 ## Independent by default.
 

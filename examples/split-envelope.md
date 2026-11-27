@@ -6,7 +6,7 @@ header: "Lattice · Split envelope"
 footer: "Split envelope"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # Every split reads the same way
 
@@ -16,7 +16,7 @@ A slide that outgrows its box becomes several. Now it always becomes the same *s
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## Cover, body, insight
 
@@ -27,7 +27,7 @@ A slide that outgrows its box becomes several. Now it always becomes the same *s
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## Two kinds of trailing material
 
@@ -38,7 +38,7 @@ A slide that outgrows its box becomes several. Now it always becomes the same *s
 
 ---
 
-<!-- _class: checklist -->
+<!-- @meta{layout=checklist} -->
 
 ## Launch readiness
 
@@ -65,7 +65,7 @@ Source: the launch board, reviewed every Thursday.
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 ## Where the quarter went
 
@@ -90,7 +90,7 @@ The three unfunded programs are listed in the appendix, not here.
 
 ---
 
-<!-- _class: table -->
+<!-- @meta{layout=table} -->
 
 ## Build versus buy versus delay
 
@@ -107,7 +107,7 @@ Source: vendor evaluation, Q3 procurement review.
 
 ---
 
-<!-- _class: inventory -->
+<!-- @meta{layout=inventory} -->
 
 ## Systems of record
 
@@ -120,7 +120,7 @@ Source: vendor evaluation, Q3 procurement review.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## The invariant
 
@@ -132,7 +132,7 @@ Source: vendor evaluation, Q3 procurement review.
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 # One move, one shape
 

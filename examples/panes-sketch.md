@@ -6,7 +6,7 @@ header: "Lattice · panes"
 footer: "Panes under a sketch finish"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # A hand-drawn table, in a pane
 
@@ -18,14 +18,14 @@ footer: "Panes under a sketch finish"
 
 ## EMEA carried the quarter while APAC held flat.
 
-<!-- _class: columns ratio-40-60 -->
-<!-- _pane: list -->
+<!-- @meta{layout=columns, class=ratio-40-60} -->
+<!-- @meta{pane=list} -->
 
 - EMEA closed three late deals
 - APAC renewals slipped a quarter
 - Americas held its run rate
 
-<!-- _pane: table -->
+<!-- @meta{pane=table} -->
 
 | Region | Q2 | Q3 | Δ |
 |---|---|---|---|
@@ -51,8 +51,8 @@ footer: "Panes under a sketch finish"
 
 ## Each signal is scored before it is ranked.
 
-<!-- _class: columns ratio-55-45 -->
-<!-- _pane: list-tabular -->
+<!-- @meta{layout=columns, class=ratio-55-45} -->
+<!-- @meta{pane=list-tabular} -->
 
 1. Confidence
    - Independent sources behind the signal
@@ -64,7 +64,7 @@ footer: "Panes under a sketch finish"
    - Customers or segments affected
    - _1–5 · Auto_
 
-<!-- _pane: table -->
+<!-- @meta{pane=table} -->
 
 | Signal | Weight |
 |---|---|
@@ -78,12 +78,12 @@ footer: "Panes under a sketch finish"
 
 ## A stacked pane gets the same hand.
 
-<!-- _class: rows ratio-60-40 -->
-<!-- _pane: list -->
+<!-- @meta{layout=rows, class=ratio-60-40} -->
+<!-- @meta{pane=list} -->
 
 - Three regions, two quarters, one outlier
 
-<!-- _pane: table -->
+<!-- @meta{pane=table} -->
 
 | Region | Q2 | Q3 |
 |---|---|---|
@@ -92,7 +92,7 @@ footer: "Panes under a sketch finish"
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 # One pen for every line on the slide.
 

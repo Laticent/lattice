@@ -95,7 +95,7 @@ Under a variant, a slot changes shape:
 Ordered by supremacy.
 
 ```markdown
-<!-- _class: statute-stack hierarchy -->
+<!-- @meta{layout=statute-stack, class=hierarchy} -->
 
 ## hierarchy orders the stack by supremacy.
 
@@ -112,7 +112,7 @@ Ordered by supremacy.
 Full-width strips.
 
 ```markdown
-<!-- _class: statute-stack bands -->
+<!-- @meta{layout=statute-stack, class=bands} -->
 
 ## bands strips each jurisdiction full-width.
 
@@ -129,7 +129,7 @@ Full-width strips.
 Which law yields.
 
 ```markdown
-<!-- _class: statute-stack preemption -->
+<!-- @meta{layout=statute-stack, class=preemption} -->
 
 ## preemption marks which law yields.
 
@@ -146,7 +146,7 @@ Which law yields.
 One column stack.
 
 ```markdown
-<!-- _class: statute-stack lane -->
+<!-- @meta{layout=statute-stack, class=lane} -->
 
 ## lane runs the stack in one column.
 

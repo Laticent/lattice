@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · align: stats, actors, kpi"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Feature demo · the align: register`
 
@@ -15,8 +15,8 @@ Short rows and tiles hug their text and sit where the deck's `align:` says. `fil
 
 ---
 
-<!-- _class: stats -->
-<!-- _footer: "stats · centered, as before. align: top, spread and fill now apply to it too." -->
+<!-- @meta{layout=stats, footer="stats · centered, as before. align: top, spread and fill now apply to it too."} -->
+
 
 ## Three stats sit in the middle of the stage.
 
@@ -29,8 +29,8 @@ Short rows and tiles hug their text and sit where the deck's `align:` says. `fil
 
 ---
 
-<!-- _class: stats align-top -->
-<!-- _footer: "stats align-top · the strip sits under the headline rule." -->
+<!-- @meta{layout=stats, class=align-top, footer=stats align-top · the strip sits under the headline rule.} -->
+
 
 ## The same three stats, set high.
 
@@ -43,8 +43,8 @@ Short rows and tiles hug their text and sit where the deck's `align:` says. `fil
 
 ---
 
-<!-- _class: actors -->
-<!-- _footer: "actors · default (middle). Three rows hug their text instead of filling the stage." -->
+<!-- @meta{layout=actors, footer="actors · default (middle). Three rows hug their text instead of filling the stage."} -->
+
 
 ## Three owners, three rows.
 
@@ -60,8 +60,8 @@ Short rows and tiles hug their text and sit where the deck's `align:` says. `fil
 
 ---
 
-<!-- _class: actors align-fill -->
-<!-- _footer: "actors align-fill · the previous look: two rows grow to fill the stage." -->
+<!-- @meta{layout=actors, class=align-fill, footer=actors align-fill · the previous look: two rows grow to fill the stage.} -->
+
 
 ## Two owners, filling the stage.
 
@@ -74,8 +74,8 @@ Short rows and tiles hug their text and sit where the deck's `align:` says. `fil
 
 ---
 
-<!-- _class: actors align-spread -->
-<!-- _footer: "actors align-spread · the same two rows, the surplus shared between them." -->
+<!-- @meta{layout=actors, class=align-spread, footer="actors align-spread · the same two rows, the surplus shared between them."} -->
+
 
 ## Two owners, spread out.
 
@@ -88,8 +88,8 @@ Short rows and tiles hug their text and sit where the deck's `align:` says. `fil
 
 ---
 
-<!-- _class: kpi trajectory -->
-<!-- _footer: "kpi trajectory · default (middle). Two tiles hug their content." -->
+<!-- @meta{layout=kpi, class=trajectory, footer="kpi trajectory · default (middle). Two tiles hug their content."} -->
+
 
 ## Two tiles, each with its delta.
 
@@ -102,8 +102,8 @@ Short rows and tiles hug their text and sit where the deck's `align:` says. `fil
 
 ---
 
-<!-- _class: kpi trajectory align-fill -->
-<!-- _footer: "kpi trajectory align-fill · the previous look: tiles fill the stage." -->
+<!-- @meta{layout=kpi, class=trajectory align-fill, footer=kpi trajectory align-fill · the previous look: tiles fill the stage.} -->
+
 
 ## The same two tiles, filling the stage.
 
@@ -116,8 +116,8 @@ Short rows and tiles hug their text and sit where the deck's `align:` says. `fil
 
 ---
 
-<!-- _class: kpi spotlight -->
-<!-- _footer: "kpi spotlight · default (middle). The promoted tile no longer runs the full height." -->
+<!-- @meta{layout=kpi, class=spotlight, footer="kpi spotlight · default (middle). The promoted tile no longer runs the full height."} -->
+
 
 ## One tile earns the width.
 
@@ -133,8 +133,8 @@ Short rows and tiles hug their text and sit where the deck's `align:` says. `fil
 
 ---
 
-<!-- _class: kpi ops align-top -->
-<!-- _footer: "kpi ops align-top · two tiles, set under the headline rule." -->
+<!-- @meta{layout=kpi, class=ops align-top, footer="kpi ops align-top · two tiles, set under the headline rule."} -->
+
 
 ## Ops with two tiles, set high.
 

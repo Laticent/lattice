@@ -73,10 +73,10 @@
   },
   "skeleton": "<!-- @meta{layout=decision} -->\n\n## What we are doing.\n\n- Chosen path\n  - One-line rationale for the decision.\n- Rejected option\n  - One-line rationale for why this didn't fit.\n",
   "anatomyBlock": "decision",
-  "sample": "<!-- _class: decision -->\n\n## The decision slide names the chosen path.\n\n- The pick, stated plainly.\n  - The chosen option leads with the verdict treatment and the reason it won, in one breath.\n- The road not taken.\n  - The alternative keeps its honest case — a decision against a straw man persuades no one.\n",
+  "sample": "<!-- @meta{layout=decision} -->\n\n## The decision slide names the chosen path.\n\n- The pick, stated plainly.\n  - The chosen option leads with the verdict treatment and the reason it won, in one breath.\n- The road not taken.\n  - The alternative keeps its honest case — a decision against a straw man persuades no one.\n",
   "stressDoc": {
     "summary": "Two full arguments, no more.",
-    "sample": "<!-- _class: decision -->\n\n## A verdict can carry two full arguments, no more.\n\n- The chosen path, fully argued.\n  - At the hard budget the winning card states the call, the strongest reason, and the accepted cost in two sentences — everything else belongs in the appendix.\n- The alternative, fully respected.\n  - The losing card may run just as long; a verdict earns trust precisely when the rejected option is shown at its strongest and still loses.\n"
+    "sample": "<!-- @meta{layout=decision} -->\n\n## A verdict can carry two full arguments, no more.\n\n- The chosen path, fully argued.\n  - At the hard budget the winning card states the call, the strongest reason, and the accepted cost in two sentences — everything else belongs in the appendix.\n- The alternative, fully respected.\n  - The losing card may run just as long; a verdict earns trust precisely when the rejected option is shown at its strongest and still loses.\n"
   },
   "whenToUse": [
     {
@@ -131,7 +131,7 @@
     "tag-band": {
       "label": "tag-band",
       "summary": "Headlines each card with its camp.",
-      "sample": "<!-- _class: decision tag-band -->\n\n## tag-band headlines each card with its camp.\n\n- DECIDE\n  - The banner carries the stance; the body carries the reason.\n- RECORD\n  - Use when the slide is the decision log's public face.\n"
+      "sample": "<!-- @meta{layout=decision, class=tag-band} -->\n\n## tag-band headlines each card with its camp.\n\n- DECIDE\n  - The banner carries the stance; the body carries the reason.\n- RECORD\n  - Use when the slide is the decision log's public face.\n"
     }
   },
   "commonMistakes": [

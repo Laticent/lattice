@@ -6,7 +6,7 @@ present: true
 header: "Lattice · presentation mode"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Export · Full-screen on open`
 
@@ -16,8 +16,8 @@ header: "Lattice · presentation mode"
 
 ---
 
-<!-- _class: list -->
-<!-- _footer: "What --present does" -->
+<!-- @meta{layout=list, footer=What --present does} -->
+
 
 ## A few catalog hints turn a PDF into a deck.
 
@@ -30,8 +30,8 @@ header: "Lattice · presentation mode"
 
 ---
 
-<!-- _class: list -->
-<!-- _footer: "Where it applies" -->
+<!-- @meta{layout=list, footer=Where it applies} -->
+
 
 ## Honored where it helps, ignored where it doesn't.
 
@@ -44,8 +44,8 @@ header: "Lattice · presentation mode"
 
 ---
 
-<!-- _class: list -->
-<!-- _footer: "How to use it" -->
+<!-- @meta{layout=list, footer=How to use it} -->
+
 
 ## One flag, or one line of front matter.
 
@@ -58,7 +58,7 @@ header: "Lattice · presentation mode"
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 ## Open it full-screen. Present from the PDF.
 

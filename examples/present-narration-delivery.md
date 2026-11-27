@@ -6,7 +6,7 @@ pace: deliberate
 header: "Lattice · present narration & delivery"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Feature demo · narrated delivery`
 
@@ -16,7 +16,7 @@ A presentation pace that travels with the file, a cursor that points at whatever
 
 ---
 
-<!-- _class: statement -->
+<!-- @meta{class=statement} -->
 
 `The deck's own rhythm`
 
@@ -26,7 +26,7 @@ Present holds a long beat on every slide. Open it on a machine set to brisk and 
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- @meta{layout=list, class=takeaway} -->
 
 `Resolution order`
 
@@ -43,7 +43,7 @@ Present holds a long beat on every slide. Open it on a machine set to brisk and 
 
 ---
 
-<!-- _class: statement -->
+<!-- @meta{class=statement} -->
 
 ## Turn Guide on and a cursor points at the sentence being spoken.
 
@@ -51,7 +51,7 @@ Captions show the words and the voice speaks them. Guide shows you where to look
 
 ---
 
-<!-- _class: statement -->
+<!-- @meta{class=statement} -->
 
 `One conductor`
 
@@ -61,7 +61,7 @@ Read aloud owns the beat. The cursor moves when the narrated sentence changes an
 
 ---
 
-<!-- _class: statement -->
+<!-- @meta{class=statement} -->
 
 `The rail`
 
@@ -71,7 +71,7 @@ Tone alone tops out near two to one across the thirty six palettes, under the th
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 ## Ship the deck, and the delivery ships with it.
 

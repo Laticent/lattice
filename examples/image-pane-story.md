@@ -6,7 +6,7 @@ pagination: true
 header: "Lattice · an image pane on a tall deck"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # A photo pane on a tall deck
 
@@ -16,14 +16,14 @@ On a 9:16 deck two panes do not fit side by side, so each becomes its own page. 
 
 ---
 
-<!-- _class: columns bleed -->
+<!-- @meta{layout=columns, class=bleed} -->
 
 ## The site, then the plan
 
-<!-- _pane: image -->
+<!-- @meta{pane=image} -->
 ![A figure by a lake under a low sun](sample:photo-wide.jpg)
 
-<!-- _pane: list -->
+<!-- @meta{pane=list} -->
 ### What changes
 
 - The hall opens in May
@@ -31,14 +31,14 @@ On a 9:16 deck two panes do not fit side by side, so each becomes its own page. 
 
 ---
 
-<!-- _class: columns bleed -->
+<!-- @meta{layout=columns, class=bleed} -->
 
 ## A tall photo, then the numbers
 
-<!-- _pane: image -->
+<!-- @meta{pane=image} -->
 ![A figure before violet hills and a pale sun](sample:photo-tall.jpg)
 
-<!-- _pane: list -->
+<!-- @meta{pane=list} -->
 ### Three numbers
 
 - 42 desks
@@ -47,22 +47,22 @@ On a 9:16 deck two panes do not fit side by side, so each becomes its own page. 
 
 ---
 
-<!-- _class: columns bleed -->
+<!-- @meta{layout=columns, class=bleed} -->
 
 ## The square shot
 
-<!-- _pane: list -->
+<!-- @meta{pane=list} -->
 ### Before the photo
 
 - The text pane comes first here
 - The image page follows it
 
-<!-- _pane: image -->
+<!-- @meta{pane=image} -->
 ![A figure on a green shore under a pale sun](sample:photo-square.jpg)
 
 ---
 
-<!-- _class: image -->
+<!-- @meta{layout=image} -->
 
 ## A plain image slide, for comparison
 

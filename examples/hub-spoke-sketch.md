@@ -6,7 +6,7 @@ mode: sketch
 header: "Lattice · hub-spoke in sketch"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Hub-spoke now measures the hand face it paints.
 
@@ -18,8 +18,8 @@ reached the edge of its disc. A measured per-character table replaces the flat n
 
 ---
 
-<!-- _class: hub-spoke sized -->
-<!-- _footer: "Was: `$120M` reached 1.052 of the hub radius and `8%` painted 1.233× its estimate. Now: 0.936 and 0.94×." -->
+<!-- @meta{layout=hub-spoke, class=sized, footer="Was: `$120M` reached 1.052 of the hub radius and `8%` painted 1.233× its estimate. Now: 0.936 and 0.94×."} -->
+
 
 `FY2026 · Partner channel revenue`
 
@@ -35,8 +35,8 @@ reached the edge of its disc. A measured per-character table replaces the flat n
 
 ---
 
-<!-- _class: hub-spoke -->
-<!-- _footer: "Was: `$48M` reached 1.021 of the hub radius. Now: 0.912, with every value inside its estimate." -->
+<!-- @meta{layout=hub-spoke, footer="Was: `$48M` reached 1.021 of the hub radius. Now: 0.912, with every value inside its estimate."} -->
+
 
 `Regional sales · Bookings this quarter`
 
@@ -58,8 +58,8 @@ reached the edge of its disc. A measured per-character table replaces the flat n
 
 ---
 
-<!-- _class: hub-spoke flow-in -->
-<!-- _footer: "Was: `16M` and `14M` painted 1.190× their estimate, `8M` 1.270×. Now every value sits at 0.94–0.95×." -->
+<!-- @meta{layout=hub-spoke, class=flow-in, footer="Was: `16M` and `14M` painted 1.190× their estimate, `8M` 1.270×. Now every value sits at 0.94–0.95×."} -->
+
 
 `Data platform · Records per day`
 
@@ -74,8 +74,8 @@ reached the edge of its disc. A measured per-character table replaces the flat n
 
 ---
 
-<!-- _class: hub-spoke tiered -->
-<!-- _footer: "Was: the hub printed `Framewor` over `k`. Now a smaller type size keeps the word whole." -->
+<!-- @meta{layout=hub-spoke, class=tiered, footer="Was: the hub printed `Framewor` over `k`. Now a smaller type size keeps the word whole."} -->
+
 
 `Framework ownership · 2026`
 
@@ -99,8 +99,8 @@ reached the edge of its disc. A measured per-character table replaces the flat n
 
 ---
 
-<!-- _class: hub-spoke -->
-<!-- _footer: "Names were billed 12% wide on the median; now 4%. Status words keep their tracking in the bill." -->
+<!-- @meta{layout=hub-spoke, footer="Names were billed 12% wide on the median; now 4%. Status words keep their tracking in the bill."} -->
+
 
 `Transformation program · Q3`
 
@@ -116,7 +116,7 @@ reached the edge of its disc. A measured per-character table replaces the flat n
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 # Measured, not guessed.
 

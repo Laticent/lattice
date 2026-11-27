@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · topic highlight"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # The current topic, lit as a column.
 
@@ -15,7 +15,7 @@ The topic above now reaches down into its column on the track, as a filled tab w
 
 ---
 
-<!-- _class: divider silent -->
+<!-- @meta{layout=divider, class=silent} -->
 
 `Section 01`
 
@@ -23,7 +23,7 @@ The topic above now reaches down into its column on the track, as a filled tab w
 
 ---
 
-<!-- _class: topic -->
+<!-- @meta{layout=topic} -->
 
 `Section 01 · Unit economics`
 
@@ -33,7 +33,7 @@ Fully loaded acquisition cost is $4,100, against $2,970 in the plan.
 
 ---
 
-<!-- _class: topic -->
+<!-- @meta{layout=topic} -->
 
 `Section 01 · Unit economics`
 
@@ -43,7 +43,7 @@ Gross-margin LTV is $11,800, and the mix keeps shifting to the durable tier.
 
 ---
 
-<!-- _class: topic -->
+<!-- @meta{layout=topic} -->
 
 `Section 01 · Unit economics`
 
@@ -53,8 +53,8 @@ Fourteen months blended, against a nine-month plan.
 
 ---
 
-<!-- _class: topic dark -->
-<!-- _track: Cost to win | Lifetime value | [Payback] -->
+<!-- @meta{layout=topic, class=dark, track="Cost to win | Lifetime value | [Payback]"} -->
+
 
 `Section 01 · Unit economics · dark`
 
@@ -64,8 +64,8 @@ On a dark scheme the shelf lifts toward the display ink, and the tab keeps the u
 
 ---
 
-<!-- _class: topic -->
-<!-- _track: Intake | Triage | Ownership | Runbooks | On-call | [Escalation paths] | Postmortems | Action tracking | Review cadence -->
+<!-- @meta{layout=topic, track="Intake | Triage | Ownership | Runbooks | On-call | [Escalation paths] | Postmortems | Action tracking | Review cadence"} -->
+
 
 `Section 04 · Operating review`
 
@@ -75,6 +75,6 @@ Nine topics, the documented ceiling. The inset tightens so every label keeps its
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 ## One tab, one height, every slide in the section.

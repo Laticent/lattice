@@ -15,8 +15,7 @@ Clause-by-clause comparison — verbatim language with inline `<ins>`/`<del>` tr
 
 ---
 
-<!-- _class: redline -->
-<!-- @meta{footer=Default · redline} -->
+<!-- @meta{layout=redline, footer=Default · redline} -->
 
 ## The redline tracks an amendment verbatim.
 
@@ -29,8 +28,7 @@ Clause-by-clause comparison — verbatim language with inline `<ins>`/`<del>` tr
 
 ---
 
-<!-- _class: redline annotated -->
-<!-- @meta{footer="annotated · redline annotated — Adds the why beside each edit."} -->
+<!-- @meta{layout=redline, class=annotated, footer="annotated · redline annotated — Adds the why beside each edit."} -->
 
 ## annotated adds the why beside each edit.
 
@@ -45,8 +43,7 @@ Clause-by-clause comparison — verbatim language with inline `<ins>`/`<del>` tr
 
 ---
 
-<!-- _class: redline three-col -->
-<!-- @meta{footer="three-col · redline three-col — Old, new, and why side by side."} -->
+<!-- @meta{layout=redline, class=three-col, footer="three-col · redline three-col — Old, new, and why side by side."} -->
 
 ## three-col sets old, new, and why side by side.
 
@@ -63,8 +60,7 @@ Clause-by-clause comparison — verbatim language with inline `<ins>`/`<del>` tr
 
 ---
 
-<!-- _class: redline split -->
-<!-- @meta{footer="split · redline split — Before and after in parallel."} -->
+<!-- @meta{layout=redline, class=split, footer="split · redline split — Before and after in parallel."} -->
 
 ## split shows before and after in parallel.
 
@@ -79,8 +75,7 @@ Clause-by-clause comparison — verbatim language with inline `<ins>`/`<del>` tr
 
 ---
 
-<!-- _class: redline stacked -->
-<!-- @meta{footer="stacked · redline stacked — Prior text struck above the current."} -->
+<!-- @meta{layout=redline, class=stacked, footer="stacked · redline stacked — Prior text struck above the current."} -->
 
 ## stacked strikes the prior text above the current.
 
@@ -95,9 +90,8 @@ Clause-by-clause comparison — verbatim language with inline `<ins>`/`<del>` tr
 
 ---
 
-<!-- _class: redline -->
+<!-- @meta{layout=redline, footer="Stress test · redline — The marking ceiling for one clause."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · redline — The marking ceiling for one clause."} -->
 
 ## Edit density has a ceiling too.
 

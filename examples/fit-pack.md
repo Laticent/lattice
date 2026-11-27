@@ -7,9 +7,9 @@ size: square
 fit: pack
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=title, header="", footer=""} -->
+
+
 
 # Pages hold as much as fits.
 
@@ -19,8 +19,8 @@ A slide that fits stays whole. A slide that overflows packs several items to a p
 
 ---
 
-<!-- _class: agenda -->
-<!-- _footer: "Fits whole · agenda" -->
+<!-- @meta{layout=agenda, footer=Fits whole · agenda} -->
+
 
 ## A slide that fits stays one page.
 
@@ -34,8 +34,8 @@ A slide that fits stays whole. A slide that overflows packs several items to a p
 
 ---
 
-<!-- _class: agenda -->
-<!-- _footer: "Packs nine a page · agenda" -->
+<!-- @meta{layout=agenda, footer=Packs nine a page · agenda} -->
+
 
 ## Eighteen items pack onto two pages.
 
@@ -60,8 +60,8 @@ A slide that fits stays whole. A slide that overflows packs several items to a p
 
 ---
 
-<!-- _class: list -->
-<!-- _footer: "Packs by measured height · list" -->
+<!-- @meta{layout=list, footer=Packs by measured height · list} -->
+
 
 ## Long items take more room, so fewer fit a page.
 
@@ -76,8 +76,8 @@ A slide that fits stays whole. A slide that overflows packs several items to a p
 
 ---
 
-<!-- _class: cards-grid -->
-<!-- _footer: "Packs cards side by side · cards-grid" -->
+<!-- @meta{layout=cards-grid, footer=Packs cards side by side · cards-grid} -->
+
 
 ## Eight cards pack two rows a page.
 
@@ -100,8 +100,8 @@ A slide that fits stays whole. A slide that overflows packs several items to a p
 
 ---
 
-<!-- _class: checklist -->
-<!-- _footer: "Twelve rows fit whole · checklist" -->
+<!-- @meta{layout=checklist, footer=Twelve rows fit whole · checklist} -->
+
 
 ## Twelve rows still fit, so the checklist stays whole.
 
@@ -120,9 +120,9 @@ A slide that fits stays whole. A slide that overflows packs several items to a p
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 
 `fit: pack`
 

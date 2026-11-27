@@ -67,7 +67,7 @@ Each pair starts as a last carved to one foot. Leather is cut by hand and finish
 Keep the photos in the order written.
 
 ```markdown
-<!-- _class: collage ordered -->
+<!-- @meta{layout=collage, class=ordered} -->
 
 `The atelier`
 
@@ -89,7 +89,7 @@ Each pair starts as a last carved to one foot. Leather is cut by hand and finish
 Allow a small crop to close empty space.
 
 ```markdown
-<!-- _class: collage fill -->
+<!-- @meta{layout=collage, class=fill} -->
 
 `The atelier`
 
@@ -111,7 +111,7 @@ Each pair starts as a last carved to one foot. Leather is cut by hand and finish
 Text above the photos instead of beside them.
 
 ```markdown
-<!-- _class: collage above -->
+<!-- @meta{layout=collage, class=above} -->
 
 `The atelier`
 
@@ -133,7 +133,7 @@ Each pair starts as a last carved to one foot. Leather is cut by hand and finish
 The collage runs edge to edge. Each photo loses a share of its edges to fill the slide: about 4% on average, up to a sixth for an awkward mix.
 
 ```markdown
-<!-- _class: collage bleed -->
+<!-- @meta{layout=collage, class=bleed} -->
 
 `The atelier`
 
@@ -155,7 +155,7 @@ Each pair starts as a last carved to one foot. Leather is cut by hand and finish
 Text on the other side.
 
 ```markdown
-<!-- _class: collage mirror -->
+<!-- @meta{layout=collage, class=mirror} -->
 
 `The atelier`
 

@@ -5,7 +5,7 @@ pagination: true
 footer: "Laticent · focus on a chart mark"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Point at one bar, not the whole chart.
 
@@ -15,7 +15,7 @@ A chart slide usually has one number that matters. `_focus: mark 3` names that b
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 ## The chart already knows its marks. Now the deck can name one.
 
@@ -23,8 +23,8 @@ Every chart stamps each mark with its place. `_focus` reads that address, so the
 
 ---
 
-<!-- _class: bar -->
-<!-- _focus: mark 3 -->
+<!-- @meta{layout=bar, focus=mark 3} -->
+
 
 ## EMEA is where the quarter was won.
 
@@ -35,9 +35,9 @@ Every chart stamps each mark with its place. `_focus` reads that address, so the
 
 ---
 
-<!-- _class: bar -->
-<!-- _focus: mark 3 -->
-<!-- _focusStyle: ring -->
+<!-- @meta{layout=bar, focus=mark 3, focus-style=ring} -->
+
+
 
 ## `ring` keeps every bar at full strength and edges the one that matters.
 
@@ -48,8 +48,8 @@ Every chart stamps each mark with its place. `_focus` reads that address, so the
 
 ---
 
-<!-- _class: piechart -->
-<!-- _focus: mark 2 -->
+<!-- @meta{layout=piechart, focus=mark 2} -->
+
 
 ## A fifth of the hours went to meetings about meetings.
 
@@ -61,8 +61,8 @@ Every chart stamps each mark with its place. `_focus` reads that address, so the
 
 ---
 
-<!-- _class: funnel -->
-<!-- _focus: mark 3 -->
+<!-- @meta{layout=funnel, focus=mark 3} -->
+
 
 ## SMB deals stall at the proposal.
 
@@ -73,8 +73,8 @@ Every chart stamps each mark with its place. `_focus` reads that address, so the
 
 ---
 
-<!-- _class: line -->
-<!-- _focus: series 3 -->
+<!-- @meta{layout=line, focus=series 3} -->
+
 
 ## Services grew into the gap enterprise left.
 
@@ -101,7 +101,7 @@ Every chart stamps each mark with its place. `_focus` reads that address, so the
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 ## One line names the mark.
 

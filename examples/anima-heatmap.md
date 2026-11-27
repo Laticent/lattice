@@ -9,7 +9,7 @@ acronyms:
   APAC: Asia Pacific
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # The grid assembles itself.
 
@@ -20,8 +20,8 @@ role, so the grid builds itself — and the exported PDF is unchanged.
 
 ---
 
-<!-- _class: heatmap -->
-<!-- _footer: "Default build · cells arrive in reading order" -->
+<!-- @meta{layout=heatmap, footer=Default build · cells arrive in reading order} -->
+
 
 `Retention · 2026 cohorts`
 
@@ -36,8 +36,8 @@ role, so the grid builds itself — and the exported PDF is unchanged.
 
 ---
 
-<!-- _class: heatmap motion-together -->
-<!-- _footer: "motion-together · the whole matrix resolves at once" -->
+<!-- @meta{layout=heatmap, class=motion-together, footer=motion-together · the whole matrix resolves at once} -->
+
 
 `Support load · by weekday`
 
@@ -51,8 +51,8 @@ role, so the grid builds itself — and the exported PDF is unchanged.
 
 ---
 
-<!-- _class: heatmap motion-rise -->
-<!-- _footer: "motion-rise · each cell slides up into place" -->
+<!-- @meta{layout=heatmap, class=motion-rise, footer=motion-rise · each cell slides up into place} -->
+
 
 `Gross margin · by region`
 
@@ -66,8 +66,8 @@ role, so the grid builds itself — and the exported PDF is unchanged.
 
 ---
 
-<!-- _class: heatmap no-motion -->
-<!-- _footer: "no-motion · the control, so the difference is visible" -->
+<!-- @meta{layout=heatmap, class=no-motion, footer="no-motion · the control, so the difference is visible"} -->
+
 
 `Defect density · by service`
 
@@ -81,8 +81,8 @@ role, so the grid builds itself — and the exported PDF is unchanged.
 
 ---
 
-<!-- _class: content -->
-<!-- _footer: "What the reader gets on each surface" -->
+<!-- @meta{layout=content, footer=What the reader gets on each surface} -->
+
 
 ## One source, four surfaces.
 

@@ -100,7 +100,7 @@ Use for status snapshots: what's in each lane (todo/doing/done or similar). Each
 Hairlines rule the lanes apart.
 
 ```markdown
-<!-- _class: kanban keyline -->
+<!-- @meta{layout=kanban, class=keyline} -->
 
 `kanban keyline`
 
@@ -119,7 +119,7 @@ Hairlines rule the lanes apart.
 Each lane takes a colored wash.
 
 ```markdown
-<!-- _class: kanban tinted -->
+<!-- @meta{layout=kanban, class=tinted} -->
 
 `kanban tinted`
 

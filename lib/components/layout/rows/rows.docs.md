@@ -60,7 +60,7 @@ Use when two wide components make one point together: progress over the table be
 Drops the rule between the panes.
 
 ```markdown
-<!-- _class: rows ratio-35-65 no-spine -->
+<!-- @meta{layout=rows, class=ratio-35-65 no-spine} -->
 
 ## Three regions carried the quarter.
 
@@ -68,7 +68,7 @@ Drops the rule between the panes.
 
 Two renewals and a price rise lifted EMEA and APAC; North America held.
 
-<!-- _pane: bar -->
+<!-- @meta{pane=bar} -->
 ### Revenue by region
 `$M, Q3`
 

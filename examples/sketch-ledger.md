@@ -7,7 +7,7 @@ header: "Lattice · sketch"
 footer: "The sketch ledger — its frame hugs the rows"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # The ledger's frame hugs its rows
 
@@ -15,7 +15,7 @@ footer: "The sketch ledger — its frame hugs the rows"
 
 ---
 
-<!-- _class: list-tabular -->
+<!-- @meta{layout=list-tabular} -->
 
 `Signals · A short ledger`
 
@@ -30,7 +30,7 @@ footer: "The sketch ledger — its frame hugs the rows"
 
 ---
 
-<!-- _class: list-tabular -->
+<!-- @meta{layout=list-tabular} -->
 
 `Signals · A full ledger`
 
@@ -51,7 +51,7 @@ footer: "The sketch ledger — its frame hugs the rows"
 
 ---
 
-<!-- _class: list-tabular register -->
+<!-- @meta{layout=list-tabular, class=register} -->
 
 `Components · Status`
 
@@ -64,7 +64,7 @@ footer: "The sketch ledger — its frame hugs the rows"
 
 ---
 
-<!-- _class: list-tabular metric -->
+<!-- @meta{layout=list-tabular, class=metric} -->
 
 `Quarter · Headline numbers`
 
@@ -76,7 +76,7 @@ footer: "The sketch ledger — its frame hugs the rows"
 
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # One frame, one rule per row
 

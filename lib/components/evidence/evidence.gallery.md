@@ -9,8 +9,7 @@ Evidence — data that supports the argument.
 
 ---
 
-<!-- _class: kpi -->
-<!-- @meta{footer=kpi · evidence survey} -->
+<!-- @meta{layout=kpi, footer=kpi · evidence survey} -->
 
 ## Four tiles the eye sweeps in one pass.
 
@@ -29,8 +28,7 @@ Evidence — data that supports the argument.
 
 ---
 
-<!-- _class: stats -->
-<!-- @meta{footer=stats · evidence survey} -->
+<!-- @meta{layout=stats, footer=stats · evidence survey} -->
 
 `evidence · stats`
 

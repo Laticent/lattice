@@ -52,10 +52,10 @@
   },
   "skeleton": "<!-- @meta{layout=big-number} -->\n\n`Optional eyebrow`\n\n- 92%\n  - of the audience remembers a single number from a deck.\n",
   "anatomyBlock": "big-number-canvas",
-  "sample": "<!-- _class: big-number -->\n\n`big-number · one number, the whole canvas`\n\n- 1\n  - claim per slide is what this layout enforces — the number argues, the caption stays to a line.\n",
+  "sample": "<!-- @meta{layout=big-number} -->\n\n`big-number · one number, the whole canvas`\n\n- 1\n  - claim per slide is what this layout enforces — the number argues, the caption stays to a line.\n",
   "stressDoc": {
     "summary": "Ten digits is the practical ceiling.",
-    "sample": "<!-- _class: big-number venue-laptop -->\n\n`big-number · stress — the longest number that still lands`\n\n- $1,248,500,000\n  - ten digits with separators, scaled down to fit; past this width the claim stops reading at the back of the room.\n"
+    "sample": "<!-- @meta{layout=big-number, class=venue-laptop} -->\n\n`big-number · stress — the longest number that still lands`\n\n- $1,248,500,000\n  - ten digits with separators, scaled down to fit; past this width the claim stops reading at the back of the room.\n"
   },
   "whenToUse": [
     {
@@ -171,5 +171,5 @@
       }
     }
   },
-  "venueProbe": "<!-- _class: big-number -->\n\n`big-number · one number, the whole canvas`\n\n- 1\n  - claim per slide: the number argues, the caption stays to a line.\n"
+  "venueProbe": "<!-- @meta{layout=big-number} -->\n\n`big-number · one number, the whole canvas`\n\n- 1\n  - claim per slide: the number argues, the caption stays to a line.\n"
 }

@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · export coverage"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Export-surface coverage deck
 
@@ -15,8 +15,8 @@ Every component family the browser export rasterizer has historically mishandled
 
 ---
 
-<!-- _class: content -->
-<!-- _footer: "Spectrum ribbon + text chrome · content" -->
+<!-- @meta{layout=content, footer="Spectrum ribbon + text chrome · content"} -->
+
 
 ## The plain-HTML control slide
 
@@ -27,8 +27,8 @@ Every component family the browser export rasterizer has historically mishandled
 
 ---
 
-<!-- _class: diagram -->
-<!-- _footer: "Component diagram · diagram" -->
+<!-- @meta{layout=diagram, footer=Component diagram · diagram} -->
+
 
 `Architecture · Signal Pipeline`
 
@@ -46,8 +46,8 @@ flowchart LR
 
 ---
 
-<!-- _class: funnel -->
-<!-- _footer: "Pipeline drop-off · funnel" -->
+<!-- @meta{layout=funnel, footer=Pipeline drop-off · funnel} -->
+
 
 ## How a week of signals narrows to one logged decision
 
@@ -59,8 +59,8 @@ flowchart LR
 
 ---
 
-<!-- _class: radar -->
-<!-- _footer: "Spider comparison · radar" -->
+<!-- @meta{layout=radar, footer=Spider comparison · radar} -->
+
 
 `[{Scale, 0..10}]`
 
@@ -89,8 +89,8 @@ flowchart LR
 
 ---
 
-<!-- _class: piechart donut -->
-<!-- _footer: "SVG donut with legend · piechart donut" -->
+<!-- @meta{layout=piechart, class=donut, footer=SVG donut with legend · piechart donut} -->
+
 
 `H1 2026 · 1,840 person-hours`
 
@@ -108,8 +108,8 @@ Last updated 2026-05-07 · the 9% is probably higher
 
 ---
 
-<!-- _class: quadrant -->
-<!-- _footer: "Two-axis scatter · quadrant" -->
+<!-- @meta{layout=quadrant, footer=Two-axis scatter · quadrant} -->
+
 
 `[{Confidence, 0..10}, {Impact, 0..10}]`
 
@@ -127,9 +127,9 @@ Last updated 2026-05-07 · the 9% is probably higher
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 
 ## Dark bookend — solid canvas, light type.
 

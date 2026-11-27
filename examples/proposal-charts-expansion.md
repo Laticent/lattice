@@ -5,7 +5,7 @@ pagination: true
 header: 'Cartesian charts · feature deck'
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 `Chart family`
 
@@ -15,7 +15,7 @@ Bar · stacked bar · line · waterfall · scatter · slope · bullet
 
 ---
 
-<!-- _class: bar -->
+<!-- @meta{layout=bar} -->
 
 `FY26 plan`
 
@@ -30,7 +30,7 @@ Bar · stacked bar · line · waterfall · scatter · slope · bullet
 
 ---
 
-<!-- _class: stacked-bar -->
+<!-- @meta{layout=stacked-bar} -->
 
 `Revenue mix`
 
@@ -53,7 +53,7 @@ Bar · stacked bar · line · waterfall · scatter · slope · bullet
 
 ---
 
-<!-- _class: line -->
+<!-- @meta{layout=line} -->
 
 `Bookings by segment`
 
@@ -88,7 +88,7 @@ Bar · stacked bar · line · waterfall · scatter · slope · bullet
 
 ---
 
-<!-- _class: waterfall -->
+<!-- @meta{layout=waterfall} -->
 
 `FY26 plan · actual`
 
@@ -106,7 +106,7 @@ Bar · stacked bar · line · waterfall · scatter · slope · bullet
 
 ---
 
-<!-- _class: scatter -->
+<!-- @meta{layout=scatter} -->
 
 `Tooling spend review`
 
@@ -124,7 +124,7 @@ Bar · stacked bar · line · waterfall · scatter · slope · bullet
 
 ---
 
-<!-- _class: slope -->
+<!-- @meta{layout=slope} -->
 
 `Share of category`
 
@@ -147,7 +147,7 @@ Bar · stacked bar · line · waterfall · scatter · slope · bullet
 
 ---
 
-<!-- _class: bullet -->
+<!-- @meta{layout=bullet} -->
 
 `Q3 2026 · commercial plan`
 
@@ -163,7 +163,7 @@ Bar · stacked bar · line · waterfall · scatter · slope · bullet
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 `One substrate`
 

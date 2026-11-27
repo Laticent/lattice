@@ -6,7 +6,7 @@ pagination: true
 header: "Open Door Shelter · Board meeting"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 <!-- tier: short -->
 
 `Board meeting · Q2 2026`
@@ -17,7 +17,7 @@ We ran near capacity all quarter — and the board must decide on a second build
 
 ---
 
-<!-- _class: agenda -->
+<!-- @meta{layout=agenda} -->
 <!-- tier: short -->
 
 ## What this board meeting covers.
@@ -30,7 +30,7 @@ We ran near capacity all quarter — and the board must decide on a second build
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## We hit our outcomes and held our reserve — and turn-aways are now forcing the board's hand.
@@ -42,7 +42,7 @@ Bottom line up front: occupancy held at 95% and 73% of guests moved into housing
 
 ---
 
-<!-- _class: kpi -->
+<!-- @meta{layout=kpi} -->
 <!-- tier: short -->
 
 `Where we stand · Q2 2026`
@@ -61,7 +61,7 @@ Bottom line up front: occupancy held at 95% and 73% of guests moved into housing
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 <!-- tier: short -->
 
 `Demand · Q2 2026`
@@ -81,7 +81,7 @@ Bottom line up front: occupancy held at 95% and 73% of guests moved into housing
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## At 95% occupancy, we are out of room — and the people we turn away have nowhere else.
@@ -93,7 +93,7 @@ A shelter running this full has no slack for a cold snap or a family arriving at
 
 ---
 
-<!-- _class: big-number -->
+<!-- @meta{layout=big-number} -->
 <!-- tier: standard -->
 
 `The gap we are carrying`
@@ -103,7 +103,7 @@ A shelter running this full has no slack for a cold snap or a family arriving at
 
 ---
 
-<!-- _class: quote -->
+<!-- @meta{layout=quote} -->
 <!-- tier: standard -->
 
 > They had no bed, but someone sat with me, made the calls, and found me a couch for the night. That call kept me going.
@@ -112,7 +112,7 @@ A shelter running this full has no slack for a cold snap or a family arriving at
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## Outcomes held because placement, not just shelter, is the job we measure.
@@ -124,7 +124,7 @@ Beds keep people safe tonight; placements end the crisis. We held 73% housing pl
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 <!-- tier: full -->
 
 `Where the money goes · Q2 2026`
@@ -144,7 +144,7 @@ Beds keep people safe tonight; placements end the crisis. We held 73% housing pl
 
 ---
 
-<!-- _class: roadmap -->
+<!-- @meta{layout=roadmap} -->
 <!-- tier: short -->
 
 `Strategic plan · 2026–2028`
@@ -160,7 +160,7 @@ Beds keep people safe tonight; placements end the crisis. We held 73% housing pl
 
 ---
 
-<!-- _class: kpi -->
+<!-- @meta{layout=kpi} -->
 <!-- tier: full -->
 
 `The plan · 2027`
@@ -179,7 +179,7 @@ Beds keep people safe tonight; placements end the crisis. We held 73% housing pl
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## The Elm Street building is the only path to 280 beds this decade.
@@ -191,7 +191,7 @@ A vacant 130-bed care facility on Elm Street is available on a five-year lease a
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## Leasing now spends $410K of reserve in year one — and our model funds the rest.
@@ -203,7 +203,7 @@ Year-one cost is $340K lease plus $70K fit-out. A committed three-year county co
 
 ---
 
-<!-- _class: checklist -->
+<!-- @meta{layout=checklist} -->
 <!-- tier: full -->
 
 ## Governance and compliance items for this decision.
@@ -217,7 +217,7 @@ Year-one cost is $340K lease plus $70K fit-out. A committed three-year county co
 
 ---
 
-<!-- _class: decision -->
+<!-- @meta{layout=decision} -->
 <!-- tier: short -->
 
 ## We recommend leasing the second shelter now.
@@ -229,9 +229,9 @@ Year-one cost is $340K lease plus $70K fit-out. A committed three-year county co
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 <!-- tier: short -->
 
 ## No open bed should mean no door — let's open the second one.

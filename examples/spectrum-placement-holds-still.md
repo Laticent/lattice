@@ -12,7 +12,7 @@ footer: "Placement never moves the slide"
      list, header, footer and page number hold still, light and dark.
      `npm run check:edge-shift` measures the same thing across every component.} -->
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Bar: top`
 
@@ -24,7 +24,7 @@ footer: "Placement never moves the slide"
 
 ---
 
-<!-- _class: content spectrum-left -->
+<!-- @meta{layout=content, class=spectrum-left} -->
 
 `Bar: left`
 
@@ -36,7 +36,7 @@ footer: "Placement never moves the slide"
 
 ---
 
-<!-- _class: content spectrum-right -->
+<!-- @meta{layout=content, class=spectrum-right} -->
 
 `Bar: right`
 
@@ -48,7 +48,7 @@ footer: "Placement never moves the slide"
 
 ---
 
-<!-- _class: content spectrum-bottom -->
+<!-- @meta{layout=content, class=spectrum-bottom} -->
 
 `Bar: bottom`
 
@@ -60,7 +60,7 @@ footer: "Placement never moves the slide"
 
 ---
 
-<!-- _class: content no-spectrum -->
+<!-- @meta{layout=content, class=no-spectrum} -->
 
 `Bar: none`
 
@@ -72,7 +72,7 @@ footer: "Placement never moves the slide"
 
 ---
 
-<!-- _class: content dark -->
+<!-- @meta{layout=content, class=dark} -->
 
 `Bar: top · dark`
 
@@ -84,7 +84,7 @@ footer: "Placement never moves the slide"
 
 ---
 
-<!-- _class: content dark spectrum-left -->
+<!-- @meta{layout=content, class=dark spectrum-left} -->
 
 `Bar: left · dark`
 
@@ -96,7 +96,7 @@ footer: "Placement never moves the slide"
 
 ---
 
-<!-- _class: content dark spectrum-bottom -->
+<!-- @meta{layout=content, class=dark spectrum-bottom} -->
 
 `Bar: bottom · dark`
 

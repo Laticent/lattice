@@ -7,7 +7,7 @@ header: "Lattice · split panels · a header long enough to reach the seam"
 footer: "Confidential · Laticent · a footer long enough to cross the panel seam"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # Split panels hold their frame
 
@@ -17,7 +17,7 @@ The running chrome stays on its field, and the finish covers both sides.
 
 ---
 
-<!-- _class: split-compare -->
+<!-- @meta{layout=split-compare} -->
 
 `Why Lattice`
 
@@ -38,7 +38,7 @@ Both put pixels on a slide. Only one keeps its taste when the content changes.
 
 ---
 
-<!-- _class: split-panel -->
+<!-- @meta{layout=split-panel} -->
 
 `What changed`
 
@@ -55,7 +55,7 @@ The header and footer used to cross the seam in the panel's ink, where they vani
 
 ---
 
-<!-- _class: split-panel watermark -->
+<!-- @meta{layout=split-panel, class=watermark} -->
 
 ## Finish lands on the accent.
 
@@ -70,7 +70,7 @@ The header and footer used to cross the seam in the panel's ink, where they vani
 
 ---
 
-<!-- _class: split-panel metric mirror -->
+<!-- @meta{layout=split-panel, class=metric mirror} -->
 
 `split-panel metric mirror`
 
@@ -85,7 +85,7 @@ Header budget, the finish on the panel, and the footer split-compare used to dro
 
 ---
 
-<!-- _class: split-panel proof cat-3 -->
+<!-- @meta{layout=split-panel, class=proof cat-3} -->
 
 `Level 3 · Applying`
 
@@ -102,7 +102,7 @@ Header budget, the finish on the panel, and the footer split-compare used to dro
 
 ---
 
-<!-- _class: split-panel backdrop-clear -->
+<!-- @meta{layout=split-panel, class=backdrop-clear} -->
 
 `backdrop: clear`
 
@@ -117,7 +117,7 @@ Each side clears behind its own content, and the finish stays in its margins, as
 
 ---
 
-<!-- _class: split-compare dark -->
+<!-- @meta{layout=split-compare, class=dark} -->
 
 `Dark slide`
 
@@ -136,7 +136,7 @@ A per-slide `dark` composes with the finish and the chrome budget.
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 ## Every split slide keeps its frame, finish or not.
 

@@ -15,8 +15,7 @@ Options scored against criteria as a verdict matrix.
 
 ---
 
-<!-- _class: verdict-grid -->
-<!-- @meta{footer=Default · verdict-grid} -->
+<!-- @meta{layout=verdict-grid, footer=Default · verdict-grid} -->
 
 ## The grid scores options against shared criteria.
 
@@ -36,9 +35,8 @@ Options scored against criteria as a verdict matrix.
 
 ---
 
-<!-- _class: verdict-grid -->
+<!-- @meta{layout=verdict-grid, footer="Stress test · verdict-grid — Five options — the hard ceiling."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · verdict-grid — Five options — the hard ceiling."} -->
 
 ## Five options is the verdict grid's ceiling.
 

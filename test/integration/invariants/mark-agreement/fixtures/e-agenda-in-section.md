@@ -4,37 +4,37 @@ pagination: true
 progress-rail: on
 ---
 
-<!-- _class: agenda agenda-pages -->
+<!-- @meta{layout=agenda, class=agenda-pages} -->
 
 ## Agenda
 
 ---
 
-<!-- _class: divider -->
-<!-- hide -->
+<!-- @meta{layout=divider, hide} -->
+
 
 ## Cut
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 ## A
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 ## B
 
 ---
 
-<!-- _class: agenda -->
+<!-- @meta{layout=agenda} -->
 
 ## Where we are
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 ## C

@@ -15,8 +15,7 @@ Tapering stages that show where a flow drops off, with the conversion rate betwe
 
 ---
 
-<!-- _class: funnel -->
-<!-- @meta{footer=Default · funnel} -->
+<!-- @meta{layout=funnel, footer=Default · funnel} -->
 
 ## The funnel narrows; the width is the story.
 
@@ -31,9 +30,8 @@ Tapering stages that show where a flow drops off, with the conversion rate betwe
 
 ---
 
-<!-- _class: funnel -->
+<!-- @meta{layout=funnel, footer="Stress test · funnel — Seven stages, one steep early drop."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · funnel — Seven stages, one steep early drop."} -->
 
 ## Seven stages, a steep early drop.
 

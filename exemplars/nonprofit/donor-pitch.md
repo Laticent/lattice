@@ -6,7 +6,7 @@ pagination: true
 header: "Riverstone Reads · Donor pitch"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 <!-- tier: short -->
 
 `Major gift · $1.5M over three years`
@@ -17,7 +17,7 @@ A child who can't read by fourth grade rarely catches up. We make sure they do.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## In our city, two of every three low-income third graders read below grade level.
@@ -29,7 +29,7 @@ Riverstone Reads runs daily one-on-one tutoring inside public elementary schools
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## Meet Daniela — she started second grade unable to read a single sentence.
@@ -41,7 +41,7 @@ When Daniela joined Lincoln Elementary, she scored in the 9th percentile for rea
 
 ---
 
-<!-- _class: big-number -->
+<!-- @meta{layout=big-number} -->
 <!-- tier: standard -->
 
 `Daniela's year`
@@ -51,7 +51,7 @@ When Daniela joined Lincoln Elementary, she scored in the 9th percentile for rea
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## Daniela is not the exception. She is what our model does at scale.
@@ -63,7 +63,7 @@ The research on early literacy is settled: consistent, relationship-based tutori
 
 ---
 
-<!-- _class: quote -->
+<!-- @meta{layout=quote} -->
 <!-- tier: short -->
 
 > Marcus didn't just teach my daughter to read. He showed up every single day, so she learned that someone always would.
@@ -72,7 +72,7 @@ The research on early literacy is settled: consistent, relationship-based tutori
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 <!-- tier: standard -->
 
 `Impact · 2025–26 school year`
@@ -92,7 +92,7 @@ The research on early literacy is settled: consistent, relationship-based tutori
 
 ---
 
-<!-- _class: big-number -->
+<!-- @meta{layout=big-number} -->
 <!-- tier: short -->
 
 `The opportunity ahead`
@@ -102,7 +102,7 @@ The research on early literacy is settled: consistent, relationship-based tutori
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 <!-- tier: full -->
 
 `The economics of early reading`
@@ -122,7 +122,7 @@ The research on early literacy is settled: consistent, relationship-based tutori
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## We are ready to grow — the only thing missing is funded tutors.
@@ -134,7 +134,7 @@ Our model is proven, our school partnerships are signed, and our volunteer pipel
 
 ---
 
-<!-- _class: roadmap -->
+<!-- @meta{layout=roadmap} -->
 <!-- tier: short -->
 
 `The three-year plan · your gift at work`
@@ -150,7 +150,7 @@ Our model is proven, our school partnerships are signed, and our volunteer pipel
 
 ---
 
-<!-- _class: kpi -->
+<!-- @meta{layout=kpi} -->
 <!-- tier: full -->
 
 `The plan · 2026–2029`
@@ -169,7 +169,7 @@ Our model is proven, our school partnerships are signed, and our volunteer pipel
 
 ---
 
-<!-- _class: decision -->
+<!-- @meta{layout=decision} -->
 <!-- tier: short -->
 
 ## We are inviting you to fund 1,600 more children into reading.
@@ -183,9 +183,9 @@ Our model is proven, our school partnerships are signed, and our volunteer pipel
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 <!-- tier: short -->
 
 ## Let's make sure every child can read.

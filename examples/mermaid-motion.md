@@ -7,7 +7,7 @@ meta: "Diagram motion · motion: on animates a Mermaid diagram like a chart"
 motion: on
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Mermaid · motion`
 
@@ -17,7 +17,7 @@ This deck sets `motion: on` and nothing else. Every Mermaid diagram in it now bu
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## What changed, and where it runs
 
@@ -29,7 +29,7 @@ The runtime now tags each drawn diagram with the roles a chart emits. It builds 
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `Flowchart · boxes, then arrows`
 
@@ -47,7 +47,7 @@ flowchart LR
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `Sequence · actors, then messages`
 
@@ -66,7 +66,7 @@ sequenceDiagram
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `State · same build`
 
@@ -84,7 +84,7 @@ stateDiagram-v2
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `Pie · the disc arrives whole`
 
@@ -99,7 +99,7 @@ pie
 
 ---
 
-<!-- _class: diagram no-motion -->
+<!-- @meta{layout=diagram, class=no-motion} -->
 
 `Opt out · one slide`
 
@@ -113,7 +113,7 @@ flowchart LR
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## What stays a still
 

@@ -6,7 +6,7 @@ pagination: true
 header: "Office of Inspector General · Compliance Audit"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 <!-- tier: short -->
 
 `Audit report · OIG-2027-09`
@@ -17,7 +17,7 @@ The Inspector General's review of how the Workforce Development Office administe
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## The finding: the office is materially compliant, with three correctable control gaps.
@@ -26,7 +26,7 @@ We reviewed grant administration against the federal Uniform Guidance. The offic
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## What we audited, and against what standard.
@@ -35,7 +35,7 @@ We examined 62 grant awards totalling $84M over two fiscal years, testing them a
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## How we tested compliance.
@@ -44,7 +44,7 @@ We traced a stratified sample of 240 transactions to source documents, interview
 
 ---
 
-<!-- _class: obligation-matrix -->
+<!-- @meta{layout=obligation-matrix} -->
 <!-- tier: short -->
 
 ## Where the office stands against each Uniform Guidance obligation.
@@ -61,7 +61,7 @@ Filled = compliant, half = partially compliant, empty = non-compliant.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## The three gaps, in order of exposure.
@@ -70,7 +70,7 @@ Subrecipient monitoring is the largest: 4 of 18 subrecipients had no documented 
 
 ---
 
-<!-- _class: matrix-2x2 -->
+<!-- @meta{layout=matrix-2x2} -->
 <!-- tier: short -->
 
 ## Where each finding sits on likelihood against financial impact.
@@ -86,7 +86,7 @@ Subrecipient monitoring is the largest: 4 of 18 subrecipients had no documented 
 
 ---
 
-<!-- _class: obligation-matrix -->
+<!-- @meta{layout=obligation-matrix} -->
 <!-- tier: full -->
 
 ## Read for exposure: the same findings as a risk heat map.
@@ -105,7 +105,7 @@ Filled = high exposure, half = moderate, empty = controlled.
 
 ---
 
-<!-- _class: list-steps -->
+<!-- @meta{layout=list-steps} -->
 <!-- tier: short -->
 
 ## The remediation plan, sequenced by exposure.
@@ -121,7 +121,7 @@ Filled = high exposure, half = moderate, empty = controlled.
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- @meta{layout=list, class=takeaway} -->
 <!-- tier: full -->
 
 ## What management has committed to, and by when.
@@ -137,9 +137,9 @@ Filled = high exposure, half = moderate, empty = controlled.
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 <!-- tier: short -->
 
 ## Materially compliant, three gaps to close, all fixable this year.

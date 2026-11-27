@@ -6,9 +6,9 @@ pagination: true
 header: "Lattice · Layout Gallery"
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
-<!-- _footer: "Title slide · title" -->
+<!-- @meta{layout=title, header="", footer=Title slide · title} -->
+
+
 
 # From Signal to Strategy
 
@@ -18,9 +18,9 @@ A decision framework for product leaders navigating market uncertainty, quarterl
 
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
-<!-- _footer: "Section break · divider" -->
+<!-- @meta{layout=divider, header="", footer=Section break · divider} -->
+
+
 
 `Section 01 · Foundations`
 
@@ -28,9 +28,9 @@ A decision framework for product leaders navigating market uncertainty, quarterl
 
 ---
 
-<!-- _class: divider light -->
-<!-- _header: '' -->
-<!-- _footer: "Centered orientation · divider light" -->
+<!-- @meta{layout=divider, class=light, header="", footer=Centered orientation · divider light} -->
+
+
 
 `Module 02`
 
@@ -40,8 +40,8 @@ The word is overloaded. We use it to mean anything from a customer complaint to 
 
 ---
 
-<!-- _class: content -->
-<!-- _footer: "Single-idea prose · content" -->
+<!-- @meta{layout=content, footer=Single-idea prose · content} -->
+
 
 `Context · Competitive Dynamics`
 
@@ -51,8 +51,8 @@ Three converging forces — commoditized infrastructure, compressed release cycl
 
 ---
 
-<!-- _class: diagram -->
-<!-- _footer: "Component diagram · diagram" -->
+<!-- @meta{layout=diagram, footer=Component diagram · diagram} -->
+
 
 `Architecture · Signal Pipeline`
 
@@ -73,8 +73,8 @@ flowchart LR
 
 ---
 
-<!-- _class: stats -->
-<!-- _footer: "KPI numbers · stats" -->
+<!-- @meta{layout=stats, footer=KPI numbers · stats} -->
+
 
 `Impact · Pilot Results`
 
@@ -93,8 +93,8 @@ flowchart LR
 
 ---
 
-<!-- _class: cards-grid -->
-<!-- _footer: "2×2 card grid · cards-grid" -->
+<!-- @meta{layout=cards-grid, footer="2×2 card grid · cards-grid"} -->
+
 
 ## The framework has four components.
 
@@ -109,8 +109,8 @@ flowchart LR
 
 ---
 
-<!-- _class: cards-grid -->
-<!-- _footer: "Inline code in cards · cards-grid" -->
+<!-- @meta{layout=cards-grid, footer=Inline code in cards · cards-grid} -->
+
 
 ## The pipeline, by version number.
 
@@ -125,8 +125,8 @@ flowchart LR
 
 ---
 
-<!-- _class: cards-grid -->
-<!-- _footer: "2 top + 1 bottom · cards-grid" -->
+<!-- @meta{layout=cards-grid, footer="2 top + 1 bottom · cards-grid"} -->
+
 
 ## Signal Intake produces three outputs.
 
@@ -139,8 +139,8 @@ flowchart LR
 
 ---
 
-<!-- _class: cards-stack -->
-<!-- _footer: "Vertical card stack · cards-stack" -->
+<!-- @meta{layout=cards-stack, footer=Vertical card stack · cards-stack} -->
+
 
 ## Two failure modes the framework is designed to prevent.
 
@@ -151,8 +151,8 @@ flowchart LR
 
 ---
 
-<!-- _class: cards-grid -->
-<!-- _footer: "Side-by-side cards · cards-grid" -->
+<!-- @meta{layout=cards-grid, footer=Side-by-side cards · cards-grid} -->
+
 
 ## Two intake modes for different signal types.
 
@@ -163,8 +163,8 @@ flowchart LR
 
 ---
 
-<!-- _class: compare-prose -->
-<!-- _footer: "Two options + connector · compare-prose" -->
+<!-- @meta{layout=compare-prose, footer="Two options + connector · compare-prose"} -->
+
 
 ## Scoring model: before and after the calibration loop.
 
@@ -177,8 +177,8 @@ The shift from equal weights to calibrated weights takes two retrospective cycle
 
 ---
 
-<!-- _class: quote -->
-<!-- _footer: "Pull quote · quote" -->
+<!-- @meta{layout=quote, footer=Pull quote · quote} -->
+
 
 > The signal was always there. We just didn't have a system that forced us to look at it before we'd already decided.
 
@@ -186,8 +186,8 @@ The shift from equal weights to calibrated weights takes two retrospective cycle
 
 ---
 
-<!-- _class: list-steps timeline -->
-<!-- _footer: "Horizontal timeline · timeline" -->
+<!-- @meta{layout=list-steps, class=timeline, footer=Horizontal timeline · timeline} -->
+
 
 ## How a decision moves through the framework.
 
@@ -204,8 +204,8 @@ The shift from equal weights to calibrated weights takes two retrospective cycle
 
 ---
 
-<!-- _class: list -->
-<!-- _footer: "Card list stack · list" -->
+<!-- @meta{layout=list, footer=Card list stack · list} -->
+
 
 ## What the framework does not do.
 
@@ -217,8 +217,8 @@ The shift from equal weights to calibrated weights takes two retrospective cycle
 
 ---
 
-<!-- _class: list -->
-<!-- _footer: "Numbered list · list" -->
+<!-- @meta{layout=list, footer=Numbered list · list} -->
+
 
 ## Four things that must be true before you begin.
 
@@ -229,8 +229,8 @@ The shift from equal weights to calibrated weights takes two retrospective cycle
 
 ---
 
-<!-- _class: big-number -->
-<!-- _footer: "Hero stat · big-number" -->
+<!-- @meta{layout=big-number, footer=Hero stat · big-number} -->
+
 
 `Calibration Result · 6-Month Pilot`
 
@@ -239,8 +239,8 @@ The shift from equal weights to calibrated weights takes two retrospective cycle
 
 ---
 
-<!-- _class: split-panel watermark -->
-<!-- _footer: "Dark panel + content · split-panel watermark" -->
+<!-- @meta{layout=split-panel, class=watermark, footer="Dark panel + content · split-panel watermark"} -->
+
 
 ## Scoring Model Deep Dive
 
@@ -259,9 +259,9 @@ The scoring model is the most configurable component, and therefore the most arg
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: "Dark closing bookend · closing" -->
+<!-- @meta{layout=closing, header="", footer=Dark closing bookend · closing} -->
+
+
 
 `What Would Help Us Move Forward`
 
@@ -271,8 +271,8 @@ The scoring model is the most configurable component, and therefore the most arg
 
 ---
 
-<!-- _class: cards-grid -->
-<!-- _footer: "Finding + key insight · cards-grid" -->
+<!-- @meta{layout=cards-grid, footer="Finding + key insight · cards-grid"} -->
+
 
 `Finding 01 · Structured Intake`
 
@@ -287,8 +287,8 @@ The scoring model is the most configurable component, and therefore the most arg
 
 ---
 
-<!-- _class: cards-grid -->
-<!-- _footer: "Key insight · cards-grid" -->
+<!-- @meta{layout=cards-grid, footer=Key insight · cards-grid} -->
+
 
 ## Four parts, one insight — the loop is the product.
 
@@ -305,8 +305,8 @@ The scoring model is the most configurable component, and therefore the most arg
 
 ---
 
-<!-- _class: cards-grid -->
-<!-- _footer: "Key insight + annotation · cards-grid" -->
+<!-- @meta{layout=cards-grid, footer="Key insight + annotation · cards-grid"} -->
+
 
 ## The same four parts, now with the source on the record.
 
@@ -325,8 +325,8 @@ _Source: pilot retrospective — six months, four teams, one deck, this one._
 
 ---
 
-<!-- _class: cards-stack -->
-<!-- _footer: "3 full-width cards · cards-stack" -->
+<!-- @meta{layout=cards-stack, footer=3 full-width cards · cards-stack} -->
+
 
 ## Three scoring failure modes found in the pilot.
 
@@ -339,8 +339,8 @@ _Source: pilot retrospective — six months, four teams, one deck, this one._
 
 ---
 
-<!-- _class: list takeaway -->
-<!-- _footer: "Numbered criteria · list takeaway over 1." -->
+<!-- @meta{layout=list, class=takeaway, footer=Numbered criteria · list takeaway over 1.} -->
+
 
 ## Four requirements every decision system must meet.
 
@@ -355,8 +355,8 @@ _Source: pilot retrospective — six months, four teams, one deck, this one._
 
 ---
 
-<!-- _class: verdict-grid -->
-<!-- _footer: "2×2 verdict grid · verdict-grid" -->
+<!-- @meta{layout=verdict-grid, footer="2×2 verdict grid · verdict-grid"} -->
+
 
 ## We evaluated four paths against the criteria.
 
@@ -387,8 +387,8 @@ _Source: pilot retrospective — six months, four teams, one deck, this one._
 
 ---
 
-<!-- _class: table state-cells -->
-<!-- _footer: "Comparison table · table" -->
+<!-- @meta{layout=table, class=state-cells, footer=Comparison table · table} -->
+
 
 ## The four paths side by side.
 
@@ -404,8 +404,8 @@ _Evaluated against the same four pilot teams and the same 90-minute weekly budge
 
 ---
 
-<!-- _class: glossary -->
-<!-- _footer: "Glossary · glossary (auto-table, auto-pill)" -->
+<!-- @meta{layout=glossary, footer="Glossary · glossary (auto-table, auto-pill)"} -->
+
 
 ## Glossary
 
@@ -426,8 +426,8 @@ _Evaluated against the same four pilot teams and the same 90-minute weekly budge
 
 ---
 
-<!-- _class: glossary -->
-<!-- _footer: "Glossary continued · glossary (auto-table, auto-pill)" -->
+<!-- @meta{layout=glossary, footer="Glossary continued · glossary (auto-table, auto-pill)"} -->
+
 
 ## Glossary
 
@@ -446,8 +446,8 @@ _Evaluated against the same four pilot teams and the same 90-minute weekly budge
 
 ---
 
-<!-- _class: compare-prose -->
-<!-- _footer: "Two options + connector · compare-prose" -->
+<!-- @meta{layout=compare-prose, footer="Two options + connector · compare-prose"} -->
+
 
 ## Two intake modes ran head to head for a quarter.
 
@@ -460,8 +460,8 @@ The pilot kept both — the feed for the two teams that mute nothing, the digest
 
 ---
 
-<!-- _class: list-steps -->
-<!-- _footer: "Horizontal steps · list-steps" -->
+<!-- @meta{layout=list-steps, footer=Horizontal steps · list-steps} -->
+
 
 ## How to roll this out across your organization.
 
@@ -476,8 +476,8 @@ The pilot kept both — the feed for the two teams that mute nothing, the digest
 
 ---
 
-<!-- _class: list-tabular -->
-<!-- _footer: "Tabular list · list-tabular" -->
+<!-- @meta{layout=list-tabular, footer=Tabular list · list-tabular} -->
+
 
 ## The six signal dimensions, what they measure, and how they are scored.
 
@@ -502,10 +502,10 @@ The pilot kept both — the feed for the two teams that mute nothing, the digest
 
 ---
 
-<!-- _class: content -->
-<!-- _footer: "Header and footer demo · content" -->
-<!-- _header: "Lattice · Layout Gallery" -->
-<!-- _footer: "Header stays uppercase · footer renders as written" -->
+<!-- @meta{layout=content, header=Lattice · Layout Gallery} -->
+
+
+<!-- @meta{footer=Header stays uppercase · footer renders as written} -->
 
 `Offsite · Housekeeping`
 
@@ -515,8 +515,8 @@ Deck name up top, provenance below, set once in front matter — the header arri
 
 ---
 
-<!-- _class: code -->
-<!-- _footer: "Single code block · code" -->
+<!-- @meta{layout=code, footer=Single code block · code} -->
+
 
 `Implementation · Decision Pipeline`
 
@@ -538,8 +538,8 @@ const entry = await framework.decisions.log(decision, { signals: [signal.id], ra
 
 ---
 
-<!-- _class: compare-code -->
-<!-- _footer: "Two code blocks · compare-code" -->
+<!-- @meta{layout=compare-code, footer=Two code blocks · compare-code} -->
+
 
 `Before & After · Scoring Mechanics`
 
@@ -575,8 +575,8 @@ for signal in calibrator.intake.unscored():
 
 ---
 
-<!-- _class: image -->
-<!-- _footer: "Image · auto becomes clean floated card · image" -->
+<!-- @meta{layout=image, footer=Image · auto becomes clean floated card · image} -->
+
 
 `Offsite · Day One`
 
@@ -588,8 +588,8 @@ Think deeper, plan longer, decide once — the mandate fit on a napkin, so the v
 
 ---
 
-<!-- _class: image mirror -->
-<!-- _footer: "Image · clean, mirrored · image mirror" -->
+<!-- @meta{layout=image, class=mirror, footer="Image · clean, mirrored · image mirror"} -->
+
 
 `Offsite · Day One, Continued`
 
@@ -601,8 +601,8 @@ Same lake, same mandate, opposite wall — the afternoon was the morning, flippe
 
 ---
 
-<!-- _class: image gallery -->
-<!-- _footer: "Image · opt-in gallery (contain, no crop) · image gallery" -->
+<!-- @meta{layout=image, class=gallery, footer="Image · opt-in gallery (contain, no crop) · image gallery"} -->
+
 
 `Offsite · The Artifact`
 
@@ -614,8 +614,8 @@ Shown whole, on a matte, with a placard — evidence handling for a whiteboard t
 
 ---
 
-<!-- _class: image spotlight no-pagination -->
-<!-- _footer: "Image · auto becomes spotlight (full-bleed + solid card) · image spotlight" -->
+<!-- @meta{layout=image, class=spotlight no-pagination, footer="Image · auto becomes spotlight (full-bleed + solid card) · image spotlight"} -->
+
 
 ## The venue cost roughly what the calibration tooling would have.
 
@@ -625,8 +625,8 @@ The grounds, edge to edge — we will reference this view in three consecutive p
 
 ---
 
-<!-- _class: image split -->
-<!-- _footer: "Image · auto becomes split (extreme aspect, shown whole) · image split" -->
+<!-- @meta{layout=image, class=split, footer="Image · auto becomes split (extreme aspect, shown whole) · image split"} -->
+
 
 `Offsite · Team Building`
 
@@ -638,8 +638,8 @@ The climb produced two insights and one signed waiver. The photo runs taller tha
 
 ---
 
-<!-- _class: image statement no-pagination -->
-<!-- _footer: "Image · opt-in statement (scrim + editorial title) · image statement" -->
+<!-- @meta{layout=image, class=statement no-pagination, footer="Image · opt-in statement (scrim + editorial title) · image statement"} -->
+
 
 ## Think deeper. Plan longer. Return unchanged.
 
@@ -649,9 +649,9 @@ The line the room will repeat, set over the view that produced it. This one made
 
 ---
 
-<!-- _class: divider dark -->
-<!-- _header: '' -->
-<!-- _footer: "Dark variant — section break · divider dark" -->
+<!-- @meta{layout=divider, class=dark, header="", footer="Dark variant — section break · divider dark"} -->
+
+
 
 `Offsite · Nightfall`
 
@@ -661,8 +661,8 @@ The palette followed us into the evening; the agenda did not
 
 ---
 
-<!-- _class: content dark -->
-<!-- _footer: "Dark variant — prose · content dark" -->
+<!-- @meta{layout=content, class=dark, footer="Dark variant — prose · content dark"} -->
+
 
 `Offsite · Evening Session`
 
@@ -672,8 +672,8 @@ Ownership of the weights, the CSV retirement date, and who carries the pager —
 
 ---
 
-<!-- _class: image spotlight dark no-pagination -->
-<!-- _footer: "Image · spotlight, dark · image spotlight dark" -->
+<!-- @meta{layout=image, class=spotlight dark no-pagination, footer="Image · spotlight, dark · image spotlight dark"} -->
+
 
 ## By dinner, the mandate had survived its first sunset.
 
@@ -683,8 +683,8 @@ The mandate, projected after dinner, stayed legible — the room got darker and 
 
 ---
 
-<!-- _class: list dark -->
-<!-- _footer: "Dark variant — list · list dark" -->
+<!-- @meta{layout=list, class=dark, footer="Dark variant — list · list dark"} -->
+
 
 `Offsite · After Sunset`
 
@@ -696,8 +696,8 @@ The mandate, projected after dinner, stayed legible — the room got darker and 
 
 ---
 
-<!-- _class: cards-stack dark -->
-<!-- _footer: "Dark variant — stacked cards · cards-stack dark" -->
+<!-- @meta{layout=cards-stack, class=dark, footer="Dark variant — stacked cards · cards-stack dark"} -->
+
 
 `Dark Variant · Cards Stacked`
 
@@ -708,8 +708,8 @@ The mandate, projected after dinner, stayed legible — the room got darker and 
 
 ---
 
-<!-- _class: list-steps phase -->
-<!-- _footer: "Modifier — list-steps phase · list-steps phase" -->
+<!-- @meta{layout=list-steps, class=phase, footer="Modifier — list-steps phase · list-steps phase"} -->
+
 
 `Rollout · Three Phases`
 
@@ -724,8 +724,8 @@ The mandate, projected after dinner, stayed legible — the room got darker and 
 
 ---
 
-<!-- _class: list-steps milestone lettered -->
-<!-- _footer: "Modifier — list-steps milestone lettered · list-steps milestone lettered" -->
+<!-- @meta{layout=list-steps, class=milestone lettered, footer="Modifier — list-steps milestone lettered · list-steps milestone lettered"} -->
+
 
 `Rollout · Milestones`
 
@@ -740,8 +740,8 @@ The mandate, projected after dinner, stayed legible — the room got darker and 
 
 ---
 
-<!-- _class: list-steps vertical compact -->
-<!-- _footer: "Modifier — list-steps vertical · list-steps vertical compact" -->
+<!-- @meta{layout=list-steps, class=vertical compact, footer="Modifier — list-steps vertical · list-steps vertical compact"} -->
+
 
 ## Sense, score, decide — the loop in three verbs.
 
@@ -754,8 +754,8 @@ The mandate, projected after dinner, stayed legible — the room got darker and 
 
 ---
 
-<!-- _class: cycle -->
-<!-- _footer: "Progression — cycle · cycle" -->
+<!-- @meta{layout=cycle, footer="Progression — cycle · cycle"} -->
+
 
 `Framework · The Closed Loop`
 
@@ -772,8 +772,8 @@ The mandate, projected after dinner, stayed legible — the room got darker and 
 
 ---
 
-<!-- _class: compare-prose chosen -->
-<!-- _footer: "Modifier — compare-prose chosen · compare-prose chosen" -->
+<!-- @meta{layout=compare-prose, class=chosen, footer="Modifier — compare-prose chosen · compare-prose chosen"} -->
+
 
 `Decision · Close Time`
 
@@ -788,8 +788,8 @@ The accent edge marks the winner — the same contract every recommended card in
 
 ---
 
-<!-- _class: compare-prose decision -->
-<!-- _footer: "Modifier — compare-prose decision · compare-prose decision" -->
+<!-- @meta{layout=compare-prose, class=decision, footer="Modifier — compare-prose decision · compare-prose decision"} -->
+
 
 `Decision · Build vs Buy`
 
@@ -804,8 +804,8 @@ The struck card stays on the slide — the framework logs its rejected options t
 
 ---
 
-<!-- _class: compare-prose vertical -->
-<!-- _footer: "Modifier — compare-prose vertical · compare-prose vertical" -->
+<!-- @meta{layout=compare-prose, class=vertical, footer="Modifier — compare-prose vertical · compare-prose vertical"} -->
+
 
 `Operations · Recalibration`
 
@@ -818,8 +818,8 @@ The struck card stays on the slide — the framework logs its rejected options t
 
 ---
 
-<!-- _class: cards-grid three -->
-<!-- _footer: "Modifier — cards-grid three · cards-grid three" -->
+<!-- @meta{layout=cards-grid, class=three, footer="Modifier — cards-grid three · cards-grid three"} -->
+
 
 `Framework · Vocabulary`
 
@@ -834,8 +834,8 @@ The struck card stays on the slide — the framework logs its rejected options t
 
 ---
 
-<!-- _class: cards-grid four compact -->
-<!-- _footer: "Modifier — cards-grid four · cards-grid four compact" -->
+<!-- @meta{layout=cards-grid, class=four compact, footer="Modifier — cards-grid four · cards-grid four compact"} -->
+
 
 `Framework · Four Verbs`
 
@@ -852,8 +852,8 @@ The struck card stays on the slide — the framework logs its rejected options t
 
 ---
 
-<!-- _class: cards-stack horizontal -->
-<!-- _footer: "Modifier — cards-stack horizontal · cards-stack horizontal" -->
+<!-- @meta{layout=cards-stack, class=horizontal, footer="Modifier — cards-stack horizontal · cards-stack horizontal"} -->
+
 
 `Board Brief · One Row`
 
@@ -868,8 +868,8 @@ The struck card stays on the slide — the framework logs its rejected options t
 
 ---
 
-<!-- _class: image mirror -->
-<!-- _footer: "Modifier — image mirror · image mirror" -->
+<!-- @meta{layout=image, class=mirror, footer="Modifier — image mirror · image mirror"} -->
+
 
 `Offsite · Day Two`
 
@@ -881,8 +881,8 @@ Same lake, opposite bank, one session earlier than scheduled. The image card cro
 
 ---
 
-<!-- _class: split-panel watermark mirror -->
-<!-- _footer: "Modifier — split-panel watermark mirror · split-panel watermark mirror" -->
+<!-- @meta{layout=split-panel, class=watermark mirror, footer="Modifier — split-panel watermark mirror · split-panel watermark mirror"} -->
+
 
 ## The scoring model gets day two.
 
@@ -901,8 +901,8 @@ The panel crosses to the right and takes its watermark, eyebrow, and section num
 
 ---
 
-<!-- _class: compare-prose mirror chosen -->
-<!-- _footer: "Modifier — compare-prose mirror chosen · compare-prose mirror chosen" -->
+<!-- @meta{layout=compare-prose, class=mirror chosen, footer="Modifier — compare-prose mirror chosen · compare-prose mirror chosen"} -->
+
 
 ## Risk went first, and the room read it from the left.
 
@@ -915,9 +915,9 @@ With `mirror`, the chosen card lands first in the scan path — the order of arg
 
 ---
 
-<!-- _class: divider numbered -->
-<!-- _header: '' -->
-<!-- _footer: "Modifier — divider numbered · divider numbered" -->
+<!-- @meta{layout=divider, class=numbered, header="", footer="Modifier — divider numbered · divider numbered"} -->
+
+
 
 `Section Breaks · Self-Numbering`
 
@@ -927,9 +927,9 @@ Somebody renumbered this deck at one in the morning, once. The sections number t
 
 ---
 
-<!-- _class: divider light numbered -->
-<!-- _header: '' -->
-<!-- _footer: "Modifier — divider light numbered · divider light numbered" -->
+<!-- @meta{layout=divider, class=light numbered, header="", footer="Modifier — divider light numbered · divider light numbered"} -->
+
+
 
 `Section Breaks · One Ledger`
 
@@ -939,8 +939,8 @@ Dark and light dividers share one series, so a mid-deck light break reads 05 str
 
 ---
 
-<!-- _class: matrix-2x2 -->
-<!-- _footer: "New layout — matrix-2x2 · matrix-2x2" -->
+<!-- @meta{layout=matrix-2x2, footer="New layout — matrix-2x2 · matrix-2x2"} -->
+
 
 ## How the four paths sort against our two axes.
 
@@ -957,8 +957,8 @@ Dark and light dividers share one series, so a mid-deck light break reads 05 str
 
 ---
 
-<!-- _class: decision -->
-<!-- _footer: "New layout — decision · decision" -->
+<!-- @meta{layout=decision, footer="New layout — decision · decision"} -->
+
 
 ## We are building, not buying.
 
@@ -973,8 +973,8 @@ Dark and light dividers share one series, so a mid-deck light break reads 05 str
 
 ---
 
-<!-- _class: compare-prose transition -->
-<!-- _footer: "Comparison variant — compare-prose transition · compare-prose transition" -->
+<!-- @meta{layout=compare-prose, class=transition, footer="Comparison variant — compare-prose transition · compare-prose transition"} -->
+
 
 ## Decisions used to require a quarterly re-litigation.
 
@@ -989,8 +989,8 @@ The architecture change is the calibration loop — logged, weighted, time-bound
 
 ---
 
-<!-- _class: list principles -->
-<!-- _footer: "New layout — principles · principles" -->
+<!-- @meta{layout=list, class=principles, footer="New layout — principles · principles"} -->
+
 
 ## How we make calls when the spec is silent.
 
@@ -1000,8 +1000,8 @@ The architecture change is the calibration loop — logged, weighted, time-bound
 
 ---
 
-<!-- _class: roadmap -->
-<!-- _footer: "New layout — roadmap · roadmap" -->
+<!-- @meta{layout=roadmap, footer="New layout — roadmap · roadmap"} -->
+
 
 ## What ships in each phase, by workstream.
 
@@ -1014,8 +1014,8 @@ The architecture change is the calibration loop — logged, weighted, time-bound
 
 ---
 
-<!-- _class: kpi -->
-<!-- _footer: "New layout — kpi" -->
+<!-- @meta{layout=kpi, footer="New layout — kpi"} -->
+
 
 ## Where we are against the targets we set ourselves.
 
@@ -1034,8 +1034,8 @@ The architecture change is the calibration loop — logged, weighted, time-bound
 
 ---
 
-<!-- _class: agenda progress-2 -->
-<!-- _footer: "New layout — agenda · agenda progress-2" -->
+<!-- @meta{layout=agenda, class=progress-2, footer="New layout — agenda · agenda progress-2"} -->
+
 
 ## What this deck covers, in order.
 
@@ -1047,8 +1047,8 @@ The architecture change is the calibration loop — logged, weighted, time-bound
 
 ---
 
-<!-- _class: actors -->
-<!-- _footer: "New layout — actors · actors" -->
+<!-- @meta{layout=actors, footer="New layout — actors · actors"} -->
+
 
 ## Who owns each part of the framework lifecycle.
 
@@ -1063,8 +1063,8 @@ The architecture change is the calibration loop — logged, weighted, time-bound
 
 ---
 
-<!-- _class: list takeaway -->
-<!-- _footer: "List variant — list takeaway · list takeaway over 1." -->
+<!-- @meta{layout=list, class=takeaway, footer="List variant — list takeaway · list takeaway over 1."} -->
+
 
 `Section 03 · Recap`
 
@@ -1078,8 +1078,8 @@ The architecture change is the calibration loop — logged, weighted, time-bound
 
 ---
 
-<!-- _class: cards-grid compact -->
-<!-- _footer: "Modifier — compact · cards-grid compact" -->
+<!-- @meta{layout=cards-grid, class=compact, footer="Modifier — compact · cards-grid compact"} -->
+
 
 `Agenda · Item Five`
 
@@ -1096,8 +1096,8 @@ The architecture change is the calibration loop — logged, weighted, time-bound
 
 ---
 
-<!-- _class: content -->
-<!-- _footer: "Editorial — one point, given room · content" -->
+<!-- @meta{layout=content, footer="Editorial — one point, given room · content"} -->
+
 
 `Values · Restraint`
 
@@ -1109,8 +1109,8 @@ One editorial point, standing alone — values pages, principles, closing lines.
 
 ---
 
-<!-- _class: content with-period -->
-<!-- _footer: "Modifier — with-period · content with-period" -->
+<!-- @meta{layout=content, class=with-period, footer="Modifier — with-period · content with-period"} -->
+
 
 `Offsite · Minutes`
 
@@ -1122,8 +1122,8 @@ The evening edit runs the other direction on the next page — periods removed i
 
 ---
 
-<!-- _class: content no-period -->
-<!-- _footer: "Modifier — no-period · content no-period" -->
+<!-- @meta{layout=content, class=no-period, footer="Modifier — no-period · content no-period"} -->
+
 
 `Offsite · After Dinner`
 
@@ -1136,9 +1136,9 @@ Exclamations, questions, and ellipses pass through untouched — as does the man
 
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
-<!-- _footer: "Treatment Library — section break · divider" -->
+<!-- @meta{layout=divider, header="", footer="Treatment Library — section break · divider"} -->
+
+
 
 `The Annexes · Approved Decoration`
 
@@ -1148,8 +1148,8 @@ Decoration, at last, with governance — a wash or a mark from the approved set,
 
 ---
 
-<!-- _class: content tint-corner at-tl -->
-<!-- _footer: "Background — corner glow · content tint-corner at-tl" -->
+<!-- @meta{layout=content, class=tint-corner at-tl, footer="Background — corner glow · content tint-corner at-tl"} -->
+
 
 `Background · Corner Glow`
 
@@ -1161,8 +1161,8 @@ The warmth is the brand's own accent, borrowed at low volume — it follows the 
 
 ---
 
-<!-- _class: content mark-orbit dark -->
-<!-- _footer: "Background — SVG marks · content mark-orbit dark" -->
+<!-- @meta{layout=content, class=mark-orbit dark, footer="Background — SVG marks · content mark-orbit dark"} -->
+
 
 `Background · SVG Marks · Dark`
 
@@ -1172,8 +1172,8 @@ Concentric rings and satellite dots, bottom right, in the brand's accent at a re
 
 ---
 
-<!-- _class: content tint-vignette tint-edge at-right -->
-<!-- _footer: "Background — layered radial + linear · content tint-vignette tint-edge at-right" -->
+<!-- @meta{layout=content, class=tint-vignette tint-edge at-right, footer="Background — layered radial + linear · content tint-vignette tint-edge at-right"} -->
+
 
 `Background · Layered`
 
@@ -1188,9 +1188,9 @@ The marks bring their own haze and sit on top of either wash. Two backgrounds, o
 
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
-<!-- _footer: "Chart — gantt + kanban · divider" -->
+<!-- @meta{layout=divider, header="", footer="Chart — gantt + kanban · divider"} -->
+
+
 
 `The Plan · Two Views`
 
@@ -1198,8 +1198,8 @@ The marks bring their own haze and sit on top of either wash. Two backgrounds, o
 
 ---
 
-<!-- _class: gantt -->
-<!-- _footer: "Chart — gantt · gantt" -->
+<!-- @meta{layout=gantt, footer="Chart — gantt · gantt"} -->
+
 
 `[{Timeline, 2026 Q1 .. 2026 Q4}]`
 
@@ -1222,8 +1222,8 @@ The marks bring their own haze and sit on top of either wash. Two backgrounds, o
 
 ---
 
-<!-- _class: kanban -->
-<!-- _footer: "Chart — kanban · kanban" -->
+<!-- @meta{layout=kanban, footer="Chart — kanban · kanban"} -->
+
 
 `Board · Phase 2 rollout`
 
@@ -1243,9 +1243,9 @@ The marks bring their own haze and sit on top of either wash. Two backgrounds, o
 
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
-<!-- _footer: "Chart — evidence suite · divider" -->
+<!-- @meta{layout=divider, header="", footer="Chart — evidence suite · divider"} -->
+
+
 
 `The Evidence · Ten Exhibits`
 
@@ -1253,8 +1253,8 @@ The marks bring their own haze and sit on top of either wash. Two backgrounds, o
 
 ---
 
-<!-- _class: funnel -->
-<!-- _footer: "Chart — funnel · funnel" -->
+<!-- @meta{layout=funnel, footer="Chart — funnel · funnel"} -->
+
 
 ## Most signals die long before they change a decision.
 
@@ -1268,8 +1268,8 @@ The marks bring their own haze and sit on top of either wash. Two backgrounds, o
 
 ---
 
-<!-- _class: piechart -->
-<!-- _footer: "Chart — piechart · piechart" -->
+<!-- @meta{layout=piechart, footer="Chart — piechart · piechart"} -->
+
 
 `H1 2026 · 1,840 person-hours`
 
@@ -1286,8 +1286,8 @@ Nearly half went to producing decks; the deciding itself was the smallest slice.
 
 ---
 
-<!-- _class: progress -->
-<!-- _footer: "Chart — progress · progress" -->
+<!-- @meta{layout=progress, footer="Chart — progress · progress"} -->
+
 
 `H1 2026 · Phase 1 readiness`
 
@@ -1301,8 +1301,8 @@ Nearly half went to producing decks; the deciding itself was the smallest slice.
 
 ---
 
-<!-- _class: radar -->
-<!-- _footer: "Chart — radar · radar" -->
+<!-- @meta{layout=radar, footer="Chart — radar · radar"} -->
+
 
 `[{Scale, 0..10}]`
 
@@ -1329,8 +1329,8 @@ Nearly half went to producing decks; the deciding itself was the smallest slice.
 
 ---
 
-<!-- _class: quadrant -->
-<!-- _footer: "Chart — quadrant · quadrant" -->
+<!-- @meta{layout=quadrant, footer="Chart — quadrant · quadrant"} -->
+
 
 `[{Effort, 0..10}, {Reach, 0..100}]`
 
@@ -1353,8 +1353,8 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 ---
 
-<!-- _class: map -->
-<!-- _footer: "Chart — map · map" -->
+<!-- @meta{layout=map, footer="Chart — map · map"} -->
+
 
 ## The signal volume is nowhere near where the roadmap thinks it is.
 
@@ -1370,8 +1370,8 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 ---
 
-<!-- _class: journey -->
-<!-- _footer: "Chart — journey · journey" -->
+<!-- @meta{layout=journey, footer="Chart — journey · journey"} -->
+
 
 ## A team's first month runs from pain to belief, in that order, twice.
 
@@ -1387,8 +1387,8 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 ---
 
-<!-- _class: timeline-list -->
-<!-- _footer: "Chart — timeline-list · timeline-list" -->
+<!-- @meta{layout=timeline-list, footer="Chart — timeline-list · timeline-list"} -->
+
 
 `Decision framework`
 
@@ -1405,8 +1405,8 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 ---
 
-<!-- _class: state-chart lr -->
-<!-- _footer: "Chart — state-chart · state-chart lr" -->
+<!-- @meta{layout=state-chart, class=lr, footer="Chart — state-chart · state-chart lr"} -->
+
 
 `Decision lifecycle`
 
@@ -1428,8 +1428,8 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 ---
 
-<!-- _class: hub-spoke -->
-<!-- _footer: "Chart — hub-spoke · hub-spoke" -->
+<!-- @meta{layout=hub-spoke, footer="Chart — hub-spoke · hub-spoke"} -->
+
 
 `Program office · Q3 2026`
 
@@ -1445,8 +1445,8 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 ---
 
-<!-- _class: hub-spoke sized -->
-<!-- _footer: "Chart — hub-spoke · hub-spoke sized" -->
+<!-- @meta{layout=hub-spoke, class=sized, footer="Chart — hub-spoke · hub-spoke sized"} -->
+
 
 `Signal share · H1 2026`
 
@@ -1463,8 +1463,8 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 ---
 
-<!-- _class: hub-spoke flow-in -->
-<!-- _footer: "Chart — hub-spoke · hub-spoke flow-in" -->
+<!-- @meta{layout=hub-spoke, class=flow-in, footer="Chart — hub-spoke · hub-spoke flow-in"} -->
+
 
 `Decision log · Entries per month`
 
@@ -1479,8 +1479,8 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 ---
 
-<!-- _class: hub-spoke tiered -->
-<!-- _footer: "Chart — hub-spoke · hub-spoke tiered" -->
+<!-- @meta{layout=hub-spoke, class=tiered, footer="Chart — hub-spoke · hub-spoke tiered"} -->
+
 
 `Framework ownership · 2026`
 
@@ -1504,8 +1504,8 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 ---
 
-<!-- _class: word-cloud -->
-<!-- _footer: "Chart — word-cloud · word-cloud" -->
+<!-- @meta{layout=word-cloud, footer="Chart — word-cloud · word-cloud"} -->
+
 
 ## What 24 pilot retros kept saying, unprompted.
 
@@ -1521,9 +1521,9 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
-<!-- _footer: "Split Layouts · split-panel + split-panel metric + split-panel steps + split-compare + split-panel pullquote" -->
+<!-- @meta{layout=divider, header="", footer="Split Layouts · split-panel + split-panel metric + split-panel steps + split-compare + split-panel pullquote"} -->
+
+
 
 `The Review · Five Panels`
 
@@ -1531,8 +1531,8 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 ---
 
-<!-- _class: split-panel -->
-<!-- _footer: "Split — brief · split-panel" -->
+<!-- @meta{layout=split-panel, footer="Split — brief · split-panel"} -->
+
 
 `Q2 Signal Review`
 
@@ -1549,8 +1549,8 @@ Three signal clusters explain most of the quarter's surprise — every one logge
 
 ---
 
-<!-- _class: split-panel metric -->
-<!-- _footer: "Split — metric · split-panel metric" -->
+<!-- @meta{layout=split-panel, class=metric, footer="Split — metric · split-panel metric"} -->
+
 
 `Decision Log Coverage`
 
@@ -1567,8 +1567,8 @@ Measured across the pilot's first six months, all four teams, no grading curve.
 
 ---
 
-<!-- _class: split-panel steps -->
-<!-- _footer: "Split — steps · split-panel steps" -->
+<!-- @meta{layout=split-panel, class=steps, footer="Split — steps · split-panel steps"} -->
+
 
 `02`
 
@@ -1587,8 +1587,8 @@ Four weeks. The workstream previously known as "next phase," now with dates.
 
 ---
 
-<!-- _class: split-compare -->
-<!-- _footer: "Split — compare · split-compare" -->
+<!-- @meta{layout=split-compare, footer="Split — compare · split-compare"} -->
+
 
 `Decision Required`
 
@@ -1609,8 +1609,8 @@ Building is settled. The remaining question is which layers deserve our engineer
 
 ---
 
-<!-- _class: split-panel pullquote -->
-<!-- _footer: "Split — statement · split-panel pullquote" -->
+<!-- @meta{layout=split-panel, class=pullquote, footer="Split — statement · split-panel pullquote"} -->
+
 
 > The framework did not make us smarter. It made us unable to pretend we had not known.
 
@@ -1625,9 +1625,9 @@ Building is settled. The remaining question is which layers deserve our engineer
 
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
-<!-- _footer: "Legal Layouts · statute-stack + authority-chain + obligation-matrix + citation-card + regulatory-update + redline" -->
+<!-- @meta{layout=divider, header="", footer="Legal Layouts · statute-stack + authority-chain + obligation-matrix + citation-card + regulatory-update + redline"} -->
+
+
 
 `The Compliance Review · Six Exhibits`
 
@@ -1635,8 +1635,8 @@ Building is settled. The remaining question is which layers deserve our engineer
 
 ---
 
-<!-- _class: statute-stack dark -->
-<!-- _footer: "Legal — statute-stack · statute-stack dark" -->
+<!-- @meta{layout=statute-stack, class=dark, footer="Legal — statute-stack · statute-stack dark"} -->
+
 
 ## The signal store answers to three regimes on day one.
 
@@ -1655,8 +1655,8 @@ Building is settled. The remaining question is which layers deserve our engineer
 
 ---
 
-<!-- _class: authority-chain dark -->
-<!-- _footer: "Legal — authority-chain · authority-chain dark" -->
+<!-- @meta{layout=authority-chain, class=dark, footer="Legal — authority-chain · authority-chain dark"} -->
+
 
 ## The retention rule on signal data has a chain of custody.
 
@@ -1675,8 +1675,8 @@ Building is settled. The remaining question is which layers deserve our engineer
 
 ---
 
-<!-- _class: obligation-matrix -->
-<!-- _footer: "Legal — obligation-matrix · obligation-matrix" -->
+<!-- @meta{layout=obligation-matrix, footer="Legal — obligation-matrix · obligation-matrix"} -->
+
 
 ## The signal store inherits every regime we sell into.
 
@@ -1692,8 +1692,8 @@ Filled = applies, half = partial, empty = exempt — a rare grid where empty is 
 
 ---
 
-<!-- _class: citation-card -->
-<!-- _footer: "Legal — citation-card · citation-card" -->
+<!-- @meta{layout=citation-card, footer="Legal — citation-card · citation-card"} -->
+
 
 ## The signals we log are "personal information" under CCPA.
 
@@ -1706,8 +1706,8 @@ Filled = applies, half = partial, empty = exempt — a rare grid where empty is 
 
 ---
 
-<!-- _class: regulatory-update -->
-<!-- _footer: "Legal — regulatory-update · regulatory-update" -->
+<!-- @meta{layout=regulatory-update, footer="Legal — regulatory-update · regulatory-update"} -->
+
 
 ## The quarter moved three rules that touch the scoring model.
 
@@ -1728,8 +1728,8 @@ Filled = applies, half = partial, empty = exempt — a rare grid where empty is 
 
 ---
 
-<!-- _class: redline -->
-<!-- _footer: "Legal — redline · redline" -->
+<!-- @meta{layout=redline, footer="Legal — redline · redline"} -->
+
 
 ## Vendor West's redlines moved the exit clause, quietly.
 
@@ -1741,8 +1741,8 @@ Filled = applies, half = partial, empty = exempt — a rare grid where empty is 
 
 ---
 
-<!-- _class: policy-recommendation adopt -->
-<!-- _footer: "Legal — policy-recommendation · adopt" -->
+<!-- @meta{layout=policy-recommendation, class=adopt, footer="Legal — policy-recommendation · adopt"} -->
+
 
 ## Adopt Colorado's deployer-duties framework as the federal floor.
 
@@ -1757,9 +1757,9 @@ Filled = applies, half = partial, empty = exempt — a rare grid where empty is 
 
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
-<!-- _footer: "Operating Layouts · math + inventory + checklist + pricing + q-and-a + logo-wall" -->
+<!-- @meta{layout=divider, header="", footer="Operating Layouts · math + inventory + checklist + pricing + q-and-a + logo-wall"} -->
+
+
 
 `The Operating Plan · Six Exhibits`
 
@@ -1767,8 +1767,8 @@ Filled = applies, half = partial, empty = exempt — a rare grid where empty is 
 
 ---
 
-<!-- _class: math -->
-<!-- _footer: "Math — closed form · math" -->
+<!-- @meta{layout=math, footer="Math — closed form · math"} -->
+
 
 `Scoring model · OLS`
 
@@ -1783,8 +1783,8 @@ $$ \hat\beta = (X^\top X)^{-1} X^\top y $$
 
 ---
 
-<!-- _class: inventory -->
-<!-- _footer: "Ops — inventory · inventory" -->
+<!-- @meta{layout=inventory, footer="Ops — inventory · inventory"} -->
+
 
 `Framework · Four Components`
 
@@ -1797,8 +1797,8 @@ $$ \hat\beta = (X^\top X)^{-1} X^\top y $$
 
 ---
 
-<!-- _class: checklist -->
-<!-- _footer: "Ops — checklist · checklist" -->
+<!-- @meta{layout=checklist, footer="Ops — checklist · checklist"} -->
+
 
 ## The go-live checklist is honest about the gaps.
 
@@ -1812,8 +1812,8 @@ $$ \hat\beta = (X^\top X)^{-1} X^\top y $$
 
 ---
 
-<!-- _class: pricing -->
-<!-- _footer: "Ops — pricing · pricing" -->
+<!-- @meta{layout=pricing, footer="Ops — pricing · pricing"} -->
+
 
 ## What the vendors quoted, before procurement has its say.
 
@@ -1835,8 +1835,8 @@ $$ \hat\beta = (X^\top X)^{-1} X^\top y $$
 
 ---
 
-<!-- _class: q-and-a -->
-<!-- _footer: "Ops — q-and-a · q-and-a" -->
+<!-- @meta{layout=q-and-a, footer="Ops — q-and-a · q-and-a"} -->
+
 
 ## The board will press on three questions; here are the answers.
 
@@ -1849,8 +1849,8 @@ $$ \hat\beta = (X^\top X)^{-1} X^\top y $$
 
 ---
 
-<!-- _class: logo-wall -->
-<!-- _footer: "Ops — logo-wall · logo-wall" -->
+<!-- @meta{layout=logo-wall, footer="Ops — logo-wall · logo-wall"} -->
+
 
 `The intake wall`
 
@@ -1883,9 +1883,9 @@ $$ \hat\beta = (X^\top X)^{-1} X^\top y $$
 
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
-<!-- _footer: "Connect Layouts · contact + wifi" -->
+<!-- @meta{layout=divider, header="", footer="Connect Layouts · contact + wifi"} -->
+
+
 
 `Closing Logistics · Two Codes`
 
@@ -1893,8 +1893,8 @@ $$ \hat\beta = (X^\top X)^{-1} X^\top y $$
 
 ---
 
-<!-- _class: contact -->
-<!-- _footer: "Connect — contact · contact" -->
+<!-- @meta{layout=contact, footer="Connect — contact · contact"} -->
+
 
 ## The framework has an owner.
 
@@ -1905,8 +1905,8 @@ $$ \hat\beta = (X^\top X)^{-1} X^\top y $$
 
 ---
 
-<!-- _class: wifi -->
-<!-- _footer: "Connect — wifi · wifi" -->
+<!-- @meta{layout=wifi, footer="Connect — wifi · wifi"} -->
+
 
 `Offsite · Room Wi-Fi`
 
@@ -1919,9 +1919,9 @@ $$ \hat\beta = (X^\top X)^{-1} X^\top y $$
 
 ---
 
-<!-- _class: closing accent -->
-<!-- _header: '' -->
-<!-- _footer: "Modifier — accent · closing accent" -->
+<!-- @meta{layout=closing, class=accent, header="", footer="Modifier — accent · closing accent"} -->
+
+
 
 `Signal To Strategy · The End`
 

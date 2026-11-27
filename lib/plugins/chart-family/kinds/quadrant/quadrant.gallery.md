@@ -15,8 +15,7 @@ Native 2×2 scatter chart — items plotted on two continuous axes.
 
 ---
 
-<!-- _class: quadrant -->
-<!-- @meta{footer=Default · quadrant} -->
+<!-- @meta{layout=quadrant, footer=Default · quadrant} -->
 
 `[{Effort, 0..10}, {Reach, 0..100}]`
 
@@ -42,8 +41,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 ---
 
-<!-- _class: quadrant bubble -->
-<!-- @meta{footer="bubble · quadrant bubble — A third value sizes each point."} -->
+<!-- @meta{layout=quadrant, class=bubble, footer="bubble · quadrant bubble — A third value sizes each point."} -->
 
 `[{Effort, 0..10}, {Reach, 0..100}]`
 
@@ -63,8 +61,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 ---
 
-<!-- _class: quadrant trail -->
-<!-- @meta{footer="trail · quadrant trail — Arrows show where points moved from."} -->
+<!-- @meta{layout=quadrant, class=trail, footer="trail · quadrant trail — Arrows show where points moved from."} -->
 
 `[{Effort, 0..10}, {Reach, 0..100}]`
 
@@ -81,8 +78,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 ---
 
-<!-- _class: quadrant cohort -->
-<!-- @meta{footer="cohort · quadrant cohort — Points color by group."} -->
+<!-- @meta{layout=quadrant, class=cohort, footer="cohort · quadrant cohort — Points color by group."} -->
 
 `[{Effort, 0..10}, {Reach, 0..100}]`
 
@@ -104,8 +100,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 ---
 
-<!-- _class: quadrant threshold -->
-<!-- @meta{footer="threshold · quadrant threshold — The lines that matter, drawn."} -->
+<!-- @meta{layout=quadrant, class=threshold, footer="threshold · quadrant threshold — The lines that matter, drawn."} -->
 
 `[{Effort, 0..10, 5}, {Reach, 0..100, 50}]`
 
@@ -124,8 +119,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 ---
 
-<!-- _class: quadrant magic -->
-<!-- @meta{footer="magic · quadrant magic — All four quadrants named."} -->
+<!-- @meta{layout=quadrant, class=magic, footer="magic · quadrant magic — All four quadrants named."} -->
 
 `[{Completeness of vision, 0..100}, {Ability to execute, 0..100}]`
 
@@ -144,8 +138,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 ---
 
-<!-- _class: quadrant minimal -->
-<!-- @meta{footer="minimal · quadrant minimal — Just the points."} -->
+<!-- @meta{layout=quadrant, class=minimal, footer="minimal · quadrant minimal — Just the points."} -->
 
 `[{Effort, 0..10}, {Reach, 0..100}]`
 
@@ -165,9 +158,8 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 ---
 
-<!-- _class: quadrant -->
+<!-- @meta{layout=quadrant, footer="Stress test · quadrant — A crowded field of points — the ceiling."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · quadrant — A crowded field of points — the ceiling."} -->
 
 `[{Effort, 0..10}, {Reach, 0..100}]`
 

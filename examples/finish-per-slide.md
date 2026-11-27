@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · per-slide finishes"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # Finishes, per slide
 
@@ -15,7 +15,7 @@ Write one class. The finish paints on that slide alone.
 
 ---
 
-<!-- _class: statement finish-atrium -->
+<!-- @meta{class=statement finish-atrium} -->
 
 ## One class activates the whole finish.
 
@@ -23,7 +23,7 @@ Write one class. The finish paints on that slide alone.
 
 ---
 
-<!-- _class: statement finish-halo -->
+<!-- @meta{class=statement finish-halo} -->
 
 ## The compositor is implied.
 
@@ -31,7 +31,7 @@ A `finish-<name>` class carries the whole finish: the engine adds the `finish` l
 
 ---
 
-<!-- _class: statement finish-gallery dark -->
+<!-- @meta{class=statement finish-gallery dark} -->
 
 ## Same on a dark canvas.
 
@@ -39,7 +39,7 @@ A `finish-<name>` class carries the whole finish: the engine adds the `finish` l
 
 ---
 
-<!-- _class: statement finish-meridian -->
+<!-- @meta{class=statement finish-meridian} -->
 
 ## Mix finishes across a deck.
 
@@ -47,7 +47,7 @@ Each slide can wear a different finish — atrium, halo, gallery, meridian — b
 
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # Independent by slide
 

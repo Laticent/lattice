@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · callouts on bars · placed by measure"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Notes pin to the bar they name
 
@@ -15,8 +15,8 @@ A `@callout` ringed on a bar, a stack, a band, a step, a KPI row or a layer, wit
 
 ---
 
-<!-- _class: bar -->
-<!-- _footer: "bar · a category by name, or one bar of a group as Category/Series." -->
+<!-- @meta{layout=bar, footer="bar · a category by name, or one bar of a group as Category/Series."} -->
+
 
 ## Revenue climbed every quarter.
 
@@ -37,8 +37,8 @@ A `@callout` ringed on a bar, a stack, a band, a step, a KPI row or a layer, wit
 
 ---
 
-<!-- _class: bar row -->
-<!-- _footer: "bar row · the same rule on a row chart." -->
+<!-- @meta{layout=bar, class=row, footer=bar row · the same rule on a row chart.} -->
+
 
 ## Support load sits with two teams.
 
@@ -52,8 +52,8 @@ A `@callout` ringed on a bar, a stack, a band, a step, a KPI row or a layer, wit
 
 ---
 
-<!-- _class: stacked-bar -->
-<!-- _footer: "stacked-bar · a whole stack, or one segment as Category/Series." -->
+<!-- @meta{layout=stacked-bar, footer="stacked-bar · a whole stack, or one segment as Category/Series."} -->
+
 
 ## Services overtook product in Q4.
 
@@ -74,8 +74,8 @@ A `@callout` ringed on a bar, a stack, a band, a step, a KPI row or a layer, wit
 
 ---
 
-<!-- _class: waterfall -->
-<!-- _footer: "waterfall · a step by its label." -->
+<!-- @meta{layout=waterfall, footer=waterfall · a step by its label.} -->
+
 
 `FY26 plan · actual`
 
@@ -93,8 +93,8 @@ A `@callout` ringed on a bar, a stack, a band, a step, a KPI row or a layer, wit
 
 ---
 
-<!-- _class: histogram -->
-<!-- _footer: "histogram · a band by its label." -->
+<!-- @meta{layout=histogram, footer=histogram · a band by its label.} -->
+
 
 `[{Claim size}, {Share of claims}]`
 
@@ -110,8 +110,8 @@ A `@callout` ringed on a bar, a stack, a band, a step, a KPI row or a layer, wit
 
 ---
 
-<!-- _class: bullet -->
-<!-- _footer: "bullet · a KPI row by its name." -->
+<!-- @meta{layout=bullet, footer=bullet · a KPI row by its name.} -->
+
 
 ## Two of five KPIs cleared the plan line.
 
@@ -125,8 +125,8 @@ A `@callout` ringed on a bar, a stack, a band, a step, a KPI row or a layer, wit
 
 ---
 
-<!-- _class: tower -->
-<!-- _footer: "tower · a layer by its label." -->
+<!-- @meta{layout=tower, footer=tower · a layer by its label.} -->
+
 
 ## Six reinsurers carry $310M above a $50M retention.
 
@@ -147,8 +147,8 @@ A `@callout` ringed on a bar, a stack, a band, a step, a KPI row or a layer, wit
 
 ---
 
-<!-- _class: bar -->
-<!-- _footer: "bar · side=beside: the author puts the notes beside the chart; under is the default." -->
+<!-- @meta{layout=bar, footer="bar · side=beside: the author puts the notes beside the chart; under is the default."} -->
+
 
 ## The same chart, with the notes beside it.
 

@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · adaptive image"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # The image layout that thinks for you
 
@@ -15,9 +15,9 @@ You hand it any rectangle. It reads the asset's shape, weighs the deck it's on, 
 
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=divider, header="", footer=""} -->
+
+
 
 `The premise`
 
@@ -25,8 +25,8 @@ You hand it any rectangle. It reads the asset's shape, weighs the deck it's on, 
 
 ---
 
-<!-- _class: image -->
-<!-- _footer: "wide photo becomes clean — the card takes the photo's own shape" -->
+<!-- @meta{layout=image, footer="wide photo becomes clean — the card takes the photo's own shape"} -->
+
 
 ## Activation is where the trial is won or lost.
 
@@ -36,8 +36,8 @@ Two-thirds of trials that reach the first generated report convert; the ones tha
 
 ---
 
-<!-- _class: image -->
-<!-- _footer: "square photo becomes clean — same default, a square card" -->
+<!-- @meta{layout=image, footer="square photo becomes clean — same default, a square card"} -->
+
 
 ## The signal, framed and centered.
 
@@ -47,8 +47,8 @@ The card adapts: a squarish photo sits in a square card. One default, every mode
 
 ---
 
-<!-- _class: image -->
-<!-- _footer: "tall photo becomes split — shown whole in a full-height column" -->
+<!-- @meta{layout=image, footer="tall photo becomes split — shown whole in a full-height column"} -->
+
 
 ## Built for the long climb.
 
@@ -58,8 +58,8 @@ An extreme aspect would waste a card, so the resolver upgrades to **split** — 
 
 ---
 
-<!-- _class: image -->
-<!-- _footer: "panorama becomes spotlight — full-bleed, with a SOLID card" -->
+<!-- @meta{layout=image, footer="panorama becomes spotlight — full-bleed, with a SOLID card"} -->
+
 
 ## A panorama earns the full frame.
 
@@ -69,8 +69,8 @@ When the photo already matches the canvas, **spotlight** lets it go full-bleed �
 
 ---
 
-<!-- _class: image gallery -->
-<!-- _footer: "opt-in · gallery — contain a diagram, zero crop" -->
+<!-- @meta{layout=image, class=gallery, footer="opt-in · gallery — contain a diagram, zero crop"} -->
+
 
 ## Exhibit 1 — the network, contained.
 
@@ -80,8 +80,8 @@ Two treatments stay opt-in because they can't be safe for a photo we can't see. 
 
 ---
 
-<!-- _class: image statement -->
-<!-- _footer: "opt-in · statement — the editorial gamble, taken on purpose" -->
+<!-- @meta{layout=image, class=statement, footer="opt-in · statement — the editorial gamble, taken on purpose"} -->
+
 
 ## The setup step is the real funnel.
 
@@ -91,8 +91,8 @@ Two treatments stay opt-in because they can't be safe for a photo we can't see. 
 
 ---
 
-<!-- _class: image spotlight -->
-<!-- _footer: "override · image spotlight forces cover on a tall photo" -->
+<!-- @meta{layout=image, class=spotlight, footer=override · image spotlight forces cover on a tall photo} -->
+
 
 ## And when you want the crop, you just say so.
 
@@ -102,7 +102,7 @@ The resolver protects an author who doesn't think about it. Name a composition a
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 ## One markdown. Five compositions. Both orientations.
 

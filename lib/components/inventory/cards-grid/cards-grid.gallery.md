@@ -15,8 +15,7 @@ header: "Lattice · cards-grid"
 
 ---
 
-<!-- _class: cards-grid -->
-<!-- @meta{footer=Default · cards-grid} -->
+<!-- @meta{layout=cards-grid, footer=Default · cards-grid} -->
 
 ## A cards grid gives equal weight to peers.
 
@@ -32,8 +31,7 @@ header: "Lattice · cards-grid"
 
 ---
 
-<!-- _class: cards-grid four compact -->
-<!-- @meta{footer="Four columns · cards-grid four — Four columns; pair with compact."} -->
+<!-- @meta{layout=cards-grid, class=four compact, footer="Four columns · cards-grid four — Four columns; pair with compact."} -->
 
 ## four locks a two-by-two, compact tightens it.
 
@@ -49,8 +47,7 @@ header: "Lattice · cards-grid"
 
 ---
 
-<!-- _class: cards-grid three -->
-<!-- @meta{footer="Three columns · cards-grid three — Three equal columns."} -->
+<!-- @meta{layout=cards-grid, class=three, footer="Three columns · cards-grid three — Three equal columns."} -->
 
 ## three widens the grid to three columns.
 
@@ -64,8 +61,7 @@ header: "Lattice · cards-grid"
 
 ---
 
-<!-- _class: cards-grid -->
-<!-- @meta{footer="Numbered cards · cards-grid numbered — Ordered source stamps corner tags."} -->
+<!-- @meta{layout=cards-grid, footer="Numbered cards · cards-grid numbered — Ordered source stamps corner tags."} -->
 
 ## An ordered list numbers the cards.
 
@@ -79,9 +75,8 @@ header: "Lattice · cards-grid"
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid, footer="Stress test · cards-grid — Four cards at the hard budget."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · cards-grid — Four cards at the hard budget."} -->
 
 ## Four full cards is this grid's loud maximum.
 

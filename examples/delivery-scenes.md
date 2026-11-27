@@ -7,7 +7,7 @@ pace: natural
 footer: "Laticent · every delivery plays each chart its own way"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Each delivery plays the same chart its own way.
 
@@ -17,7 +17,7 @@ Press Present, turn Guide on and play. Restrained focuses every part the narrati
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- @say{The quarter closed well. ARR closed at $48.6M, ahead of plan. Payback stretched to 19 months.} -->
 
 ## The quarter, line by line
@@ -29,7 +29,7 @@ Press Present, turn Guide on and play. Restrained focuses every part the narrati
 
 ---
 
-<!-- _class: table -->
+<!-- @meta{layout=table} -->
 
 ## SMB churn is the number to watch.
 
@@ -41,7 +41,7 @@ Press Present, turn Guide on and play. Restrained focuses every part the narrati
 
 ---
 
-<!-- _class: bar -->
+<!-- @meta{layout=bar} -->
 
 `Revenue · FY26`
 
@@ -57,7 +57,7 @@ Press Present, turn Guide on and play. Restrained focuses every part the narrati
 
 ---
 
-<!-- _class: stacked-bar -->
+<!-- @meta{layout=stacked-bar} -->
 
 ## Services became a real line of business.
 
@@ -76,7 +76,7 @@ Press Present, turn Guide on and play. Restrained focuses every part the narrati
 
 ---
 
-<!-- _class: slope dumbbell -->
+<!-- @meta{layout=slope, class=dumbbell} -->
 
 ## Two teams moved, one slipped.
 
@@ -94,7 +94,7 @@ Press Present, turn Guide on and play. Restrained focuses every part the narrati
 
 ---
 
-<!-- _class: heatmap -->
+<!-- @meta{layout=heatmap} -->
 
 `Retention · 2026 cohorts`
 
@@ -109,7 +109,7 @@ Press Present, turn Guide on and play. Restrained focuses every part the narrati
 
 ---
 
-<!-- _class: line -->
+<!-- @meta{layout=line} -->
 
 ## Pipeline recovered after Feb.
 
@@ -129,7 +129,7 @@ Press Present, turn Guide on and play. Restrained focuses every part the narrati
 
 ---
 
-<!-- _class: funnel -->
+<!-- @meta{layout=funnel} -->
 
 ## Where the pipeline drops off.
 
@@ -142,6 +142,6 @@ Press Present, turn Guide on and play. Restrained focuses every part the narrati
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 # Thank you

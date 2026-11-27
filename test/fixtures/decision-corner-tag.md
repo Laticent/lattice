@@ -3,7 +3,7 @@ marp: true
 theme: indaco
 ---
 
-<!-- _class: decision -->
+<!-- @meta{layout=decision} -->
 
 ## The decision slide names the chosen path.
 

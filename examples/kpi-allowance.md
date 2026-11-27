@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · kpi allowance"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Feature demo · kpi stated allowance`
 
@@ -15,7 +15,7 @@ The briefing grid used to demand three support rows whether you authored three o
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## The allowance is a trade, not a single number.
 
@@ -27,7 +27,7 @@ A `kpi` slide is a hero metric spanning the stage and a column of supports besid
 
 ---
 
-<!-- _class: kpi -->
+<!-- @meta{layout=kpi} -->
 
 `Outcomes · full year`
 
@@ -45,7 +45,7 @@ A `kpi` slide is a hero metric spanning the stage and a column of supports besid
 
 ---
 
-<!-- _class: kpi -->
+<!-- @meta{layout=kpi} -->
 
 `Equity · full year`
 
@@ -63,7 +63,7 @@ A `kpi` slide is a hero metric spanning the stage and a column of supports besid
 
 ---
 
-<!-- _class: kpi -->
+<!-- @meta{layout=kpi} -->
 
 ## A fourth metric fits, but only with the whole slide kept terse.
 
@@ -82,7 +82,7 @@ A `kpi` slide is a hero metric spanning the stage and a column of supports besid
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 
 `Findings · FY26`
 
@@ -101,7 +101,7 @@ A `kpi` slide is a hero metric spanning the stage and a column of supports besid
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## When you do exceed it, the slide says so — it never quietly shrinks.
 
@@ -112,7 +112,7 @@ The ledger yields down to the height its content genuinely needs and no further.
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 ## Size the grid to the content you wrote.
 

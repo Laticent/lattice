@@ -6,9 +6,9 @@ header: "Lattice · passage split"
 size: square
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=title, header="", footer=""} -->
+
+
 
 # A long quote keeps every word.
 
@@ -18,8 +18,8 @@ On a phone, a quote that does not fit moves its notes to the next page. A quote 
 
 ---
 
-<!-- _class: citation-card -->
-<!-- _footer: "Fits · citation-card" -->
+<!-- @meta{layout=citation-card, footer=Fits · citation-card} -->
+
 
 ## A short card stays one page.
 
@@ -31,8 +31,8 @@ On a phone, a quote that does not fit moves its notes to the next page. A quote 
 
 ---
 
-<!-- _class: citation-card -->
-<!-- _footer: "Notes move · citation-card" -->
+<!-- @meta{layout=citation-card, footer=Notes move · citation-card} -->
+
 
 ## The notes move to their own page.
 
@@ -46,8 +46,8 @@ On a phone, a quote that does not fit moves its notes to the next page. A quote 
 
 ---
 
-<!-- _class: citation-card -->
-<!-- _footer: "Quote continues · citation-card" -->
+<!-- @meta{layout=citation-card, footer=Quote continues · citation-card} -->
+
 
 ## A long quote continues at a sentence.
 
@@ -59,8 +59,8 @@ On a phone, a quote that does not fit moves its notes to the next page. A quote 
 
 ---
 
-<!-- _class: quote -->
-<!-- _footer: "Quote continues · quote" -->
+<!-- @meta{layout=quote, footer=Quote continues · quote} -->
+
 
 > We did not lose the market in a quarter. We lost it one renewal at a time, over three years. Each account that left told us why. We wrote the reasons down. We read them at the offsite. Then we went back to the roadmap we already had, because changing it felt like admitting the last one was wrong. That is the habit this plan exists to break.
 
@@ -68,8 +68,8 @@ On a phone, a quote that does not fit moves its notes to the next page. A quote 
 
 ---
 
-<!-- _class: redline -->
-<!-- _footer: "Why moves · redline" -->
+<!-- @meta{layout=redline, footer=Why moves · redline} -->
+
 
 ## One amended clause, its why on the next page.
 
@@ -82,7 +82,7 @@ On a phone, a quote that does not fit moves its notes to the next page. A quote 
 
 ---
 
-<!-- _class: closing -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, footer=""} -->
+
 
 ## Nothing is cut, and nothing shrinks.

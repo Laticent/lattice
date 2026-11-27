@@ -4,19 +4,19 @@ pagination: true
 progress-rail: on
 ---
 
-<!-- _class: agenda agenda-pages -->
+<!-- @meta{layout=agenda, class=agenda-pages} -->
 
 ## Agenda
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 # Alpha
 
 ---
 
-<!-- _class: topic -->
+<!-- @meta{layout=topic} -->
 
 ## T1
 
@@ -24,7 +24,7 @@ Body.
 
 ---
 
-<!-- _class: topic -->
+<!-- @meta{layout=topic} -->
 
 ## T2
 
@@ -32,7 +32,7 @@ Body.
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 # Beta
 

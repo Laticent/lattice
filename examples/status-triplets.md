@@ -7,9 +7,9 @@ header: "Lattice · status triplets"
 footer: "Each theme curates its status fill, ink and edge"
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=title, header="", footer=""} -->
+
+
 
 # Every theme now owns its status colors.
 
@@ -19,7 +19,7 @@ footer: "Each theme curates its status fill, ink and edge"
 
 ---
 
-<!-- _class: progress -->
+<!-- @meta{layout=progress} -->
 
 `H1 2026 · Phase 1 readiness`
 
@@ -33,7 +33,7 @@ footer: "Each theme curates its status fill, ink and edge"
 
 ---
 
-<!-- _class: checklist -->
+<!-- @meta{layout=checklist} -->
 
 ## The go-live checklist is honest about the gaps.
 
@@ -45,7 +45,7 @@ footer: "Each theme curates its status fill, ink and edge"
 
 ---
 
-<!-- _class: kpi ops -->
+<!-- @meta{layout=kpi, class=ops} -->
 
 ## Two services slip; two hold their targets.
 
@@ -64,7 +64,7 @@ footer: "Each theme curates its status fill, ink and edge"
 
 ---
 
-<!-- _class: gantt -->
+<!-- @meta{layout=gantt} -->
 
 `[{Timeline, 2026 Q1 .. 2026 Q4}]`
 
@@ -84,7 +84,7 @@ footer: "Each theme curates its status fill, ink and edge"
 
 ---
 
-<!-- _class: roadmap -->
+<!-- @meta{layout=roadmap} -->
 
 ## What ships in each phase, by workstream.
 
@@ -96,7 +96,7 @@ footer: "Each theme curates its status fill, ink and edge"
 
 ---
 
-<!-- _class: risk-matrix -->
+<!-- @meta{layout=risk-matrix} -->
 
 `Enterprise risk register · Q4 2026`
 
@@ -111,7 +111,7 @@ footer: "Each theme curates its status fill, ink and edge"
 
 ---
 
-<!-- _class: state-chart lr -->
+<!-- @meta{layout=state-chart, class=lr} -->
 
 `Decision lifecycle`
 
@@ -130,7 +130,7 @@ footer: "Each theme curates its status fill, ink and edge"
 
 ---
 
-<!-- _class: policy-recommendation amend -->
+<!-- @meta{layout=policy-recommendation, class=amend} -->
 
 ## Amend SB 88 to require bias audits before deployment, not after.
 
@@ -145,7 +145,7 @@ footer: "Each theme curates its status fill, ink and edge"
 
 ---
 
-<!-- _class: kanban -->
+<!-- @meta{layout=kanban} -->
 
 `Board · Phase 2 rollout`
 

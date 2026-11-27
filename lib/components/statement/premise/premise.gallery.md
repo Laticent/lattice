@@ -15,8 +15,7 @@ A framing claim beside a vertically centered ledger of parallel rows — a numbe
 
 ---
 
-<!-- _class: premise -->
-<!-- @meta{footer=Default · premise} -->
+<!-- @meta{layout=premise, footer=Default · premise} -->
 
 ## Growth is a change in thinking, not title.
 
@@ -44,9 +43,8 @@ Six cognitive verbs map the questions an engineer learns to ask — your level i
 
 ---
 
-<!-- _class: premise -->
+<!-- @meta{layout=premise, footer="Stress test · premise — Eight rows — the categorical palette's ceiling."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · premise — Eight rows — the categorical palette's ceiling."} -->
 
 ## Eight is where one palette cycle ends.
 

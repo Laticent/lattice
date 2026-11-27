@@ -6,7 +6,7 @@ pagination: true
 header: "Finish canvas — the light half"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 `Engine · base.finish.css`
 
@@ -16,7 +16,7 @@ The dark half shipped first. Every other mode carried the same mismatch, and the
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## What `--fin-canvas` is for
 
@@ -27,7 +27,7 @@ The dark half shipped first. Every other mode carried the same mismatch, and the
 
 ---
 
-<!-- _class: image gallery -->
+<!-- @meta{layout=image, class=gallery} -->
 
 ## A gallery contains its asset on a matte
 
@@ -37,7 +37,7 @@ That matte is `var(--bg-alt)`, not the deck ground — so this wash used to mix 
 
 ---
 
-<!-- _class: scene gallery -->
+<!-- @meta{layout=scene, class=gallery} -->
 
 ## A scene's exhibit stage paints it too
 
@@ -47,7 +47,7 @@ Three of scene's compositions repaint the section, and all three are gated on an
 
 ---
 
-<!-- _class: split-panel -->
+<!-- @meta{layout=split-panel} -->
 
 `Section 02 · Covers`
 
@@ -60,7 +60,7 @@ Three of scene's compositions repaint the section, and all three are gated on an
 
 ---
 
-<!-- _class: decision -->
+<!-- @meta{layout=decision} -->
 
 `Decision · The gate`
 
@@ -73,6 +73,6 @@ Three of scene's compositions repaint the section, and all three are gated on an
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 ## Zero rows out of 60,263, on every palette — and nothing pinned.

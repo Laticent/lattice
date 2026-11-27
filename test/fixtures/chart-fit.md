@@ -4,7 +4,7 @@ theme: indaco
 pagination: true
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # Chart fit fixture
 
@@ -15,7 +15,7 @@ caption band, and a below-note eating the stage.
 
 ---
 
-<!-- _class: radar small-multiples -->
+<!-- @meta{layout=radar, class=small-multiples} -->
 
 ## Two series — the widest cell.
 
@@ -30,7 +30,7 @@ caption band, and a below-note eating the stage.
 
 ---
 
-<!-- _class: radar small-multiples -->
+<!-- @meta{layout=radar, class=small-multiples} -->
 
 ## Four series — the four-up row the pad was tuned for.
 
@@ -53,7 +53,7 @@ caption band, and a below-note eating the stage.
 
 ---
 
-<!-- _class: radar small-multiples -->
+<!-- @meta{layout=radar, class=small-multiples} -->
 
 ## Six series with a wrapping name and a below-note.
 
@@ -87,7 +87,7 @@ that is what tipped 5–8 series into clipping.*
 
 ---
 
-<!-- _class: radar small-multiples -->
+<!-- @meta{layout=radar, class=small-multiples} -->
 
 ## Nine series — the far end of the grid.
 
@@ -130,7 +130,7 @@ that is what tipped 5–8 series into clipping.*
 
 ---
 
-<!-- _class: word-cloud -->
+<!-- @meta{layout=word-cloud} -->
 
 ## A word cloud, whose key sits in the rail here and below the cloud at portrait.
 
@@ -143,7 +143,7 @@ that is what tipped 5–8 series into clipping.*
 
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # Per-component coverage
 
@@ -158,7 +158,7 @@ so each slide below is really four cases.
 
 ---
 
-<!-- _class: funnel -->
+<!-- @meta{layout=funnel} -->
 
 ## The funnel narrows; the width is the story.
 
@@ -172,7 +172,7 @@ so each slide below is really four cases.
 
 ---
 
-<!-- _class: gantt -->
+<!-- @meta{layout=gantt} -->
 
 `[{Timeline, 2026 Q1 .. 2026 Q4, today=Q3}]`
 
@@ -192,7 +192,7 @@ Three workstreams across four quarters; the one at-risk bar quietly gates the ro
 
 ---
 
-<!-- _class: journey -->
+<!-- @meta{layout=journey} -->
 
 ## The journey scores each stage of the path.
 
@@ -209,7 +209,7 @@ Three workstreams across four quarters; the one at-risk bar quietly gates the ro
 
 ---
 
-<!-- _class: kanban -->
+<!-- @meta{layout=kanban} -->
 
 ## The board tracks cards across lanes.
 
@@ -224,7 +224,7 @@ Three workstreams across four quarters; the one at-risk bar quietly gates the ro
 
 ---
 
-<!-- _class: map -->
+<!-- @meta{layout=map} -->
 
 ## The map fills regions by value.
 
@@ -241,7 +241,7 @@ Three workstreams across four quarters; the one at-risk bar quietly gates the ro
 
 ---
 
-<!-- _class: matrix-grid -->
+<!-- @meta{layout=matrix-grid} -->
 
 ## The rubric puts a position in a cell.
 
@@ -274,7 +274,7 @@ reduced one that would fit either way.} -->
 
 ---
 
-<!-- _class: piechart -->
+<!-- @meta{layout=piechart} -->
 
 `H1 2026 · 1,840 person-hours`
 
@@ -292,7 +292,7 @@ Nearly half went to producing decks; the deciding itself was the smallest slice.
 
 ---
 
-<!-- _class: progress -->
+<!-- @meta{layout=progress} -->
 
 `H1 2026 · Phase 1 readiness`
 
@@ -308,7 +308,7 @@ Snapshot at 14:00 UTC. Status pills reflect the most optimistic reading of the a
 
 ---
 
-<!-- _class: quadrant -->
+<!-- @meta{layout=quadrant} -->
 
 `[{Effort, 0..10}, {Reach, 0..100}]`
 
@@ -333,7 +333,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it.
 
 ---
 
-<!-- _class: radar -->
+<!-- @meta{layout=radar} -->
 
 `[{Scale, 0..10}]`
 
@@ -362,7 +362,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it.
 
 ---
 
-<!-- _class: hub-spoke -->
+<!-- @meta{layout=hub-spoke} -->
 
 `Transformation program · Workstream status · Q3`
 
@@ -378,7 +378,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it.
 
 ---
 
-<!-- _class: hub-spoke tiered -->
+<!-- @meta{layout=hub-spoke, class=tiered} -->
 
 `Platform organization · Service ownership · 2026`
 
@@ -403,7 +403,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it.
 
 ---
 
-<!-- _class: roadmap -->
+<!-- @meta{layout=roadmap} -->
 
 `H2 2026 · Rollout plan`
 
@@ -418,7 +418,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it.
 
 ---
 
-<!-- _class: state-chart lr -->
+<!-- @meta{layout=state-chart, class=lr} -->
 
 `Submission lifecycle`
 
@@ -443,7 +443,7 @@ How a draft moves from author to publication.
 
 ---
 
-<!-- _class: flowchart -->
+<!-- @meta{layout=flowchart} -->
 
 `Platform`
 
@@ -469,7 +469,7 @@ How a draft moves from author to publication.
 
 ---
 
-<!-- _class: timeline-list -->
+<!-- @meta{layout=timeline-list} -->
 
 ## The timeline pins events to their dates.
 
@@ -486,7 +486,7 @@ Four milestones show the shape; the date chips carry the when.
 
 ---
 
-<!-- _class: word-cloud -->
+<!-- @meta{layout=word-cloud} -->
 
 ## Weight is meaning in a word cloud.
 
@@ -502,7 +502,7 @@ Four milestones show the shape; the date chips carry the when.
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 ## A diagram is a body in a stage cell too.
 
@@ -523,7 +523,7 @@ flowchart LR
 
 ---
 
-<!-- _class: kanban claim-bleed -->
+<!-- @meta{layout=kanban, class=claim-bleed} -->
 
 ## A bleeding chart still has a floor.
 
@@ -547,7 +547,7 @@ caught the regression.
 
 ---
 
-<!-- _class: quadrant canvas -->
+<!-- @meta{layout=quadrant, class=canvas} -->
 
 `[{Effort, 0..10}, {Reach, 0..100}]`
 
@@ -572,7 +572,7 @@ panel's inset chain had no gate at all.
 
 ---
 
-<!-- _class: timeline-list canvas -->
+<!-- @meta{layout=timeline-list, class=canvas} -->
 
 ## The one per-chart panel tuning.
 
@@ -590,7 +590,7 @@ panel token, not to re-litigate that.} -->
 
 ---
 
-<!-- _class: bar -->
+<!-- @meta{layout=bar} -->
 
 ## Eight long business-unit names, the row-flip case.
 
@@ -603,7 +603,7 @@ panel token, not to re-litigate that.} -->
 
 ---
 
-<!-- _class: bar grouped -->
+<!-- @meta{layout=bar, class=grouped} -->
 
 ## Four categories, four series — the crowded grouped case.
 
@@ -625,7 +625,7 @@ panel token, not to re-litigate that.} -->
 
 ---
 
-<!-- _class: bar diverging -->
+<!-- @meta{layout=bar, class=diverging} -->
 
 ## Signed values off a centered zero rule.
 
@@ -637,7 +637,7 @@ panel token, not to re-litigate that.} -->
 
 ---
 
-<!-- _class: stacked-bar -->
+<!-- @meta{layout=stacked-bar} -->
 
 ## Six periods, six parts — the tail-fold case.
 
@@ -665,7 +665,7 @@ panel token, not to re-litigate that.} -->
 
 ---
 
-<!-- _class: stacked-bar share -->
+<!-- @meta{layout=stacked-bar, class=share} -->
 
 ## Normalized to a hundred, where only the mix reads.
 
@@ -680,7 +680,7 @@ panel token, not to re-litigate that.} -->
 
 ---
 
-<!-- _class: line -->
+<!-- @meta{layout=line} -->
 
 ## Twelve periods, six series — the widest line case.
 
@@ -715,7 +715,7 @@ panel token, not to re-litigate that.} -->
 
 ---
 
-<!-- _class: line stacked-area -->
+<!-- @meta{layout=line, class=stacked-area} -->
 
 ## Composition over time, stacked to a total.
 
@@ -731,7 +731,7 @@ panel token, not to re-litigate that.} -->
 
 ---
 
-<!-- _class: waterfall -->
+<!-- @meta{layout=waterfall} -->
 
 ## Nine steps with long driver names, the crowded bridge.
 
@@ -747,7 +747,7 @@ panel token, not to re-litigate that.} -->
 
 ---
 
-<!-- _class: tower -->
+<!-- @meta{layout=tower} -->
 
 ## Six layers and seven reinsurers, the crowded tower.
 
@@ -773,7 +773,7 @@ panel token, not to re-litigate that.} -->
 
 ---
 
-<!-- _class: risk-matrix -->
+<!-- @meta{layout=risk-matrix} -->
 
 ## Twelve risks with long names, four in one cell.
 
@@ -792,7 +792,7 @@ panel token, not to re-litigate that.} -->
 
 ---
 
-<!-- _class: histogram -->
+<!-- @meta{layout=histogram} -->
 
 `[{Annual aggregate loss, log}, {Share of simulated years}]`
 
@@ -813,7 +813,7 @@ panel token, not to re-litigate that.} -->
 
 ---
 
-<!-- _class: ep-curve -->
+<!-- @meta{layout=ep-curve} -->
 
 `[{Return period}, {Gross loss}]`
 
@@ -848,7 +848,7 @@ panel token, not to re-litigate that.} -->
 
 ---
 
-<!-- _class: scatter bubble -->
+<!-- @meta{layout=scatter, class=bubble} -->
 
 ## Ten entities with a size measure — the cluster case.
 
@@ -863,7 +863,7 @@ panel token, not to re-litigate that.} -->
 
 ---
 
-<!-- _class: slope -->
+<!-- @meta{layout=slope} -->
 
 ## Eight entities in a tight band — the de-collision case.
 
@@ -888,7 +888,7 @@ panel token, not to re-litigate that.} -->
 
 ---
 
-<!-- _class: slope dumbbell -->
+<!-- @meta{layout=slope, class=dumbbell} -->
 
 ## Ten rows with long names — the row-label case.
 
@@ -910,7 +910,7 @@ panel token, not to re-litigate that.} -->
 
 ---
 
-<!-- _class: bullet -->
+<!-- @meta{layout=bullet} -->
 
 ## Seven KPI rows at the stated ceiling.
 
@@ -924,7 +924,7 @@ panel token, not to re-litigate that.} -->
 
 ---
 
-<!-- _class: line -->
+<!-- @meta{layout=line} -->
 
 ## Category names long enough to overhang the plot edge.
 
@@ -934,7 +934,7 @@ panel token, not to re-litigate that.} -->
 
 ---
 
-<!-- _class: bullet -->
+<!-- @meta{layout=bullet} -->
 
 ## A shared axis whose last tick is five characters wide.
 
@@ -944,7 +944,7 @@ panel token, not to re-litigate that.} -->
 
 ---
 
-<!-- _class: slope dumbbell -->
+<!-- @meta{layout=slope, class=dumbbell} -->
 
 ## Fourteen dumbbell rows, every one named.
 
@@ -993,7 +993,7 @@ panel token, not to re-litigate that.} -->
 
 ---
 
-<!-- _class: slope -->
+<!-- @meta{layout=slope} -->
 
 ## Six entities inside one point of each other.
 
@@ -1018,7 +1018,7 @@ panel token, not to re-litigate that.} -->
 
 ---
 
-<!-- _class: heatmap -->
+<!-- @meta{layout=heatmap} -->
 
 ## A matrix at its ceiling — ten rows by twelve columns.
 

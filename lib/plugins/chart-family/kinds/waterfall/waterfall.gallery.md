@@ -15,8 +15,7 @@ A bridge from one total to another through signed contributions, each bar starti
 
 ---
 
-<!-- _class: waterfall -->
-<!-- @meta{footer=Default · waterfall} -->
+<!-- @meta{layout=waterfall, footer=Default · waterfall} -->
 
 `FY26 plan · actual`
 
@@ -34,8 +33,7 @@ A bridge from one total to another through signed contributions, each bar starti
 
 ---
 
-<!-- _class: waterfall zoom -->
-<!-- @meta{footer="zoom · waterfall zoom — Re-bases the axis on the walk; the tear marks the clipped anchors."} -->
+<!-- @meta{layout=waterfall, class=zoom, footer="zoom · waterfall zoom — Re-bases the axis on the walk; the tear marks the clipped anchors."} -->
 
 `FY26 · cash`
 
@@ -51,8 +49,7 @@ A bridge from one total to another through signed contributions, each bar starti
 
 ---
 
-<!-- _class: waterfall lower-is-better -->
-<!-- @meta{footer="lower-is-better · waterfall lower-is-better — For walks where a rise is bad news: a rise wears the fail hue."} -->
+<!-- @meta{layout=waterfall, class=lower-is-better, footer="lower-is-better · waterfall lower-is-better — For walks where a rise is bad news: a rise wears the fail hue."} -->
 
 `Combined ratio · %`
 
@@ -68,9 +65,8 @@ A bridge from one total to another through signed contributions, each bar starti
 
 ---
 
-<!-- _class: waterfall -->
+<!-- @meta{layout=waterfall, footer="Stress test · waterfall — A subtotal mid-walk, a step below zero and back, and a level authored as a negative."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · waterfall — A subtotal mid-walk, a step below zero and back, and a level authored as a negative."} -->
 
 ## The quarter we went negative and came back.
 

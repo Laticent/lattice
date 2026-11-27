@@ -2,7 +2,7 @@
 marp: true
 theme: indaco
 ---
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 ## cards-grid
 
@@ -17,7 +17,7 @@ theme: indaco
 
 ---
 
-<!-- _class: verdict-grid -->
+<!-- @meta{layout=verdict-grid} -->
 
 ## verdict-grid
 
@@ -32,7 +32,7 @@ theme: indaco
 
 ---
 
-<!-- _class: list-steps -->
+<!-- @meta{layout=list-steps} -->
 
 ## list-steps
 
@@ -47,7 +47,7 @@ theme: indaco
 
 ---
 
-<!-- _class: compare-prose -->
+<!-- @meta{layout=compare-prose} -->
 
 ## compare-prose
 
@@ -62,7 +62,7 @@ theme: indaco
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- @meta{layout=cards-stack} -->
 
 ## cards-stack
 
@@ -77,7 +77,7 @@ theme: indaco
 
 ---
 
-<!-- _class: cards-stack horizontal -->
+<!-- @meta{layout=cards-stack, class=horizontal} -->
 
 ## cards-stack horizontal
 
@@ -92,7 +92,7 @@ theme: indaco
 
 ---
 
-<!-- _class: list -->
+<!-- @meta{layout=list} -->
 
 ## list
 
@@ -107,7 +107,7 @@ theme: indaco
 
 ---
 
-<!-- _class: decision -->
+<!-- @meta{layout=decision} -->
 
 ## decision
 
@@ -122,7 +122,7 @@ theme: indaco
 
 ---
 
-<!-- _class: pricing -->
+<!-- @meta{layout=pricing} -->
 
 ## pricing
 
@@ -137,7 +137,7 @@ theme: indaco
 
 ---
 
-<!-- _class: statute-stack -->
+<!-- @meta{layout=statute-stack} -->
 
 ## statute-stack
 
@@ -152,7 +152,7 @@ theme: indaco
 
 ---
 
-<!-- _class: split-compare -->
+<!-- @meta{layout=split-compare} -->
 
 ## split-compare
 
@@ -167,7 +167,7 @@ theme: indaco
 
 ---
 
-<!-- _class: team-profile -->
+<!-- @meta{layout=team-profile} -->
 
 ## team-profile
 
@@ -182,7 +182,7 @@ theme: indaco
 
 ---
 
-<!-- _class: matrix-2x2 -->
+<!-- @meta{layout=matrix-2x2} -->
 
 ## matrix-2x2
 
@@ -197,7 +197,7 @@ theme: indaco
 
 ---
 
-<!-- _class: q-and-a grid -->
+<!-- @meta{layout=q-and-a, class=grid} -->
 
 ## q-and-a grid
 
@@ -212,7 +212,7 @@ theme: indaco
 
 ---
 
-<!-- _class: split-panel -->
+<!-- @meta{layout=split-panel} -->
 
 ## split-panel
 
@@ -227,7 +227,7 @@ theme: indaco
 
 ---
 
-<!-- _class: split-panel proof -->
+<!-- @meta{layout=split-panel, class=proof} -->
 
 ## split-panel proof
 
@@ -242,7 +242,7 @@ theme: indaco
 
 ---
 
-<!-- _class: split-panel capstone -->
+<!-- @meta{layout=split-panel, class=capstone} -->
 
 ## split-panel capstone
 
@@ -257,7 +257,7 @@ theme: indaco
 
 ---
 
-<!-- _class: regulatory-update -->
+<!-- @meta{layout=regulatory-update} -->
 
 ## regulatory-update
 
@@ -272,7 +272,7 @@ theme: indaco
 
 ---
 
-<!-- _class: regulatory-update cards -->
+<!-- @meta{layout=regulatory-update, class=cards} -->
 
 ## regulatory-update cards
 
@@ -287,7 +287,7 @@ theme: indaco
 
 ---
 
-<!-- _class: inventory cards -->
+<!-- @meta{layout=inventory, class=cards} -->
 
 ## inventory cards
 
@@ -298,7 +298,7 @@ theme: indaco
 
 ---
 
-<!-- _class: citation-card -->
+<!-- @meta{layout=citation-card} -->
 
 ## citation-card
 
@@ -313,7 +313,7 @@ theme: indaco
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- @meta{layout=cards-stack} -->
 
 ## cards-stack
 
@@ -330,7 +330,7 @@ theme: indaco
 
 ---
 
-<!-- _class: decision align-top -->
+<!-- @meta{layout=decision, class=align-top} -->
 
 ## decision align-top
 
@@ -345,7 +345,7 @@ theme: indaco
 
 ---
 
-<!-- _class: kpi -->
+<!-- @meta{layout=kpi} -->
 
 ## kpi
 
@@ -360,7 +360,7 @@ theme: indaco
 
 ---
 
-<!-- _class: code -->
+<!-- @meta{layout=code} -->
 
 ## code
 
@@ -372,7 +372,7 @@ export function issue(user) {
 
 ---
 
-<!-- _class: code -->
+<!-- @meta{layout=code} -->
 
 ## code with a coda
 
@@ -386,7 +386,7 @@ export function issue(user) {
 
 ---
 
-<!-- _class: compare-code -->
+<!-- @meta{layout=compare-code} -->
 
 ## compare-code
 
@@ -408,7 +408,7 @@ function after() {
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 
 ## stats
 
@@ -421,7 +421,7 @@ function after() {
 
 ---
 
-<!-- _class: actors -->
+<!-- @meta{layout=actors} -->
 
 ## actors
 
@@ -434,7 +434,7 @@ function after() {
 
 ---
 
-<!-- _class: contact -->
+<!-- @meta{layout=contact} -->
 
 - Ada Slide `name`
 - Founder `title`
@@ -443,7 +443,7 @@ function after() {
 
 ---
 
-<!-- _class: wifi -->
+<!-- @meta{layout=wifi} -->
 
 ## wifi
 
@@ -452,7 +452,7 @@ function after() {
 
 ---
 
-<!-- _class: gift-card -->
+<!-- @meta{layout=gift-card} -->
 
 ## gift-card
 
@@ -461,7 +461,7 @@ function after() {
 
 ---
 
-<!-- _class: quote -->
+<!-- @meta{layout=quote} -->
 
 ## quote
 

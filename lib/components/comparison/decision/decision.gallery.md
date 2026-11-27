@@ -15,8 +15,7 @@ The verdict slide — one chosen path, named explicitly.
 
 ---
 
-<!-- _class: decision -->
-<!-- @meta{footer=Default · decision} -->
+<!-- @meta{layout=decision, footer=Default · decision} -->
 
 ## The decision slide names the chosen path.
 
@@ -28,8 +27,7 @@ The verdict slide — one chosen path, named explicitly.
 
 ---
 
-<!-- _class: decision tag-band -->
-<!-- @meta{footer="tag-band · decision tag-band — Headlines each card with its camp."} -->
+<!-- @meta{layout=decision, class=tag-band, footer="tag-band · decision tag-band — Headlines each card with its camp."} -->
 
 ## tag-band headlines each card with its camp.
 
@@ -41,9 +39,8 @@ The verdict slide — one chosen path, named explicitly.
 
 ---
 
-<!-- _class: decision -->
+<!-- @meta{layout=decision, footer="Stress test · decision — Two full arguments, no more."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · decision — Two full arguments, no more."} -->
 
 ## A verdict can carry two full arguments, no more.
 

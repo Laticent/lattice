@@ -7,9 +7,9 @@ header: "Lattice · sequence narration"
 footer: "read-aloud narrates the message script"
 ---
 
-<!-- _class: title -->
-<!-- _footer: '' -->
-<!-- _header: '' -->
+<!-- @meta{layout=title, footer="", header=""} -->
+
+
 
 # Read-aloud that reads the conversation.
 
@@ -19,7 +19,7 @@ footer: "read-aloud narrates the message script"
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `01 · The message script`
 
@@ -37,7 +37,7 @@ sequenceDiagram
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `02 · Repetition, removed`
 
@@ -57,7 +57,7 @@ sequenceDiagram
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `03 · Internal work, and notes`
 
@@ -80,7 +80,7 @@ sequenceDiagram
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `04 · Every arrow is neutral`
 
@@ -101,7 +101,7 @@ Solid, dashed, async and lost arrows all read the same. The glyph encodes sync, 
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `05 · A block as a connective`
 
@@ -121,7 +121,7 @@ sequenceDiagram
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `06 · Leaving a block`
 
@@ -140,7 +140,7 @@ sequenceDiagram
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `07 · A long script stays listenable`
 
@@ -168,7 +168,7 @@ sequenceDiagram
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `08 · Honest bail`
 
@@ -188,8 +188,8 @@ sequenceDiagram
 
 ---
 
-<!-- _class: closing -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, footer=""} -->
+
 
 # The conversation is spoken now.
 

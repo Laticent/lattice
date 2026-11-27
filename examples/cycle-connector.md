@@ -12,7 +12,7 @@ header: "Lattice · cycle connector"
      where the old mark outgrew its gap and painted over the next card. Each slide
      here must show the chevron clear of both cards, with the return arc beneath.} -->
 
-<!-- _class: cycle -->
+<!-- @meta{layout=cycle} -->
 
 `Weekly reimbursement`
 
@@ -27,7 +27,7 @@ header: "Lattice · cycle connector"
 
 ---
 
-<!-- _class: cycle -->
+<!-- @meta{layout=cycle} -->
 
 `The water cycle`
 
@@ -42,7 +42,7 @@ header: "Lattice · cycle connector"
 
 ---
 
-<!-- _class: cycle -->
+<!-- @meta{layout=cycle} -->
 
 `Product loop`
 
@@ -57,7 +57,7 @@ header: "Lattice · cycle connector"
 
 ---
 
-<!-- _class: cycle -->
+<!-- @meta{layout=cycle} -->
 
 `Longer stage names`
 

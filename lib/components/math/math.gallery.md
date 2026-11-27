@@ -9,8 +9,7 @@ Math — typeset equations and proofs.
 
 ---
 
-<!-- _class: math -->
-<!-- @meta{footer=math · math survey} -->
+<!-- @meta{layout=math, footer=math · math survey} -->
 
 `Linear regression · OLS`
 

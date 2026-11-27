@@ -6,7 +6,7 @@ header: "Lattice · header scope"
 footer: "Board review"
 ---
 
-<!-- _class: silent -->
+<!-- @meta{class=silent} -->
 
 `Feature demo · slide chrome`
 
@@ -24,7 +24,7 @@ Front matter sets the header and footer for every slide. A slide comment sets it
 
 ---
 
-<!-- header: "Appendix A · this slide only" -->
+<!-- @meta{header=Appendix A · this slide only} -->
 
 # A plain header comment
 
@@ -40,7 +40,7 @@ Front matter sets the header and footer for every slide. A slide comment sets it
 
 ---
 
-<!-- _footer: "Source: Q3 board pack" -->
+<!-- @meta{footer=Source: Q3 board pack} -->
 
 # An underscore footer, as before
 
@@ -49,7 +49,7 @@ Front matter sets the header and footer for every slide. A slide comment sets it
 
 ---
 
-<!-- _class: no-header no-pagination -->
+<!-- @meta{class=no-header no-pagination} -->
 
 # Dropping the deck's chrome on one slide
 
@@ -64,6 +64,6 @@ Front matter sets the header and footer for every slide. A slide comment sets it
 
 ---
 
-<!-- _class: silent -->
+<!-- @meta{class=silent} -->
 
 # Front matter for every slide; a comment for one.

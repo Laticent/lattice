@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · plugin sandbox tour"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Every plugin, one deck.
 
@@ -15,8 +15,8 @@ Type in any slide and watch it redraw. Math, plots and diagrams draw in a sandbo
 
 ---
 
-<!-- _class: math canvas -->
-<!-- _footer: "Edit the formula or the fn and the curve redraws." -->
+<!-- @meta{layout=math, class=canvas, footer=Edit the formula or the fn and the curve redraws.} -->
+
 
 `math + function-plot · drawn in the sandboxed frame`
 
@@ -40,7 +40,7 @@ The logistic link: $S$-shaped, $\sigma(0) = 0.5$.
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `mermaid · flowchart · drawn in the sandboxed frame`
 
@@ -57,7 +57,7 @@ flowchart LR
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `mermaid · sequence`
 
@@ -76,7 +76,7 @@ sequenceDiagram
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `mermaid · gantt with a link`
 
@@ -105,7 +105,7 @@ gantt
 
 ---
 
-<!-- _class: piechart -->
+<!-- @meta{layout=piechart} -->
 
 `H1 2026 · 1,840 person-hours`
 
@@ -133,8 +133,8 @@ export async function load(id: string): Promise<User> {
 
 ---
 
-<!-- _class: scene -->
-<!-- _footer: "built · Zdog — a rotor spinning inside its fixed housing" -->
+<!-- @meta{layout=scene, footer="built · Zdog — a rotor spinning inside its fixed housing"} -->
+
 
 ## The rotor turns inside its fixed housing.
 
@@ -160,7 +160,7 @@ A relationship a single still can only imply: on screen the rotor spins and a be
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `mermaid · on purpose`
 

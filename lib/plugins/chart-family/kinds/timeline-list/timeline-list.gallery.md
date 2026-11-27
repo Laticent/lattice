@@ -15,8 +15,7 @@ Date-stamped event list rendered as a horizontal spine — a dot per event with 
 
 ---
 
-<!-- _class: timeline-list -->
-<!-- @meta{footer=Default · timeline-list} -->
+<!-- @meta{layout=timeline-list, footer=Default · timeline-list} -->
 
 `chart · timeline-list`
 
@@ -36,9 +35,8 @@ Four milestones show the shape; the date chips carry the when.
 
 ---
 
-<!-- _class: timeline-list -->
+<!-- @meta{layout=timeline-list, footer="Stress test · timeline-list — Six milestones at the word ceiling."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · timeline-list — Six milestones at the word ceiling."} -->
 
 `timeline-list · stress`
 

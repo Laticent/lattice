@@ -9,7 +9,7 @@ pagination: true
 header: "Spectrum canvas ownership"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 `Engine · base.variants.css`
 
@@ -19,7 +19,7 @@ Every slide here carries `spectrum: off`. The anchors keep the surface they pain
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 `Section 01`
 
@@ -27,8 +27,8 @@ Every slide here carries `spectrum: off`. The anchors keep the surface they pain
 
 ---
 
-<!-- _class: topic -->
-<!-- _track: [What it said] | How to fix it | The accent stripe -->
+<!-- @meta{layout=topic, track="[What it said] | How to fix it | The accent stripe"} -->
+
 
 `Section 01 · What it said`
 
@@ -38,7 +38,7 @@ The shorthand clears every background longhand at once — which is how you remo
 
 ---
 
-<!-- _class: decision -->
+<!-- @meta{layout=decision} -->
 
 `Decision · How to fix it`
 
@@ -51,7 +51,7 @@ The shorthand clears every background longhand at once — which is how you remo
 
 ---
 
-<!-- _class: split-panel -->
+<!-- @meta{layout=split-panel} -->
 
 `Measured`
 
@@ -64,7 +64,7 @@ The shorthand clears every background longhand at once — which is how you remo
 
 ---
 
-<!-- _class: topic fact -->
+<!-- @meta{layout=topic, class=fact} -->
 
 `Section 02 · The accent stripe`
 
@@ -74,7 +74,7 @@ It draws a stripe, and copied a canvas out of the rule it replaced.
 
 ---
 
-<!-- _class: divider trim-spectrum-rainbow -->
+<!-- @meta{layout=divider, class=trim-spectrum-rainbow} -->
 
 `Section 02`
 
@@ -82,6 +82,6 @@ It draws a stripe, and copied a canvas out of the rule it replaced.
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 ## Three rules, one lesson: declare the thing you mean, not the thing that resets it.

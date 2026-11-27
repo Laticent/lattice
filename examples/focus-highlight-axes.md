@@ -4,7 +4,7 @@ theme: indaco
 pagination: true
 footer: "Laticent · focus highlight"
 ---
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Highlight works on every axis.
 
@@ -14,9 +14,9 @@ Cards, rows, columns, cells and code lines take a tint and an edge, a chart mark
 
 ---
 
-<!-- _class: table state-cells -->
-<!-- _focus: row 4 -->
-<!-- _focusStyle: highlight -->
+<!-- @meta{layout=table, class=state-cells, focus=row 4, focus-style=highlight} -->
+
+
 
 ## `_focus: row 4` — tint the deciding criterion.
 
@@ -30,9 +30,9 @@ Cards, rows, columns, cells and code lines take a tint and an edge, a chart mark
 
 ---
 
-<!-- _class: table state-cells -->
-<!-- _focus: col 5 -->
-<!-- _focusStyle: highlight -->
+<!-- @meta{layout=table, class=state-cells, focus=col 5, focus-style=highlight} -->
+
+
 
 ## `_focus: col 5` — tint one option, top to bottom.
 
@@ -46,9 +46,9 @@ Cards, rows, columns, cells and code lines take a tint and an edge, a chart mark
 
 ---
 
-<!-- _class: table state-cells -->
-<!-- _focus: cell 4,5 -->
-<!-- _focusStyle: highlight -->
+<!-- @meta{layout=table, class=state-cells, focus="cell 4,5", focus-style=highlight} -->
+
+
 
 ## `_focus: cell 4,5` — tint the single decisive cell.
 
@@ -62,9 +62,9 @@ Cards, rows, columns, cells and code lines take a tint and an edge, a chart mark
 
 ---
 
-<!-- _class: code -->
-<!-- _focus: line 8 -->
-<!-- _focusStyle: highlight -->
+<!-- @meta{layout=code, focus=line 8, focus-style=highlight} -->
+
+
 
 ## `_focus: line 8` — tint the line that matters.
 
@@ -81,9 +81,9 @@ const entry = await framework.decisions.log(decision, { signals });
 
 ---
 
-<!-- _class: bar -->
-<!-- _focus: mark 3 -->
-<!-- _focusStyle: highlight -->
+<!-- @meta{layout=bar, focus=mark 3, focus-style=highlight} -->
+
+
 
 ## EMEA is where the quarter was won.
 
@@ -94,9 +94,9 @@ const entry = await framework.decisions.log(decision, { signals });
 
 ---
 
-<!-- _class: line -->
-<!-- _focus: series 3 -->
-<!-- _focusStyle: highlight -->
+<!-- @meta{layout=line, focus=series 3, focus-style=highlight} -->
+
+
 
 ## Services grew into the gap enterprise left.
 
@@ -123,9 +123,9 @@ const entry = await framework.decisions.log(decision, { signals });
 
 ---
 
-<!-- _class: cards-grid -->
-<!-- _focus: item 1, item 4 -->
-<!-- _focusStyle: highlight -->
+<!-- @meta{layout=cards-grid, focus="item 1, item 4", focus-style=highlight} -->
+
+
 
 ## `_focus: item 1, item 4` — two targets at once.
 
@@ -139,7 +139,7 @@ const entry = await framework.decisions.log(decision, { signals });
   - Monthly retrospective comparing predicted outcomes to actual outcomes.
 
 ---
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 # Name it once, see it everywhere.
 

@@ -15,8 +15,7 @@ A network join card: readable Wi-Fi credentials beside a QR a phone scans to con
 
 ---
 
-<!-- _class: wifi -->
-<!-- @meta{footer=Default · wifi} -->
+<!-- @meta{layout=wifi, footer=Default · wifi} -->
 
 `connect · wifi`
 

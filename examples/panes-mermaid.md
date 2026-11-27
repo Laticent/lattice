@@ -6,7 +6,7 @@ header: "Lattice · panes"
 footer: "Mermaid in a pane — it lays out for the pane's box"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # A diagram lays out for its pane
 
@@ -14,7 +14,7 @@ footer: "Mermaid in a pane — it lays out for the pane's box"
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `Delivery · The full-slide diagram`
 
@@ -29,15 +29,15 @@ flowchart LR
 
 ## In a tall pane, the same flow runs down the page.
 
-<!-- _class: columns ratio-35-65 -->
-<!-- _pane: diagram -->
+<!-- @meta{layout=columns, class=ratio-35-65} -->
+<!-- @meta{pane=diagram} -->
 
 ```mermaid
 flowchart LR
   A[Intake] --> B[Triage] --> C[Build] --> D[Review] --> E[Ship]
 ```
 
-<!-- _pane: list -->
+<!-- @meta{pane=list} -->
 
 - Intake takes a day
 - Review holds work for a week
@@ -49,15 +49,15 @@ flowchart LR
 
 ## Two teams share the same five stages.
 
-<!-- _class: columns ratio-65-35 -->
-<!-- _pane: diagram -->
+<!-- @meta{layout=columns, class=ratio-65-35} -->
+<!-- @meta{pane=diagram} -->
 
 ```mermaid
 flowchart LR
   A[Intake] --> B[Triage] --> C[Build] --> D[Review] --> E[Ship]
 ```
 
-<!-- _pane: list -->
+<!-- @meta{pane=list} -->
 
 - Platform ships Mondays
 - Apps ship Thursdays
@@ -70,8 +70,8 @@ flowchart LR
 
 ## A top-down flowchart needs nothing from the pane.
 
-<!-- _class: columns ratio-35-65 -->
-<!-- _pane: diagram -->
+<!-- @meta{layout=columns, class=ratio-35-65} -->
+<!-- @meta{pane=diagram} -->
 
 ```mermaid
 flowchart TB
@@ -80,7 +80,7 @@ flowchart TB
   B -->|no| D[Close]
 ```
 
-<!-- _pane: list -->
+<!-- @meta{pane=list} -->
 
 - Most requests pass on the first review
 - A closed request can be filed again
@@ -93,8 +93,8 @@ flowchart TB
 
 ## The hand-off is two messages.
 
-<!-- _class: columns ratio-55-45 -->
-<!-- _pane: diagram -->
+<!-- @meta{layout=columns, class=ratio-55-45} -->
+<!-- @meta{pane=diagram} -->
 
 ```mermaid
 sequenceDiagram
@@ -102,14 +102,14 @@ sequenceDiagram
   Build->>Review: change ready
 ```
 
-<!-- _pane: list -->
+<!-- @meta{pane=list} -->
 
 - Triage owns the ticket until Build accepts it
 - Review sees only finished changes
 
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # The pane decides the direction
 

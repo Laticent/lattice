@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · icons on hub-spoke"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # A hub and its spokes can say what each one is.
 
@@ -15,7 +15,7 @@ Hub-spoke takes the icons plugin's drawings: `\{icon=…}` puts one in a disc be
 
 ---
 
-<!-- _class: hub-spoke -->
+<!-- @meta{layout=hub-spoke} -->
 
 `Data platform · Sources`
 
@@ -32,7 +32,7 @@ Hub-spoke takes the icons plugin's drawings: `\{icon=…}` puts one in a disc be
 
 ---
 
-<!-- _class: hub-spoke -->
+<!-- @meta{layout=hub-spoke} -->
 
 `Partner ecosystem · By capability`
 
@@ -50,7 +50,7 @@ Hub-spoke takes the icons plugin's drawings: `\{icon=…}` puts one in a disc be
 
 ---
 
-<!-- _class: hub-spoke -->
+<!-- @meta{layout=hub-spoke} -->
 
 `Release pipeline · Stages`
 
@@ -68,7 +68,7 @@ Hub-spoke takes the icons plugin's drawings: `\{icon=…}` puts one in a disc be
 
 ---
 
-<!-- _class: hub-spoke sized -->
+<!-- @meta{layout=hub-spoke, class=sized} -->
 
 `FY2026 · Partner channel revenue · share of $120M`
 
@@ -86,7 +86,7 @@ Hub-spoke takes the icons plugin's drawings: `\{icon=…}` puts one in a disc be
 
 ---
 
-<!-- _class: hub-spoke tiered -->
+<!-- @meta{layout=hub-spoke, class=tiered} -->
 
 `Platform organization · Service ownership · 2026`
 
@@ -113,7 +113,7 @@ Hub-spoke takes the icons plugin's drawings: `\{icon=…}` puts one in a disc be
 
 ---
 
-<!-- _class: table table-fill -->
+<!-- @meta{layout=table, class=table-fill} -->
 
 ## A record that does not draw is coached, and the disc shows its name.
 

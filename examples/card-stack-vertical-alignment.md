@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · the align: register"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # The author decides where a card row's spare height goes
 
@@ -15,8 +15,8 @@ A row of cards gets the whole stage. When the cards are sparse, that height goes
 
 ---
 
-<!-- _class: cards-grid align-fill -->
-<!-- _footer: "align: fill — what every deck did before the register. Now opt in." -->
+<!-- @meta{layout=cards-grid, class=align-fill, footer="align: fill — what every deck did before the register. Now opt in."} -->
+
 
 ## Fill grows the row, and a short card carries the difference.
 
@@ -31,8 +31,8 @@ A row of cards gets the whole stage. When the cards are sparse, that height goes
 
 ---
 
-<!-- _class: cards-grid -->
-<!-- _footer: "align: middle — the default. This slide names no value at all." -->
+<!-- @meta{layout=cards-grid, footer="align: middle — the default. This slide names no value at all."} -->
+
 
 ## Center shrinks the cards and centers the band.
 
@@ -47,8 +47,8 @@ A row of cards gets the whole stage. When the cards are sparse, that height goes
 
 ---
 
-<!-- _class: verdict-grid align-top -->
-<!-- _footer: "align: top — the band sits under the headline rule; spare height collects at the bottom." -->
+<!-- @meta{layout=verdict-grid, class=align-top, footer="align: top — the band sits under the headline rule; spare height collects at the bottom."} -->
+
 
 ## Top anchors the band where the eye enters.
 
@@ -67,8 +67,8 @@ A row of cards gets the whole stage. When the cards are sparse, that height goes
 
 ---
 
-<!-- _class: verdict-grid align-spread -->
-<!-- _footer: "align: spread — the spare height is shared out between the rows." -->
+<!-- @meta{layout=verdict-grid, class=align-spread, footer="align: spread — the spare height is shared out between the rows."} -->
+
 
 ## Spread shares the height out between the rows.
 
@@ -87,8 +87,8 @@ A row of cards gets the whole stage. When the cards are sparse, that height goes
 
 ---
 
-<!-- _class: list takeaway -->
-<!-- _footer: "How the register is built." -->
+<!-- @meta{layout=list, class=takeaway, footer=How the register is built.} -->
+
 
 ## One token, and every default survives it.
 
@@ -103,7 +103,7 @@ A row of cards gets the whole stage. When the cards are sparse, that height goes
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 ## Four values, one default, nothing forced.
 

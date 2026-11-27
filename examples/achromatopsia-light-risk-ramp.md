@@ -7,9 +7,9 @@ header: "Lattice · status on a monochromacy palette"
 footer: "Light face: severity darkens in order"
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=title, header="", footer=""} -->
+
+
 
 # On achromatopsia's light face, severity now darkens in order.
 
@@ -17,7 +17,7 @@ footer: "Light face: severity darkens in order"
 
 ---
 
-<!-- _class: risk-matrix -->
+<!-- @meta{layout=risk-matrix} -->
 
 `Enterprise risk register · Q4 2026`
 
@@ -32,7 +32,7 @@ footer: "Light face: severity darkens in order"
 
 ---
 
-<!-- _class: risk-matrix -->
+<!-- @meta{layout=risk-matrix} -->
 
 `Vendor risk · Q1 2027`
 
@@ -46,7 +46,7 @@ footer: "Light face: severity darkens in order"
 
 ---
 
-<!-- _class: gantt -->
+<!-- @meta{layout=gantt} -->
 
 `[{Timeline, 2026 Q1 .. 2026 Q4}]`
 
@@ -63,7 +63,7 @@ footer: "Light face: severity darkens in order"
 
 ---
 
-<!-- _class: checklist -->
+<!-- @meta{layout=checklist} -->
 
 ## The go-live checklist shows done, partial and failed by shape.
 
@@ -75,9 +75,9 @@ footer: "Light face: severity darkens in order"
 
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=title, header="", footer=""} -->
+
+
 
 # Low, medium, high and critical now read as one ramp.
 

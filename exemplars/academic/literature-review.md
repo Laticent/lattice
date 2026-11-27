@@ -6,7 +6,7 @@ pagination: true
 header: "Urban heat islands · Literature review"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 <!-- tier: short -->
 
 `Environmental Review · Comprehensive Exam`
@@ -17,7 +17,7 @@ A literature review of urban heat-island mitigation, from shade trees to reflect
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## The field has converged on the question, but not on the answer.
@@ -26,7 +26,7 @@ Cities run several degrees hotter than the countryside around them, and the gap 
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## What I reviewed, and how I selected it.
@@ -38,7 +38,7 @@ I screened 1,140 studies and retained 86 that measured a temperature outcome fro
 
 ---
 
-<!-- _class: timeline-list -->
+<!-- @meta{layout=timeline-list} -->
 <!-- tier: short -->
 
 `How the field evolved`
@@ -58,7 +58,7 @@ I screened 1,140 studies and retained 86 that measured a temperature outcome fro
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## The early consensus — reflect more sunlight — was right but incomplete.
@@ -70,7 +70,7 @@ The albedo era proved reflective roofs cut surface temperatures sharply and chea
 
 ---
 
-<!-- _class: table -->
+<!-- @meta{layout=table} -->
 <!-- tier: short -->
 
 ## Four mitigation families, compared on what the evidence shows.
@@ -85,7 +85,7 @@ The albedo era proved reflective roofs cut surface temperatures sharply and chea
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## Where the literature genuinely agrees: trees do the most, if they survive.
@@ -97,7 +97,7 @@ Across 31 tree studies, mature canopy delivers the largest and most durable cool
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## Where it disagrees: nobody has cleanly compared interventions at city scale.
@@ -109,7 +109,7 @@ Almost every study tests one intervention at one site. The handful of citywide m
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## The equity gap is a measurement gap, not just a policy one.
@@ -121,7 +121,7 @@ The hottest neighbourhoods are the least studied — most temperature sensors si
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## Synthesis: the field needs comparative, equity-weighted, whole-city trials.
@@ -133,9 +133,9 @@ The evidence supports a portfolio — trees where they survive, reflective surfa
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 <!-- tier: short -->
 
 ## We know what cools a building — we still don't know what cools a city fairly.

@@ -6,7 +6,7 @@ header: "Lattice · logo wall, measured columns"
 size: square
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # A logo wall takes the columns its captions need.
 
@@ -14,7 +14,7 @@ size: square
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## What this deck shows
 
@@ -25,7 +25,7 @@ size: square
 
 ---
 
-<!-- _class: logo-wall -->
+<!-- @meta{layout=logo-wall} -->
 
 ## Short captions keep four across.
 
@@ -44,7 +44,7 @@ size: square
 
 ---
 
-<!-- _class: logo-wall -->
+<!-- @meta{layout=logo-wall} -->
 
 ## One wide pill still fits.
 
@@ -63,7 +63,7 @@ size: square
 
 ---
 
-<!-- _class: logo-wall -->
+<!-- @meta{layout=logo-wall} -->
 
 ## Long pills take three columns.
 
@@ -94,7 +94,7 @@ size: square
 
 ---
 
-<!-- _class: logo-wall -->
+<!-- @meta{layout=logo-wall} -->
 
 ## Without captions, four across.
 
@@ -109,7 +109,7 @@ size: square
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 ## Measured, not guessed.
 

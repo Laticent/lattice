@@ -5,7 +5,7 @@ pagination: true
 size: square
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # A bookend whose message runs long gives it a page.
 
@@ -13,7 +13,7 @@ size: square
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## What this deck shows
 
@@ -25,7 +25,7 @@ size: square
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 ## Part two.
 
@@ -33,7 +33,7 @@ Pricing the options.
 
 ---
 
-<!-- _class: topic fact -->
+<!-- @meta{layout=topic, class=fact} -->
 
 `Section 01 · Revenue`
 
@@ -43,7 +43,7 @@ Four points of retention is $2.1m.
 
 ---
 
-<!-- _class: topic fact -->
+<!-- @meta{layout=topic, class=fact} -->
 
 `Section 02 · Model risk`
 
@@ -55,7 +55,7 @@ Four points of retention is $2.1m of ARR, and it compounds into next year.
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 ## What the second half covers.
 
@@ -63,7 +63,7 @@ The first half named the problem. The second half prices it: what each option co
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 `What Is Still Owed`
 
@@ -73,7 +73,7 @@ The struck clause measures 4.25:1 on the dark canvas. It carries no wash to remo
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 ## Measured, not guessed.
 

@@ -6,8 +6,8 @@ header: "Lattice · per-slide diagram band"
 footer: "Feature deck"
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
+<!-- @meta{layout=title, header=""} -->
+
 
 # A diagram is baked for its own slide
 
@@ -17,7 +17,7 @@ The preview used to bake every diagram from slide 1. Now both render paths resol
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## Baked ink over a live chip: both have to mean the same slide.
 
@@ -30,7 +30,7 @@ Four defects landed on #1326 in a row, each of them these two halves naming diff
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `Light band`
 
@@ -48,7 +48,7 @@ Read the arrowhead: `#000000` on the light band, over a pale categorical chip.
 
 ---
 
-<!-- _class: diagram dark -->
+<!-- @meta{layout=diagram, class=dark} -->
 
 `Dark band · same deck`
 
@@ -66,7 +66,7 @@ Same source, same deck, one `_class: dark`. The preview used to bake this one fr
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `No directive`
 
@@ -84,7 +84,7 @@ Marp's `_class` is a single-slide directive. The export used to take the last on
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## What the fix actually was: pass the section in.
 
@@ -99,7 +99,7 @@ Marp's `_class` is a single-slide directive. The export used to take the last on
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `Cluster · containment tier`
 
@@ -119,7 +119,7 @@ Cluster background, boundary, edge stroke and marker fill are all baked. Two sli
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## The kernel drives; the paths supply capabilities.
 

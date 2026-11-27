@@ -94,7 +94,7 @@ $$ y = f(x) $$
 Alias for the base layout: a hero equation with a named legend.
 
 ```markdown
-<!-- _class: math feature -->
+<!-- @meta{layout=math, class=feature} -->
 
 `Logistic regression · MLE`
 
@@ -113,7 +113,7 @@ $$ \ell(\beta) = \sum_{i=1}^{n} \left[ y_i \log \sigma(x_i^\top \beta) + (1 - y_
 A proof chain in two columns — the step left, its warrant right.
 
 ```markdown
-<!-- _class: math derivation -->
+<!-- @meta{layout=math, class=derivation} -->
 
 ## derivation walks the steps line by line.
 
@@ -130,7 +130,7 @@ A proof chain in two columns — the step left, its warrant right.
 Definition, Theorem and Proof as stacked color-coded cards.
 
 ```markdown
-<!-- _class: math theorem -->
+<!-- @meta{layout=math, class=theorem} -->
 
 ## theorem boxes the statement and its proof.
 
@@ -146,7 +146,7 @@ Definition, Theorem and Proof as stacked color-coded cards.
 Two or three equations side by side, each under its own label.
 
 ```markdown
-<!-- _class: math compare -->
+<!-- @meta{layout=math, class=compare} -->
 
 ## compare sets two formulations side by side.
 
@@ -168,7 +168,7 @@ Maximizes the posterior — conditions on the prior $p(\theta)$. Uncertainty is 
 A hero equation beside a `functionplot` graph of its shape.
 
 ```markdown
-<!-- _class: math canvas -->
+<!-- @meta{layout=math, class=canvas} -->
 
 ## canvas gives a long derivation the room.
 
@@ -194,7 +194,7 @@ Maps $\mathbb{R} \to (0,1)$. $S$-shaped, $\sigma(0) = 0.5$, steepest slope at th
 A matrix beside a legend of its shape, rank and what rows mean.
 
 ```markdown
-<!-- _class: math matrix -->
+<!-- @meta{layout=math, class=matrix} -->
 
 ## matrix typesets the block structures.
 
@@ -219,7 +219,7 @@ $$
 An estimate with its uncertainty, then a plain-language reading.
 
 ```markdown
-<!-- _class: math stats -->
+<!-- @meta{layout=math, class=stats} -->
 
 ## stats pairs the estimator with its variance.
 
@@ -236,7 +236,7 @@ For every additional unit of exposure, the outcome rises by 0.42 SD — roughly 
 A factorization as a sequence of matrices, each term named.
 
 ```markdown
-<!-- _class: math matrix decompose -->
+<!-- @meta{layout=math, class=matrix decompose} -->
 
 ## decompose colors the terms it names.
 

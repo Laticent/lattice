@@ -7,7 +7,7 @@ size: story
 venue: hall
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # Layouts reflow when the text runs short of room.
 
@@ -15,8 +15,8 @@ A story post projected in a hall leaves about 28 characters a line. Every layout
 
 ---
 
-<!-- _class: agenda progress-2 -->
-<!-- _footer: "agenda" -->
+<!-- @meta{layout=agenda, class=progress-2, footer=agenda} -->
+
 
 ## Three stops today.
 
@@ -26,8 +26,8 @@ A story post projected in a hall leaves about 28 characters a line. Every layout
 
 ---
 
-<!-- _class: checklist -->
-<!-- _footer: "checklist" -->
+<!-- @meta{layout=checklist, footer=checklist} -->
+
 
 ## Ready to ship?
 
@@ -37,8 +37,8 @@ A story post projected in a hall leaves about 28 characters a line. Every layout
 
 ---
 
-<!-- _class: list-steps chevron -->
-<!-- _footer: "list-steps chevron" -->
+<!-- @meta{layout=list-steps, class=chevron, footer=list-steps chevron} -->
+
 
 ## Make the case.
 
@@ -49,8 +49,8 @@ A story post projected in a hall leaves about 28 characters a line. Every layout
 
 ---
 
-<!-- _class: statute-stack bands -->
-<!-- _footer: "statute-stack bands" -->
+<!-- @meta{layout=statute-stack, class=bands, footer=statute-stack bands} -->
+
 
 ## Two jurisdictions.
 
@@ -61,8 +61,8 @@ A story post projected in a hall leaves about 28 characters a line. Every layout
 
 ---
 
-<!-- _class: statute-stack lane -->
-<!-- _footer: "statute-stack lane" -->
+<!-- @meta{layout=statute-stack, class=lane, footer=statute-stack lane} -->
+
 
 ## The obligations.
 
@@ -73,8 +73,8 @@ A story post projected in a hall leaves about 28 characters a line. Every layout
 
 ---
 
-<!-- _class: regulatory-update priority -->
-<!-- _footer: "regulatory-update priority" -->
+<!-- @meta{layout=regulatory-update, class=priority, footer=regulatory-update priority} -->
+
 
 ## Q1 priorities.
 
@@ -87,8 +87,8 @@ A story post projected in a hall leaves about 28 characters a line. Every layout
 
 ---
 
-<!-- _class: authority-chain pyramid -->
-<!-- _footer: "authority-chain pyramid" -->
+<!-- @meta{layout=authority-chain, class=pyramid, footer=authority-chain pyramid} -->
+
 
 ## Who binds whom.
 
@@ -101,8 +101,8 @@ A story post projected in a hall leaves about 28 characters a line. Every layout
 
 ---
 
-<!-- _class: cards-grid three -->
-<!-- _footer: "cards-grid three" -->
+<!-- @meta{layout=cards-grid, class=three, footer=cards-grid three} -->
+
 
 ## Three peers, one column.
 
@@ -115,7 +115,7 @@ A story post projected in a hall leaves about 28 characters a line. Every layout
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 # One rule, three thresholds, no change at 16:9.
 

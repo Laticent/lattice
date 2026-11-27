@@ -15,8 +15,7 @@ A list under a heading — plain pills, hairline takeaways (a `1.` list numbers 
 
 ---
 
-<!-- _class: list -->
-<!-- @meta{footer=Default · list} -->
+<!-- @meta{layout=list, footer=Default · list} -->
 
 ## The list states one point per line.
 
@@ -29,8 +28,7 @@ A list under a heading — plain pills, hairline takeaways (a `1.` list numbers 
 
 ---
 
-<!-- _class: list takeaway -->
-<!-- @meta{footer="takeaway · list takeaway — Ruled single lines for conclusions."} -->
+<!-- @meta{layout=list, class=takeaway, footer="takeaway · list takeaway — Ruled single lines for conclusions."} -->
 
 ## takeaway boxes the list as findings.
 
@@ -42,8 +40,7 @@ A list under a heading — plain pills, hairline takeaways (a `1.` list numbers 
 
 ---
 
-<!-- _class: list principles -->
-<!-- @meta{footer="principles · list principles — Numbered declarations at display weight."} -->
+<!-- @meta{layout=list, class=principles, footer="principles · list principles — Numbered declarations at display weight."} -->
 
 ## principles numbers the house rules.
 
@@ -55,8 +52,7 @@ A list under a heading — plain pills, hairline takeaways (a `1.` list numbers 
 
 ---
 
-<!-- _class: list principles lettered -->
-<!-- @meta{footer="lettered · list lettered — Letters replace the counters."} -->
+<!-- @meta{layout=list, class=principles lettered, footer="lettered · list lettered — Letters replace the counters."} -->
 
 ## lettered counts the rules with letters.
 
@@ -67,8 +63,7 @@ A list under a heading — plain pills, hairline takeaways (a `1.` list numbers 
 
 ---
 
-<!-- _class: list principles roman -->
-<!-- @meta{footer="roman · list roman — Roman numerals replace counters."} -->
+<!-- @meta{layout=list, class=principles roman, footer="roman · list roman — Roman numerals replace counters."} -->
 
 ## roman sets the rules in numerals.
 
@@ -79,8 +74,7 @@ A list under a heading — plain pills, hairline takeaways (a `1.` list numbers 
 
 ---
 
-<!-- _class: list principles bullet -->
-<!-- @meta{footer="bullet · list bullet — Dots replace the counters."} -->
+<!-- @meta{layout=list, class=principles bullet, footer="bullet · list bullet — Dots replace the counters."} -->
 
 ## bullet strips the markers back to dots.
 
@@ -91,9 +85,8 @@ A list under a heading — plain pills, hairline takeaways (a `1.` list numbers 
 
 ---
 
-<!-- _class: list -->
+<!-- @meta{layout=list, footer="Stress test · list — Six lines at the hard ceiling."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · list — Six lines at the hard ceiling."} -->
 
 ## Six lines is the most a list should carry.
 

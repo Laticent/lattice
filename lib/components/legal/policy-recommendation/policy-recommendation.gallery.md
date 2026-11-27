@@ -15,8 +15,7 @@ A legislative recommendation — a stance verdict beside the recommendation, its
 
 ---
 
-<!-- _class: policy-recommendation adopt -->
-<!-- @meta{footer=Default · policy-recommendation} -->
+<!-- @meta{layout=policy-recommendation, class=adopt, footer=Default · policy-recommendation} -->
 
 `HB 214 · Consumer Data Protection`
 
@@ -34,8 +33,7 @@ A legislative recommendation — a stance verdict beside the recommendation, its
 
 ---
 
-<!-- _class: policy-recommendation adopt -->
-<!-- @meta{footer="adopt · policy-recommendation adopt — Support — green verdict badge and rail."} -->
+<!-- @meta{layout=policy-recommendation, class=adopt, footer="adopt · policy-recommendation adopt — Support — green verdict badge and rail."} -->
 
 `HB 214 · Consumer Data Protection`
 
@@ -53,8 +51,7 @@ Consumers now learn of a breach 78 days late on average.
 
 ---
 
-<!-- _class: policy-recommendation amend -->
-<!-- @meta{footer="amend · policy-recommendation amend — Conditional support — amber badge and rail."} -->
+<!-- @meta{layout=policy-recommendation, class=amend, footer="amend · policy-recommendation amend — Conditional support — amber badge and rail."} -->
 
 `SB 88 · Algorithmic Hiring`
 
@@ -72,8 +69,7 @@ Post-hoc audits catch bias only after applicants are screened out.
 
 ---
 
-<!-- _class: policy-recommendation oppose -->
-<!-- @meta{footer="oppose · policy-recommendation oppose — Against — red verdict badge and rail."} -->
+<!-- @meta{layout=policy-recommendation, class=oppose, footer="oppose · policy-recommendation oppose — Against — red verdict badge and rail."} -->
 
 `AB 402 · Encryption Backdoors`
 
@@ -91,8 +87,7 @@ A state-held decryption key is a single point of failure for every resident's da
 
 ---
 
-<!-- _class: policy-recommendation defer -->
-<!-- @meta{footer="defer · policy-recommendation defer — Study first — neutral badge and rail."} -->
+<!-- @meta{layout=policy-recommendation, class=defer, footer="defer · policy-recommendation defer — Study first — neutral badge and rail."} -->
 
 `HR 19 · Municipal Facial Recognition`
 
@@ -110,9 +105,8 @@ Error rates for the proposed system are unpublished for the populations it would
 
 ---
 
-<!-- _class: policy-recommendation amend -->
+<!-- @meta{layout=policy-recommendation, class=amend, footer="Stress test · policy-recommendation — Three reasons — the ceiling."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · policy-recommendation — Three reasons — the ceiling."} -->
 
 `SB 88 · Algorithmic Hiring`
 

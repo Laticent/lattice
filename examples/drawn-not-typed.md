@@ -6,7 +6,7 @@ header: "Lattice · drawn, not typed"
 footer: "Drawn, not typed"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Feature demo · HARD RULE #29`
 
@@ -16,7 +16,7 @@ It is a request that some font, on some machine, draw one.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## What a typed glyph actually does.
 
@@ -34,7 +34,7 @@ color from the element at all, or to a hollow box, which takes nothing.
 
 ---
 
-<!-- _class: compare-prose -->
+<!-- @meta{layout=compare-prose} -->
 
 ## Typed asks. Drawn answers.
 
@@ -45,7 +45,7 @@ color from the element at all, or to a hollow box, which takes nothing.
 
 ---
 
-<!-- _class: table state-cells -->
+<!-- @meta{layout=table, class=state-cells} -->
 
 ## `state-cells` — status in any table's cells.
 
@@ -61,7 +61,7 @@ color from the element at all, or to a hollow box, which takes nothing.
 
 ---
 
-<!-- _class: cycle -->
+<!-- @meta{layout=cycle} -->
 
 ## The chrome the engine draws for you.
 
@@ -72,7 +72,7 @@ color from the element at all, or to a hollow box, which takes nothing.
 
 ---
 
-<!-- _class: list note-warn -->
+<!-- @meta{layout=list, class=note-warn} -->
 
 ## `note-warn` — a caveat, without the emoji.
 
@@ -84,7 +84,7 @@ color from the element at all, or to a hollow box, which takes nothing.
 
 ---
 
-<!-- _class: code -->
+<!-- @meta{layout=code} -->
 
 ## The linter coaches. It does not refuse.
 
@@ -104,7 +104,7 @@ machine that is not yours.
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- @meta{layout=cards-stack} -->
 
 ## Where the rule deliberately stops.
 
@@ -117,7 +117,7 @@ machine that is not yours.
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 `Consistency is king · flexibility, the necessary evil`
 

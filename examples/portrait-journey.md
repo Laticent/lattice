@@ -6,7 +6,7 @@ pagination: true
 header: "Lattice · journey portrait"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # The journey, read top to bottom.
 
@@ -16,7 +16,7 @@ A journey is horizontal by nature — stages left to right, mood dipping below a
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## Mood, twice over.
 
@@ -28,8 +28,8 @@ The landscape board is three parallel column-grids; you can't make a stage label
 
 ---
 
-<!-- _class: journey -->
-<!-- _footer: "Vertical board · the dip reads twice" -->
+<!-- @meta{layout=journey, footer=Vertical board · the dip reads twice} -->
+
 
 ## Customer onboarding · trial to activation.
 
@@ -46,8 +46,8 @@ The landscape board is three parallel column-grids; you can't make a stage label
 
 ---
 
-<!-- _class: journey -->
-<!-- _footer: "A steadier arc — support resolution" -->
+<!-- @meta{layout=journey, footer="A steadier arc — support resolution"} -->
+
 
 ## Support ticket · first touch to resolved.
 
@@ -63,8 +63,8 @@ The landscape board is three parallel column-grids; you can't make a stage label
 
 ---
 
-<!-- _class: journey heatmap -->
-<!-- _footer: "Variants unify to the vertical board" -->
+<!-- @meta{layout=journey, class=heatmap, footer=Variants unify to the vertical board} -->
+
 
 ## Heatmap · where the trial drops off.
 
@@ -79,7 +79,7 @@ The landscape board is three parallel column-grids; you can't make a stage label
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## A portrait deck is a different box, not a smaller slide.
 

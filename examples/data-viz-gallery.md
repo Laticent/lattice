@@ -9,8 +9,7 @@ Every chart component in one deck — the full charting surface.
 
 ---
 
-<!-- _class: bar -->
-<!-- @meta{footer=bar · data-viz gallery} -->
+<!-- @meta{layout=bar, footer=bar · data-viz gallery} -->
 
 `Revenue · FY26`
 
@@ -24,8 +23,7 @@ Every chart component in one deck — the full charting surface.
 
 ---
 
-<!-- _class: bullet -->
-<!-- @meta{footer=bullet · data-viz gallery} -->
+<!-- @meta{layout=bullet, footer=bullet · data-viz gallery} -->
 
 `Q3 2026 · commercial plan`
 
@@ -39,8 +37,7 @@ Every chart component in one deck — the full charting surface.
 
 ---
 
-<!-- _class: ep-curve -->
-<!-- @meta{footer=ep-curve · data-viz gallery} -->
+<!-- @meta{layout=ep-curve, footer=ep-curve · data-viz gallery} -->
 
 `[{Return period}, {Loss}]`
 
@@ -61,8 +58,7 @@ Every chart component in one deck — the full charting surface.
 
 ---
 
-<!-- _class: flowchart -->
-<!-- @meta{footer=flowchart · data-viz gallery} -->
+<!-- @meta{layout=flowchart, footer=flowchart · data-viz gallery} -->
 
 `Incident response`
 
@@ -81,8 +77,7 @@ Every chart component in one deck — the full charting surface.
 
 ---
 
-<!-- _class: funnel -->
-<!-- @meta{footer=funnel · data-viz gallery} -->
+<!-- @meta{layout=funnel, footer=funnel · data-viz gallery} -->
 
 ## The funnel narrows; the width is the story.
 
@@ -96,8 +91,7 @@ Every chart component in one deck — the full charting surface.
 
 ---
 
-<!-- _class: gantt -->
-<!-- @meta{footer=gantt · data-viz gallery} -->
+<!-- @meta{layout=gantt, footer=gantt · data-viz gallery} -->
 
 `[{Timeline, 2026 Q1 .. 2026 Q4, today=Q3}]`
 
@@ -118,8 +112,7 @@ Bars are spans, diamonds are moments, color is status, and tasks that run at the
 
 ---
 
-<!-- _class: heatmap -->
-<!-- @meta{footer=heatmap · data-viz gallery} -->
+<!-- @meta{layout=heatmap, footer=heatmap · data-viz gallery} -->
 
 `Retention · 2026 cohorts`
 
@@ -134,8 +127,7 @@ Bars are spans, diamonds are moments, color is status, and tasks that run at the
 
 ---
 
-<!-- _class: histogram -->
-<!-- @meta{footer=histogram · data-viz gallery} -->
+<!-- @meta{layout=histogram, footer=histogram · data-viz gallery} -->
 
 `[{Annual loss, $1M..$250M, log}, {Share of years}]`
 
@@ -148,8 +140,7 @@ Bars are spans, diamonds are moments, color is status, and tasks that run at the
 
 ---
 
-<!-- _class: hub-spoke -->
-<!-- @meta{footer=hub-spoke · data-viz gallery} -->
+<!-- @meta{layout=hub-spoke, footer=hub-spoke · data-viz gallery} -->
 
 `Transformation program · Workstream status · Q3`
 
@@ -168,8 +159,7 @@ Bars are spans, diamonds are moments, color is status, and tasks that run at the
 
 ---
 
-<!-- _class: journey -->
-<!-- @meta{footer=journey · data-viz gallery} -->
+<!-- @meta{layout=journey, footer=journey · data-viz gallery} -->
 
 ## The journey scores each stage of the path.
 
@@ -186,8 +176,7 @@ Bars are spans, diamonds are moments, color is status, and tasks that run at the
 
 ---
 
-<!-- _class: kanban -->
-<!-- @meta{footer=kanban · data-viz gallery} -->
+<!-- @meta{layout=kanban, footer=kanban · data-viz gallery} -->
 
 `chart · kanban`
 
@@ -204,8 +193,7 @@ Bars are spans, diamonds are moments, color is status, and tasks that run at the
 
 ---
 
-<!-- _class: line -->
-<!-- @meta{footer=line · data-viz gallery} -->
+<!-- @meta{layout=line, footer=line · data-viz gallery} -->
 
 ## Services grew into the gap enterprise left.
 
@@ -236,8 +224,7 @@ Bars are spans, diamonds are moments, color is status, and tasks that run at the
 
 ---
 
-<!-- _class: map -->
-<!-- @meta{footer=map · data-viz gallery} -->
+<!-- @meta{layout=map, footer=map · data-viz gallery} -->
 
 ## The map fills regions by value.
 
@@ -254,8 +241,7 @@ Bars are spans, diamonds are moments, color is status, and tasks that run at the
 
 ---
 
-<!-- _class: matrix-grid -->
-<!-- @meta{footer=matrix-grid · data-viz gallery} -->
+<!-- @meta{layout=matrix-grid, footer=matrix-grid · data-viz gallery} -->
 
 ## Your level is a cell, not a rung.
 
@@ -276,8 +262,7 @@ Illustrative — placements vary by company.
 
 ---
 
-<!-- _class: piechart -->
-<!-- @meta{footer=piechart · data-viz gallery} -->
+<!-- @meta{layout=piechart, footer=piechart · data-viz gallery} -->
 
 `H1 2026 · 1,840 person-hours`
 
@@ -295,8 +280,7 @@ Nearly half went to producing decks; the deciding itself was the smallest slice.
 
 ---
 
-<!-- _class: progress -->
-<!-- @meta{footer=progress · data-viz gallery} -->
+<!-- @meta{layout=progress, footer=progress · data-viz gallery} -->
 
 `H1 2026 · Phase 1 readiness`
 
@@ -312,8 +296,7 @@ Snapshot at 14:00 UTC. Status pills reflect the most optimistic reading of the a
 
 ---
 
-<!-- _class: quadrant -->
-<!-- @meta{footer=quadrant · data-viz gallery} -->
+<!-- @meta{layout=quadrant, footer=quadrant · data-viz gallery} -->
 
 `[{Effort, 0..10}, {Reach, 0..100}]`
 
@@ -338,8 +321,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 ---
 
-<!-- _class: radar -->
-<!-- @meta{footer=radar · data-viz gallery} -->
+<!-- @meta{layout=radar, footer=radar · data-viz gallery} -->
 
 `[{Scale, 0..10}]`
 
@@ -368,8 +350,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 ---
 
-<!-- _class: risk-matrix -->
-<!-- @meta{footer=risk-matrix · data-viz gallery} -->
+<!-- @meta{layout=risk-matrix, footer=risk-matrix · data-viz gallery} -->
 
 `Enterprise risk register · Q4 2026`
 
@@ -384,8 +365,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 ---
 
-<!-- _class: roadmap -->
-<!-- @meta{footer=roadmap · data-viz gallery} -->
+<!-- @meta{layout=roadmap, footer=roadmap · data-viz gallery} -->
 
 `H2 2026 · Rollout plan`
 
@@ -399,8 +379,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 ---
 
-<!-- _class: scatter -->
-<!-- @meta{footer=scatter · data-viz gallery} -->
+<!-- @meta{layout=scatter, footer=scatter · data-viz gallery} -->
 
 `[Annual cost, Teams adopting]`
 
@@ -419,8 +398,7 @@ Cost is the renewal we signed; adoption is the share of teams with a weekly acti
 
 ---
 
-<!-- _class: slope -->
-<!-- @meta{footer=slope · data-viz gallery} -->
+<!-- @meta{layout=slope, footer=slope · data-viz gallery} -->
 
 ## Kestrel took the lead; Northwind gave it up.
 
@@ -442,8 +420,7 @@ Cost is the renewal we signed; adoption is the share of teams with a weekly acti
 
 ---
 
-<!-- _class: stacked-bar -->
-<!-- @meta{footer=stacked-bar · data-viz gallery} -->
+<!-- @meta{layout=stacked-bar, footer=stacked-bar · data-viz gallery} -->
 
 ## Each bar is a total; the bands inside it are the mix.
 
@@ -462,8 +439,7 @@ Cost is the renewal we signed; adoption is the share of teams with a weekly acti
 
 ---
 
-<!-- _class: state-chart lr -->
-<!-- @meta{footer=state-chart · data-viz gallery} -->
+<!-- @meta{layout=state-chart, class=lr, footer=state-chart · data-viz gallery} -->
 
 `Submission lifecycle`
 
@@ -488,8 +464,7 @@ How a draft moves from author to publication.
 
 ---
 
-<!-- _class: timeline-list -->
-<!-- @meta{footer=timeline-list · data-viz gallery} -->
+<!-- @meta{layout=timeline-list, footer=timeline-list · data-viz gallery} -->
 
 `chart · timeline-list`
 
@@ -508,8 +483,7 @@ Four milestones show the shape; the date chips carry the when.
 
 ---
 
-<!-- _class: tower -->
-<!-- @meta{footer=tower · data-viz gallery} -->
+<!-- @meta{layout=tower, footer=tower · data-viz gallery} -->
 
 `Property catastrophe program · 2027`
 
@@ -530,8 +504,7 @@ Four milestones show the shape; the date chips carry the when.
 
 ---
 
-<!-- _class: waterfall -->
-<!-- @meta{footer=waterfall · data-viz gallery} -->
+<!-- @meta{layout=waterfall, footer=waterfall · data-viz gallery} -->
 
 `FY26 plan · actual`
 
@@ -548,8 +521,7 @@ Four milestones show the shape; the date chips carry the when.
 
 ---
 
-<!-- _class: word-cloud -->
-<!-- @meta{footer=word-cloud · data-viz gallery} -->
+<!-- @meta{layout=word-cloud, footer=word-cloud · data-viz gallery} -->
 
 ## Weight is meaning in a word cloud.
 

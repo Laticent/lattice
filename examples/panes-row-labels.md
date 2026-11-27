@@ -6,7 +6,7 @@ header: "Lattice · panes"
 footer: "Row labels in a pane — the label column keeps its slide width"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # A row label keeps its width in a pane
 
@@ -14,7 +14,7 @@ footer: "Row labels in a pane — the label column keeps its slide width"
 
 ---
 
-<!-- _class: progress -->
+<!-- @meta{layout=progress} -->
 
 `H1 2026 · Phase 1 readiness`
 
@@ -34,15 +34,15 @@ footer: "Row labels in a pane — the label column keeps its slide width"
 
 ## In a half-width pane the names still read in full.
 
-<!-- _class: columns -->
-<!-- _pane: progress -->
+<!-- @meta{layout=columns} -->
+<!-- @meta{pane=progress} -->
 
 - Signal intake review `92%` `on-track`
 - Scoring policy draft `68%` `at-risk`
 - Calibration cadence reset `34%` `deferred`
 - Adoption across teams `12%` `blocked`
 
-<!-- _pane: list -->
+<!-- @meta{pane=list} -->
 
 - Two workstreams are behind plan
 - Calibration waits on the scoring draft
@@ -55,13 +55,13 @@ footer: "Row labels in a pane — the label column keeps its slide width"
 
 ## A narrow pane gives each name its own row.
 
-<!-- _class: columns ratio-35-65 -->
-<!-- _pane: progress -->
+<!-- @meta{layout=columns, class=ratio-35-65} -->
+<!-- @meta{pane=progress} -->
 
 - Signal intake review `92%` `on-track`
 - Adoption across teams `12%` `blocked`
 
-<!-- _pane: list -->
+<!-- @meta{pane=list} -->
 
 - A pane squarer than the slide sets the name above its bar
 - The bar keeps the pane's full width
@@ -72,14 +72,14 @@ footer: "Row labels in a pane — the label column keeps its slide width"
 
 ## Stacked, the pane is slide-wide and nothing moves.
 
-<!-- _class: rows ratio-55-45 -->
-<!-- _pane: progress -->
+<!-- @meta{layout=rows, class=ratio-55-45} -->
+<!-- @meta{pane=progress} -->
 
 - Signal intake review `92%` `on-track`
 - Scoring policy draft `68%` `at-risk`
 - Decision log rollout `81%` `on-track`
 
-<!-- _pane: list -->
+<!-- @meta{pane=list} -->
 
 - A stacked pane's label column is the slide's own
 
@@ -89,8 +89,8 @@ footer: "Row labels in a pane — the label column keeps its slide width"
 
 ## Each row name reads on one line, and so does each cell.
 
-<!-- _class: columns ratio-65-35 -->
-<!-- _pane: matrix-grid -->
+<!-- @meta{layout=columns, class=ratio-65-35} -->
+<!-- @meta{pane=matrix-grid} -->
 
 `[Wider reach, Deeper cognition]`
 
@@ -100,7 +100,7 @@ footer: "Row labels in a pane — the label column keeps its slide width"
 | Weigh the options | [ ] | [-] | [x] Level 2 | [ ] |
 | Decide under risk | [-] | [x] Level 3 | [-] | [ ] |
 
-<!-- _pane: list -->
+<!-- @meta{pane=list} -->
 
 - Each verb is a row the reader scans first
 - A filled cell names the level it reaches
@@ -109,7 +109,7 @@ footer: "Row labels in a pane — the label column keeps its slide width"
 
 ---
 
-<!-- _class: matrix-grid -->
+<!-- @meta{layout=matrix-grid} -->
 
 `[Wider reach, Deeper cognition]`
 

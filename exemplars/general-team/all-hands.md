@@ -6,7 +6,7 @@ pagination: true
 header: "Meridian · Q2 all-hands"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 <!-- tier: short -->
 
 `All-hands · Q2 2026`
@@ -17,7 +17,7 @@ Where we are, what we shipped, and where we are headed next.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## A year ago we were one product; today we are a platform.
@@ -26,7 +26,7 @@ Twelve months ago Meridian was a single scheduling tool with a churn problem. Th
 
 ---
 
-<!-- _class: big-number -->
+<!-- @meta{layout=big-number} -->
 <!-- tier: short -->
 
 `Where we are now`
@@ -36,7 +36,7 @@ Twelve months ago Meridian was a single scheduling tool with a churn problem. Th
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## The turning point: we stopped patching churn and rebuilt onboarding.
@@ -48,7 +48,7 @@ Last summer one in five new teams left within a month. Instead of more retention
 
 ---
 
-<!-- _class: kpi compact -->
+<!-- @meta{layout=kpi, class=compact} -->
 <!-- tier: short -->
 
 ## Every number that mattered moved the right way this year.
@@ -65,7 +65,7 @@ Last summer one in five new teams left within a month. Instead of more retention
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 <!-- tier: standard -->
 
 `The team behind it`
@@ -85,7 +85,7 @@ Last summer one in five new teams left within a month. Instead of more retention
 
 ---
 
-<!-- _class: roadmap -->
+<!-- @meta{layout=roadmap} -->
 <!-- tier: short -->
 
 `Where we are headed · H2 2026`
@@ -100,7 +100,7 @@ Last summer one in five new teams left within a month. Instead of more retention
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 <!-- tier: full -->
 
 `Customers · this year`
@@ -120,7 +120,7 @@ Last summer one in five new teams left within a month. Instead of more retention
 
 ---
 
-<!-- _class: quote -->
+<!-- @meta{layout=quote} -->
 <!-- tier: standard -->
 
 > Meridian went from a tool we tolerated to the system our whole team plans around. The new onboarding made it stick.
@@ -129,7 +129,7 @@ Last summer one in five new teams left within a month. Instead of more retention
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## What we are asking of each other for the rest of the year.
@@ -141,9 +141,9 @@ The ecosystem push only works if every team treats developers and partners as fi
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 <!-- tier: short -->
 
 ## One product became a platform — now let's make it an ecosystem.

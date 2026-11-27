@@ -6,7 +6,7 @@ pagination: true
 header: "Coral thermal adaptation · Lecture"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 <!-- tier: short -->
 
 `BIOL 312 · Lecture 9 · Marine Adaptation`
@@ -17,7 +17,7 @@ The cellular biology of thermal tolerance — and why some reefs are beating the
 
 ---
 
-<!-- _class: agenda -->
+<!-- @meta{layout=agenda} -->
 <!-- tier: short -->
 
 ## Where we are going in the next fifty minutes.
@@ -29,7 +29,7 @@ The cellular biology of thermal tolerance — and why some reefs are beating the
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## A reef that bleached in 2016 came back greener than its neighbors.
@@ -38,7 +38,7 @@ Most of the central Coral Sea bleached when temperatures held 2 degrees above th
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## The textbook says corals cannot adapt this fast — the textbook is incomplete.
@@ -50,7 +50,7 @@ Reef-building corals are slow: a colony may take a decade to mature and centurie
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## The coral is not one organism — it is a partnership under negotiation.
@@ -59,7 +59,7 @@ Every coral hosts millions of single-celled algae, *Symbiodinium*, that photosyn
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 <!-- tier: short -->
 
 ## Heat tips a stable partnership into collapse — or into a swap.
@@ -75,7 +75,7 @@ flowchart LR
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## The survivors did not evolve — they switched partners.
@@ -84,7 +84,7 @@ The recovered shoal hosted a different algal clade, *Durusdinium trenchii*, whic
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 <!-- tier: standard -->
 
 `Lizard Shoal transplant · 2016–2019`
@@ -104,7 +104,7 @@ The recovered shoal hosted a different algal clade, *Durusdinium trenchii*, whic
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## Tolerance is not free — the fast algae feed the coral less.
@@ -113,7 +113,7 @@ Colonies hosting the heat-tolerant clade grew 22% slower in normal years. The pa
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- @meta{layout=list, class=takeaway} -->
 <!-- tier: short -->
 
 ## What a coral needs to survive the next marine heatwave.
@@ -129,7 +129,7 @@ Colonies hosting the heat-tolerant clade grew 22% slower in normal years. The pa
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## Symbiont shuffling is real, but it is not a universal escape hatch.
@@ -141,7 +141,7 @@ Only about a quarter of reef-building genera can host multiple clades. For the r
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## The frontier: can we seed tolerance before the heat arrives?
@@ -153,9 +153,9 @@ Assisted evolution trials are now inoculating coral larvae with heat-tolerant cl
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 <!-- tier: short -->
 
 ## The coral that survives changes its partner, not its genes.

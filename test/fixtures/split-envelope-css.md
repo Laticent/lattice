@@ -3,7 +3,7 @@ marp: true
 theme: indaco
 ---
 
-<!-- _class: checklist lat-split-closing -->
+<!-- @meta{layout=checklist, class=lat-split-closing} -->
 
 ## Launch readiness
 
@@ -11,7 +11,7 @@ theme: indaco
 
 ---
 
-<!-- _class: stats lat-split-closing -->
+<!-- @meta{layout=stats, class=lat-split-closing} -->
 
 ## A row of stats, equal weight
 
@@ -19,7 +19,7 @@ theme: indaco
 
 ---
 
-<!-- _class: stats lat-split-native -->
+<!-- @meta{layout=stats, class=lat-split-native} -->
 
 ## A row of stats, equal weight
 
@@ -32,7 +32,7 @@ theme: indaco
 
 ---
 
-<!-- _class: checklist lat-split-native -->
+<!-- @meta{layout=checklist, class=lat-split-native} -->
 
 ## Launch readiness
 
@@ -43,7 +43,7 @@ theme: indaco
 
 ---
 
-<!-- _class: cards-grid lat-split-native -->
+<!-- @meta{layout=cards-grid, class=lat-split-native} -->
 
 ## Where the quarter went
 
@@ -56,7 +56,7 @@ theme: indaco
 
 ---
 
-<!-- _class: checklist lat-split-native -->
+<!-- @meta{layout=checklist, class=lat-split-native} -->
 
 ## Launch readiness
 
@@ -67,7 +67,7 @@ theme: indaco
 
 ---
 
-<!-- _class: checklist lat-split-native -->
+<!-- @meta{layout=checklist, class=lat-split-native} -->
 
 ## Readiness, as the SPLITTER actually emits it
 
@@ -78,7 +78,7 @@ theme: indaco
 
 ---
 
-<!-- _class: pricing lat-split-native -->
+<!-- @meta{layout=pricing, class=lat-split-native} -->
 
 ## One tier, alone on its page
 
@@ -89,7 +89,7 @@ theme: indaco
 
 ---
 
-<!-- _class: pricing lat-split-native -->
+<!-- @meta{layout=pricing, class=lat-split-native} -->
 
 ## Three tiers, as authored
 

@@ -14,7 +14,7 @@ header: "Lattice · status markers"
      state markers and rails its tones by default, then overrides a few slides to show
      the range. Every color is a palette token, so the markers are on-brand by theme.} -->
 
-<!-- _class: title pinned -->
+<!-- @meta{layout=title, class=pinned} -->
 
 `A feature demo`
 
@@ -25,7 +25,7 @@ register says **what shape**. Set it once, override anywhere.
 
 ---
 
-<!-- _class: big-number confidential -->
+<!-- @meta{layout=big-number, class=confidential} -->
 
 `State markers`
 
@@ -34,7 +34,7 @@ register says **what shape**. Set it once, override anywhere.
 
 ---
 
-<!-- _class: content wip -->
+<!-- @meta{layout=content, class=wip} -->
 
 ## The default shape is a coherent family
 
@@ -44,7 +44,7 @@ competing signatures. This slide is **WIP** in that same seal.
 
 ---
 
-<!-- _class: cards-grid draft stamp-notch -->
+<!-- @meta{layout=cards-grid, class=draft stamp-notch} -->
 
 ## Override one slide's shape
 
@@ -57,7 +57,7 @@ competing signatures. This slide is **WIP** in that same seal.
 
 ---
 
-<!-- _class: content redacted stamp-bracket -->
+<!-- @meta{layout=content, class=redacted stamp-bracket} -->
 
 ## Bracket is the quiet technical tag
 
@@ -67,7 +67,7 @@ serves every state; only the shape token changes.
 
 ---
 
-<!-- _class: content tone-pass -->
+<!-- @meta{layout=content, class=tone-pass} -->
 
 ## This quarter cleared every bar
 
@@ -77,7 +77,7 @@ quarter closed with **zero** Sev-1 incidents. The tone marker sets the color
 
 ---
 
-<!-- _class: content tone-fail tone-glow -->
+<!-- @meta{layout=content, class=tone-fail tone-glow} -->
 
 ## Two Sev-1 incidents are still open
 
@@ -87,7 +87,7 @@ full inset ring, so this alert slide reads apart from the quiet default.
 
 ---
 
-<!-- _class: content tone-warn tone-edge -->
+<!-- @meta{layout=content, class=tone-warn tone-edge} -->
 
 ## `tone: edge` recolors the brand bar
 
@@ -97,7 +97,7 @@ brand frame rather than fighting it, the same move `accent` makes.
 
 ---
 
-<!-- _class: content pinned tone-pass -->
+<!-- @meta{layout=content, class=pinned tone-pass} -->
 
 ## Both axes compose without collision
 
@@ -107,7 +107,7 @@ the tone band never overlap, by construction. One vocabulary, two signals.
 
 ---
 
-<!-- _class: closing revised -->
+<!-- @meta{layout=closing, class=revised} -->
 
 # Set it once, override anywhere
 

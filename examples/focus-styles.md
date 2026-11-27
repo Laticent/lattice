@@ -5,7 +5,7 @@ pagination: true
 footer: "Laticent · focus styles"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Five ways to point at one card.
 
@@ -15,9 +15,9 @@ footer: "Laticent · focus styles"
 
 ---
 
-<!-- _class: cards-grid -->
-<!-- _focus: item 3 -->
-<!-- _focusStyle: spotlight -->
+<!-- @meta{layout=cards-grid, focus=item 3, focus-style=spotlight} -->
+
+
 
 ## `spotlight` — dim the rest (the default on cards).
 
@@ -32,9 +32,9 @@ footer: "Laticent · focus styles"
 
 ---
 
-<!-- _class: cards-grid -->
-<!-- _focus: item 3 -->
-<!-- _focusStyle: blur -->
+<!-- @meta{layout=cards-grid, focus=item 3, focus-style=blur} -->
+
+
 
 ## `blur` — defocus the rest, the camera way.
 
@@ -49,9 +49,9 @@ footer: "Laticent · focus styles"
 
 ---
 
-<!-- _class: cards-grid -->
-<!-- _focus: item 3 -->
-<!-- _focusStyle: ring -->
+<!-- @meta{layout=cards-grid, focus=item 3, focus-style=ring} -->
+
+
 
 ## `ring` — outline the target, nothing dims.
 
@@ -66,9 +66,9 @@ footer: "Laticent · focus styles"
 
 ---
 
-<!-- _class: cards-grid -->
-<!-- _focus: item 3 -->
-<!-- _focusStyle: list-fill -->
+<!-- @meta{layout=cards-grid, focus=item 3, focus-style=list-fill} -->
+
+
 
 ## `list-fill` — tint the target, nothing dims.
 
@@ -83,9 +83,9 @@ footer: "Laticent · focus styles"
 
 ---
 
-<!-- _class: cards-grid -->
-<!-- _focus: item 3 -->
-<!-- _focusStyle: highlight -->
+<!-- @meta{layout=cards-grid, focus=item 3, focus-style=highlight} -->
+
+
 
 ## `highlight` — tint and edge the target, nothing dims.
 
@@ -99,7 +99,7 @@ footer: "Laticent · focus styles"
   - Monthly retrospective comparing predicted outcomes to actual outcomes.
 
 ---
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 # Pick the look, keep the target.
 

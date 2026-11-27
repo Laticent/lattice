@@ -6,7 +6,7 @@ header: "Lattice · carousel split"
 size: portrait
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # A split slide reads as a carousel.
 
@@ -14,8 +14,8 @@ The cover carries the title and the swipe cue. Every page after it carries the c
 
 ---
 
-<!-- _class: cards-grid -->
-<!-- _footer: "cards-grid" -->
+<!-- @meta{layout=cards-grid, footer=cards-grid} -->
+
 
 ## The framework has four parts.
 
@@ -32,8 +32,8 @@ The cover carries the title and the swipe cue. Every page after it carries the c
 
 ---
 
-<!-- _class: checklist -->
-<!-- _footer: "checklist" -->
+<!-- @meta{layout=checklist, footer=checklist} -->
+
 
 ## The go-live checklist.
 
@@ -44,8 +44,8 @@ The cover carries the title and the swipe cue. Every page after it carries the c
 
 ---
 
-<!-- _class: list principles -->
-<!-- _footer: "list principles" -->
+<!-- @meta{layout=list, class=principles, footer=list principles} -->
+
 
 ## Three house rules.
 
@@ -55,8 +55,8 @@ The cover carries the title and the swipe cue. Every page after it carries the c
 
 ---
 
-<!-- _class: statute-stack bands -->
-<!-- _footer: "statute-stack bands" -->
+<!-- @meta{layout=statute-stack, class=bands, footer=statute-stack bands} -->
+
 
 ## Three jurisdictions.
 
@@ -69,7 +69,7 @@ The cover carries the title and the swipe cue. Every page after it carries the c
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 # Content pages carry content.
 

@@ -6,7 +6,7 @@ pagination: true
 header: "Lattice · State chart follow-ups"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 `Lattice · Feature deck`
 
@@ -16,7 +16,7 @@ A caption stays one line, labels keep their room, and the key tells running work
 
 ---
 
-<!-- _class: state-chart lr -->
+<!-- @meta{layout=state-chart, class=lr} -->
 
 `Caption`
 
@@ -34,7 +34,7 @@ A caption stays one line, labels keep their room, and the key tells running work
 
 ---
 
-<!-- _class: state-chart tb -->
+<!-- @meta{layout=state-chart, class=tb} -->
 
 `Paired edges`
 
@@ -54,7 +54,7 @@ A caption stays one line, labels keep their room, and the key tells running work
 
 ---
 
-<!-- _class: state-chart tb -->
+<!-- @meta{layout=state-chart, class=tb} -->
 
 `Self-loops`
 
@@ -74,7 +74,7 @@ A caption stays one line, labels keep their room, and the key tells running work
 
 ---
 
-<!-- _class: state-chart lr -->
+<!-- @meta{layout=state-chart, class=lr} -->
 
 `Status key`
 
@@ -94,7 +94,7 @@ A caption stays one line, labels keep their room, and the key tells running work
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Portrait`
 

@@ -6,7 +6,7 @@ pagination: true
 header: "Lattice · inventory split pages"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # The inventory holds together across a split.
 
@@ -16,8 +16,8 @@ A portrait page takes one row at a time. The insight closes the run once, and ev
 
 ---
 
-<!-- _class: inventory -->
-<!-- _footer: "Ledger · insight once, at the end." -->
+<!-- @meta{layout=inventory, footer="Ledger · insight once, at the end."} -->
+
 
 `inventory · ledger`
 
@@ -31,8 +31,8 @@ A portrait page takes one row at a time. The insight closes the run once, and ev
 
 ---
 
-<!-- _class: inventory timeline -->
-<!-- _footer: "Timeline · dot stays on its title." -->
+<!-- @meta{layout=inventory, class=timeline, footer=Timeline · dot stays on its title.} -->
+
 
 `inventory timeline`
 
@@ -46,8 +46,8 @@ A portrait page takes one row at a time. The insight closes the run once, and ev
 
 ---
 
-<!-- _class: inventory editorial -->
-<!-- _footer: "Editorial · centered, pill-sized link." -->
+<!-- @meta{layout=inventory, class=editorial, footer="Editorial · centered, pill-sized link."} -->
+
 
 `inventory editorial`
 
@@ -61,7 +61,7 @@ A portrait page takes one row at a time. The insight closes the run once, and ev
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

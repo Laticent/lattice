@@ -6,7 +6,7 @@ pagination: true
 header: "Lattice · One hue in grayscale"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Chart color · the print channel`
 
@@ -16,8 +16,8 @@ The print and a11y channels substitute **texture** for hue, so the two counts ha
 
 ---
 
-<!-- _class: funnel -->
-<!-- _footer: "One texture · funnel" -->
+<!-- @meta{layout=funnel, footer=One texture · funnel} -->
+
 
 ## The funnel narrows; the width is the story.
 
@@ -29,8 +29,8 @@ The print and a11y channels substitute **texture** for hue, so the two counts ha
 
 ---
 
-<!-- _class: timeline-list -->
-<!-- _footer: "One ink · timeline-list" -->
+<!-- @meta{layout=timeline-list, footer=One ink · timeline-list} -->
+
 
 `Milestones · one ink`
 
@@ -47,8 +47,8 @@ The print and a11y channels substitute **texture** for hue, so the two counts ha
 
 ---
 
-<!-- _class: closing -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, footer=""} -->
+
 
 ## The hue count is the texture count, so both go to one.
 

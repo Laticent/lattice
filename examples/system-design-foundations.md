@@ -31,7 +31,7 @@ acronyms:
 
 ---
 
-<!-- _class: title silent spectrum -->
+<!-- @meta{layout=title, class=silent spectrum} -->
 
 # How to Think About Systems
 
@@ -41,7 +41,7 @@ We start with one engineer's Tuesday. We design Instagram, then run the whole me
 
 ---
 
-<!-- _class: agenda -->
+<!-- @meta{layout=agenda} -->
 
 ## This deck runs in eight parts, gathered here into six.
 
@@ -54,7 +54,7 @@ We start with one engineer's Tuesday. We design Instagram, then run the whole me
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 `Part zero`
 
@@ -62,7 +62,7 @@ We start with one engineer's Tuesday. We design Instagram, then run the whole me
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `The rules of this part`
 
@@ -74,7 +74,7 @@ Watch her Tuesday. This part uses no systems-design words on purpose. Everything
 
 ---
 
-<!-- _class: timeline-list -->
+<!-- @meta{layout=timeline-list} -->
 
 `Morning`
 
@@ -93,7 +93,7 @@ Watch her Tuesday. This part uses no systems-design words on purpose. Everything
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `09:15 · standup`
 
@@ -105,7 +105,7 @@ The four people did not change. Only who talked to whom changed.
 
 ---
 
-<!-- _class: quote bare -->
+<!-- @meta{layout=quote, class=bare} -->
 
 > Get 482 merged before the window closes.
 
@@ -113,7 +113,7 @@ The four people did not change. Only who talked to whom changed.
 
 ---
 
-<!-- _class: cards-grid four -->
+<!-- @meta{layout=cards-grid, class=four} -->
 
 `09:45 · in the way`
 
@@ -130,7 +130,7 @@ The four people did not change. Only who talked to whom changed.
 
 ---
 
-<!-- _class: timeline-list -->
+<!-- @meta{layout=timeline-list} -->
 
 `Midday`
 
@@ -149,7 +149,7 @@ The four people did not change. Only who talked to whom changed.
 
 ---
 
-<!-- _class: timeline-list -->
+<!-- @meta{layout=timeline-list} -->
 
 `Afternoon`
 
@@ -168,7 +168,7 @@ The four people did not change. Only who talked to whom changed.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `22:40 · the reveal`
 
@@ -182,7 +182,7 @@ Ten ideas ran through that day. Part one gives you the words for them.
 
 ---
 
-<!-- _class: divider numbered -->
+<!-- @meta{layout=divider, class=numbered} -->
 
 `Part one`
 
@@ -190,8 +190,8 @@ Ten ideas ran through that day. Part one gives you the words for them.
 
 ---
 
-<!-- _class: split-panel proof cat-1 -->
-<!-- _header: "" -->
+<!-- @meta{layout=split-panel, class=proof cat-1, header=""} -->
+
 
 `Word one · system`
 
@@ -208,7 +208,7 @@ Maya's morning is one. The shower, the train, the laptop and the registry betwee
 
 ---
 
-<!-- _class: diagram compact -->
+<!-- @meta{layout=diagram, class=compact} -->
 
 `09:15 · the same four people`
 
@@ -235,8 +235,8 @@ flowchart TB
 
 ---
 
-<!-- _class: split-panel proof cat-2 -->
-<!-- _header: "" -->
+<!-- @meta{layout=split-panel, class=proof cat-2, header=""} -->
+
 
 `Word two · purpose`
 
@@ -253,8 +253,8 @@ Maya wrote it on a sticky note at nine thirty: get 482 merged before four. At fo
 
 ---
 
-<!-- _class: split-panel proof cat-3 -->
-<!-- _header: "" -->
+<!-- @meta{layout=split-panel, class=proof cat-3, header=""} -->
+
 
 `Word three · boundary`
 
@@ -271,8 +271,8 @@ At ten fifteen another team asked Maya to fix a flaky test in their repository. 
 
 ---
 
-<!-- _class: split-panel proof cat-4 -->
-<!-- _header: "" -->
+<!-- @meta{layout=split-panel, class=proof cat-4, header=""} -->
+
 
 `Word four · environment`
 
@@ -289,8 +289,8 @@ A signal failure held her train for nine minutes. A page pulled her into an outa
 
 ---
 
-<!-- _class: split-panel proof cat-5 -->
-<!-- _header: "" -->
+<!-- @meta{layout=split-panel, class=proof cat-5, header=""} -->
+
 
 `Word five · process`
 
@@ -307,7 +307,7 @@ Push, wait twelve minutes for the build, read a comment, fix, push again. Maya r
 
 ---
 
-<!-- _class: diagram compact -->
+<!-- @meta{layout=diagram, class=compact} -->
 
 `11:00 · the loop, drawn`
 
@@ -328,8 +328,8 @@ flowchart LR
 
 ---
 
-<!-- _class: split-panel proof cat-6 -->
-<!-- _header: "" -->
+<!-- @meta{layout=split-panel, class=proof cat-6, header=""} -->
+
 
 `Word six · model`
 
@@ -346,8 +346,8 @@ Maya's plan for Tuesday was a model. It held the build time, the review, and the
 
 ---
 
-<!-- _class: split-panel proof cat-7 -->
-<!-- _header: "" -->
+<!-- @meta{layout=split-panel, class=proof cat-7, header=""} -->
+
 
 `Word seven · constraint`
 
@@ -364,8 +364,8 @@ Four limits shaped Maya's day, and each came from somewhere different. A twelve-
 
 ---
 
-<!-- _class: split-panel proof cat-8 -->
-<!-- _header: "" -->
+<!-- @meta{layout=split-panel, class=proof cat-8, header=""} -->
+
 
 `Word eight · invariant`
 
@@ -382,7 +382,7 @@ Main was deployable every minute of Maya's Tuesday. It was true while the regist
 
 ---
 
-<!-- _class: diagram compact -->
+<!-- @meta{layout=diagram, class=compact} -->
 
 `06:55 and 15:30 · two loops`
 
@@ -410,8 +410,8 @@ flowchart TB
 
 ---
 
-<!-- _class: split-panel capstone cat-1 -->
-<!-- _header: "" -->
+<!-- @meta{layout=split-panel, class=capstone cat-1, header=""} -->
+
 
 `Word nine · infrastructure`
 
@@ -428,7 +428,7 @@ Wifi, the VPN, the package registry, the build fleet, the identity provider. May
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `17:00 · the last word`
 
@@ -442,7 +442,7 @@ No policy names Thursday. You find it by watching the queue for six weeks.
 
 ---
 
-<!-- _class: premise -->
+<!-- @meta{layout=premise} -->
 
 ## These five words name what a system is made of.
 
@@ -466,7 +466,7 @@ You did not learn these from a definition. You watched each one happen first, wh
 
 ---
 
-<!-- _class: premise -->
+<!-- @meta{layout=premise} -->
 
 ## Three more are things you make, not things you find.
 
@@ -484,7 +484,7 @@ You never handle the system itself. You handle a drawing of it, its limits and i
 
 ---
 
-<!-- _class: table -->
+<!-- @meta{layout=table} -->
 
 `The translation`
 
@@ -500,7 +500,7 @@ You never handle the system itself. You handle a drawing of it, its limits and i
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Your turn`
 
@@ -512,7 +512,7 @@ Do not hunt for a clever answer. The point is that you now have words for a thin
 
 ---
 
-<!-- _class: list-tabular -->
+<!-- @meta{layout=list-tabular} -->
 
 `One answer`
 
@@ -531,7 +531,7 @@ Do not hunt for a clever answer. The point is that you now have words for a thin
 
 ---
 
-<!-- _class: divider numbered -->
+<!-- @meta{layout=divider, class=numbered} -->
 
 `Part two`
 
@@ -539,7 +539,7 @@ Do not hunt for a clever answer. The point is that you now have words for a thin
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `The frame`
 
@@ -551,7 +551,7 @@ The protagonist is who the system is for. The antagonist is what makes serving t
 
 ---
 
-<!-- _class: code -->
+<!-- @meta{layout=code} -->
 
 `The drill`
 
@@ -571,7 +571,7 @@ Antagonist:   But <W> — and W is <a number>.
 
 ---
 
-<!-- _class: compare-prose -->
+<!-- @meta{layout=compare-prose} -->
 
 `The drill, on Tuesday`
 
@@ -584,7 +584,7 @@ Antagonist:   But <W> — and W is <a number>.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `The trap`
 
@@ -596,7 +596,7 @@ Naming one as the protagonist decides who waits. Say who you are not designing f
 
 ---
 
-<!-- _class: table -->
+<!-- @meta{layout=table} -->
 
 `The join`
 
@@ -612,8 +612,8 @@ Naming one as the protagonist decides who waits. Say who you are not designing f
 
 ---
 
-<!-- _class: split-panel proof cat-2 -->
-<!-- _header: "" -->
+<!-- @meta{layout=split-panel, class=proof cat-2, header=""} -->
+
 
 `Instagram · the casting`
 
@@ -630,8 +630,8 @@ She opens the app a dozen times a day, on a cellular network, usually while doin
 
 ---
 
-<!-- _class: split-panel capstone cat-3 -->
-<!-- _header: "" -->
+<!-- @meta{layout=split-panel, class=capstone cat-3, header=""} -->
+
 
 `Instagram · the antagonist`
 
@@ -648,7 +648,7 @@ Scale is a quantity, and quantities have a price you can pay. The thing you cann
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Your turn`
 
@@ -665,7 +665,7 @@ The second line is the hard one. If you cannot put a number on W, you have just 
 
 ---
 
-<!-- _class: compare-prose -->
+<!-- @meta{layout=compare-prose} -->
 
 `One answer`
 
@@ -678,7 +678,7 @@ The second line is the hard one. If you cannot put a number on W, you have just 
 
 ---
 
-<!-- _class: divider numbered -->
+<!-- @meta{layout=divider, class=numbered} -->
 
 `Part three`
 
@@ -686,7 +686,7 @@ The second line is the hard one. If you cannot put a number on W, you have just 
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Before the boxes`
 
@@ -700,7 +700,7 @@ Gall's law says it plainly: a complex system that works is invariably found to h
 
 ---
 
-<!-- _class: premise -->
+<!-- @meta{layout=premise} -->
 
 ## Each rung costs more and commits harder than the one below it.
 
@@ -724,8 +724,8 @@ You move up when the rung you are standing on stops paying, and you move up one 
 
 ---
 
-<!-- _class: split-panel proof cat-4 -->
-<!-- _header: "" -->
+<!-- @meta{layout=split-panel, class=proof cat-4, header=""} -->
+
 
 `Rung one · MVP`
 
@@ -742,8 +742,8 @@ Its job is to produce a decision, not to last. Every hour spent making it durabl
 
 ---
 
-<!-- _class: split-panel proof cat-5 -->
-<!-- _header: "" -->
+<!-- @meta{layout=split-panel, class=proof cat-5, header=""} -->
+
 
 `Rung two · scaled`
 
@@ -760,8 +760,8 @@ You have stopped buying information and started buying headroom. The question mo
 
 ---
 
-<!-- _class: split-panel proof cat-6 -->
-<!-- _header: "" -->
+<!-- @meta{layout=split-panel, class=proof cat-6, header=""} -->
+
 
 `Rung three · optimized`
 
@@ -778,8 +778,8 @@ Optimization without a profile is decoration. You need the measurement first, th
 
 ---
 
-<!-- _class: split-panel proof cat-7 -->
-<!-- _header: "" -->
+<!-- @meta{layout=split-panel, class=proof cat-7, header=""} -->
+
 
 `Rung four · optimal`
 
@@ -796,8 +796,8 @@ Rarer than it sounds. It needs a stated objective, a stated model, and a proof o
 
 ---
 
-<!-- _class: split-panel capstone cat-8 -->
-<!-- _header: "" -->
+<!-- @meta{layout=split-panel, class=capstone cat-8, header=""} -->
+
 
 `Rung five · specialized`
 
@@ -814,7 +814,7 @@ Custom silicon, a purpose-built storage engine, a scheduler that knows your phys
 
 ---
 
-<!-- _class: decision -->
+<!-- @meta{layout=decision} -->
 
 `The rule`
 
@@ -829,8 +829,8 @@ Custom silicon, a purpose-built storage engine, a scheduler that knows your phys
 
 ---
 
-<!-- _class: split-panel capstone cat-2 -->
-<!-- _header: "" -->
+<!-- @meta{layout=split-panel, class=capstone cat-2, header=""} -->
+
 
 `The removal test`
 
@@ -847,7 +847,7 @@ Antoine de Saint-Exupéry wrote that perfection arrives not when there is nothin
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Your turn`
 
@@ -859,7 +859,7 @@ Write a rung for each and one sentence on what it costs. Then turn the page.
 
 ---
 
-<!-- _class: list-tabular -->
+<!-- @meta{layout=list-tabular} -->
 
 `One answer`
 
@@ -874,7 +874,7 @@ Write a rung for each and one sentence on what it costs. Then turn the page.
 
 ---
 
-<!-- _class: list-steps -->
+<!-- @meta{layout=list-steps} -->
 
 `The arc`
 
@@ -893,7 +893,7 @@ Write a rung for each and one sentence on what it costs. Then turn the page.
 
 ---
 
-<!-- _class: divider numbered -->
+<!-- @meta{layout=divider, class=numbered} -->
 
 `Part four`
 
@@ -901,7 +901,7 @@ Write a rung for each and one sentence on what it costs. Then turn the page.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Why any of this matters`
 
@@ -913,7 +913,7 @@ She made none of them and lived inside all of them. What follows is the menu tho
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `How to read a kit`
 
@@ -925,7 +925,7 @@ The entries name concepts, not products. Products turn over every few years. The
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 `Data`
 
@@ -933,7 +933,7 @@ The entries name concepts, not products. Products turn over every few years. The
 
 ---
 
-<!-- _class: diagram compact -->
+<!-- @meta{layout=diagram, class=compact} -->
 
 `Data kit · serving`
 
@@ -957,7 +957,7 @@ flowchart TB
 
 ---
 
-<!-- _class: diagram compact -->
+<!-- @meta{layout=diagram, class=compact} -->
 
 `Data kit · deriving`
 
@@ -979,7 +979,7 @@ flowchart TB
 
 ---
 
-<!-- _class: premise -->
+<!-- @meta{layout=premise} -->
 
 ## The product name is the last thing you decide about a store.
 
@@ -1003,7 +1003,7 @@ Answer these before anyone says a brand. Most database arguments are really a di
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Data kit · the three passes`
 
@@ -1019,7 +1019,7 @@ Consistency is not a pass. You carry it into all three.
 
 ---
 
-<!-- _class: diagram compact -->
+<!-- @meta{layout=diagram, class=compact} -->
 
 `Data kit · pass one, the first question`
 
@@ -1036,7 +1036,7 @@ flowchart LR
 
 ---
 
-<!-- _class: diagram compact -->
+<!-- @meta{layout=diagram, class=compact} -->
 
 `Data kit · pass one, keeping the joins`
 
@@ -1053,7 +1053,7 @@ flowchart LR
 
 ---
 
-<!-- _class: diagram compact -->
+<!-- @meta{layout=diagram, class=compact} -->
 
 `Data kit · pass one, shape questions one and two`
 
@@ -1071,7 +1071,7 @@ flowchart LR
 
 ---
 
-<!-- _class: diagram compact -->
+<!-- @meta{layout=diagram, class=compact} -->
 
 `Data kit · pass one, shape questions three and four`
 
@@ -1089,7 +1089,7 @@ flowchart LR
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Your turn`
 
@@ -1101,7 +1101,7 @@ Answer the tree's first question for each, and say whether the tree stops there.
 
 ---
 
-<!-- _class: list-tabular -->
+<!-- @meta{layout=list-tabular} -->
 
 `One answer`
 
@@ -1116,7 +1116,7 @@ Answer the tree's first question for each, and say whether the tree stops there.
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- @meta{layout=cards-stack} -->
 
 `Data kit · relational`
 
@@ -1131,7 +1131,7 @@ Answer the tree's first question for each, and say whether the tree stops there.
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- @meta{layout=cards-stack} -->
 
 `Data kit · distributed SQL`
 
@@ -1146,7 +1146,7 @@ Answer the tree's first question for each, and say whether the tree stops there.
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- @meta{layout=cards-stack} -->
 
 `Data kit · key-value`
 
@@ -1161,7 +1161,7 @@ Answer the tree's first question for each, and say whether the tree stops there.
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- @meta{layout=cards-stack} -->
 
 `Data kit · document`
 
@@ -1176,7 +1176,7 @@ Answer the tree's first question for each, and say whether the tree stops there.
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- @meta{layout=cards-stack} -->
 
 `Data kit · wide-column`
 
@@ -1191,7 +1191,7 @@ Answer the tree's first question for each, and say whether the tree stops there.
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- @meta{layout=cards-stack} -->
 
 `Data kit · object store`
 
@@ -1206,7 +1206,7 @@ Answer the tree's first question for each, and say whether the tree stops there.
 
 ---
 
-<!-- _class: table -->
+<!-- @meta{layout=table} -->
 
 `Data kit · pass two`
 
@@ -1223,7 +1223,7 @@ Answer the tree's first question for each, and say whether the tree stops there.
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- @meta{layout=cards-stack} -->
 
 `Data kit · graph`
 
@@ -1238,7 +1238,7 @@ Answer the tree's first question for each, and say whether the tree stops there.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Halfway`
 
@@ -1250,7 +1250,7 @@ The genuinely derived stores are the search index, the vector index, the cache a
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- @meta{layout=cards-stack} -->
 
 `Data kit · cache`
 
@@ -1265,7 +1265,7 @@ The genuinely derived stores are the search index, the vector index, the cache a
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- @meta{layout=cards-stack} -->
 
 `Data kit · durable log`
 
@@ -1280,7 +1280,7 @@ The genuinely derived stores are the search index, the vector index, the cache a
 
 ---
 
-<!-- _class: table -->
+<!-- @meta{layout=table} -->
 
 `Data kit · the scan`
 
@@ -1297,7 +1297,7 @@ The genuinely derived stores are the search index, the vector index, the cache a
 
 ---
 
-<!-- _class: table -->
+<!-- @meta{layout=table} -->
 
 `Data kit · pass three`
 
@@ -1314,7 +1314,7 @@ The genuinely derived stores are the search index, the vector index, the cache a
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- @meta{layout=cards-stack} -->
 
 `Data kit · replicas`
 
@@ -1329,7 +1329,7 @@ The genuinely derived stores are the search index, the vector index, the cache a
 
 ---
 
-<!-- _class: diagram compact -->
+<!-- @meta{layout=diagram, class=compact} -->
 
 `Data kit · under a partition`
 
@@ -1348,7 +1348,7 @@ flowchart LR
 
 ---
 
-<!-- _class: diagram compact -->
+<!-- @meta{layout=diagram, class=compact} -->
 
 `Data kit · the rest of the time`
 
@@ -1367,7 +1367,7 @@ flowchart LR
 
 ---
 
-<!-- _class: list-tabular -->
+<!-- @meta{layout=list-tabular} -->
 
 `Data kit · consistency`
 
@@ -1382,7 +1382,7 @@ flowchart LR
 
 ---
 
-<!-- _class: compare-prose axis -->
+<!-- @meta{layout=compare-prose, class=axis} -->
 
 `Data kit · two philosophies`
 
@@ -1397,7 +1397,7 @@ Ask whether coordinating now costs less than reconciling later.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Your turn`
 
@@ -1409,7 +1409,7 @@ For each, say whether you take the write or refuse it while the link is down, an
 
 ---
 
-<!-- _class: list-tabular -->
+<!-- @meta{layout=list-tabular} -->
 
 `One answer`
 
@@ -1424,8 +1424,8 @@ For each, say whether you take the write or refuse it while the link is down, an
 
 ---
 
-<!-- _class: split-panel proof cat-1 -->
-<!-- _header: "" -->
+<!-- @meta{layout=split-panel, class=proof cat-1, header=""} -->
+
 
 `Data kit · indexes`
 
@@ -1442,7 +1442,7 @@ Indexes make reads fast by making writes slower and storage larger. Each one is 
 
 ---
 
-<!-- _class: diagram compact -->
+<!-- @meta{layout=diagram, class=compact} -->
 
 `Data kit · partitioning`
 
@@ -1462,7 +1462,7 @@ flowchart LR
 
 ---
 
-<!-- _class: cards-grid three -->
+<!-- @meta{layout=cards-grid, class=three} -->
 
 `Data kit · the shard key`
 
@@ -1479,7 +1479,7 @@ flowchart LR
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- @meta{layout=cards-stack} -->
 
 `Data kit · ordering and identity`
 
@@ -1494,7 +1494,7 @@ flowchart LR
 
 ---
 
-<!-- _class: list-steps -->
+<!-- @meta{layout=list-steps} -->
 
 `Data kit · changing a schema`
 
@@ -1513,7 +1513,7 @@ flowchart LR
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Data kit · why those five steps`
 
@@ -1525,7 +1525,7 @@ The same rule governs an API other people call. Add fields, never repurpose them
 
 ---
 
-<!-- _class: cards-grid four -->
+<!-- @meta{layout=cards-grid, class=four} -->
 
 `Data kit · deleting for real`
 
@@ -1544,7 +1544,7 @@ The same rule governs an API other people call. Add fields, never repurpose them
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- @meta{layout=list, class=takeaway} -->
 
 `Data kit · the invariants`
 
@@ -1561,7 +1561,7 @@ The same rule governs an API other people call. Add fields, never repurpose them
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Your turn`
 
@@ -1573,7 +1573,7 @@ Write the store and the one query that will cross a partition. Then turn the pag
 
 ---
 
-<!-- _class: list-tabular -->
+<!-- @meta{layout=list-tabular} -->
 
 `One answer`
 
@@ -1588,7 +1588,7 @@ Write the store and the one query that will cross a partition. Then turn the pag
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 `Compute`
 
@@ -1596,7 +1596,7 @@ Write the store and the one query that will cross a partition. Then turn the pag
 
 ---
 
-<!-- _class: diagram compact -->
+<!-- @meta{layout=diagram, class=compact} -->
 
 `Compute kit · somebody is waiting`
 
@@ -1620,7 +1620,7 @@ flowchart TB
 
 ---
 
-<!-- _class: diagram compact -->
+<!-- @meta{layout=diagram, class=compact} -->
 
 `Compute kit · nobody is waiting`
 
@@ -1643,7 +1643,7 @@ flowchart TB
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- @meta{layout=cards-stack} -->
 
 `Compute kit · virtual machines`
 
@@ -1658,7 +1658,7 @@ flowchart TB
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- @meta{layout=cards-stack} -->
 
 `Compute kit · containers`
 
@@ -1673,7 +1673,7 @@ flowchart TB
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- @meta{layout=cards-stack} -->
 
 `Compute kit · functions`
 
@@ -1688,7 +1688,7 @@ flowchart TB
 
 ---
 
-<!-- _class: compare-prose -->
+<!-- @meta{layout=compare-prose} -->
 
 `Compute kit · the property`
 
@@ -1701,7 +1701,7 @@ flowchart TB
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- @meta{layout=list, class=takeaway} -->
 
 `Compute kit · the invariants`
 
@@ -1718,7 +1718,7 @@ flowchart TB
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Your turn`
 
@@ -1730,7 +1730,7 @@ Name what each should run on, and the invariant it fails first if you get it wro
 
 ---
 
-<!-- _class: list-tabular -->
+<!-- @meta{layout=list-tabular} -->
 
 `One answer`
 
@@ -1745,7 +1745,7 @@ Name what each should run on, and the invariant it fails first if you get it wro
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 `Network`
 
@@ -1753,7 +1753,7 @@ Name what each should run on, and the invariant it fails first if you get it wro
 
 ---
 
-<!-- _class: diagram compact -->
+<!-- @meta{layout=diagram, class=compact} -->
 
 `Network kit · before your code`
 
@@ -1778,7 +1778,7 @@ flowchart TB
 
 ---
 
-<!-- _class: diagram compact -->
+<!-- @meta{layout=diagram, class=compact} -->
 
 `Network kit · after your code`
 
@@ -1801,7 +1801,7 @@ flowchart TB
 
 ---
 
-<!-- _class: diagram compact -->
+<!-- @meta{layout=diagram, class=compact} -->
 
 `Network kit · the request path`
 
@@ -1822,7 +1822,7 @@ flowchart LR
 
 ---
 
-<!-- _class: list-tabular metric -->
+<!-- @meta{layout=list-tabular, class=metric} -->
 
 `Network kit · the numbers`
 
@@ -1841,7 +1841,7 @@ flowchart LR
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Why that number is final`
 
@@ -1853,7 +1853,7 @@ A design that needs three sequential intercontinental round trips has spent near
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- @meta{layout=cards-stack} -->
 
 `Network kit · the CDN`
 
@@ -1868,8 +1868,8 @@ A design that needs three sequential intercontinental round trips has spent near
 
 ---
 
-<!-- _class: split-panel proof cat-2 -->
-<!-- _header: "" -->
+<!-- @meta{layout=split-panel, class=proof cat-2, header=""} -->
+
 
 `Network kit · timeouts`
 
@@ -1886,7 +1886,7 @@ Every waiting request holds a connection, a thread and some memory. Under a slow
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- @meta{layout=list, class=takeaway} -->
 
 `Network kit · the invariants`
 
@@ -1903,7 +1903,7 @@ Every waiting request holds a connection, a thread and some memory. Under a slow
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Your turn`
 
@@ -1915,7 +1915,7 @@ Add it up, name the one change that buys back the most, and say what that change
 
 ---
 
-<!-- _class: list-tabular -->
+<!-- @meta{layout=list-tabular} -->
 
 `One answer`
 
@@ -1930,7 +1930,7 @@ Add it up, name the one change that buys back the most, and say what that change
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 `Scale`
 
@@ -1938,7 +1938,7 @@ Add it up, name the one change that buys back the most, and say what that change
 
 ---
 
-<!-- _class: diagram compact -->
+<!-- @meta{layout=diagram, class=compact} -->
 
 `Scale kit · adding a copy`
 
@@ -1963,7 +1963,7 @@ flowchart TB
 
 ---
 
-<!-- _class: diagram compact -->
+<!-- @meta{layout=diagram, class=compact} -->
 
 `Scale kit · moving the work`
 
@@ -1986,7 +1986,7 @@ flowchart TB
 
 ---
 
-<!-- _class: math -->
+<!-- @meta{layout=math} -->
 
 `Scale kit · the one formula`
 
@@ -2000,7 +2000,7 @@ $$ L = \lambda W $$
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Using it`
 
@@ -2012,7 +2012,7 @@ Maya's Tuesday is the same arithmetic at human scale. Two builds a day at twelve
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `When it goes wrong`
 
@@ -2026,8 +2026,8 @@ Neither is a tuning problem. The first is why pools have ceilings, and the secon
 
 ---
 
-<!-- _class: split-panel proof cat-3 -->
-<!-- _header: "" -->
+<!-- @meta{layout=split-panel, class=proof cat-3, header=""} -->
+
 
 `Scale kit · tail latency`
 
@@ -2044,7 +2044,7 @@ A page that makes 100 parallel calls waits for the slowest one. Give each call a
 
 ---
 
-<!-- _class: cards-grid four -->
+<!-- @meta{layout=cards-grid, class=four} -->
 
 `Scale kit · caching`
 
@@ -2063,8 +2063,8 @@ A page that makes 100 parallel calls waits for the slowest one. Give each call a
 
 ---
 
-<!-- _class: split-panel proof cat-4 -->
-<!-- _header: "" -->
+<!-- @meta{layout=split-panel, class=proof cat-4, header=""} -->
+
 
 `Scale kit · idempotency`
 
@@ -2081,7 +2081,7 @@ Networks duplicate, clients retry, queues redeliver. The only question is whethe
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- @meta{layout=list, class=takeaway} -->
 
 `Scale kit · the invariants`
 
@@ -2098,7 +2098,7 @@ Networks duplicate, clients retry, queues redeliver. The only question is whethe
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Your turn`
 
@@ -2110,7 +2110,7 @@ Second: say what happens with an unbounded pool, and what happens with the pool 
 
 ---
 
-<!-- _class: list-tabular -->
+<!-- @meta{layout=list-tabular} -->
 
 `One answer`
 
@@ -2125,7 +2125,7 @@ Second: say what happens with an unbounded pool, and what happens with the pool 
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 `Reliability`
 
@@ -2133,7 +2133,7 @@ Second: say what happens with an unbounded pool, and what happens with the pool 
 
 ---
 
-<!-- _class: diagram compact -->
+<!-- @meta{layout=diagram, class=compact} -->
 
 `Reliability kit · walls`
 
@@ -2159,7 +2159,7 @@ flowchart TB
 
 ---
 
-<!-- _class: diagram compact -->
+<!-- @meta{layout=diagram, class=compact} -->
 
 `Reliability kit · worse answers`
 
@@ -2181,7 +2181,7 @@ flowchart TB
 
 ---
 
-<!-- _class: diagram compact -->
+<!-- @meta{layout=diagram, class=compact} -->
 
 `Reliability kit · failure domains`
 
@@ -2199,7 +2199,7 @@ flowchart LR
 
 ---
 
-<!-- _class: list-steps -->
+<!-- @meta{layout=list-steps} -->
 
 `Reliability kit · containment`
 
@@ -2216,7 +2216,7 @@ flowchart LR
 
 ---
 
-<!-- _class: list-tabular def -->
+<!-- @meta{layout=list-tabular, class=def} -->
 
 `Reliability kit · the objectives`
 
@@ -2233,7 +2233,7 @@ flowchart LR
 
 ---
 
-<!-- _class: list-tabular metric -->
+<!-- @meta{layout=list-tabular, class=metric} -->
 
 `Reliability kit · the nines`
 
@@ -2250,7 +2250,7 @@ flowchart LR
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Reading that table`
 
@@ -2262,7 +2262,7 @@ Each nine roughly multiplies the cost. Pick the number the business actually nee
 
 ---
 
-<!-- _class: cards-grid three -->
+<!-- @meta{layout=cards-grid, class=three} -->
 
 `Reliability kit · observability`
 
@@ -2279,8 +2279,8 @@ Each nine roughly multiplies the cost. Pick the number the business actually nee
 
 ---
 
-<!-- _class: split-panel proof cat-5 -->
-<!-- _header: "" -->
+<!-- @meta{layout=split-panel, class=proof cat-5, header=""} -->
+
 
 `Reliability kit · degradation`
 
@@ -2297,7 +2297,7 @@ Under pressure something has to give. Either you decided in advance which featur
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- @meta{layout=list, class=takeaway} -->
 
 `Reliability kit · the invariants`
 
@@ -2314,7 +2314,7 @@ Under pressure something has to give. Either you decided in advance which featur
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Your turn`
 
@@ -2326,7 +2326,7 @@ For each, say what the page shows and which containment pattern makes it do that
 
 ---
 
-<!-- _class: list-tabular -->
+<!-- @meta{layout=list-tabular} -->
 
 `One answer`
 
@@ -2341,7 +2341,7 @@ For each, say what the page shows and which containment pattern makes it do that
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 `Security`
 
@@ -2349,7 +2349,7 @@ For each, say what the page shows and which containment pattern makes it do that
 
 ---
 
-<!-- _class: diagram compact -->
+<!-- @meta{layout=diagram, class=compact} -->
 
 `Security kit · inside`
 
@@ -2373,7 +2373,7 @@ flowchart TB
 
 ---
 
-<!-- _class: diagram compact -->
+<!-- @meta{layout=diagram, class=compact} -->
 
 `Security kit · outside`
 
@@ -2396,7 +2396,7 @@ flowchart TB
 
 ---
 
-<!-- _class: diagram compact -->
+<!-- @meta{layout=diagram, class=compact} -->
 
 `Security kit · trust boundaries`
 
@@ -2430,7 +2430,7 @@ flowchart LR
 
 ---
 
-<!-- _class: compare-prose -->
+<!-- @meta{layout=compare-prose} -->
 
 `Security kit · the pair`
 
@@ -2443,8 +2443,8 @@ flowchart LR
 
 ---
 
-<!-- _class: split-panel proof cat-6 -->
-<!-- _header: "" -->
+<!-- @meta{layout=split-panel, class=proof cat-6, header=""} -->
+
 
 `Security kit · least privilege`
 
@@ -2461,7 +2461,7 @@ Assume any single credential eventually leaks. The design question is not whethe
 
 ---
 
-<!-- _class: list-tabular def -->
+<!-- @meta{layout=list-tabular, class=def} -->
 
 `Security kit · encryption`
 
@@ -2478,7 +2478,7 @@ Assume any single credential eventually leaks. The design question is not whethe
 
 ---
 
-<!-- _class: checklist -->
+<!-- @meta{layout=checklist} -->
 
 `Security kit · threat modeling`
 
@@ -2493,7 +2493,7 @@ Assume any single credential eventually leaks. The design question is not whethe
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Security kit · your dependencies`
 
@@ -2505,7 +2505,7 @@ Pin exact versions and commit the lock file, so the build you tested is the buil
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- @meta{layout=cards-stack} -->
 
 `Security kit · quotas`
 
@@ -2520,7 +2520,7 @@ Pin exact versions and commit the lock file, so the build you tested is the buil
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- @meta{layout=list, class=takeaway} -->
 
 `Security kit · the invariants`
 
@@ -2539,7 +2539,7 @@ Pin exact versions and commit the lock file, so the build you tested is the buil
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Your turn`
 
@@ -2551,7 +2551,7 @@ Name three of the six that land on that one arrow, and the limit that stops each
 
 ---
 
-<!-- _class: list-tabular -->
+<!-- @meta{layout=list-tabular} -->
 
 `One answer`
 
@@ -2566,7 +2566,7 @@ Name three of the six that land on that one arrow, and the limit that stops each
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Your turn · discover`
 
@@ -2578,7 +2578,7 @@ Write four lines: the protagonist, the antagonist, one invariant that must never
 
 ---
 
-<!-- _class: code -->
+<!-- @meta{layout=code} -->
 
 `One answer · discover`
 
@@ -2595,7 +2595,7 @@ The invariant wants one writer and a transaction. The number wants everything sp
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Your turn · design`
 
@@ -2607,7 +2607,7 @@ Do not draw an architecture. Four lines again, then turn the page.
 
 ---
 
-<!-- _class: list-tabular -->
+<!-- @meta{layout=list-tabular} -->
 
 `One answer · design`
 
@@ -2624,7 +2624,7 @@ Do not draw an architecture. Four lines again, then turn the page.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `What you now hold`
 
@@ -2636,7 +2636,7 @@ The entries are concepts, not products, so they outlast the names. What you carr
 
 ---
 
-<!-- _class: divider numbered -->
+<!-- @meta{layout=divider, class=numbered} -->
 
 `Part five`
 
@@ -2644,7 +2644,7 @@ The entries are concepts, not products, so they outlast the names. What you carr
 
 ---
 
-<!-- _class: code -->
+<!-- @meta{layout=code} -->
 
 `Instagram · the worksheet`
 
@@ -2664,7 +2664,7 @@ Solution type Scaled. Not an MVP, not optimal.
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- @meta{layout=list, class=takeaway} -->
 
 `Instagram · what it must do`
 
@@ -2681,7 +2681,7 @@ Solution type Scaled. Not an MVP, not optimal.
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- @meta{layout=list, class=takeaway} -->
 
 `Instagram · what it must guarantee`
 
@@ -2698,7 +2698,7 @@ Solution type Scaled. Not an MVP, not optimal.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Instagram · the estimate, worked`
 
@@ -2710,7 +2710,7 @@ One of those numbers does less work than it looks. Change the 500 million, holdi
 
 ---
 
-<!-- _class: list-tabular -->
+<!-- @meta{layout=list-tabular} -->
 
 `Instagram · what each number decides`
 
@@ -2727,7 +2727,7 @@ One of those numbers does less work than it looks. Change the 500 million, holdi
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Your turn`
 
@@ -2739,7 +2739,7 @@ Do it now, on paper, in under a minute. Cover the next slide until you have one.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `The answer`
 
@@ -2751,7 +2751,7 @@ A thirtieth of the read traffic, and the ratio went from 60:1 to 100:1. It moved
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Instagram · what the average hides`
 
@@ -2765,7 +2765,7 @@ An open is a session: the reader scrolls, and every screenful is another fetch. 
 
 ---
 
-<!-- _class: diagram compact -->
+<!-- @meta{layout=diagram, class=compact} -->
 
 `Instagram · the graph`
 
@@ -2792,8 +2792,8 @@ flowchart TB
 
 ---
 
-<!-- _class: split-panel capstone cat-7 -->
-<!-- _header: "" -->
+<!-- @meta{layout=split-panel, class=capstone cat-7, header=""} -->
+
 
 `Instagram · the one sentence`
 
@@ -2810,7 +2810,7 @@ Instagram caps your following list at seven and a half thousand accounts. Nobody
 
 ---
 
-<!-- _class: code -->
+<!-- @meta{layout=code} -->
 
 `Instagram · the storage`
 
@@ -2829,7 +2829,7 @@ following                              followers
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- @meta{layout=cards-stack} -->
 
 `Instagram · the number that must not shrink`
 
@@ -2844,7 +2844,7 @@ following                              followers
 
 ---
 
-<!-- _class: table -->
+<!-- @meta{layout=table} -->
 
 `Instagram · what each read costs`
 
@@ -2860,7 +2860,7 @@ following                              followers
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Let us get this wrong`
 
@@ -2872,7 +2872,7 @@ Hold that design in your head. Now a single account with five hundred million fo
 
 ---
 
-<!-- _class: split-panel metric -->
+<!-- @meta{layout=split-panel, class=metric} -->
 
 `One post, one celebrity`
 
@@ -2889,7 +2889,7 @@ Five hundred million feed inserts at roughly fifty bytes each, from a single API
 
 ---
 
-<!-- _class: cards-grid four -->
+<!-- @meta{layout=cards-grid, class=four} -->
 
 `One super node, four fires`
 
@@ -2908,7 +2908,7 @@ Five hundred million feed inserts at roughly fifty bytes each, from a single API
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Why the hybrid is forced`
 
@@ -2920,7 +2920,7 @@ There is a second reason, and it is the better one: a celebrity's recent-posts l
 
 ---
 
-<!-- _class: split-compare -->
+<!-- @meta{layout=split-compare} -->
 
 `Decision`
 
@@ -2937,7 +2937,7 @@ The two strategies fail at opposite ends of the same graph, so the design uses e
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Instagram · the threshold`
 
@@ -2951,7 +2951,7 @@ The better predicate is fan-out work per day, and it is a product of two numbers
 
 ---
 
-<!-- _class: table -->
+<!-- @meta{layout=table} -->
 
 `Instagram · the honest predicate`
 
@@ -2966,8 +2966,8 @@ The smaller account costs seventy times more, and a follower count on its own ca
 
 ---
 
-<!-- _class: split-panel proof cat-6 -->
-<!-- _header: "" -->
+<!-- @meta{layout=split-panel, class=proof cat-6, header=""} -->
+
 
 `Instagram · checking the fix`
 
@@ -2984,8 +2984,8 @@ At thirty pulls and a one-percent slow call, `1 - 0.99^30` puts twenty-six perce
 
 ---
 
-<!-- _class: split-panel capstone cat-8 -->
-<!-- _header: "" -->
+<!-- @meta{layout=split-panel, class=capstone cat-8, header=""} -->
+
 
 `Instagram · the hinge`
 
@@ -3002,7 +3002,7 @@ The product exists partly for her. She is the reason a hundred million people op
 
 ---
 
-<!-- _class: diagram compact -->
+<!-- @meta{layout=diagram, class=compact} -->
 
 `Instagram · the write path`
 
@@ -3022,7 +3022,7 @@ flowchart LR
 
 ---
 
-<!-- _class: diagram compact -->
+<!-- @meta{layout=diagram, class=compact} -->
 
 `Instagram · out to the followers`
 
@@ -3040,7 +3040,7 @@ flowchart LR
 
 ---
 
-<!-- _class: diagram compact -->
+<!-- @meta{layout=diagram, class=compact} -->
 
 `Instagram · the read path`
 
@@ -3058,7 +3058,7 @@ flowchart LR
 
 ---
 
-<!-- _class: diagram compact -->
+<!-- @meta{layout=diagram, class=compact} -->
 
 `Instagram · the read path, above the line`
 
@@ -3080,7 +3080,7 @@ flowchart LR
 
 ---
 
-<!-- _class: list-steps -->
+<!-- @meta{layout=list-steps} -->
 
 `Instagram · assembling a page`
 
@@ -3097,7 +3097,7 @@ flowchart LR
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `The number we missed`
 
@@ -3109,7 +3109,7 @@ That is the number the worksheet left open, and it is larger than every number o
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `The number behind that number`
 
@@ -3123,8 +3123,8 @@ Batching is not only about throughput. Eighty parallel calls put fifty-five perc
 
 ---
 
-<!-- _class: split-panel proof cat-1 -->
-<!-- _header: "" -->
+<!-- @meta{layout=split-panel, class=proof cat-1, header=""} -->
+
 
 `Instagram · the likely bug`
 
@@ -3141,7 +3141,7 @@ The feed is eventually consistent, which is correct for everyone else's posts an
 
 ---
 
-<!-- _class: diagram compact -->
+<!-- @meta{layout=diagram, class=compact} -->
 
 `Instagram · the upload`
 
@@ -3162,7 +3162,7 @@ flowchart LR
 
 ---
 
-<!-- _class: diagram compact -->
+<!-- @meta{layout=diagram, class=compact} -->
 
 `Instagram · serving it back`
 
@@ -3179,7 +3179,7 @@ flowchart LR
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Instagram · what video changes`
 
@@ -3193,8 +3193,8 @@ The fallback goes too. You can serve a photo at full size while its variant rend
 
 ---
 
-<!-- _class: split-panel proof cat-4 -->
-<!-- _header: "" -->
+<!-- @meta{layout=split-panel, class=proof cat-4, header=""} -->
+
 
 `Instagram · the path nobody designs`
 
@@ -3211,7 +3211,7 @@ Every like is a write against the same post id — one key, one partition, one l
 
 ---
 
-<!-- _class: cards-grid four -->
+<!-- @meta{layout=cards-grid, class=four} -->
 
 `Instagram · the changes nobody draws`
 
@@ -3230,7 +3230,7 @@ Every like is a write against the same post id — one key, one partition, one l
 
 ---
 
-<!-- _class: cards-grid four -->
+<!-- @meta{layout=cards-grid, class=four} -->
 
 `Instagram · where it breaks`
 
@@ -3247,7 +3247,7 @@ Every like is a write against the same post id — one key, one partition, one l
 
 ---
 
-<!-- _class: checklist -->
+<!-- @meta{layout=checklist} -->
 
 `Instagram · the invariants`
 
@@ -3262,7 +3262,7 @@ Every like is a write against the same post id — one key, one partition, one l
 
 ---
 
-<!-- _class: divider numbered -->
+<!-- @meta{layout=divider, class=numbered} -->
 
 `Part six`
 
@@ -3270,7 +3270,7 @@ Every like is a write against the same post id — one key, one partition, one l
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Parking · the ask`
 
@@ -3282,7 +3282,7 @@ Instagram was one design at one rung, and it was already enormous when we met it
 
 ---
 
-<!-- _class: compare-prose -->
+<!-- @meta{layout=compare-prose} -->
 
 `Parking · the cast`
 
@@ -3295,7 +3295,7 @@ Instagram was one design at one rung, and it was already enormous when we met it
 
 ---
 
-<!-- _class: code -->
+<!-- @meta{layout=code} -->
 
 `Parking · the worksheet, filled`
 
@@ -3316,7 +3316,7 @@ Solution type MVP. Nobody knows yet whether drivers scan the sticker.
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- @meta{layout=cards-stack} -->
 
 `Parking · rung one, the MVP`
 
@@ -3331,7 +3331,7 @@ Solution type MVP. Nobody knows yet whether drivers scan the sticker.
 
 ---
 
-<!-- _class: code -->
+<!-- @meta{layout=code} -->
 
 `Parking · rung one, the database`
 
@@ -3355,7 +3355,7 @@ Two hundred lots of forty bays turning over four times a day is 32,000 rows — 
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Parking · what breaks first`
 
@@ -3371,8 +3371,8 @@ The second is the signal itself. The card form sits on the far side of a network
 
 ---
 
-<!-- _class: split-panel proof cat-2 -->
-<!-- _header: "" -->
+<!-- @meta{layout=split-panel, class=proof cat-2, header=""} -->
+
 
 `Parking · rung one, charging once`
 
@@ -3389,7 +3389,7 @@ The second tap is a different request that means the same thing. So the page min
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Parking · rung one, the weak signal`
 
@@ -3403,8 +3403,8 @@ A decline is an answer, not a gap: the webhook writes it down and the bay frees 
 
 ---
 
-<!-- _class: split-panel proof cat-5 -->
-<!-- _header: "" -->
+<!-- @meta{layout=split-panel, class=proof cat-5, header=""} -->
+
 
 `Parking · rung one, what the sweep does`
 
@@ -3421,8 +3421,8 @@ Ask the provider what happened and write the answer down — the webhook is the 
 
 ---
 
-<!-- _class: split-panel proof cat-3 -->
-<!-- _header: "" -->
+<!-- @meta{layout=split-panel, class=proof cat-3, header=""} -->
+
 
 `Parking · rung one, the driver's own retry`
 
@@ -3439,7 +3439,7 @@ A spinner tells the driver that nothing landed. They close the tab and scan the 
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Parking · rung one, the callback you did not write`
 
@@ -3451,8 +3451,8 @@ Then expect the same call more than once, because a provider retries until you a
 
 ---
 
-<!-- _class: split-panel proof cat-4 -->
-<!-- _header: "" -->
+<!-- @meta{layout=split-panel, class=proof cat-4, header=""} -->
+
 
 `Parking · rung one, the key expires`
 
@@ -3469,7 +3469,7 @@ Every provider puts a lifetime on the key — Stripe's is twenty-four hours. Ins
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Your turn`
 
@@ -3481,7 +3481,7 @@ Write down the one question they ask the system, roughly how often it is asked, 
 
 ---
 
-<!-- _class: list-tabular -->
+<!-- @meta{layout=list-tabular} -->
 
 `One answer`
 
@@ -3496,7 +3496,7 @@ Write down the one question they ask the system, roughly how often it is asked, 
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- @meta{layout=cards-stack} -->
 
 `Parking · rung two, scaled`
 
@@ -3511,7 +3511,7 @@ Write down the one question they ask the system, roughly how often it is asked, 
 
 ---
 
-<!-- _class: split-panel metric -->
+<!-- @meta{layout=split-panel, class=metric} -->
 
 `Parking · rung three, optimized`
 
@@ -3530,7 +3530,7 @@ What the card fee takes from a three-dollar park, at thirty cents plus 2.9 perce
 
 ---
 
-<!-- _class: table -->
+<!-- @meta{layout=table} -->
 
 `Parking · what we refused`
 
@@ -3545,7 +3545,7 @@ What the card fee takes from a three-dollar park, at thirty cents plus 2.9 perce
 
 ---
 
-<!-- _class: list-tabular -->
+<!-- @meta{layout=list-tabular} -->
 
 `Parking · the ladder, climbed`
 
@@ -3560,7 +3560,7 @@ What the card fee takes from a three-dollar park, at thirty cents plus 2.9 perce
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Parking · where the kits landed`
 
@@ -3572,7 +3572,7 @@ The security kit arrived as practice, not a card: the provider's form keeps card
 
 ---
 
-<!-- _class: divider numbered -->
+<!-- @meta{layout=divider, class=numbered} -->
 
 `Part seven`
 
@@ -3580,7 +3580,7 @@ The security kit arrived as practice, not a card: the provider's form keeps card
 
 ---
 
-<!-- _class: table -->
+<!-- @meta{layout=table} -->
 
 `Instagram · store and run`
 
@@ -3597,7 +3597,7 @@ The security kit arrived as practice, not a card: the provider's form keeps card
 
 ---
 
-<!-- _class: table -->
+<!-- @meta{layout=table} -->
 
 `Instagram · scale and defense`
 
@@ -3614,8 +3614,8 @@ The security kit arrived as practice, not a card: the provider's form keeps card
 
 ---
 
-<!-- _class: split-panel capstone cat-2 -->
-<!-- _header: "" -->
+<!-- @meta{layout=split-panel, class=capstone cat-2, header=""} -->
+
 
 `The entry we refused`
 
@@ -3632,8 +3632,8 @@ Most juniors asked to design Instagram reach for a graph database, because the w
 
 ---
 
-<!-- _class: split-panel capstone cat-8 -->
-<!-- _header: "" -->
+<!-- @meta{layout=split-panel, class=capstone cat-8, header=""} -->
+
 
 `The removal test, run`
 
@@ -3650,7 +3650,7 @@ Part three set the test. Saying where each piece landed proves nothing about whe
 
 ---
 
-<!-- _class: code -->
+<!-- @meta{layout=code} -->
 
 `The artifact`
 
@@ -3671,7 +3671,7 @@ Solution type MVP  ·  scaled  ·  optimized  ·  optimal  ·  specialized
 
 ---
 
-<!-- _class: checklist -->
+<!-- @meta{layout=checklist} -->
 
 `The review`
 
@@ -3686,7 +3686,7 @@ Solution type MVP  ·  scaled  ·  optimized  ·  optimal  ·  specialized
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Your turn`
 
@@ -3698,7 +3698,7 @@ Answer four of the six without turning back. Then turn the page.
 
 ---
 
-<!-- _class: list-tabular -->
+<!-- @meta{layout=list-tabular} -->
 
 `One answer`
 
@@ -3715,7 +3715,7 @@ Answer four of the six without turning back. Then turn the page.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Develop and deliver`
 
@@ -3727,7 +3727,7 @@ So take one design you made in these pages and build the smallest version of it 
 
 ---
 
-<!-- _class: list-tabular -->
+<!-- @meta{layout=list-tabular} -->
 
 `Back to Tuesday`
 
@@ -3742,7 +3742,7 @@ So take one design you made in these pages and build the smallest version of it 
 
 ---
 
-<!-- _class: list-steps -->
+<!-- @meta{layout=list-steps} -->
 
 `What to do on Monday`
 
@@ -3759,7 +3759,7 @@ So take one design you made in these pages and build the smallest version of it 
 
 ---
 
-<!-- _class: closing silent spectrum -->
+<!-- @meta{layout=closing, class=silent spectrum} -->
 
 ## Learn the concepts and how they connect. The technology will change under you.
 

@@ -5,7 +5,7 @@ fit: heal
 size: hd
 ---
 
-<!-- _class: checklist -->
+<!-- @meta{layout=checklist} -->
 
 ## Closing checklist
 

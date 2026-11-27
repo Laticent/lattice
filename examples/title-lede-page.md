@@ -6,7 +6,7 @@ header: "Lattice · title lede page"
 size: square
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # A long opening keeps its lede.
 
@@ -16,7 +16,7 @@ On a phone, a title whose lede runs past the page keeps its eyebrow and title on
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## What this deck shows
 
@@ -27,7 +27,7 @@ On a phone, a title whose lede runs past the page keeps its eyebrow and title on
 
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Short ledes stay on the cover.
 
@@ -37,7 +37,7 @@ One sentence of framing, then the deck begins.
 
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # One grammar for an axis. Position says what it means.
 
@@ -47,7 +47,7 @@ Four components named their axes four different ways: by counting code spans, by
 
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # The category's hue, as text.
 
@@ -59,7 +59,7 @@ The twelve text inks are the one answer, curated per palette rather than mixed a
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 ## The cover keeps the title; the lede gets a page.
 

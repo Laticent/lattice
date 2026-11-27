@@ -74,7 +74,7 @@ Use when the question is 'where does this concentrate', not 'how do these compar
 Renders the band key beside the grid, naming each ramp step by the range of values it covers — reach for it when a reader has to know why two cells share a tone.
 
 ```markdown
-<!-- _class: heatmap scale -->
+<!-- @meta{layout=heatmap, class=scale} -->
 
 `Retention · 2026 cohorts`
 

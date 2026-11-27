@@ -15,8 +15,7 @@ Section boundary slide. Dark canvas with a single heading.
 
 ---
 
-<!-- _class: divider silent -->
-<!-- @meta{footer=Default · divider} -->
+<!-- @meta{layout=divider, class=silent, footer=Default · divider} -->
 
 `divider · Section 03`
 
@@ -25,8 +24,7 @@ Section boundary slide. Dark canvas with a single heading.
 
 ---
 
-<!-- _class: divider silent numbered -->
-<!-- @meta{footer="numbered · divider numbered — Masthead — the running section number over a hairline, top-left."} -->
+<!-- @meta{layout=divider, class=silent numbered, footer="numbered · divider numbered — Masthead — the running section number over a hairline, top-left."} -->
 
 `divider numbered`
 
@@ -35,8 +33,7 @@ Section boundary slide. Dark canvas with a single heading.
 
 ---
 
-<!-- _class: divider light -->
-<!-- @meta{footer="light · divider light — Bright canvas, sentence-length waypoint."} -->
+<!-- @meta{layout=divider, class=light, footer="light · divider light — Bright canvas, sentence-length waypoint."} -->
 
 `divider light`
 
@@ -45,8 +42,7 @@ Section boundary slide. Dark canvas with a single heading.
 
 ---
 
-<!-- _class: divider qr -->
-<!-- @meta{footer="qr · divider qr — The payload bullet becomes a code."} -->
+<!-- @meta{layout=divider, class=qr, footer="qr · divider qr — The payload bullet becomes a code."} -->
 
 `divider qr`
 

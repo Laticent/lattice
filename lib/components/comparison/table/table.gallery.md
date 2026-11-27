@@ -15,8 +15,7 @@ The table component — a GFM pipe table with a row capacity, autosplit, and the
 
 ---
 
-<!-- _class: table -->
-<!-- @meta{footer=Default · table} -->
+<!-- @meta{layout=table, footer=Default · table} -->
 
 ## The table compares rows on consistent columns.
 
@@ -29,9 +28,8 @@ The table component — a GFM pipe table with a row capacity, autosplit, and the
 
 ---
 
-<!-- _class: table -->
+<!-- @meta{layout=table, footer="Stress test · table — Eight rows — the hard ceiling."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · table — Eight rows — the hard ceiling."} -->
 
 ## Eight rows is the table's hard ceiling.
 

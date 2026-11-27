@@ -6,9 +6,9 @@ header: "Lattice · closing index split"
 size: square
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=title, header="", footer=""} -->
+
+
 
 # A long see-also list keeps every row.
 
@@ -18,8 +18,8 @@ On a phone, a closing's see-also list that does not fit becomes a cover and its 
 
 ---
 
-<!-- _class: closing -->
-<!-- _footer: "Stays whole · closing" -->
+<!-- @meta{layout=closing, footer=Stays whole · closing} -->
+
 
 ## Ship the plan on Monday.
 
@@ -27,8 +27,8 @@ The board signs off on Friday.
 
 ---
 
-<!-- _class: closing silent index -->
-<!-- _footer: "Fits · closing index" -->
+<!-- @meta{layout=closing, class=silent index, footer=Fits · closing index} -->
+
 
 ## Where to go next.
 
@@ -40,8 +40,8 @@ The board signs off on Friday.
 
 ---
 
-<!-- _class: closing silent index -->
-<!-- _footer: "Splits · closing index" -->
+<!-- @meta{layout=closing, class=silent index, footer=Splits · closing index} -->
+
 
 ## See also.
 
@@ -55,7 +55,7 @@ The board signs off on Friday.
 
 ---
 
-<!-- _class: closing -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, footer=""} -->
+
 
 ## Nothing is cut, and the short close stays one slide.

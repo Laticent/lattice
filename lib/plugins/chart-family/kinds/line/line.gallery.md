@@ -15,8 +15,7 @@ A measure plotted across an ordered axis, so the movement is the read — one li
 
 ---
 
-<!-- _class: line -->
-<!-- @meta{footer=Default · line} -->
+<!-- @meta{layout=line, footer=Default · line} -->
 
 ## Services grew into the gap enterprise left.
 
@@ -48,8 +47,7 @@ A measure plotted across an ordered axis, so the movement is the read — one li
 
 ---
 
-<!-- _class: line area -->
-<!-- @meta{footer="area · line area — One series with the region under it filled — the fill reads as quantity, so it is honest for a single series only and the axis always reaches zero."} -->
+<!-- @meta{layout=line, class=area, footer="area · line area — One series with the region under it filled — the fill reads as quantity, so it is honest for a single series only and the axis always reaches zero."} -->
 
 ## Cash on hand never dipped below one quarter of runway.
 
@@ -63,8 +61,7 @@ A measure plotted across an ordered axis, so the movement is the read — one li
 
 ---
 
-<!-- _class: line stacked-area -->
-<!-- @meta{footer="stacked-area · line stacked-area — Composition over time: the series stack to a total, in the order they were authored, largest and steadiest at the bottom."} -->
+<!-- @meta{layout=line, class=stacked-area, footer="stacked-area · line stacked-area — Composition over time: the series stack to a total, in the order they were authored, largest and steadiest at the bottom."} -->
 
 ## The mix shifted; the total barely moved.
 
@@ -88,8 +85,7 @@ A measure plotted across an ordered axis, so the movement is the read — one li
 
 ---
 
-<!-- _class: line step -->
-<!-- @meta{footer="step · line step — A value that HOLDS and then JUMPS — a headcount, a price tier, a rate — drawn as a plateau per period rather than a slope between periods."} -->
+<!-- @meta{layout=line, class=step, footer="step · line step — A value that HOLDS and then JUMPS — a headcount, a price tier, a rate — drawn as a plateau per period rather than a slope between periods."} -->
 
 ## The list price held for three quarters, then moved twice.
 
@@ -103,9 +99,8 @@ A measure plotted across an ordered axis, so the movement is the read — one li
 
 ---
 
-<!-- _class: line -->
+<!-- @meta{layout=line, footer="Stress test · line — Six series across six quarters with long names, a hole in the data, a negative value and a zero — every axis and label rule at once."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · line — Six series across six quarters with long names, a hole in the data, a negative value and a zero — every axis and label rule at once."} -->
 
 ## Six lines, six quarters, one hole and one loss.
 

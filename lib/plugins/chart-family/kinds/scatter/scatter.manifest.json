@@ -97,10 +97,10 @@
   },
   "skeleton": "<!-- @meta{layout=scatter} -->\n\n`[Annual cost, Teams adopting]`\n\n## Two measures, one relationship.\n\n- First entity `{4.2, 62}`\n- Second entity `{2.1, 38}`\n- Third entity `{6.8, 81}`\n- Fourth entity `{3.4, 55}`\n",
   "anatomyBlock": "scatter",
-  "sample": "<!-- _class: scatter -->\n\n`[Annual cost, Teams adopting]`\n\n## The tools we pay most for are the ones nobody adopts.\n\nCost is the renewal we signed; adoption is the share of teams with a weekly active user.\n\n- Atlas `{$420k, 18%}`\n  - Renewal lands in March\n  - Two teams asked to drop it\n- Borealis `{$310k, 24%}`\n- Cardinal `{$180k, 52%}`\n- Dovetail `{$95k, 61%}`\n- Everline `{$240k, 31%}`\n- Fathom `{$60k, 74%}`\n",
+  "sample": "<!-- @meta{layout=scatter} -->\n\n`[Annual cost, Teams adopting]`\n\n## The tools we pay most for are the ones nobody adopts.\n\nCost is the renewal we signed; adoption is the share of teams with a weekly active user.\n\n- Atlas `{$420k, 18%}`\n  - Renewal lands in March\n  - Two teams asked to drop it\n- Borealis `{$310k, 24%}`\n- Cardinal `{$180k, 52%}`\n- Dovetail `{$95k, 61%}`\n- Everline `{$240k, 31%}`\n- Fathom `{$60k, 74%}`\n",
   "stressDoc": {
     "summary": "Twelve entities, four of them inside four points of each other.",
-    "sample": "<!-- _class: scatter -->\n\n`[Annual cost, Teams adopting]`\n\n## Stress test — twelve tools and a cluster the eye cannot separate.\n\n- Atlas `{$420k, 18%}`\n- Borealis `{$310k, 24%}`\n- Cardinal `{$180k, 52%}`\n- Dovetail `{$95k, 61%}`\n- Everline `{$240k, 31%}`\n- Fathom `{$60k, 74%}`\n- Granite `{$182k, 53%}`\n- Halyard `{$178k, 50%}`\n- Ironwood `{$185k, 54%}`\n- Juniper `{$400k, 20%}`\n- Keystone `{$88k, 66%}`\n- Lantern `{$300k, 28%}`\n"
+    "sample": "<!-- @meta{layout=scatter} -->\n\n`[Annual cost, Teams adopting]`\n\n## Stress test — twelve tools and a cluster the eye cannot separate.\n\n- Atlas `{$420k, 18%}`\n- Borealis `{$310k, 24%}`\n- Cardinal `{$180k, 52%}`\n- Dovetail `{$95k, 61%}`\n- Everline `{$240k, 31%}`\n- Fathom `{$60k, 74%}`\n- Granite `{$182k, 53%}`\n- Halyard `{$178k, 50%}`\n- Ironwood `{$185k, 54%}`\n- Juniper `{$400k, 20%}`\n- Keystone `{$88k, 66%}`\n- Lantern `{$300k, 28%}`\n"
   },
   "whenToUse": [
     {
@@ -174,12 +174,12 @@
     "bubble": {
       "label": "bubble",
       "summary": "A third measure sizes each dot by area.",
-      "sample": "<!-- _class: scatter bubble -->\n\n`[Annual cost, Teams adopting, Seats]`\n\n## bubble sizes each dot by a third measure.\n\n- Atlas `{$420k, 18%, size=1200}`\n- Borealis `{$310k, 24%, size=640}`\n- Cardinal `{$180k, 52%, size=900}`\n- Dovetail `{$95k, 61%, size=310}`\n- Everline `{$240k, 31%, size=180}`\n- Fathom `{$60k, 74%, size=450}`\n"
+      "sample": "<!-- @meta{layout=scatter, class=bubble} -->\n\n`[Annual cost, Teams adopting, Seats]`\n\n## bubble sizes each dot by a third measure.\n\n- Atlas `{$420k, 18%, size=1200}`\n- Borealis `{$310k, 24%, size=640}`\n- Cardinal `{$180k, 52%, size=900}`\n- Dovetail `{$95k, 61%, size=310}`\n- Everline `{$240k, 31%, size=180}`\n- Fathom `{$60k, 74%, size=450}`\n"
     },
     "trend": {
       "label": "trend",
       "summary": "A least-squares line through the cloud.",
-      "sample": "<!-- _class: scatter trend -->\n\n`[Annual cost, Teams adopting]`\n\n## trend draws the least-squares line through the cloud.\n\n- Atlas `{$420k, 18%}`\n- Borealis `{$310k, 24%}`\n- Cardinal `{$180k, 52%}`\n- Dovetail `{$95k, 61%}`\n- Everline `{$240k, 31%}`\n- Fathom `{$60k, 74%}`\n- Juniper `{$400k, 20%}`\n- Keystone `{$88k, 66%}`\n"
+      "sample": "<!-- @meta{layout=scatter, class=trend} -->\n\n`[Annual cost, Teams adopting]`\n\n## trend draws the least-squares line through the cloud.\n\n- Atlas `{$420k, 18%}`\n- Borealis `{$310k, 24%}`\n- Cardinal `{$180k, 52%}`\n- Dovetail `{$95k, 61%}`\n- Everline `{$240k, 31%}`\n- Fathom `{$60k, 74%}`\n- Juniper `{$400k, 20%}`\n- Keystone `{$88k, 66%}`\n"
     }
   },
   "variantDecisionRule": [

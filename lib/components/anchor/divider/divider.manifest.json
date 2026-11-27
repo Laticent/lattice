@@ -42,7 +42,7 @@
   },
   "skeleton": "<!-- @meta{layout=divider} -->\n\n`Section 01`\n\n## Section name\n",
   "anatomyBlock": "divider-bookend",
-  "sample": "<!-- _class: divider silent -->\n\n`divider · Section 03`\n\n## A divider gives the deck a place to breathe.\n",
+  "sample": "<!-- @meta{layout=divider, class=silent} -->\n\n`divider · Section 03`\n\n## A divider gives the deck a place to breathe.\n",
   "whenToUse": [
     {
       "title": "Major section starts",
@@ -121,17 +121,17 @@
     "numbered": {
       "label": "numbered",
       "summary": "Masthead — the running section number over a hairline, top-left.",
-      "sample": "<!-- _class: divider silent numbered -->\n\n`divider numbered`\n\n## The stamp counts this divider for you.\n"
+      "sample": "<!-- @meta{layout=divider, class=silent numbered} -->\n\n`divider numbered`\n\n## The stamp counts this divider for you.\n"
     },
     "light": {
       "label": "light",
       "summary": "Bright canvas, sentence-length waypoint.",
-      "sample": "<!-- _class: divider light -->\n\n`divider light`\n\n## The light divider trades the dark canvas for a bright, full-sentence waypoint.\n"
+      "sample": "<!-- @meta{layout=divider, class=light} -->\n\n`divider light`\n\n## The light divider trades the dark canvas for a bright, full-sentence waypoint.\n"
     },
     "qr": {
       "label": "qr",
       "summary": "The payload bullet becomes a code.",
-      "sample": "<!-- _class: divider qr -->\n\n`divider qr`\n\n## The payload bullet becomes a scannable code.\n\n- https://laticent.io/components/divider\n- Scan for the divider's docs `caption`\n"
+      "sample": "<!-- @meta{layout=divider, class=qr} -->\n\n`divider qr`\n\n## The payload bullet becomes a scannable code.\n\n- https://laticent.io/components/divider\n- Scan for the divider's docs `caption`\n"
     }
   },
   "showcase": {

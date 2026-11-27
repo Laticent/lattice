@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · mermaid init directives"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Fix demo · mermaid %%{init}%%`
 
@@ -15,7 +15,7 @@ Every slide that follows carries the same three-node graph. What changes is the 
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `Baseline`
 
@@ -31,7 +31,7 @@ flowchart TB
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `Color-neutral directive`
 
@@ -50,7 +50,7 @@ flowchart TB
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `What used to happen`
 
@@ -60,7 +60,7 @@ Any directive at all made the export path skip the injected theme variables whol
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `Partial override`
 
@@ -79,7 +79,7 @@ flowchart TB
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `Deliberate opt-out`
 
@@ -98,7 +98,7 @@ flowchart TB
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `The rule, in one line`
 
@@ -108,7 +108,7 @@ Its directive is emitted ahead of yours, and Mermaid merges init directives in s
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Worth knowing`
 

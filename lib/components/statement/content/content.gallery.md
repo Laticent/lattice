@@ -15,8 +15,7 @@ Generic prose slide — heading plus paragraphs or a short list.
 
 ---
 
-<!-- _class: content -->
-<!-- @meta{footer=Default · content} -->
+<!-- @meta{layout=content, footer=Default · content} -->
 
 `statement · content`
 
@@ -27,9 +26,8 @@ A heading that makes one claim, then a paragraph or short list that delivers it.
 
 ---
 
-<!-- _class: content venue-laptop -->
+<!-- @meta{layout=content, class=venue-laptop, footer="Stress test · content — Two paragraphs and a list — the ceiling."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · content — Two paragraphs and a list — the ceiling."} -->
 
 ## This is as much text as one slide should ever carry.
 

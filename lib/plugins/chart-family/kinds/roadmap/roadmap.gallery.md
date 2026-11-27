@@ -15,8 +15,7 @@ Phased multi-workstream grid — phases across the top, workstreams down the sid
 
 ---
 
-<!-- _class: roadmap -->
-<!-- @meta{footer=Default · roadmap} -->
+<!-- @meta{layout=roadmap, footer=Default · roadmap} -->
 
 `H2 2026 · Rollout plan`
 
@@ -31,8 +30,7 @@ Phased multi-workstream grid — phases across the top, workstreams down the sid
 
 ---
 
-<!-- _class: roadmap horizons -->
-<!-- @meta{footer="horizons · roadmap horizons — Bets spread across three horizons."} -->
+<!-- @meta{layout=roadmap, class=horizons, footer="horizons · roadmap horizons — Bets spread across three horizons."} -->
 
 `Three-horizon planning`
 
@@ -46,8 +44,7 @@ Phased multi-workstream grid — phases across the top, workstreams down the sid
 
 ---
 
-<!-- _class: roadmap status -->
-<!-- @meta{footer="status · roadmap status — Delivery state at a glance."} -->
+<!-- @meta{layout=roadmap, class=status, footer="status · roadmap status — Delivery state at a glance."} -->
 
 `Layout · roadmap status`
 
@@ -62,8 +59,7 @@ Phased multi-workstream grid — phases across the top, workstreams down the sid
 
 ---
 
-<!-- _class: roadmap swimlane -->
-<!-- @meta{footer="swimlane · roadmap swimlane — One track per team."} -->
+<!-- @meta{layout=roadmap, class=swimlane, footer="swimlane · roadmap swimlane — One track per team."} -->
 
 `Layout · roadmap swimlane`
 
@@ -78,8 +74,7 @@ Phased multi-workstream grid — phases across the top, workstreams down the sid
 
 ---
 
-<!-- _class: roadmap milestones -->
-<!-- @meta{footer="milestones · roadmap milestones — The dated path, pinned."} -->
+<!-- @meta{layout=roadmap, class=milestones, footer="milestones · roadmap milestones — The dated path, pinned."} -->
 
 `Layout · roadmap milestones`
 
@@ -94,9 +89,8 @@ Phased multi-workstream grid — phases across the top, workstreams down the sid
 
 ---
 
-<!-- _class: roadmap -->
+<!-- @meta{layout=roadmap, footer="Stress test · roadmap — Four phases — the ceiling, and what portrait paginates."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · roadmap — Four phases — the ceiling, and what portrait paginates."} -->
 
 `roadmap · stress`
 

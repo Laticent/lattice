@@ -6,7 +6,7 @@ pagination: true
 header: "Lattice · State chart — stress test"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 `Lattice · Stress test`
 
@@ -16,8 +16,8 @@ Browser-measured layout: nodes are sized by the real text engine, edges are draw
 
 ---
 
-<!-- _class: state-chart -->
-<!-- _footer: "1 — very short labels" -->
+<!-- @meta{layout=state-chart, footer="1 — very short labels"} -->
+
 
 ## Single-letter states.
 
@@ -30,8 +30,8 @@ Browser-measured layout: nodes are sized by the real text engine, edges are draw
 
 ---
 
-<!-- _class: state-chart -->
-<!-- _footer: "2 — long labels that would overflow a fixed box" -->
+<!-- @meta{layout=state-chart, footer="2 — long labels that would overflow a fixed box"} -->
+
 
 ## Long state names.
 
@@ -46,8 +46,8 @@ Browser-measured layout: nodes are sized by the real text engine, edges are draw
 
 ---
 
-<!-- _class: state-chart -->
-<!-- _footer: "3 — non-Latin (CJK) labels" -->
+<!-- @meta{layout=state-chart, footer="3 — non-Latin (CJK) labels"} -->
+
 
 `状態遷移`
 
@@ -62,8 +62,8 @@ Browser-measured layout: nodes are sized by the real text engine, edges are draw
 
 ---
 
-<!-- _class: state-chart -->
-<!-- _footer: "4 — many states, mostly linear" -->
+<!-- @meta{layout=state-chart, footer="4 — many states, mostly linear"} -->
+
 
 ## Ten-step pipeline.
 
@@ -92,8 +92,8 @@ Browser-measured layout: nodes are sized by the real text engine, edges are draw
 
 ---
 
-<!-- _class: state-chart -->
-<!-- _footer: "5 — dense branching from one state" -->
+<!-- @meta{layout=state-chart, footer="5 — dense branching from one state"} -->
+
 
 ## Router with many exits.
 
@@ -110,8 +110,8 @@ Browser-measured layout: nodes are sized by the real text engine, edges are draw
 
 ---
 
-<!-- _class: state-chart -->
-<!-- _footer: "6 — heavy back-edges (everything returns to start)" -->
+<!-- @meta{layout=state-chart, footer="6 — heavy back-edges (everything returns to start)"} -->
+
 
 ## Wizard with escape hatches.
 
@@ -131,8 +131,8 @@ Browser-measured layout: nodes are sized by the real text engine, edges are draw
 
 ---
 
-<!-- _class: state-chart -->
-<!-- _footer: "7 — single state, no transitions" -->
+<!-- @meta{layout=state-chart, footer="7 — single state, no transitions"} -->
+
 
 ## Degenerate: one state.
 
@@ -140,8 +140,8 @@ Browser-measured layout: nodes are sized by the real text engine, edges are draw
 
 ---
 
-<!-- _class: state-chart -->
-<!-- _footer: "8 — mixed widths + every status color" -->
+<!-- @meta{layout=state-chart, footer="8 — mixed widths + every status color"} -->
+
 
 ## Status palette across widths.
 
@@ -161,8 +161,8 @@ Browser-measured layout: nodes are sized by the real text engine, edges are draw
 
 ---
 
-<!-- _class: state-chart lr -->
-<!-- _footer: "9 — lr direction with branching + back-edge" -->
+<!-- @meta{layout=state-chart, class=lr, footer="9 — lr direction with branching + back-edge"} -->
+
 
 ## Left-to-right pipeline.
 
@@ -177,8 +177,8 @@ Browser-measured layout: nodes are sized by the real text engine, edges are draw
 
 ---
 
-<!-- _class: state-chart lr -->
-<!-- _footer: "10 — lr with long labels + self-loop" -->
+<!-- @meta{layout=state-chart, class=lr, footer="10 — lr with long labels + self-loop"} -->
+
 
 ## Connection (left-to-right).
 
@@ -192,8 +192,8 @@ Browser-measured layout: nodes are sized by the real text engine, edges are draw
 
 ---
 
-<!-- _class: state-chart -->
-<!-- _footer: "11 — complex machine: skips, converging back-edges, self-loop" -->
+<!-- @meta{layout=state-chart, footer="11 — complex machine: skips, converging back-edges, self-loop"} -->
+
 
 ## Incident response.
 
@@ -220,8 +220,8 @@ Browser-measured layout: nodes are sized by the real text engine, edges are draw
 
 ---
 
-<!-- _class: state-chart lr -->
-<!-- _footer: "12 — complex LR: forward skip, back-edges, self-loop" -->
+<!-- @meta{layout=state-chart, class=lr, footer="12 — complex LR: forward skip, back-edges, self-loop"} -->
+
 
 ## Build & release graph.
 
@@ -241,8 +241,8 @@ Browser-measured layout: nodes are sized by the real text engine, edges are draw
 
 ---
 
-<!-- _class: state-chart curved -->
-<!-- _footer: "13 — curved variant (rounded corners)" -->
+<!-- @meta{layout=state-chart, class=curved, footer="13 — curved variant (rounded corners)"} -->
+
 
 ## Document approval (curved).
 
@@ -261,8 +261,8 @@ Browser-measured layout: nodes are sized by the real text engine, edges are draw
 
 ---
 
-<!-- _class: state-chart lr curved -->
-<!-- _footer: "14 — curved variant, left-to-right" -->
+<!-- @meta{layout=state-chart, class=lr curved, footer="14 — curved variant, left-to-right"} -->
+
 
 ## Job runner (curved, lr).
 

@@ -6,7 +6,7 @@ header: "Lattice · Global number formats"
 meta: "Global number formats"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Charts · reading money`
 
@@ -16,7 +16,7 @@ A reinsurance deck carries `EUR 4.2M`, `4,2 Mio. €` and `USD 250mn`. Each of t
 
 ---
 
-<!-- _class: line -->
+<!-- @meta{layout=line} -->
 
 `Gross written premium · ISO code first`
 
@@ -30,7 +30,7 @@ A reinsurance deck carries `EUR 4.2M`, `4,2 Mio. €` and `USD 250mn`. Each of t
 
 ---
 
-<!-- _class: line -->
+<!-- @meta{layout=line} -->
 
 `Ceded premium · currency after the number`
 
@@ -43,7 +43,7 @@ A reinsurance deck carries `EUR 4.2M`, `4,2 Mio. €` and `USD 250mn`. Each of t
 
 ---
 
-<!-- _class: stacked-bar -->
+<!-- @meta{layout=stacked-bar} -->
 
 `Limit purchased · Lloyd's style`
 
@@ -58,7 +58,7 @@ A reinsurance deck carries `EUR 4.2M`, `4,2 Mio. €` and `USD 250mn`. Each of t
 
 ---
 
-<!-- _class: waterfall -->
+<!-- @meta{layout=waterfall} -->
 
 `Ergebnis · German millions, decimal comma`
 
@@ -72,7 +72,7 @@ A reinsurance deck carries `EUR 4.2M`, `4,2 Mio. €` and `USD 250mn`. Each of t
 
 ---
 
-<!-- _class: bullet -->
+<!-- @meta{layout=bullet} -->
 
 `Treaty limits · actual against plan`
 
@@ -84,7 +84,7 @@ A reinsurance deck carries `EUR 4.2M`, `4,2 Mio. €` and `USD 250mn`. Each of t
 
 ---
 
-<!-- _class: line -->
+<!-- @meta{layout=line} -->
 
 `Loss ratio · decimal comma`
 
@@ -97,9 +97,9 @@ A reinsurance deck carries `EUR 4.2M`, `4,2 Mio. €` and `USD 250mn`. Each of t
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 
 ## Write the value the way your client reads it.
 

@@ -85,7 +85,7 @@ Fourteen months blended, against a nine-month plan.
 One flat canvas. The claim becomes the display line, the name a label on a rule, and a mono basis line states what the claim rests on.
 
 ```markdown
-<!-- _class: topic fact -->
+<!-- @meta{layout=topic, class=fact} -->
 
 `Section 02 · Unit economics`
 

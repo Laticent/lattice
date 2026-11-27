@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · callouts and the key · placed by measure"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Notes go where the plot stays largest
 
@@ -15,8 +15,8 @@ The engine lays a heatmap out every way its notes and key can sit and keeps the 
 
 ---
 
-<!-- _class: heatmap -->
-<!-- _footer: "Notes only · beside the grid when wide, under it when square." -->
+<!-- @meta{layout=heatmap, footer="Notes only · beside the grid when wide, under it when square."} -->
+
 
 `Retention · 2026 cohorts`
 
@@ -33,8 +33,8 @@ The engine lays a heatmap out every way its notes and key can sit and keeps the 
 
 ---
 
-<!-- _class: heatmap scale -->
-<!-- _footer: "Notes and key · each takes the side that costs the grid least." -->
+<!-- @meta{layout=heatmap, class=scale, footer=Notes and key · each takes the side that costs the grid least.} -->
+
 
 `Retention · 2026 cohorts`
 
@@ -51,8 +51,8 @@ The engine lays a heatmap out every way its notes and key can sit and keeps the 
 
 ---
 
-<!-- _class: heatmap scale -->
-<!-- _footer: "Key only · beside the grid when wide, under it when square." -->
+<!-- @meta{layout=heatmap, class=scale, footer="Key only · beside the grid when wide, under it when square."} -->
+
 
 `Retention · 2026 cohorts`
 
@@ -67,8 +67,8 @@ The engine lays a heatmap out every way its notes and key can sit and keeps the 
 
 ---
 
-<!-- _class: heatmap -->
-<!-- _footer: "Six long notes · under the grid they run its width and set whole." -->
+<!-- @meta{layout=heatmap, footer=Six long notes · under the grid they run its width and set whole.} -->
+
 
 `Support load · tickets per day`
 
@@ -85,8 +85,8 @@ The engine lays a heatmap out every way its notes and key can sit and keeps the 
 
 ---
 
-<!-- _class: heatmap scale -->
-<!-- _footer: "Six notes and a five-band key, at their most crowded." -->
+<!-- @meta{layout=heatmap, class=scale, footer="Six notes and a five-band key, at their most crowded."} -->
+
 
 `Support load · tickets per day`
 

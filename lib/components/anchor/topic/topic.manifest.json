@@ -67,10 +67,10 @@
     }
   },
   "skeleton": "<!-- @meta{layout=topic} -->\n\n`Section 02 · Unit economics`\n\n## Payback\n\nFourteen months blended, against a nine-month plan.\n",
-  "sample": "<!-- _class: topic -->\n<!-- _track: Cost to win | Lifetime value | [Payback] | The assumptions -->\n\n`Section 02 · Unit economics`\n\n## Payback\n\nFourteen months blended, against a nine-month plan.\n",
+  "sample": "<!-- @meta{layout=topic, track=\"Cost to win | Lifetime value | [Payback] | The assumptions\"} -->\n\n\n`Section 02 · Unit economics`\n\n## Payback\n\nFourteen months blended, against a nine-month plan.\n",
   "stressDoc": {
     "summary": "a nine-topic section — the track at its documented ceiling, labels stepped down two rungs",
-    "sample": "<!-- _class: topic -->\n<!-- _track: Intake | Triage | Ownership | Runbooks | On-call | [Escalation paths] | Postmortems | Action tracking | Review cadence -->\n\n`Section 04 · Operating review`\n\n## Escalation paths\n\nThree of the nine paths route to a team that no longer owns the service.\n"
+    "sample": "<!-- @meta{layout=topic, track=\"Intake | Triage | Ownership | Runbooks | On-call | [Escalation paths] | Postmortems | Action tracking | Review cadence\"} -->\n\n\n`Section 04 · Operating review`\n\n## Escalation paths\n\nThree of the nine paths route to a team that no longer owns the service.\n"
   },
   "whenToUse": [
     {
@@ -162,7 +162,7 @@
     "fact": {
       "label": "fact",
       "summary": "One flat canvas. The claim becomes the display line, the name a label on a rule, and a mono basis line states what the claim rests on.",
-      "sample": "<!-- _class: topic fact -->\n\n`Section 02 · Unit economics`\n\n## Payback\n\nFourteen months blended, against a nine-month plan.\n\n`CAC ÷ monthly gross margin · 14 cohorts · FY26 actuals`\n"
+      "sample": "<!-- @meta{layout=topic, class=fact} -->\n\n`Section 02 · Unit economics`\n\n## Payback\n\nFourteen months blended, against a nine-month plan.\n\n`CAC ÷ monthly gross margin · 14 cohorts · FY26 actuals`\n"
     }
   },
   "anatomyBlock": "topic-track",

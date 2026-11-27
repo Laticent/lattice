@@ -15,8 +15,7 @@ A reinsurance program as stacked layers, each written as its limit in excess of 
 
 ---
 
-<!-- _class: tower -->
-<!-- @meta{footer=Default · tower} -->
+<!-- @meta{layout=tower, footer=Default · tower} -->
 
 `Property catastrophe program · 2027`
 
@@ -38,9 +37,8 @@ A reinsurance program as stacked layers, each written as its limit in excess of 
 
 ---
 
-<!-- _class: tower -->
+<!-- @meta{layout=tower, footer="Stress test · tower — Six layers, eight reinsurers (two fold into Others), one layer part-placed."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · tower — Six layers, eight reinsurers (two fold into Others), one layer part-placed."} -->
 
 ## A six-layer casualty tower, 85% placed at the top.
 

@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · kpi row rules"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Feature demo · kpi row rules`
 
@@ -15,7 +15,7 @@ Five defects in one component, found by measuring rather than looking. The suppo
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## A separator earns its place between two rows.
 
@@ -25,8 +25,8 @@ Five defects in one component, found by measuring rather than looking. The suppo
 
 ---
 
-<!-- _class: kpi -->
-<!-- _footer: "The briefing rail — dividers between the supports only" -->
+<!-- @meta{layout=kpi, footer="The briefing rail — dividers between the supports only"} -->
+
 
 ## Revenue ahead of plan; margin and cash both expanded.
 
@@ -42,8 +42,8 @@ Five defects in one component, found by measuring rather than looking. The suppo
 
 ---
 
-<!-- _class: kpi compliance -->
-<!-- _footer: "compliance — separators between rows only" -->
+<!-- @meta{layout=kpi, class=compliance, footer="compliance — separators between rows only"} -->
+
 
 ## compliance tallies findings per framework.
 
@@ -59,7 +59,7 @@ Five defects in one component, found by measuring rather than looking. The suppo
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## A rule that read as working, and did nothing.
 
@@ -69,8 +69,8 @@ Five defects in one component, found by measuring rather than looking. The suppo
 
 ---
 
-<!-- _class: kpi spotlight -->
-<!-- _footer: "spotlight — four metrics, the documented ceiling; rows 3 and 4 carry the lead" -->
+<!-- @meta{layout=kpi, class=spotlight, footer="spotlight — four metrics, the documented ceiling; rows 3 and 4 carry the lead"} -->
+
 
 ## spotlight promotes one number and rails the rest.
 
@@ -89,8 +89,8 @@ Five defects in one component, found by measuring rather than looking. The suppo
 
 ---
 
-<!-- _class: kpi trajectory -->
-<!-- _footer: "trajectory — three metrics, three columns" -->
+<!-- @meta{layout=kpi, class=trajectory, footer="trajectory — three metrics, three columns"} -->
+
 
 ## trajectory pairs each tile with its delta.
 
@@ -106,7 +106,7 @@ Five defects in one component, found by measuring rather than looking. The suppo
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## What the measurements said, and what they did not.
 
@@ -117,7 +117,7 @@ Five defects in one component, found by measuring rather than looking. The suppo
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## The lead is a ceiling, not a taste.
 

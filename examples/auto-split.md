@@ -5,7 +5,7 @@ pagination: true
 footer: "Auto-split — the split move"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # Auto-split
 
@@ -15,7 +15,7 @@ When a slide holds more than it can show, it becomes several — automatically, 
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## The problem auto-split solves
 
@@ -26,7 +26,7 @@ When a slide holds more than it can show, it becomes several — automatically, 
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## How it works
 
@@ -38,7 +38,7 @@ When a slide holds more than it can show, it becomes several — automatically, 
 
 ---
 
-<!-- _class: checklist -->
+<!-- @meta{layout=checklist} -->
 
 ## Launch readiness — fourteen checks
 
@@ -59,7 +59,7 @@ When a slide holds more than it can show, it becomes several — automatically, 
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## What you just saw
 
@@ -70,7 +70,7 @@ When a slide holds more than it can show, it becomes several — automatically, 
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 # More slides, never smaller type
 

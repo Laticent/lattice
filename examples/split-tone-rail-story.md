@@ -10,7 +10,7 @@ header: "Lattice · tone rail on story split pages"
      page. A semantic tone draws its rail on every page of the run, as on a landscape slide. Before the
      fix the cover, the closing page and every `decision` page had no rail.} -->
 
-<!-- _class: cards-grid tone-warn -->
+<!-- @meta{layout=cards-grid, class=tone-warn} -->
 
 ## A warning rail on every page
 
@@ -29,7 +29,7 @@ header: "Lattice · tone rail on story split pages"
 
 ---
 
-<!-- _class: decision tone-fail -->
+<!-- @meta{layout=decision, class=tone-fail} -->
 
 ## A failure rail on a decision
 
@@ -42,7 +42,7 @@ header: "Lattice · tone rail on story split pages"
 
 ---
 
-<!-- _class: cards-grid tone-pass tone-glow -->
+<!-- @meta{layout=cards-grid, class=tone-pass tone-glow} -->
 
 ## A pass glow ring
 

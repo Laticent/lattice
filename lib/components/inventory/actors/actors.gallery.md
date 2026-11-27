@@ -15,8 +15,7 @@ Roster of responsibilities owned by named actors.
 
 ---
 
-<!-- _class: actors -->
-<!-- @meta{footer=Default · actors} -->
+<!-- @meta{layout=actors, footer=Default · actors} -->
 
 ## The actors ledger names who owns what.
 
@@ -32,9 +31,8 @@ Roster of responsibilities owned by named actors.
 
 ---
 
-<!-- _class: actors -->
+<!-- @meta{layout=actors, footer="Stress test · actors — Seven rows — the ledger's ceiling."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · actors — Seven rows — the ledger's ceiling."} -->
 
 ## Seven rows is where the ledger maxes out.
 

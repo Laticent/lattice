@@ -15,8 +15,7 @@ Horizontal progress bars — one row per item, percentage filled.
 
 ---
 
-<!-- _class: progress -->
-<!-- @meta{footer=Default · progress} -->
+<!-- @meta{layout=progress, footer=Default · progress} -->
 
 `H1 2026 · Phase 1 readiness`
 
@@ -33,9 +32,8 @@ Snapshot at 14:00 UTC. Status pills reflect the most optimistic reading of the a
 
 ---
 
-<!-- _class: progress -->
+<!-- @meta{layout=progress, footer="Stress test · progress — A full wall of tracks — the ceiling."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · progress — A full wall of tracks — the ceiling."} -->
 
 ## Stress test — eight workstreams, full status range, one honest pill.
 

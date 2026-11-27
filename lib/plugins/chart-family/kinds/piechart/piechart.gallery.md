@@ -15,8 +15,7 @@ Pie or donut chart with legend — proportional wedges.
 
 ---
 
-<!-- _class: piechart -->
-<!-- @meta{footer=Default · piechart} -->
+<!-- @meta{layout=piechart, footer=Default · piechart} -->
 
 `H1 2026 · 1,840 person-hours`
 
@@ -35,8 +34,7 @@ Nearly half went to producing decks; the deciding itself was the smallest slice.
 
 ---
 
-<!-- _class: piechart donut -->
-<!-- @meta{footer="donut · piechart donut — The center carries the total."} -->
+<!-- @meta{layout=piechart, class=donut, footer="donut · piechart donut — The center carries the total."} -->
 
 `H1 2026 · 1,840 person-hours`
 
@@ -55,9 +53,8 @@ Refreshed weekly · figures from the time-tracking export
 
 ---
 
-<!-- _class: piechart -->
+<!-- @meta{layout=piechart, footer="Stress test · piechart — Eleven slices — the legend's limit."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · piechart — Eleven slices — the legend's limit."} -->
 
 `FY2026 · 1,840 person-hours`
 

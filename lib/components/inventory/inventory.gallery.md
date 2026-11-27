@@ -9,8 +9,7 @@ Inventory — parallel sets of related items.
 
 ---
 
-<!-- _class: actors -->
-<!-- @meta{footer=actors · inventory survey} -->
+<!-- @meta{layout=actors, footer=actors · inventory survey} -->
 
 ## The actors ledger names who owns what.
 
@@ -25,8 +24,7 @@ Inventory — parallel sets of related items.
 
 ---
 
-<!-- _class: agenda -->
-<!-- @meta{footer=agenda · inventory survey} -->
+<!-- @meta{layout=agenda, footer=agenda · inventory survey} -->
 
 ## The agenda numbers the deck's stops and pages.
 
@@ -39,8 +37,7 @@ Inventory — parallel sets of related items.
 
 ---
 
-<!-- _class: cards-grid -->
-<!-- @meta{footer=cards-grid · inventory survey} -->
+<!-- @meta{layout=cards-grid, footer=cards-grid · inventory survey} -->
 
 ## A cards grid gives equal weight to peers.
 
@@ -55,8 +52,7 @@ Inventory — parallel sets of related items.
 
 ---
 
-<!-- _class: cards-stack -->
-<!-- @meta{footer=cards-stack · inventory survey} -->
+<!-- @meta{layout=cards-stack, footer=cards-stack · inventory survey} -->
 
 ## The stack ranks three cards top to bottom.
 
@@ -69,8 +65,7 @@ Inventory — parallel sets of related items.
 
 ---
 
-<!-- _class: checklist -->
-<!-- @meta{footer=checklist · inventory survey} -->
+<!-- @meta{layout=checklist, footer=checklist · inventory survey} -->
 
 ## The checklist tracks readiness in six answers.
 
@@ -83,8 +78,7 @@ Inventory — parallel sets of related items.
 
 ---
 
-<!-- _class: glossary -->
-<!-- @meta{footer=glossary · inventory survey} -->
+<!-- @meta{layout=glossary, footer=glossary · inventory survey} -->
 
 ## Glossary
 
@@ -99,8 +93,7 @@ Inventory — parallel sets of related items.
 
 ---
 
-<!-- _class: inventory -->
-<!-- @meta{footer=inventory · inventory survey} -->
+<!-- @meta{layout=inventory, footer=inventory · inventory survey} -->
 
 `inventory · the parts ledger`
 
@@ -113,8 +106,7 @@ Inventory — parallel sets of related items.
 
 ---
 
-<!-- _class: list -->
-<!-- @meta{footer=list · inventory survey} -->
+<!-- @meta{layout=list, footer=list · inventory survey} -->
 
 ## The list states one point per line.
 
@@ -126,8 +118,7 @@ Inventory — parallel sets of related items.
 
 ---
 
-<!-- _class: list-tabular -->
-<!-- @meta{footer=list-tabular · inventory survey} -->
+<!-- @meta{layout=list-tabular, footer=list-tabular · inventory survey} -->
 
 ## The tabular list rules rows into a register.
 
@@ -143,8 +134,7 @@ Inventory — parallel sets of related items.
 
 ---
 
-<!-- _class: logo-wall -->
-<!-- @meta{footer=logo-wall · inventory survey} -->
+<!-- @meta{layout=logo-wall, footer=logo-wall · inventory survey} -->
 
 `inventory · logo-wall`
 
@@ -177,8 +167,7 @@ Inventory — parallel sets of related items.
 
 ---
 
-<!-- _class: q-and-a -->
-<!-- @meta{footer=q-and-a · inventory survey} -->
+<!-- @meta{layout=q-and-a, footer=q-and-a · inventory survey} -->
 
 ## The Q&A pairs questions with short answers.
 
@@ -193,8 +182,7 @@ Inventory — parallel sets of related items.
 
 ---
 
-<!-- _class: team-profile -->
-<!-- @meta{footer=team-profile · inventory survey} -->
+<!-- @meta{layout=team-profile, footer=team-profile · inventory survey} -->
 
 `inventory · team-profile`
 

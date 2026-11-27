@@ -15,8 +15,7 @@ Kanban board — columns of cards by stage.
 
 ---
 
-<!-- _class: kanban -->
-<!-- @meta{footer=Default · kanban} -->
+<!-- @meta{layout=kanban, footer=Default · kanban} -->
 
 `chart · kanban`
 
@@ -34,8 +33,7 @@ Kanban board — columns of cards by stage.
 
 ---
 
-<!-- _class: kanban keyline -->
-<!-- @meta{footer="keyline · kanban keyline — Hairlines rule the lanes apart."} -->
+<!-- @meta{layout=kanban, class=keyline, footer="keyline · kanban keyline — Hairlines rule the lanes apart."} -->
 
 `kanban keyline`
 
@@ -51,8 +49,7 @@ Kanban board — columns of cards by stage.
 
 ---
 
-<!-- _class: kanban tinted -->
-<!-- @meta{footer="tinted · kanban tinted — Each lane takes a colored wash."} -->
+<!-- @meta{layout=kanban, class=tinted, footer="tinted · kanban tinted — Each lane takes a colored wash."} -->
 
 `kanban tinted`
 
@@ -68,9 +65,8 @@ Kanban board — columns of cards by stage.
 
 ---
 
-<!-- _class: kanban compact -->
+<!-- @meta{layout=kanban, class=compact, footer="Stress test · kanban — Six lanes — the board's hard ceiling."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · kanban — Six lanes — the board's hard ceiling."} -->
 
 `kanban · stress`
 

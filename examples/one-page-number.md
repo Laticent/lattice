@@ -6,7 +6,7 @@ header: "Lattice · one page number"
 footer: "The mark in the bottom-right corner is the same element on every slide of this deck"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # One page number, one element
 
@@ -16,7 +16,7 @@ Every slide in this deck paginates, and every slide draws its number with the sa
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 `The defect`
 
@@ -24,7 +24,7 @@ Every slide in this deck paginates, and every slide draws its number with the sa
 
 ---
 
-<!-- _class: premise -->
+<!-- @meta{layout=premise} -->
 
 ## A frame's kind chose the node, and an author could not see the choice.
 
@@ -45,7 +45,7 @@ Two axes decided it: whether the frame keeps the deck's chrome, and therefore wh
 
 ---
 
-<!-- _class: split-panel -->
+<!-- @meta{layout=split-panel} -->
 
 `This slide is a sovereign frame`
 
@@ -62,7 +62,7 @@ No selector over a section's children can reach a pseudo. So a rule could name t
 
 ---
 
-<!-- _class: list -->
+<!-- @meta{layout=list} -->
 
 ## This slide is a root frame. Same corner, same size, same type.
 
@@ -74,7 +74,7 @@ No selector over a section's children can reach a pseudo. So a rule could name t
 
 ---
 
-<!-- _class: compare-prose -->
+<!-- @meta{layout=compare-prose} -->
 
 ## Before and after, in one sentence each.
 
@@ -85,7 +85,7 @@ No selector over a section's children can reach a pseudo. So a rule could name t
 
 ---
 
-<!-- _class: list -->
+<!-- @meta{layout=list} -->
 
 ## What a path that runs no Tile still does.
 
@@ -96,7 +96,7 @@ No selector over a section's children can reach a pseudo. So a rule could name t
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 ## One mark. An author can now predict it without reading the frame manifests.
 

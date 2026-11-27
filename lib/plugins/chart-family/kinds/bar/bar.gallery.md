@@ -15,8 +15,7 @@ Bars from a zero baseline that compare magnitude across categories — as column
 
 ---
 
-<!-- _class: bar -->
-<!-- @meta{footer=Default · bar} -->
+<!-- @meta{layout=bar, footer=Default · bar} -->
 
 `Revenue · FY26`
 
@@ -31,8 +30,7 @@ Bars from a zero baseline that compare magnitude across categories — as column
 
 ---
 
-<!-- _class: bar row -->
-<!-- @meta{footer="row · bar row — Horizontal bars with the category name in a wide left gutter — the correct form whenever the names are long or numerous."} -->
+<!-- @meta{layout=bar, class=row, footer="row · bar row — Horizontal bars with the category name in a wide left gutter — the correct form whenever the names are long or numerous."} -->
 
 ## Support load sits with two teams.
 
@@ -45,8 +43,7 @@ Bars from a zero baseline that compare magnitude across categories — as column
 
 ---
 
-<!-- _class: bar grouped -->
-<!-- @meta{footer="grouped · bar grouped — Two to four series side by side in each category, selected by nesting numeric children under each category."} -->
+<!-- @meta{layout=bar, class=grouped, footer="grouped · bar grouped — Two to four series side by side in each category, selected by nesting numeric children under each category."} -->
 
 ## We beat plan everywhere but APAC.
 
@@ -63,8 +60,7 @@ Bars from a zero baseline that compare magnitude across categories — as column
 
 ---
 
-<!-- _class: bar diverging row -->
-<!-- @meta{footer="diverging · bar diverging — Signed values off a centered zero rule, both sides on one scale — the variance and tornado form."} -->
+<!-- @meta{layout=bar, class=diverging row, footer="diverging · bar diverging — Signed values off a centered zero rule, both sides on one scale — the variance and tornado form."} -->
 
 ## What moves the forecast, and which way.
 
@@ -78,9 +74,8 @@ Bars from a zero baseline that compare magnitude across categories — as column
 
 ---
 
-<!-- _class: bar row -->
+<!-- @meta{layout=bar, class=row, footer="Stress test · bar — Eight business units with full-length names — the case that forces the row form."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · bar — Eight business units with full-length names — the case that forces the row form."} -->
 
 ## Every unit named in full, nothing abbreviated.
 

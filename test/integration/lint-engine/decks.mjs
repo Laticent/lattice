@@ -19,11 +19,11 @@ export function decks() {
 	return [['synthetic-math', MATH_DECK], ...files.map((f) => [f, fs.readFileSync(path.join(ROOT, f), 'utf8')])];
 }
 
-/** A copy of a deck the lint has things to say about: misspelled classes, a renamed register, and a
+/** A copy of a deck the lint has things to say about: misspelled classes (a comment's or a record's `layout=`), a renamed register, and a
  *  `$$` block holding `---` with a class after it, so the math admission changes which slide it is on. */
 export function perturb(src) {
 	return (
-		src.replace(/_class: ([a-z-]+)/g, '_class: $1x').replace(/^(---\n)/, '$1guards: strcit\nfluid: ture\n') +
+		src.replace(/_class: ([a-z-]+)/g, '_class: $1x').replace(/(@meta\{(?:[^}]*?, )?layout=)([a-z-]+)/g, '$1$2x').replace(/^(---\n)/, '$1guards: strcit\nfluid: ture\n') +
 		'\n\n---\n\n# Math\n\n$$\nx\n\n---\n\n<!-- _class: kpii -->\n\n# B\n$$\n\n- **Bold.** body\n'
 	);
 }

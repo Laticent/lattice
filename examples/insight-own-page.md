@@ -5,7 +5,7 @@ pagination: true
 size: square
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # The insight moves. The figure keeps the slide.
 
@@ -15,7 +15,7 @@ On a phone, a chart or diagram keeps the slide and its key insight takes the clo
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 ## The glyph's meaning is never voiced.
 
@@ -32,7 +32,7 @@ sequenceDiagram
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 ## A request is approved twice, then filed.
 
@@ -52,7 +52,7 @@ stateDiagram-v2
 
 ---
 
-<!-- _class: bar -->
+<!-- @meta{layout=bar} -->
 
 ## Support load sits with two teams.
 
@@ -67,7 +67,7 @@ stateDiagram-v2
 
 ---
 
-<!-- _class: line -->
+<!-- @meta{layout=line} -->
 
 ## Churn fell once onboarding moved to week one.
 
@@ -86,7 +86,7 @@ stateDiagram-v2
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 ## How a signal becomes a decision.
 
@@ -104,7 +104,7 @@ flowchart LR
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 ## Three services, one queue between them.
 

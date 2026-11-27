@@ -7,7 +7,7 @@ meta: "Table outer edge · the last row draws no rule"
 spectrum: duo
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Tables · the outer bottom edge`
 
@@ -17,7 +17,7 @@ A table's row hairlines separate **rows**. Under the final row there is no next 
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## Where the collision was
 
@@ -34,7 +34,7 @@ Measured in Chromium at design size. Two rules that close with nothing between t
 
 ---
 
-<!-- _class: table table-fill -->
+<!-- @meta{layout=table, class=table-fill} -->
 
 ## A comparison table ends on its last row.
 
@@ -49,7 +49,7 @@ Measured in Chromium at design size. Two rules that close with nothing between t
 
 ---
 
-<!-- _class: obligation-matrix -->
+<!-- @meta{layout=obligation-matrix} -->
 
 ## Obligations cross-tab the same way.
 
@@ -63,7 +63,7 @@ State discs still decode from the `\[x]` `\[-]` `\[ ]` markers; only the closing
 
 ---
 
-<!-- _class: statute-stack lane -->
+<!-- @meta{layout=statute-stack, class=lane} -->
 
 ## lane runs the stack in one column.
 
@@ -77,7 +77,7 @@ Cited as of the last review; check the register before relying on any row.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## A plain pipe table gets the same treatment.
 
@@ -91,7 +91,7 @@ No class needed — the universal table treatment carries it. The zebra falls on
 
 ---
 
-<!-- _class: glossary -->
+<!-- @meta{layout=glossary} -->
 
 ## Who was already there, and who is exempt.
 
@@ -107,7 +107,7 @@ The test is whether a cell's bottom border is a **separator** or **structure**. 
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## Want the table bounded top and bottom?
 

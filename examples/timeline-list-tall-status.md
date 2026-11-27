@@ -6,7 +6,7 @@ pagination: true
 header: "Lattice · timeline-list status on tall decks"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Status tags share the title's row
 
@@ -16,8 +16,8 @@ On a tall deck the status tag now sits at the end of its milestone's title row i
 
 ---
 
-<!-- _class: timeline-list -->
-<!-- _footer: "The slide that clipped · timeline-list" -->
+<!-- @meta{layout=timeline-list, footer=The slide that clipped · timeline-list} -->
+
 
 `Decision framework`
 
@@ -34,8 +34,8 @@ On a tall deck the status tag now sits at the end of its milestone's title row i
 
 ---
 
-<!-- _class: timeline-list -->
-<!-- _footer: "One tag · timeline-list" -->
+<!-- @meta{layout=timeline-list, footer=One tag · timeline-list} -->
+
 
 `chart · timeline-list`
 
@@ -54,8 +54,8 @@ The tag column takes width only when a milestone carries a tag.
 
 ---
 
-<!-- _class: timeline-list -->
-<!-- _footer: "No tags · timeline-list" -->
+<!-- @meta{layout=timeline-list, footer=No tags · timeline-list} -->
+
 
 `chart · timeline-list`
 
@@ -72,8 +72,8 @@ The tag column takes width only when a milestone carries a tag.
 
 ---
 
-<!-- _class: timeline-list dark -->
-<!-- _footer: "Dark · timeline-list dark" -->
+<!-- @meta{layout=timeline-list, class=dark, footer=Dark · timeline-list dark} -->
+
 
 `Decision framework`
 
@@ -90,7 +90,7 @@ The tag column takes width only when a milestone carries a tag.
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 # Tags beside titles, bodies at full width.
 

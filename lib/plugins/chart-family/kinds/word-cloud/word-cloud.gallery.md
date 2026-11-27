@@ -15,8 +15,7 @@ Spiral-packed word cloud — items sized by weight.
 
 ---
 
-<!-- _class: word-cloud -->
-<!-- @meta{footer=Default · word-cloud} -->
+<!-- @meta{layout=word-cloud, footer=Default · word-cloud} -->
 
 ## Weight is meaning in a word cloud.
 
@@ -33,8 +32,7 @@ Spiral-packed word cloud — items sized by weight.
 
 ---
 
-<!-- _class: word-cloud constellation -->
-<!-- @meta{footer="constellation · word-cloud constellation — Words scattered like stars."} -->
+<!-- @meta{layout=word-cloud, class=constellation, footer="constellation · word-cloud constellation — Words scattered like stars."} -->
 
 ## constellation scatters the words like stars.
 
@@ -48,8 +46,7 @@ Spiral-packed word cloud — items sized by weight.
 
 ---
 
-<!-- _class: word-cloud dense -->
-<!-- @meta{footer="dense · word-cloud dense — The cloud packed tight."} -->
+<!-- @meta{layout=word-cloud, class=dense, footer="dense · word-cloud dense — The cloud packed tight."} -->
 
 ## dense packs the cloud tight.
 
@@ -72,8 +69,7 @@ Spiral-packed word cloud — items sized by weight.
 
 ---
 
-<!-- _class: word-cloud spectrum -->
-<!-- @meta{footer="spectrum · word-cloud spectrum — Words colored along a scale."} -->
+<!-- @meta{layout=word-cloud, class=spectrum, footer="spectrum · word-cloud spectrum — Words colored along a scale."} -->
 
 ## spectrum colors the words along a scale.
 
@@ -89,8 +85,7 @@ Spiral-packed word cloud — items sized by weight.
 
 ---
 
-<!-- _class: word-cloud focal -->
-<!-- @meta{footer="focal · word-cloud focal — One word crowned the center."} -->
+<!-- @meta{layout=word-cloud, class=focal, footer="focal · word-cloud focal — One word crowned the center."} -->
 
 ## focal crowns one word the center.
 
@@ -103,9 +98,8 @@ Spiral-packed word cloud — items sized by weight.
 
 ---
 
-<!-- _class: word-cloud dense -->
+<!-- @meta{layout=word-cloud, class=dense, footer="Stress test · word-cloud — The densest cloud that still reads."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · word-cloud — The densest cloud that still reads."} -->
 
 ## Stress test — 20 terms, raw frequency counts, 512 down to 5.
 

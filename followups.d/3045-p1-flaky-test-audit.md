@@ -8,7 +8,7 @@ swimlane: engineering/decisions/2026-11-06-flaky-tests.md §How the rule is held
 deferred: large — 563 counted hits in 221 test files, plus the shapes no line shows; each rewrite needs its own evidence that the test still fails on the bug it guards
 ---
 
-# Audit every test against the nine flaky shapes and rewrite the offenders
+# Audit every test against the ten flaky shapes and rewrite the offenders
 
 why now   — HARD RULE #32 landed with a ratchet: `tools/flaky-test-baseline.json` holds 384 fixed sleeps, 164 stopwatch
             assertions and 15 unseeded randoms in 221 files, beside the 105 `docs/e2e` `waitForTimeout` calls that

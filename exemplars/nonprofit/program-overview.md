@@ -6,7 +6,7 @@ pagination: true
 header: "GreenRoots Youth Corps · Program overview"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 <!-- tier: short -->
 
 `Program overview · 2025`
@@ -17,7 +17,7 @@ A paid pathway from the Cedar River banks to a green-collar career, for youth th
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## We pay young people to restore the Cedar River — and train them into green jobs.
@@ -29,7 +29,7 @@ GreenRoots is a 16-week paid program for youth ages 16–24 in Cedar Rapids' Eas
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 <!-- tier: short -->
 
 ## Our theory of change, from intake to a green career.
@@ -46,7 +46,7 @@ flowchart LR
 
 ---
 
-<!-- _class: list-steps -->
+<!-- @meta{layout=list-steps} -->
 <!-- tier: short -->
 
 ## A participant's path through the program.
@@ -62,7 +62,7 @@ flowchart LR
 
 ---
 
-<!-- _class: kpi -->
+<!-- @meta{layout=kpi} -->
 <!-- tier: short -->
 
 `Outcomes · 2025`
@@ -81,7 +81,7 @@ flowchart LR
 
 ---
 
-<!-- _class: actors -->
+<!-- @meta{layout=actors} -->
 <!-- tier: short -->
 
 ## Who we serve, and who delivers the program.
@@ -95,7 +95,7 @@ flowchart LR
 
 ---
 
-<!-- _class: quote -->
+<!-- @meta{layout=quote} -->
 <!-- tier: standard -->
 
 > I'd been kicked out of two schools before this. Out here I learned I could lead a crew. Now I run a parks team and I'm back in night classes.
@@ -104,7 +104,7 @@ flowchart LR
 
 ---
 
-<!-- _class: big-number -->
+<!-- @meta{layout=big-number} -->
 <!-- tier: standard -->
 
 `The earnings story behind a placement`
@@ -114,7 +114,7 @@ flowchart LR
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 <!-- tier: standard -->
 
 `Impact · 2025`
@@ -132,7 +132,7 @@ flowchart LR
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## Recruitment reaches the young people other programs miss.
@@ -144,7 +144,7 @@ We draw enrollees from Cedar Rapids' three highest-unemployment neighborhoods. T
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## The work itself is the curriculum.
@@ -156,7 +156,7 @@ Crews spend their days on contracted restoration — removing invasive honeysuck
 
 ---
 
-<!-- _class: kpi -->
+<!-- @meta{layout=kpi} -->
 <!-- tier: full -->
 
 `Equity · 2025`
@@ -175,7 +175,7 @@ Crews spend their days on contracted restoration — removing invasive honeysuck
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 <!-- tier: full -->
 
 `Cost · 2025`
@@ -195,7 +195,7 @@ Crews spend their days on contracted restoration — removing invasive honeysuck
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## Two things ran harder than planned this year.
@@ -207,7 +207,7 @@ A spring flood closed three worksites for five weeks, compressing the field cale
 
 ---
 
-<!-- _class: roadmap -->
+<!-- @meta{layout=roadmap} -->
 <!-- tier: full -->
 
 `The plan · 2026–2028`
@@ -223,7 +223,7 @@ A spring flood closed three worksites for five weeks, compressing the field cale
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## We are ready to grow — and we are asking partners to grow with us.
@@ -235,9 +235,9 @@ The model holds: 240 youth served, 78% placed or in school, 84 cents of every do
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 <!-- tier: short -->
 
 ## Pay a young person to heal a river, and you get back both a watershed and a worker.

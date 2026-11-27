@@ -11,7 +11,7 @@ pagination: true
      component improves. Thirty-six states, each with a skip and a back-edge, is past any
      layout's budget on one slide.} -->
 
-<!-- _class: state-chart -->
+<!-- @meta{layout=state-chart} -->
 
 ## Too many states for one slide.
 

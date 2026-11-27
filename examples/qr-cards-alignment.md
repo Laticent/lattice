@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · align: contact and wifi"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Feature demo · the align: register`
 
@@ -15,8 +15,8 @@ Both now center by default, and every `align-*` value applies.
 
 ---
 
-<!-- _class: contact -->
-<!-- _footer: "contact · centered by default" -->
+<!-- @meta{layout=contact, footer=contact · centered by default} -->
+
 
 - Ada Slide `name`
 - Founder `title`
@@ -26,8 +26,8 @@ Both now center by default, and every `align-*` value applies.
 
 ---
 
-<!-- _class: contact align-top -->
-<!-- _footer: "contact align-top · the old placement" -->
+<!-- @meta{layout=contact, class=align-top, footer=contact align-top · the old placement} -->
+
 
 - Ada Slide `name`
 - Founder `title`
@@ -37,8 +37,8 @@ Both now center by default, and every `align-*` value applies.
 
 ---
 
-<!-- _class: contact align-fill -->
-<!-- _footer: "contact align-fill" -->
+<!-- @meta{layout=contact, class=align-fill, footer=contact align-fill} -->
+
 
 - Ada Slide `name`
 - Founder `title`
@@ -48,8 +48,8 @@ Both now center by default, and every `align-*` value applies.
 
 ---
 
-<!-- _class: wifi -->
-<!-- _footer: "wifi · centered by default" -->
+<!-- @meta{layout=wifi, footer=wifi · centered by default} -->
+
 
 `Room Wi-Fi`
 
@@ -62,8 +62,8 @@ Both now center by default, and every `align-*` value applies.
 
 ---
 
-<!-- _class: wifi align-top -->
-<!-- _footer: "wifi align-top · the old placement" -->
+<!-- @meta{layout=wifi, class=align-top, footer=wifi align-top · the old placement} -->
+
 
 `Room Wi-Fi`
 
@@ -76,8 +76,8 @@ Both now center by default, and every `align-*` value applies.
 
 ---
 
-<!-- _class: wifi -->
-<!-- _footer: "wifi · long copy still centers" -->
+<!-- @meta{layout=wifi, footer=wifi · long copy still centers} -->
+
 
 `Room Wi-Fi`
 
