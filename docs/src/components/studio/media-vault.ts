@@ -124,8 +124,11 @@ export async function clearMediaFolders(): Promise<void> {
  * `'rows'` is the way back: new photos are saved in their rows as before slice 2, and photos in the vault move
  * BACK into their rows at boot (`media-vault-move.ts` `moveMediaOutOfVault`). Undoing slice 2 is two releases,
  * never one revert: first a release with `MEDIA_DIRECTION = 'rows'`, which puts every photo back as people open
- * the Studio; then the code revert, which no photo depends on any more. A revert alone would strand every moved
- * photo at a vault path the old code cannot read.
+ * the Studio; then the code revert. A revert alone would strand every moved photo at a vault path the old code
+ * cannot read. And the revert keeps THIS READER (`vaultBlob`, `studioVault`, and media-store `hydrate`'s vault branch)
+ * for one more release: a device that never opened the Studio during the `'rows'` release still has vault rows, and on
+ * the pre-slice-2 code one such row breaks every deck's `asset:` photos (`refreshAssetUrls` throws on a row with no
+ * blob). The checker's finding, 2026-11-27.
  *
  * `lattice-media-storage: rows` in localStorage turns the way back on for one browser: for support, and for the
  * e2e that proves the move-back on real engines.

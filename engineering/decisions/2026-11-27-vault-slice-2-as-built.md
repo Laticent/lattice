@@ -87,8 +87,13 @@ would have doubled photo storage and reversed design §8).
   two shapes the old save wrote), then remove the file. The row is written before the file goes, so a tab that dies in
   between leaves a file no row names, never a row without bytes. A file that does not check out stays, and its row
   keeps naming it. Rerunning is safe.
-- **Undoing the slice** is two releases: one with `MEDIA_DIRECTION = 'rows'`, then, once people have opened the
-  Studio, the code revert. `lattice-media-storage: rows` in localStorage turns the way back on for one browser, for
+- **Undoing the slice** is two releases: one with `MEDIA_DIRECTION = 'rows'`, then the code revert, **keeping the
+  vault reader** (`media-vault.ts` `studioVault` and `vaultBlob`, media-store `hydrate`'s vault branch) for one more
+  release. No count of finished devices reaches us, and a device that never opened the Studio during the `'rows'`
+  release still has vault rows. On the pre-slice-2 code one such row breaks every deck's `asset:` photos, because
+  `refreshAssetUrls` throws on a row with no blob (the move-back checker's finding). Each device records what it left
+  behind in `lattice-media-move-back-left` and logs a warning while the count is not 0. A file that cannot come back
+  (damaged, or no room for its row) stays readable through the kept reader. `lattice-media-storage: rows` in localStorage turns the way back on for one browser, for
   support and for the e2e that proves it.
 
 ## The move, step by step
@@ -154,9 +159,10 @@ in-tab lock stands in.
   | The one move, from the first reload | — | 4.58–4.64 s, off the boot path; long tasks unchanged |
 
   The move adds one workspace backup (about the size of the photos) until the person deletes it.
-- **Move-back:** unit (4 in `media-vault.test.ts`: Blob and buffer rows back with the same bytes, files removed,
-  idempotent; an engine that refuses a Blob; a file that does not check out stays; the way back at boot and in a new
-  save), each with a failing arm. e2e `library-images-durability.spec.ts` "the move-back puts a vault photo back in
+- **Move-back:** unit (5 in `media-vault.test.ts`: Blob and buffer rows back with the same bytes, files removed,
+  idempotent; an engine that refuses a Blob; a file that does not check out stays and is counted; a video, a deck-scoped
+  photo and a row without `bytes`; the way back at boot and in a new save), each with a failing arm. A maker-checker
+  review of the move-back code found the reader rule above, the uncounted failures and the `bytes` check; all fixed. e2e `library-images-durability.spec.ts` "the move-back puts a vault photo back in
   its row": 4/4 on desktop, mobile, webkit-tablet and gecko; 10/10 alone and 5/5 under four workers on desktop, gecko
   and webkit-tablet; red when boot ignores the direction.
 - **Review:** the adversarial trio (red team, Munger inversion, independent checker) ran on the diff; every

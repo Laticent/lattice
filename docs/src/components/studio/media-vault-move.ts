@@ -170,7 +170,6 @@ export function moveMediaIntoVault(deps: MoveDeps = {}): Promise<MoveReport> {
 	});
 }
 
-/** The move's backup, if this device has one: its size, for Privacy & Data. */
 export type MoveBackReport = {
 	stopped?: 'no-vault';
 	/** Photos whose bytes are back in their rows and whose vault file is removed. */
@@ -178,6 +177,11 @@ export type MoveBackReport = {
 	/** Photos whose file could not be read or checked; they stay in the vault and are retried next start. */
 	failed: number;
 };
+
+/** How many photos the last move-back on this device left in the vault: 0 once every one is back. Written after every
+ *  run, so support (and the `'rows'` release's notes) can see a device that is not done. The revert does not wait on
+ *  it, because no number reaches us from a device: the revert keeps the vault reader instead (as-built note §Undo). */
+export const MOVE_BACK_LEFT_KEY = 'lattice-media-move-back-left';
 
 /** Put `bytes` back into one row that still names `path`, as a Blob or, where the engine refuses a Blob (a Safari
  *  private window), as an ArrayBuffer: the two shapes the Studio wrote before slice 2. Resolves whether it did. */
@@ -219,12 +223,17 @@ export function moveMediaOutOfVault(vaultIn?: Vault | null): Promise<MoveBackRep
 		const report: MoveBackReport = { movedBack: 0, failed: 0 };
 		const vault = vaultIn !== undefined ? vaultIn : await studioVault();
 		if (!vault) return { ...report, stopped: 'no-vault' };
-		for (const row of (await rawRows()).filter((r) => typeof r.vault === 'string' && !holdsBytes(r))) {
+		// A row that names a vault file and holds no bytes of its own. (A row with both reads by its own bytes on the old
+		// code, so it is left alone.)
+		for (const row of (await rawRows()).filter((r) => typeof r.vault === 'string' && !(r.blob instanceof Blob || r.data instanceof ArrayBuffer))) {
 			const path = row.vault as string;
 			try {
 				const entry = (await vault.list(path.slice(0, path.lastIndexOf('/')))).find((e) => e.path === path);
 				const bytes = new Uint8Array(await (await vault.read(path)).arrayBuffer());
-				if (!entry || bytes.byteLength !== Number(row.bytes) || (await sha256(bytes)) !== entry.sha256) throw new Error('the vault file does not match its row');
+				// The SHA-256 the vault recorded is the check. The row's `bytes` is checked only where it holds a number: an
+				// older row without it must still be able to come back (the checker's finding).
+				const recorded = typeof row.bytes === 'number' ? row.bytes : null;
+				if (!entry || (recorded !== null && bytes.byteLength !== recorded) || (await sha256(bytes)) !== entry.sha256) throw new Error('the vault file does not match its row');
 				// A Blob first, as `saveMedia` did; an ArrayBuffer where the engine refuses a Blob.
 				const back = await restoreRow(row.id, path, bytes, false).catch(() => restoreRow(row.id, path, bytes, true));
 				if (!back) continue;
@@ -234,6 +243,8 @@ export function moveMediaOutOfVault(vaultIn?: Vault | null): Promise<MoveBackRep
 				report.failed++;
 			}
 		}
+		ls.set(MOVE_BACK_LEFT_KEY, String(report.failed));
+		if (report.failed) console.warn(`Lattice: ${report.failed} photo(s) could not move back out of the storage vault yet; they still read, and the next start tries again.`);
 		return report;
 	});
 }
@@ -243,6 +254,7 @@ export function settleMediaStorage(): Promise<MoveReport | MoveBackReport> {
 	return mediaDirection() === 'rows' ? moveMediaOutOfVault() : moveMediaIntoVault();
 }
 
+/** The move's backup, if this device has one: its size, for Privacy & Data. */
 export async function preMoveBackup(vault?: Vault | null): Promise<{ bytes: number } | null> {
 	const v = vault !== undefined ? vault : await studioVault();
 	if (!v) return null;

@@ -11,7 +11,7 @@ import { deleteAsset, listAssets } from './library/asset-store.js';
 import { renameMedia } from './media-edit';
 import { LIBRARY_SCOPE, listMedia, type NewMedia, saveMedia, setMediaCaption, setMediaScope } from './media-store';
 import { MEDIA_DIRECTION_KEY, mediaPath, studioVault } from './media-vault';
-import { BACKUP_PATH, deletePreMoveBackup, MAX_DEAD_ATTEMPTS, MAX_MOVE_BYTES, moveMediaIntoVault, moveMediaOutOfVault, preMoveBackup, settleMediaStorage } from './media-vault-move';
+import { BACKUP_PATH, deletePreMoveBackup, MAX_DEAD_ATTEMPTS, MAX_MOVE_BYTES, MOVE_BACK_LEFT_KEY, moveMediaIntoVault, moveMediaOutOfVault, preMoveBackup, settleMediaStorage } from './media-vault-move';
 import { packMedia } from './workspace-media';
 
 // Node has no localStorage; the move's crash-loop guard keeps one mark there.
@@ -45,6 +45,7 @@ const vaultFiles = async () => {
 
 async function empty() {
 	localStorage.removeItem(MEDIA_DIRECTION_KEY);
+	localStorage.removeItem(MOVE_BACK_LEFT_KEY);
 	localStorage.removeItem('lattice-media-move-backed-up');
 	localStorage.removeItem('lattice-media-move-attempt');
 	for (const a of await listAssets()) await deleteAsset(a.id);
@@ -296,9 +297,28 @@ describe('the move-back: the undo path', () => {
 		const torn = Object.create(v) as typeof v;
 		torn!.read = async () => new Blob([bytes(10, 33) as BlobPart]);
 		expect(await moveMediaOutOfVault(torn)).toEqual({ movedBack: 0, failed: 1 });
+		// The device says it is not done, for support and the 'rows' release's notes.
+		expect(localStorage.getItem(MOVE_BACK_LEFT_KEY)).toBe('1');
 		expect((await raw(a.id))?.vault).toBe(mediaPath(a.id, 'image', 'image/png'));
 		expect(await vaultFiles()).toHaveLength(1);
 		expect(new Uint8Array(await (await listMedia())[0].blob.arrayBuffer())).toEqual(bytes(64, 33));
+	});
+
+	it('brings back a video and a photo kept to one deck, and a row an older release wrote without `bytes`', async () => {
+		const clip = await saveMedia({ ...photo('clip', bytes(90, 36)), kind: 'video', mime: 'video/mp4', blob: new Blob([bytes(90, 36) as BlobPart], { type: 'video/mp4' }), durationMs: 1000 }, 5);
+		const kept = await saveMedia({ ...photo('kept', bytes(70, 37)), scope: 'deck-a' }, 6);
+		const bare = await saveMedia(photo('bare', bytes(50, 38)), 7);
+		const { bytes: _gone, ...noBytes } = (await raw(bare.id)) as Record<string, unknown>;
+		await put(noBytes);
+		expect(await moveMediaOutOfVault()).toEqual({ movedBack: 3, failed: 0 });
+		expect((await raw(clip.id))?.kind).toBe('video');
+		expect((await raw(kept.id))?.scope).toBe('deck-a');
+		for (const [id, b] of [[clip.id, bytes(90, 36)], [kept.id, bytes(70, 37)], [bare.id, bytes(50, 38)]] as const) {
+			const row = await raw(id);
+			expect(row?.vault).toBeUndefined();
+			expect(new Uint8Array(await (row?.blob as Blob).arrayBuffer())).toEqual(b);
+		}
+		expect(localStorage.getItem(MOVE_BACK_LEFT_KEY)).toBe('0');
 	});
 
 	it('on the way back, boot runs the move-back and a new photo is saved in its row', async () => {
