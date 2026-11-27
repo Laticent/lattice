@@ -155,8 +155,15 @@ describe('fit-grace: reads the deck the way the engine does', () => {
       assert.deepEqual(p.perSlide, [{ slide: 2, claim: null, had: null, framed: true }], running);
     }
   });
-  test('a bare CR deck keeps its front matter', () => {
-    assert.equal(g.deckParts('---\rtheme: indaco\r---\r\r# A\r').yaml, 'theme: indaco');
+  test('a bare CR or CRLF deck keeps its front matter AND its slides', () => {
+    // The front matter alone passed while the slides came back empty: the fence and the splitter read different text.
+    for (const eol of ['\r', '\r\n']) {
+      const deck = ['---', 'theme: indaco', '---', '', '# A', '<!-- class: kpi -->', '', '---', '', '# B', ''].join(eol);
+      const parts = g.deckParts(deck);
+      assert.equal(parts.yaml, 'theme: indaco', JSON.stringify(eol));
+      assert.equal(parts.slides.length, 2, JSON.stringify(eol));
+      assert.match(parts.slides[1], /# B/, JSON.stringify(eol));
+    }
   });
   test('a byte-order mark does not hide the front matter', () => {
     assert.equal(g.deckParts('﻿---\nsize: 9:16\n---\n\n# A\n').yaml, 'size: 9:16');
