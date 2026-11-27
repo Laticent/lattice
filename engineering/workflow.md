@@ -3154,6 +3154,30 @@ all four hold, and names the failing check for every session that stays:
 The owner's `go` on the board's numbered action archives exactly the sessions that
 passed. The audit is read-only and can run as one subagent; it never archives.
 
+**Auto-archive (the owner's standing rule, 2026-11-27).** The command center archives finished
+sessions on its own, without a board or a `go`, so that idle sessions stop holding machines and
+nobody pays to wake them. Its recurring check-in (`.claude/skills/fleet/SKILL.md`) archives a
+session only when all of these hold, read fresh in the same run, with `get_session` called
+immediately before `archive_session`:
+
+1. It is not the command center, not a desk (`desk:*`), not `ui:pinned`, and no scheduled task
+   names it in `persistent_session_id`.
+2. It is idle, and its `updated_at` is at least 60 minutes old.
+3. Every PR it owns is merged or closed, no 🚦 card of its waits on the owner, and its summary
+   holds no `needs_action` and no question for the owner.
+4. `external_metadata.unpushed_work` is present and `false`. This fresh flag stands in for
+   check 3 above, where the session's own `git status -sb` reply would cost a full reload of its
+   context. When the flag is `true` or missing, the session stays, nobody wakes it to ask, and it
+   goes on the owner's list. A session can say it discarded its work while the flag still reads
+   `true`: the 2026-11-27 Compose session still held a local branch and a stash.
+5. Its leftovers are durable (check 2 above): on `main`, in an open issue, or on a PR comment.
+6. No child session of it is still live.
+
+If anything changed between the reads, the session waits for the next run. Each archive adds one
+line (session, PRs, why it qualified) to the owner's morning report. Born on 2026-11-27, when a
+session woke between the audit and the archive and was archived with `unpushed_work: true`: an
+archive acts only on a read taken just before it.
+
 **Finding each other.** The command center tags itself `command-center`; a desk
 reports to the one live session with that tag. If two or more live sessions hold
 it, the desk reports to none of them: it stops and asks the owner which one is the
