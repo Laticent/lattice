@@ -35,7 +35,6 @@ import { KEY_PROVIDER_INFO } from './key-providers';
 import { LanguageSelect } from './LanguageSelect';
 import { useViewKey } from './live/follow-bus';
 import { describeLocalUse } from './local-quota';
-import { deletePreMoveBackup, preMoveBackupZip } from './media-vault-move';
 import { AI_CONNECTIONS_LEAD, AI_MODELS_LEAD, AI_USED_BY, WORKSPACE_DEFAULT_TAB, WORKSPACE_HEADER, WORKSPACE_TABS, WorkspaceAiSection, WorkspaceGroupLabel, WorkspaceLead, WorkspaceSelectionLabel, type WorkspaceTab } from './panel-shells';
 import { listStoredScenes } from './scene-library';
 import { languageFor } from './studio-language';
@@ -1439,14 +1438,14 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 										armed={govArmed === 'backup'}
 										busy={govBusy === 'backup'}
 										onArm={() => setGovArmed('backup')}
-										onConfirm={() => clearCategory('backup', deletePreMoveBackup, 'Backup deleted.')}
+										onConfirm={() => clearCategory('backup', () => import('./media-vault-move').then((m) => m.deletePreMoveBackup()), 'Backup deleted.')}
 										onCancel={() => setGovArmed(null)}
 										action={
 											<button
 												type="button"
 												aria-label="Download the backup from the storage move"
 												title="Download"
-												onClick={() => void preMoveBackupZip().then((zip) => (zip ? downloadBlob('lattice-backup-before-storage-move.zip', zip) : notify('The backup could not be read.')))}
+												onClick={() => void import('./media-vault-move').then((m) => m.preMoveBackupZip()).then((zip) => (zip ? downloadBlob('lattice-backup-before-storage-move.zip', zip) : notify('The backup could not be read.')))}
 												className="grid place-items-center rounded-lg border border-border bg-card px-2.5 py-1.5 text-muted-foreground hover:text-[var(--text-heading)]"
 											>
 												<Download className="size-3.5" />

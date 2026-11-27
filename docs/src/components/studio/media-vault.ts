@@ -15,7 +15,12 @@
 //
 // NO VAULT, NO MOVE. Where the vault cannot open, a photo is stored the old way, in its row, and every
 // reader below still reads that. A row is one or the other: `vault` (a path) or `blob` / `data` (the bytes).
-import { type BrowserVault, defaultLocks, openBrowserVault, VaultError } from '@/lib/vault';
+// Only types and the small lock helper load with this module. The vault itself is imported on first use, so the
+// Studio's eager bundle does not carry it (check:route-budget, studio eagerJsGz).
+import type { BrowserVault } from '@/lib/vault';
+import { defaultLocks } from '@/lib/vault/backing';
+
+const codeOf = (err: unknown): string | undefined => (err as { code?: string } | null)?.code;
 
 /** The one vault this tab's Studio shares. Opened on first use; null where the browser cannot hold one. */
 let vaultP: Promise<BrowserVault | null> | null = null;
@@ -33,12 +38,14 @@ export function studioVault(): Promise<BrowserVault | null> {
 	const idb = typeof indexedDB === 'undefined' ? undefined : indexedDB;
 	if (vaultP && openedOver === idb) return vaultP;
 	openedOver = idb;
-	vaultP = openBrowserVault().catch((err) => {
-		// `unavailable` is a host that cannot hold a vault; the Studio keeps storing bytes in rows there.
-		// Anything else is a real failure, and the next call tries again rather than caching it.
-		if (!(err instanceof VaultError && err.code === 'unavailable')) vaultP = null;
-		return null;
-	});
+	vaultP = import('@/lib/vault')
+		.then((m) => m.openBrowserVault())
+		.catch((err) => {
+			// `unavailable` is a host that cannot hold a vault; the Studio keeps storing bytes in rows there.
+			// Anything else (a chunk that failed to load included) is a real failure, and the next call tries again.
+			if (codeOf(err) !== 'unavailable') vaultP = null;
+			return null;
+		});
 	return vaultP;
 }
 
@@ -86,7 +93,7 @@ export async function removeVaultFile(path: string): Promise<void> {
 	const v = await studioVault();
 	if (!v) return;
 	await v.remove(path).catch((err) => {
-		if (!(err instanceof VaultError && err.code === 'not-found')) throw err;
+		if (codeOf(err) !== 'not-found') throw err;
 	});
 }
 

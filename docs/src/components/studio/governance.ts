@@ -33,7 +33,6 @@ import { chatsSettled, hydrateAllChats, lastChatClear } from './chat-store';
 import { checkpointsSettled, hydrateCheckpoints, lastCheckpointClear } from './checkpoint-store';
 import { type LocalStorageUse, localStorageUse } from './local-quota';
 import { clearMediaFolders } from './media-vault';
-import { deletePreMoveBackup, preMoveBackup } from './media-vault-move';
 import { formatBytes } from './reference-doc';
 import { clearAllDecks, deckContentStats } from './studio-store';
 
@@ -122,7 +121,7 @@ export async function loadGovernanceStats(): Promise<GovernanceStats> {
 		listAssets().catch(() => []),
 		cacheNames(),
 		clipStats().catch(() => ({ count: 0, bytes: 0 })),
-		preMoveBackup().catch(() => null),
+		import('./media-vault-move').then((m) => m.preMoveBackup()).catch(() => null),
 	]);
 	let libraryBytes = 0;
 	try {
@@ -265,7 +264,7 @@ export async function clearEverything(): Promise<ClearEverythingResult> {
 		['cache', clearSiteCache],
 		['narration', clearNarrationAudio],
 		// The move's backup holds a copy of every deck and photo: clearing everything has to reach it.
-		['backup', deletePreMoveBackup],
+		['backup', () => import('./media-vault-move').then((m) => m.deletePreMoveBackup())],
 		['retired', clearRetiredDrawingBoardData],
 	];
 	const results = await Promise.allSettled(tasks.map(([, fn]) => fn()));
