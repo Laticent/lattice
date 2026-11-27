@@ -251,11 +251,11 @@ const PURPOSE = [
 	'- Be economical. Answer in a few short paragraphs at most; use lists only when they carry structure.',
 ].join('\n');
 
-/** The always-on reference: the authoring contract, what exists, and where to read more.
- *  Byte-stable for a given catalog (the cache prefix). */
 /** How the deck canon's card-nesting line starts (lib/authoring/deck-canon.js). */
 export const CANON_CARD_LINE = '• CARD-style layouts nest';
 
+/** The always-on reference: the authoring contract, what exists, and where to read more.
+ *  Byte-stable for a given catalog (the cache prefix). */
 export function buildAgentSystem(opts: { canon: string; catalog: AgentComponent[]; frontMatterKeys: { key: string; info: string }[]; themes: string[]; finishes: { name: string; blurb?: string }[] }): string {
 	const byBucket = new Map<string, AgentComponent[]>();
 	for (const c of opts.catalog) {
