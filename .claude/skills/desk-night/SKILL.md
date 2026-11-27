@@ -59,7 +59,10 @@ raise.
    card. A step that needs the owner (a taste call, a ❓ item, a device in their hand, an
    export sign-off) waits for the morning.
 4. **Merge what is eligible**, one at a time, with no cap: re-run `night-eligible`, then
-   `enable_pr_auto_merge` (squash). The gate re-checks. Then `send_message` the PR's session:
+   `enable_pr_auto_merge` (squash). The gate re-checks. `enable_pr_auto_merge` cannot pin the head
+   the gate saw, so re-run `night-eligible <N> --json` right after: if its `head` differs from the
+   one you checked, `disable_pr_auto_merge` at once and put the PR back on the list. Then
+   `send_message` the PR's session:
    "#N queued by the night desk at <sha>; do not push to it until it lands." Watch for a queue
    ejection and route it back. If a CI, golden-bless or integration-nightly run on `main` goes
    red, stop merging until it is green.
