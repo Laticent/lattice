@@ -260,6 +260,8 @@ export function LibraryShell({ docked, open, onOpenChange, children }: { docked?
 				<Inert className="min-w-0 flex-1">
 					<PillTabs ariaLabel="Library sections" value="all" onValueChange={() => {}} tabs={LIBRARY_SECTIONS} dense={docked} iconOnly={libraryIconOnly(docked, phone)} overflow={LIBRARY_OVERFLOW} />
 				</Inert>
+				{/* The kinds button's place, as the live row holds it (Library.tsx): the same room, so the same fold on load. */}
+				<span aria-hidden className="size-8 shrink-0" />
 			</div>
 			<div className="min-h-0 min-w-0 flex-1 overflow-hidden p-4">
 				{/* Blank on purpose: the Library reads its shelf from storage after it mounts, so

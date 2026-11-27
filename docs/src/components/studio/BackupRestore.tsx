@@ -19,23 +19,25 @@ import { downloadBlob, isEvictionProneBrowser, stashRestoreReport, storageSummar
 
 export type BackupBusy = 'backup' | 'restore' | null;
 
-export function BackupRestore({ open, disabled = false, onBusyChange, children }: {
+export function BackupRestore({ open, busy, onBusyChange, disabled = false, children }: {
 	/** Re-read the last-backup line and the storage readout each time the host surface opens. */
 	open: boolean;
+	/**
+	 * The pack or restore in flight, OWNED BY THE HOST. Workspace settings unmounts this with its Data tab, so state kept
+	 * here was lost on a tab switch mid-backup, and both buttons came back enabled over a restore still rewriting the
+	 * stores. The host's state outlives the tab.
+	 */
+	busy: BackupBusy;
+	onBusyChange: (busy: BackupBusy) => void;
 	/** Another long job on the host surface (Workspace settings' scene export) holds both buttons. */
 	disabled?: boolean;
-	onBusyChange?: (busy: BackupBusy) => void;
 	/** Rendered between the buttons and the last-backup line (Workspace settings' saved-scenes door). */
 	children?: React.ReactNode;
 }) {
 	const [backupAt, setBackupAt] = React.useState<number | null>(() => lastBackupAt());
 	const [storageLine, setStorageLine] = React.useState('');
-	const [busy, setBusyState] = React.useState<BackupBusy>(null);
 	const restoreInput = React.useRef<HTMLInputElement>(null);
-	const setBusy = (b: BackupBusy) => {
-		setBusyState(b);
-		onBusyChange?.(b);
-	};
+	const setBusy = onBusyChange;
 	React.useEffect(() => {
 		if (!open) return;
 		setBackupAt(lastBackupAt());

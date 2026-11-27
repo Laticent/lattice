@@ -1,7 +1,6 @@
 import { Check, Clapperboard, Download, FileBox, FileText, FolderOpen, Image as ImageIcon, Images, Layers, LayoutGrid, LifeBuoy, ListFilter, Package, Palette, PanelLeftClose, Pencil, Plug, Plus, Presentation, Shapes, Share2, Upload, Video as VideoIcon } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { PanelDock, PanelEmpty, PanelHeader, PanelSearch, PanelSection, PanelSheet } from '@/components/ui/panel';
 import { PanelSearchButton, PanelSearchRow } from '@/components/ui/panel-actions';
@@ -15,7 +14,7 @@ import { deckPluginList } from '../../../../lib/core/deck-plugins.mjs';
 import { AssetVersionsDialog, type VersionedAsset } from './AssetVersions';
 import { createAgentAssets } from './agent-assets-browser';
 import { componentZipName, finishZipName, packBundle, packComponent, packFinish, packTheme, themeZipName, unpackBundle } from './asset-bundle';
-import { type BackupBusy, BackupRestore } from './BackupRestore';
+import type { BackupBusy } from './BackupRestore';
 import { deleteStudioComponent, listStudioComponents, type StudioComponent } from './component-library';
 import { DeleteBtn } from './delete-btn';
 import { downloadBlob, iosNeedsShareSheet } from './download';
@@ -24,7 +23,7 @@ import { deleteStudioFinish, listStudioFinishes, type StudioFinish } from './fin
 import type { ImportRefusal } from './import-gate';
 import { listAllAssetVersions, pruneOrphanVersions } from './library/asset-history.js';
 import { listAssets } from './library/asset-store.js';
-import { deckIdsOf } from './library-decks';
+import { deckIdsOf, landingAfterSave } from './library-decks';
 import { MediaCard } from './MediaCard';
 import { decksUsingRecord, removeMediaAlias, updateMediaDetails } from './media-edit';
 import { classifyMedia, importVideo, MediaImportError, type PhotoFormat, uniqueName } from './media-import';
@@ -43,6 +42,8 @@ import { loadDeckList, loadSource, saveCheckpointDurably, saveSource } from './s
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
 
 // The detail dialog (and the shadcn parts only it uses) loads the first time a photo is opened, not with the Library: most visits never open one.
+// Backup and restore (design §7) loads the first time it is opened, for the same reason.
+const BackupRestoreDialog = React.lazy(() => import('./BackupRestoreDialog').then((m) => ({ default: m.BackupRestoreDialog })));
 const MediaDetailDialog = React.lazy(() => import('./MediaDetailDialog').then((m) => ({ default: m.MediaDetailDialog })));
 
 // The unified Library — one shelf for every saved theme + component + finish + the
@@ -292,6 +293,11 @@ export function Library({ open, onOpenChange, docked, onCollapse, options, activ
 	const [finishes, setFinishes] = React.useState<StudioFinish[]>([]);
 	const [docs, setDocs] = React.useState<RefDocRecord[]>([]);
 	const [backupOpen, setBackupOpen] = React.useState(false);
+	// Mounted from the first open on (as `dialogWanted` below), so closing it animates out instead of unmounting.
+	const [backupWanted, setBackupWanted] = React.useState(false);
+	React.useEffect(() => {
+		if (backupOpen) setBackupWanted(true);
+	}, [backupOpen]);
 	// A pack or a restore in flight holds the dialog open: a restore reloads the page when it is done.
 	const [backupBusy, setBackupBusy] = React.useState<BackupBusy>(null);
 	// The kept files that are decks, listed under Decks rather than Files (library-decks.ts). Set in the same render as `docs`.
@@ -610,9 +616,12 @@ export function Library({ open, onOpenChange, docked, onCollapse, options, activ
 			for (const file of decks) await one(file, true);
 			for (const file of files) await one(file, false);
 			reload();
-			// A Markdown file is a deck or notes only once it is read, so a batch of Markdown decks opened Files
-			// (landingFilter). Now that it is known, a batch that held only decks moves on to Decks; a mixed one stays.
-			if (saved.length && (await deckIdsOf(saved)).size === saved.length) React.startTransition(() => setFilter((f) => (f === 'refdoc' ? 'deck' : f)));
+			// What a file IS is known only once it is read (a .md may be a deck, a .pptx may be reference text), so the
+			// landing follows what was saved (library-decks.ts `landingAfterSave`).
+			if (saved.length) {
+				const decks = (await deckIdsOf(saved)).size;
+				React.startTransition(() => setFilter((f) => landingAfterSave(f, saved.length, decks)));
+			}
 			const detail = [...notes, ...failed].join('\n') || undefined;
 			if (n) notify(`Added ${n} reference ${n === 1 ? 'file' : 'files'}.`, { description: detail });
 			else notify(failed.length === 1 ? failed[0] : 'Could not add those files.', { description: failed.length > 1 ? detail : undefined });
@@ -1342,6 +1351,7 @@ export function Library({ open, onOpenChange, docked, onCollapse, options, activ
 						// Five pills no longer fit one row in the docked panel at the roomy size, and the last one wrapped alone.
 						dense={docked}
 						iconOnly={libraryIconOnly(docked, phone)}
+						renderHint={(label, tab) => <Tip label={label}>{tab}</Tip>}
 						// One row, always: beside the kinds button (Design, Media) six pills outgrow a narrow dock or a 320px phone,
 						// and a lone pill wrapping to a second row is the jank the icons exist to remove. Plugins folds first.
 						overflow={LIBRARY_OVERFLOW}
@@ -1414,14 +1424,14 @@ export function Library({ open, onOpenChange, docked, onCollapse, options, activ
 						{decksTab && vDecks.length === 0 && (
 							<div className="grid place-items-center py-10">
 								<PanelEmpty icon={<Presentation />} title={q ? 'No decks match' : 'No decks kept yet'}>
-									{q ? 'Try a different search.' : <>Keep a deck here to open it again later: <button type="button" className="font-semibold text-[var(--accent)]" onClick={() => importRef.current?.click()}>import a .lattice, a PowerPoint, a Lattice PDF or a Markdown deck</button>, or drop one on this panel.</>}
+									{q ? 'Try a different search.' : <>A deck kept here opens again later: a .lattice, a PowerPoint, a Lattice PDF or a Markdown deck. <button type="button" className="font-semibold text-[var(--accent)]" onClick={() => importRef.current?.click()}>Import one</button> or drop it on this panel.</>}
 								</PanelEmpty>
 							</div>
 						)}
 						{filter === 'refdoc' && vDocs.length === 0 && (
 							<div className="grid place-items-center py-10">
 								<PanelEmpty icon={<FileText />} title={q ? 'No files match' : 'No files yet'}>
-									{q ? 'Try a different search.' : <>A file you add here (a PDF, a Markdown or text file) can ground the chat. <button type="button" className="font-semibold text-[var(--accent)]" onClick={() => importRef.current?.click()}>Add a file</button>, or drop one on this panel.</>}
+									{q ? 'Try a different search.' : <>A file kept here (a PDF, a Markdown or text file) can ground the chat. <button type="button" className="font-semibold text-[var(--accent)]" onClick={() => importRef.current?.click()}>Add one</button> or drop it on this panel.</>}
 								</PanelEmpty>
 							</div>
 						)}
@@ -1544,15 +1554,11 @@ export function Library({ open, onOpenChange, docked, onCollapse, options, activ
 				onOpenChange={(o) => { if (!o) setHistoryFor(null); }}
 				onRestored={() => { reload(); onChanged(); }}
 			/>
-			<Dialog open={backupOpen} onOpenChange={(o) => { if (!o && backupBusy) return; setBackupOpen(o); }}>
-				<DialogContent className="max-w-md">
-					<DialogHeader>
-						<DialogTitle className="flex items-center gap-2"><LifeBuoy className="size-4 text-[var(--accent)]" />Backup and restore</DialogTitle>
-						<DialogDescription className="sr-only">Download your whole workspace as one zip, or restore one.</DialogDescription>
-					</DialogHeader>
-					<BackupRestore open={backupOpen} onBusyChange={setBackupBusy} />
-				</DialogContent>
-			</Dialog>
+			{backupWanted && (
+				<React.Suspense fallback={null}>
+					<BackupRestoreDialog open={backupOpen} onOpenChange={setBackupOpen} busy={backupBusy} onBusyChange={setBackupBusy} />
+				</React.Suspense>
+			)}
 			<PhotoFormatDialog
 				files={pendingPhotos}
 				onCancel={() => setPendingPhotos(null)}

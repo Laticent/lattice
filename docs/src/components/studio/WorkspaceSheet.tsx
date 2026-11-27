@@ -1265,7 +1265,7 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 						    eviction case); the installed app and other browsers don't get it. */}
 						<div className="mt-6">
 							<GroupLabel icon={<LifeBuoy className="size-3.5" />}>Backup &amp; restore</GroupLabel>
-							<BackupRestore open={open} disabled={busy != null} onBusyChange={setBackupBusy}>
+							<BackupRestore open={open} busy={backupBusy} onBusyChange={setBackupBusy} disabled={busy != null}>
 							{sceneCount > 0 && (
 								<div className="mt-3 rounded-xl border border-border bg-background p-3">
 									<p className="text-[13px] font-semibold text-[var(--text-heading)]">{sceneCount} saved motion scene{sceneCount === 1 ? '' : 's'}</p>

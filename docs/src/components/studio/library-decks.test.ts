@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { hasSlides } from './library-deck-ref';
-import { deckIdsOf, maybeMarkdownDeck } from './library-decks';
+import { deckIdsOf, landingAfterSave, maybeMarkdownDeck } from './library-decks';
 
 const rec = (over: Record<string, unknown>) => ({ id: 'x', name: 'a.md', docKind: 'text' as const, text: '', ...over });
 
@@ -42,5 +42,20 @@ describe('Decks section membership (followups.d/3356-p1)', () => {
 			return { hasSlides: async () => true };
 		});
 		expect(loads).toBe(0);
+	});
+});
+
+describe('landingAfterSave (where an import lands once its files are read)', () => {
+	it('moves a PowerPoint kept as text from Decks to Files, and Markdown decks from Files to Decks', () => {
+		// A .pptx not made in Lattice: landingFilter guessed Decks; it was saved as reference text.
+		expect(landingAfterSave('deck', 1, 0)).toBe('refdoc');
+		// A Markdown deck: landingFilter guessed Files; it has slides.
+		expect(landingAfterSave('refdoc', 2, 2)).toBe('deck');
+		expect(landingAfterSave('deck', 2, 1)).toBe('all');
+	});
+	it('leaves a section the person moved to, and a batch where nothing was saved', () => {
+		expect(landingAfterSave('image', 1, 0)).toBe('image');
+		expect(landingAfterSave('all', 1, 1)).toBe('all');
+		expect(landingAfterSave('deck', 0, 0)).toBe('deck');
 	});
 });

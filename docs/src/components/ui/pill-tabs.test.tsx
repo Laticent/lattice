@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import * as React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { PillTabs } from './pill-tabs';
-import { TooltipProvider } from './tooltip';
+import { Tip, TooltipProvider } from './tooltip';
 
 const TABS = [
 	{ value: 'a', label: 'Alpha' },
@@ -80,7 +80,7 @@ describe('PillTabs', () => {
 		const renderIcons = (value = 'a', onValueChange = () => {}) =>
 			render(
 				<TooltipProvider>
-					<PillTabs tabs={ICON_TABS} value={value} onValueChange={onValueChange} ariaLabel="Sections" iconOnly />
+					<PillTabs tabs={ICON_TABS} value={value} onValueChange={onValueChange} ariaLabel="Sections" iconOnly renderHint={(label, tab) => <Tip label={label}>{tab}</Tip>} />
 				</TooltipProvider>,
 			);
 

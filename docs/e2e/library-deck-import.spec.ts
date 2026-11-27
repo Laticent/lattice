@@ -28,6 +28,16 @@ const DECK = [
 	'## Retention held\n\n- 94% of accounts renewed.\n\n<!-- @note{Open with the retention number.} -->',
 ].join('\n\n---\n\n');
 
+/** A PowerPoint made elsewhere: one slide of text and no Lattice deck inside, so the Library keeps it as reference text. */
+async function foreignPptx(): Promise<Buffer> {
+	const zip = new JSZip();
+	zip.file('[Content_Types].xml', '<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="xml" ContentType="application/xml"/></Types>');
+	zip.file('_rels/.rels', '<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/></Relationships>');
+	zip.file('ppt/presentation.xml', '<p:presentation xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"/>');
+	zip.file('ppt/slides/slide1.xml', '<p:sld><p:txBody><a:p><a:r><a:t>Opening agenda</a:t></a:r></a:p></p:txBody></p:sld>');
+	return zip.generateAsync({ type: 'nodebuffer' });
+}
+
 /** A `.lattice` from the kernel both writers use (lib/core/reopenable.js), as a recipient would get it. */
 async function latticeBytes(): Promise<Buffer> {
 	const root = resolve(import.meta.dirname, '..', '..');
@@ -286,6 +296,19 @@ async function decksSection(page: Page, testInfo: TestInfo) {
 	// An empty Decks section says how to keep one.
 	await tabs.getByRole('tab', { name: 'Decks', exact: true }).click();
 	await expect(page.getByText('No decks kept yet')).toBeVisible();
+
+	// A PowerPoint not made in Lattice is kept as reference text, not a deck: the import guesses Decks from the
+	// extension, then lands on Files, where the file is, never on an empty Decks (checker finding on #3588).
+	await importFiles([{ name: 'talk.pptx', mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation', buffer: await foreignPptx() }]);
+	await expect(tabs.getByRole('tab', { name: 'Files', exact: true })).toHaveAttribute('aria-selected', 'true', { timeout: 30_000 });
+	// The card itself (its Delete control names it; the import toast names the file too).
+	await expect(page.getByRole('button', { name: 'Delete talk.pptx', exact: true })).toBeVisible();
+	await expect(page.getByText('No decks kept yet')).toHaveCount(0);
+	// Its toast explains what was kept and stays up to be read; on a phone toasts stand at the top (ui/sonner.tsx), over
+	// the header's Import button. Wait for it to leave before the next import. Sonner pauses a toast while the pointer
+	// is over it, and the emulated tap leaves the pointer where Import was, under the toast: move it off, as a finger lifts.
+	await page.mouse.move(1, (page.viewportSize()?.height ?? 600) - 1);
+	await expect(page.locator('[data-sonner-toast]')).toHaveCount(0, { timeout: 30_000 });
 
 	await importFiles([{ name: 'Halcyon.lattice', mimeType: 'application/octet-stream', buffer: bytes }]);
 	await expect(page.getByRole('button', { name: 'Open Halcyon.lattice as a deck' })).toBeVisible({ timeout: 30_000 });

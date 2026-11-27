@@ -1,7 +1,6 @@
 import { ChevronDown, Ellipsis } from 'lucide-react';
 import * as React from 'react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Tip } from '@/components/ui/tooltip';
 import { useIsomorphicLayoutEffect } from '@/components/ui/use-isomorphic-layout-effect';
 import { cn } from '@/lib/utils';
 
@@ -58,6 +57,7 @@ export function PillTabs({
 	className,
 	dense = false,
 	iconOnly = false,
+	renderHint,
 	overflow,
 }: {
 	tabs: PillTab[];
@@ -74,6 +74,13 @@ export function PillTabs({
 	 * icon keeps its label, so a caller cannot make a tab with no visible or spoken name.
 	 */
 	iconOnly?: boolean;
+	/**
+	 * Wrap an icon tab in its hover/focus hint, e.g. `(label, tab) => <Tip label={label}>{tab}</Tip>`. A prop, not an
+	 * import: importing the tooltip here pulled it into every route that draws a pill strip and re-split two shared
+	 * chunks (+458 bytes of eager JS on home, playground and getting-started; check:route-budget on #3588). The
+	 * label is the tab's accessible name either way.
+	 */
+	renderHint?: (label: string, tab: React.ReactElement) => React.ReactNode;
 	/**
 	 * Keep the strip to ONE row: tabs that do not fit fold into a "More ▾" pill, `hideFirst`
 	 * (least likely first) deciding who folds. Without it the strip wraps, as it always has.
@@ -167,13 +174,7 @@ export function PillTabs({
 						{bare(t) ? null : t.label}
 					</button>
 				);
-				return bare(t) ? (
-					<Tip key={t.value} label={t.label}>
-						{tab}
-					</Tip>
-				) : (
-					tab
-				);
+				return bare(t) && renderHint ? <React.Fragment key={t.value}>{renderHint(t.label, tab)}</React.Fragment> : tab;
 			})}
 		</div>
 	);

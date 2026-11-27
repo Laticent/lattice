@@ -30,3 +30,15 @@ export async function deckIdsOf(docs: DeckFields[], load: () => Promise<{ hasSli
 	}
 	return ids;
 }
+
+/**
+ * Where an import lands once its files are read. The first landing is a guess from the extension (`landingFilter`):
+ * a `.pptx` goes to Decks, a `.md` to Files. Reading decides: a PowerPoint not made in Lattice is kept as reference
+ * text, not a deck, and a Markdown file with slides is a deck. So the landing follows what was SAVED, either way:
+ * all decks opens Decks, no decks opens Files, a mix opens All. A landing the person already moved away from (any
+ * section but Decks or Files) is left alone, and so is one where nothing was saved (the toast says why).
+ */
+export function landingAfterSave<F extends string>(current: F | 'deck' | 'refdoc' | 'all', saved: number, decks: number): F | 'deck' | 'refdoc' | 'all' {
+	if (!saved || (current !== 'deck' && current !== 'refdoc')) return current;
+	return decks === saved ? 'deck' : decks === 0 ? 'refdoc' : 'all';
+}
