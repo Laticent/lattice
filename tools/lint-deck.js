@@ -1,34 +1,23 @@
 #!/usr/bin/env node
 /**
- * Deck linter CLI — run the authoring footgun checks on a draft deck and
- * print structured, fix-oriented diagnostics. The author-facing companion
- * to the commit-time gate (test/unit/components/deck-authoring.test.js):
- * fast feedback while drafting, no Chromium render required.
+ * `npm run lint:deck` — this repo's deck linter. The linter itself is lib/cli/lint-deck.js, the same one the
+ * published CLI runs as `lattice lint`; this wrapper adds what only a Lattice checkout has: `--all` (every
+ * deck the repo ships, below) and the sanctions that drop one rule on one deck (HARD RULE #29's glyph decks,
+ * read from the ownership gate, and tools/lint-subject-decks.js).
  *
  * Usage:
  *   npm run lint:deck -- examples/my-deck.md          # one file
  *   npm run lint:deck -- 'examples/*.md'              # a glob (quote it)
- *   node tools/lint-deck.js examples/a.md examples/b.md
  *   node tools/lint-deck.js --strict examples/a.md    # warnings fail too
  *   node tools/lint-deck.js --json examples/a.md      # machine-readable
  *   node tools/lint-deck.js --fix examples/a.md       # apply every machine fix, in place
+ *   node tools/lint-deck.js --all                     # every deck in the repo
  *
- * Exit codes:
- *   0  clean (no errors; no warnings under --strict)
- *   1  one or more error-severity findings (or any finding under --strict)
- *   2  usage error (no files matched)
+ * Exit codes: 0 clean, 1 errors (or any finding under --strict), 2 usage error.
  */
-
 const fs = require('node:fs');
 const path = require('node:path');
-const { lintText, buildVocab } = require('../lib/authoring/lint');
-const { fixAllDetailed } = require('../lib/authoring/lint-core');
-// review-core carries the advisory presentation suggestions (brevity / density /
-// verbose chrome). Wiring it here means a CLI / agent author SEES density budgets
-// too — not just the browser Drawing Board panel (2026-06-30 red-team fix). It is
-// pure + render-free, so it costs nothing on the no-Chromium fast path.
-const { reviewText } = require('../lib/authoring/review-core');
-const { loadAll } = require('../lib/components');
+const core = require('../lib/cli/lint-deck');
 
 const ROOT = path.join(__dirname, '..');
 
@@ -46,13 +35,6 @@ function glyphExemptDeckSet() {
     glyphExemptDecksCache = new Set();
   }
   return glyphExemptDecksCache;
-}
-const relFromRoot = (file) => path.relative(ROOT, file).split(path.sep).join('/');
-
-// Load the live manifests for the advisory review pass; never let a manifest
-// problem break the linter — degrade to lint-only.
-function safeLoadAll() {
-  try { return loadAll(); } catch { return []; }
 }
 
 /**
@@ -83,15 +65,11 @@ function discoverDecks() {
   return [...new Set(out)];
 }
 
-// Format / file / web initialisms that are CONVENTIONALLY spoken letter-by-letter ("P-D-F",
-// "H-T-M-L") — flagging them as "register these to speak as words" would be wrong and trains
-// authors to ignore the hint. So the discovery lint skips them; a genuinely deck-specific token
-// (a company/product initialism) still surfaces. Kept deliberately tight, not a spell-out dump.
-const COMMON_INITIALISMS = new Set([
-  'PDF', 'HTML', 'VTT', 'PPTX', 'PNG', 'JPG', 'JPEG', 'SVG', 'GIF', 'CSV', 'CSS', 'JS', 'JSON',
-  'XML', 'YAML', 'HTTP', 'HTTPS', 'URL', 'URI', 'API', 'SDK', 'CLI', 'UI', 'UX', 'FAQ', 'RSS',
-  'SQL', 'PPT', 'DOC', 'DOCX', 'XLS', 'XLSX', 'TSV', 'MD', 'ID', 'OK',
-]);
+// A deck whose typed glyphs ARE the subject is exempt from the glyph rule and from nothing else (HARD RULE #29):
+// examples/speech-symbols.md proves the read-aloud lexicon pronounces them, and the glyph-substitution fixture
+// measures the very failure the rule exists to prevent. The list is READ from the ownership gate, never repeated
+// (HARD RULE #1). A deck whose warning is its subject (tools/lint-subject-decks.js) is exempt from that one rule.
+const exempt = (rel, f) => (f.rule === 'typed-shape-glyph' && glyphExemptDeckSet().has(rel)) || isSubjectFinding(rel, f.rule);
 
 // Approximate a deck's NARRATED text for acronym discovery: drop the front-matter block,
 // fenced code, and inline code — their all-caps tokens (HTTP, JSON, enum constants) aren't
@@ -117,267 +95,7 @@ function narrationText(source) {
     .replace(/<!--\s*(?:@meta)?\{(?:(?!-->)[\s\S])*?-->/g, (rec) => rec.replace(/[\w-]+\s*=/g, ' '));
 }
 
-function expandArgs(patterns) {
-  // Minimal glob: support a single `*` within a directory listing. Anything
-  // without a `*` is taken literally. Keeps the tool dependency-free.
-  const files = [];
-  for (const pat of patterns) {
-    if (!pat.includes('*')) { files.push(pat); continue; }
-    const dir = path.dirname(pat);
-    const base = path.basename(pat);
-    const rx = new RegExp(`^${base.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*')}$`);
-    if (!fs.existsSync(dir)) continue;
-    for (const name of fs.readdirSync(dir)) {
-      if (rx.test(name)) files.push(path.join(dir, name));
-    }
-  }
-  return [...new Set(files)];
-}
-
-async function main(argv) {
-  const flags = new Set(argv.filter((a) => a.startsWith('--')));
-  const patterns = argv.filter((a) => !a.startsWith('--'));
-  const strict = flags.has('--strict');
-  const asJson = flags.has('--json');
-  // --fix: apply every machine-appliable finding in place, then lint what is left. The
-  // SAME engine as the Studio's "Fix all" (lint-core `applyAllFixes`, which runs Squadra's fix
-  // driver), so the two surfaces cannot disagree about what a fix does. It is how a deck written before a
-  // grammar change migrates in one command — e.g. rule 16 rewriting an old verdict-grid
-  // `[ ]` ("not met") to `[!]`.
-  const fix = flags.has('--fix');
-
-  const files = (flags.has('--all') ? discoverDecks() : expandArgs(patterns)).filter((f) => fs.existsSync(f));
-  if (!files.length) {
-    process.stderr.write('lint:deck — no files matched. Usage: npm run lint:deck -- <file.md> [more.md] | --all\n');
-    return 2;
-  }
-
-  // Build the catalog vocabulary once, reuse across all files.
-  const vocab = buildVocab();
-  // The zip plugins installed here (their names, fences and inline kinds): a deck that lists one is not wrong, and attributes
-  // after one's fence name are ignored today. Read from the package store, as a render reads it.
-  try {
-    const home = require('../lib/packages/home.js');
-    // The plugins a render would USE: the same gate and shipped-name rule as lattice.js withInstalledPlugins.
-    const { refusePackage } = require('../lib/cli/package-gate.js');
-    const shipped = require('../lib/plugins/registry.generated.js').PLUGINS.map((g) => g.name);
-    const plugins = home.listInstalled(home.packagesRoot()).filter((p) => p.type === 'plugin' && p.ok && !shipped.includes(p.name) && !refusePackage(p.pkg, { forRender: true }));
-    vocab.externalPlugins = plugins.map((p) => p.name);
-    // Installed theme packages render (`theme: <name>`), so they are themes, not typos.
-    const themes = home.listInstalled(home.packagesRoot()).filter((p) => p.type === 'theme' && p.ok).map((p) => p.name);
-    if (themes.length) vocab.themeNames = [...new Set([...(vocab.themeNames || []), ...themes])];
-    vocab.externalFenceOf = Object.fromEntries(plugins.map((p) => [p.name, Object.keys(p.pkg.manifest.contributes.fences ?? {})[0]]).filter(([, f]) => f));
-    // Their inline kinds (`@kind{…}`, 2026-10-14-plugin-inline-door.md): a listed plugin's kind is not unknown.
-    const { pluginInlineKinds } = require('../lib/core/code-shape.mjs');
-    vocab.externalInlineKinds = Object.fromEntries(plugins.map((p) => [p.name, pluginInlineKinds(p.pkg.manifest)]).filter(([, k]) => k.length));
-  } catch {
-    /* no store: no external plugins */
-  }
-  // Advisory review pass (brevity / density / verbose chrome) — on by default for
-  // explicit file args, OFF under --all (the gallery sweep deliberately stress-
-  // tests density, so its suggestions are noise there) and skippable with
-  // --no-review. Suggestions NEVER affect the exit code; they're guidance.
-  const doReview = !flags.has('--all') && !flags.has('--no-review');
-  const byName = new Map((doReview ? safeLoadAll() : []).map((m) => [m.name, m]));
-  const bucketOf = (n) => { const m = byName.get(n); return m ? (m.bucket || m.function) : null; };
-  const densityOf = (n) => byName.get(n)?.density || null;
-
-  // Narration acronym-discovery pass (§16): list multi-letter all-caps tokens that read
-  // letter-by-letter in narration because NOTHING expands them — not the built-in lexicon and
-  // not the deck's own `terms:` registry (or the `acronyms:` / `lexicon:` it absorbs) — so the author can register the ones they want
-  // spoken as words. Advisory (never affects the exit code). Off under --all (the gallery sweep
-  // would list every acronym as noise). Uses the shared front-matter parser (HARD RULE #1) and
-  // cadenza's normalizer (Node layer can require the built package; lint-core cannot).
-  const doDiscover = !flags.has('--all');
-  let termsSpokenMap = null;
-  let unmatchedAcronyms = null;
-  let unspokenTokens = null;
-  if (doDiscover) {
-    ({ termsSpokenMap } = await import('../lib/core/resolve-narration.mjs'));
-    ({ unmatchedAcronyms, unspokenTokens } = require('@laticent/cadenza'));
-    ({ AMBIGUOUS_TERMS } = require('../lib/authoring/ambiguous-terms'));
-  }
-
-  const report = [];
-  const suggestions = [];
-  let errors = 0;
-  let warnings = 0;
-
-  for (const file of files) {
-    // LINE ENDINGS: normalize at the READ, like `lattice.js` does, because a deck on
-    // disk is author input and may be CRLF. Without it the same deck lints DIFFERENTLY by
-    // encoding — measured on examples/a11y.md: LF reported verbose-eyebrow, verbose-key-insight
-    // and no-ask; CRLF silently dropped verbose-eyebrow; lone CR dropped it and invented
-    // title-incomplete. A Windows author got different advice for identical content.
-    // `\r\n?` covers CRLF and classic-Mac lone CR; it is a no-op on LF.
-    const raw = fs.readFileSync(file, 'utf8');
-    let source = raw.replace(/^﻿/, '').replace(/\r\n?/g, '\n');
-    if (fix) {
-      // Name what changed, by rule and slide — `--fix` applies every machine fix, not only rule
-      // 16's, and the author should see each one — and every fix the driver refused, with why
-      // (a fix inside a code fence, one that would change the slide count, one that did not
-      // resolve its finding), so a refusal never reads as "nothing to fix".
-      const { text: fixed, applied, skipped } = fixAllDetailed(source, vocab);
-      for (const s of skipped) process.stderr.write(`lint:deck --fix — ${relFromRoot(file)} · slide ${s.slide} · ${s.rule} — not applied: ${s.reason}${s.detail ? ` (${s.detail})` : ''}\n`);
-      if (fixed !== source) {
-        // Write back in the file's own encoding: its BOM and EACH LINE'S OWN ending, so a
-        // fix is a diff on the lines it changed and nowhere else — CRLF, lone CR and a
-        // mixed file alike. When a fix changes the line count (another rule's autofix may),
-        // lines no longer pair up, so the file's most common ending is used throughout.
-        const bom = raw.startsWith('\uFEFF') ? '\uFEFF' : '';
-        const ends = raw.replace(/^\uFEFF/, '').match(/\r\n|\r|\n/g) || [];
-        const out = fixed.split('\n');
-        let text;
-        if (out.length === ends.length + 1) {
-          text = out.map((l, i) => l + (i < ends.length ? ends[i] : '')).join('');
-        } else {
-          const tally = { '\n': 0, '\r\n': 0, '\r': 0 };
-          for (const e of ends) tally[e]++;
-          const eol = Object.keys(tally).sort((a, b) => tally[b] - tally[a])[0];
-          text = fixed.replace(/\n/g, eol);
-        }
-        fs.writeFileSync(file, bom + text);
-        process.stderr.write(`lint:deck --fix — rewrote ${relFromRoot(file)}\n`);
-        for (const a of applied) process.stderr.write(`  · slide ${a.slide} · ${a.rule}\n`);
-        source = fixed;
-      }
-    }
-    const findings = lintText(source, { vocab })
-      // A deck whose typed glyphs ARE the subject is exempt from the glyph rule
-      // and from nothing else (HARD RULE #29). examples/speech-symbols.md proves
-      // the read-aloud lexicon pronounces them; the glyph-substitution fixture
-      // measures the very failure the rule exists to prevent; and one deck quotes
-      // the retired gantt delimiter as the wrong input. Coaching them to convert
-      // would be coaching them to delete what they test.
-      //
-      // The list is READ from the ownership gate, never repeated (HARD RULE #1) —
-      // three consumers now honor one list: the gate counts against it, the
-      // deck-lint-clean unit test skips against it, and `--strict` here would
-      // otherwise fail the pre-push hook on decks the gate itself sanctions.
-      .filter((f) => !(f.rule === 'typed-shape-glyph' && glyphExemptDeckSet().has(relFromRoot(file))))
-      // A deck whose warning is its subject (tools/lint-subject-decks.js) is exempt from that one rule.
-      .filter((f) => !isSubjectFinding(relFromRoot(file), f.rule));
-    // `asset:<name>` is the Library's name in the Studio and a file in `assets/` beside the deck in the CLI
-    // (lib/export/deck-assets.js). The linter is fs-free, so the folder check lives here, with the file system.
-    {
-      const { buildAssetUrls, assetRefs, ASSET_FOLDER } = require('../lib/export/deck-assets');
-      const deckDir = path.dirname(path.resolve(file));
-      const have = buildAssetUrls(deckDir, require('../lib/core/file-confine').createFileConfiner([deckDir])).urls;
-      const seen = new Set();
-      for (const ref of assetRefs(source)) {
-        if (Object.hasOwn(have, ref.name) || seen.has(ref.name)) continue;
-        seen.add(ref.name);
-        findings.push({
-          slide: ref.slide, rule: 'asset-missing', severity: 'warning', line: `asset:${ref.name}`,
-          message: `\`asset:${ref.name}\` names no file in ${ASSET_FOLDER}/ beside this deck (a symlink out of the deck folder does not count), so the CLI draws the missing-picture stand-in.`,
-          fix: `Put a picture named ${ref.name}.jpg (or .png, .webp, .svg …) in ${ASSET_FOLDER}/ beside the deck, or fix the name (lowercase letters, digits, - and _).`,
-        });
-      }
-    }
-    for (const f of findings) {
-      // `info` / `suggestion` are the ADVISORY tier — they report something true about a
-      // deliberate choice (a deck that opts into autosplit WILL have over-budget slides),
-      // not a defect. Route them to the never-blocking suggestions channel, so `--strict`
-      // stays a real gate for warnings instead of reddening on every intentional split.
-      // Mirrors what the Playground already does (editor-diagnostics.js maps anything
-      // below `warning` to the lowest tier).
-      if (f.severity === 'info' || f.severity === 'suggestion') {
-        suggestions.push({ file, ...f });
-        continue;
-      }
-      if (f.severity === 'error') errors += 1;
-      else warnings += 1;
-      report.push({ file, ...f });
-    }
-    if (doReview) {
-      for (const s of reviewText(source, { bucketOf, densityOf })) suggestions.push({ file, ...s });
-    }
-    if (doDiscover) {
-      let unknown = unmatchedAcronyms(narrationText(source), { terms: termsSpokenMap(source) })
-        .filter((t) => !COMMON_INITIALISMS.has(t)); // format/web initialisms read fine letter-by-letter
-      // A token with more than one known reading is NEVER expanded by the built-in dictionary; the
-      // deck must say which one it means. Name the readings, so the author picks instead of guessing.
-      for (const t of unknown.filter((u) => Object.hasOwn(AMBIGUOUS_TERMS, u))) {
-        const readings = AMBIGUOUS_TERMS[t];
-        suggestions.push({
-          file,
-          slide: 0,
-          rule: 'narration-acronym-ambiguous',
-          severity: 'suggestion',
-          message: `\`${t}\` has more than one meaning (${readings.join('; ')}), so it is read letter by letter until the deck says which.`,
-          fix: `Add the one you mean to the deck's terms: front matter, e.g.\nterms:\n  ${t}: { expansion: ${readings[0]} }`,
-        });
-      }
-      unknown = unknown.filter((u) => !Object.hasOwn(AMBIGUOUS_TERMS, u));
-      if (unknown.length) {
-        suggestions.push({
-          file,
-          slide: 0, // deck-level (front-matter registry), not a single slide
-          rule: 'narration-acronyms',
-          severity: 'suggestion',
-          message: `${unknown.length} all-caps token(s) will read letter-by-letter in narration: ${unknown.join(', ')}.`,
-          fix: `Say how you want any of them spoken in the deck's terms: front matter, e.g.\nterms:\n  ${unknown[0]}: { expansion: <what it stands for>, pronounce: <how to say it> }\nA plain value (${unknown[0]}: <spoken form>) is what the voice says.`,
-        });
-      }
-      // The SIBLING discovery pass (§P3): slash, ratio and identifier shapes that reach the
-      // voice as glyphs because the normalizer deliberately has no rule for them — a slash
-      // means a ratio, a rate, a date OR an alternative, and guessing reads worse than the
-      // glyph. The author knows which one they meant, so this coaches rather than decides.
-      // Advisory, like the acronym pass beside it, and off under --all for the same reason.
-      // See engineering/decisions/2026-09-21-token-passthrough-coaching.md.
-      const unspoken = unspokenTokens(narrationText(source), { terms: termsSpokenMap(source) });
-      if (unspoken.length) {
-        suggestions.push({
-          file,
-          slide: 0, // deck-level (front-matter registry), not a single slide
-          rule: 'narration-passthrough',
-          severity: 'suggestion',
-          message: `${unspoken.length} token(s) will read as glyphs in narration, because a slash or a colon means several different things and the normalizer will not guess: ${unspoken.join(', ')}.`,
-          fix: `Say how you want each one read, in the deck's terms: front matter, e.g.\nterms:\n  "${unspoken[0]}": <spoken form>\nA ratio reads "x to y", a rate reads "x per y", an alternative reads "x or y" — only you know which.`,
-        });
-      }
-    }
-  }
-
-  if (asJson) {
-    process.stdout.write(`${JSON.stringify({ files: files.length, errors, warnings, suggestions: suggestions.length, findings: report, reviewFindings: suggestions }, null, 2)}\n`);
-    return errors > 0 || (strict && warnings > 0) ? 1 : 0;
-  }
-
-  for (const f of report) {
-    const mark = f.severity === 'error' ? '✗' : '⚠';
-    // The bracket names the COMPONENT TOKEN a finding is about, and a rule is allowed to
-    // have none: `focus-spec` / `focus-style` / `focus-steps` judge a `_focus` DIRECTIVE,
-    // which belongs to the slide rather than to any one component, so they set no
-    // `classToken` and this line printed a literal `[undefined]` at the author. Omit the
-    // bracket instead of inventing a token — an empty `[]` would read as "no component",
-    // which is a different claim from "this rule is not about a component".
-    const token = f.classToken ? ` [${f.classToken}]` : '';
-    process.stderr.write(`${mark} ${f.file} · slide ${f.slide} · ${f.rule}${token}\n`);
-    process.stderr.write(`    ${f.message}\n`);
-    if (f.line) process.stderr.write(`    at: ${f.line}\n`);
-    process.stderr.write(`    fix: ${f.fix.replace(/\n/g, '\n    ')}\n\n`);
-  }
-  if (suggestions.length) {
-    process.stderr.write('Presentation suggestions (advisory — never block):\n');
-    for (const s of suggestions) {
-      process.stderr.write(`ℹ ${s.file} · slide ${s.slide} · ${s.rule}\n    ${s.message}\n`);
-      if (s.fix) process.stderr.write(`    fix: ${s.fix.replace(/\n/g, '\n    ')}\n`);
-    }
-    process.stderr.write('\n');
-  }
-  if (!report.length && !suggestions.length) {
-    process.stdout.write(`lint:deck — ${files.length} file(s) clean.\n`);
-    return 0;
-  }
-  const tail = suggestions.length ? `, ${suggestions.length} suggestion(s)` : '';
-  if (report.length) {
-    process.stderr.write(`lint:deck — ${errors} error(s), ${warnings} warning(s)${tail} across ${files.length} file(s).\n`);
-  } else {
-    process.stdout.write(`lint:deck — no errors or warnings${tail} across ${files.length} file(s).\n`);
-  }
-  return errors > 0 || (strict && warnings > 0) ? 1 : 0;
-}
+const main = (argv) => core.main(argv, { name: 'lint:deck', root: ROOT, discover: discoverDecks, exempt, narrationText });
 
 if (require.main === module) {
   main(process.argv.slice(2)).then(
@@ -386,4 +104,4 @@ if (require.main === module) {
   );
 }
 
-module.exports = { main, expandArgs, discoverDecks, narrationText };
+module.exports = { main, expandArgs: core.expandArgs, discoverDecks, narrationText };
