@@ -19,7 +19,7 @@ Typed in this desk's session; the owner's verbatim words are recorded on [PR #35
 | D1 | What happens to 1.0? | **C: hold npm 1.0.0 until the Apache work is done.** The initiative's "before 1.0" gates stand as written. The Dec 1–2 date is off |
 | — | Does Sunday's rc.1 publish still happen? | **No: publish nothing yet.** No rc.1, no library publish and no tag moves on Sun Nov 29. Each library's first public version can be Apache (question tool, about 23:25 UTC) |
 | D2 | Fix the over-claiming license wording? | **A: one session drafts accurate README §License and `/comparison` wording; the owner approves it.** No freeze deadline, since nothing publishes |
-| D3 | What starts next? | **A: start A-1, A-4 and A-5 in parallel** (rights inventory, the license-file CI gate, the runtime, library and byte inventories) |
+| D3 | What starts next? | **A: after Sunday, start A-1, A-4 and A-5 in parallel** (rights inventory, the license-file CI gate, the runtime, library and byte inventories) |
 | C2–C6 | Issue corrections | "fix everything that is inaccurate": applied to #3542 (plugin count, 12 of 18 on npm), #3544 (six venue rungs) and #3546 (link to #2354). No labels or holds added |
 
 The release desk (#3449) has both release answers. With 1.0 held, "before release" in §5 now means before the
