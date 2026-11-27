@@ -134,8 +134,11 @@ describe('compileMetaSource: the door', () => {
     // own to the engine: the door blanks it from its `<!--`, though its line scan pairs the two (found by the same fuzz).
     const html2 = createEngine().render('---\nmarp: true\n---\n\n<!-- @meta{layout=topic} -->\n\n## T\n\n- <!-- note\n<!-- _track: A | [B] -->\n').html;
     assert.doesNotMatch(html2, /data-track=/);
-    // Mid-line, the blank is a plain empty comment: the expansion reads only a block of its own.
-    assert.equal(door.compileMetaSource('Text <!-- _class: x --> more.\n').source, 'Text <!-- --> more.\n');
+    // After text on its line, the comment is left as written: the engine never applies it there, and an escaped
+    // `\<!--` or a code span opened on an earlier line makes it visible text, which blanking would delete (the red team).
+    assert.equal(door.compileMetaSource('Text <!-- _class: x --> more.\n').source, 'Text <!-- _class: x --> more.\n');
+    // After container markers or another comment, it may open a block: blanked, a plain empty comment mid-line.
+    assert.equal(door.compileMetaSource('<!-- a --><!-- _class: x -->\n').source, '<!-- a --><!-- -->\n');
     // Nothing of the old comment reaches the slide's HTML, and one nested in a list is not named as an inert RECORD.
     const r2 = createEngine().render('# A\n\n<!-- _class: cards -->\n\n- x\n  <!-- _footer: y -->\n');
     assert.doesNotMatch(r2.html, /<!--|data-footer/);
@@ -553,5 +556,56 @@ describe('commentSites: an opener inside code', () => {
     const fence = [0, src.indexOf('\n\n')];
     const sites = [...door.commentSites(src, [fence])];
     assert.deepEqual(sites.map((s) => [s.inCode, s.body.trim()]).at(-1), [false, '@meta{a=1}']);
+  });
+});
+
+describe('the cut: what the door blanks, and what it leaves as text (the red team and checker on slice E)', () => {
+  const render = (src) => createEngine().render(src);
+  const { withoutLegacySettings } = require('../../../lib/core/without-legacy-settings.mjs');
+  const out = (src) => render(src);
+  const ids = (r) => (r.diagnostics || []).map((d) => d.id);
+
+  test('`<!--->` closes at its own `-->`: the comment after it is a site of its own (the `at + 2` close search)', () => {
+    // The close search starts two characters in, so `<!--->` is ONE site ending at its own `-->`; starting at
+    // `at + 4` would skip that `-->` and swallow the next comment, the old setting with it.
+    const sites = [...door.commentSites('<!--->\n<!-- _class: kpi -->', [])];
+    assert.equal(sites.length, 2);
+    assert.equal(sites[1].body.trim(), '_class: kpi');
+  });
+
+  test('an old setting on its own line is blanked: default layout, one meta/legacy, no trace in the HTML', () => {
+    const r = out('<!-- _class: statement -->\n\n## T\n');
+    assert.doesNotMatch(r.html, /statement|lat-meta|_class/);
+    assert.deepEqual(ids(r), ['meta/legacy']);
+  });
+
+  test('indented code, a fence inside a list item and an escaped `\\<!--` keep their text', () => {
+    const indented = out('## T\n\n    <!-- _class: statement -->\n');
+    assert.match(indented.html, /&lt;!-- _class: statement --&gt;/);
+    const listFence = out('## T\n\n- item\n\n  ```\n  <!-- _class: statement -->\n  ```\n');
+    assert.match(listFence.html, /&lt;!-- _class: statement --&gt;/);
+    const escaped = out('## T\n\nSee \\<!-- _class: statement --> here.\n');
+    assert.match(escaped.html, /&lt;(?:<\/span>)?!-- _class: statement --&gt;/);
+    for (const r of [indented, listFence, escaped]) assert.deepEqual(ids(r), []);
+  });
+
+  test('an old setting folded into an HTML block leaves no internal comment and no meta/record finding', () => {
+    const r = out('<div>\n<!-- _class: statement -->\n</div>\n\n## T\n');
+    assert.doesNotMatch(r.html, /lat-meta|statement/);
+    assert.deepEqual(ids(r), ['meta/legacy']);
+  });
+
+  test('withoutLegacySettings (Export to Marp) strips exactly the sites the door blanks', () => {
+    const cases = [
+      ['<!-- _class: a -->\n# x', '\n# x'],
+      ['    <!-- _class: a -->\n', '    <!-- _class: a -->\n'],
+      ['```\n<!-- _class: a -->\n```', '```\n<!-- _class: a -->\n```'],
+      ['- x\n\n  ```\n  <!-- _class: a -->\n  ```\n', '- x\n\n  ```\n  <!-- _class: a -->\n  ```\n'],
+      ['See <!-- _class: a --> here', 'See <!-- _class: a --> here'],
+      ['- item <!-- note\n<!-- _class: a -->', '- item <!-- note\n'],
+      ['<!-- @meta{layout=a} -->', '<!-- @meta{layout=a} -->'],
+      ['<!-- {layout=a} -->\n', '\n'],
+    ];
+    for (const [src, want] of cases) assert.equal(withoutLegacySettings(src), want, JSON.stringify(src));
   });
 });

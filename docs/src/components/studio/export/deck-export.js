@@ -299,7 +299,7 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	const { recordsToComments } = await import('../../../../../lib/core/meta-door.mjs');
 	const recordReport = [];
 	// An old setting comment sets nothing in Lattice since the cut, so it reaches Marp as nothing either.
-	const { withoutLegacySettings } = await import('../../../../../lib/core/comment-directive.mjs');
+	const { withoutLegacySettings } = await import('../../../../../lib/core/without-legacy-settings.mjs');
 	source = recordsToComments(withoutLegacySettings(source), recordReport);
 	// The four notes as Marp reads them (engineering/decisions/2026-11-20-four-notes.md): `@note` becomes Marp's plain
 	// speaker note, `@handout` a note labeled `Handout:`, and `@say`, `@alt` and every plain comment are dropped, because

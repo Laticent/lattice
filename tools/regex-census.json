@@ -603,6 +603,7 @@
     "/<!--\\s*_?class\\s*:\\s*(.*)$/i": "polynomial",
     "/<!--\\s*_class\\s*:[^>]*\\b(?:columns|rows)\\b/": "polynomial",
     "/<!--\\s*_class\\s*:\\s*/": "safe",
+    "/<!--\\s*lat-meta:\\s*\\{\"carry\":false,\"d\":\\{\\}\\}\\s*-->/": "safe",
     "/<!--\\s*stress-slide\\s*-->|<aside\\b[^>]*\\blattice-notes\\b[^>]*>[\\s\\S]*?\\bstress-slide\\b[\\s\\S]*?<\\/aside>/": "polynomial",
     "/<!--\\s*tier:\\s*(short|standard|full)\\s*-->/i": "safe",
     "/<!--|--!?>/g": "safe",
@@ -2120,6 +2121,8 @@
     "/^Seccomp:\\s*(\\d)/m": "safe",
     "/^Seccomp:\\s*2/m": "safe",
     "/^[ \\t#-]/": "safe",
+    "/^[ \\t>*+\\-0-9.)]*$/": "safe",
+    "/^[ \\t>*+\\-0-9.)]+$/": "safe",
     "/^[ \\t>]*(?:(?:[-*+]|\\d{1,9}[.)])[ \\t>]+)*/": "safe",
     "/^[ \\t>]*(?:`{3,}|~{3,})[ \\t]*math(?:[ \\t]|$)/m": "safe",
     "/^[ \\t>]*(?:`{3,}|~{3,})[^\\S\\n]*(?:mermaid)(?![\\w-])/m": {
