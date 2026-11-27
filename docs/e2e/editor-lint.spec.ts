@@ -80,18 +80,21 @@ test('an unknown component makes Fix-all actionable; validation-off clears it', 
 // typo'd class, two card lines to nest, and a fenced copy of one of them ABOVE it, which a fix used to
 // land on. Read back from the persisted source, the text the Studio saves. Not on a phone: the one-pane
 // phone layout has no "Fix all" control, as the arm above assumes too.
+// Its `_class: kpii` is OLD on purpose: the typo is fixed, then the comment is migrated, in one Fix all.
 const FIX_ALL_DECK = [
 	'---', 'theme: indaco', '---', '', '# Title', '', '---', '', '<!-- @meta{layout=cards-grid} -->', '', '## Bets', '',
 	'```md', '- **Speed.** ship weekly', '```', '', '- **Speed.** ship weekly', '- **Reach.** two markets', '',
-	'---', '', '<!-- @meta{class=kpii} -->', '', '## Numbers', '',
+	'---', '', '<!-- _class: kpii -->', '', '## Numbers', '',
 ].join('\n');
 
 test('@webkit-tablet @gecko Fix all fixes every live line in one click and leaves a fenced example as written', async ({ page }) => {
 	await setEditorContent(page, FIX_ALL_DECK);
 	await expect(fixAll(page)).toBeEnabled();
 	await fixAll(page).click();
-	// The typo is fixed, then (last) the old comment is written as a `@meta` record (record note §15).
-	await expect.poll(() => persistedSource(page)).toContain('<!-- @meta{layout=kpi} -->');
+	// Since the cut the old comment sets nothing, so it is migrated first (to `class=kpii`, not a component) and the
+	// typo is fixed in the record after: `class=kpi`, which the engine renders as `layout=kpi` would
+	// (lint-core.test.js pins the same order for `applyAllFixes`).
+	await expect.poll(() => persistedSource(page)).toContain('<!-- @meta{class=kpi} -->');
 	// The Studio persists the source as a JSON string.
 	const raw = await persistedSource(page);
 	const src: string = raw.startsWith('"') ? JSON.parse(raw) : raw;
@@ -122,14 +125,15 @@ test('@webkit-tablet @gecko Fix all migrates a deck whose speaker notes are plai
 	await expect(fixAll(page)).toBeDisabled();
 });
 
+// Written in the OLD form on purpose (the sweep must leave it): its point is that Fix all migrates it.
 // The clean break to `@meta` records (engineering/decisions/2026-10-17-meta-record.md §15): every old directive comment
 // is a `legacy-directive-comment` warning whose fix is the whole-deck migration, which also respells a bare
 // `<!-- {…} -->` record as `@meta`. One press of "Fix all" converts the deck, the same text
 // `lattice migrate meta` writes, and the slides render as before.
 const LEGACY_DECK = [
-	'---', 'theme: indaco', '---', '', '<!-- @meta{layout=title} -->', '', '# Q3 review', '', '---', '',
-	'<!-- @meta{layout=cards-grid} -->', '<!-- @meta{footer="Board, Q3"} -->', '', '## Three bets', '', '- Reach', '  - two markets', '- Margin', '  - four points', '- Speed', '  - half the cycle', '',
-	'---', '', '<!-- @meta{layout=kpi} -->', '', '## Revenue', '', '- $4.2M', '  - up 12%', '',
+	'---', 'theme: indaco', '---', '', '<!-- _class: title -->', '', '# Q3 review', '', '---', '',
+	'<!-- _class: cards-grid -->', '<!-- _footer: Board, Q3 -->', '', '## Three bets', '', '- Reach', '  - two markets', '- Margin', '  - four points', '- Speed', '  - half the cycle', '',
+	'---', '', '<!-- {layout=kpi} -->', '', '## Revenue', '', '- $4.2M', '  - up 12%', '',
 ].join('\n');
 
 test('@webkit-tablet @gecko Fix all converts an old directive-comment deck to @meta records', async ({ page }, info) => {
