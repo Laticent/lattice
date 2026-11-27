@@ -109,4 +109,4 @@ Under `prefers-reduced-motion`, the vestibular spin doesn't autoplay — a scene
 
 ## One markdown. A poster in print, a living scene on screen.
 
-`<!-- _class: scene -->` + a poster SVG + an `anima` spec. The PDF freezes the still; the Playground and present surfaces bring it to life, recolored to whatever theme frames it, and always reducible to the still.
+`<!-- @meta{layout=scene} -->` + a poster SVG + an `anima` spec. The PDF freezes the still; the Playground and present surfaces bring it to life, recolored to whatever theme frames it, and always reducible to the still.

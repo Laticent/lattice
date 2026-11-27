@@ -12,7 +12,7 @@ rule: short
 eyebrow: bar
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 \`Q3 review\`
 
@@ -32,7 +32,7 @@ paginate: true
 footer: Board review · Confidential
 ---
 
-<!-- _class: no-spectrum no-pagination -->
+<!-- @meta{class=no-spectrum no-pagination} -->
 
 ## One slide can differ from the deck.
 
@@ -62,7 +62,8 @@ defaults.
 every slide. You set it once instead of forty times.
 
 **2. One slide can differ.** Most settings have a per-slide form, usually a
-class on the slide's `_class:` line or a `<!-- _key: … -->` comment. The slide's
+class in the slide's record (`<!-- @meta{class=…} -->`) or another field of that
+record (`<!-- @meta{footer=…} -->`). The slide's
 own setting wins over the deck's:
 
 <CraftLab
@@ -130,7 +131,7 @@ date or a review stage. `logo:` draws your logo, and one line styles it:
 the placement, the color, the size and the scope, and the editor completes them.
 A placement word hides the header, footer or page number in that band, because
 the brand wins; a color word recolors the mark from the theme and follows light
-and dark. Any slide can hide the logo with `_class: no-logo`. The Studio's
+and dark. Any slide can hide the logo with `<!-- @meta{class=no-logo} -->`. The Studio's
 Chrome tab has a control for each word.
 
 ### Accent — the small decorations

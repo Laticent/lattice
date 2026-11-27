@@ -139,7 +139,6 @@ const ALLOWED = [
   ['lib/export/marp-bleed-ink.js', 1, 'internal', "a Marp bundle pass after `recordsToComments` (the first of `MARP_PASSES`): every record is already a Marp comment"],
   ['lib/export/marp-bundle-html.js', 1, 'internal', "code serialized into the Marp bundle, run by marp-core on the bundle's comments, which `recordsToComments` wrote"],
   ['lib/export/marp-bundle-math.js', 1, 'internal', "a Marp bundle pass after `recordsToComments`: escapes math in the header and footer comments Marp reads"],
-  ['lib/layout/gate.js', 1, 'writer', "`skeletonInvokes`, the gate on a model-written skeleton; slice C moves skeletons and this gate to the record (\u00a715.3, writers)"],
   ['lib/packages/rename.js', 1, 'writer', "rewrites a class token in place inside a package gallery's comment; records are rewritten beside it, in their class-shaped fields only"],
   ['lib/plugins/image/shared/image-migrate.js', 1, 'writer', "the `![bg]` migration's class-comment rewrite (`classLineWith`); slices B and C move lint fixes to the record"],
   ['tools/build-component-docs.js', 1, 'writer', "finds the sample's lead line, a record or an old class comment, to add a footer or a modifier to it; slice C writes the added settings as records, and the corpus sweep (slice D) retires the old comment"],

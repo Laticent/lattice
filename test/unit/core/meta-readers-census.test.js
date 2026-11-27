@@ -69,7 +69,7 @@ const CENSUS = [
   ['lib/exemplars/tier-filter.js', S, 'tier: is a producer-owned pragma, not a directive'],
   ['lib/integrations/markdown-it/plugins.js', S, 'reads no directive comment since the _focusSteps parse-time copy was retired (2026-11-09-steps-as-a-behavior.md)'],
   ['lib/layout/bridge.js', M, 'class reads go through commentBodies and readDirectiveComment'],
-  ['lib/layout/gate.js', S, 'a gate on model-written skeletons that matches a _class prefix on purpose'],
+  ['lib/layout/gate.js', S, 'a gate on model-written skeletons that matches the @meta{layout=…} record (the old _class arm went with the cut, §15 slice E)'],
   ['lib/packages/rename.js', S, 'rewrites class tokens in place inside the comment bytes, and in a record\'s class-shaped fields; the shared reader unquotes'],
   ['lib/playground/index.js', M, 'chartsNeeded reads comment text through commentBodies'],
   // ── Strip, skip, tokenize or escape only (17) ───────────────────────────

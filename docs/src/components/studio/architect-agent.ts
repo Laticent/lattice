@@ -148,7 +148,7 @@ export function slideWords(slide: string): number {
 	return (text.match(/[\p{L}\p{N}][\p{L}\p{N}'’.,%$€£-]*/gu) || []).length;
 }
 
-/** The class the engine applies to this slide, from a `_class` comment or a record (`@meta{layout=cards}`). */
+/** The class the engine applies to this slide, from its record (`@meta{layout=cards}`). */
 function slideClass(slide: string): string {
 	return slideClassValue(slide).trim();
 }
@@ -278,7 +278,7 @@ export function buildAgentSystem(opts: { canon: string; catalog: AgentComponent[
 		PURPOSE,
 		`AUTHORING CONTRACT\n${rules.trim()}\n- A slide has four notes, each a comment after the slide's content whose whole body is \`@name{…}\`: \`<!-- @note{…} -->\` (speaker notes, for the presenter; detail cut from a slide goes here), \`<!-- @say{…} -->\` (the exact words the voice and the captions read), \`<!-- @alt{…} -->\` (alt text, for someone who cannot see the slide) and \`<!-- @handout{…} -->\` (for someone reading the deck alone, later). Braces in a note must balance. A plain comment reaches nothing; never write one as a note. Read the speaker-notes guide only for \`@say\`, review comments or the notes rubric.`,
 		opts.canon.trim(),
-		`COMPONENTS — the value of \`<!-- _class: NAME -->\`. read_component gives the skeleton, variants and budget.\n${index}`,
+		`COMPONENTS — the value of \`layout=\` in \`<!-- @meta{layout=NAME} -->\`. read_component gives the skeleton, variants and budget.\n${index}`,
 		`FRONT MATTER — deck-level keys in the leading \`---\` block. read_front_matter gives a key's values and behavior.\n${fm}`,
 		`THEMES (\`theme:\`): ${opts.themes.join(', ')}`,
 		`FINISHES (\`finish:\`): ${finishes}`,
@@ -303,7 +303,7 @@ export function deckBrief(source: string, opts: { slideWordBudget?: number; prof
 	// Everything quoted from the deck — the class, the title, every front-matter line — is
 	// JSON-quoted: this lands in the SYSTEM turn, which a model weights as instruction, and the
 	// deck may be untrusted (a shared or generated deck). Same rule as buildChatSystem's findings.
-	const outline = slides.map((s, i) => `[${i + 1}] ${JSON.stringify(slideClass(s) || '(no _class)')} — ${JSON.stringify(slideTitle(s))} · ${slideWords(s)}w`).join('\n');
+	const outline = slides.map((s, i) => `[${i + 1}] ${JSON.stringify(slideClass(s) || '(no layout)')} — ${JSON.stringify(slideTitle(s))} · ${slideWords(s)}w`).join('\n');
 	const parts = [
 		`THE DECK — ${slides.length} slide${slides.length === 1 ? '' : 's'}, ${total} words. Budget: ${budget} words per slide (${opts.profileLabel || 'General'} profile).${over.length ? ` Over budget: ${over.map((x) => `slide ${x.n} (${x.w}w)`).join(', ')}.` : ''}`,
 		fm
@@ -427,7 +427,7 @@ export function createToolbox(opts: {
 	};
 
 	async function readComponent(nameRaw: unknown, section?: unknown): Promise<string> {
-		// The model may paste a whole directive (`<!-- _class: cards -->`, `<!-- @meta{layout=cards} -->`): take its first word.
+		// The model may paste a whole record (`<!-- @meta{layout=cards} -->`) or the old directive (`<!-- _class: cards -->`): take its first word.
 		const name = String(nameRaw ?? '').trim().replace(/^<!--\s*(?:_?class:|@meta\{\s*layout\s*=\s*"?)\s*/, '').split(/[\s,"}]+/)[0].toLowerCase();
 		const entry = byName.get(name);
 		if (!entry) {

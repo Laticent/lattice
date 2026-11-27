@@ -42,8 +42,8 @@ npx lattice test/integration/baseline-decks/gallery.md gallery.png    # → gall
 ## Render your own deck
 
 A deck is a Markdown file with a small front-matter block selecting a
-palette. Each slide is separated by `---`, and a `<!-- _class: ... -->`
-comment picks the layout.
+palette. Each slide is separated by `---`, and a `<!-- @meta{layout=…} -->`
+record picks the layout.
 
 ```markdown
 ---
@@ -51,7 +51,7 @@ theme: indaco
 pagination: true
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # From Signal to Strategy
 
@@ -61,7 +61,7 @@ A decision framework for product leaders.
 
 ---
 
-<!-- _class: big-number -->
+<!-- @meta{layout=big-number} -->
 
 - 38%
   - of pipeline stalls trace to a single approval step.

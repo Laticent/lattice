@@ -16,7 +16,7 @@ pagination: true
 header: "Quarterly Review"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # Deck title
 
@@ -26,7 +26,7 @@ One-line subtitle that frames the deck.
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 ## Three pillars
 
@@ -45,7 +45,7 @@ Three things to notice:
 2. **Headings** separate slides by default — each `##` starts a new one (and a
    `---` still works too). Set `split: rule` for separators-only (see The
    `split:` key below).
-3. **`<!-- _class: NAME -->`** picks the component for that slide. The
+3. **`<!-- @meta{layout=NAME} -->`**, the slide's record, picks the component for that slide. The
    component decides the structure; your Markdown fills the slots.
 
 ## Picking a component
@@ -79,7 +79,7 @@ content:
 - `inventory timeline` — a horizontal numbered run with the insight above
 - `inventory editorial` — a magazine split: the insight beside a ruled item column
 
-Write the list once, then swap `<!-- _class: inventory -->` for
+Write the list once, then swap `<!-- @meta{layout=inventory} -->` for
 `inventory cards` (and so on) to try each. The variants are looks of the one
 `inventory` component, so they don't add to the component count.
 See [`examples/inventory.md`](https://github.com/Laticent/lattice/blob/main/examples/inventory.md)
@@ -105,7 +105,7 @@ every deck.
 
 Nearly every component accepts universal modifiers appended to the class —
 `dark`, `light`, `scale-xl`, and treatments such as `tint-corner`.
-For example `<!-- _class: cards-grid dark -->` renders the grid on the
+For example `<!-- @meta{layout=cards-grid, class=dark} -->` renders the grid on the
 dark canvas. The poster layouts (`contact`, `wifi`, `gift-card`, `video`)
 do not render several of them. The [catalog of modifiers](/agents/authoring/modifiers.md)
 lists the core ones, grouped by what they are for, and each component's page lists its own
@@ -133,7 +133,7 @@ theme: indaco
 ## Second topic        ← another slide
 ```
 
-A slide's `<!-- _class: NAME -->` directive and its eyebrow are written *above*
+A slide's `<!-- @meta{layout=NAME} -->` record and its eyebrow are written *above*
 the heading (so the eyebrow renders above the title) and **stay with that
 slide** — the break is pulled back over them, never orphaning onto the slide
 before. The default is also **hybrid**: an explicit `---` still forces a break,
@@ -177,9 +177,9 @@ injection.) `mode:` takes one of three values:
 
 The mode is **palette-blind** — it wobbles type and geometry, never color, so
 it pairs with any theme. It **composes** with per-slide components (`mode:
-sketch` plus `<!-- _class: cards-grid -->` renders a hand-drawn grid) and with a
+sketch` plus `<!-- @meta{layout=cards-grid} -->` renders a hand-drawn grid) and with a
 `finish:` **backdrop** (`mode: sketch` + `finish: atrium` is a hand-drawn deck on
-an atrium backdrop — the two are orthogonal axes). Add `<!-- _class: boardroom -->`
+an atrium backdrop — the two are orthogonal axes). Add `<!-- @meta{class=boardroom} -->`
 to opt one slide back to clean. A misspelled value (`mode: sketchh`) is caught by
 the deck linter rather than silently rendering the baseline.
 
@@ -204,14 +204,15 @@ and the linter use. Every suggestion is deterministic and offline;
 - **`split:` in front matter** — the two split modes (`rule`, `headings`), again
   linter-validated. The **Deck setup** drawer exposes it as the Slide-splitting
   picker.
-- **Inside `<!-- _class: … -->`** — component names (tagged by bucket), then the
+- **Inside a slide record, `<!-- @meta{…} -->`** — the field names, then after
+  `layout=` the component names (tagged by bucket), and after `class=` the
   modifiers that component accepts, its own variants first and the universal ones
   after.
 - **On an empty slide** — a `skeleton` completion drops the component's slot
   scaffold already in the correct nesting, so a card-style slide starts from
   the `- Title` / `  - body` shape rather than the inline-bold trap above.
-- **Other slide directives** — `_header`, `_footer`, `_focus`, and friends
-  inside an HTML comment.
+- **Other slide fields** — `header=`, `footer=`, `focus=`, and friends
+  inside the same record.
 - **Fence languages** — the language id after ` ``` `, including the
   `mermaid` and `chart` blocks Lattice renders.
 - **Inside a `mermaid` block** — the Mermaid diagram and flow keywords.
@@ -221,8 +222,8 @@ and the linter use. Every suggestion is deterministic and offline;
 
 ### Type-ahead — suggestions open on their own
 
-By default the popup opens **the moment your cursor enters a `<!-- _class: … -->`
-directive**, before you type anything — so the component list is right there, and
+By default the popup opens **the moment your cursor enters a slide record
+(`<!-- @meta{…} -->`)**, before you type anything — so the component list is right there, and
 picking a component then pressing space cascades straight into its modifiers. Deck
 directives (`theme:`, `finish:`, fence languages, …) stay quiet until you type or
 press `Ctrl-Space`, so front matter doesn't pop a menu in your face. **Settings →
@@ -275,7 +276,7 @@ type yourself:
 title: Board pack — Q4 FY26 (final)
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # Q4
 ```
@@ -355,12 +356,12 @@ Every deck carries a standard set of *chrome*: the running **header** and
 **footer** bands, the **page number**, the **section rail** (the row of
 progress dots that tracks where you are between dividers) and the **logo**. You
 control each one at **two scopes** — set the baseline for the whole deck, then
-change one slide with a `_class` word.
+change one slide with a word in its record's `class=`.
 
 Every one of them is a **switch**, and every switch is spelled the same way:
 `no-X` turns it off, `with-X` turns it back on for one slide.
 
-| Element | Whole deck | One slide (`_class`) | On by default? |
+| Element | Whole deck | One slide (`class=` in its record) | On by default? |
 |---|---|---|---|
 | Running header | `header: "Acme — Q3"`, or `class: no-header` | `no-header` · `with-header` | once you give it text; not on a title |
 | Running footer | `footer: "Confidential"`, or `class: no-footer` | `no-footer` · `with-footer` | once you give it text, on every slide |
@@ -369,13 +370,13 @@ Every one of them is a **switch**, and every switch is spelled the same way:
 | Logo | `logo: …`, or `class: no-logo` | `no-logo` · `with-logo` | on once you set `logo:` |
 
 A front-matter `class:` reaches **every** slide, including one that sets its own
-`<!-- _class: … -->`: the slide's classes are added to the deck's, never swapped
+`class=` in its `<!-- @meta{…} -->` record: the slide's classes are added to the deck's, never swapped
 for them. So `class: no-progress` takes the rail off everywhere, and one slide
-brings it back with `<!-- _class: content with-progress -->`. A slide's `with-X`
+brings it back with `<!-- @meta{layout=content, class=with-progress} -->`. A slide's `with-X`
 always wins over a `no-X` from the deck.
 
 `silent` turns the header, footer, page number and rail off together for one
-slide. A `with-X` wins over it too: `<!-- _class: content silent with-pagination -->`
+slide. A `with-X` wins over it too: `<!-- @meta{layout=content, class=silent with-pagination} -->`
 is a clean slide that keeps its page number.
 
 The same spelling covers every other switch a slide can carry — callouts,
@@ -387,9 +388,9 @@ more. The full list is in [Switches](/reference/switches/).
 and that is where you change them. Every place that opens the bundle (marp-cli,
 the VS Code preview, VS Code's Export command) reads that block as you edit it.
 
-A header, footer or page-number comment on a slide sets **that slide only**, with
-or without the underscore: `<!-- header: "Appendix" -->` on slide 12 puts the text
-on slide 12 and nowhere else. This is where Lattice differs from Marp, which
+A `header`, `footer` or page-number field in a slide's record sets **that slide
+only**: `<!-- @meta{header=Appendix} -->` on slide 12 puts the text on slide 12
+and nowhere else. This is where Lattice differs from Marp, which
 carries the plain form onto every later slide. To set one for every slide, put it
 in the front matter.
 
@@ -397,7 +398,7 @@ For a slide that wants **none** of the standard chrome — a bookend, a full-ble
 statement — `silent` clears the header, footer, and page number in one token:
 
 ```markdown
-<!-- _class: content silent -->
+<!-- @meta{layout=content, class=silent} -->
 ## Nothing but the message
 ```
 
@@ -417,15 +418,15 @@ header · Hide footer · Hide page number · Hide rail).
 A hidden slide stays in your deck and in the editor, but Present and every
 export leave it out: the PDF, PowerPoint, LibreOffice, images and the webpage.
 Use it for a backup slide, an appendix you may need for questions, or a draft
-you are not ready to show. Put `hide` at the top of the slide:
+you are not ready to show. Put a record with `hide` at the top of the slide:
 
 ```markdown
-<!-- hide -->
+<!-- @meta{hide} -->
 ## Backup: the full cost model
 ```
 
-`<!-- _hide -->` and `<!-- _hide: true -->` mean the same thing, and
-`<!-- _hide: false -->` shows the slide again. Hiding is per slide: it never
+`<!-- @meta{hide} -->` and `<!-- @meta{hide=true} -->` mean the same thing, and
+`<!-- @meta{hide=false} -->` shows the slide again. Hiding is per slide: it never
 carries onto the slides after it.
 
 **Page numbers count only the slides your audience sees.** Hide slide 3 of 6

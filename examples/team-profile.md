@@ -257,4 +257,4 @@ Half a roster arrives without photos — the customer side of a QBR almost alway
 
 ## Put the faces on the slide.
 
-*One `_class` directive, then one bullet per person.*
+*One `<!-- @meta{layout=team-profile} -->` record, then one bullet per person.*

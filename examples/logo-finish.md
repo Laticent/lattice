@@ -36,7 +36,7 @@ logo-finish: bottom-center accent-ink lg
 
 ## This slide hides it
 
-- `_class: no-logo` removes the mark
+- `class=no-logo` removes the mark
 - The footer text returns, because nothing sits in its band
 
 ---
@@ -45,7 +45,7 @@ logo-finish: bottom-center accent-ink lg
 
 ## One slide, another color
 
-- `_class: logo-ink` evicts the deck's color word on this slide only
+- `class=logo-ink` evicts the deck's color word on this slide only
 - Placement and size stay the deck's
 
 ---
@@ -62,7 +62,7 @@ logo-finish: bottom-center accent-ink lg
 
 ## Original colors, nothing behind them
 
-- `_class: logo-brand` keeps the file's own colors
+- `class=logo-brand` keeps the file's own colors
 - No plate: a logo with a transparent background stays transparent over the slide
 
 ---
@@ -71,6 +71,6 @@ logo-finish: bottom-center accent-ink lg
 
 ## A plate, when asked for
 
-- `_class: logo-brand logo-plate` puts a soft plate behind the mark on this slide
+- `class=logo-brand logo-plate` puts a soft plate behind the mark on this slide
 - The deck line can ask for it everywhere: `logo-finish: plate`
-- `_class: logo-no-plate` takes it back on one slide
+- `class=logo-no-plate` takes it back on one slide

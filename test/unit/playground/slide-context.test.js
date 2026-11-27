@@ -583,8 +583,10 @@ describe('focus directives — autocomplete grammar (Tier 2)', () => {
 			'FOCUS_STYLE_VALUES (grammar-vocab) must mirror FOCUS_STYLES (lint-core)');
 		assert.deepEqual(sorted(vocab.FOCUS_AXIS_VALUES), sorted(lint.FOCUS_AXES),
 			'FOCUS_AXIS_VALUES (grammar-vocab) must mirror FOCUS_AXES (lint-core)');
-		for (const d of ['_focus', '_focusStyle', '_focusSteps']) {
-			assert.ok(vocab.DIRECTIVE_NAMES.includes(d), `${d} must be a completable directive name`);
+		// A record completes the focus fields (the old `_focus` names are no longer offered, since the cut).
+		const fields = vocab.RECORD_FIELDS.map((f) => f.name);
+		for (const d of ['focus', 'focus-style', 'focus-steps']) {
+			assert.ok(fields.includes(d), `${d} must be a completable record field`);
 		}
 	});
 });

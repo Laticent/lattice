@@ -48,7 +48,7 @@ The syntax on one page. [Avatars](/guides/inline/avatars/) explains each part wi
 | ring | `border=c1` … `border=c12` | none |
 | spoken name | `label="…"` | the name |
 
-Deck-wide: `avatar: rounded bare` in the front matter. One slide: `<!-- _class: avatar-square -->`.
+Deck-wide: `avatar: rounded bare` in the front matter. One slide: `<!-- @meta{class=avatar-square} -->`.
 An avatar's own word wins over both.
 
 ## Examples

@@ -68,7 +68,7 @@ One Frame selects the Cells; each Tile paints into a Cell on its z-plane; the `c
 
 The diagrams show the *model*. Here's what the engine actually does with a slide an author writes — `## Revenue ahead of plan` on a `kpi` slide:
 
-1. **Parse** (`lib/engine/slides.js`) — split on `---` into a `<section>`; `_class: kpi` → `class="kpi"`; `## …` → an `<h2>` **as a direct child** of the section; the list → `<ol>`, also a direct child. The DOM is *flat* — no cells yet.
+1. **Parse** (`lib/engine/slides.js`) — split on `---` into a `<section>`; `<!-- @meta{layout=kpi} -->` → `class="kpi"`; `## …` → an `<h2>` **as a direct child** of the section; the list → `<ol>`, also a direct child. The DOM is *flat* — no cells yet.
 2. **Transform** (`lib/transformers/registry` → `applyAllToHtml`, then the Tile injectors) — this is where placement happens. The **masthead-lift** transform finds the first `<h2>` (+ eyebrow) and **moves it** into a `.cell-masthead` band (`.masthead-lede` + `.masthead-bay`). The `<ol>` body stays as direct section children (the stage). Tile injectors then add the chrome DOM (`meta`, `progress`, `watermark`).
 3. **CSS layout** — `section` is a flex column at the resolved `@size` box; the masthead/stage/footer Cell CSS positions the bands via the `--frame-*` coordinate tokens; the **Component CSS** (`section.kpi …`) lays out the body; `z` flattens to `z-index`.
 4. **Paint** — the browser (or Puppeteer, for PDF) composites by z-plane → the slide.

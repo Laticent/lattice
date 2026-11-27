@@ -34,7 +34,7 @@ logo-finish: bottom-center accent-ink lg   # optional — one word per axis, aut
 ---
 ```
 
-The logo shows on every slide whenever `logo:` is set. A slide hides it with `_class: no-logo`.
+The logo shows on every slide whenever `logo:` is set. A slide hides it with `<!-- @meta{class=no-logo} -->`.
 
 `logo-finish:` takes up to one word per axis, in any order (the register is
 `lib/core/resolve-logo-finish.js`; the editor completes each word):
@@ -48,7 +48,7 @@ The logo shows on every slide whenever `logo:` is set. A slide hides it with `_c
 | scope | `all` `title` | `title` shows the mark only on the deck's first slide and any slide using the `title` layout. A surface rendering ONE slide (the Studio's slice preview) must hand the engine that slide's deck position, or its lone section reads as the deck's first; see the note below. |
 
 The words are class tokens on the section, so a slide can also change one axis for itself:
-`_class: logo-ink` recolors the mark on that slide and leaves the deck's placement and size alone.
+`<!-- @meta{class=logo-ink} -->` recolors the mark on that slide and leaves the deck's placement and size alone.
 `no-logo` is the one switch most decks need.
 
 **Migrating an old deck.** `logo-style:` (renamed `logo-finish:`, like `finish:` and `chart-finish:`), `logo-on:`,

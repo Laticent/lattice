@@ -12,7 +12,7 @@ hold a figure, and works with an image instead.
 ## Authoring
 
 ````markdown
-<!-- _class: math canvas -->
+<!-- @meta{layout=math, class=canvas} -->
 
 ## The logistic curve.
 

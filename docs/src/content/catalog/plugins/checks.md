@@ -29,7 +29,7 @@ examples:
     label: Criteria, scored
     caption: Each criterion is a check inside a pill, so the answer and its name read as one.
     sample: |
-      <!-- _class: verdict-grid -->
+      <!-- @meta{layout=verdict-grid} -->
 
       ## Each criterion is a check inside a pill.
 

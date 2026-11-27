@@ -118,7 +118,7 @@ avatar: rounded bare
 ```
 
 The `avatar:` register styles every avatar on the deck, one word per axis (shape, frame). A slide
-overrides it with its own class (`<!-- _class: avatar-square -->`), on that axis only, and an
+overrides it with its own class (`<!-- @meta{class=avatar-square} -->`), on that axis only, and an
 avatar's own word wins over both.
 
 ## In a team-profile roster
@@ -127,7 +127,7 @@ Write the avatar where the photo goes. It becomes the portrait, takes the roster
 shape, and mixes freely with real photos and monograms:
 
 ```markdown
-<!-- _class: team-profile -->
+<!-- @meta{layout=team-profile} -->
 
 ## The account team
 
