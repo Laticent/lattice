@@ -613,6 +613,28 @@
       "title": "A named code comes before syntax",
       "input": "{a}|",
       "refuse": "reserved-pipe"
+    },
+    {
+      "section": "4.7",
+      "title": "An open bracket inside a description is text",
+      "input": "{>a[b}",
+      "item": {
+        "value": {
+          "kind": "description",
+          "text": "a[b"
+        }
+      }
+    },
+    {
+      "section": "4.7",
+      "title": "An open brace inside a description is text",
+      "input": "{>a{b}",
+      "item": {
+        "value": {
+          "kind": "description",
+          "text": "a{b"
+        }
+      }
     }
   ]
 }
