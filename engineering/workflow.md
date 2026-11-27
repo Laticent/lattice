@@ -1604,12 +1604,15 @@ The contract, and its limits — be precise about what it does and doesn't cover
     as a row `#N — head <sha> …`. An older digest never counts once a newer one exists;
   
   or the owner's **answer to a question about merging** (a real `AskUserQuestion` call,
-  which the transcript records as `user_temporary`; owner's decision, 2026-11-27). A
-  chosen option that starts with `#N` approves #N, and a chosen "All …" option approves
-  every option that starts with `#N`. Ask with labels such as `#3442 vault, VERY HIGH` and
-  `All of the above`: a `#N` later in a label, an option with a holding word (hold, don't,
-  skip, wait, not …), free text typed as "Other", and a question that does not say merge
-  approve nothing.
+  which the transcript records as `user_temporary`; owner's decision, 2026-11-27). Ask
+  "Which PRs should merge?" with options `merge #3442 vault, VERY HIGH` and `merge all`.
+  A chosen option, matched whole, that reads `merge #N …` approves #N, and `merge all …`
+  approves every `merge #N` option of that question. Approving nothing: any other label
+  shape (`#3442 vault`, `Approve #3442`), a holding or excepting word in the question, a
+  label or its description (hold, not, keep, but, except …), free text typed as "Other",
+  and a question that does not say merge.
+- **"all" does not cover a PR the owner wrote about after the digest** ("hold #3442"):
+  that PR is asked again. A digest's rows end at the first line that is not a row.
 
   Anything else is denied with the reason: "do not merge #N", "hold all", "yes" or
   "lgtm" do not parse, so a refusal or a hedge can never read as an approval. A

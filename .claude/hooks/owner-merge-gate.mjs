@@ -16,7 +16,7 @@
  *     text came between (the marker is a line of its own, fenced or not), when that digest
  *     lists the PR as a row (`#N — head …`);
  * or the owner's answer to a question about merging (a real `AskUserQuestion` call, recorded
- * as `user_temporary`) whose chosen option starts with `#N`, or is "All …" over `#N` options
+ * as `user_temporary`) whose chosen option, matched whole, reads "merge #N …" or "merge all …"
  * (owner's decision, 2026-11-27). Anything else is denied with the reason. A refusal or a
  * hedge ("do not merge #N", "hold all", "yes", an option that says hold) never parses, so it
  * can never read as an approval. A subagent's call, and an unreadable transcript, deny too.
@@ -82,7 +82,14 @@ export function digestLists(text, pr) {
   const lines = text.split('\n');
   const at = lines.findIndex((l) => l.trim() === DIGEST_MARKER);
   if (at < 0) return false;
-  return lines.slice(at + 1).some((l) => new RegExp(`^\\s*#${pr}\\s+—\\s+head\\s`).test(l));
+  // The rows are the lines right after the marker, and they end at the first line that is
+  // not a row: a "held" list or a note after the digest is not part of it.
+  for (const l of lines.slice(at + 1)) {
+    const m = /^\s*#(\d+)\s+—\s+head\s/.exec(l);
+    if (!m) return false;
+    if (Number(m[1]) === pr) return true;
+  }
+  return false;
 }
 
 const hasDigest = (text) => text.split('\n').some((l) => l.trim() === DIGEST_MARKER);
@@ -117,28 +124,49 @@ export function isOwnerAnswer(row, asks) {
   );
 }
 
-/** A label that holds a PR back approves nothing. */
-const NEGATION = /\b(hold|held|don'?t|do not|not|skip|wait|leave|never|stop|close|later|no)\b/i;
-/** The PR a label is about: a `#N` at its very start ("#3442 vault, VERY HIGH"). */
-const labelPr = (label) => Number(/^\s*#(\d+)\b/.exec(label)?.[1]) || 0;
+/** A word that holds a PR back, or carves one out: a question or label with one approves nothing. */
+const HOLDING = /\b(hold|held|don'?t|do not|not|no|never|skip|wait|leave|keep|park|defer|later|stop|close|block|but|except|exclude|excluding|other than|besides|without)\b|n't\b/i;
+/** The only labels that approve: "merge #N …" (or "squash #N …"), and "merge all …". */
+const MERGE_ONE = /^\s*(?:squash[- ]?)?merge\s+#(\d+)\b/i;
+const MERGE_ALL = /^\s*(?:squash[- ]?)?merge\s+all\b/i;
 
 /**
- * The PRs one question-tool answer approves. Only a question about merging counts. A chosen
- * option that starts with `#N` approves #N; a chosen option that starts with "All" approves
- * every `#N` option of that question; a label with a holding word approves nothing; free text
- * typed as "Other" matches no option and approves nothing.
+ * The options an answer chose, matched whole. The answer must be exactly one label, or
+ * several labels joined by ", " (in any order). Free text typed as "Other" matches none.
+ */
+function chosenLabels(answer, labels) {
+  if (labels.includes(answer)) return [answer];
+  const best = [];
+  const walk = (left, used) => {
+    if (left === '') return used.length > 1 && best.push([...used]);
+    for (const l of labels) {
+      if (used.includes(l)) continue;
+      if (left === l) walk('', [...used, l]);
+      else if (left.startsWith(`${l}, `)) walk(left.slice(l.length + 2), [...used, l]);
+    }
+  };
+  walk(answer, []);
+  return best.length === 1 ? best[0] : [];
+}
+
+/**
+ * The PRs one question-tool answer approves (owner's decision, 2026-11-27). Only a question
+ * that asks what to merge, with no holding word, counts. A chosen option approves only when it
+ * reads "merge #N …" (that PR) or "merge all …" (every "merge #N" option of the question), and
+ * carries no holding word; any other wording, free text, or a partial match approves nothing.
  */
 export function answerApproves(result) {
   const prs = new Set();
   for (const q of result?.questions || []) {
-    if (!/\bmerg(e|es|ed|ing)\b/i.test(q?.question || '')) continue;
-    const answer = String(result.answers?.[q.question] ?? '');
+    const question = String(q?.question || '');
+    if (!/\bmerg(e|es|ed|ing)\b/i.test(question) || HOLDING.test(question)) continue;
     const labels = (q.options || []).map((o) => String(o?.label || '')).filter(Boolean);
-    for (const label of labels.filter((l) => answer.includes(l))) {
-      if (NEGATION.test(label)) continue;
-      if (/^\s*all\b/i.test(label)) {
-        for (const o of labels) if (labelPr(o) && !NEGATION.test(o)) prs.add(labelPr(o));
-      } else if (labelPr(label)) prs.add(labelPr(label));
+    const plain = (l) => !HOLDING.test(l) && !HOLDING.test(String((q.options || []).find((o) => o?.label === l)?.description || ''));
+    for (const label of chosenLabels(String(result.answers?.[question] ?? ''), labels)) {
+      if (!plain(label)) continue;
+      if (MERGE_ALL.test(label)) {
+        for (const o of labels) if (MERGE_ONE.test(o) && plain(o)) prs.add(Number(MERGE_ONE.exec(o)[1]));
+      } else if (MERGE_ONE.test(label)) prs.add(Number(MERGE_ONE.exec(label)[1]));
     }
   }
   return prs;
@@ -209,6 +237,11 @@ export function decide(rows, pr, night = () => ({ eligible: false, reasons: ['ni
       if (rows[i]?.type !== 'assistant') continue;
       const text = textOf(rows[i]);
       if (!hasDigest(text)) continue;
+      // The owner named this PR after the digest ("hold #N"): "all" no longer speaks for it.
+      const named = rows.slice(i + 1, h).some(
+        (r) => r?.type === 'user' && !isToolResult(r) && r.origin?.kind === 'human' && new RegExp(`#?\\b${pr}\\b`).test(textOf(r)),
+      );
+      if (named) return { allow: false, reason: `the owner wrote about #${pr} after the digest, so "all" does not cover it; ask again` };
       return digestLists(text, pr)
         ? { allow: true, reason: `the owner answered "all" to the newest merge digest, which listed #${pr}` }
         : { allow: false, reason: `the newest merge digest before "all" does not list #${pr}` };

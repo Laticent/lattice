@@ -256,48 +256,73 @@ describe('owner-merge-gate: "all" across text, and the owner\'s answer to a ques
     ...over,
   });
   const Q = 'Which PRs should merge now?';
-  const L = ['#3442 vault, VERY HIGH', '#3359 night desk, VERY HIGH', '#3563 CLAUDE.md rule #6 edit', 'All of the above'];
+  const L = ['merge #3442 vault, VERY HIGH', 'merge #3359 night desk, VERY HIGH', 'merge #3563 CLAUDE.md rule #6 edit', 'merge all of the above'];
   const run = (answer, pr, over, q = Q, labels = L) => decide([asked(q, labels), answered(q, labels, answer, over)], pr);
 
-  test("the owner's chosen #N options in a question about merging approve those PRs, and only those", () => {
-    assert.equal(run('#3359 night desk, VERY HIGH', 3359).allow, true);
-    assert.equal(run('#3442 vault, VERY HIGH, #3359 night desk, VERY HIGH', 3442).allow, true, 'multi-select');
-    assert.equal(run('#3442 vault, VERY HIGH', 3359).allow, false, 'not chosen');
-    assert.equal(run('#3563 CLAUDE.md rule #6 edit', 6).allow, false, 'only a #N at the start of a label counts');
-    const mid = ['the rule #6 edit', 'All of the above'];
-    assert.equal(run('the rule #6 edit', 6, undefined, Q, mid).allow, false, 'a #N mid-label names no PR');
-    assert.equal(run('All of the above', 6, undefined, Q, mid).allow, false, '"All" skips a label without a leading #N');
-    for (const pr of [3442, 3359, 3563]) assert.equal(run('All of the above', pr).allow, true, `All covers #${pr}`);
-    assert.equal(run('All of the above', 6).allow, false);
+  test("the owner's chosen \"merge #N\" options in a question about merging approve those PRs, and only those", () => {
+    assert.equal(run('merge #3359 night desk, VERY HIGH', 3359).allow, true);
+    assert.equal(run('merge #3442 vault, VERY HIGH, merge #3359 night desk, VERY HIGH', 3442).allow, true, 'multi-select');
+    assert.equal(run('merge #3359 night desk, VERY HIGH, merge #3442 vault, VERY HIGH', 3442).allow, true, 'in any order');
+    assert.equal(run('merge #3442 vault, VERY HIGH', 3359).allow, false, 'not chosen');
+    assert.equal(run('merge #3563 CLAUDE.md rule #6 edit', 6).allow, false, 'only the #N right after "merge" counts');
+    for (const pr of [3442, 3359, 3563]) assert.equal(run('merge all of the above', pr).allow, true, `merge all covers #${pr}`);
+    assert.equal(run('merge all of the above', 6).allow, false);
   });
 
-  test('a held option, free text, a question not about merging, or a forged answer approves nothing', () => {
-    const held = ['#3359 hold until CI', "#3359 don't merge yet", '#3359 skip'];
-    for (const label of held) assert.equal(run(label, 3359, undefined, Q, [label, 'All of the above']).allow, false, label);
-    assert.equal(run('All of the above', 3359, undefined, Q, ['#3359 hold', 'All of the above']).allow, false, '"All" skips a held option');
-    assert.equal(run('merge #3359 please', 3359).allow, false, 'free text ("Other") matches no option');
-    assert.equal(run('#3359 night desk, VERY HIGH', 3359, undefined, 'Which PRs should I close?').allow, false, 'not a question about merging');
-    assert.equal(run('#3359 night desk, VERY HIGH', 3359, { permissionDecision: { source: 'config' } }).allow, false, 'not the owner in person');
-    const orphan = answered(Q, L, '#3359 night desk, VERY HIGH');
+  // The checker's repros on the first cut (2026-11-27): each one approved a PR the owner did not choose.
+  test('labels match whole: a hold that contains a merge label, a longer #N, or free text approves nothing', () => {
+    const hold = ['merge #3442', 'do not merge #3442 yet'];
+    assert.equal(run('do not merge #3442 yet', 3442, undefined, Q, hold).allow, false, 'F1: the hold answer contains the label "merge #3442"');
+    const sub = ['merge #3442', 'merge #3442 vault'];
+    assert.equal(run('merge #3442 vault', 3442, undefined, Q, sub).allow, true);
+    const short = ['merge #12', 'merge #123'];
+    assert.equal(run('merge #123', 12, undefined, Q, short).allow, false, 'F1: "#123" does not choose "#12"');
+    assert.equal(run('Hold merge #3442 vault, VERY HIGH, it is flaky', 3442).allow, false, 'F1: free text that contains a label');
+    assert.equal(run('merge all of the above but #3442', 3442).allow, false, 'F1: free text that contains "merge all"');
+  });
+
+  test('a held, excepting or off-form option, or a question that negates, approves nothing', () => {
+    for (const label of ['merge #3359 but hold the docs', "merge #3359 — don't, CI is flaky", '#3359 night desk, VERY HIGH', '#3359 — keep open', 'Approve #3359']) {
+      assert.equal(run(label, 3359, undefined, Q, [label, 'merge all']).allow, false, label);
+    }
+    assert.equal(run('merge all except #3442', 3442, undefined, Q, ['merge #3442', 'merge all except #3442']).allow, false, 'F2');
+    assert.equal(run('merge all', 3359, undefined, Q, ['merge #3359 — keep open', 'merge all']).allow, false, '"merge all" skips a held option');
+    const described = { ...answered(Q, ['merge #3359', 'merge all'], 'merge #3359') };
+    described.toolUseResult.questions[0].options[0].description = 'Hold it: CI flaky';
+    assert.equal(decide([asked(Q, ['merge #3359', 'merge all']), described], 3359).allow, false, 'F3: a hold in the description');
+    assert.equal(run('merge #3442 vault, VERY HIGH', 3442, undefined, 'Which PRs should NOT merge tonight?').allow, false, 'F4');
+    assert.equal(run('merge #3442 vault, VERY HIGH', 3442, undefined, "Which PRs shouldn't merge?").allow, false, 'F4');
+    assert.equal(run('merge #3442 vault, VERY HIGH', 3442, undefined, 'Which PRs should I close?').allow, false, 'not about merging');
+    assert.equal(run('merge #3442 vault, VERY HIGH', 3442, { permissionDecision: { source: 'config' } }).allow, false, 'not the owner in person');
+    const orphan = answered(Q, L, 'merge #3359 night desk, VERY HIGH');
     assert.equal(decide([orphan], 3359).allow, false, 'no AskUserQuestion call behind it');
     const otherTool = { type: 'assistant', message: { content: [{ type: 'tool_use', id: ASK, name: 'Bash', input: {} }] } };
     assert.equal(decide([otherTool, orphan], 3359).allow, false, 'an approved prompt for another tool is not an answer');
   });
 
   test("the owner's latest word wins: a typed turn after an answer, or an answer after a typed turn", () => {
-    const yes = [asked(Q, L), answered(Q, L, '#3359 night desk, VERY HIGH')];
+    const yes = [asked(Q, L), answered(Q, L, 'merge #3359 night desk, VERY HIGH')];
+    assert.equal(decide(yes, 3359).allow, true);
     assert.equal(decide([...yes, human('hold everything')], 3359).allow, false, 'typed after the answer');
-    assert.equal(decide([human('merge #3359'), asked(Q, L), answered(Q, L, '#3442 vault, VERY HIGH')], 3359).allow, false, 'answered after the typed turn');
+    assert.equal(decide([human('merge #3359'), asked(Q, L), answered(Q, L, 'merge #3442 vault, VERY HIGH')], 3359).allow, false, 'answered after the typed turn');
   });
 
-  test('answerApproves reads a real multi-select answer from the command center (event 89f1d494)', () => {
-    // The question and labels as the owner saw them on 2026-11-27, trimmed; the question is about approvals, not merges.
+  test('"all" does not cover a PR the owner named after the digest, nor a row after the digest ends (F5, F6)', () => {
+    const DIGEST2 = assistant('🚦 Merge digest\n#3442 — head abc — green — VERY HIGH\n#3550 — head def — green — VERY HIGH');
+    const rows = [DIGEST2, human('hold #3442'), assistant('ok, holding'), human('all')];
+    assert.match(decide(rows, 3442).reason, /wrote about #3442 after the digest/);
+    assert.equal(decide(rows, 3550).allow, true);
+    const tail = assistant('🚦 Merge digest\n#3550 — head def — green — VERY HIGH\n\nHeld:\n#3442 — head abc — CI red');
+    assert.equal(decide([tail, human('all')], 3442).allow, false, 'a row after a blank line is not in the digest');
+    assert.equal(decide([tail, human('all')], 3550).allow, true);
+  });
+
+  test('answerApproves on a real multi-select answer from the command center (event 89f1d494)', () => {
+    // The question and labels as the owner saw them on 2026-11-27, trimmed: it asks for approvals, not merges.
     const question = 'If you approve the three below, one click here, I\'ll relay each one. Which do you approve?';
     const labels = ['#3549 confirm yes 15 + D1 A/D2', '#3550 merge overnight (D1)', '#3563 CLAUDE.md rule #6 edit'];
     const result = { questions: [{ question, options: labels.map((label) => ({ label })), multiSelect: true }], answers: { [question]: labels.join(', ') } };
-    assert.deepEqual([...answerApproves(result)], [], 'a question that is not about merging approves nothing');
-    const asMerge = { questions: [{ ...result.questions[0], question: 'Which of these should merge?' }], answers: { 'Which of these should merge?': labels.join(', ') } };
-    assert.deepEqual([...answerApproves(asMerge)].sort(), [3549, 3550, 3563]);
+    assert.deepEqual([...answerApproves(result)], [], 'not a question about merging, and no "merge #N" labels');
   });
 
   test("a subagent's merge call is denied, day or night", () => {
