@@ -363,13 +363,13 @@ a solver and reviewed, like the chart solids. `--seq-500` folds into the sequent
 
 | | Before | After |
 |---|---|---|
-| Theme file | 168 | about 135: minus 31 plugin tokens, minus 10 `--scheme-dark-*` folded into pairs, minus 10 heatmap and 17 chart tokens, plus 12 category solids with inks (24) and the two ramps (20) |
+| Theme file | 168 | about 144: minus 31 plugin tokens, minus 10 `--scheme-dark-*` folded into pairs, minus 10 heatmap and 17 chart tokens, plus 12 category solids with inks (24) and the two ramps (20) |
 | Mermaid's file for indaco | 0 | about 17 (today's `--diagram-*` and `--c-*`) |
 | Code plugin's file for indaco | 0 | 14 (today's `--syntax-*`) |
 | Duplicate names in the theme | 23 | 0 is the goal |
 | Formulas a render computes | about 195 | 0 apart from see-through washes |
 
-The total stays near 170 per theme. The spec freezes the theme file's core only, about 135 names, and a plugin's
+The total stays near 170 per theme. The spec freezes the theme file's core only, about 144 names, and a plugin's
 file versions with its plugin.
 
 **(f) Who checks contrast.** Today `lib/theme/gate.js` checks theme tokens. Under the model, the core gate checks
