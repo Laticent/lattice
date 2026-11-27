@@ -9,7 +9,8 @@
 // This test reads the sources of everything an agent reads (SOURCES below) and reports each retired key, as
 // `path:line`, in three shapes:
 //   - FRONT MATTER: a `key:` line inside a `---` block that opens the file, opens a fenced code block, or opens a
-//     template string (`= \`---`). A block is something to copy, so no wording excuses one.
+//     template string (`= \`---`), or any line of a ```yaml fence. A block is something to copy, so no wording
+//     excuses one.
 //   - INLINE, in Markdown: `` `key:` `` in backticks.
 //   - BARE, in plain text (a Studio tool's `chat` description, the llms.txt source): `key:` as a word.
 // The retired set is read from `DECK_SETTINGS`, so the next rename that retires a key turns its own leftover guidance
@@ -17,7 +18,7 @@
 //
 // Guidance may NAME a retired key to say what replaced it. An inline or bare mention passes when its paragraph (a run
 // of non-blank lines; each list item and table row is its own; a sentence in plain text) says so in words
-// RETIREMENT_CUE matches: "renamed", "retired", "old", "no longer", "becomes", "→" and the like. A mention no cue can
+// RETIREMENT_CUE matches: "renamed", "retired", "the old key", "no longer", "becomes", "was `…`", "→" and the like. A mention no cue can
 // excuse goes in SANCTIONED, with its reason and an exact count per key, so a new mention in that file still fails,
 // and so does a stale entry. A new entry goes in with its reason, never as a silent edit.
 const { test } = require('node:test');
@@ -57,15 +58,21 @@ const SANCTIONED = {
     why: "the `lattice migrate notes` table lists the old forms it rewrites; the row's left column is the input",
     keys: { say: 1 },
   },
+  'docs/src/content/docs/spec/diagnostics.md': {
+    why: "the diagnostics table names what each rule reports: `stray-overflow-marker`'s retired key, and `say:` as an unknown `terms:` field",
+    keys: { 'overflow-marker': 1, say: 1 },
+  },
   'lib/use-cases/preview_speech/preview_speech.use-case.json': {
     why: "the `say:` wording waits on the owner's decision D4 (#3531); leave it until that lands",
     keys: { say: 2 },
   },
 };
 
-// Words that mark a mention as history rather than instruction.
+// Phrases that mark a mention as history rather than instruction. Deliberately narrow: a common word such as "was",
+// "before" or "old" on its own appears in plenty of current instructions, and a cue that broad excused
+// `` `guards: loose` is the default `` (lib/base/base.docs.md) because "before #2308" sat in the same paragraph.
 const RETIREMENT_CUE =
-  /\b(?:retired?|retirement|renamed?|renames|old(?:er)?|was called|was|were|replaced|replaces|no longer|is now|legacy|migrat\w*|rewrites?|becomes|deprecated|gone|LFM 1\.x|does nothing|reaches nothing|ignores?|ignored|instead of|used to|before)\b|→/i;
+  /\b(?:retired|retirement|renamed|was called|replaced|no longer|is now|legacy|migrat\w*|rewrites?|becomes|deprecated|(?:the|an?) old(?:er)? (?:name|names|key|keys|form|forms|spelling|one|note|syntax|classes)|old names|LFM 1\.x|reaches nothing|instead of)\b|\b(?:was|formerly) `|→/i;
 
 const RETIRED = DECK_SETTINGS.filter((r) => r.kind === 'retired').map((r) => r.key);
 const ALT = RETIRED.map((k) => k.replace(/[.*+?^${}()|[\]\\-]/g, '\\$&')).join('|');
@@ -73,6 +80,7 @@ const FM_LINE = new RegExp(`^[ \\t]*(${ALT})[ \\t]*:`);
 const INLINE = new RegExp(`\`(${ALT})[ \\t]*:`, 'g');
 const BARE = new RegExp(`(?<![\\w-])(${ALT})[ \\t]*:`, 'g');
 const FENCE = /^[ \t]*(`{3,}|~{3,})/;
+const YAML_FENCE = /^[ \t]*(?:`{3,}|~{3,})[ \t]*(?:yaml|yml)\b/i;
 const UNIT_START = /^[ \t]*(?:[-*+][ \t]|\d+\.[ \t]|\|)/;
 
 /**
@@ -96,12 +104,13 @@ function retiredKeys(text) {
     if (RETIREMENT_CUE.test(line)) cued.add(unit[i]);
   });
   let inFence = false;
+  let inYaml = false; // inside a ```yaml fence: every line is a settings line, with or without `---`
   let inFm = false;
   // True at the top of the file and right after a fence opens: the only places a `---` line opens front matter.
   let atStart = true;
   lines.forEach((line, i) => {
     const t = line.trim();
-    if (inFm) {
+    if (inFm || (inYaml && !FENCE.test(line))) {
       if (t === '---') inFm = false;
       else {
         const m = FM_LINE.exec(line);
@@ -114,6 +123,7 @@ function retiredKeys(text) {
     if ((t === '---' && atStart) || /=\s*`---$/.test(t)) inFm = true;
     if (FENCE.test(line)) {
       inFence = !inFence;
+      inYaml = inFence && YAML_FENCE.test(line);
       atStart = inFence;
     } else atStart = false;
   });
@@ -192,11 +202,15 @@ test('a mention its paragraph marks as history passes; a front-matter block neve
   assert.equal(retiredKeys('Use `guards: strict`.\n\nThe old one is gone.\n').length, 1);
   assert.equal(retiredKeys('- Use `guards: strict`.\n- The old one is gone.\n').length, 1);
   assert.equal(retiredKeys('| `guards:` | the fit policy |\n| `x:` | renamed |\n').length, 1);
+  // A ```yaml fence is a settings block with or without `---`.
+  assert.deepEqual(retiredKeys('Add:\n\n```yaml\npaginate: true\n```\n'), [{ line: 4, key: 'paginate', shape: 'front-matter' }]);
+  // A common word is not a cue: "before" here is an instruction, not history.
+  assert.equal(retiredKeys('Set `paginate: true` before the first slide.\n').length, 1);
   // A cue next to a block does not excuse the block.
   assert.equal(retiredKeys('The old block:\n```yaml\n---\nguards: on\n---\n```\n').length, 1);
   // Plain text: the sentence is the unit.
   assert.deepEqual(bareRetiredKeys('Reads the front-matter say: entry first. Then the slide.'), ['say']);
-  assert.deepEqual(bareRetiredKeys('The old say: map is gone. Then the slide.'), []);
+  assert.deepEqual(bareRetiredKeys('The say: map was renamed to @say. Then the slide.'), []);
 });
 
 test('no agent-facing source teaches a retired front-matter key outside the sanctioned mentions', () => {

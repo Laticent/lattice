@@ -5,7 +5,7 @@ recorded: 2026-11-27
 area: website
 severity: medium
 swimlane: lib/theme/chain.mjs
-deferred: off-path — met while screenshotting the deck-settings guide for #3555, which changes the guide's text, not the lab's import chain; the fix is in lib/, which #3555's brief excluded
+deferred: blocked — the fix is lib/ code (lib/theme/chain.mjs), which #3555's brief excluded; met while screenshotting the deck-settings guide, reproduced on main, dev server only
 source: https://github.com/Laticent/lattice/pull/3555
 ---
 
