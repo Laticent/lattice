@@ -135,3 +135,8 @@ test('a VERY HIGH card that picks HOLD, or picks nothing: no', () => {
   assert.match(why({ comments: [comment(CARD('VERY HIGH', undefined, undefined, 'HOLD: waiting on the owner'))] }), /does not pick MERGE/);
   assert.match(why({ comments: [comment(CARD('VERY HIGH', undefined, undefined, ''))] }), /does not pick MERGE/);
 });
+
+test('250 or more commits, the most GitHub lists, cannot all be read: no', () => {
+  assert.match(why({ commitMessages: Array(250).fill('fix: x') }), /250 or more commits/);
+  assert.deepEqual(reasons(good({ commitMessages: Array(249).fill('fix: x') })), []);
+});

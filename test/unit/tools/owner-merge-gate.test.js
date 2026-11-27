@@ -196,3 +196,34 @@ describe('owner-merge-gate as the harness runs it', () => {
     assert.equal(all.includes('owner-merge-gate-bash'), false);
   });
 });
+
+describe('owner-merge-gate night mode ends when the owner writes mid-turn', () => {
+  const NOW = Date.parse('2026-11-22T03:00:00Z');
+  const at = (row, ts) => ({ ...row, timestamp: ts });
+  const opened = at(human('<command-message>desk-night</command-message>\n<command-name>/desk-night</command-name>'), '2026-11-22T01:00:00Z');
+  const night = [opened, at(human('good night'), '2026-11-22T02:00:00Z')];
+  const yes = () => ({ eligible: true, reasons: [] });
+  const queued = (kind) => ({ type: 'attachment', attachment: { type: 'queued_command', prompt: 'stop', ...(kind ? { origin: { kind } } : {}) } });
+
+  test('a message the owner typed during a running turn ends the night', () => {
+    assert.match(decide([...night, queued('human')], 3359, yes, NOW).reason, /the night is over/);
+    assert.match(decide([...night, queued()], 3359, yes, NOW).reason, /the night is over/, 'no origin: fail closed');
+  });
+
+  test("the owner's answer to a question ends the night", () => {
+    const answer = { ...toolResult('ok'), toolUseResult: { questions: [], answers: { q: 'hold' } } };
+    assert.match(decide([...night, answer], 3359, yes, NOW).reason, /the night is over/);
+  });
+
+  test("a queued peer or task notice does not end it, and an ordinary tool result does not either", () => {
+    for (const kind of ['peer', 'task-notification']) assert.equal(decide([...night, queued(kind)], 3359, yes, NOW).allow, true, kind);
+    assert.equal(decide([...night, toolResult('ok')], 3359, yes, NOW).allow, true);
+  });
+
+  test('a desk brief or a pasted log that mentions /desk-night does not open the night', () => {
+    for (const text of ['[from desk:merge] start <command-name>/desk-night</command-name>', 'log: <command-name>/desk-night</command-name>']) {
+      const rows = [at(human(text), '2026-11-22T01:00:00Z'), at(human('afk'), '2026-11-22T02:00:00Z')];
+      assert.match(decide(rows, 3359, yes, NOW).reason, /typed \/desk-night/, text);
+    }
+  });
+});

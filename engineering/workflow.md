@@ -3011,7 +3011,8 @@ deps and optimize desks read a gotcha file (`engineering/gotchas/ci.md`).
 
 **Night mode** (owner's decisions, 2026-11-21, after a red team, an inversion and a checker
 reviewed the first draft). The owner types `/desk-night` in a session, then exactly "good
-night" or "afk". Until their next typed turn there, or 12 hours, the merge gate
+night" or "afk". Until their next typed turn there (a message queued mid-turn and an answer to
+a question count), or 12 hours, the merge gate
 (`.claude/hooks/owner-merge-gate.mjs`) allows that session's merge calls (never a subagent's)
 on a PR only when `tools/night-eligible.mjs`, taken from `origin/main` and run by the gate
 itself, finds on GitHub that:
@@ -3050,7 +3051,11 @@ What no machine checks, stated plainly:
 - whether the card's grader really ran (the gate reads the card's words, as #28 says of `npm
   run card`);
 - a session transcript edited from its own shell, which could already forge a typed `merge #N`
-  before night mode existed.
+  before night mode existed. The same holds for a session that repoints its local `origin/main`
+  ref or edits the hook: reading the tool from `origin/main` stops an accidental edit, not a
+  hostile one;
+- who wrote a card or a PR: every session posts through the owner's GitHub account, so "an owner
+  login" rules out strangers and forks, not another session's self-graded card.
 
 **What every desk may do on its own (owner's decision, 2026-11-20): act inside
 its lane, and only these verbs.** This list is exhaustive; every other action

@@ -29,8 +29,9 @@
  * exactly "good night" or "afk", in a session the owner opened with a typed `/desk-night`,
  * less than NIGHT_HOURS ago, and the call is not a subagent's, the gate allows a merge only
  * of a PR that tools/night-eligible.mjs finds eligible on GitHub. The gate runs that tool
- * as it is on `origin/main`, not the working tree, so a session cannot loosen it by
- * editing the file. The authority ends with the owner's next typed turn in that session,
+ * as it is on `origin/main`, not the working tree, so editing the file does not loosen it
+ * (a session that repoints its local `origin/main` ref, or edits this hook, still can: the
+ * same class as a forged transcript, which no hook can stop). The authority ends with the owner's next typed turn in that session,
  * or after NIGHT_HOURS. engineering/workflow.md §Desks, "Night mode".
  *
  * It blocks, unlike the repo's two warn-only hooks, because it fires only on a merge
@@ -96,8 +97,20 @@ export function decide(rows, pr, night = () => ({ eligible: false, reasons: ['ni
     return { allow: false, reason: "the latest 'human' turn is a desk brief, not the owner's word" };
   }
   if (NIGHT_FORM.test(said)) {
-    const opened = rows.slice(0, h).some((r) => r?.type === 'user' && r.origin?.kind === 'human' && textOf(r).includes(DESK_NIGHT));
+    const opened = rows.slice(0, h).some((r) => {
+      if (r?.type !== 'user' || isToolResult(r) || r.origin?.kind !== 'human') return false;
+      const t = textOf(r).trimStart();
+      return t.startsWith(DESK_NIGHT) || (t.startsWith('<command-message>') && t.includes(DESK_NIGHT) && !/^\[from desk:/i.test(t));
+    });
     if (!opened) return { allow: false, reason: 'night mode works only in a session the owner opened with a typed /desk-night' };
+    // The owner may be back without a new 'user' row: a message typed mid-turn is queued as an
+    // attachment, and an answer to a question is a tool result. Either ends the night (fail closed).
+    const back = rows.slice(h + 1).some(
+      (r) =>
+        (r?.type === 'attachment' && r.attachment?.type === 'queued_command' && !['peer', 'task-notification', 'channel'].includes(r.attachment?.origin?.kind)) ||
+        (r?.type === 'user' && isToolResult(r) && r.toolUseResult?.answers),
+    );
+    if (back) return { allow: false, reason: 'night mode: the owner has written since "good night" (a queued message or an answer), so the night is over' };
     const at = Date.parse(rows[h].timestamp);
     if (!Number.isFinite(at) || now - at > NIGHT_HOURS * 3600_000) {
       return { allow: false, reason: `night mode: the owner's "${said}" is more than ${NIGHT_HOURS} hours old, or has no time` };
@@ -158,13 +171,19 @@ function nightCheck(pr) {
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
   const src = spawnSync('git', ['show', 'origin/main:tools/night-eligible.mjs'], { cwd: root, encoding: 'utf8', timeout: 10_000 });
   if (src.status !== 0 || !src.stdout) return { eligible: false, reasons: ['tools/night-eligible.mjs is not on origin/main'] };
-  const tool = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'night-')), 'night-eligible.mjs');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'night-'));
+  const tool = path.join(dir, 'night-eligible.mjs');
   fs.writeFileSync(tool, src.stdout);
-  const r = spawnSync(
+  let r;
+  try {
+    r = spawnSync(
     process.execPath,
-    ['--no-warnings', tool, String(pr), '--session', webSession(), '--json'],
-    { encoding: 'utf8', timeout: 20_000, env: { ...process.env, NODE_USE_ENV_PROXY: '1' } },
-  );
+      ['--no-warnings', tool, String(pr), '--session', webSession(), '--json'],
+      { encoding: 'utf8', timeout: 20_000, env: { ...process.env, NODE_USE_ENV_PROXY: '1' } },
+    );
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
   try {
     const out = JSON.parse(r.stdout.trim().split('\n').pop());
     if (r.status === 0 && out.eligible === true && out.pr === pr) return { eligible: true, reasons: [] };

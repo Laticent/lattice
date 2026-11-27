@@ -60,7 +60,16 @@ export const NEVER_PATHS = [
 
 const NEVER_LABELS = /security|release|depend|breaking/i;
 /** Workflows on `main` that must not be red: a red base stops the night. */
-export const MAIN_GUARDS = ['CI', 'Golden bless (nightly)', 'Integration nightly (render-regression tier)'];
+/**
+ * Each guard's newest completed run on main, read from its own workflow (a repo-wide run list
+ * holds only hours of triage runs). ci.yml has no `push: main` trigger, so its run on main is
+ * the merge queue's.
+ */
+export const MAIN_GUARDS = {
+  CI: 'ci.yml/runs?event=merge_group',
+  'Golden bless (nightly)': 'golden-bless.yml/runs?branch=main',
+  'Integration nightly (render-regression tier)': 'integration-nightly.yml/runs?branch=main',
+};
 const MAX_FILES = 300;
 
 /** Pure: the reason a path may not merge tonight, or '' if it may. */
@@ -109,6 +118,7 @@ export function reasons(f) {
   if (!Number.isInteger(f.changedFiles) || (f.files || []).length !== f.changedFiles) {
     out.push(`#${pr}'s file list could not be read in full`);
   }
+  if ((f.commitMessages || []).length >= 250) out.push(`#${pr} has 250 or more commits, more than GitHub lists, so they could not all be read`);
   if (f.changedFiles > MAX_FILES) out.push(`#${pr} changes ${f.changedFiles} files, over the night limit of ${MAX_FILES}`);
   for (const file of f.files || []) {
     for (const p of [file.filename, file.previous].filter(Boolean)) {
@@ -152,15 +162,12 @@ async function pages(path, token, max = 10) {
 
 /**
  * The guard workflows whose newest completed run on main failed, or that have no run to
- * read (fail closed). `CI` has no `push: main` trigger (ci.yml), so its run on main is the
- * merge queue's: the newest completed `merge_group` run.
+ * read (fail closed).
  */
 async function redOnMain(token) {
-  const runs = await gh('actions/runs?branch=main&status=completed&per_page=100', token);
-  const queue = await gh('actions/workflows/ci.yml/runs?event=merge_group&status=completed&per_page=1', token);
   const red = [];
-  for (const name of MAIN_GUARDS) {
-    const last = name === 'CI' ? queue.workflow_runs[0] : runs.workflow_runs.find((r) => r.name === name);
+  for (const [name, query] of Object.entries(MAIN_GUARDS)) {
+    const last = (await gh(`actions/workflows/${query}&status=completed&per_page=1`, token)).workflow_runs[0];
     if (!last) red.push(`${name} (no completed run found)`);
     else if (last.conclusion !== 'success' && last.conclusion !== 'skipped') red.push(name);
   }
