@@ -33,6 +33,7 @@ npx lattice lint <deck.md> [more.md …] [options]
 npx lattice fmt <deck.md> [more.md …] [options]
 npx lattice migrate notes <deck.md> [more.md …] [options]
 npx lattice completion <bash | zsh | fish | powershell>
+npx lattice mcp
 ```
 
 Named flags win over positional arguments when you give both. Flags that take
@@ -296,6 +297,14 @@ a `.vtt` beside it.
 It needs a Chromium that encodes H.264 with WebCodecs, such as Chrome or
 Chrome for Testing. Set `CHROME_PATH` to choose one.
 
+## `lattice mcp`
+
+The verb is reserved for an MCP server, which is not available in this version.
+`lattice mcp` prints one line saying so, with a link to this section, and exits
+`1`. It renders nothing.
+
+To render a deck file named `mcp`, write its path: `lattice ./mcp out.pdf`.
+
 ## `lattice completion`
 
 Prints a Tab-completion script for one shell to stdout. It completes the
@@ -332,7 +341,7 @@ serves the candidates. cmd.exe has no programmable completion.
 | Code | Meaning |
 |---|---|
 | `0` | Success |
-| `1` | A usage error, a missing file, an unknown palette, or a failed render |
+| `1` | A usage error, a missing file, an unknown palette, a failed render, or `lattice mcp` |
 
 ## Helper scripts in the repository
 
