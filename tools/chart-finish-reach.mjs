@@ -3,7 +3,7 @@
  * chart-finish-reach — which chart marks does each finish actually REACH, and what does the
  * finish do to a ramp's range?
  *
- * Now that a finish is always on (`marks:` has no `off`; resolve-marks.js), a mark a
+ * Now that a finish is always on (`chart-finish:` has no `off`; resolve-chart-finish.js), a mark a
  * finish misses is not "left as designed", it is a mark that looks like no finish at all beside
  * its neighbors: the progress bar with no status keeps its own pale gradient under all three
  * finishes while its sibling bars change. This tool names every such mark, per member.
@@ -56,7 +56,7 @@ import { fileURLToPath } from 'node:url';
 import puppeteer from 'puppeteer';
 
 const nodeRequire = createRequire(import.meta.url);
-const { MARKS_DEFAULT } = nodeRequire('../lib/core/resolve-marks.js');
+const { CHART_FINISH_DEFAULT } = nodeRequire('../lib/core/resolve-chart-finish.js');
 // The one WCAG measurement the repo owns (tools/check-slide-contrast.js), so this tool never has a
 // second, drifting copy of the arithmetic.
 const { PROBE } = nodeRequire('./check-slide-contrast.js');
@@ -152,8 +152,8 @@ function measureInPage(markClasses, finishes, memberNames) {
   const sections = [...document.querySelectorAll('section')];
   const setFinish = (f) => {
     for (const s of sections) {
-      for (const c of [...s.classList]) if (c.startsWith('marks-')) s.classList.remove(c);
-      if (f) s.classList.add(`marks-${f}`);
+      for (const c of [...s.classList]) if (/^(chart-finish|color-intensity)-/.test(c)) s.classList.remove(c);
+      if (f) s.classList.add(`chart-finish-${f}`);
     }
   };
   const paint = (el) => {
@@ -282,8 +282,8 @@ for (const theme of args.themes) {
     // stable across a class swap, so the index is the identity).
     const swap = (f) => page.evaluate((f) => {
       for (const sec of document.querySelectorAll('section')) {
-        for (const c of [...sec.classList]) if (c.startsWith('marks-')) sec.classList.remove(c);
-        if (f) sec.classList.add(`marks-${f}`);
+        for (const c of [...sec.classList]) if (/^(chart-finish|color-intensity)-/.test(c)) sec.classList.remove(c);
+        if (f) sec.classList.add(`chart-finish-${f}`);
       }
     }, f);
     const probeRows = {};
@@ -398,7 +398,7 @@ for (const s of spans) if (!worst[s.finish] || s.kept < worst[s.finish].kept) wo
 for (const f of FINISHES) {
   const w = worst[f];
   if (!w) continue;
-  const gated = f === MARKS_DEFAULT;
+  const gated = f === CHART_FINISH_DEFAULT;
   const low = w.kept < args.spanFloor;
   console.log(`  ${f.padEnd(8)} worst ${w.kept.toFixed(2)}x  (${w.finishRatio.toFixed(2)} vs ${w.base.toFixed(2)})  at ${w.theme}/${w.mode}${gated ? `  <- the default, floor ${args.spanFloor}x${low ? '  FAIL' : ''}` : ''}`);
   if (gated && low) failures++;
@@ -408,12 +408,12 @@ for (const f of FINISHES) {
   const mine = regressions.filter((r) => r.finish === f);
   const byMark = new Map();
   for (const r of mine) { const k = `${r.cls} ${r.tag}`; byMark.set(k, [...(byMark.get(k) || []), r]); }
-  console.log(`  ${f.padEnd(8)} ${mine.length} regression(s)${f === MARKS_DEFAULT ? '  <- the default, none allowed' : ''}`);
+  console.log(`  ${f.padEnd(8)} ${mine.length} regression(s)${f === CHART_FINISH_DEFAULT ? '  <- the default, none allowed' : ''}`);
   for (const [k, rs] of [...byMark].sort((a, b) => b[1].length - a[1].length).slice(0, 6)) {
     const w = rs.sort((a, b) => a.now - b.now)[0];
     console.log(`      ${k.padEnd(34)} ${String(rs.length).padStart(4)}x  worst ${w.now.toFixed(2)}:1 (was ${w.was.toFixed(2)}, need ${w.need}) at ${w.theme}/${w.mode} "${w.text}"`);
   }
-  if (f === MARKS_DEFAULT) failures += mine.length;
+  if (f === CHART_FINISH_DEFAULT) failures += mine.length;
 }
 for (const m of runMismatch.slice(0, 5)) console.log(`  MISALIGNED  ${m}`);
 if (runMismatch.length) failures += runMismatch.length;

@@ -87,6 +87,8 @@ import type { ComposeHandle, EmptyState, LayoutRequest, PaneRequest } from './Co
 import { CrashReportSheet } from './CrashReportSheet';
 import { CARD_TAG_ROWS, cardTagOptionLabel } from './card-tag-rows';
 import type { ChatApplyOpts, ChatDraft } from './change-card-types';
+import { activeChartFinish, CHART_FINISHES, DEFAULT_CHART_FINISH } from './chart-finish-catalog';
+import { chartFinishValue, deckChartFinish } from './chart-finish-value';
 import { onCheckpointsChanged, onCheckpointWriteError } from './checkpoint-store';
 import { ActivityRail, type AssistantPaneId, BAR_CONTROL, BAR_RULE, BarIcon, ComposeSkeleton, DECK_META_SLOT, EDIT_FIT, EDIT_FIT_LEVELS, EDIT_MODE_LABEL, EDIT_MODES, EditModeToggle, EditorSkeleton, HOME_HREF, isAssistantPane, isSettingsPane, PANE_NAME, PANE_RAIL_LABEL, PostureDial, type SettingsPaneId, SlideCount, SlideNavigator, type StudioPaneId } from './chrome-parts';
 import { activeClaim, CLAIMS } from './claim-catalog';
@@ -137,8 +139,6 @@ import { type LiveLook, type LiveRecords, NO_RECORDS } from './live/live-store';
 import { storedLiveName, useLiveSession } from './live/use-live-session';
 import { LOGO_PLACEMENT_HIDES, type LogoFinishAxis, logoFinishLabel, logoFinishOptions, logoFinishValue, logoFinishWords, parseLogoFinish } from './logo-finish';
 import { MotionTargets } from './MotionTargets';
-import { activeMarks, DEFAULT_MARKS, MARKS_FINISHES } from './marks-catalog';
-import { marksValue, parseMarksValue } from './marks-value';
 import { type DiagramError, extractDiagrams } from './mermaid-check';
 import { readTargets, setSlideMotionOff } from './motion-sheet';
 import { NewSlideButton, type NewSlideSide } from './NewSlideButton';
@@ -2883,17 +2883,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Corners (`corners:`) — whether the slide surface itself is rounded. lib/core/resolve-corners.js.
 	const corners = registerValue(source, 'corners');
 	const setCorners = (value: string) => settingsWrite(`Corners → ${value}`, (s) => writeRegister(s, 'corners', value));
-	// The default finish REMOVES the line rather than writing `marks: pigment`: a deck that says
-	// nothing wears it, `marks:` is not a preset key, and writeRegister drops a line only at the
-	// baseline ''.
-	// The value carries one word per axis (`tone vivid ink`), so it is read by axis, and choosing a finish keeps the
-	// deck's intensity, and tone's source while the finish stays tone. A deck still on the old `chart-finish:` key is read from it, and a pick moves it to `marks:`
-	// (the old line goes, so the deck never carries both).
-	const marksOf = (s: string) => getFrontMatter(s, 'marks') || getFrontMatter(s, 'chart-finish');
-	const marks = parseMarksValue(marksOf(source)).finish || DEFAULT_MARKS;
+	// The default finish REMOVES the line rather than writing `chart-finish: pigment`: a deck that says
+	// nothing wears it, and writeRegister drops a line only at the baseline ''.
+	// The value carries one word per axis (`tone ink`), so it is read by axis, and choosing a finish keeps tone's
+	// source while the finish stays tone. The intensity is its own key, `color-intensity:`, which this picker leaves alone.
+	const marks = deckChartFinish((k) => getFrontMatter(source, k)).finish || DEFAULT_CHART_FINISH;
 	const setMarks = (value: string) =>
-		settingsWrite(`Marks → ${activeMarks(value).label}`, (s) =>
-			writeFrontMatterLine(writeFrontMatterLine(s, 'marks', marksValue(value, parseMarksValue(marksOf(s)).intensity, parseMarksValue(marksOf(s)).source) || null), 'chart-finish', null),
+		settingsWrite(`Marks → ${activeChartFinish(value).label}`, (s) =>
+			writeFrontMatterLine(s, 'chart-finish', chartFinishValue(value, deckChartFinish((k) => getFrontMatter(s, k)).source) || null),
 		);
 	// Agenda (`agenda:`) — the deck's agenda style, and whether a FILLED agenda shows page numbers
 	// (lib/core/resolve-agenda.js). One line, two axes; auto on both removes the key.
@@ -6952,9 +6949,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				    alongside Finish; per-slide `_class: lifted`/`flat` override. */}
 				<Field label="Card lift" desc="A soft shadow under card surfaces." find="shadow elevation struck" help={<>The "Struck" elevation — a zero-blur shadow that lifts cards, KPI tiles and stats off the slide. It reads in both light and dark and survives the PDF export. A slide opts out with <code>_class: flat</code>.</>}><Toggle label="Card lift" on={lift} onClick={toggleLift} /></Field>
 				{/* Chart finish — how every chart spends its color. Deck-wide here; a slide
-				    overrides it from its own settings (`_class: marks-*`). */}
-				<Field label="Marks" desc="How every chart spends its color." find="chart finish pigment etch tone color charts" help={<>How every chart on the deck spends its color. <strong>Pigment</strong> (the default) puts it in the body: full-strength, flat color. <strong>Etch</strong> puts it in the line: a whisper of color under a doubled edge. <strong>Tone</strong> puts it in value: one hue in stepped shades. Every mark keeps an ink edge, and the a11y themes keep their patterns, under every finish. A slide overrides it with <code>_class: marks-*</code>.</>}>
-					<CatalogSelect ariaLabel="Choose marks" className="w-full" {...autoField(activeMarks(marks).name, DEFAULT_MARKS, setMarks, [{ options: catalogOptions(MARKS_FINISHES) }])} />
+				    overrides it from its own settings (`_class: chart-finish-*`). */}
+				<Field label="Marks" desc="How every chart spends its color." find="chart finish pigment etch tone color charts" help={<>How every chart on the deck spends its color. <strong>Pigment</strong> (the default) puts it in the body: full-strength, flat color. <strong>Etch</strong> puts it in the line: a whisper of color under a doubled edge. <strong>Tone</strong> puts it in value: one hue in stepped shades. Every mark keeps an ink edge, and the a11y themes keep their patterns, under every finish. A slide overrides it with <code>_class: chart-finish-*</code>.</>}>
+					<CatalogSelect ariaLabel="Choose marks" className="w-full" {...autoField(activeChartFinish(marks).name, DEFAULT_CHART_FINISH, setMarks, [{ options: catalogOptions(CHART_FINISHES) }])} />
 				</Field>
 				{/* The deck `agenda:` register — ONE line, two axes, so two rows (the Card tags pattern). */}
 				<SubGroup label="Agenda">

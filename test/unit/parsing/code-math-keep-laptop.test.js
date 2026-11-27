@@ -28,7 +28,7 @@ const PROSE = '## A plain slide.\n\nSome words.';
 test('the helper: a laptop-keeping component with no venue takes keeps-laptop, and nothing else does', () => {
   assert.deepEqual([...LAPTOP_KEEPING_COMPONENTS].sort(), ['code', 'compare-code', 'math']);
   assert.equal(KEEPS_LAPTOP_CLASS, 'keeps-laptop');
-  assert.equal(laptopKeepingToken(['code', 'marks-pigment']), 'keeps-laptop');
+  assert.equal(laptopKeepingToken(['code', 'chart-finish-pigment']), 'keeps-laptop');
   assert.equal(laptopKeepingToken('math dark'), 'keeps-laptop');
   assert.equal(laptopKeepingToken(['content']), null);
   assert.equal(laptopKeepingToken(['code', 'venue-phone']), null, 'an authored venue wins');

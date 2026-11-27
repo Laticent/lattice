@@ -1,5 +1,5 @@
 /**
- * The generated marks rules (tools/build-marks-css.js). Pins the properties the
+ * The generated marks rules (tools/build-chart-finish-css.js). Pins the properties the
  * generator's header argues for, so a later edit cannot quietly undo one:
  *
  *   - a finish is a block of `--finish-*` values on the section, and every other rule reads them: the three blocks set
@@ -15,7 +15,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { build, F, KANBAN_CODE_CAP, STATUS_MARKS, KEY_FOLLOWS, TONE, TONE_D } = require('../../../tools/build-marks-css');
+const { build, F, KANBAN_CODE_CAP, STATUS_MARKS, KEY_FOLLOWS, TONE, TONE_D } = require('../../../tools/build-chart-finish-css');
 const { loadAll } = require('../../../lib/components');
 
 const OUT = path.join(__dirname, '../../../lib/plugins/chart-family/chart-family.styles.generated.css');
@@ -30,31 +30,31 @@ const rules = [...css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/@supports[^{]*\{
   .map((m) => ({ sel: m[1].trim(), body: m[2] }));
 const FINISHES = ['pigment', 'etch', 'tone'];
 /** The rules that paint `finish`: its own head, or an `:is()` head that names it. */
-const serving = (finish) => rules.filter((r) => r.sel.startsWith('section') && new RegExp(`marks-${finish}\\b`).test(r.sel.split(' :where(')[0]));
+const serving = (finish) => rules.filter((r) => r.sel.startsWith('section') && new RegExp(`chart-finish-${finish}\\b`).test(r.sel.split(' :where(')[0]));
 /** The rules whose head is exactly `finishes` (one finish alone, or the named set). */
-const headed = (...finishes) => rules.filter((r) => r.sel.startsWith(finishes.length === 1 ? `section.marks-${finishes[0]} :where(` : `section:is(${finishes.map((f) => `.marks-${f}`).join(', ')}) :where(`));
+const headed = (...finishes) => rules.filter((r) => r.sel.startsWith(finishes.length === 1 ? `section.chart-finish-${finishes[0]} :where(` : `section:is(${finishes.map((f) => `.chart-finish-${f}`).join(', ')}) :where(`));
 /** The `--finish-*` values one finish sets on its section. */
 const tokens = (finish) => {
-  const blk = rules.find((r) => r.sel === `section.marks-${finish},\nfigure.marks-${finish},\n:is(section, figure).marks-${finish} .chart-frame`);
+  const blk = rules.find((r) => r.sel === `section.chart-finish-${finish},\nfigure.chart-finish-${finish},\n:is(section, figure).chart-finish-${finish} .chart-frame`);
   assert.ok(blk, `a token block for ${finish}`);
   return Object.fromEntries([...blk.body.matchAll(/^\s*(--finish-[a-z0-9-]+):\s*(.*);$/gm)].map((m) => [m[1], m[2]]));
 };
 
-describe('marks.generated.css', () => {
+describe('chart-family.styles.generated.css', () => {
   test('the committed file is what the generator writes', () => {
-    assert.equal(fs.readFileSync(OUT, 'utf8'), css, 'run `node tools/build-marks-css.js`');
+    assert.equal(fs.readFileSync(OUT, 'utf8'), css, 'run `node tools/build-chart-finish-css.js`');
   });
 
   test('every selector is a finish head over a :where() mark — specificity (0,1,1)', () => {
     assert.ok(selectors.length > 100);
     // The head is one finish, or an :is() of several: :is() takes its most specific argument, a class, so (0,1,1) holds.
-    const head = '(?:\\.marks-(?:pigment|etch|tone)|:is\\(\\.marks-(?:pigment|etch|tone)(?:, \\.marks-(?:pigment|etch|tone))*\\))';
+    const head = '(?:\\.chart-finish-(?:pigment|etch|tone)|:is\\(\\.chart-finish-(?:pigment|etch|tone)(?:, \\.chart-finish-(?:pigment|etch|tone))*\\))';
     const tokenHeads = [];
     const sourceHeads = [];
     for (const s of selectors) {
-      if (/^(section|figure)\.marks-(pigment|etch|tone)$|^:is\(section, figure\)\.marks-(pigment|etch|tone) \.chart-frame$/.test(s)) { tokenHeads.push(s); continue; }
-      // Tone's source blocks (`marks: tone ink`): the same three heads, with the source class beside tone's.
-      if (/^(section|figure)\.marks-tone\.marks-(ink|accent)$|^:is\(section, figure\)\.marks-tone\.marks-(ink|accent) \.chart-frame$/.test(s)) { sourceHeads.push(s); continue; }
+      if (/^(section|figure)\.chart-finish-(pigment|etch|tone)$|^:is\(section, figure\)\.chart-finish-(pigment|etch|tone) \.chart-frame$/.test(s)) { tokenHeads.push(s); continue; }
+      // Tone's source blocks (`chart-finish: tone ink`): the same three heads, with the source class beside tone's.
+      if (/^(section|figure)\.chart-finish-tone\.chart-finish-(ink|accent)$|^:is\(section, figure\)\.chart-finish-tone\.chart-finish-(ink|accent) \.chart-frame$/.test(s)) { sourceHeads.push(s); continue; }
       // A rule may add a slide-level GUARD (`:not(:has(...))`, `:not(.keyline)`) after the head, so a first-hue neutral mark waits for a
       // slide whose own markup does not already use that hue for a category.
       const guard = '(?::(?:not|has)\\((?:[^()]|\\((?:[^()]|\\([^()]*\\))*\\))*\\))*';
@@ -98,11 +98,11 @@ describe('marks.generated.css', () => {
       for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
         const full = path.join(dir, e.name);
         if (e.isDirectory()) walk(full);
-        else if (e.name.endsWith('.css') && !e.name.endsWith('.styles.generated.css') && /\.marks-(pigment|etch|tone)\b/.test(fs.readFileSync(full, 'utf8'))) hits.push(path.relative(path.join(__dirname, '../../..'), full));
+        else if (e.name.endsWith('.css') && !e.name.endsWith('.styles.generated.css') && /\.chart-finish-(pigment|etch|tone)\b/.test(fs.readFileSync(full, 'utf8'))) hits.push(path.relative(path.join(__dirname, '../../..'), full));
       }
     };
     for (const r of roots) walk(r);
-    assert.deepEqual(hits, [], 'move the rule into tools/build-marks-css.js, or make the difference a --finish-* value');
+    assert.deepEqual(hits, [], 'move the rule into tools/build-chart-finish-css.js, or make the difference a --finish-* value');
   });
 
   test('light-dark() never carries a bare percentage', () => {
@@ -211,7 +211,7 @@ describe('marks.generated.css', () => {
   });
 
   test('a roadmap status disc takes the one status level under etch and tone; only etch inks its glyph', () => {
-    const at = css.indexOf('section:is(.marks-etch, .marks-tone) :where(.roadmap :is(td.cell-state');
+    const at = css.indexOf('section:is(.chart-finish-etch, .chart-finish-tone) :where(.roadmap :is(td.cell-state');
     assert.ok(at >= 0, 'one etch+tone rule for the roadmap discs');
     const head = css.slice(at, css.indexOf('{', at));
     for (const st of ['shipped', 'wip', 'missed', 'skipped']) assert.match(head, new RegExp(`\\.state-${st}\\b`));
@@ -226,9 +226,9 @@ describe('marks.generated.css', () => {
     const glyph = [...css.matchAll(/section([^{]*):where\(\.roadmap :is\(td\.cell-state[^{]*\{([^}]*)\}/g)]
       .filter(([, , decls]) => /--state-glyph-mark/.test(decls));
     assert.equal(glyph.length, 1, 'one glyph-ink rule for the roadmap discs');
-    assert.match(glyph[0][1], /^\.marks-etch /, 'etch alone');
+    assert.match(glyph[0][1], /^\.chart-finish-etch /, 'etch alone');
     assert.match(glyph[0][2], /--state-glyph-mark: var\(--finish-ink\)/);
-    assert.doesNotMatch(css, /marks-pigment[^{]*state-shipped/, 'pigment leaves the solid disc alone');
+    assert.doesNotMatch(css, /chart-finish-pigment[^{]*state-shipped/, 'pigment leaves the solid disc alone');
     const member = fs.readFileSync(path.join(__dirname, '../../../lib/plugins/chart-family/kinds/roadmap/roadmap.styles.css'), 'utf8');
     assert.equal((member.match(/background-color:var\(--state-fill, var\(--state-color/g) || []).length, 3, 'all three disc recipes read --state-fill');
   });
@@ -237,7 +237,7 @@ describe('marks.generated.css', () => {
   // (etch's 14% read 4.07:1, tone's 12% 4.19:1 on carbone light; engineering/decisions/2026-10-28-finish-invariant.md §4).
   test('a kanban card takes at most an 8% wash on a light slide, under every finish', () => {
     assert.equal(KANBAN_CODE_CAP, 8);
-    const card = [...css.matchAll(/section\.marks-(\w+)\.kanban[^{]*\.kanban-card:not\(\[data-s\]\)[^{]*\{([^}]*)\}/g)];
+    const card = [...css.matchAll(/section\.chart-finish-(\w+)\.kanban[^{]*\.kanban-card:not\(\[data-s\]\)[^{]*\{([^}]*)\}/g)];
     assert.ok(card.length >= 2, 'a card rule per washed finish');
     for (const [, finish, body] of card) {
       const bg = body.match(/background: light-dark\(color-mix\(in oklab, var\(--finish-one\) (\d+)%/);
@@ -252,7 +252,7 @@ describe('marks.generated.css', () => {
   // and ink edge. Tone keeps its one-ink lines; before this, etch drew a slope exactly as tone did.
   test('etch keeps a slope\'s status ink at its line weight, and washes its dots; tone keeps one ink', () => {
     const body = (finish, sel) => {
-      const at = css.indexOf(`section.marks-${finish} :where(${sel})`);
+      const at = css.indexOf(`section.chart-finish-${finish} :where(${sel})`);
       assert.ok(at >= 0, `${finish}: a rule for ${sel}`);
       return css.slice(at, css.indexOf('}', at));
     };
@@ -261,12 +261,12 @@ describe('marks.generated.css', () => {
     const lines = body('etch', '.slope-svg .slope-line[data-s], .slope-svg.slope-signal .slope-line:is([data-dir="up"], [data-dir="down"]):not([data-s])');
     assert.match(lines, /stroke-width: 2\.6/);
     assert.doesNotMatch(lines, /stroke: /, 'etch keeps the member\'s status ink on a slope line');
-    assert.doesNotMatch(css, /marks-etch :where\([^)]*slope-line[^{]*\{[^}]*state-(pass|fail)-hue/, 'no etch slope line takes the dim hue');
+    assert.doesNotMatch(css, /chart-finish-etch :where\([^)]*slope-line[^{]*\{[^}]*state-(pass|fail)-hue/, 'no etch slope line takes the dim hue');
     // Every slopegraph dot gets an ink, and the dot paints a wash of it with an edge in it.
     assert.match(body('etch', '.slope-svg.slope-slopegraph .slope-dot[data-s]'), /--slope-dot-ink: var\(--mark-ink\)/);
     assert.match(body('etch', '.slope-svg.slope-slopegraph.slope-signal .slope-dot[data-dir="up"]:not([data-s])'), /--slope-dot-ink: var\(--state-pass-ink\)/);
     assert.match(body('etch', '.slope-svg.slope-slopegraph.slope-signal .slope-dot[data-dir="down"]:not([data-s])'), /--slope-dot-ink: var\(--state-fail-ink\)/);
-    assert.match(css, /marks-etch :where\(\.slope-svg\.slope-slopegraph:not\(\.slope-signal\) \.slope-dot:not\(\[data-s\]\)[^{]*\{\s*--slope-dot-ink: color-mix\(in oklab, var\(--finish-one-ink\) 62%/);
+    assert.match(css, /chart-finish-etch :where\(\.slope-svg\.slope-slopegraph:not\(\.slope-signal\) \.slope-dot:not\(\[data-s\]\)[^{]*\{\s*--slope-dot-ink: color-mix\(in oklab, var\(--finish-one-ink\) 62%/);
     const dot = body('etch', '.slope-svg.slope-slopegraph .slope-dot');
     assert.match(dot, /fill: color-mix\(in oklab, var\(--slope-dot-ink\) 18%, var\(--bg\)\)/);
     assert.match(dot, /stroke: var\(--slope-dot-ink\)/);
@@ -284,7 +284,7 @@ describe('marks.generated.css', () => {
     assert.ok(Math.min(...TONE_D) >= 29, 'the dark ladder keeps its floor');
     assert.equal(t['--finish-base'], 'var(--bg)', 'unguarded, the light base is the canvas');
     assert.equal(t['--finish-base-d'], 'var(--bg)');
-    assert.match(css, /@supports \(color: color\(from light-dark\(red, red\)[^{]*\{\nsection\.marks-tone,\nfigure\.marks-tone,\n:is\(section, figure\)\.marks-tone \.chart-frame \{\n {2}--finish-base: oklab\(from var\(--finish-one\) /);
+    assert.match(css, /@supports \(color: color\(from light-dark\(red, red\)[^{]*\{\nsection\.chart-finish-tone,\nfigure\.chart-finish-tone,\n:is\(section, figure\)\.chart-finish-tone \.chart-frame \{\n {2}--finish-base: oklab\(from var\(--finish-one\) /);
     assert.doesNotMatch(css, /--cat-1-fill/, 'the tone base comes from the tone hue, never the palette slot fill');
   });
 
@@ -312,7 +312,7 @@ describe('marks.generated.css', () => {
       assert.equal(t.pigment[`--finish-hue-${n}`], `var(--chart-cat-${n}-hue)`, `pigment slot ${n} hue`);
       for (const k of ['body', 'body-d', 'text', 'text-d']) assert.equal(t.pigment[`--finish-${k}-${n}`], '100%', `pigment slot ${n} ${k}`);
       // The slot's edge is the category's own ink under every finish, tone included.
-      const slot = rules.find((r) => r.sel.startsWith(`section:is(.marks-pigment, .marks-etch, .marks-tone) :where(:is([data-hue="${n}"], [data-key-hue="${n}"]))`));
+      const slot = rules.find((r) => r.sel.startsWith(`section:is(.chart-finish-pigment, .chart-finish-etch, .chart-finish-tone) :where(:is([data-hue="${n}"], [data-key-hue="${n}"]))`));
       assert.match(slot.body, new RegExp(`--finish-mark-edge: var\\(--chart-cat-${n}-ink\\)`), `slot ${n} edge`);
     }
     // A text-bearing HTML mark takes the finish's one ink for its text, never one picked per body.
@@ -357,7 +357,7 @@ describe('marks.generated.css', () => {
 
   // Two treatments moved out of member stylesheets into the generator, and a deleted rule failed nothing (checker finding).
   test('the rules relocated from member stylesheets are present, and the border value differs by finish', () => {
-    const pig = rules.find((r) => r.sel.startsWith('section.marks-pigment :where(.quadrant-bubble-value[data-pos="inside"])'));
+    const pig = rules.find((r) => r.sel.startsWith('section.chart-finish-pigment :where(.quadrant-bubble-value[data-pos="inside"])'));
     assert.match(pig?.body || '', /fill: var\(--chart-on-mark\) !important/, 'pigment prints a bubble value inside its deep fill in the one ink');
     assert.ok(!serving('etch').concat(serving('tone')).some((r) => r.sel.includes('quadrant-bubble-value')), 'etch and tone keep the heading ink');
     assert.deepEqual(FINISHES.map((f) => tokens(f)['--finish-border']), ['1', '0', '0'], 'pigment keeps a border, etch and tone drop it');
@@ -427,10 +427,10 @@ describe('marks.generated.css', () => {
     // Strip exactly these four rules before the two ink checks below, so any OTHER icon rule that leaves the guard
     // still trips them (checker finding: a strip of every `.hub-spoke-icon` rule hid a deleted or rewritten one).
     const HUB_ICON_FALLBACKS = [
-      /section\.marks-pigment :where\(\.hub-spoke-icon:is\(\[data-hue="1"\][^{]*\{\s*--hs-icon-ink: var\(--finish-ink\) !important;\s*\}/,
-      /section\.marks-pigment :where\(\.hub-spoke-icon:not\(\[data-s\]\):not\(\[data-hue\]\)\)[^{]*\{\s*--hs-icon-ink: var\(--chart-on-mark\) !important;\s*\}/,
-      /section:is\(\.marks-pigment, \.marks-etch, \.marks-tone\) :where\(\.hub-spoke-icon\[data-s\]\)[^{]*\{\s*--hs-icon-ink: light-dark\(color-mix\(in srgb, var\(--finish-ink\) var\(--finish-status-k\), var\(--status-on-ink\)\), color-mix\(in srgb, var\(--finish-ink\) var\(--finish-status-k-d\), var\(--status-on-ink\)\)\) !important;\s*\}/,
-      /section\.marks-tone :where\(\.hub-spoke-icon\[data-hue="1"\]\)[^{]*\{\s*--hs-icon-ink: light-dark\(var\(--chart-on-mark\), var\(--text-heading\)\) !important;\s*\}/,
+      /section\.chart-finish-pigment :where\(\.hub-spoke-icon:is\(\[data-hue="1"\][^{]*\{\s*--hs-icon-ink: var\(--finish-ink\) !important;\s*\}/,
+      /section\.chart-finish-pigment :where\(\.hub-spoke-icon:not\(\[data-s\]\):not\(\[data-hue\]\)\)[^{]*\{\s*--hs-icon-ink: var\(--chart-on-mark\) !important;\s*\}/,
+      /section:is\(\.chart-finish-pigment, \.chart-finish-etch, \.chart-finish-tone\) :where\(\.hub-spoke-icon\[data-s\]\)[^{]*\{\s*--hs-icon-ink: light-dark\(color-mix\(in srgb, var\(--finish-ink\) var\(--finish-status-k\), var\(--status-on-ink\)\), color-mix\(in srgb, var\(--finish-ink\) var\(--finish-status-k-d\), var\(--status-on-ink\)\)\) !important;\s*\}/,
+      /section\.chart-finish-tone :where\(\.hub-spoke-icon\[data-hue="1"\]\)[^{]*\{\s*--hs-icon-ink: light-dark\(var\(--chart-on-mark\), var\(--text-heading\)\) !important;\s*\}/,
     ];
     const names = ['pigment\'s group icon ink', 'pigment\'s neutral icon ink', 'every finish\'s status icon ink', 'tone\'s first-slot icon ink'];
     let withoutHubIcons = outside;
@@ -440,8 +440,8 @@ describe('marks.generated.css', () => {
     });
     assert.doesNotMatch(withoutHubIcons, /var\(--finish-ink\)/, 'every rule that reads the finish\'s text ink waits behind the guard');
     const withoutTicks = withoutHubIcons.replace(/--finish-ink:[^;]*;/g, '').replace(/[^}]*\.radar-tick[^}]*\}/g, '').replace(/[^}]*\.hub-spoke-hub[^}]*\}/g, '').replace(/[^}]*\.wc-word[^}]*\}/g, '').replace(/[^}]*\.chart-status-mark[^}]*\}/g, '')
-      // And `marks: tone ink`, whose block names the heading ink as tone's one HUE (a value the ladder mixes), not as text on a body.
-      .replace(/[^}]*\.marks-tone\.marks-ink[^}]*\}/g, '');
+      // And `chart-finish: tone ink`, whose block names the heading ink as tone's one HUE (a value the ladder mixes), not as text on a body.
+      .replace(/[^}]*\.chart-finish-tone\.chart-finish-ink[^}]*\}/g, '');
     assert.doesNotMatch(withoutTicks, /var\(--text-(body|heading)\)/, 'no fixed-ink fallback is left');
     assert.match(outside, /\.radar-tick[^}]*fill: var\(--text-heading\)/, 'the radar tick takes the heading ink under every finish');
     // The plain categorical rule skips the text-bearing marks, or they would take its full body.
@@ -465,11 +465,11 @@ describe('marks.generated.css', () => {
       const open = css.lastIndexOf('@supports', i);
       return open >= 0 && !css.slice(open, i).includes('\n}\n}');
     };
-    const pickedStatus = at('section:is(.marks-etch, .marks-tone) :where(.hub-spoke-icon[data-s])');
-    const pickedSlot = at('section:is(.marks-etch, .marks-tone) :where(.hub-spoke-icon:is([data-hue="1"]');
+    const pickedStatus = at('section:is(.chart-finish-etch, .chart-finish-tone) :where(.hub-spoke-icon[data-s])');
+    const pickedSlot = at('section:is(.chart-finish-etch, .chart-finish-tone) :where(.hub-spoke-icon:is([data-hue="1"]');
     assert.ok(guarded(pickedStatus) && guarded(pickedSlot), 'the picked inks sit behind the guard');
-    const fallbackStatus = at('section:is(.marks-pigment, .marks-etch, .marks-tone) :where(.hub-spoke-icon[data-s])');
-    const fallbackSlot = at('section.marks-tone :where(.hub-spoke-icon[data-hue="1"])');
+    const fallbackStatus = at('section:is(.chart-finish-pigment, .chart-finish-etch, .chart-finish-tone) :where(.hub-spoke-icon[data-s])');
+    const fallbackSlot = at('section.chart-finish-tone :where(.hub-spoke-icon[data-hue="1"])');
     assert.ok(!guarded(fallbackStatus) && !guarded(fallbackSlot), 'the fallback inks sit outside the guard');
     assert.ok(fallbackStatus < pickedStatus, 'the status fallback precedes the picked status ink');
     assert.ok(fallbackSlot < pickedSlot, 'tone\'s first-slot fallback precedes the picked slot ink');
@@ -579,7 +579,7 @@ describe('marks.generated.css', () => {
     const quiet = headed('tone').find((r) => r.sel.includes('.slope-svg:not(.slope-signal) .slope-line:not([data-s])'));
     assert.ok(quiet, 'tone quiets the slope lines that carry no status');
     for (const f of ['pigment', 'etch']) assert.ok(!serving(f).some((r) => r.body.includes('stroke-dasharray: 7 3.5')), `${f} does not dash a series`);
-    assert.match(css, /marks-etch :where\(:is\(\.line-path, \.ep-path\)\)[^}]*stroke-width: 2\.6/, 'etch draws the series line heavier');
+    assert.match(css, /chart-finish-etch :where\(:is\(\.line-path, \.ep-path\)\)[^}]*stroke-width: 2\.6/, 'etch draws the series line heavier');
   });
 
   // A word cloud's color is arbitrary by default (categorical inks in rank order) while its size already carries the weight.
@@ -587,7 +587,7 @@ describe('marks.generated.css', () => {
   test('tone and etch color a word by its weight tier in the first hue; pigment leaves the words alone', () => {
     const want = { 5: /fill: light-dark\(var\(--finish-one-ink\), color-mix\(in oklab, var\(--finish-one-ink\) 65%, var\(--text-heading\)\)\) !important/, 4: /\) 75%, var\(--text-muted\)\)/, 3: /\) 50%, var\(--text-muted\)\)/, 2: /\) 25%, var\(--text-muted\)\)/, 1: /fill: var\(--text-muted\) !important/ };
     for (const [tier, re] of Object.entries(want)) {
-      const r = headed('tone').find((x) => x.sel.startsWith(`section.marks-tone :where(.wc-word[data-tier="${tier}"])`));
+      const r = headed('tone').find((x) => x.sel.startsWith(`section.chart-finish-tone :where(.wc-word[data-tier="${tier}"])`));
       assert.match(r?.body || '', re, `tier ${tier}`);
     }
     // No word may reach for the palette's sequential ramp: its deepest step is near-black on a light slide.
@@ -613,7 +613,7 @@ describe('marks.generated.css', () => {
   // The matrix grid colors a row's label and its empty cells' outlines from `--row-hue` / `--row-ink`, which no finish paints
   // (they are the member's own properties). Tone re-points them, so a tone grid is one hue like the heatmap and the tower.
   test('tone re-points a matrix grid row to the one hue; the other finishes leave rows alone', () => {
-    const r = headed('tone').find((x) => x.sel.startsWith('section.marks-tone :where(.matrix-grid-figure tbody tr)'));
+    const r = headed('tone').find((x) => x.sel.startsWith('section.chart-finish-tone :where(.matrix-grid-figure tbody tr)'));
     assert.match(r?.body || '', /--row-hue: var\(--finish-one\) !important/);
     assert.match(r?.body || '', /--row-ink: var\(--finish-one-ink\) !important/);
     for (const f of ['pigment', 'etch']) assert.ok(!serving(f).some((x) => x.sel.includes('matrix-grid-figure')), `${f} leaves rows alone`);
@@ -629,13 +629,13 @@ describe('marks.generated.css', () => {
   // text-bearing mark; the one ladder below is what makes the one-ink edge safe.)
   test('pigment and etch outline a mark in its category ink; tone outlines every mark in one ink', () => {
     for (let n = 1; n <= 8; n++) {
-      const slot = rules.find((r) => r.sel.startsWith(`section:is(.marks-pigment, .marks-etch, .marks-tone) :where(:is([data-hue="${n}"], [data-key-hue="${n}"]))`));
+      const slot = rules.find((r) => r.sel.startsWith(`section:is(.chart-finish-pigment, .chart-finish-etch, .chart-finish-tone) :where(:is([data-hue="${n}"], [data-key-hue="${n}"]))`));
       assert.match(slot.body, new RegExp(`--finish-mark-edge: var\\(--chart-cat-${n}-ink\\);`), `slot ${n}`);
     }
-    const toneEdge = headed('tone').find((r) => /^section\.marks-tone :where\(:is\(\[data-hue="1"\], \[data-key-hue="1"\], /.test(r.sel) && r.body.includes('--finish-mark-edge'));
+    const toneEdge = headed('tone').find((r) => /^section\.chart-finish-tone :where\(:is\(\[data-hue="1"\], \[data-key-hue="1"\], /.test(r.sel) && r.body.includes('--finish-mark-edge'));
     assert.match(toneEdge?.body || '', /--finish-mark-edge: var\(--finish-one-ink\)/, 'tone re-points every slot\'s edge to the one ink');
     // The tone rule is a plain declaration like the slot rules and comes AFTER them, so at equal specificity it wins.
-    const slot8 = rules.findIndex((r) => r.sel.startsWith('section:is(.marks-pigment, .marks-etch, .marks-tone) :where(:is([data-hue="8"], [data-key-hue="8"]))'));
+    const slot8 = rules.findIndex((r) => r.sel.startsWith('section:is(.chart-finish-pigment, .chart-finish-etch, .chart-finish-tone) :where(:is([data-hue="8"], [data-key-hue="8"]))'));
     assert.ok(rules.indexOf(toneEdge) > slot8, 'after the slot rules');
   });
 
@@ -663,7 +663,7 @@ describe('marks.generated.css', () => {
     // The ring reads the same edge token the mark's own edge does, so the two cannot drift: one value per finish, set once.
     const ringTok = (body) => /--chart-ring: calc\(var\(--state-signal-w\) \* var\((--finish-edge(?:-text)?)\)\)/.exec(body)?.[1];
     const edgeTok = (body) => /(?:box-shadow: inset 0 0 0|stroke-width:) calc\(var\(--chart-edge\) \* var\((--finish-edge(?:-text)?)\)\)/.exec(body)?.[1];
-    const ALL = 'section:is(.marks-pigment, .marks-etch, .marks-tone) :where(';
+    const ALL = 'section:is(.chart-finish-pigment, .chart-finish-etch, .chart-finish-tone) :where(';
     for (const s of STATUS_MARKS) {
       const own = rules.filter((r) => r.sel.startsWith(`${ALL}${s.sel}),`));
       assert.equal(own.length, 1, `${s.sel} is painted once, for every finish`);
@@ -677,7 +677,7 @@ describe('marks.generated.css', () => {
     // diamond and a key swatch carry no text, so theirs follows the plain edge.
     const svgRing = rules.find((r) => r.sel.startsWith(`${ALL}.chart-signal-ring),`));
     assert.equal(ringTok(svgRing.body), '--finish-edge-text', 'the SVG ring follows its bar');
-    assert.match(css, /@supports[^{]*\{\s*section:is\(\.marks-pigment, \.marks-etch, \.marks-tone\) :where\(\.chart-signal-ring\)/, 'the SVG ring waits behind the guard');
+    assert.match(css, /@supports[^{]*\{\s*section:is\(\.chart-finish-pigment, \.chart-finish-etch, \.chart-finish-tone\) :where\(\.chart-signal-ring\)/, 'the SVG ring waits behind the guard');
     const diamond = rules.find((r) => r.sel.startsWith(`${ALL}:is(polygon.chart-signal-ring`));
     assert.equal(ringTok(diamond.body), '--finish-edge', 'a diamond and a key swatch follow the plain edge');
     // The values: the edge a finish gives a mark; the ring is 1.3x it through the rules above.
@@ -691,8 +691,8 @@ describe('marks.generated.css', () => {
   });
 
   test('a container is re-pointed under tone, never repainted, and a status lane keeps its hue', () => {
-    assert.match(css, /marks-tone :where\(\.kanban-column:not\(\[data-done\]\)\)[^{]*\{\s*--col-hue:/);
-    assert.match(css, /marks-tone :where\(:is\(\.fc-group, \.fc-key-swatch\[data-kind="group"\]\)\[data-slot\]\)/);
+    assert.match(css, /chart-finish-tone :where\(\.kanban-column:not\(\[data-done\]\)\)[^{]*\{\s*--col-hue:/);
+    assert.match(css, /chart-finish-tone :where\(:is\(\.fc-group, \.fc-key-swatch\[data-kind="group"\]\)\[data-slot\]\)/);
     assert.doesNotMatch(css, /\.fc-group[^-][^{]*\{[^}]*\bfill:/, 'no rule paints a group as a mark');
   });
 
@@ -701,17 +701,17 @@ describe('marks.generated.css', () => {
   // other table on the slide moves, and the pill picks its ink from its new ground: its shipped
   // `--cat-on-mark` read 1.54:1 on the one hue on the a11y themes' dark faces.
   test('a roadmap phase is re-pointed under tone, and its pill picks its own ink', () => {
-    const head = 'section.marks-tone :where(:is(.roadmap thead th:not(:first-child), .roadmap td:first-child, .roadmap .horizon-card))';
+    const head = 'section.chart-finish-tone :where(:is(.roadmap thead th:not(:first-child), .roadmap td:first-child, .roadmap .horizon-card))';
     const at = css.indexOf(head);
     assert.ok(at >= 0, 'a tone rule for the roadmap phase containers');
     const body = css.slice(at, css.indexOf('}', at));
     assert.match(body, /--phase-accent: var\(--finish-one\)/);
     assert.match(body, /--phase-ink: var\(--finish-one-ink\)/);
     // Etch reaches a roadmap's status discs only (the next test); its phases keep their colors.
-    assert.doesNotMatch(css, /marks-etch :where\([^)]*\.roadmap (thead|td:first-child|\.horizon)/, 'etch leaves a roadmap phase alone');
+    assert.doesNotMatch(css, /chart-finish-etch :where\([^)]*\.roadmap (thead|td:first-child|\.horizon)/, 'etch leaves a roadmap phase alone');
     // Pigment reaches ONE roadmap surface: the workstream row header goes to the neutral ground (REGIONS), and
     // nothing else of the roadmap moves under it.
-    const pigmentRoadmap = [...css.matchAll(/section\.marks-pigment :where\(([^)]*\.roadmap[^)]*)\)[^{]*\{([^}]*)\}/g)];
+    const pigmentRoadmap = [...css.matchAll(/section\.chart-finish-pigment :where\(([^)]*\.roadmap[^)]*)\)[^{]*\{([^}]*)\}/g)];
     assert.deepEqual(pigmentRoadmap.map((m) => [m[1].trim(), m[2].trim()]), [['.roadmap td:first-child', 'background: var(--bg-alt) !important;']]);
     // The re-point and the pill's ink share one @supports block: without relative color the
     // pill could not pick its ink, so the roadmap keeps its shipped phases there.
