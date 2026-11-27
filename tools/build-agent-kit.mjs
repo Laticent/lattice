@@ -3283,7 +3283,7 @@ const START_TOKEN_MAX = 990;
  * Why 990 and not 1,500. The gate counts offline with o200k_base (OpenAI's tokenizer, the one
  * this repo ships); the build makes no network call. Claude is the main reader, and Claude 5's
  * own counter (Anthropic's free count_tokens endpoint, 2026-11-27) read this file at 1.51 to
- * 1.54 times its o200k count: 1,956 for the 1,273-token draft, 1,459 for the 981-token file.
+ * 1.54 times its o200k count: 1,956 for the 1,273-token draft, 1,460 for the 984-token file.
  * Gemini 3.x read 1.06 to 1.07 times. So 990 o200k is about 1,495 Claude tokens, the owner's
  * 1,500. The ratio is this file's, measured; re-count start.md on Claude's and Gemini's
  * counters in the per-release check (2026-11-17-agent-pack.md §4.9), and move this number if
@@ -3340,8 +3340,14 @@ function numberRowRule(cat) {
   const first = NUMBER_SLOT_LAYOUTS[0];
   const row = String(cat.get(first)?.skeleton || '').match(/^1\. (.+)\n {3}- (.+)$/m);
   if (!row) throw new Error(`build-agent-kit: the ${first} skeleton no longer opens its rows with \`1. <number>\` and a nested label.`);
-  return `- Under a numbered \`1.\` row, indent the nested line three spaces. On ${NUMBER_SLOT_LAYOUTS.map((n) => `\`${n}\``).join(' and ')} the row is a number: \`1. ${row[1]}\` then \`   - ${row[2]}\`.`;
+  // big-number is the same trap with one item: the second eval run (46026988831) wrote its number
+  // as a `# 3.8 days` heading, which leaves the number slot empty (`big-number-hero-heading`).
+  const hero = String(cat.get(BIG_NUMBER)?.skeleton || '').match(/^- (.+)$/m);
+  if (!hero) throw new Error(`build-agent-kit: the ${BIG_NUMBER} skeleton no longer opens with its number as a \`- \` item.`);
+  return `- Indent a \`1.\` row's nested lines three spaces. A number is a list item, never a heading: ${NUMBER_SLOT_LAYOUTS.map((n) => `\`${n}\``).join(' and ')} rows are \`1. ${row[1]}\` then \`   - ${row[2]}\`; \`${BIG_NUMBER}\` is \`- ${hero[1]}\`.`;
 }
+/** The one-number layout, whose number is its first list item (lint: `big-number-hero-heading`). */
+const BIG_NUMBER = 'big-number';
 
 function startDoc(cat) {
   const { DECK_CANON_SHORT } = require(path.join(ROOT, 'lib', 'authoring', 'deck-canon.js'));
@@ -3402,7 +3408,7 @@ function startDoc(cat) {
     '',
     ...rules.filter((r) => !canonSays.some((re) => re.test(r))).map((r) => `- ${r}`),
     numberRowRule(cat),
-    `- Notes (never shown on the slide): ${noteLine()}.`,
+    `- Notes, never shown: ${noteLine()}.`,
     '',
     `## 4. The ${SOLO_LAYOUTS.length} common layouts`,
     '',
@@ -3418,7 +3424,7 @@ function startDoc(cat) {
     '',
     ...fenced(['node review/check.mjs deck.md', 'npx @laticent/lattice deck.md deck.pdf'].join('\n'), 'sh'),
     '',
-    `Web or no shell: [render](./${RENDER}/lattice-render-a-deck.md). More: [full canon](./${AUTHORING}/deck-canon.md), [skills](./${SKILLS}/README.md).`,
+    `Web or no shell: [render](./${RENDER}/lattice-render-a-deck.md). More: [full canon](./${AUTHORING}/deck-canon.md).`,
     '',
   ].join('\n');
 }
