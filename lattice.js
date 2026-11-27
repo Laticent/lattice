@@ -444,7 +444,7 @@ PACKAGES
 
 EXIT CODES
   0  Success
-  1  Usage error, missing file, palette not found, or render failure
+  1  Usage error, missing file, palette not found, an LFM major version this Lattice does not read, or render failure
 
 COMPLETION
   lattice completion <bash|zsh|fish|powershell>
@@ -1156,6 +1156,16 @@ const WANT_PRINT = flags.print || (OUT_FORMAT === 'imageset' && IMAGE_SET_OPTS.m
 // `.html` sidecar, or `a.pdf --player`'s `a.html`), so when the player is on its rule wins and the PDF or PowerPoint
 // renders at the deck's size too; `--size hd` lowers both.
 const FM_BLOCK = (mdRaw.match(/^\uFEFF?---\r?\n([\s\S]*?)\r?\n---/) || [])[1] || '';
+// LFM 1.0 §2.1: a reader refuses a deck of a major version it does not read, rather than render it wrong.
+// lib/core/lfm-version.js is the one reader; lint reports the same line as `lfm-version`.
+{
+  const { readLfmVersion, lfmVersionMessage } = require('./lib/core/lfm-version');
+  const lfm = readLfmVersion(frontMatterValue(FM_BLOCK, 'lfm'));
+  if (!lfm.ok && lfm.problem !== 'malformed') {
+    console.error(`error: ${lfmVersionMessage(lfm)}`);
+    process.exit(1);
+  }
+}
 const EXPORT_CANVAS = require('./lib/core/export-canvas').exportCanvas({
   deckSize: frontMatterValue(FM_BLOCK, 'size'),
   requested: flags.size,
