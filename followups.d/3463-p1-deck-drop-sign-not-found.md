@@ -42,11 +42,16 @@ corrected — "Chromium keeps sending dragover while a drag is held" is wrong. A
             accepted).
 witness   — committed with this note: the sign arm logs every file `dragover` from a window listener (target, owned
             zone, inside `[data-studio-root]` or not, `defaultPrevented`, `dropEffect`). A failed sign check throws
-            with that log, what `elementFromPoint` finds at the drag point and every open dialog. Failing arm: a
-            `role="dialog"` laid over the header before the drag; the error named that dialog as target and owned
-            zone, `defaultPrevented=true dropEffect=none`. The next red run reads one of: no `over` line (Chromium
-            delivered no dragover), an `owned=` (a zone under the point), `inStudioRoot=false` (something outside the
-            shell on top), or an accepted `over` with no sign (a React render that never committed).
+            with that log, what `elementFromPoint` finds at the drag point and every open dialog. The next red run
+            reads one of four shapes, and a failing arm (a scratch copy, deleted after) turned each one red with
+            its own text:
+            · no `over` line: Chromium delivered no dragover (arm: send only `dragEnter`; "dragover log (0)");
+            · `owned=<zone>`: a zone that owns drops is under the point (arm: a `role="dialog"` over the header;
+              `owned=div[role=dialog]`, `defaultPrevented=true dropEffect=none`);
+            · `inStudioRoot=false`: something outside the shell is on top (arm: a plain `<div>` on `<body>` over the
+              header; `under: div#arm-outside`, `defaultPrevented=false`);
+            · an accepted `over` and still no sign: the render never left the sign in the DOM (arm: a
+              MutationObserver removing it; `defaultPrevented=true dropEffect=copy`).
 done when — a failure's witness names the cause, the cause is fixed, and the HARD RULE #34 runs pass.
 evidence  — the witness's error text from a red run on #2988's box or the nightly.
 verify    — tier 0 plus the #34 runs on desktop.
