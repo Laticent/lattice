@@ -583,7 +583,7 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
   substitution is the exact failure this rule exists to stop (PR #1834 shipped an invented
   confidence level, three per-issue levels, no axis and no raise path, written from a
   one-line index entry). The DEFAULT OPERATING MODE table above names the four levers the
-  card must carry; the section defines them. **Same wording in the ask and on the PR** — a
+  card must carry; the section defines them. **Same wording in the ask and on the PR** (a live `desk:merge` digest is the ask) — a
   card that lives only in a chat transcript is invisible to whoever opens the PR, including
   a future session. **The level is set by a `checker` agent, never the maker, and below
   VERY HIGH the raise loop runs before the ask** (`workflow.md` §The raise loop): the owner
