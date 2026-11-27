@@ -10,11 +10,13 @@
 
 import { splitSections } from '@laticent/markup';
 import { deriveKatexProviderUrl, ensureKatexProvider } from '@/lib/ensure-katex';
+import { mayWantMeasuredSplit } from '@/lib/fit-pack-wanted';
 import { ensureEngine } from '@/lib/load-engine';
 import { offFences, offFencesSentence } from '@/lib/off-fences';
 import type { LatticePlaygroundEngine } from '@/lib/playground-global';
 import { renderMarkdown } from '@/lib/render-engine';
 import { createThemeFetcher } from '@/lib/theme-fetch';
+import { LAZY_LOAD_MS, withinMs } from '@/lib/within-ms';
 import type { SingleSlideOptions } from '@/playground/single-slide-render';
 import fontPolicyCore from '../../../../lib/core/font-policy.js';
 import { glossaryEntries, resolveGlossaryMode, withoutAutoGlossary } from '../../../../lib/core/glossary-auto.mjs';
@@ -87,6 +89,61 @@ export type DeckRender = {
 	webOrigins?: string[];
 };
 
+/**
+ * How long one step at the start of a Webpage export may wait: loading the engine, the theme, the math faces, the
+ * Library photos, rendering the deck, loading the exporter. Each normally takes well under a second, and the slowest
+ * network fetch among them (the whole `lattice.css`, about 150 KB compressed) takes a few seconds on a slow phone
+ * line. "Render the deck" is several waits under one bound (the math provider, fence grammars, plugin data, chart
+ * kernels, the callout layer, code packages), each of which normally answers in well under a second; a deck that
+ * needs all of them on a very slow line is the one case that could come near the bound. None of these steps had a
+ * bound, so one that never answered left the author on "Rendering the deck…" forever with no error
+ * (followups.d/3457, Studio e2e nightly run 45159654897). `deck-export.js` bounds its own waits too; there a timeout
+ * carries on with what it has, here it stops the export, because every step's result is needed.
+ */
+export const EXPORT_STEP_MS = 60_000;
+
+/** A step of an export that did not finish within its bound. Its message names the step, and the export stops. */
+export class ExportStepTimeoutError extends Error {
+	readonly step: string;
+	constructor(step: string, ms: number) {
+		super(`the step “${step}” did not finish within ${Math.round(ms / 1000)} s, so the export stopped. Nothing was downloaded. Try again; if it happens again, reload the page.`);
+		this.name = 'ExportStepTimeoutError';
+		this.step = step;
+	}
+}
+
+/** Milliseconds since the export began, for the progress log. */
+type ExportClock = () => number;
+
+/**
+ * Run one export step under a bound, and log its start and its end with the time since the export began. The log goes
+ * to `console.info`, which a Playwright trace keeps, so a run that stalls names the step it stalled in. Not
+ * `console.debug`: a WebKit trace of a failing run kept its info, log and warning lines and none at debug. The bound
+ * rejects with `ExportStepTimeoutError`; the step's own work is not cancelled (a fetch or an import cannot be), but
+ * nothing waits on it any more.
+ */
+export async function exportStep<T>(step: string, work: () => Promise<T>, clock: ExportClock, ms = EXPORT_STEP_MS): Promise<T> {
+	console.info(`lattice export +${clock()} ms: ${step}: started`);
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	const bound = new Promise<never>((_, reject) => {
+		timer = setTimeout(() => reject(new ExportStepTimeoutError(step, ms)), ms);
+	});
+	try {
+		const value = await Promise.race([work(), bound]);
+		console.info(`lattice export +${clock()} ms: ${step}: done`);
+		return value;
+	} catch (e) {
+		console.info(`lattice export +${clock()} ms: ${step}: failed (${(e as Error)?.message ?? e})`);
+		throw e;
+	} finally {
+		clearTimeout(timer);
+	}
+}
+
+/** The bound `ensureTheme` puts its own waits under: none for the live surfaces, `exportStep` for an export. */
+type StepBound = <T>(step: string, work: () => Promise<T>) => Promise<T>;
+const unbounded: StepBound = (_step, work) => work();
+
 function pg(): PG | undefined {
 	return typeof window !== 'undefined' ? window.LatticePlayground : undefined;
 }
@@ -111,7 +168,7 @@ export type DeckPackages = { themes: StudioTheme[]; components: StudioComponent[
  * (`extra`) has no on-disk CSS, so we register the raw CSS into the engine; a
  * built-in palette is fetched (+ its dark companion) by name as before.
  */
-async function ensureTheme(options: SingleSlideOptions, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, source?: string): Promise<string> {
+async function ensureTheme(options: SingleSlideOptions, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, source?: string, step: StepBound = unbounded): Promise<string> {
 	const PG = pg();
 	// KaTeX's faces are stripped from the registered base until something asks for them
 	// (2026-08-17 loading audit §9.6). The EXPORT path composes from that same registered
@@ -120,7 +177,8 @@ async function ensureTheme(options: SingleSlideOptions, palette: string, mode: '
 	// is a change to exported artifact BYTES, which CLAUDE.md makes a stop-and-show gate,
 	// so it must not depend on a live preview having happened to warm the faces first.
 	if (source && sourceHasMath(source)) {
-		await createThemeFetcher(options.themeBase).ensureKatexFaces().catch(() => {});
+		// A fetch that FAILS is swallowed, as before (the math falls back); one that never answers ends under the bound.
+		await step('load the math fonts', () => createThemeFetcher(options.themeBase).ensureKatexFaces().catch(() => {}));
 	}
 	if (extra) {
 		// ALWAYS (re-)register so an edited theme re-saved under the same name
@@ -130,7 +188,7 @@ async function ensureTheme(options: SingleSlideOptions, palette: string, mode: '
 		return extra.name;
 	}
 	const themes = createThemeFetcher(options.themeBase);
-	await themes.ensure(palette, mode);
+	await step('load the theme', () => themes.ensure(palette, mode));
 	return mode === 'dark' && PG?.hasTheme(`${palette}-dark`) ? `${palette}-dark` : palette;
 }
 
@@ -492,18 +550,30 @@ export async function shareHtmlPlayer(
 	// lesser than intended (today: the diagram bake did not run), else undefined. The
 	// caller surfaces it in the completion toast — see the return at the end.
 ): Promise<string | undefined> {
-	onStatus?.('Rendering the deck…');
-	const PG = await ensureReady(options);
+	// THE PROGRESS LOG. Every status line, and every step up to the exporter's own import, goes to `console.info` with the
+	// time since the click, and each of those steps is bounded (`exportStep`): before, one that never answered stalled
+	// the export with no error and a trace that could not say where (followups.d/3457).
+	const began = performance.now();
+	const clock = () => Math.round(performance.now() - began);
+	const shown = onStatus;
+	onStatus = (m: string) => {
+		console.info(`lattice export +${clock()} ms: status “${m}”`);
+		shown?.(m);
+	};
+	const step: StepBound = (name, work) => exportStep(name, work, clock);
+	onStatus('Rendering the deck…');
+	const PG = await step('load the engine', () => ensureReady(options));
 	// The deck's own theme, never its `-dark` twin. The CLI renders the theme the deck declares and
 	// lets `color-mode:` set the slides' `dark` class; the Studio rendered `<palette>-dark` whenever
 	// its PREVIEW was dark, so the same deck exported under two theme names (§11.9 of
 	// decisions/2026-10-16-player-as-library-audit.md). The player carries both modes either way
 	// (its dark block), and `scheme` below picks the one it opens in.
-	const theme = await ensureTheme(options, palette, 'light', extra, source);
+	const theme = await ensureTheme(options, palette, 'light', extra, source, step);
 	// `styles: 'flat'`: the player is a document that shows slide content outside a slide, so it
 	// asks for the flat mode and ships `out.flatCss`. `out.css` stays the scoped preview shape
 	// for the diagram bake's capture frame below.
-	let out = await renderMarkdown(PG, source, theme, { styles: 'flat', samplesUrl: samplesBaseFor(options.themeBase), ...(await assetOpts(source)) });
+	const photos = await step('read the Library photos', () => assetOpts(source));
+	let out = await step('render the deck', () => renderMarkdown(PG, source, theme, { styles: 'flat', samplesUrl: samplesBaseFor(options.themeBase), ...photos }));
 	// Split on STRUCTURE, as the CLI's `--player` does (lib/engine/structural-split.js): at
 	// portrait/square/mobile a multi-member slide becomes cover → one element per page → closing.
 	// `settle: false` is the CLI's own setting, so both hosts emit the same pages. A no-op at
@@ -512,10 +582,69 @@ export async function shareHtmlPlayer(
 	// Loud when the bundle lacks it: the export would quietly ship each multi-element slide as one
 	// crowded page, and a portrait deck as a different file from the CLI's.
 	if (!PG.splitForPreview) console.warn('lattice: this engine bundle has no structural split; a portrait, square or mobile deck exports unsplit.');
+	// THE MEASURED SPLIT (`fit: pack`, 2026-10-28-fit-everywhere-model.md §16): the CLI measures the
+	// deck rendered whole and packs each overflowing slide by measured height, so this export does the
+	// same, in a hidden frame built as the preview's is, before the cut. The plan it finds is reused for
+	// the strip-notes candidate below (same slides, same numbers), so both cut alike. Loaded only for a
+	// deck that asks; a failed load or an unmeasurable frame keeps today's split, as the CLI does.
+	let exportPlan: Record<string, unknown> | null = null;
+	// Set when the deck wanted the measured split and did not get it: every render of this export, the strip-notes
+	// candidate's too, then draws its charts for the room the key insight takes, so both cut alike.
+	let unmeasured = false;
+	// The engine loads its splitter on demand: `splitReady` returns nothing at landscape. Every cut below (the
+	// measured one, the deck and the strip-notes candidate) has the same box, so one wait covers them all.
+	// Bounded, as the preview's is: a chunk that never settles (a stalled fetch, a service worker that never answers) ends
+	// in the refusal just below, never an Export that spins for good (checker, 2026-11-27).
+	const splitLoad = PG.splitReady?.(out.width || 1280, out.height || 720);
+	if (splitLoad) await withinMs(splitLoad, LAZY_LOAD_MS);
+	// A splitter that did not load (a stale deploy's chunk, the network) leaves a portrait or square deck one crowded
+	// page a slide: a different file from the CLI's. Refuse, as for an engine that is not ready, rather than ship it.
+	// An empty document asks the question without splitting the deck twice.
+	if (PG.splitForPreview?.('', source, out.width || 1280, out.height || 720, { settle: false }).pending) {
+		throw new Error('the slide splitter did not load — reload the page and export again');
+	}
+	if (PG.splitForPreview && mayWantMeasuredSplit(source)) {
+		const [ms, dp, sz] = (await withinMs(Promise.all([import('@/lib/measured-split'), import('@/playground/deck-preview.js'), import('@/lib/sanitize-slide-html.js')]), LAZY_LOAD_MS).catch(() => null)) ?? [null, null, null];
+		// A module that did not load cannot say whether the deck wanted the measured split, so it counts as wanted, as
+		// the preview and the Playground count it.
+		const wanted = !ms || ms.measuredSplitWanted(source);
+		if (ms && dp && sz && wanted) {
+			const w = out.width || 1280;
+			const h = out.height || 720;
+			const measure = () =>
+				ms
+					.measuredSplitInFrame({
+						html: out.html,
+						split: (html, plan) => (PG.splitForPreview as NonNullable<typeof PG.splitForPreview>)(html, source, w, h, { settle: false, plan }),
+						verdictConfig: PG.fitVerdictConfig?.(),
+						runtimeUrl: options.runtimeUrl,
+						buildDoc: (html) => dp.buildSrcdoc({ html: sz.sanitizeSlideHtml(html), css: out.css, mode: 'light', geom: { w, h }, runtimeUrl: options.runtimeUrl, previewFonts: true }),
+						width: w,
+						height: h,
+					})
+					.catch((e) => {
+						console.warn('lattice: the measured split failed, so this export keeps the structural split', e);
+						return null;
+					});
+			// A plan read while a face was still loading laid the text out in a fallback face: measure once more, with the
+			// faces the first pass loaded, rather than ship the fallback's split (checker, 2026-11-27).
+			let measured = await measure();
+			if (measured && measured.fontsLoaded === false) measured = (await measure()) ?? measured;
+			if (measured) exportPlan = measured.plan;
+		}
+		unmeasured = wanted && !exportPlan;
+		if (unmeasured) {
+			// The engine drew each chart for the room a moved key insight frees (`data-coda-moves`), but without the
+			// measured split the insight stays on its slide: draw the deck again for the room it takes, as the preview
+			// and the Playground do on this path (checker, 2026-11-27). The failure path only; a measured export is
+			// unchanged.
+			out = await renderMarkdown(PG, source, theme, { styles: 'flat', samplesUrl: samplesBaseFor(options.themeBase), ...(await assetOpts(source)), measured: false });
+		}
+	}
 	const splitLikeCli = <R extends { html: string; width?: number; height?: number }>(r: R, src: string): R =>
-		PG.splitForPreview ? { ...r, html: PG.splitForPreview(r.html, src, r.width || 1280, r.height || 720, { settle: false }).html } : r;
+		PG.splitForPreview ? { ...r, html: PG.splitForPreview(r.html, src, r.width || 1280, r.height || 720, { settle: false, ...(exportPlan ? { plan: exportPlan } : {}) }).html } : r;
 	// The deck's `font-embedding:` line with the export panel's choice on top, the plan the command line runs.
-	const fontSetting = (await import('./export/deck-export.js')).deckFontSetting(source);
+	const fontSetting = (await step('load the exporter', () => import('./export/deck-export.js'))).deckFontSetting(source);
 	// Under the Emoji font setting `system` the player carries no icon font, so every slide draws its icons' <svg>, as the
 	// command line's player does (lib/fonts/icon-fallback.js).
 	const iconsAsSvg = fontPolicyCore.resolveFontPolicy(fontSetting).emoji === 'system';
@@ -526,12 +655,14 @@ export async function shareHtmlPlayer(
 	out = shipRender(out, source);
 
 	onStatus?.('Embedding fonts…');
-	const [fontMod, coreMod, sanitizeMod, authoringMod] = await Promise.all([
-		import('@/playground/font-embed.js'),
-		import('@/playground/player-core.generated.js') as Promise<PlayerCore>,
-		import('@/lib/sanitize-slide-html.js'),
-		import('@/playground/authoring-door.js').then((door) => door.loadAuthoring()),
-	]);
+	const [fontMod, coreMod, sanitizeMod, authoringMod] = await step('load the player tools', () =>
+		Promise.all([
+			import('@/playground/font-embed.js'),
+			import('@/playground/player-core.generated.js') as Promise<PlayerCore>,
+			import('@/lib/sanitize-slide-html.js'),
+			import('@/playground/authoring-door.js').then((door) => door.loadAuthoring()),
+		]),
+	);
 	const fontCss = await fontMod.buildFontEmbedCss(`${out.html}\n${getFrontMatter(source, 'title') || ''}`, fontSetting);
 	const notesCore = (authoringMod as unknown as { notesCore: NotesCore }).notesCore;
 	const splitSectionsCore = (authoringMod as unknown as { splitSectionsCore: SplitSectionsCore }).splitSectionsCore;
@@ -616,7 +747,7 @@ export async function shareHtmlPlayer(
 			// The same embed + placeholder passes, so the candidate compares like-for-like with
 			// `recordSections`. The cache means it fetches nothing the first pass already did, and
 			// the notes cut changes no picture, so the first pass's report stands for it.
-			async (src) => renderMarkdown(PG, src, theme, { styles: 'flat', samplesUrl: samplesBaseFor(options.themeBase), ...(await assetOpts(src)) }).then((r) => shipRender(r, src)).then(async (r) => ({ ...r, html: shownHtml(remoteRef.blockWebImages((await withMedia(r.html)).html, []).html) })),
+			async (src) => renderMarkdown(PG, src, theme, { styles: 'flat', samplesUrl: samplesBaseFor(options.themeBase), ...(await assetOpts(src)), ...(unmeasured ? { measured: false } : {}) }).then((r) => shipRender(r, src)).then(async (r) => ({ ...r, html: shownHtml(remoteRef.blockWebImages((await withMedia(r.html)).html, []).html) })),
 		);
 		envelopeSource = cut.source;
 		fidelityWarning = cut.warning;

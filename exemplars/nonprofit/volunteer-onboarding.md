@@ -2,11 +2,11 @@
 marp: true
 size: 4k
 theme: indaco
-paginate: true
+pagination: true
 header: "Paws & People · Volunteer onboarding"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 <!-- tier: short -->
 
 `New volunteer orientation · Cedar Falls`
@@ -17,7 +17,7 @@ Every animal that walks through our doors leaves better than it arrived — beca
 
 ---
 
-<!-- _class: agenda -->
+<!-- @meta{layout=agenda} -->
 <!-- tier: short -->
 
 ## What we'll cover in today's orientation.
@@ -30,7 +30,7 @@ Every animal that walks through our doors leaves better than it arrived — beca
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## Welcome — you just joined a team of 340 people who show up for animals.
@@ -42,7 +42,7 @@ Paws & People is a no-kill shelter and adoption center on Cedar Falls' east side
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## Our mission is simple — no healthy or treatable animal is ever turned away.
@@ -54,7 +54,7 @@ Last year we cared for 2,100 animals and found homes for 1,650 of them. The rest
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## The animals you'll meet are mostly ordinary pets who hit a hard stretch.
@@ -66,7 +66,7 @@ On any given day we house around 90 animals. Few are here because something is w
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 <!-- tier: standard -->
 
 `Impact · last 12 months`
@@ -86,7 +86,7 @@ On any given day we house around 90 animals. Few are here because something is w
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## A typical day here runs on three shifts — and every shift needs hands.
@@ -99,7 +99,7 @@ The shelter opens at 7 a.m. and closes after the evening clean. Pick the shifts 
 
 ---
 
-<!-- _class: big-number -->
+<!-- @meta{layout=big-number} -->
 <!-- tier: standard -->
 
 `Why your hours matter`
@@ -109,7 +109,7 @@ The shelter opens at 7 a.m. and closes after the evening clean. Pick the shifts 
 
 ---
 
-<!-- _class: quote -->
+<!-- @meta{layout=quote} -->
 <!-- tier: short -->
 
 > I came to walk one dog on a Saturday. Two years later it's the best part of my week, every week.
@@ -118,7 +118,7 @@ The shelter opens at 7 a.m. and closes after the evening clean. Pick the shifts 
 
 ---
 
-<!-- _class: list-steps -->
+<!-- @meta{layout=list-steps} -->
 <!-- tier: short -->
 
 ## Three steps to your first shift.
@@ -132,7 +132,7 @@ The shelter opens at 7 a.m. and closes after the evening clean. Pick the shifts 
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## Most people are booking solo shifts within their first two weeks.
@@ -144,7 +144,7 @@ There's no test and no rush. You'll learn the routine by doing it alongside some
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## Booking a shift takes about a minute, all from your phone.
@@ -156,7 +156,7 @@ Once your badge is active, the volunteer portal shows every open slot for the ne
 
 ---
 
-<!-- _class: checklist -->
+<!-- @meta{layout=checklist} -->
 <!-- tier: short -->
 
 ## Before your first shift, make sure you've got these.
@@ -170,7 +170,7 @@ Once your badge is active, the volunteer portal shows every open slot for the ne
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## A few house rules that keep both you and the animals safe.
@@ -183,7 +183,7 @@ These aren't bureaucracy — every one comes from something we learned the hard 
 
 ---
 
-<!-- _class: actors -->
+<!-- @meta{layout=actors} -->
 <!-- tier: standard -->
 
 ## Who to call when you need help.
@@ -199,7 +199,7 @@ These aren't bureaucracy — every one comes from something we learned the hard 
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## You don't have to wait to feel useful — here's what helps most this month.
@@ -212,9 +212,9 @@ We're heading into our busiest adoption season, and a few gaps would make an out
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 <!-- tier: short -->
 
 ## Welcome to the team — the animals are lucky to have you.

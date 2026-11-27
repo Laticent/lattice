@@ -145,7 +145,7 @@ export function numberSlides(source) {
 // The contract handed to the cloud model (rich tier only).
 //
 // TILDE fences, not backticks. The payload is a SLIDE, and Lattice slides routinely
-// carry ```mermaid / ```chart blocks — so the wrapper has to differ from the payload
+// carry ```mermaid / ```math blocks — so the wrapper has to differ from the payload
 // in MARKER, not merely in length. Length is the fragile axis: it asks the model to
 // hold a counting invariant (four ticks out, three in) against its single strongest
 // habit, and CommonMark then lets the payload's own bare ``` legally close a
@@ -165,15 +165,15 @@ export const EDIT_PROTOCOL =
   'change, propose it as an EDIT BLOCK; the app shows them a diff and an Apply button ' +
   '(nothing changes until they click). Rules:\n' +
   '- Wrap the block in a TILDE fence — NEVER backticks. The slide inside will contain ' +
-  '```mermaid / ```chart fences, and a backtick wrapper collides with them. If the slide ' +
+  '```mermaid / ```math fences, and a backtick wrapper collides with them. If the slide ' +
   'you are editing carries its OWN ~~~ fence, make your wrapper LONGER than it (~~~~):\n' +
   '  ~~~lattice-edit slide=3\n' +
-  '  <!-- _class: cards-grid -->\n' +
+  '  <!-- @meta{layout=cards-grid} -->\n' +
   '  ## Heading\n' +
   '  - Card title\n' +
   '    - body\n' +
   '  ~~~\n' +
-  '- `slide=N` replaces slide N — give the WHOLE slide (the `_class` line through its ' +
+  '- `slide=N` replaces slide N — give the WHOLE slide (its `@meta{…}` line through its ' +
   'last line). `after=N` inserts new slides after slide N (`after=0` prepends, ' +
   '`after=end` appends). `delete=N` removes slide N.\n' +
   '- An `after=` body MAY carry SEVERAL slides, separated by a `---` line on its own — ' +

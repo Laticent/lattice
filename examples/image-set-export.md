@@ -2,11 +2,11 @@
 marp: true
 size: 4K
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · image set export"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Ship the deck as images.
 
@@ -16,7 +16,7 @@ Export any deck as an image set — a single `.zip` holding one image per slide,
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## One zip, everything a recipient needs.
 
@@ -28,7 +28,7 @@ The image set is the format for anywhere a PDF or PPTX won't go — a webpage he
 
 ---
 
-<!-- _class: list -->
+<!-- @meta{layout=list} -->
 
 ## Tune size against fidelity — the default is already perfect.
 
@@ -38,7 +38,7 @@ The image set is the format for anywhere a PDF or PPTX won't go — a webpage he
 
 ---
 
-<!-- _class: piechart -->
+<!-- @meta{layout=piechart} -->
 
 `What the .zip weighs`
 
@@ -52,7 +52,7 @@ The image set is the format for anywhere a PDF or PPTX won't go — a webpage he
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `How a slide becomes a file`
 
@@ -70,7 +70,7 @@ flowchart LR
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## Two ways to get it.
 
@@ -81,7 +81,7 @@ The same set comes off the command line or out of the Studio — one shared kern
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 # Render once. Use everywhere.
 

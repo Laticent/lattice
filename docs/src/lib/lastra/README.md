@@ -53,7 +53,7 @@ Design: [`engineering/decisions/2026-11-13-image-library.md`](https://github.com
 
 ## Build
 
-`npm run lastra-lib:build` writes `dist/` (ESM + CJS + `.d.ts`); `npm run lastra-lib:check` fails if it is stale.
+`npm run lastra-lib:build` writes `dist/` (ES modules + `.d.ts`); `npm run lastra-lib:check` fails if it is stale.
 Tests: `cd docs && npx vitest run src/lib/lastra`. The standalone typecheck (no DOM, no Node types):
 `cd docs && npm run check:lastra`.
 

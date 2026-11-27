@@ -19,9 +19,9 @@
     ],
     "note": "past five steps the row crowds and a split paces one step per page; a split run paces ONE step per page and carries a derived “→ next: …” signal (§0b connected members)"
   },
-  "cards": {
-    "default": "center",
-    "withCoda": "stretch"
+  "align": {
+    "default": "middle",
+    "withCoda": "fill"
   },
   "density": {
     "axis": "item",
@@ -128,12 +128,12 @@
       "description": "The step's body line, nested under its title. `-` or `1.` read the same here: the layout styles it as the card body."
     }
   },
-  "skeleton": "<!-- _class: list-steps -->\n\n## How to roll this out.\n\n1. First step\n   - One sentence on what happens in this step.\n2. Second step\n   - One sentence on what happens in this step.\n3. Third step\n   - One sentence on what happens in this step.\n4. Fourth step\n   - One sentence on what happens in this step.\n",
+  "skeleton": "<!-- @meta{layout=list-steps} -->\n\n## How to roll this out.\n\n1. First step\n   - One sentence on what happens in this step.\n2. Second step\n   - One sentence on what happens in this step.\n3. Third step\n   - One sentence on what happens in this step.\n4. Fourth step\n   - One sentence on what happens in this step.\n",
   "anatomyBlock": "list-steps",
-  "sample": "<!-- _class: list-steps -->\n\n## Steps promise an order and keep it.\n\n1. Name the step\n   - A verb-first title and one clause of body.\n2. Keep steps parallel\n   - Same shape every step, or sequence breaks.\n3. Number honestly\n   - Order is the promise this layout makes.\n4. Stop at five\n   - Six fits; seven is two slides.\n",
+  "sample": "<!-- @meta{layout=list-steps} -->\n\n## Steps promise an order and keep it.\n\n1. Name the step\n   - A verb-first title and one clause of body.\n2. Keep steps parallel\n   - Same shape every step, or sequence breaks.\n3. Number honestly\n   - Order is the promise this layout makes.\n4. Stop at five\n   - Six fits; seven is two slides.\n",
   "stressDoc": {
     "summary": "Six steps — the last honest sequence.",
-    "sample": "<!-- _class: list-steps -->\n\n## Five steps is the last honest sequence.\n\n1. Open at full strength\n   - A step carries a verb, an object, and one condition.\n2. Hold the parallel line\n   - Six survive only if every body stays one clause.\n3. Front-load the risk\n   - The contested step goes up top.\n4. Shorten as you descend\n   - The reader is walking, not studying.\n5. Stop\n   - A sixth step is a second slide.\n"
+    "sample": "<!-- @meta{layout=list-steps} -->\n\n## Five steps is the last honest sequence.\n\n1. Open at full strength\n   - A step carries a verb, an object, and one condition.\n2. Hold the parallel line\n   - Six survive only if every body stays one clause.\n3. Front-load the risk\n   - The contested step goes up top.\n4. Shorten as you descend\n   - The reader is walking, not studying.\n5. Stop\n   - A sixth step is a second slide.\n"
   },
   "whenToUse": [
     {
@@ -185,67 +185,67 @@
     "capsule": {
       "label": "capsule",
       "summary": "Centered, editorial: pill badges, serif titles, no connectors.",
-      "sample": "<!-- _class: list-steps capsule -->\n\n## Turn the framework into a habit.\n\n1. Name it\n   - Say the verb and the reach you operate at today.\n2. Pick the next move\n   - One deeper verb, or the same verb carried wider.\n3. Keep the evidence\n   - A doc, a metric, a postmortem — proof the shift happened.\n"
+      "sample": "<!-- @meta{layout=list-steps, class=capsule} -->\n\n## Turn the framework into a habit.\n\n1. Name it\n   - Say the verb and the reach you operate at today.\n2. Pick the next move\n   - One deeper verb, or the same verb carried wider.\n3. Keep the evidence\n   - A doc, a metric, a postmortem — proof the shift happened.\n"
     },
     "chevron": {
       "label": "chevron",
       "summary": "Down-chevron tabs cascade into keyed description cards.",
-      "sample": "<!-- _class: list-steps chevron -->\n\n## Make the case, one stage at a time.\n\n1. Problem\n   - Define the problem causing the pain.\n2. Vision\n   - Show the world once it is solved.\n3. Approach\n   - Detail the moves from here to there.\n4. Plan\n   - Commit to steps, owners, and a date.\n"
+      "sample": "<!-- @meta{layout=list-steps, class=chevron} -->\n\n## Make the case, one stage at a time.\n\n1. Problem\n   - Define the problem causing the pain.\n2. Vision\n   - Show the world once it is solved.\n3. Approach\n   - Detail the moves from here to there.\n4. Plan\n   - Commit to steps, owners, and a date.\n"
     },
     "converge": {
       "label": "converge",
       "summary": "Tapering bands narrow onto the final stage (a qualitative funnel).",
-      "sample": "<!-- _class: list-steps converge -->\n\n## Many concerns narrow onto one plan.\n\n1. Problem\n   - Define the problem causing the pain.\n2. Approach\n   - Detail the moves from here to there.\n3. Plan\n   - Commit to steps, owners, and a date.\n"
+      "sample": "<!-- @meta{layout=list-steps, class=converge} -->\n\n## Many concerns narrow onto one plan.\n\n1. Problem\n   - Define the problem causing the pain.\n2. Approach\n   - Detail the moves from here to there.\n3. Plan\n   - Commit to steps, owners, and a date.\n"
     },
     "ghost": {
       "label": "ghost",
       "summary": "Faint chevron watermark, eyebrow label, hero description — editorial.",
-      "sample": "<!-- _class: list-steps ghost -->\n\n## The argument, stated plainly.\n\n1. Problem\n   - Define the problem causing the pain.\n2. Approach\n   - Detail the moves from here to there.\n3. Plan\n   - Commit to steps, owners, and a date.\n"
+      "sample": "<!-- @meta{layout=list-steps, class=ghost} -->\n\n## The argument, stated plainly.\n\n1. Problem\n   - Define the problem causing the pain.\n2. Approach\n   - Detail the moves from here to there.\n3. Plan\n   - Commit to steps, owners, and a date.\n"
     },
     "timeline": {
       "label": "timeline",
       "summary": "Steps string along a line.",
-      "sample": "<!-- _class: list-steps timeline -->\n\n## timeline strings the steps along a line.\n\n1. First\n   - Three steps demo a look best.\n2. Second\n   - The look changes; the grammar holds.\n3. Third\n   - Body budgets do not move.\n"
+      "sample": "<!-- @meta{layout=list-steps, class=timeline} -->\n\n## timeline strings the steps along a line.\n\n1. First\n   - Three steps demo a look best.\n2. Second\n   - The look changes; the grammar holds.\n3. Third\n   - Body budgets do not move.\n"
     },
     "vertical": {
       "label": "vertical",
       "summary": "Steps stack down the page.",
-      "sample": "<!-- _class: list-steps vertical compact -->\n\n## vertical stacks the steps down the page.\n\n1. First\n   - Three steps demo a look best.\n2. Second\n   - The look changes; the grammar holds.\n3. Third\n   - Body budgets do not move.\n"
+      "sample": "<!-- @meta{layout=list-steps, class=vertical compact} -->\n\n## vertical stacks the steps down the page.\n\n1. First\n   - Three steps demo a look best.\n2. Second\n   - The look changes; the grammar holds.\n3. Third\n   - Body budgets do not move.\n"
     },
     "phase": {
       "label": "phase",
       "summary": "Each step blocks as an era.",
-      "sample": "<!-- _class: list-steps phase -->\n\n## phase blocks each step as an era.\n\n1. First\n   - Three steps demo a look best.\n2. Second\n   - The look changes; the grammar holds.\n3. Third\n   - Body budgets do not move.\n"
+      "sample": "<!-- @meta{layout=list-steps, class=phase} -->\n\n## phase blocks each step as an era.\n\n1. First\n   - Three steps demo a look best.\n2. Second\n   - The look changes; the grammar holds.\n3. Third\n   - Body budgets do not move.\n"
     },
     "milestone": {
       "label": "milestone",
       "summary": "Steps mark as checkpoints.",
-      "sample": "<!-- _class: list-steps milestone lettered -->\n\n## milestone marks the steps as checkpoints.\n\n1. First\n   - Three steps demo a look best.\n2. Second\n   - The look changes; the grammar holds.\n3. Third\n   - Body budgets do not move.\n"
+      "sample": "<!-- @meta{layout=list-steps, class=milestone lettered} -->\n\n## milestone marks the steps as checkpoints.\n\n1. First\n   - Three steps demo a look best.\n2. Second\n   - The look changes; the grammar holds.\n3. Third\n   - Body budgets do not move.\n"
     },
     "lettered": {
       "label": "lettered",
       "summary": "Letters count the steps.",
-      "sample": "<!-- _class: list-steps lettered -->\n\n## lettered counts the steps with letters.\n\n1. First\n   - Three steps demo a look best.\n2. Second\n   - The look changes; the grammar holds.\n3. Third\n   - Body budgets do not move.\n"
+      "sample": "<!-- @meta{layout=list-steps, class=lettered} -->\n\n## lettered counts the steps with letters.\n\n1. First\n   - Three steps demo a look best.\n2. Second\n   - The look changes; the grammar holds.\n3. Third\n   - Body budgets do not move.\n"
     },
     "stage": {
       "label": "Stage",
       "summary": "Stage tags prefix each step.",
-      "sample": "<!-- _class: list-steps stage -->\n\n## stage prefixes each step with its stage tag.\n\n1. First\n   - Three steps demo a look best.\n2. Second\n   - The look changes; the grammar holds.\n3. Third\n   - Body budgets do not move.\n"
+      "sample": "<!-- @meta{layout=list-steps, class=stage} -->\n\n## stage prefixes each step with its stage tag.\n\n1. First\n   - Three steps demo a look best.\n2. Second\n   - The look changes; the grammar holds.\n3. Third\n   - Body budgets do not move.\n"
     },
     "rank": {
       "label": "Rank",
       "summary": "Numbers read as standings.",
-      "sample": "<!-- _class: list-steps rank -->\n\n## rank reads the numbers as standings.\n\n1. First\n   - Three steps demo a look best.\n2. Second\n   - The look changes; the grammar holds.\n3. Third\n   - Body budgets do not move.\n"
+      "sample": "<!-- @meta{layout=list-steps, class=rank} -->\n\n## rank reads the numbers as standings.\n\n1. First\n   - Three steps demo a look best.\n2. Second\n   - The look changes; the grammar holds.\n3. Third\n   - Body budgets do not move.\n"
     },
     "tier": {
       "label": "Tier",
       "summary": "Steps render as service tiers.",
-      "sample": "<!-- _class: list-steps tier roman -->\n\n## tier renders the steps as service tiers.\n\n1. First\n   - Three steps demo a look best.\n2. Second\n   - The look changes; the grammar holds.\n3. Third\n   - Body budgets do not move.\n"
+      "sample": "<!-- @meta{layout=list-steps, class=tier roman} -->\n\n## tier renders the steps as service tiers.\n\n1. First\n   - Three steps demo a look best.\n2. Second\n   - The look changes; the grammar holds.\n3. Third\n   - Body budgets do not move.\n"
     },
     "roman": {
       "label": "Roman numerals",
       "summary": "Numerals count the phases.",
-      "sample": "<!-- _class: list-steps phase roman -->\n\n## roman counts the phases in numerals.\n\n1. First\n   - Three steps demo a look best.\n2. Second\n   - The look changes; the grammar holds.\n3. Third\n   - Body budgets do not move.\n"
+      "sample": "<!-- @meta{layout=list-steps, class=phase roman} -->\n\n## roman counts the phases in numerals.\n\n1. First\n   - Three steps demo a look best.\n2. Second\n   - The look changes; the grammar holds.\n3. Third\n   - Body budgets do not move.\n"
     }
   },
   "commonMistakes": [

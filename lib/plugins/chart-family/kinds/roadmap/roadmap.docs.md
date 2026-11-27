@@ -58,7 +58,7 @@ Use to show what ships in each phase across multiple parallel workstreams. Cells
 ## Authoring
 
 ```markdown
-<!-- _class: roadmap -->
+<!-- @meta{layout=roadmap} -->
 
 ## What ships in each phase, by workstream.
 
@@ -94,7 +94,7 @@ The key under the grid names each marker the cells carry.
 Bets spread across three horizons.
 
 ```markdown
-<!-- _class: roadmap horizons -->
+<!-- @meta{layout=roadmap, class=horizons} -->
 
 `Three-horizon planning`
 
@@ -111,7 +111,7 @@ Bets spread across three horizons.
 Delivery state at a glance.
 
 ```markdown
-<!-- _class: roadmap status -->
+<!-- @meta{layout=roadmap, class=status} -->
 
 `Layout · roadmap status`
 
@@ -129,7 +129,7 @@ Delivery state at a glance.
 One track per team.
 
 ```markdown
-<!-- _class: roadmap swimlane -->
+<!-- @meta{layout=roadmap, class=swimlane} -->
 
 `Layout · roadmap swimlane`
 
@@ -147,7 +147,7 @@ One track per team.
 The dated path, pinned.
 
 ```markdown
-<!-- _class: roadmap milestones -->
+<!-- @meta{layout=roadmap, class=milestones} -->
 
 `Layout · roadmap milestones`
 

@@ -242,7 +242,7 @@ A starter deck to paste into "New deck" (lint-clean):
 ---
 size: 4k
 theme: laguna
-paginate: true
+pagination: true
 header: "Trailhead · Launch plan"
 ---
 

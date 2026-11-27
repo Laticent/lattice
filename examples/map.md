@@ -2,11 +2,11 @@
 marp: true
 size: 4K
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · map"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Show them where.
 
@@ -16,7 +16,7 @@ The first layout on the new **spatial** form — regions placed by real-world ge
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## One grammar, two basemaps, two reads.
 
@@ -28,7 +28,7 @@ Name a place, give it a value. The tokens pick the rest.
 
 ---
 
-<!-- _class: map us -->
+<!-- @meta{layout=map, class=us} -->
 
 ## Where the recovery grants landed.
 
@@ -43,7 +43,7 @@ Name a place, give it a value. The tokens pick the rest.
 
 ---
 
-<!-- _class: map world -->
+<!-- @meta{layout=map, class=world} -->
 
 ## Where our field offices operate.
 
@@ -58,7 +58,7 @@ Name a place, give it a value. The tokens pick the rest.
 
 ---
 
-<!-- _class: map world highlight grouped -->
+<!-- @meta{layout=map, class=world highlight grouped} -->
 
 ## Coverage, told at bloc scale.
 
@@ -69,7 +69,7 @@ Name a place, give it a value. The tokens pick the rest.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## Naming a region is the hard part — so we made it cheap.
 
@@ -80,7 +80,7 @@ World names vary wildly, and a mistyped one is a silent gap. Two defenses, both 
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## What it doesn't do — yet.
 
@@ -90,7 +90,7 @@ World names vary wildly, and a mistyped one is a silent gap. Two defenses, both 
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 ## Geography is the argument.
 

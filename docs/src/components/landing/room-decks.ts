@@ -17,7 +17,7 @@
 // waterfall is the clearest case of a picture beating a paragraph, and its Source
 // tab is six lines, so "write this, get this" holds at a glance. The steps
 // reconcile: 12.0 + 3.1 + 0.8 - 1.2 - 0.1 = 14.6.
-export const HERO_SLIDE = `<!-- _class: waterfall -->
+export const HERO_SLIDE = `<!-- @meta{layout=waterfall} -->
 
 ## New customers drove the growth. Churn is the biggest drag.
 
@@ -39,7 +39,7 @@ export const BRAND_SLIDE = `---
 logo: lattice
 ---
 
-<!-- _class: kpi -->
+<!-- @meta{layout=kpi} -->
 
 \`Quarterly review · Q3\`
 
@@ -57,7 +57,7 @@ logo: lattice
 `;
 
 export const ROOM_SLIDES: Record<string, string> = {
-	boardroom: `<!-- _class: verdict-grid -->
+	boardroom: `<!-- @meta{layout=verdict-grid} -->
 
 ## Partnering is the only route inside budget and on time.
 
@@ -77,7 +77,7 @@ export const ROOM_SLIDES: Record<string, string> = {
   - [x] Timeline
   - Inside budget, live next year.
 `,
-	pitch: `<!-- _class: funnel -->
+	pitch: `<!-- @meta{layout=funnel} -->
 
 ## The spring campaign filled the top. Too few leads reach a demo.
 
@@ -90,7 +90,7 @@ export const ROOM_SLIDES: Record<string, string> = {
 `,
 	// Every source chip names the deck author's own records, never a real agency:
 	// a home page that attacks AI tools for invented citations cannot show one.
-	briefing: `<!-- _class: policy-recommendation adopt -->
+	briefing: `<!-- @meta{layout=policy-recommendation, class=adopt} -->
 
 \`Ordinance 26-14 · Fare-free crosstown buses\`
 
@@ -105,7 +105,7 @@ export const ROOM_SLIDES: Record<string, string> = {
 
 > Vote yes on Ordinance 26-14 on May 12.
 `,
-	lecture: `<!-- _class: math -->
+	lecture: `<!-- @meta{layout=math} -->
 
 \`Week 6 · Linear regression\`
 
@@ -117,7 +117,7 @@ $$ \\hat\\beta = (X^\\top X)^{-1} X^\\top y $$
 - $X$ — the data, $n$ rows by $p$ columns
 - $y$ — the outcomes, one per row
 `,
-	mission: `<!-- _class: stats -->
+	mission: `<!-- @meta{layout=stats} -->
 
 \`Annual report · 2026\`
 
@@ -132,7 +132,7 @@ $$ \\hat\\beta = (X^\\top X)^{-1} X^\\top y $$
 4. 92¢
    - of each dollar to programs
 `,
-	review: `<!-- _class: gantt -->
+	review: `<!-- @meta{layout=gantt} -->
 
 \`[{Timeline, 2026 Q1 .. 2026 Q4, today=Q3}]\`
 

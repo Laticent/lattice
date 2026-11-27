@@ -7,7 +7,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
-const { evidencePlan } = require(path.join(__dirname, '..', '..', '..', 'tools', 'evidence-plan.js'));
+const { evidencePlan, format } = require(path.join(__dirname, '..', '..', '..', 'tools', 'evidence-plan.js'));
 
 const surfaces = (files) => evidencePlan(files).steps.map((s) => s.surface);
 
@@ -46,27 +46,21 @@ test('an export-pipeline change is the one owner stop', () => {
   assert.ok(surfaces(['lattice.js']).some((x) => /PR render slice/.test(x)));
 });
 
-test('a path in the platform-suites registry plans a dispatch for that suite', () => {
-  const step = evidencePlan(['lib/core/sanitize-slide-html.mjs']).steps.find((x) => x.kind === 'dispatch');
-  assert.ok(step, 'a dispatch row');
+test('a path in the platform-suites registry plans an optional dispatch for that suite', () => {
+  const step = evidencePlan(['lib/core/sanitize-slide-html.mjs']).steps.find((x) => x.kind === 'optional');
+  assert.ok(step, 'an optional row');
   assert.match(step.command, /suites=.*ios-safari-studio/);
+  assert.match(step.why, /UNVERIFIED/);
 });
 
-test('a suite the PR run already starts is read from the PR, never dispatched again', () => {
-  // file-confine.js is in export-confine's paths, and export-confine runs on pull requests: the PR run starts it.
+test('platform suites are dispatch-only: never a read row, never a required dispatch (owner, 2026-11-27)', () => {
+  // file-confine.js is in export-confine's paths; before 2026-11-27 the PR run started it and the plan said "read the PR".
   const plan = evidencePlan(['lib/core/file-confine.js']);
-  const read = plan.steps.find((x) => x.kind === 'read');
-  assert.ok(read, 'a read row for the PR run');
-  assert.match(read.surface, /export-confine/);
-  const dispatch = plan.steps.find((x) => x.kind === 'dispatch');
-  assert.ok(!dispatch || !/export-confine/.test(dispatch.command), 'export-confine is not dispatched a second time');
-});
-
-test('a suite off pull requests is dispatched, and only that one', () => {
-  // sanitize-slide-html.mjs reaches ios-safari-studio, which never runs on a pull request.
-  const plan = evidencePlan(['lib/core/sanitize-slide-html.mjs']);
-  const dispatch = plan.steps.find((x) => x.kind === 'dispatch');
-  for (const name of dispatch.command.replace(/.*suites=/, '').split(',')) assert.match(name, /^ios-safari-/, `${name} is dispatched though the PR run starts it`);
+  assert.ok(!plan.steps.some((x) => x.kind === 'read' || x.kind === 'dispatch'), 'no row the card waits on');
+  const optional = plan.steps.find((x) => x.kind === 'optional');
+  assert.ok(optional, 'export-confine is still offered as an optional dispatch');
+  assert.match(optional.command, /export-confine/);
+  assert.match(format(plan), /\[optional\] rows never set the card's grade/);
 });
 
 test('a component doc alone owes no render tier', () => {

@@ -1,13 +1,13 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 color-mode: dark
 header: "Lattice · photo hairline"
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
+<!-- @meta{layout=title, header=""} -->
+
 
 # A dark deck
 

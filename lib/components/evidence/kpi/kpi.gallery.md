@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · kpi"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # kpi
 
@@ -15,8 +15,7 @@ Executive KPI system — one base, five layout modifiers.
 
 ---
 
-<!-- _class: kpi -->
-<!-- _footer: "Default · kpi" -->
+<!-- @meta{layout=kpi, footer=Default · kpi} -->
 
 ## Four tiles the eye sweeps in one pass.
 
@@ -36,8 +35,7 @@ Executive KPI system — one base, five layout modifiers.
 
 ---
 
-<!-- _class: kpi attention -->
-<!-- _footer: "attention · kpi attention — Flags the tile that misses." -->
+<!-- @meta{layout=kpi, class=attention, footer="attention · kpi attention — Flags the tile that misses."} -->
 
 ## attention flags the tile that misses.
 
@@ -57,8 +55,7 @@ Executive KPI system — one base, five layout modifiers.
 
 ---
 
-<!-- _class: kpi ops -->
-<!-- _footer: "ops · kpi ops — Reads the tiles against SLOs." -->
+<!-- @meta{layout=kpi, class=ops, footer="ops · kpi ops — Reads the tiles against SLOs."} -->
 
 `kpi ops`
 
@@ -80,8 +77,7 @@ Executive KPI system — one base, five layout modifiers.
 
 ---
 
-<!-- _class: kpi compliance -->
-<!-- _footer: "compliance · kpi compliance — Tallies findings per framework." -->
+<!-- @meta{layout=kpi, class=compliance, footer="compliance · kpi compliance — Tallies findings per framework."} -->
 
 `kpi compliance`
 
@@ -100,8 +96,7 @@ Executive KPI system — one base, five layout modifiers.
 
 ---
 
-<!-- _class: kpi trajectory -->
-<!-- _footer: "trajectory · kpi trajectory — Pairs each tile with its delta." -->
+<!-- @meta{layout=kpi, class=trajectory, footer="trajectory · kpi trajectory — Pairs each tile with its delta."} -->
 
 `kpi trajectory`
 
@@ -120,8 +115,7 @@ Executive KPI system — one base, five layout modifiers.
 
 ---
 
-<!-- _class: kpi spotlight -->
-<!-- _footer: "spotlight · kpi spotlight — One tile earns double width." -->
+<!-- @meta{layout=kpi, class=spotlight, footer="spotlight · kpi spotlight — One tile earns double width."} -->
 
 ## spotlight gives one tile double width.
 
@@ -138,9 +132,8 @@ Executive KPI system — one base, five layout modifiers.
 
 ---
 
-<!-- _class: kpi -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · kpi — Four tiles at full word weight." -->
+<!-- @meta{layout=kpi, footer="Stress test · kpi — Four tiles at full word weight."} -->
+<!-- @meta{stress-slide} -->
 
 ## Four tiles at full word weight.
 
@@ -160,8 +153,7 @@ Executive KPI system — one base, five layout modifiers.
 
 ---
 
-<!-- _class: kpi dark -->
-<!-- _footer: "Composition: dark · kpi dark" -->
+<!-- @meta{layout=kpi, class=dark, footer=Composition: dark · kpi dark} -->
 
 ## Four tiles the eye sweeps in one pass.
 
@@ -181,8 +173,7 @@ Executive KPI system — one base, five layout modifiers.
 
 ---
 
-<!-- _class: kpi compact -->
-<!-- _footer: "Composition: compact · kpi compact" -->
+<!-- @meta{layout=kpi, class=compact, footer=Composition: compact · kpi compact} -->
 
 ## Four tiles the eye sweeps in one pass.
 
@@ -202,8 +193,7 @@ Executive KPI system — one base, five layout modifiers.
 
 ---
 
-<!-- _class: kpi accent -->
-<!-- _footer: "Composition: accent · kpi accent" -->
+<!-- @meta{layout=kpi, class=accent, footer=Composition: accent · kpi accent} -->
 
 ## Four tiles the eye sweeps in one pass.
 
@@ -223,8 +213,7 @@ Executive KPI system — one base, five layout modifiers.
 
 ---
 
-<!-- _class: cards-grid claim-hero -->
-<!-- _footer: "Anti-patterns · kpi · 1 of 2" -->
+<!-- @meta{layout=cards-grid, class=claim-hero, footer=Anti-patterns · kpi · 1 of 2} -->
 
 ## When NOT to reach for kpi.
 
@@ -235,8 +224,7 @@ Executive KPI system — one base, five layout modifiers.
 
 ---
 
-<!-- _class: cards-grid claim-hero -->
-<!-- _footer: "Anti-patterns · kpi · 2 of 2" -->
+<!-- @meta{layout=cards-grid, class=claim-hero, footer=Anti-patterns · kpi · 2 of 2} -->
 
 ## When NOT to reach for kpi.
 
@@ -247,7 +235,7 @@ Executive KPI system — one base, five layout modifiers.
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

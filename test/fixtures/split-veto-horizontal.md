@@ -1,11 +1,13 @@
 ---
 size: square
+# fit: heal pins the COUNT-based split this file tests; measuring is the default (lib/core/resolve-fit.js fitPacks).
+fit: heal
 theme: indaco
-paginate: true
+pagination: true
 footer: "split veto — a horizontally overflowing collection"
 ---
 
-<!-- _class: list-steps -->
+<!-- @meta{layout=list-steps} -->
 
 ## How the migration runs.
 

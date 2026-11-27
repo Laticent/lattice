@@ -197,4 +197,6 @@ whenever the font came late.
 - A build step (`build-marp-vscode-css.js`, about 18 s for both hand-offs) and five devDependencies: marp-core 4.4.0, and the four
   bundled pairs as aliases. The aliases take 7.7 MB of node_modules: about 0.8 MB each for 4.0.1, 4.1.0 and 4.3.0, and 5.4 MB
   for `marp-core-4.4.0`, which carries its own KaTeX 0.17 because the root pins KaTeX 0.16. Dependabot ignores all four.
+  *(Superseded 2026-11-23 by #3480: the root pins KaTeX 0.18.2, and `overrides` give marp-core and all four aliases that
+  copy, so none carries its own; see `engineering/development.md`.)*
 - The parity test runs 26 cases instead of 8 (about 240 s locally; the integration tier is sharded in CI).

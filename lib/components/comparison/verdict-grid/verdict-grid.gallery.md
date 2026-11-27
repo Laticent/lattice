@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · verdict-grid"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # verdict-grid
 
@@ -15,8 +15,7 @@ Options scored against criteria as a verdict matrix.
 
 ---
 
-<!-- _class: verdict-grid -->
-<!-- _footer: "Default · verdict-grid" -->
+<!-- @meta{layout=verdict-grid, footer=Default · verdict-grid} -->
 
 ## The grid scores options against shared criteria.
 
@@ -36,9 +35,8 @@ Options scored against criteria as a verdict matrix.
 
 ---
 
-<!-- _class: verdict-grid -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · verdict-grid — Five options — the hard ceiling." -->
+<!-- @meta{layout=verdict-grid, footer="Stress test · verdict-grid — Five options — the hard ceiling."} -->
+<!-- @meta{stress-slide} -->
 
 ## Five options is the verdict grid's ceiling.
 
@@ -66,8 +64,7 @@ Options scored against criteria as a verdict matrix.
 
 ---
 
-<!-- _class: verdict-grid dark -->
-<!-- _footer: "Composition: dark · verdict-grid dark" -->
+<!-- @meta{layout=verdict-grid, class=dark, footer=Composition: dark · verdict-grid dark} -->
 
 ## The grid scores options against shared criteria.
 
@@ -87,8 +84,7 @@ Options scored against criteria as a verdict matrix.
 
 ---
 
-<!-- _class: verdict-grid compact -->
-<!-- _footer: "Composition: compact · verdict-grid compact" -->
+<!-- @meta{layout=verdict-grid, class=compact, footer=Composition: compact · verdict-grid compact} -->
 
 ## The grid scores options against shared criteria.
 
@@ -108,8 +104,7 @@ Options scored against criteria as a verdict matrix.
 
 ---
 
-<!-- _class: verdict-grid accent -->
-<!-- _footer: "Composition: accent · verdict-grid accent" -->
+<!-- @meta{layout=verdict-grid, class=accent, footer=Composition: accent · verdict-grid accent} -->
 
 ## The grid scores options against shared criteria.
 
@@ -129,8 +124,7 @@ Options scored against criteria as a verdict matrix.
 
 ---
 
-<!-- _class: cards-grid claim-hero -->
-<!-- _footer: "Anti-patterns · verdict-grid · 1 of 2" -->
+<!-- @meta{layout=cards-grid, class=claim-hero, footer=Anti-patterns · verdict-grid · 1 of 2} -->
 
 ## When NOT to reach for verdict-grid.
 
@@ -141,8 +135,7 @@ Options scored against criteria as a verdict matrix.
 
 ---
 
-<!-- _class: cards-grid claim-hero -->
-<!-- _footer: "Anti-patterns · verdict-grid · 2 of 2" -->
+<!-- @meta{layout=cards-grid, class=claim-hero, footer=Anti-patterns · verdict-grid · 2 of 2} -->
 
 ## When NOT to reach for verdict-grid.
 
@@ -153,7 +146,7 @@ Options scored against criteria as a verdict matrix.
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

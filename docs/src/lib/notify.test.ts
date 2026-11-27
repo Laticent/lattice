@@ -37,6 +37,17 @@ describe('notify — the status kind', () => {
 	// pill that has just closed therefore renders the new message and then deletes
 	// it 200ms later, on the PREVIOUS message's timer — a flash-and-vanish at an
 	// ordinary working pace. The id must rotate once the pill is no longer live.
+	// A placement is per message: the Share sheet raises a failure at the top, and the next plain
+	// notice must not inherit it through Sonner's merge of a live id's options (trap 1).
+	it('passes a placement, and clears it again for the next message on the same live pill', () => {
+		notify('Webpage failed: the step “load the theme” did not finish within 60 s.', { position: 'top-center' });
+		notify('Deck saved.');
+		expect(opts(0).position).toBe('top-center');
+		expect(opts(1).id).toBe(opts(0).id);
+		expect('position' in opts(1)).toBe(true);
+		expect(opts(1).position).toBeUndefined();
+	});
+
 	it('rotates the id once the pill has closed, so the next message is not swallowed', () => {
 		notify('First message.');
 		autoClose(0);

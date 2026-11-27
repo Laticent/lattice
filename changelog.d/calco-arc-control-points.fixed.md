@@ -1,1 +1,0 @@
-- PowerPoint and LibreOffice exports draw a curved mark's arcs correctly: Calco swapped each curve's two control points, so an arc came out as a pinched loop.

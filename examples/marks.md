@@ -2,13 +2,13 @@
 marp: true
 size: 16:9
 theme: indaco
-paginate: true
+pagination: true
 header: "Marks"
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
-<!-- _footer: "Marks · title" -->
+<!-- @meta{layout=title, header="", footer=Marks · title} -->
+
+
 
 # One line sets how every chart spends its color
 
@@ -18,8 +18,8 @@ Pigment, etch or tone, set once for the deck and overridden per slide. Say nothi
 
 ---
 
-<!-- _class: bar -->
-<!-- _footer: "no marks: key · a finish is always on, and the default is pigment" -->
+<!-- @meta{layout=bar, footer="no chart-finish: key · a finish is always on, and the default is pigment"} -->
+
 
 `Pigment · identity in the body`
 
@@ -40,8 +40,8 @@ Pigment, etch or tone, set once for the deck and overridden per slide. Say nothi
 
 ---
 
-<!-- _class: bar marks-etch -->
-<!-- _footer: "_class: marks-etch · one slide overrides the deck" -->
+<!-- @meta{layout=bar, class=chart-finish-etch, footer="_class: chart-finish-etch · one slide overrides the deck"} -->
+
 
 `Etch · identity in the line`
 
@@ -62,8 +62,8 @@ Pigment, etch or tone, set once for the deck and overridden per slide. Say nothi
 
 ---
 
-<!-- _class: bar marks-tone -->
-<!-- _footer: "_class: marks-tone · one hue in stepped shades" -->
+<!-- @meta{layout=bar, class=chart-finish-tone, footer="_class: chart-finish-tone · one hue in stepped shades"} -->
+
 
 `Tone · identity in value`
 
@@ -84,8 +84,8 @@ Pigment, etch or tone, set once for the deck and overridden per slide. Say nothi
 
 ---
 
-<!-- _class: piechart donut marks-tone -->
-<!-- _footer: "The key repaints with the wedges it names" -->
+<!-- @meta{layout=piechart, class=donut chart-finish-tone, footer=The key repaints with the wedges it names} -->
+
 
 `H1 2026 · 1,840 person-hours`
 
@@ -99,8 +99,8 @@ Pigment, etch or tone, set once for the deck and overridden per slide. Say nothi
 
 ---
 
-<!-- _class: heatmap marks-etch -->
-<!-- _footer: "Each value picks black or white from its own cell" -->
+<!-- @meta{layout=heatmap, class=chart-finish-etch, footer=Each value picks black or white from its own cell} -->
+
 
 `Retention · 2026 cohorts`
 
@@ -115,8 +115,8 @@ Pigment, etch or tone, set once for the deck and overridden per slide. Say nothi
 
 ---
 
-<!-- _class: gantt -->
-<!-- _footer: "One ink: every bar is deep under white; a status carries its mark, an exception its ring" -->
+<!-- @meta{layout=gantt, footer="One ink: every bar is deep under white; a status carries its mark, an exception its ring"} -->
+
 
 `[{Timeline, 2026 Q1 .. 2026 Q4, today=Q3}]`
 
@@ -133,8 +133,8 @@ Pigment, etch or tone, set once for the deck and overridden per slide. Say nothi
 
 ---
 
-<!-- _class: progress marks-vivid -->
-<!-- _footer: "_class: marks-vivid · every status rich, done an emerald, the same white text" -->
+<!-- @meta{layout=progress, class=color-intensity-vivid, footer="_class: color-intensity-vivid · every status rich, done an emerald, the same white text"} -->
+
 
 `H1 2026 · readiness`
 
@@ -148,8 +148,8 @@ Pigment, etch or tone, set once for the deck and overridden per slide. Say nothi
 
 ---
 
-<!-- _class: risk-matrix -->
-<!-- _footer: "Every band is a status fill; critical is the deepest, ringed and marked as an exception" -->
+<!-- @meta{layout=risk-matrix, footer="Every band is a status fill; critical is the deepest, ringed and marked as an exception"} -->
+
 
 `Enterprise risk register · Q4 2026`
 
@@ -164,10 +164,10 @@ Pigment, etch or tone, set once for the deck and overridden per slide. Say nothi
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: "Marks · closing" -->
+<!-- @meta{layout=closing, header="", footer=Marks · closing} -->
 
-`marks: pigment · etch · tone`
+
+
+`chart-finish: pigment · etch · tone`
 
 ## Omit the key and every chart wears pigment.

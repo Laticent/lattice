@@ -59,8 +59,8 @@ async function toCompose(page: Page): Promise<void> {
 	await page.locator('.cs-slide').first().waitFor();
 }
 
-/** One `_class` name per slide, read from the persisted deck source. `∅` = the slide
- *  has no `_class` at all, which is the shape of a component assignment that got lost. */
+/** One component name per slide, read from the persisted deck source (a record's `layout`, or an old `_class`). `∅` = the
+ *  slide names none at all, which is the shape of a component assignment that got lost. */
 async function slideClasses(page: Page): Promise<string[]> {
 	const src = await persistedSource(page);
 	if (!src) return [];
@@ -76,7 +76,9 @@ async function slideClasses(page: Page): Promise<string[]> {
 	return text
 		.replace(/^---\n[\s\S]*?\n---\n/, '')
 		.split('\n\n---\n\n')
-		.map((chunk) => chunk.match(/<!--\s*_class:\s*([\w-]+)/)?.[1] ?? '∅');
+		// The slide's component in either spelling: a record (`<!-- @meta{layout=kpi} -->`, what the Studio writes since the
+		// clean break) or an old `<!-- _class: kpi -->` comment.
+		.map((chunk) => chunk.match(/<!--\s*(?:_class:\s*|@meta\{(?:[^}]*?[,\s])?(?:layout|class)="?)([\w-]+)/)?.[1] ?? '∅');
 }
 
 /** Force the first persist so `slideClasses` has something to read (nothing is written on load). */

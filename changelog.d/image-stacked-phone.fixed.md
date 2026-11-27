@@ -1,0 +1,1 @@
+- An `image` slide on a square or portrait page (`split`, the default `clean` card, `gallery`) no longer runs its text past the slide on a phone: the photo keeps its size where the text fits and shrinks when the text needs the room, down to about a third of the slide. Several portrait slides that ran past at laptop now fit too.

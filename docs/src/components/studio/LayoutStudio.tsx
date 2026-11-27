@@ -39,7 +39,7 @@ section.callout p {
   color: var(--text-body);
   font-size: var(--fs-emphasis);
 }`;
-export const STARTER_SKELETON = `<!-- _class: callout -->
+export const STARTER_SKELETON = `<!-- @meta{layout=callout} -->
 
 ## A callout that pops
 

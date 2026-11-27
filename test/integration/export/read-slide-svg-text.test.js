@@ -16,6 +16,10 @@
  * FALSIFIABLE: with the reader taking the `<text>`'s own fill, TSPAN FILL fails; with a run extended on
  * color alone, OPACITY fails; with a character that has no ink skipped, MIXED FILL fails.
  * Needs Chromium (CHROME_PATH).
+ *
+ * The reader reaches the page as an esbuild bundle, the way the CLI ships it (tools/build-pdf-compose.js), not as a
+ * raw `<script type=module>`: it imports the CommonJS CSS tokenizer (lib/core/css-tokens.js), which a browser cannot
+ * load as a module, so a raw import never ran and every case timed out (the merge queue's ejection of #3294).
  */
 
 const { test, before, after } = require('node:test');
@@ -26,12 +30,20 @@ const path = require('node:path');
 const puppeteer = require('puppeteer');
 const { resolveChrome } = require('../../../tools/lib/resolve-chrome');
 
-const READER = `file://${path.join(__dirname, '..', '..', '..', 'lib', 'core', 'pdf-compose', 'read-slide.mjs')}`;
+const READER = path.join(__dirname, '..', '..', '..', 'lib', 'core', 'pdf-compose', 'read-slide.mjs');
+
+/** The reader as one classic script that sets `globalThis.LatticeReadSlide`, bundled as the CLI bundles the writer. */
+function readerBundle() {
+  const out = require('esbuild').buildSync({ entryPoints: [READER], bundle: true, format: 'iife', globalName: 'LatticeReadSlide', platform: 'browser', write: false, logLevel: 'silent' });
+  return out.outputFiles[0].text;
+}
 
 let browser;
 let page;
+let bundle;
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lat-read-svg-'));
 before(async () => {
+  bundle = readerBundle();
   browser = await puppeteer.launch({ executablePath: resolveChrome?.() || process.env.CHROME_PATH || undefined, args: ['--no-sandbox', '--allow-file-access-from-files'] });
   page = await browser.newPage();
   await page.setViewport({ width: 1280, height: 720 });
@@ -43,14 +55,15 @@ after(async () => {
 
 /** Read one slide holding `svgInner` and return its SVG words as { t, color, op } plus the writer's stats. */
 async function read(svgInner, css = '') {
-  // A file page, not `setContent`: the reader is a module imported by file URL, which a null-origin page may not do.
   const file = path.join(tmp, 'slide.html');
   fs.writeFileSync(file, `<!doctype html><meta charset="utf-8"><style>body{margin:0}section{width:1280px;height:720px;position:relative;background:#fff}${css}</style>
     <section><svg width="600" height="200" viewBox="0 0 600 200" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="g"><stop offset="0" stop-color="#f00"/><stop offset="1" stop-color="#00f"/></linearGradient></defs>${svgInner}</svg></section>`);
   await page.goto(`file://${file}`);
-  await page.addScriptTag({ type: 'module', content: `import { readSlide } from '${READER}'; const r = readSlide(document.querySelector('section')); window.__out = { words: r.words.filter((w) => w.svg).map((w) => ({ t: w.t, color: w.color && w.color.slice(0, 3).join(','), op: +w.op.toFixed(3) })), stats: r.stats };` });
-  await page.waitForFunction('window.__out', { timeout: 20000 });
-  return page.evaluate(() => window.__out);
+  await page.addScriptTag({ content: bundle });
+  return page.evaluate(() => {
+    const r = window.LatticeReadSlide.readSlide(document.querySelector('section'));
+    return { words: r.words.filter((w) => w.svg).map((w) => ({ t: w.t, color: w.color?.slice(0, 3).join(','), op: +w.op.toFixed(3) })), stats: r.stats };
+  });
 }
 
 test('TSPAN FILL: the name is drawn in the tspan’s color, not the box’s', async () => {
@@ -102,9 +115,10 @@ test("LINE METRICS: an SVG run in a face with ascent/descent overrides carries t
     <section><svg width="600" height="200" viewBox="0 0 600 200"><text x="10" y="40" font-size="16" font-family="Over">over</text><text x="10" y="90" font-size="16" font-family="Plain">plain</text><text x="10" y="140" font-size="16" font-family="'Missing', Over">fallback</text></svg></section>`);
   await page.goto(`file://${file}`);
   await page.evaluate(() => document.fonts.ready);
-  await page.addScriptTag({ type: 'module', content: `import { readSlide } from '${READER}'; const r = readSlide(document.querySelector('section')); window.__lm = r.words.filter((w) => w.svg).map((w) => [w.t, w.lineMetrics || null]);` });
-  await page.waitForFunction('window.__lm', { timeout: 20000 });
-  const lm = Object.fromEntries(await page.evaluate(() => window.__lm));
+  await page.addScriptTag({ content: bundle });
+  const lm = Object.fromEntries(
+    await page.evaluate(() => window.LatticeReadSlide.readSlide(document.querySelector('section')).words.filter((w) => w.svg).map((w) => [w.t, w.lineMetrics || null])),
+  );
   assert.deepEqual(lm.over, [0.98, 0.26]);
   assert.equal(lm.plain, null, 'a face without overrides keeps the file metrics');
   // The face the browser drew with, not the first name in the stack (Calco's \`usedFamily\` picks it the same way).

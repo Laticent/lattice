@@ -1,12 +1,12 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · The default slide layout"
 meta: "Default layout · #1292"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `The catch-all is a layout`
 
@@ -33,7 +33,7 @@ No `_class` directive appears above this heading. It renders as `content` — wh
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `The same slide, named`
 
@@ -82,7 +82,7 @@ The stack used to pack to the top of a full-height stage, stranding a Key Insigh
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 `Also fixed`
 

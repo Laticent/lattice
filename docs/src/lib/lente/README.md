@@ -158,7 +158,7 @@ deliberately not this. Design note:
 | File | Role |
 |---|---|
 | `types.ts` | the shared type surface |
-| `tags.ts` | per-slide `_lens` tag parse + `applyTag` writer |
+| `tags.ts` | per-slide tag parse + `applyTag` writer, over a `LensTagCarrier` (where a tag lives). The default reads and writes a `<!-- _lens: … -->` comment; a host installs its own with `setLensTagCarrier` (Lattice: the slide's `<!-- @meta{lens=…} -->` record, `docs/src/lib/lente-host.ts`) |
 | `registry.ts` | the front-matter `lenses:` block parse / emit / upsert (Lente is the sole writer) |
 | `project.ts` | the read path — `lensPairs`/`lensSlides`/`lensIndices`, `readerLenses`, `approvalHash`, eligibility, and the ladder (`lensKind`, `ladderRungs`, `lensEscapees`, `deeperLens`) |
 | `builder.ts` | the fluent `lens()` front door — a pass-through over `project.ts` (read-path only) |

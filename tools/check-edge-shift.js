@@ -204,7 +204,7 @@ function deckFor(slides, placement) {
     '---',
     `size: ${SIZE_ALIAS[FAMILY]}`,
     spectrumLine(placement),
-    ...(CHROME ? ['header: HEADER', 'footer: FOOTER', 'paginate: true'] : []),
+    ...(CHROME ? ['header: HEADER', 'footer: FOOTER', 'pagination: true'] : []),
     ...EXTRA_FRONT_MATTER,
     '---',
   ].join('\n');

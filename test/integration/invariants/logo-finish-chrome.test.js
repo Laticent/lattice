@@ -18,7 +18,7 @@ const { resolveChrome, skipWithoutChrome } = require('../../helpers/chrome');
 const puppeteer = require('puppeteer');
 const { renderHtml } = require('../../helpers/semantic-render');
 const slides = (...bodies) => bodies.join('\n\n---\n\n');
-const deck = (fm, body) => `---\nmarp: true\ntheme: indaco\nheader: "Running header"\nfooter: "Running footer"\npaginate: true\n${fm}\n---\n\n${body}\n`;
+const deck = (fm, body) => `---\nmarp: true\ntheme: indaco\nheader: "Running header"\nfooter: "Running footer"\npagination: true\n${fm}\n---\n\n${body}\n`;
 
 // slide 1 carries the mark (title scope); slide 2 does not; slide 3 opts out; slide 4 is a title again.
 // The titles carry `with-header`: a title drops the running header by its manifest

@@ -76,9 +76,9 @@ describe('deck-ops — structural slide editing', () => {
 	});
 
 	it('preserves front-matter across every op', () => {
-		const withFm = `---\nsize: square\npaginate: true\n---\n\n${DECK}`;
+		const withFm = `---\nsize: square\npagination: true\n---\n\n${DECK}`;
 		for (const r of [addSlideAfter(withFm, 0), duplicateSlide(withFm, 0), deleteSlide(withFm, 0), moveSlide(withFm, 0, 1)]) {
-			expect(r.source).toMatch(/^---\nsize: square\npaginate: true\n---\n/);
+			expect(r.source).toMatch(/^---\nsize: square\npagination: true\n---\n/);
 			// The front-matter is not counted as a slide.
 			expect(count(r.source)).toBeGreaterThanOrEqual(2);
 		}

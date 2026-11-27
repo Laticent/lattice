@@ -1,12 +1,12 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · the slide's depth axis"
 footer: "Every layer on this deck names its plane"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # A slide is a stack, not a sheet
 
@@ -16,13 +16,13 @@ Everything a reader sees sits on a plane the CSS names out loud.
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 # The planes
 
 ---
 
-<!-- _class: cards-stack watermark finish-savile -->
+<!-- @meta{layout=cards-stack, class=watermark finish-savile} -->
 
 `THE TWO THAT SINK`
 
@@ -37,7 +37,7 @@ The pinstripes here are canvas. The ghost numeral above them is atmosphere.
 
 ---
 
-<!-- _class: cards-stack confidential stamp-seal -->
+<!-- @meta{layout=cards-stack, class=confidential stamp-seal} -->
 
 `THE THREE THAT RISE`
 
@@ -54,7 +54,7 @@ The seal in the corner is a mark: above this slide's header, footer and page num
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- @meta{layout=cards-stack} -->
 
 `INSIDE AN OCCUPANT`
 
@@ -69,7 +69,7 @@ Nothing has to be isolated to hold it there.
 
 ---
 
-<!-- _class: decision -->
+<!-- @meta{layout=decision} -->
 
 ## Reach for the token, never the number.
 
@@ -82,7 +82,7 @@ If it can be a direct child of the slide, it names a plane. If it always renders
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 # One number line, read the same way everywhere
 

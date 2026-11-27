@@ -1,22 +1,22 @@
 ---
 marp: true
 theme: indaco
-paginate: true
-header: "Lattice · the cards: register, catalog-wide"
+pagination: true
+header: "Lattice · the align: register, catalog-wide"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Every card component now puts its spare height where the author says
 
-`cards: center · stretch · top · spread`
+`align: top · middle · bottom · spread · fill`
 
 Rows, grids, stacked columns and centered blocks all follow the one register, and each component declares its own default in its manifest.
 
 ---
 
-<!-- _class: cards-stack -->
-<!-- _footer: "cards-stack · no cards: value — the column now sizes its cards to their text and centers them" -->
+<!-- @meta{layout=cards-stack, footer="cards-stack · no cards: value — the column now sizes its cards to their text and centers them"} -->
+
 
 ## The stack ranks three cards top to bottom.
 
@@ -29,8 +29,8 @@ Rows, grids, stacked columns and centered blocks all follow the one register, an
 
 ---
 
-<!-- _class: cards-stack cards-stretch -->
-<!-- _footer: "cards-stack · _class: cards-stretch — the old fill, exactly: equal shares of the stage" -->
+<!-- @meta{layout=cards-stack, class=align-fill, footer="cards-stack · _class: align-fill — the old fill, exactly: equal shares of the stage"} -->
+
 
 ## The stack ranks three cards top to bottom.
 
@@ -43,8 +43,8 @@ Rows, grids, stacked columns and centered blocks all follow the one register, an
 
 ---
 
-<!-- _class: decision banner-tag -->
-<!-- _footer: "decision banner-tag · default center — the body now stays inside its card under the banner" -->
+<!-- @meta{layout=decision, class=banner-tag, footer="decision banner-tag · default middle — the body now stays inside its card under the banner"} -->
+
 
 ## Banner tags headline each card with its camp.
 
@@ -55,8 +55,8 @@ Rows, grids, stacked columns and centered blocks all follow the one register, an
 
 ---
 
-<!-- _class: pricing cards-top -->
-<!-- _footer: "pricing · _class: cards-top — tiers sit under the headline rule and stay equal height" -->
+<!-- @meta{layout=pricing, class=align-top, footer="pricing · _class: align-top — tiers sit under the headline rule and stay equal height"} -->
+
 
 ## Three tiers, one recommended column.
 
@@ -78,8 +78,8 @@ Rows, grids, stacked columns and centered blocks all follow the one register, an
 
 ---
 
-<!-- _class: split-panel proof cards-center -->
-<!-- _footer: "split-panel proof · cards-center" -->
+<!-- @meta{layout=split-panel, class=proof align-middle, footer=split-panel proof · align-middle} -->
+
 
 `Level 1 · Remembering`
 
@@ -96,8 +96,8 @@ Rows, grids, stacked columns and centered blocks all follow the one register, an
 
 ---
 
-<!-- _class: matrix-2x2 cards-center -->
-<!-- _footer: "matrix-2x2 · _class: cards-center — four equal quadrants stay the default; centered, the cells fit their items" -->
+<!-- @meta{layout=matrix-2x2, class=align-middle, footer="matrix-2x2 · _class: align-middle — four equal quadrants stay the default; centered, the cells fit their items"} -->
+
 
 ## The matrix places items on two named axes.
 
@@ -116,8 +116,8 @@ Rows, grids, stacked columns and centered blocks all follow the one register, an
 
 ---
 
-<!-- _class: statute-stack -->
-<!-- _footer: "statute-stack · default center — three rails sized to their obligations; cards-stretch restores full-height rails" -->
+<!-- @meta{layout=statute-stack, footer="statute-stack · default middle — three rails sized to their obligations; align-fill restores full-height rails"} -->
+
 
 ## Three jurisdictions, one obligation each.
 

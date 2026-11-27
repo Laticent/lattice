@@ -207,7 +207,7 @@ try {
 		// The slot contract, one packed string (lib/authoring/slot-contract.generated.js).
 		slotContract: v.slotContract,
 		mapRegions: Object.fromEntries(Object.entries(v.mapRegions || {}).map(([k, mv]) => [k, { valid: [...mv.valid], names: mv.names }])),
-		// EVERY register value list (`fitNames`, `cardsNames`, `claimNames`, the spectrum
+		// EVERY register value list (`fitNames`, `alignNames`, `claimNames`, the spectrum
 		// family, …), not a hand-picked few: the editor completes front-matter values from
 		// them (editor-complete.ts `VOCAB_VALUE_FIELDS`), and the inline lint and the Coach
 		// check them (`buildVocabSets` in lib/editor-diagnostics.js forwards every
@@ -226,6 +226,8 @@ try {
 		// The plugin-declared registers (`icon:`, `avatar:`): their keys and words, for the
 		// inline lint's `unknown-<key>` and the editor's value completion.
 		pluginRegisters: v.pluginRegisters || [],
+		// The `align:` register's two axes, for `unknown-align` and the compound `align-bottom-right` class.
+		alignAxes: v.alignAxes,
 	};
 } catch (e) {
 	// Same observable degradation as the blocks above, and said out loud: without the vocab the

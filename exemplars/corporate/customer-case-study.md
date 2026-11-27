@@ -2,11 +2,11 @@
 marp: true
 size: 4k
 theme: indaco
-paginate: true
+pagination: true
 header: "Atlas Robotics · Pinewood case study"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 <!-- tier: short -->
 
 `Customer case study · 2026`
@@ -17,7 +17,7 @@ How a 40-year-old furniture maker doubled output without adding a shift.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## Pinewood was turning away orders it had the demand for but not the capacity.
@@ -29,7 +29,7 @@ Pinewood Furniture, a family-run manufacturer since 1984, had a two-year backlog
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## The challenge: demand Pinewood couldn't meet and labor it couldn't hire.
@@ -41,7 +41,7 @@ Orders were up 40% post-pandemic, but the finishing line — sanding, staining, 
 
 ---
 
-<!-- _class: big-number -->
+<!-- @meta{layout=big-number} -->
 <!-- tier: standard -->
 
 `The constraint that capped the business`
@@ -51,7 +51,7 @@ Orders were up 40% post-pandemic, but the finishing line — sanding, staining, 
 
 ---
 
-<!-- _class: split-compare -->
+<!-- @meta{layout=split-compare} -->
 <!-- tier: short -->
 
 `Before and after`
@@ -71,7 +71,7 @@ The Atlas cell took over sanding, staining, and sealing — running unattended a
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## The win wasn't replacing people — it was redeploying them to better work.
@@ -83,7 +83,7 @@ Pinewood didn't lay anyone off. The finishers who couldn't be fully staffed beca
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 <!-- tier: standard -->
 
 `Results · 12 months post-deployment`
@@ -103,7 +103,7 @@ Pinewood didn't lay anyone off. The finishers who couldn't be fully staffed beca
 
 ---
 
-<!-- _class: kpi -->
+<!-- @meta{layout=kpi} -->
 <!-- tier: short -->
 
 `Impact · Year one`
@@ -122,7 +122,7 @@ Pinewood didn't lay anyone off. The finishers who couldn't be fully staffed beca
 
 ---
 
-<!-- _class: kpi -->
+<!-- @meta{layout=kpi} -->
 <!-- tier: full -->
 
 `Payback · Year one`
@@ -141,7 +141,7 @@ Pinewood didn't lay anyone off. The finishers who couldn't be fully staffed beca
 
 ---
 
-<!-- _class: quote -->
+<!-- @meta{layout=quote} -->
 <!-- tier: short -->
 
 > We didn't lose a single person — we doubled what we make and moved our best people to the work that matters. Atlas paid for itself before the year was out.
@@ -150,9 +150,9 @@ Pinewood didn't lay anyone off. The finishers who couldn't be fully staffed beca
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 <!-- tier: short -->
 
 ## Same team. Twice the output.

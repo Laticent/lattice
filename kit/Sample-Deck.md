@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: cuoio
-paginate: true
+pagination: true
 size: hd
 header: "Lattice · Sample Deck"
 footer: "Copy this folder. Edit this file."
@@ -72,7 +72,7 @@ Everything else stays Markdown.
 ```yaml
 marp: true          # activates the Marp extension / marp-cli
 theme: cuoio        # the palette; cuoio is the default
-paginate: true      # page numbers
+pagination: true      # page numbers
 size: hd            # 16:9 at 1280x720
 class: dark         # optional — flips the whole deck to dark
 header: "Lattice · Sample Deck"

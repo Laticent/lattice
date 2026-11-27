@@ -8,7 +8,7 @@ const DECK = '---\ntitle: T\n---\n\n<!-- _class: image spotlight image-card-clea
 describe('addCardInk', () => {
 	it('writes the ink on the named slide only', () => {
 		const out = addCardInk(DECK, 1, 'light') as string;
-		expect(out).toContain('_class: image spotlight image-card-clear image-card-light');
+		expect(out).toContain('@meta{layout=image, class=spotlight image-card-clear image-card-light}');
 		expect(out.match(/image-card-light/g)).toHaveLength(1);
 		expect(out.indexOf('image-card-light')).toBeGreaterThan(out.indexOf('## One'));
 	});
@@ -70,18 +70,18 @@ describe('a `---` slide split on its headings: the fix and the underline are the
 	it('writes the ink into the second part\'s class, and leaves the first part\'s alone', () => {
 		const out = applyFixAt(SPLIT, 0, 'image-card-light', 1) as string;
 		const second = out.slice(out.indexOf('## One'));
-		expect(second).toContain('<!-- _class: image spotlight image-card-clear image-card-light -->\n## Two');
+		expect(second).toContain('<!-- @meta{layout=image, class=spotlight image-card-clear image-card-light} -->\n## Two');
 		expect(out.match(/image-card-light/g)).toHaveLength(1);
 	});
 	it('writes the first part\'s ink into the first part, though a later part also has a class', () => {
 		const out = applyFixAt(SPLIT, 0, 'image-card-light', 0) as string;
-		expect(out).toContain('<!-- _class: image spotlight image-card-clear image-card-light -->\n## One');
+		expect(out).toContain('<!-- @meta{layout=image, class=spotlight image-card-clear image-card-light} -->\n## One');
 		expect(out.match(/image-card-light/g)).toHaveLength(1);
 	});
 	it('keeps a class the part only inherits: the running class is written with the ink, never replaced by it', () => {
 		const deck = '---\ntitle: T\n---\n\n<!-- class: image spotlight image-card-clear -->\n## One\n\n![A lake](sample:photo-wide.svg)\n\n## Two\n\n![A field](sample:photo-tall.svg)\n';
 		const out = applyFixAt(deck, 0, 'image-card-light', 1) as string;
-		expect(out.slice(out.indexOf('![A lake]'))).toMatch(/<!-- _class: image spotlight image-card-clear image-card-light -->\s*## Two/);
+		expect(out.slice(out.indexOf('![A lake]'))).toMatch(/<!-- @meta\{layout=image, class=spotlight image-card-clear image-card-light\} -->\s*## Two/);
 	});
 	it('underlines the photo of the part that was measured', () => {
 		const doc = Text.of(SPLIT.split('\n'));
@@ -95,7 +95,7 @@ describe('a `---` slide split on its headings: the fix and the underline are the
 		const twin = '## Two\n\n![B](sample:photo-tall.svg)';
 		const deck = `---\ntitle: T\n---\n\n${twin}\n\n---\n\n<!-- class: image spotlight image-card-clear -->\n## One\n\n![A](sample:photo-wide.svg)\n\n${twin}\n`;
 		const out = applyFixAt(deck, 1, 'image-card-light', 1) as string;
-		expect(out.slice(out.indexOf('## One'))).toMatch(/<!-- _class: image spotlight image-card-clear image-card-light -->\s*## Two/);
+		expect(out.slice(out.indexOf('## One'))).toMatch(/<!-- @meta\{layout=image, class=spotlight image-card-clear image-card-light\} -->\s*## Two/);
 		// The first copy is untouched.
 		expect(out.indexOf('image-card-light')).toBeGreaterThan(out.indexOf('## One'));
 	});

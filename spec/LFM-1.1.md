@@ -79,7 +79,7 @@ heading) belongs to the heading's slide, not the one before.
 ### 2.3 Front-matter directives
 
 A leading YAML front-matter block carries deck-wide directives. Besides Marpit's own
-(`theme`, `paginate`, `class`, `header`, `footer`, …), LFM 1.1 defines two kinds of key.
+(`theme`, `class`, `header`, `footer`, …), LFM 1.1 defines two kinds of key.
 
 **`header` and `footer` are set for every slide only in front matter.** In a slide comment, in either
 spelling (`<!-- header: H -->` or `<!-- _header: H -->`), they apply to that slide only. This differs from Marpit,
@@ -87,10 +87,11 @@ where the plain spelling carries onto every later slide. A slide drops the deck'
 or `no-footer`. A renderer that exports to Marpit MUST write such a comment in the underscore spelling, so the
 exported deck renders the same.
 
-**`paginate` is a front-matter key only, and on unless it says off.** A `paginate` slide comment, in either spelling,
-has no effect. A slide drops its page number with `_class: no-pagination` and keeps it with `with-pagination`; a
+**`pagination` is a front-matter key only, and on unless it says off.** It replaces Marpit's `paginate`, which an L2
+tool reports as `key-renamed` with a fix that renames it. A `pagination` or `paginate` slide comment, in either
+spelling, has no effect. A slide drops its page number with `_class: no-pagination` and keeps it with `with-pagination`; a
 component may opt out in its manifest. A renderer that exports to Marpit MUST write the result as Marpit's own
-`_paginate` comments, so the exported deck numbers the same slides.
+`paginate:` front matter and `_paginate` comments, so the exported deck numbers the same slides.
 
 **Registers** set one deck-wide choice from a list of values. Each value is a word, matched
 without regard to case (`mode: Sketch` is `sketch`). A renderer applies the register to every
@@ -109,7 +110,7 @@ specify them, and `split:` and `preset:` have none.
 | `mode:` | `boardroom` · `sketch` · `sketch-clean` | The rendering mode: clean, or drawn by hand. | `unknown-mode` |
 | `finish:` | `none` · `atrium` · `meridian` · `strata` · `halo` · `ledger` · `nimbus` · `loom` · `savile` · `gallery` | The backdrop painted behind every slide. A host MAY also accept the name of a finish package it holds or the deck carries (LATTICE-FILE §4); the list is the finishes every renderer knows. | `unknown-finish` |
 | `backdrop:` | a strength (`20` `40` `60` `80` `full`), a mask (`clear` `open` `clear-footer` `clear-hero`) or a spot (`spot-tl` `spot-t` `spot-tr` `spot-l` `spot-c` `spot-r` `spot-bl` `spot-b` `spot-br`); up to one of each | How strongly the finish shows, and where it clears. | `unknown-backdrop` |
-| `preset:` | `classic` · `editorial` · `brand` · `minimal` | A named look that sets several registers at once, and MAY also recommend `theme:`, `color-mode:`, `mode:`, `marks:` and `backdrop:`. A register the deck sets itself wins over the preset's, and a color-axis token in a deck-wide `class:` (such as `dark`, `light` or `print`), or a `-dark` theme, keeps its color mode over a recommended one. | `unknown-preset` |
+| `preset:` | `classic` · `editorial` · `brand` · `minimal` | A named look that sets several registers at once, and MAY also recommend `theme:`, `color-mode:`, `mode:`, `chart-finish:`, `color-intensity:` and `backdrop:`. A register the deck sets itself wins over the preset's, and a color-axis token in a deck-wide `class:` (such as `dark`, `light` or `print`), or a `-dark` theme, keeps its color mode over a recommended one. | `unknown-preset` |
 | `split:` | `headings` · `rule` | How the deck divides into slides: at headings as well as `---` (§2.2), or at `---` only. | `unknown-split` |
 | `stamp:` | `tab` `notch` `bracket` `seal` `pill` `ribbon` `flag` `underline` `dot` `mark` `veil` `bar` `pin` | The shape of a slide's marker. | `unknown-stamp` |
 | `tone:` | `rail` · `edge` · `glow` | The marker's tone. | `unknown-tone` |
@@ -120,12 +121,13 @@ specify them, and `split:` and `preset:` have none.
 | `eyebrow:` | `plain` · `dot` · `bar` · `arrow` · `underline` | The decoration on a kicker (§3.4). | `unknown-eyebrow` |
 | `headline:` | `auto` · `left` · `center` · `right` | The alignment of a slide's framing text. | `unknown-headline` |
 | `lift:` | `off` · `on` | Whether cards are raised off the slide. | `unknown-lift` |
-| `cards:` | `center` · `stretch` · `top` · `spread` | Where a row of cards puts the height it does not need. | `unknown-cards` |
+| `align:` | up and down `top` · `middle` · `bottom` · `spread` · `fill`; side to side `left` · `center` · `right` · `full` | Where content sits on the slide. One word or two, in any order; `center` alone centers both axes. Omitted, each component keeps its own. | `unknown-align` |
 | `tag:` | up to one word per axis: color (`color` `plain` `bare`), size (`small` `regular` `large`), placement (`corner` `foot` `notch` `band` `inline`), alignment (`start` `center` `end`) | The look of a card's tag. | `unknown-tag` |
 | `image-card:` | up to one word per axis: placement (`top-left` `top` `top-right` `center` `bottom-left` `bottom` `bottom-right`), backing (`solid` `soft` `sheer` `clear`, or a level in 5% steps: `5%` `10%` `15%` `20%` `25%` `30%` `35%` `40%` `45%` `50%` `60%` `65%` `70%` `75%` `85%` `90%` `95%`), ink (`light` `dark`), size (`sm` `md` `lg`), density (`regular` `compact`), shape (`float` `band`) | The text card on an `image` slide that floats its words over the photo (`spotlight`, `statement`). Image slides only. | `unknown-image-card` |
-| `cover:` | up to one word per axis: a surface (`inverse` `light`) and a composition (`plain` `masthead` `ledger` `column` `label` `stage` `frame` `poster`) | The front and back cover. The surface is the dark inverse panel (default) or the deck's light canvas, in both color modes; the composition sets how the heading block sits on it (`plain`, the default, is today's centered block). Title and closing slides only; dividers and `topic` keep their own surfaces. | `unknown-cover` |
+| `cover-layout:` | up to one word per axis: a surface (`inverse` `light`) and a composition (`plain` `masthead` `ledger` `column` `label` `stage` `frame` `poster`) | The front and back cover. The surface is the dark inverse panel (default) or the deck's light canvas, in both color modes; the composition sets how the heading block sits on it (`plain`, the default, is today's centered block). Title and closing slides only; dividers and `topic` keep their own surfaces. The older key `cover:` is retired: the reference implementation no longer reads it and reports it as `key-renamed`. | `unknown-cover-layout` |
 | `corners:` | `square` · `rounded` | The corners of the slide itself. | `unknown-corners` |
-| `marks:` | `pigment` · `etch` · `tone` · `muted` · `vivid` · `ink` · `accent` | How every chart spends its color: a finish, an intensity and, under `tone`, a source (the hue tone draws in), one word per axis in any order (`pigment vivid`, `tone ink`). A look with no absent state, like `icon:` and `spark:`: a deck that names none wears `pigment muted`; a deck that names no source draws tone in chart color one. A source under another finish does nothing and is diagnosed (`marks-source-needs-tone`). | `unknown-marks` |
+| `chart-finish:` | `pigment` · `etch` · `tone` · `ink` · `accent` | How every chart spends its color: a finish and, under `tone`, a source (the hue tone draws in), one word per axis in either order (`tone ink`). A look with no absent state, like `icon:` and `spark:`: a deck that names none wears `pigment`; a deck that names no source draws tone in chart color one. A source under another finish does nothing and is diagnosed (`chart-finish-source-needs-tone`). Replaces `marks:` with `color-intensity:` (`marks-split`). | `unknown-chart-finish` |
+| `color-intensity:` | `muted` · `vivid` | How loud every status color on the slide is, under any finish and not only in charts. A deck that names none wears `muted`. | `unknown-color-intensity` |
 | `callout:` | `on` · `off` | Whether the callout plugin draws the callouts an author pins to a chart's marks (`@callout{…}`); `off` hides them. | `unknown-callout` |
 | `spark:` | up to one word per axis: frame (`framed` `bare`), look (`pigment` `etch` `tone`), corners (`square` `rounded`) | The deck's default for inline sparks (§3.6). | `unknown-spark` |
 | `icon:` | up to one word per axis: frame (`framed` `bare`), look (`pigment` `etch` `tone`), corners (`square` `rounded`), draw (`font` `svg`) | The deck's default for inline icons (§3.6). `draw` says how an icon is drawn: a glyph of the Lattice Icons font (`font`, the default) or its drawing (`svg`); both look the same, and a renderer that has no icon font may draw `svg` for both. | `unknown-icon` |
@@ -134,8 +136,8 @@ specify them, and `split:` and `preset:` have none.
 | `inline-code:` | `rich` · `literal` | Whether the inline notation (§3.6) runs. `literal` leaves every single-backtick span as code. | `unknown-inline-code` |
 | `claim:` | `framed` · `quiet` · `hero` · `bleed` | The treatment of a slide's lead claim. | `unknown-claim` |
 | `color-mode:` | `light` · `dark` · `system` · `inherited` · `print` | Which palette the deck renders in. | `unknown-color-mode` |
-| `fit:` | `heal` · `report` · `trim` | What the renderer may do to make a slide fit: repair, only report, or cut. The older key `guards:` (`loose` for `heal`, `strict` for `trim`) is retired: the reference implementation no longer reads it and reports it as `guards-renamed`. | `unknown-fit` |
-| `venue:` | `laptop` · `huddle` · `conference` · `hall` | Where the deck is seen, which sets its type scale. | `unknown-venue` |
+| `fit:` | `pack` · `heal` · `report` · `trim` | What the renderer may do to make a slide fit: split by measurement (`pack`, the default: a slide that fits stays whole, and one that overflows packs as many members a page as fit, measured), split by count (`heal`), only report, or split by count and cut (`trim`). The older key `guards:` (`loose` for `heal`, `strict` for `trim`) is retired: the reference implementation no longer reads it and reports it as `key-renamed`. | `unknown-fit` |
+| `venue:` | `laptop` · `huddle` · `conference` · `hall` · `phone` · `tablet` | Where the deck is seen, which sets its type scale. The default is `laptop` on a 16:9 deck and `phone` on a square, portrait or story one, and the deck's shape sets each venue's step. | `unknown-venue` |
 | `typography:` | `classic` · `ledger` · `poster` · `festival` | The curated type set: heading and body faces, the eyebrow and the chart text. A preset may carry one; this key wins. | `unknown-typography` |
 
 **Settings** carry a value that is not one word from a list.
@@ -586,6 +588,8 @@ LFM 1.1 deliberately does **not**:
 | 1.1-draft | 2026-11-10 | §2.3 adds `video:`, the video plugin's register for the media display layer (size, frame, finish, tone). A word may carry its strength the record's way (`nimbus=40`), read as the hyphen word. Additive. Shared case: `spec/conformance/lfm/front-matter-keys.json`. Record: `engineering/decisions/2026-10-16-media-plugins.md` §4.7. |
 | 1.1-draft | 2026-11-20 | §2.3 adds two `backdrop:` masks, `clear-footer` and `clear-hero`: the finish keeps running behind the content and clears only the footer band, or the footer band and a big-number's hero stack. `clear` keeps its meaning. Additive. Shared cases: `spec/conformance/lfm/front-matter-registers.json`. |
 | 1.1-draft | 2026-11-21 | §2.3 replaces the five spectrum registers with three, each named thing first and taking one word per axis: `spectrum:` (style, edge and a new weight axis), `card-spectrum:` (replacing `spectrum-card:` and `spectrum-card-edge:`) and `trim-spectrum:` (replacing `spectrum-trim:`, its words now styles: `quiet`, `rainbow`, `solid`, `duo`, `mono`). No key follows another: the old card `auto` and trim `on`, which copied the slide edge, have no successor word. `spectrum: on` is `spectrum: rainbow`, and `spectrum-edge:` folds into `spectrum:`, its `off` into `spectrum: off`. **Breaking** for a deck that writes an old key: a renderer ignores it, and the reference L2 tool reports it as `retired-spectrum-key` with a fix that rewrites it. Shared case: `spec/conformance/lfm/front-matter-keys.json`. Record: `engineering/decisions/2026-11-21-spectrum-keys.md`. |
+| 1.1-draft | 2026-11-23 | §2.3: the page-number key is `pagination:`, Marpit's `paginate:` renamed so the key and its `no-pagination` / `with-pagination` classes share one word. **Breaking** for a deck that writes `paginate:`: a renderer ignores it, and the reference L2 tool reports it as `key-renamed` with a fix that renames it. A renderer that exports to Marpit writes `paginate:` back. Record: `engineering/decisions/2026-11-21-plain-english-key-renames.md` §D2. |
+| 1.1-draft | 2026-11-27 | §2.3: the front and back cover key is `cover-layout:`, `cover:` renamed before ratification. Same words and same meaning. **Breaking** for a deck that writes `cover:`: a renderer ignores it, and the reference L2 tool reports it as `key-renamed` with a fix that renames it. Record: `engineering/decisions/2026-11-23-cover-layout.md` §8. |
 
 ## Appendix A — A worked example (informative)
 
@@ -595,7 +599,7 @@ A three-slide LFM deck, and how the same source reads in each environment:
 ---
 theme: indaco
 mode: boardroom
-paginate: true
+pagination: true
 ---
 
 <!-- _class: title -->

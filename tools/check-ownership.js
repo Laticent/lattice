@@ -136,6 +136,9 @@ const { resolveTokenExpr } = require('../lib/core/resolve-token-expr'); // cat-c
 const { oklabDistance } = require('../lib/core/color.js'); // cat-contrast: perceptual distance for the ink collapse arm
 // changelog fragments: the assembler owns the format — this gate only reports it (reused, not reinvented)
 const { fragmentProblems: changelogFragmentProblems } = require('./changelog');
+// changesets + the publish set: the formats live in their release modules; these gates only report them
+const { changesetProblems } = require('./changesets');
+const { publishSetProblems } = require('./release-packages');
 const { followupProblems } = require('./followups');
 // #1595: the contrast floor a token's value must meet, read off its role-based name.
 // One source — the floors live there, not here (reused, not reinvented).
@@ -2924,7 +2927,18 @@ function checkReadingRole(errors) {
 // Empty since the checks migration (engineering/decisions/2026-10-18-checks.md §17): verdict-grid's
 // `.badge` and obligation-matrix's `.pills` were the last two hand-rolled pills, and both now
 // ask the pill plugin for a pill holding a check.
-const SANCTIONED_PILL_READS = [];
+const SANCTIONED_PILL_READS = [
+  {
+    file: 'lib/components/legal/statute-stack/statute-stack.styles.css',
+    count: 1,
+    // The header's line box must be exactly one pill tall, or a floated status pill sits off the
+    // label's center (measured 1.5px high on a 16:9 card; 0.23px under the old flex row). The
+    // height is the plugin's own `1em + 2 * --pill-pad-y + 2px`; copying 0.3em instead would drift
+    // silently the day the plugin's padding changes. A read, never a write: the plugin still
+    // draws the pill.
+    why: 'statute-stack header line box = one pill height, so a floated pill shares the label center',
+  },
+];
 
 /** `var(--pill-*)` / `var(--lat-pill-*)` reads in one stylesheet, comments stripped. */
 function pillReadsIn(css) {
@@ -3134,7 +3148,17 @@ function subjectClasses(selector) {
 }
 
 const TYPE_ROLE_TOKEN = /^--(fs-[a-z0-9-]+|venue-meta-lift|venue-compact-lift)$/;
-const RUNG_RULE = /^section\.(venue|scale)-[a-z0-9]+$/;
+// A rung is `section.venue-*` / `section.scale-*`, and (handheld venues, fit-everywhere-model.md §18)
+// a venue rung narrowed to shape families, `section.venue-x:where([data-family="…"], …)`, or a
+// family's DEFAULT venue, `section:where([data-family="…"]):not(.venue-…, …)`, which applies only
+// where the slide names no venue. The family part is in :where() so it adds no weight; nothing
+// else may follow it, so a rung cannot smuggle in a component or a modifier. The default's :not()
+// may also name `.chart-frame` and then `.keeps-laptop`, and only those: a chart keeps laptop until
+// charts reflow for a phone (owner, 2026-11-13; fit-everywhere-model.md §21), and so do code and math
+// slides (owner, 2026-11-16, §25; lib/core/resolve-venue.js `laptopKeepingToken`). Excluding a class
+// only narrows where the default applies, so it cannot raise any slide's size.
+const FAMILY_WHERE = String.raw`:where\(\[data-family="[a-z]+"\](?:,\s*\[data-family="[a-z]+"\])*\)`;
+const RUNG_RULE = new RegExp(String.raw`^section(?:\.(?:venue|scale)-[a-z0-9]+(?:${FAMILY_WHERE})?|${FAMILY_WHERE}:not\(\.venue-[a-z0-9]+(?:,\s*\.venue-[a-z0-9]+)*(?:,\s*\.chart-frame)?(?:,\s*\.keeps-laptop)?\))$`);
 const isPseudoElement = (sel) => /::?(before|after|marker|placeholder)\b/.test(sel);
 
 /** The type-size context the gate reads: component names, each component's own variant
@@ -3763,6 +3787,17 @@ const CANONICAL_LAYER_ORDER = [
 const SANCTIONED_KATEX_ONLY = [
   {
     file: 'lib/components/math/math/math.styles.css',
+    selector: 'section.math:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .katex-display > .katex',
+    why:
+      'KaTeX-only by design. It lifts KaTeX\'s own `white-space: nowrap` on display math so an equation '
+      + 'wraps at the slide\'s real width off 16:9, at the safe points `breakableTex` leaves (owner, '
+      + '2026-11-06). The wrap is between KaTeX\'s inline `.base` groups; marp-core\'s MathJax emits one '
+      + 'SVG per equation, which no white-space rule can break, so a mjx- half would match a box with '
+      + 'nothing to wrap. The display SIZE is paired: `--math-display` reaches both through every '
+      + 'variant\'s `:is(.katex-display > .katex, mjx-container[display="true"] > svg)` rule.',
+  },
+  {
+    file: 'lib/components/math/math/math.styles.css',
     selector: 'section.math.form.compare > .cell-stage .katex .katex-mathml',
     why:
       'KaTeX-only by design. This pins KaTeX\'s hidden MathML alternative out of the '
@@ -4387,9 +4422,17 @@ function decodeCssEscapes(value) {
  * introduced this gate was open, and three published measurements went stale during one
  * session. That is the argument for the gate, and the reason it now derives the number at
  * run time rather than carrying a calibration somebody has to re-check.
+ *
+ * RE-SET 2026-11-27 (owner, D3 A on #3575; `2026-11-27-claude-md-index.md`). CLAUDE.md became a
+ * 3,757-token index: each HARD RULE is a one-line anchor, and the full text moved word for word
+ * to `engineering/hard-rules.md` and `engineering/operating-mode.md`. The owner chose that trade
+ * over the "zero reads" argument above, because every session AND every subagent pays the
+ * resident text, while a rule's section is one `sed -n` of a median 282 tokens. The ceiling is
+ * the index plus the owner's usual +20% headroom: 4,500. Growth past it means rule text is
+ * creeping back into the index; it belongs in the pointed-to doc.
  */
 const ROUTER_FILE = 'CLAUDE.md';
-const ROUTER_TOKEN_CEILING = 16500;
+const ROUTER_TOKEN_CEILING = 4500;
 
 /** The router's exact o200k_base token count. Requires the tokenizer lazily — see above. */
 function routerTokenCount(text) {
@@ -4405,11 +4448,11 @@ function checkRouterBudget(errors) {
   if (tokens <= ROUTER_TOKEN_CEILING) return;
   errors.push(
     `${ROUTER_FILE} is ${tokens} o200k_base tokens (${Buffer.byteLength(text)} bytes), over the ` +
-    `${ROUTER_TOKEN_CEILING}-token ceiling (#1896). Every session pays this file unconditionally, ` +
-    'before any tool call. Raise the ceiling in the PR WITH the trade it buys, or trade something ' +
-    'out — and do not "fix" it by routing text behind a pointer: the file is on the cheap side of ' +
-    'the read boundary, so moving resident text out buys tokens by spending a read, which #1897 ' +
-    'measured as the expensive half. ROUTER_TOKEN_CEILING is in tools/check-ownership.js.',
+    `${ROUTER_TOKEN_CEILING}-token ceiling (#1896, re-set on #3575). Every session and every ` +
+    'subagent pays this file unconditionally, before any tool call. CLAUDE.md is an index: put the ' +
+    'rule text in the pointed-to doc (engineering/hard-rules.md, engineering/operating-mode.md) and ' +
+    'keep a one-line anchor here. Raise the ceiling in the PR WITH the trade it buys, and only on ' +
+    "the owner's word. ROUTER_TOKEN_CEILING is in tools/check-ownership.js.",
   );
 }
 
@@ -4923,7 +4966,7 @@ const SANCTIONED_FALLBACK_READS = [
       '120-127). The step ink is OPTIONAL by design: a palette names one only when its one curated ink does not clear ' +
       'its darker dark-face critical band (the a11y palettes name black). Without one the read lands on --fail-on-mark, ' +
       'the fail ink, which is the same text-on-the-fail-fill contract and the exact ink main painted this number with, ' +
-      'so a palette that does not name one keeps its behavior. Held by marks-css.test.js (4.5:1 on both faces of every ' +
+      'so a palette that does not name one keeps its behavior. Held by chart-finish-css.test.js (4.5:1 on both faces of every ' +
       'a11y palette).',
   },
   ...Array.from({ length: 12 }, (_, i) => ({
@@ -5272,6 +5315,13 @@ function checkAdaptDeclarations(manifests, errors) {
   // the whole square tier was silently inert. Matching the attribute (not the
   // at-rule) is what keeps this gate seeing real reflow.
   const FAMILY_REFLOW = /\[data-family\s*=/;
+  // The TEXT-ROOM rule (lib/base/base.elements.css, beside `container-name: lattice`): a width
+  // query on the slide in `em` of its body size, which reflows by the characters a line holds.
+  // It is not the retired aspect-ratio query: a width in `em` is exactly the content-box
+  // measure #1218 found unsuitable for SHAPE and is the right one for TEXT. A component that
+  // moved its family rules onto it still ships per-box layouts, so it counts as CSS reflow
+  // (engineering/decisions/2026-10-28-fit-everywhere-model.md §13).
+  const TEXT_ROOM_REFLOW = /@container\s+lattice\s*\(\s*width\s*</;
   // The shared chart-frame CSS carries a family reflow rule that restructures
   // `.chart-body` on tall boxes for EVERY chart-frame member — so a chart's reflow
   // can live there, not in its own styles.css. The anti-drift rule must see it, or a
@@ -5302,14 +5352,15 @@ function checkAdaptDeclarations(manifests, errors) {
     const stripComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '');
     let css = cssPath ? stripComments(readCssSource(cssPath)) : '';
     if (manifestBucket(m) === 'chart') css += `\n${stripComments(chartFamilyCss)}`;
-    const hasContainerReflow = FAMILY_REFLOW.test(css);
+    const hasContainerReflow = FAMILY_REFLOW.test(css) || TEXT_ROOM_REFLOW.test(css);
     // orientation defaults to BOTH when omitted (the manifest's documented default).
     const orientation = Array.isArray(m.orientation) ? m.orientation : ['landscape', 'portrait'];
 
     if (hasContainerReflow && mode !== 'reflow') {
       errors.push(
         `${m.name}: declares adapt.mode "${mode}" but its CSS uses \`[data-family=…]\` ` +
-        `(family reflow) — must be "reflow". Fix the manifest or remove the family rule.`,
+        `or a text-room \`@container lattice (width < …)\` rule (box reflow) — must be "reflow". ` +
+        `Fix the manifest or remove the rule.`,
       );
     }
     // …AND THE OTHER DIRECTION. The check above only ever caught CSS-without-a-
@@ -5373,8 +5424,8 @@ function checkAdaptDeclarations(manifests, errors) {
     const paneReflow = m.hosts === 'panes';
     if (mode === 'reflow' && !cssReflow && !transformReflow && !mermaidReflow && !splitReflow && !paneReflow) {
       errors.push(
-        `${m.name}: declares adapt.mode "reflow" but ships NONE of the four mechanisms — ` +
-        `no \`[data-family=…]\`/\`[data-orientation=…]\` CSS, no orientation-branching ` +
+        `${m.name}: declares adapt.mode "reflow" but ships NONE of the reflow mechanisms — ` +
+        `no \`[data-family=…]\`/\`[data-orientation=…]\`/text-room \`@container lattice (width < …)\` CSS, no orientation-branching ` +
         `*.transform.js, no mermaid reorient, no carousel \`split.strategy\` reshape. ` +
         `It has one composition and paints it in every ` +
         `box, while the manifest tells authoring agents it adapts. Either ship the reflow, or ` +
@@ -5928,7 +5979,14 @@ function writesMarkIdentity(src, key) {
   // that pairs backticks cannot see inside one, so literal-scoping reported four real emitters as
   // silent. Stripping comments removes the false positive that mattered — a docblock that merely
   // NAMES the attribute reddening the build — and nothing else here needs the narrower match.
-  const code = src.replace(COMMENTS, ' ');
+  // A READ IS NOT A WRITE. `readAttr(tag, 'data-label')` (@laticent/markup, the engine's one
+  // attribute reader) takes a member's declared name off markup another file already wrote:
+  // relationship.js names a split's next page that way. Booking it as an emitter would put a
+  // reader in a ledger whose third failure mode then holds it to keep "writing". So a
+  // `readAttr(…, 'data-<key>')` call leaves the code before the search; any other spelling of the
+  // attribute in the same file still counts.
+  const code = src.replace(COMMENTS, ' ')
+    .replace(new RegExp(`\\breadAttr\\s*\\([^()]*,\\s*(['"\`])data-${key}\\1\\s*\\)`, 'g'), ' ');
   // BOUNDED, because `data-label` is a PREFIX of `data-label-drops` — a different attribute that
   // label-drops.js really does write, and an unbounded search would book it as a mark identity.
   if (new RegExp(`data-${key}(?![-\\w])`).test(code)) return true;
@@ -7153,8 +7211,9 @@ const SANCTIONED_EOL_BOUNDARIES = [
        + 'pass or fail a preset nobody chose.',
   },
   {
-    file: 'tools/lint-deck.js',
-    why: 'the file read. Without it a Windows author got DIFFERENT LINT ADVICE for identical '
+    file: 'lib/cli/lint-deck.js',
+    why: 'the file read behind `lattice lint` and `npm run lint:deck` (it moved out of tools/ so the '
+       + 'published CLI ships it). Without it a Windows author got DIFFERENT LINT ADVICE for identical '
        + 'content — the lint is a reader like any other.',
   },
   {
@@ -7269,6 +7328,12 @@ const SANCTIONED_EOL_BOUNDARIES = [
  * question ("is this a boundary?") instead of a blanket exemption. Stale entries fail.
  */
 const SANCTIONED_EOL_NON_BOUNDARIES = [
+  {
+    file: 'tools/changesets.js',
+    why: 'reads `.changeset/*.md`, which are committed text (LF by .gitattributes), and is itself the gate for them: '
+       + '`changesetProblems` REJECTS a CR or a BOM by name before it parses, so normalizing at the read would hide the '
+       + 'very bytes it reports. `parseChangeset` also strips both before anchoring on `^---`, for its other callers.',
+  },
   {
     file: 'tools/platform-harness.js',
     why: 'folds a PR COMMENT the warm harness reads as a command (`/harness sh` and its bash fence): a comment typed on '
@@ -8554,16 +8619,16 @@ const SANCTIONED_SLIDE_TEXT_ADDRESS_READERS = [
     guards: 0,
     guard: 'none',
     why:
-      'The safety scanner for untrusted CSS (`findCssExfil`): its regexes FIND remote `url()`s in order to refuse them, and its one `url(${…})` is the text of the warning it prints. It writes no address anywhere.',
+      'The safety scanner for untrusted CSS (`findCssExfil`): its regexes FIND remote `url()`s in order to refuse them, and its one templated `url(…)` is the text of the warning it prints. It writes no address anywhere.',
   },
   {
     file: 'lib/core/pdf-compose/read-slide.mjs',
-    reads: ['regex', 'text'],
+    reads: ['text'],
     sinks: { 'property': 1 },
     guards: 0,
     guard: 'none',
     why:
-      'The PDF composer reads the FINISHED page to lay its text out as PDF glyphs; its one address write (`naturalSizeOf`, `im.src = url`) measures a background image the page already loaded, under the CLI\'s offline Chromium (lib/core/offline-chromium.js). It builds no address from text.',
+      'The PDF composer reads the FINISHED page to lay its text out as PDF glyphs; its one address write (`naturalSizeOf`, `im.src = url`) measures a background image the page already loaded, under the CLI\'s offline Chromium (lib/core/offline-chromium.js). It builds no address from text. Its `url(…)` reads go through the CSS tokenizer (`cssUrls`, Segno P5a), so no regex reads an address.',
   },
   {
     file: 'lib/core/remote-ref.js',
@@ -8626,7 +8691,7 @@ const SANCTIONED_SLIDE_TEXT_ADDRESS_READERS = [
     guards: 0,
     guard: 'none',
     why:
-      'Applies the image policy to pictures the player already baked as `data:` URIs, re-encoding them; `setAttribute(\'src\', next)` writes the re-encoded data URI of the same picture. It reads no slide text. The `url(${next})` write (PR #3183) puts back a picture the metadata cleaner rewrote, found by `cssRefSpans` at a `data:image/` value: `next` is only ever that picture re-encoded as base64, an SVG re-encoded as base64, or the percent-encoded drawn stand-in, none of which can hold a quote, a space or a `)`, so it cannot end the `url(…)` or its container, and it is never a web address.',
+      'Applies the image policy to pictures the player already baked as `data:` URIs, re-encoding them; `setAttribute(\'src\', next)` writes the re-encoded data URI of the same picture. It reads no slide text. The templated `url(…)` write (PR #3183) puts back a picture the metadata cleaner rewrote, found by `cssRefSpans` at a `data:image/` value: `next` is only ever that picture re-encoded as base64, an SVG re-encoded as base64, or the percent-encoded drawn stand-in, none of which can hold a quote, a space or a `)`, so it cannot end the `url(…)` or its container, and it is never a web address.',
   },
   {
     file: 'lib/integrations/markdown-it/plugins.js',
@@ -8950,24 +9015,19 @@ const SANCTIONED_SPINE_READERS = Object.freeze([
   { file: 'lib/core/image-aspect.js', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: reads the picture address off the `.lattice-bg` div the engine writes, to size the slide\'s picture bucket; a size, not a fetch.' },
   { file: 'lib/core/image-dimensions.js', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: the same `.lattice-bg` read as image-aspect.js, for the picture\'s dimensions.' },
   { file: 'lib/core/logo-wall-pack.js', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: reads the `--logo-mask:url(\'…\')` the logo-marks transformer wrote, to pack the wall.' },
-  { file: 'lib/transformers/logo-marks.js', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: reads back the `--logo-mask:url(\'…\')` it wrote.' },
   { file: 'lib/transformers/prose-projection.mjs', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: finds `url(#id)` fragment references, to follow a chart\'s own gradient ids; a fragment never fetches.' },
   { file: 'lib/components/connect/_qr-card/qr-general.transform.js', shape: 'attr-reader', count: 1, why: 'ENGINE-WRITTEN: reads the `<a href>` markdown-it rendered from the card\'s own link, to draw it as a QR code; a link, never fetched.' },
   { file: 'lib/core/payload-elision.js', shape: 'url-reader', count: 1, why: 'NOT A FETCH DECISION: `OPENER` asks whether a `data:` URI\'s base64 opens where a URL value does (`](`, `url(`, `=`), only to decide which runs the readers may skip and put back; a run it rejects is read whole. The web-image blocker (`blockWebImages`) does not consult it and reads every character (PR #3153).' },
   { file: 'lib/authoring/lint-core.js', shape: 'url-reader', count: 1, why: 'A PREFILTER: `findWebMarkup` skips a deck that holds no tag, no `url(`, no `style:` and no Mermaid fence; everything it lets through is read with `scanHtml` and `cssRefSpans`. A miss here would skip a deck that holds no such text.' },
   { file: 'lib/authoring/lint-core.js', shape: 'attr-reader', count: 1, why: 'LINT, NOT AN ADDRESS: `author-script-defers` tells an inline `<script>` from one with a `src`; it reads no address.' },
-  { file: 'lib/core/pdf-compose/read-slide.mjs', shape: 'url-reader', count: 7, why: 'ENGINE-WRITTEN: the PDF composer reads the COMPUTED style of the rendered slide (masks, gradients, backgrounds) to draw native shapes; the render already blocked every web address before it runs.' },
   { file: 'docs/src/lib/calco/picture.ts', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: Calco tests a computed background for the presence of a picture, to pick a tone; a presence test, never a fetch decision.' },
   { file: 'docs/src/lib/calco/reader.ts', shape: 'url-reader', count: 4, why: 'ENGINE-WRITTEN: Calco reads computed styles of the rendered slide (a picture present, an SVG data: mask) to build native shapes; the render already blocked.' },
-  { file: 'docs/src/components/studio/card-ink-sampler.ts', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: reads the picture off a panel\'s own `style.backgroundImage` (the engine\'s `.lattice-bg` photo panel) to sample its tone.' },
-  { file: 'docs/src/components/studio/photo-verdict.ts', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: the same panel read as card-ink-sampler.ts, for the photo verdict.' },
   { file: 'lib/export/html-player.js', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: matches the `--background-image:"url(\\"file://…\\")"` marker the engine writes for a local picture, to inline it.' },
   { file: 'lib/export/player-core.mjs', shape: 'url-reader', count: 3, why: 'ENGINE-WRITTEN: two skip url() tokens while minifying the player\'s own sheet; one reads the `@font-face` urls of the player\'s own fonts.' },
   { file: 'lib/export/player-core.mjs', shape: 'attr-reader', count: 1, why: 'A REPORT, not a guard: lists the `file://` `<script src>` addresses the player export removes, for its report; a parse pass removes every script, which is the guard.' },
   { file: 'lib/plugins/mermaid/mermaid.draw-shim.mjs', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: reads Mermaid\'s own `@font-face` src in its own sheet.' },
   // ── Refusals that fail closed on any url() ──
   { file: 'lib/core/door-attr.mjs', shape: 'url-reader', count: 1, why: 'A SECOND WALL: the door keeps an inline style declaration only when this pattern finds no `url(` (it misses an escaped `u\\72l(`); the wall that decides is `cssRefTargets`, which reads every address with the shared reader before this runs (`doorFilterAttr`).' },
-  { file: 'lib/core/image-painting.js', shape: 'url-reader', count: 1, why: 'FAILS CLOSED: a placeholder hatch is told apart by holding no url(); a missed spelling only means it is not treated as the hatch.' },
   { file: 'lib/core/rough-ink-dom.js', shape: 'url-reader', count: 2, why: 'FAILS CLOSED: rough ink skips any element whose fill or background holds a url().' },
   { file: 'docs/src/lib/anima/schema.ts', shape: 'url-reader', count: 1, why: 'FAILS CLOSED: an animation color holding `url(` or `image(` is refused outright.' },
   { file: 'docs/src/lib/vetrina/theme.ts', shape: 'url-reader', count: 1, why: 'FAILS CLOSED: a walkthrough theme value holding `url(`, `image(` or `expression(` is refused outright.' },
@@ -8986,13 +9046,9 @@ const SANCTIONED_SPINE_READERS = Object.freeze([
   { file: 'lib/export/player-images.mjs', shape: 'url-reader', count: 1, why: 'OWN ASSETS: finds `data:image` urls in the player\'s own CSS, to deduplicate them.' },
   { file: 'lib/fonts/face-css.js', shape: 'url-reader', count: 1, why: 'OWN ASSETS: reads the `src` of Lattice\'s own bundled `@font-face` rules.' },
   { file: 'lib/export/deck-assets.js', shape: 'url-reader', count: 1, why: 'OWN ASSETS: finds `asset:` names a deck references (the host\'s own map); it reads no web address.' },
-  { file: 'docs/src/lib/theme-fetch.ts', shape: 'url-reader', count: 1, why: 'OWN ASSETS: points a fetched theme\'s `fonts/` and KaTeX font urls at the site\'s own font folder.' },
-  { file: 'docs/src/playground/snapshot-cache.js', shape: 'url-reader', count: 2, why: 'OWN ASSETS: points a cached theme\'s `fonts/` urls at the site\'s own font folder.' },
-  { file: 'docs/src/playground/single-slide-render.ts', shape: 'url-reader', count: 1, why: 'OWN ASSETS: rebases relative url() targets in Lattice\'s own theme CSS onto the asset base.' },
   // ── The renderer's own sets, and readers that decide a fetch (follow-ups) ──
   { file: 'lib/core/remote-ref.js', shape: 'list-copy', count: 2, why: 'The scanner\'s own nested-document set (`NESTED_DOC`: iframe, frame, object, embed) and the three attributes a sample slide\'s `<script>` is read for (src, href, xlink:href); content-policy.js says the scanner keeps the sets its own logic needs.' },
   { file: 'lib/core/sanitize-slide-html.mjs', shape: 'list-copy', count: 1, why: 'The sanitizer\'s `blob:` allowance, `OBJECT_URL_TAGS`: which elements may keep the Studio\'s own object URL, not a list of what fetches.' },
-  { file: 'lib/core/pane-css.js', shape: 'url-reader', count: 1, why: 'KEPT (2026-11-05): reads an unquoted url() token only so the pane widening does not split it at a brace inside; it writes no address, decides no fetch, and each block it writes back goes through `sanitizeStyleText`. Moving it onto `cssRefSpans` would put the CSS parser in every route\'s engine (+5.1 KB gzip, measured) and the parser\'s first read of the 2.9 MB built sheet takes about 49 ms in Node (the spine note, "The picture camera, as built"). Its markup scan is held to the HTML reader by test/unit/core/pane-css-style-blocks.test.js.' },
   { file: 'lib/core/slide-camera.mjs', shape: 'list-copy', count: 1, why: 'A FALSE MATCH: the tuple `[el, abs, \'xlink:href\' : \'href\']` the picture export queues for each SVG image (three strings, two of them fetch attributes), not a list. The file reads CSS with `cssRefSpans` (followups.d/3024, done).' },
   { file: 'lib/export/inline-url-media.mjs', shape: 'attr-reader', count: 1, why: 'The same hint as its url-reader entry: whether a `<video poster>` in the source makes the export show its embed switch.' },
   { file: 'lib/export/inline-url-media.mjs', shape: 'url-reader', count: 1, why: 'KEPT, FAILS CLOSED (2026-11-05): a HINT over the deck SOURCE, whether the export panel shows its switch to embed web pictures. A false yes shows a switch that does nothing; a false no leaves the picture as the placeholder, which is what the export does without the switch. It decides no fetch: the embed reads with `scanHtml` and `cssRefSpans` (R4), and only for origins the author switched on.' },
@@ -9073,8 +9129,8 @@ function checkSecuritySpineCensus(errors, sanctions = SANCTIONED_SPINE_READERS, 
 // HARD RULE #32 — a test passes or fails on the code alone.
 // ══════════════════════════════════════════════════════════════════════════
 // A flaky test is one whose verdict depends on something the code does not control: the clock, the machine's load, the
-// order things finish, a random draw, the network (engineering/decisions/2026-11-06-flaky-tests.md lists the nine shapes,
-// F1 to F9). This census counts the three a parser can find in a committed test file:
+// order things finish, a random draw, the network (engineering/decisions/2026-11-06-flaky-tests.md lists the ten shapes,
+// F1 to F10). This census counts the three a parser can find in a committed test file:
 //
 //   fixed-sleep     F2  a hand-made sleep (`new Promise((r) => setTimeout(r, ANY))`), a call to a `sleep` / `delay` /
 //                       `wait` / `pause` helper, and `waitForTimeout(…)` OUTSIDE docs/e2e. Inside docs/e2e every
@@ -9403,7 +9459,7 @@ function flakyTestHits(text, rel = 'test/x.test.js') {
       // Only the test's own context: the first parameter of the nearest function passed to test()/it()/describe().
       let f = n.parent;
       while (f && !ts.isFunctionLike(f)) f = f.parent;
-      const p0 = f && f.parameters && f.parameters[0];
+      const p0 = f?.parameters?.[0];
       const isCtx = p0 && ts.isIdentifier(p0.name) && p0.name.text === e.expression.text && f.parent && ts.isCallExpression(f.parent) && ts.isIdentifier(f.parent.expression) && RUNNERS.test(f.parent.expression.text);
       if (isCtx && !viaHelper(n.arguments[0]) && !ciSkipOk(n)) bump('env-skip');
     }
@@ -10151,13 +10207,14 @@ function checkPlatformSuites(errors, registryPath = path.join(ROOT, '.github', '
       errors.push(`${at}: only a suite that serves the prebuilt docs site can set \`"docs_site": true\`: an iOS Simulator suite (its \`run\` calls docs/scripts/ios-safari/run.sh) or a Playwright suite whose \`run\` sets E2E_PREBUILT=1.`);
     }
     if ('on_pull_request' in s && typeof s.on_pull_request !== 'boolean') {
-      errors.push(`${at}: \`on_pull_request\` must be true or false (false: nightly and dispatch only).`);
+      errors.push(`${at}: \`on_pull_request\` must be true or false (false: never on a pull request; the workflow is dispatch-only since 2026-11-27).`);
     }
-    // The iOS Simulator suites run nightly and on dispatch only (decisions/2026-10-29-ci-job-tiers.md). The planner derives
+    // The iOS Simulator suites never run on a pull request (decisions/2026-10-29-ci-job-tiers.md; and since 2026-11-27 the
+    // whole workflow is dispatch-only). The planner derives
     // that from the command (tools/platform-suites-plan.js offPullRequest), so a new iOS suite stays off pull requests with
     // no flag; this refuses the one entry that would read as the opposite.
     if (typeof s.run === 'string' && /docs\/scripts\/ios-safari\/run\.sh/.test(s.run) && s.on_pull_request === true) {
-      errors.push(`${at}: an iOS Simulator suite (its \`run\` calls docs/scripts/ios-safari/run.sh) cannot set \`"on_pull_request": true\` — it runs nightly and on dispatch, never on a pull request (engineering/decisions/2026-10-29-ci-job-tiers.md).`);
+      errors.push(`${at}: an iOS Simulator suite (its \`run\` calls docs/scripts/ios-safari/run.sh) cannot set \`"on_pull_request": true\` — it never runs on a pull request (engineering/decisions/2026-10-29-ci-job-tiers.md).`);
     }
     if (typeof s.why !== 'string' || s.why.trim().length < 20) {
       errors.push(`${at}: \`why\` must say what this suite proves that Linux cannot (at least a sentence).`);
@@ -14862,8 +14919,8 @@ function checkPhantomTokenReads(errors) {
 }
 
 /**
- * HARD RULE #10's landing spot is `changelog.d/`, not `CHANGELOG.md`
- * `## Unreleased` — one file per PR, so two PRs never edit the same region and
+ * HARD RULE #10's legacy landing spot is `changelog.d/` (a changeset in `.changeset/` is the
+ * other; see checkChangesets), never a CHANGELOG.md — one file per PR, so two PRs never edit the same region and
  * the merge queue cannot eject either one on a `CHANGELOG.md` conflict (#1593;
  * seven ejections in one evening before this).
  *
@@ -14877,6 +14934,23 @@ function checkPhantomTokenReads(errors) {
  */
 function checkChangelogFragments(errors) {
   for (const problem of changelogFragmentProblems()) errors.push(problem);
+}
+
+/**
+ * HARD RULE #10's other landing spot: a changeset in `.changeset/`. Changesets reads every one of
+ * them at release time, and a changeset it cannot read (a package that does not publish, a bump
+ * that is not patch/minor/major, a first line the notes cannot print) would fail `changeset
+ * version` on release day, after the queue had already landed the PR that wrote it. So the gate
+ * reads each one when it lands. The format is defined once, in tools/changesets.js.
+ *
+ * It also holds the publish set (tools/release-packages.js): every workspace package publishes,
+ * is held back by `.changeset/config.json` `ignore`, or is private, and the two lists agree. A
+ * public package in neither list would publish the first time anyone cut a release. This is the
+ * default check; the release runs the strict one, which also requires all thirteen to be public.
+ */
+function checkChangesets(errors) {
+  for (const problem of changesetProblems()) errors.push(problem);
+  for (const problem of publishSetProblems()) errors.push(`publish set: ${problem}`);
 }
 
 /**
@@ -16007,6 +16081,7 @@ function run() {
   checkCommittedPdfs(errors);
   checkNulBytes(errors);
   checkChangelogFragments(errors);
+  checkChangesets(errors);
   checkFollowups(errors);
   checkSpecParts(errors);
   checkVerbatimDistCopies(errors);
@@ -16052,6 +16127,7 @@ function main(argv) {
 if (require.main === module) process.exit(main(process.argv.slice(2)));
 
 module.exports = {
+  writesMarkIdentity,
   readCssSource,
   keyShapedLiterals,
   checkKeyShapedLiterals,
@@ -16121,6 +16197,7 @@ module.exports = {
   SANCTIONED_NUL_FILES,
   NUL_TEXT_EXTENSIONS,
   checkChangelogFragments,
+  checkChangesets,
   checkFollowups,
   checkVerbatimDistCopies,
   verbatimCopyProblems,

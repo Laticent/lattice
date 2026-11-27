@@ -162,9 +162,12 @@ test('in Edit the rail follows the preview and a tile scrolls it', async ({ page
 		.toBeGreaterThanOrEqual(6);
 });
 
+// `fit: heal`: this deck needs the COUNT-based split (one row a page); measuring is the default
+// (lib/core/resolve-fit.js fitPacks) and keeps a short list whole.
 const PORTRAIT = `---
 theme: indaco
 size: portrait
+fit: heal
 ---
 
 <!-- _class: title -->
@@ -202,8 +205,11 @@ test('a deck whose slide splits into pages still has one tile per slide, and a t
 	await expect(page.locator(`${RAIL} button[data-unit]`).first()).toBeVisible({ timeout: 40_000 });
 	// Three authored slides, however many pages the split makes of the second.
 	await expect(page.locator(`${RAIL} button[data-unit]`)).toHaveCount(3);
-	const pages = await page.evaluate(() => (document.getElementById('preview') as HTMLIFrameElement).contentDocument?.querySelectorAll('.lattice > section, .lattice > div[data-lv-ph]').length ?? 0);
-	expect(pages).toBeGreaterThan(3);
+	// Polled, not read once: the rail's tiles come from the outline, so they can be up before the preview has written
+	// its pages (read once, this saw 0 pages in 1 run of 72 under `--workers=4`).
+	await expect
+		.poll(() => page.evaluate(() => (document.getElementById('preview') as HTMLIFrameElement).contentDocument?.querySelectorAll('.lattice > section, .lattice > div[data-lv-ph]').length ?? 0))
+		.toBeGreaterThan(3);
 	await page.locator(`${RAIL} button[data-unit="2"]`).click();
 	await expect.poll(() => slideInView(page)).toBe('3');
 	await expect.poll(() => current(page)).toBe('2');
@@ -281,7 +287,7 @@ test('@crosswidth Home and End on the rail keep keyboard focus on the rail', asy
 // Front matter that sets a header and page numbers puts them on every slide, a blank one too. The map has to
 // still know that slide is blank: if it does not, every tile after it lands one page early.
 const CHROME_BLANK = `---
-paginate: true
+pagination: true
 header: Quarterly review
 ---
 
@@ -326,4 +332,107 @@ test('a blank slide in a deck with a front matter header and page numbers is a t
 	await expect.poll(() => slideInView(page)).toBe('3');
 	await page.locator(`${RAIL} button[data-unit="3"]`).click();
 	await expect.poll(() => slideInView(page)).toBe('4');
+});
+
+/**
+ * Start the walk's jump to the last slide and leave the frame RESTING between where it started and where it was going,
+ * in one task. The page runs with REDUCED MOTION (`emulateMedia`), so the jump is an instant scroll and there is no
+ * animation for anything to race: a smooth one starts on the next frame and, under load, still ran on to the last slide
+ * after a `scrollTo` meant to cancel it (1 run in 10 at `--workers=4`). The guard holds an instant jump exactly as it holds
+ * a smooth one, because it compares where the frame is with where the jump was going. The frame's own End keydown is the
+ * jump (the shell key, `onDeckKey`); an instant `scrollTo` in the same task moves the frame back to HALFWAY, as a scroll
+ * that stamps no input does, so the one scroll event that follows reports a frame between the two. Halfway, not just
+ * off the target: while any of the last slide still shows, the observer reads the frame as having arrived on it (the
+ * hysteresis in `readingSlideIndex`) and lets the guard go by arrival, and the test then passes with no stamp at all
+ * (traced: parked 300px back, the bar followed the reader with the stamp removed).
+ * Then the clock freezes a little past the jump's own stamp (`armedAt`): the guard's ceiling can never pass, so only a
+ * reader's input can release it.
+ */
+async function jumpAndRest(page: Page): Promise<number> {
+	await page.emulateMedia({ reducedMotion: 'reduce' });
+	const total = Number((await walkPos(page)).split('/')[1]);
+	await page.evaluate(() => {
+		const w = (document.getElementById('preview') as HTMLIFrameElement).contentWindow as Window;
+		w.document.dispatchEvent(new (w as unknown as typeof globalThis).KeyboardEvent('keydown', { key: 'End', bubbles: true, cancelable: true }));
+		w.scrollTo({ top: Math.round(w.scrollY / 2), behavior: 'instant' });
+	});
+	await expect.poll(() => walkPos(page)).toBe(`${total} / ${total}`);
+	await page.clock.setFixedTime(Date.now() + 50);
+	return total;
+}
+
+/** The bar left the jump's slide for one the reader can see. ON screen, not the MOST on screen: the walk keeps its slide
+ *  while any of it shows (the hysteresis in `readingSlideIndex`), which `slideInView` does not. */
+async function barFollowsReader(page: Page, total: number) {
+	await expect
+		.poll(async () => {
+			const at = (await walkPos(page)).split('/')[0].trim();
+			const shown = await page.evaluate(() => {
+				const f = document.getElementById('preview') as HTMLIFrameElement;
+				const h = (f.contentWindow as Window).innerHeight;
+				return Array.from(f.contentDocument?.querySelectorAll('.lattice > section, .lattice > div[data-lv-ph]') ?? [])
+					.filter((el) => {
+						const r = el.getBoundingClientRect();
+						return r.bottom > 0 && r.top < h;
+					})
+					.map((el) => el.getAttribute('data-lattice-slide') ?? '');
+			});
+			return at !== String(total) && shown.includes(at) ? 'follows' : `bar ${at}, on screen ${shown.join(',')}`;
+		})
+		.toBe('follows');
+}
+
+test('a key that scrolls the preview mid-jump hands the walk to the reader, not to the jump', async ({ page }) => {
+	// THE READER OUTRANKS A JUMP STILL ON ITS WAY. The walk's guard holds while its own smooth scroll is between where
+	// it started and where it is going (`walkEnRoute`, PlaygroundApp.tsx), so a loaded page cannot rename the walk from
+	// the slide the scroll is passing. Space is the one key the shell leaves to the browser: it scrolls the frame by
+	// itself. Only the input clock can tell the guard the reader took over (`NATIVE_SCROLL_KEYS` in `onDeckKey`), and
+	// with the clock frozen (`jumpAndRest`), without that stamp the bar stays on the last slide for good.
+	await openExplore(page);
+	await mapOn(page);
+	const total = await jumpAndRest(page);
+	await page.evaluate(() => (document.getElementById('preview') as HTMLIFrameElement).contentWindow?.focus());
+	// Shift+Space scrolls UP, away from the jump's target: a scroll that reached the target would release the guard by
+	// arrival, and the test would pass without the stamp it is about.
+	await page.keyboard.press('Shift+ ');
+	await barFollowsReader(page, total);
+});
+
+test('a drag on the preview scrollbar mid-jump hands the walk to the reader, not to the jump', async ({ playwright }, testInfo) => {
+	// The same rule as the key test above, for the other input that scrolls the frame by itself: the reader dragging its
+	// scrollbar (`onDeckPress`, PlaygroundApp.tsx). Playwright's Chromium hides scrollbars by default
+	// (`--hide-scrollbars`), and so do its Firefox and WebKit here, so this one browser keeps them: the reader drags a
+	// real 15px scrollbar, and its press is what stamps the input clock.
+	const use = testInfo.project.use;
+	const browser = await playwright.chromium.launch({ ...use.launchOptions, ignoreDefaultArgs: ['--hide-scrollbars'] });
+	try {
+		const context = await browser.newContext({ baseURL: use.baseURL, viewport: use.viewport ?? null, storageState: use.storageState });
+		const page = await context.newPage();
+		await openExplore(page);
+		await mapOn(page);
+		const total = await jumpAndRest(page);
+		// The scrollbar's thumb, in page coordinates: right of the document's client width, at the frame's offset.
+		const thumb = await page.evaluate(() => {
+			const f = document.getElementById('preview') as HTMLIFrameElement;
+			const r = f.getBoundingClientRect();
+			const w = f.contentWindow as Window;
+			const root = (f.contentDocument as Document).documentElement;
+			const se = f.contentDocument?.scrollingElement as Element;
+			const track = f.clientHeight;
+			return {
+				x: r.left + root.clientWidth + (f.clientWidth - root.clientWidth) / 2,
+				y: r.top + ((w.scrollY + w.innerHeight / 2) / se.scrollHeight) * track,
+				width: f.clientWidth - root.clientWidth,
+			};
+		});
+		expect(thumb.width, 'this browser draws a classic scrollbar').toBeGreaterThan(0);
+		await page.mouse.move(thumb.x, thumb.y);
+		await page.mouse.down();
+		// Up, away from the jump's target, for the reason the key test gives.
+		await page.mouse.move(thumb.x, thumb.y - 60, { steps: 4 });
+		await page.mouse.up();
+		await barFollowsReader(page, total);
+	} finally {
+		await browser.close();
+	}
 });

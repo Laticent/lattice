@@ -238,21 +238,21 @@ test('hoistInlineLightDark dedupes identical pairs onto one class', () => {
 // the base is everything collapsed to the light arm, so a pair in `box-shadow` / `fill` /
 // `background-image` kept light and lost dark with nothing to restore it.
 
-// The `marks:` rules repaint through light-dark(), so every one the deck cannot use would
+// The chart-finish rules repaint through light-dark(), so every one the deck cannot use would
 // be copied into #lattice-dual-mode once per scheme scope. They go first, and nothing else moves.
 test('dropUnusedMarksRules cuts the finish rules the deck cannot use, byte for byte', () => {
 	const css = [
 		'/* c */ .a{x:1}',
-		'section.marks-tone :where(.m), figure.marks-tone :where(.m) { fill: light-dark(red, blue) }',
-		'@supports (color: oklch(from red l c h)) { section.marks-tone .z { color: red } }',
+		'section.chart-finish-tone :where(.m), figure.chart-finish-tone :where(.m) { fill: light-dark(red, blue) }',
+		'@supports (color: oklch(from red l c h)) { section.chart-finish-tone .z { color: red } }',
 		'@media screen { }',
-		'section.marks-pigment :where(:is(.k, .j)) { content: "}" }',
+		'section.chart-finish-pigment :where(:is(.k, .j)) { content: "}" }',
 		'.b{z:2}',
 	].join('\n');
 	// Only the pigment rule matches; the tone rule, and the @supports group it emptied, go.
 	assert.equal(
 		dropUnusedMarksRules(css, (sel) => sel.includes('.k')),
-		'/* c */ .a{x:1}\n@media screen { }\nsection.marks-pigment :where(:is(.k, .j)) { content: "}" }\n.b{z:2}',
+		'/* c */ .a{x:1}\n@media screen { }\nsection.chart-finish-pigment :where(:is(.k, .j)) { content: "}" }\n.b{z:2}',
 	);
 	// A selector the host cannot test is kept, and a sheet with no finish rule is returned as is.
 	assert.equal(dropUnusedMarksRules(css, () => { throw new Error('unsupported'); }), css);
@@ -269,9 +269,9 @@ test('dropUnusedMarksRules reads a selector without its comment, and a finish cl
 		if (/[^\w\s.:()[\]="*>-]/.test(sel)) throw new Error(`unparseable: ${sel}`);
 		return false;
 	};
-	assert.equal(dropUnusedMarksRules('/* like .marks-tone */ .lp-state{color:red}', noMatch), '/* like .marks-tone */ .lp-state{color:red}');
-	assert.equal(dropUnusedMarksRules('/* a, b */ section.marks-tone .m{fill:red}', noMatch), '');
-	const custom = '.my-marks-tone{a:1}';
+	assert.equal(dropUnusedMarksRules('/* like .chart-finish-tone */ .lp-state{color:red}', noMatch), '/* like .chart-finish-tone */ .lp-state{color:red}');
+	assert.equal(dropUnusedMarksRules('/* a, b */ section.chart-finish-tone .m{fill:red}', noMatch), '');
+	const custom = '.my-chart-finish-tone{a:1}';
 	assert.equal(dropUnusedMarksRules(custom, () => false), custom);
 });
 
@@ -652,7 +652,7 @@ test('a BOOKEND keeps the dark canvas even when it is also pinned light', () => 
 });
 
 test('a LIGHT COVER (`cover-light`) is never forced dark, and is restored to light in the dark scheme', () => {
-	// `cover: light` (lib/core/resolve-cover.js) paints title and closing on the light canvas in
+	// `cover-layout: light` (lib/core/resolve-cover-layout.js) paints title and closing on the light canvas in
 	// every scheme, as `divider light` does. The engine carves `.cover-light` out of its force-dark
 	// bookend rule; the player must too, or a light cover takes the dark token block (dark ground,
 	// on-light ink). Asserted with the browser's matcher, as the bookend test above is.
@@ -1866,7 +1866,7 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// not to the pointerup's own point. Mobile Safari reported (0, 0) on every touch pointerup (iOS 26.5 simulator,
 	// platform suite run 44013499171), so a tap read as a drag to the page corner and could turn the slide. Script
 	// only: one pointermove listener and two variables; the one-finger swipe and the pinch guard behave as before.
-	// RE-BLESSED for the light cover (`cover: light` → `cover-light`, lib/core/resolve-cover.js).
+	// RE-BLESSED for the light cover (`cover-layout: light` → `cover-light`, lib/core/resolve-cover-layout.js).
 	// The player's scheme pins learn the new class: `:not(.cover-light)` joins the title and
 	// closing force-dark arms and the unpinned-section exclusion, and `.cover-light` joins the
 	// light-pin restores, and the script's `pinsOpposite` leaves a light cover's classes alone when

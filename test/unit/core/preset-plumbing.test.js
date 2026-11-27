@@ -1,5 +1,5 @@
 /**
- * PRESET PLUMBING (P0) — the keys a preset RECOMMENDS (`theme`, `color-mode`, `mode`, `marks`,
+ * PRESET PLUMBING (P0) — the keys a preset RECOMMENDS (`theme`, `color-mode`, `mode`, `chart-finish`, `color-intensity`,
  * `backdrop`) and the preset TOKENS, wired through every path before any preset sets them.
  * engineering/decisions/2026-11-20-deck-preset-study.md §5 D1 and D10, §8 Phase 0.
  *
@@ -23,7 +23,7 @@ const { presetTokenClass, presetTokenClassFromFrontMatter, presetTokensCss, pres
 const { resolvePalette } = require(path.join(ROOT, 'lib/core/resolve-palette.js'));
 const { deckColorModeToken, readFrontMatterColorMode } = require(path.join(ROOT, 'lib/core/resolve-color-mode.js'));
 const { backdropClassesFromFrontMatter, readBackdrop } = require(path.join(ROOT, 'lib/core/resolve-backdrop.js'));
-const { marksFromFrontMatter } = require(path.join(ROOT, 'lib/core/resolve-marks.js'));
+const { chartFinishFromFrontMatter } = require(path.join(ROOT, 'lib/core/resolve-chart-finish.js'));
 const { withBundleFrontMatter } = require(path.join(ROOT, 'lib/export/bundle-front-matter.js'));
 const { readTheme } = require(path.join(ROOT, 'tools/export-marp.js'));
 const { isSurfaceRegisterToken } = require(path.join(ROOT, 'lib/core/surface-registers.js'));
@@ -32,7 +32,7 @@ const { isSurfaceRegisterToken } = require(path.join(ROOT, 'lib/core/surface-reg
 const PROBE = {
   label: 'Probe',
   desc: 'test only',
-  values: { theme: 'cuoio', 'color-mode': 'dark', mode: 'sketch', marks: 'etch vivid', backdrop: '40 clear', rule: 'short' },
+  values: { theme: 'cuoio', 'color-mode': 'dark', mode: 'sketch', 'chart-finish': 'etch', 'color-intensity': 'vivid', backdrop: '40 clear', rule: 'short' },
   tokens: { '--rule-w': '2px' },
 };
 const TABLE = { ...PRESETS, probe: PROBE };
@@ -53,7 +53,7 @@ test('kernel: an absent or empty top-level key reads as the preset; a written on
     assert.equal(topLevelRegisterValue('preset: probe\nfoo:\n  theme: indaco', 'theme'), 'cuoio', 'a nested theme: is not the deck key');
     assert.equal(topLevelRegisterValue('pptx:\n  preset: probe', 'theme'), null, 'a nested preset: drives nothing');
     assert.equal(topLevelRegisterValue('preset: probe', 'backdrop'), '40 clear', 'multi-word, verbatim');
-    assert.equal(frontMatterValue('preset: probe', 'marks'), 'etch vivid', 'multi-word, verbatim');
+    assert.equal(frontMatterValue('preset: probe', 'chart-finish'), 'etch', 'a loose key');
     // Control: the same reads with no preset.
     assert.equal(topLevelRegisterValue('theme: indaco', 'theme'), 'indaco');
     assert.equal(topLevelRegisterValue('rule: short', 'theme'), null);
@@ -64,15 +64,16 @@ test('kernel: an absent or empty top-level key reads as the preset; a written on
   assert.equal(topLevelRegisterValue('preset: probe', 'theme'), null);
 });
 
-test('kernel: a preset theme keeps its case; the legacy `chart-finish:` still beats a preset `marks`', () => {
+test('kernel: a preset theme keeps its case; each chart-finish key the deck writes beats the preset on its own axis', () => {
   withPresetTable({ ...TABLE, cased: { label: 'C', desc: '', values: { theme: 'NoirStudio' } } }, () => {
     assert.equal(topLevelRegisterValue('preset: cased', 'theme'), 'NoirStudio');
   });
   withProbe(() => {
-    assert.equal(marksFromFrontMatter('preset: probe'), 'etch vivid');
-    assert.equal(marksFromFrontMatter('preset: probe\nchart-finish: tone'), 'tone', 'the old key the deck wrote wins');
-    assert.equal(marksFromFrontMatter('preset: probe\nchart-finish:'), 'etch vivid', 'an empty old key says nothing');
-    assert.equal(marksFromFrontMatter('preset: probe\nmarks: pigment\nchart-finish: tone'), 'pigment', 'marks: still beats both');
+    assert.equal(chartFinishFromFrontMatter('preset: probe'), 'etch vivid');
+    assert.equal(chartFinishFromFrontMatter('preset: probe\nchart-finish: tone'), 'tone vivid', 'the finish the deck wrote wins; the preset keeps the intensity');
+    assert.equal(chartFinishFromFrontMatter('preset: probe\ncolor-intensity: muted'), 'etch muted', 'the intensity the deck wrote wins');
+    assert.equal(chartFinishFromFrontMatter('preset: probe\nchart-finish:'), 'etch vivid', 'an empty key says nothing');
+    assert.equal(chartFinishFromFrontMatter('preset: probe\nmarks: pigment'), 'etch vivid', 'the retired marks: renders nothing');
   });
 });
 
@@ -166,15 +167,15 @@ test('engine: the preset stamps its color mode, hand, marks, backdrop and token 
   const engine = latticeEngine.createEngine();
   withProbe(() => {
     for (const cls of classesOf(engine.render(deck(['preset: probe'])).html)) {
-      for (const t of ['dark', 'sketch', 'marks-etch', 'marks-vivid', 'backdrop-40', 'backdrop-clear', 'preset-probe', 'rule-short']) {
+      for (const t of ['dark', 'sketch', 'chart-finish-etch', 'color-intensity-vivid', 'backdrop-40', 'backdrop-clear', 'preset-probe', 'rule-short']) {
         assert.ok(cls.includes(t), `${t} in ${cls.join(' ')}`);
       }
     }
     // Every key the deck writes wins over its recommendation.
-    const own = classesOf(engine.render(deck(['preset: probe', 'color-mode: light', 'mode: boardroom', 'marks: pigment', 'backdrop: 80'])).html);
+    const own = classesOf(engine.render(deck(['preset: probe', 'color-mode: light', 'mode: boardroom', 'chart-finish: pigment', 'color-intensity: muted', 'backdrop: 80'])).html);
     for (const cls of own) {
       assert.ok(cls.includes('color-light') && !cls.includes('dark'), cls.join(' '));
-      assert.ok(!cls.includes('sketch') && !cls.includes('marks-etch') && !cls.includes('backdrop-40'), cls.join(' '));
+      assert.ok(!cls.includes('sketch') && !cls.includes('chart-finish-etch') && !cls.includes('backdrop-40'), cls.join(' '));
       assert.ok(cls.includes('backdrop-80'), cls.join(' '));
     }
     // A legacy `class: light` deck keeps its light canvas, and the class is not refused.

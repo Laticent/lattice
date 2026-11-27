@@ -16,8 +16,8 @@
     "dashboard",
     "status"
   ],
-  "skeleton": "<!-- _class: rows -->\n\n## The slide's point, in one line.\n\n### Top pane\n\n- A point\n- Another point\n\n### Bottom pane\n\n- A point\n- Another point\n",
-  "sample": "<!-- _class: rows -->\n\n## Hiring kept pace with the plan through Q3.\n\n<!-- _pane: progress -->\n### Hired against plan\n\n- Engineering `98%`\n- Sales `92%` `at-risk`\n\n<!-- _pane: table -->\n### By function\n\n| Function | Plan | Hired |\n|---|---|---|\n| Engineering | 120 | 118 |\n| Sales | 60 | 55 |\n",
+  "skeleton": "<!-- @meta{layout=rows} -->\n\n## The slide's point, in one line.\n\n### Top pane\n\n- A point\n- Another point\n\n### Bottom pane\n\n- A point\n- Another point\n",
+  "sample": "<!-- @meta{layout=rows} -->\n\n## Hiring kept pace with the plan through Q3.\n\n<!-- @meta{pane=progress} -->\n### Hired against plan\n\n- Engineering `98%`\n- Sales `92%` `at-risk`\n\n<!-- @meta{pane=table} -->\n### By function\n\n| Function | Plan | Hired |\n|---|---|---|\n| Engineering | 120 | 118 |\n| Sales | 60 | 55 |\n",
   "variants": [
     "no-spine"
   ],
@@ -25,7 +25,7 @@
     "no-spine": {
       "label": "no rule",
       "summary": "Drops the rule between the panes.",
-      "sample": "<!-- _class: rows ratio-35-65 no-spine -->\n\n## Three regions carried the quarter.\n\n### What happened\n\nTwo renewals and a price rise lifted EMEA and APAC; North America held.\n\n<!-- _pane: bar -->\n### Revenue by region\n`$M, Q3`\n\n- North America `4.2`\n- EMEA `3.1`\n- APAC `1.8`\n"
+      "sample": "<!-- @meta{layout=rows, class=ratio-35-65 no-spine} -->\n\n## Three regions carried the quarter.\n\n### What happened\n\nTwo renewals and a price rise lifted EMEA and APAC; North America held.\n\n<!-- @meta{pane=bar} -->\n### Revenue by region\n`$M, Q3`\n\n- North America `4.2`\n- EMEA `3.1`\n- APAC `1.8`\n"
     }
   },
   "slots": {
@@ -39,7 +39,7 @@
       "selector": "lat-pane",
       "match": { "kind": "pane" },
       "required": true,
-      "description": "Two panes, top then bottom. Each opens with `<!-- _pane: component -->` (optional; default `content`) and an optional `### title`, a short label naming what the pane holds."
+      "description": "Two panes, top then bottom. Each opens with `<!-- @meta{pane=component} -->` (optional; default `content`) and an optional `### title`, a short label naming what the pane holds."
     }
   },
   "whenToUse": [
@@ -86,13 +86,13 @@
       "fix": "A `##` starts a new slide. Use `###` for a pane's title and `####` for a heading inside a pane."
     },
     {
-      "mistake": "Naming a component in the layout's `_class` (`_class: columns bar`).",
-      "fix": "Each pane names its own component: `<!-- _pane: bar -->` above the pane's `###`."
+      "mistake": "Naming a component in the layout's class (`@meta{layout=columns, class=bar}`).",
+      "fix": "Each pane names its own component: `<!-- @meta{pane=bar} -->` above the pane's `###`."
     }
   ],
   "stressDoc": {
     "summary": "Progress over a four-column table, with the slide's Key Insight below both.",
-    "sample": "<!-- _class: rows ratio-45-55 -->\n\n## Hiring kept pace with the plan through Q3.\n\n<!-- _pane: progress -->\n### Hired against plan\n\n- Engineering `98%`\n- Sales `92%` `at-risk`\n\n<!-- _pane: table -->\n### By function\n\n| Function | Plan | Hired | Open |\n|---|---|---|---|\n| Engineering | 120 | 118 | 2 |\n| Sales | 60 | 55 | 5 |\n\n> Sales is the one function still hiring into Q4.\n"
+    "sample": "<!-- @meta{layout=rows, class=ratio-45-55} -->\n\n## Hiring kept pace with the plan through Q3.\n\n<!-- @meta{pane=progress} -->\n### Hired against plan\n\n- Engineering `98%`\n- Sales `92%` `at-risk`\n\n<!-- @meta{pane=table} -->\n### By function\n\n| Function | Plan | Hired | Open |\n|---|---|---|---|\n| Engineering | 120 | 118 | 2 |\n| Sales | 60 | 55 | 5 |\n\n> Sales is the one function still hiring into Q4.\n"
   },
   "pane": {
     "side": false,
@@ -112,5 +112,5 @@
   "venueCapacity": {
     "none": "A host holds two components, each with its own venue budget, so it has nothing of its own to count."
   },
-  "venueProbe": "<!-- _class: rows -->\n\n## Hiring kept pace with the plan through Q3.\n\n<!-- _pane: progress -->\n### Hired against plan\n\n- Engineering `98%`\n\n<!-- _pane: list -->\n### By function\n\n- Engineering hired 118 of 120\n- Sales hired 55 of 60\n"
+  "venueProbe": "<!-- @meta{layout=rows} -->\n\n## Hiring kept pace with the plan through Q3.\n\n<!-- @meta{pane=progress} -->\n### Hired against plan\n\n- Engineering `98%`\n\n<!-- @meta{pane=list} -->\n### By function\n\n- Engineering hired 118 of 120\n- Sales hired 55 of 60\n"
 }

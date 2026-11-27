@@ -1,13 +1,13 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 size: square
 venue: hall
 header: "Lattice · divider at hall"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Anchor · divider`
 
@@ -17,7 +17,7 @@ At a hall venue the anti-pattern slide splits one card a page, so each card has 
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 `Section 02`
 
@@ -25,8 +25,8 @@ At a hall venue the anti-pattern slide splits one card a page, so each card has 
 
 ---
 
-<!-- _class: cards-grid three claim-hero -->
-<!-- _footer: "Anti-patterns · divider" -->
+<!-- @meta{layout=cards-grid, class=three claim-hero, footer=Anti-patterns · divider} -->
+
 
 ## When NOT to reach for divider.
 
@@ -39,7 +39,7 @@ At a hall venue the anti-pattern slide splits one card a page, so each card has 
 
 ---
 
-<!-- _class: divider numbered -->
+<!-- @meta{layout=divider, class=numbered} -->
 
 `divider numbered`
 
@@ -47,7 +47,7 @@ At a hall venue the anti-pattern slide splits one card a page, so each card has 
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- @meta{layout=list, class=takeaway} -->
 
 ## Shorter cards were the fix, not smaller type.
 
@@ -56,6 +56,6 @@ At a hall venue the anti-pattern slide splits one card a page, so each card has 
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 ## Short cards hold their page.

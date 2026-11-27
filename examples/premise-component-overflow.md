@@ -1,12 +1,12 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · premise rows that grow"
 meta: "premise · term column, split and row rhythm"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Statement · premise`
 
@@ -16,8 +16,8 @@ meta: "premise · term column, split and row rhythm"
 
 ---
 
-<!-- _class: premise -->
-<!-- _footer: "Five rows · long single-word terms fit, and every description starts on one line" -->
+<!-- @meta{layout=premise, footer="Five rows · long single-word terms fit, and every description starts on one line"} -->
+
 
 ## Senior engineers multiply, not add.
 
@@ -41,8 +41,8 @@ Five skills separate an engineer who ships from one who lifts the team around th
 
 ---
 
-<!-- _class: premise -->
-<!-- _footer: "Three rows · a loose gap and taller rows, so a short ledger does not float" -->
+<!-- @meta{layout=premise, footer="Three rows · a loose gap and taller rows, so a short ledger does not float"} -->
+
 
 ## Three habits carry the rest.
 
@@ -60,8 +60,8 @@ A short ledger gets the room a long one cannot have.
 
 ---
 
-<!-- _class: premise -->
-<!-- _footer: "Two-word terms · the claim rail narrows toward 26%, and a crowded row drops its question to a second line" -->
+<!-- @meta{layout=premise, footer="Two-word terms · the claim rail narrows toward 26%, and a crowded row drops its question to a second line"} -->
+
 
 ## Leadership is a set of named jobs.
 
@@ -82,9 +82,9 @@ Terms grow past one word; each description stays one clause.
 
 ---
 
-<!-- _class: premise -->
-<!-- stress-slide -->
-<!-- _footer: "Eight rows · the tight rhythm, and one long term sets the column for all eight" -->
+<!-- @meta{layout=premise, stress-slide, footer="Eight rows · the tight rhythm, and one long term sets the column for all eight"} -->
+
+
 
 ## Eight is where one palette cycle ends.
 
@@ -117,7 +117,7 @@ Past eight rows the categorical hues repeat.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `What changed`
 
@@ -132,7 +132,7 @@ Past eight rows the categorical hues repeat.
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 # Longer words, same ledger.
 

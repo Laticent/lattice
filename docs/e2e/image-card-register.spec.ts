@@ -161,7 +161,7 @@ for (const tag of ['', ' @webkit-tablet']) {
 		await openSlideImageTab(page);
 		await expect(page.getByRole('combobox', { name: 'Slide card placement' }).filter({ visible: true }).first()).toContainText('Top right');
 		await choose(page, 'Slide card placement', 'Bottom center');
-		await expect.poll(() => persistedSource(page)).toContain('image spotlight image-card-bottom');
+		await expect.poll(() => persistedSource(page)).toContain('layout=image, class=spotlight image-card-bottom');
 		await choose(page, 'Slide card ink', 'Light words');
 		await expect.poll(() => persistedSource(page)).toContain('image-card-light');
 		await choose(page, 'Slide card placement', 'Auto — Top right');

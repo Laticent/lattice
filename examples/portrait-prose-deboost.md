@@ -2,10 +2,10 @@
 marp: true
 theme: indaco
 size: story
-paginate: true
+pagination: true
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Dense layouts that fit the tall frame.
 
@@ -15,7 +15,7 @@ The same content-dense layouts, on a 9:16 frame. Body prose de-boosts so the tit
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 ## The framework has four components.
 
@@ -30,7 +30,7 @@ The same content-dense layouts, on a 9:16 frame. Body prose de-boosts so the tit
 
 ---
 
-<!-- _class: actors -->
+<!-- @meta{layout=actors} -->
 
 ## Who owns each part of the lifecycle.
 
@@ -45,7 +45,7 @@ The same content-dense layouts, on a 9:16 frame. Body prose de-boosts so the tit
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- @meta{layout=cards-stack} -->
 
 ## Four failure modes the framework prevents.
 
@@ -60,7 +60,7 @@ The same content-dense layouts, on a 9:16 frame. Body prose de-boosts so the tit
 
 ---
 
-<!-- _class: matrix-2x2 -->
+<!-- @meta{layout=matrix-2x2} -->
 
 ## Signal value versus effort to capture.
 
@@ -75,7 +75,7 @@ The same content-dense layouts, on a 9:16 frame. Body prose de-boosts so the tit
 
 ---
 
-<!-- _class: decision -->
+<!-- @meta{layout=decision} -->
 
 ## What we recommend, and why.
 
@@ -90,7 +90,7 @@ The same content-dense layouts, on a 9:16 frame. Body prose de-boosts so the tit
 
 ---
 
-<!-- _class: compare-prose -->
+<!-- @meta{layout=compare-prose} -->
 
 ## The scoring model, before and after calibration.
 
@@ -103,7 +103,7 @@ The shift takes two retrospective cycles to stabilize.
 
 ---
 
-<!-- _class: split-compare -->
+<!-- @meta{layout=split-compare} -->
 
 ## Build the data layer or buy it?
 
@@ -122,7 +122,7 @@ Both paths are viable. The difference is where we spend the next 18 months.
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 ## Hero type stays; dense prose adapts.
 

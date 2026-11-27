@@ -28,8 +28,7 @@
  * Exit 0 always (an audit, not a gate), unless the render fails. Skips loudly with no Chromium.
  */
 const fs = require('node:fs');
-const { readMetaField } = require('../lib/core/meta-edit.mjs');
-const { slideClassValue } = require('../lib/core/class-entries.mjs');
+const { splitSample } = require('./lib/modifier-probe');
 const os = require('node:os');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
@@ -43,7 +42,9 @@ const only = opt('only').split(',').filter(Boolean);
 const jobs = Math.max(1, Number(opt('jobs')) || Math.min(4, os.cpus().length));
 const JSON_OUT = args.includes('--json');
 const VENUES = (opt('venues') || 'laptop,huddle,conference,hall').split(',');
-const VENUE_CLASS = { laptop: '', huddle: 'venue-huddle', conference: 'venue-conference', hall: 'venue-hall' };
+// `laptop` stamps `venue-laptop`: a square, tall or strip slide with no venue renders at its shape's default,
+// `phone` (lib/core/resolve-venue.js), so the designed row must name the designed size to measure it.
+const VENUE_CLASS = { laptop: 'venue-laptop', huddle: 'venue-huddle', conference: 'venue-conference', hall: 'venue-hall' };
 
 // The roles a reading size can land on, smallest first.
 const ROLES = ['meta', 'body-compact', 'body', 'message', 'h3', 'emphasis', 'h2', 'h1', 'hero'];
@@ -85,17 +86,7 @@ const EXCEPTIONS = {
 const SUPPORT_LINES = new Set(['list', 'content', 'split-panel proof', 'split-panel capstone', 'timeline-list']);
 const exceptionOf = (component, variant) => EXCEPTIONS[`${component} ${variant}`] || EXCEPTIONS[component] || null;
 
-/** A component sample, as `{ tokens, body }`: the class tokens it already carries and the slide below them. */
-function splitSample(md, name) {
-  const first = String(md || '').split(/\n---\s*\n/)[0];
-  // The sample's class, a `_class` comment or a record (`@meta{layout=…}`), as the engine resolves it (`slideClassValue`);
-  // the editor's reader (`readMetaField`) only finds the comment's span, so it comes out of the body whole.
-  const value = slideClassValue(first);
-  const cls = value ? readMetaField(first, 'class') : null;
-  const tokens = value ? value.split(/\s+/).filter(Boolean) : [name];
-  const body = cls?.commentSpan ? first.slice(0, cls.commentSpan[0]) + first.slice(cls.commentSpan[1]) : first;
-  return { tokens: tokens[0] === name ? tokens.slice(1) : tokens, body: body.trim() };
-}
+// `splitSample` is tools/lib/modifier-probe.js's (one copy; this file re-exports it for its callers).
 
 /** The probe deck: the sample bare and under each declared variant, at every venue. */
 function probeDeck(m) {

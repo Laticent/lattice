@@ -2,13 +2,13 @@
 marp: true
 size: 4k
 theme: ardesia
-paginate: true
+pagination: true
 acronyms:
   PDSA: plan, do, study, act
 header: "The Invisible Half · Craft, quality, kaizen"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # The Invisible Half
 
@@ -22,7 +22,7 @@ Most of what makes a thing good is hidden from the person who buys it. Today we 
 
 ---
 
-<!-- _class: list-steps -->
+<!-- @meta{layout=list-steps} -->
 
 `Do this first · 8 minutes`
 
@@ -47,7 +47,7 @@ Most of what makes a thing good is hidden from the person who buys it. Today we 
 
 ---
 
-<!-- _class: compare-prose -->
+<!-- @meta{layout=compare-prose} -->
 
 `Debrief · What your list says`
 
@@ -69,7 +69,7 @@ Most of what makes a thing good is hidden from the person who buys it. Today we 
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `The reveal`
 
@@ -91,7 +91,7 @@ One maker carved a rib — the holdfast — out of the insole itself and stitche
 
 ---
 
-<!-- _class: quote -->
+<!-- @meta{layout=quote} -->
 
 > Inspection does not improve the quality, nor guarantee quality. Inspection is too late. The quality, good or bad, is already in the product.
 
@@ -111,7 +111,7 @@ One maker carved a rib — the holdfast — out of the insole itself and stitche
 
 ---
 
-<!-- _class: split-panel -->
+<!-- @meta{layout=split-panel} -->
 
 `Deming · The system`
 
@@ -146,7 +146,7 @@ Paid by the pair and measured on pairs, the maker did the rational thing.
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 
 `1-10-100 · Cost of poor quality`
 
@@ -184,7 +184,7 @@ Paid by the pair and measured on pairs, the maker did the rational thing.
 
 ---
 
-<!-- _class: cycle -->
+<!-- @meta{layout=cycle} -->
 
 `Kaizen · The loop`
 
@@ -208,7 +208,7 @@ Paid by the pair and measured on pairs, the maker did the rational thing.
 
 ---
 
-<!-- _class: cards-grid four -->
+<!-- @meta{layout=cards-grid, class=four} -->
 
 `Kaizen · In practice`
 
@@ -237,7 +237,7 @@ Paid by the pair and measured on pairs, the maker did the rational thing.
 
 ---
 
-<!-- _class: compare-prose chosen -->
+<!-- @meta{layout=compare-prose, class=chosen} -->
 
 `Modularity · The welt`
 
@@ -263,7 +263,7 @@ Paid by the pair and measured on pairs, the maker did the rational thing.
 
 ---
 
-<!-- _class: cards-grid three -->
+<!-- @meta{layout=cards-grid, class=three} -->
 
 `Modularity · A second specimen`
 
@@ -303,7 +303,7 @@ Paid by the pair and measured on pairs, the maker did the rational thing.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `The synthesis`
 
@@ -323,7 +323,7 @@ Improvement costs what it costs to change one thing. In a glued shoe the sole *i
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- @meta{layout=list, class=takeaway} -->
 
 `Your practice · This week`
 
@@ -345,7 +345,7 @@ Improvement costs what it costs to change one thing. In a glued shoe the sole *i
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 ## Do the invisible half well.
 
@@ -363,7 +363,7 @@ Bring one improvement you made where nobody would have noticed.
 
 ---
 
-<!-- _class: glossary -->
+<!-- @meta{layout=glossary} -->
 
 ## Glossary
 
@@ -393,7 +393,7 @@ Bring one improvement you made where nobody would have noticed.
 
 ---
 
-<!-- _class: glossary -->
+<!-- @meta{layout=glossary} -->
 
 ## Glossary, continued
 

@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · Hue has two jobs"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Chart color · the spend`
 
@@ -15,8 +15,8 @@ A categorical hue **binds** a mark to a name that sits somewhere else, or it **s
 
 ---
 
-<!-- _class: funnel -->
-<!-- _footer: "One hue · funnel" -->
+<!-- @meta{layout=funnel, footer=One hue · funnel} -->
+
 
 ## The funnel narrows; the width is the story.
 
@@ -28,8 +28,8 @@ A categorical hue **binds** a mark to a name that sits somewhere else, or it **s
 
 ---
 
-<!-- _class: timeline-list -->
-<!-- _footer: "One hue · timeline-list" -->
+<!-- @meta{layout=timeline-list, footer=One hue · timeline-list} -->
+
 
 `Milestones · one hue`
 
@@ -46,8 +46,8 @@ A categorical hue **binds** a mark to a name that sits somewhere else, or it **s
 
 ---
 
-<!-- _class: piechart donut -->
-<!-- _footer: "Bind · the legend rail is a gap" -->
+<!-- @meta{layout=piechart, class=donut, footer=Bind · the legend rail is a gap} -->
+
 
 `Bind · the legend rail`
 
@@ -60,8 +60,8 @@ A categorical hue **binds** a mark to a name that sits somewhere else, or it **s
 
 ---
 
-<!-- _class: stacked-bar -->
-<!-- _footer: "Separate · the segments touch" -->
+<!-- @meta{layout=stacked-bar, footer=Separate · the segments touch} -->
+
 
 `Separate · segments that touch`
 
@@ -78,8 +78,8 @@ A categorical hue **binds** a mark to a name that sits somewhere else, or it **s
 
 ---
 
-<!-- _class: cards-grid -->
-<!-- _footer: "The rule" -->
+<!-- @meta{layout=cards-grid, footer=The rule} -->
+
 
 `The rule`
 
@@ -94,8 +94,8 @@ A categorical hue **binds** a mark to a name that sits somewhere else, or it **s
 
 ---
 
-<!-- _class: closing -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, footer=""} -->
+
 
 ## Six hues for six bands said nothing six labels had not already said.
 

@@ -11,6 +11,10 @@
       "quotation+attribution"
     ]
   },
+  "split": {
+    "strategy": "passage",
+    "note": "A quote that does not fit splits as a passage (owner, 2026-11-06): it continues on the next page at a sentence break, its attribution riding the last page. A one-sentence quote stays whole. Measured plan only; lib/core/carousel.js passage."
+  },
   "function": "statement",
   "form": "canvas",
   "substance": "prose",
@@ -22,7 +26,7 @@
     "showcase"
   ],
   "description": "A pulled quotation, centered, with attribution.",
-  "purpose": "Use to land a phrase verbatim — customer voice, expert claim, mission statement. Keep under ~25 words. The quote IS the slide; the attribution is the supporting credit. `bare` drops the card, border, and quotation-mark glyphs for a plain, display-scale statement — a hook or cold-open line, not a sourced quotation.",
+  "purpose": "Use to land a phrase verbatim — customer voice, expert claim, mission statement. Keep under ~25 words. The quote IS the slide; the attribution is the supporting credit. `bare` drops the card, border, and quotation-mark glyphs for a plain, display-scale statement — a hook or cold-open line, not a sourced quotation. On a phone or tablet a quote that does not fit continues on the next page at the end of a sentence, each page a whole quote card, with the attribution on the last page; a single sentence longer than a page still clips.",
   "variants": [
     "bare"
   ],
@@ -40,12 +44,12 @@
       "description": "Attribution line below the quote."
     }
   },
-  "skeleton": "<!-- _class: quote -->\n\n> The quoted sentence sits here, kept short enough to read in one breath.\n\n— Person, Role\n",
+  "skeleton": "<!-- @meta{layout=quote} -->\n\n> The quoted sentence sits here, kept short enough to read in one breath.\n\n— Person, Role\n",
   "anatomyBlock": "quote-canvas",
-  "sample": "<!-- _class: quote -->\n\n> A quotation earns the whole slide, or it does not belong on one.\n\n— the quote layout, stating its own rule\n",
+  "sample": "<!-- @meta{layout=quote} -->\n\n> A quotation earns the whole slide, or it does not belong on one.\n\n— the quote layout, stating its own rule\n",
   "stressDoc": {
     "summary": "Forty words; the type steps down once.",
-    "sample": "<!-- _class: quote -->\n\n> This is the longest quotation the layout will treat kindly: about forty words, three lines at the reduced scale, enough for one complete thought with a turn in the middle — and not one clause more than a listener can hold.\n\n— quote · stress, at the forty-word ceiling\n"
+    "sample": "<!-- @meta{layout=quote, class=venue-laptop} -->\n\n> This is the longest quotation the layout will treat kindly: about forty words, three lines at the reduced scale, enough for one complete thought with a turn in the middle — and not one clause more than a listener can hold.\n\n— quote · stress, at the forty-word ceiling\n"
   },
   "whenToUse": [
     {
@@ -106,7 +110,7 @@
     "bare": {
       "label": "bare",
       "summary": "No card, no quotation marks — a plain display-scale line.",
-      "sample": "<!-- _class: quote bare -->\n\n> The difference between a senior engineer and a staff engineer isn't what they ship — it's how they think about what to ship.\n\n*The question this framework answers*\n"
+      "sample": "<!-- @meta{layout=quote, class=bare} -->\n\n> The difference between a senior engineer and a staff engineer isn't what they ship — it's how they think about what to ship.\n\n*The question this framework answers*\n"
     }
   },
   "specimenVoice": true,

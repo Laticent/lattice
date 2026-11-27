@@ -24,6 +24,7 @@ const fs = require('fs');
 const os = require('os');
 const { spawnSync } = require('child_process');
 const puppeteer = require('puppeteer');
+const { ownClassOf } = require('../../helpers/slide-class.js');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const CLI = path.join(ROOT, 'lattice.js');
@@ -36,7 +37,11 @@ const SIZES = { landscape: [], portrait: ['size: portrait'], square: ['size: squ
 /** Every slide of a kind's gallery that draws a chart. */
 function gallerySlides(kind) {
   const src = fs.readFileSync(path.join(KINDS, kind, `${kind}.gallery.md`), 'utf8').replace(/\r/g, '');
-  return src.split(/\n---\n/).slice(1).filter((s) => s.includes('_class:') && !s.includes('_class: title')).map((s) => s.trim());
+  // The slide's own class through the shared reader (the galleries are `@meta` records since the meta sweep); a
+  // `_class:` substring match found none of them and every venue arm compared two empty decks.
+  const slides = src.split(/\n---\n/).slice(1).filter((s) => { const own = ownClassOf(s); return own && own.payload.split(/\s+/)[0] === kind; }).map((s) => s.trim());
+  assert.ok(slides.length > 0, `${kind}.gallery.md has no chart slide`);
+  return slides;
 }
 
 /** Per chart slide: smallest run, run count, "…" count, overlapping pairs, runs off the slide. */
@@ -88,7 +93,7 @@ describe('chart text follows the venue without costing a label', () => {
     for (const [size, fm] of Object.entries(SIZES)) {
       for (const venue of VENUES) {
         const md = path.join(dir, `${size}-${venue}.md`);
-        fs.writeFileSync(md, ['---', 'theme: cuoio', 'paginate: true', 'header: "Northwind · Board review"',
+        fs.writeFileSync(md, ['---', 'theme: cuoio', 'pagination: true', 'header: "Northwind · Board review"',
           'meta: "Q3 2026 · Finance"', 'footer: "Confidential"', `venue: ${venue}`, ...fm, '---', '', body, ''].join('\n'));
         const pair = {};
         for (const [arm, pre] of [['shipped', []], ['old', ['-r', OFF]]]) {

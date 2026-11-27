@@ -1,1 +1,0 @@
-- An emoji in a CLI or Studio PDF is real text now, and so is the paragraph around it: it can be selected, searched and read aloud. Before, any paragraph holding an emoji was part of the slide's background picture.

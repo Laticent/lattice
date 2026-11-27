@@ -107,6 +107,14 @@ export type NotifyOptions = {
 	 * default belongs to the kind, an override belongs to the thing being said.
 	 */
 	duration?: number;
+	/**
+	 * Where this one message sits, when the toaster's own place (bottom-center) would cover
+	 * the control it tells the reader to use. Rare, and owned by the call site that knows its
+	 * surface: the Share sheet raises its failures at the top, because its action row is at the
+	 * bottom at every width and a failure says "try again" (followups.d/3457, PR 3559).
+	 * Unset, the toaster's place.
+	 */
+	position?: 'top-center' | 'bottom-center';
 };
 
 export type ActionOptions = NotifyOptions & {
@@ -223,6 +231,9 @@ export function notify(message: string, opts: NotifyOptions = {}): void {
 		// button surviving onto a message with nothing to undo.
 		description: opts.description,
 		action: undefined,
+		// Unconditional, like the two above (trap 1): an omitted key would inherit the previous
+		// message's place, so a Share failure at the top would drag the next plain notice there.
+		position: opts.position,
 	});
 }
 

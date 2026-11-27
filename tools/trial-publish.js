@@ -351,7 +351,10 @@ async function main() {
       // command runs from the repo root against the local registry, in place of the two phases below.
       // It owns staging the engine (its prepack, or `node tools/stage-engine-package.js`) and should
       // leave the tree clean; the install and render phases then check what it published.
-      await phase('publish (TRIAL_PUBLISH_COMMAND)', () => run('bash', ['-c', custom], { cwd: ROOT, env: publishEnv }));
+      const out = await phase('publish (TRIAL_PUBLISH_COMMAND)', () => run('bash', ['-c', custom], { cwd: ROOT, env: publishEnv }));
+      // Echo the command's last lines, so the job log shows what it says it published (a release tool's
+      // own summary), not only that it exited 0.
+      process.stdout.write(`${String(out).trimEnd().split('\n').slice(-30).join('\n')}\n`);
     } else {
       const libs = publishSet();
       await phase(`libraries (${libs.length})`, async () => {

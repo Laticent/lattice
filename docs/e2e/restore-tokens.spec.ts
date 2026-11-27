@@ -35,7 +35,7 @@ for (const tag of ['', ' @webkit-tablet']) {
 		// The head names what the slide inherits; the default is listed as a choice of its own.
 		await expect(page.getByRole('combobox', { name: 'Spectrum edge' }).filter({ visible: true }).first()).toContainText('Auto — Left');
 		await choose(page, 'Spectrum edge', 'Top');
-		await expect.poll(() => persistedSource(page)).toContain('content spectrum-top');
+		await expect.poll(() => persistedSource(page)).toContain('layout=content, class=spectrum-top');
 		await expect.poll(async () => (await painted(page)).classes).toContain('spectrum-top');
 		const after = await painted(page);
 		expect(after.classes).not.toContain('spectrum-left');

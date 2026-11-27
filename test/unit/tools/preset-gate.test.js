@@ -25,7 +25,7 @@ const { rowValues, deckFor, readRecipe } = require(path.join(ROOT, 'tools', 'pre
 
 const BUCKETS = ['anchor', 'statement', 'inventory', 'comparison', 'progression', 'evidence', 'imagery',
   'chart', 'diagram', 'math', 'code', 'legal', 'connect', 'layout'];
-const LOOK_KEYS = ['theme', 'color-mode', 'preset', 'finish', 'backdrop', 'typography', 'marks', 'mode',
+const LOOK_KEYS = ['theme', 'color-mode', 'preset', 'finish', 'backdrop', 'typography', 'chart-finish', 'color-intensity', 'mode',
   'spectrum', 'rule', 'eyebrow', 'headline', 'lift', 'corners', 'class', 'style'];
 
 /** The bucket a `_class` (or `_pane`) component lives in, from where its directory is. */
@@ -40,8 +40,9 @@ function bucketOf(name) {
 function corpus() {
   const src = fs.readFileSync(CORPUS, 'utf8');
   const fm = src.match(/^---\n([\s\S]*?)\n---\n/)[1];
-  const classes = [...src.matchAll(/<!--\s*_class:\s*([a-z0-9-]+)/g)].map((m) => m[1]);
-  const panes = [...src.matchAll(/<!--\s*_pane:\s*([a-z0-9-]+)/g)].map((m) => m[1]);
+  // The corpus is written in records (`<!-- @meta{layout=kpi} -->`, `<!-- @meta{pane=list} -->`) since the meta sweep.
+  const classes = [...src.matchAll(/<!--\s*@meta\{layout=([a-z0-9-]+)/g)].map((m) => m[1]);
+  const panes = [...src.matchAll(/<!--\s*@meta\{pane=([a-z0-9-]+)/g)].map((m) => m[1]);
   return { src, fm, classes, panes };
 }
 
@@ -102,10 +103,10 @@ test('the recipe lands in the front matter and the slides are untouched', () => 
 test('a recipe file reads key: value lines, ignores comments, and survives a BOM, CRLF and quotes', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'preset-gate-'));
   const file = path.join(dir, 'earnings.yml');
-  fs.writeFileSync(file, '\uFEFF# a candidate\r\npreset: editorial\r\nmarks: tone   # one ink\r\n\r\ntheme: "cuoio"\r\naccent: #0a3\r\n');
+  fs.writeFileSync(file, '\uFEFF# a candidate\r\npreset: editorial\r\nchart-finish: tone   # one ink\r\n\r\ntheme: "cuoio"\r\naccent: #0a3\r\n');
   try {
     // BOM and CRLF folded, quotes dropped, and a `#` value is not mistaken for a comment
-    assert.deepEqual(readRecipe(file), { name: 'earnings', values: { preset: 'editorial', marks: 'tone', theme: 'cuoio', accent: '#0a3' } });
+    assert.deepEqual(readRecipe(file), { name: 'earnings', values: { preset: 'editorial', 'chart-finish': 'tone', theme: 'cuoio', accent: '#0a3' } });
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }

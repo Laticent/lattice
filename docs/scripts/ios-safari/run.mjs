@@ -10,7 +10,8 @@
  * chats moving from localStorage to IndexedDB across a reload and the localStorage allowance (PROBE=chat-storage), or what Present costs
  * on a deck of phone photos (PROBE=present-memory, present-memory.mjs and present-memory-probe.js), plays Present with
  * narration (PROBE=present-narration, present-narration.mjs and present-narration-probe.js), or chart detail cards in an
- * exported HTML player, opened and closed by real taps (PROBE=player-charts, player-charts.mjs). SIM_UDID=mac drives the
+ * exported HTML player, opened and closed by real taps (PROBE=player-charts, player-charts.mjs), or the storage vault's
+ * write, reload and read on /proto/vault/ (PROBE=vault, vault-probe.js). SIM_UDID=mac drives the
  * Mac's own Safari instead (the undo probe's desktop half: the WebKit undo command, and a real ⌘Z key).
  * Plain WebDriver over fetch: no client library, so nothing new to install on the macOS runner.
  *
@@ -28,6 +29,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
+import { runEngineRetryProbe } from './engine-retry.mjs';
 import { SLIDES, seedScript, TAPS, verdict } from './focus-sync-deck.mjs';
 import { PLAYER_CHARTS_SOURCE, runPlayerCharts } from './player-charts.mjs';
 import { inEditorOf, LONG_PRESS_MS, pressMovedOut, pressSelected, pressSelectedWord, tapClicked, tapHold, tapLag, tapVerdict } from './tap-guard.mjs';
@@ -162,7 +164,7 @@ try {
 	console.log(`${LABEL}: session on ${caps.platformName} ${caps.platformVersion || ''}, Safari ${caps.browserVersion || '?'}`);
 	// The script limit must outlast a probe's own cold-start waits (150 s each since 2026-11-04, D3 on #3034) plus its steps.
 	await wd('POST', `/session/${id}/timeouts`, { script: 360000, pageLoad: 180000 });
-	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'playground-scroll' ? await runPlaygroundScrollProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : PROBE === 'chat-storage' ? await runChatStorageProbe(id) : PROBE === 'photo-memory' ? await runPhotoMemoryProbe(id) : PROBE === 'present-keepalive' ? await runPresentKeepaliveProbe(id) : PROBE === 'present-memory' ? await runPresentMemoryProbe(id) : PROBE === 'present-landscape' ? await runPresentLandscapeProbe(id) : PROBE === 'present-narration' ? await runPresentNarrationProbe(id) : PROBE === 'codec-support' ? await runCodecProbe(id) : PROBE === 'font-cache' ? await runFontCacheProbe(id) : PROBE === 'player-charts' ? await runPlayerChartsProbe(id) : await runStudioProbe(id);
+	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'playground-scroll' ? await runPlaygroundScrollProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : PROBE === 'chat-storage' ? await runChatStorageProbe(id) : PROBE === 'photo-memory' ? await runPhotoMemoryProbe(id) : PROBE === 'present-keepalive' ? await runPresentKeepaliveProbe(id) : PROBE === 'present-memory' ? await runPresentMemoryProbe(id) : PROBE === 'present-landscape' ? await runPresentLandscapeProbe(id) : PROBE === 'present-narration' ? await runPresentNarrationProbe(id) : PROBE === 'codec-support' ? await runCodecProbe(id) : PROBE === 'font-cache' ? await runFontCacheProbe(id) : PROBE === 'player-charts' ? await runPlayerChartsProbe(id) : PROBE === 'vault' ? await runVaultProbe(id) : await runStudioProbe(id);
 	result.session = { platformName: caps.platformName, platformVersion: caps.platformVersion, browserVersion: caps.browserVersion, label: LABEL };
 	console.log(`${LABEL}: ${result.ok ? 'PASS' : `FAIL (${result.error})`} at ${result.width}px — ${result.ua}`);
 	for (const s of result.steps) console.log(`  ${s.pass ? 'ok  ' : 'FAIL'} ${s.name}${s.detail ? ` (${s.detail})` : ''}`);
@@ -241,13 +243,26 @@ async function runStudioProbe(id) {
 	// A finger on the deck band leaves a Library just launched from the menu, on a fresh page each time (ui/sheet.tsx).
 	const leave = await deckTapLeavesLibrary(id);
 	if (!leave.ok) await shotIfFailed('deck-tap', leave);
+	// Last, because it opens a tab: an engine sub-file that fails to load, and whether the preview's way back works in real
+	// Safari (engine-retry.mjs, PR #3385). Its own origin, so nothing the probes above stored reaches it.
+	// Twice: a dropped connection, then a 503. Browsers recover from the two differently (engine-retry.mjs).
+	// ONLY ON A MANUAL DISPATCH (or ENGINE_RETRY=1 by hand). It costs minutes, and the iPad suite already ends near its
+	// 30-minute job cap on a slow runner: on run 44966439518 Safari's launch took 207 s and the cap stopped the job inside
+	// this probe. A nightly or pull-request run skips it, so their time is unchanged. Its regular home is its own nightly
+	// suite, which the owner approved (followups.d/3385-p1-nightly-engine-retry-suite.md).
+	const wantEngine = process.env.GITHUB_EVENT_NAME === 'workflow_dispatch' || process.env.ENGINE_RETRY === '1';
+	const engineRun = (mode) => runEngineRetryProbe(wd, id, BASE, mode).catch((e) => ({ ok: false, error: String(e), steps: [] }));
+	const skipped = { ok: true, steps: [{ name: 'skipped: runs on a manual dispatch only (job time)', pass: true }] };
+	const drop = wantEngine ? await shotIfFailed('engine-retry-drop', await engineRun('drop')) : skipped;
+	const http503 = wantEngine ? await shotIfFailed('engine-retry-503', await engineRun('503')) : { ok: true, steps: [] };
+	const engine = { ok: !!drop.ok && !!http503.ok, error: [drop.error && `drop: ${drop.error}`, http503.error && `503: ${http503.error}`].filter(Boolean).join('; ') || undefined, steps: [drop, http503].flatMap((r, i) => (r.steps || []).map((x) => ({ ...x, name: `${i ? '503' : 'drop'} · ${x.name}` }))) };
 	const named = (label, r) => (r.steps || []).map((s) => ({ ...s, name: `${label} · ${s.name}` }));
 	return {
-		ok: !!preview.ok && !!panes.ok && !!wall.ok && !!focus.ok && !!compose.ok && !!tap.ok && !!empty.ok && !!icons.ok && !!leave.ok,
-		error: [preview.error && `preview: ${preview.error}`, panes.error && `panes: ${panes.error}`, wall.error && `logo wall: ${wall.error}`, focus.error && `sheet focus: ${focus.error}`, compose.error && `compose: ${compose.error}`, tap.error && `compose tap: ${tap.error}`, empty.error && `empty deck tap: ${empty.error}`, icons.error && `icon grid: ${icons.error}`, leave.error && `deck tap: ${leave.error}`].filter(Boolean).join('; ') || undefined,
+		ok: !!preview.ok && !!panes.ok && !!wall.ok && !!focus.ok && !!compose.ok && !!tap.ok && !!empty.ok && !!icons.ok && !!leave.ok && !!engine.ok,
+		error: [preview.error && `preview: ${preview.error}`, panes.error && `panes: ${panes.error}`, wall.error && `logo wall: ${wall.error}`, focus.error && `sheet focus: ${focus.error}`, compose.error && `compose: ${compose.error}`, tap.error && `compose tap: ${tap.error}`, empty.error && `empty deck tap: ${empty.error}`, icons.error && `icon grid: ${icons.error}`, leave.error && `deck tap: ${leave.error}`, engine.error && `engine retry: ${engine.error}`].filter(Boolean).join('; ') || undefined,
 		ua: panes.ua ?? preview.ua,
 		width: panes.width ?? preview.width,
-		steps: [...named('preview', preview), ...named('panes', panes), ...named('logo wall', wall), ...named('sheet focus', focus), ...named('compose', compose), ...named('compose tap', tap), ...named('empty deck tap', empty), ...named('icon grid', icons), ...named('deck tap', leave)],
+		steps: [...named('preview', preview), ...named('panes', panes), ...named('logo wall', wall), ...named('sheet focus', focus), ...named('compose', compose), ...named('compose tap', tap), ...named('empty deck tap', empty), ...named('icon grid', icons), ...named('deck tap', leave), ...named('engine retry', engine)],
 	};
 }
 
@@ -1224,7 +1239,8 @@ async function runPresentNarrationProbe(id) {
 	const VOICE = process.env.NARRATION_VOICE || 'openrouter-gemini';
 	const deck = await buildNarrationDeck();
 	const b64 = Buffer.from(deck.bytes).toString('base64');
-	const source = fs.readFileSync(path.join(here, 'present-narration-probe.js'), 'utf8');
+	// With the shared helper ahead of it, for `latticeWatch` / `latticeStallReport` (show-editor.js, #2988).
+	const source = withEditorHelper(fs.readFileSync(path.join(here, 'present-narration-probe.js'), 'utf8'));
 	const call = (expr) => wd('POST', `/session/${id}/execute/async`, { script: `${source}\nconst done = arguments[arguments.length - 1];\nPromise.resolve().then(() => ${expr}).then(done, (e) => done({ error: String(e) }));`, args: [] });
 	const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 	const mac = UDID === 'mac';
@@ -1529,6 +1545,26 @@ async function runChatStorageProbe(id) {
 		script: `${source}\nconst done = arguments[arguments.length - 1];\nlatticeChatStorageAfterReload(${JSON.stringify(first.seed)}).then(done, (e) => done({ ok: false, error: String(e), steps: [] }));`,
 		args: [],
 	});
+	const steps = [...first.steps, ...(second.steps || []).map((s) => ({ ...s, name: `after reload · ${s.name}` }))];
+	return { ok: !!second.ok, error: second.error, ua: second.ua ?? first.ua, width: first.width, steps };
+}
+
+/**
+ * The storage vault on real Mobile Safari (PROBE=vault, vault-probe.js): write through the vault's OPFS worker on
+ * /proto/vault/, reload for real, read every file back. Run it with the warm harness or by hand; it has no suite entry.
+ */
+async function runVaultProbe(id) {
+	const source = fs.readFileSync(path.join(here, 'vault-probe.js'), 'utf8');
+	const call = (expr) =>
+		wd('POST', `/session/${id}/execute/async`, {
+			script: `${source}\nconst done = arguments[arguments.length - 1];\nPromise.resolve(${expr}).then(done, (e) => done({ ok: false, error: String(e), steps: [] }));`,
+			args: [],
+		});
+	await wd('POST', `/session/${id}/url`, { url: `${BASE}/proto/vault/` });
+	const first = await call('latticeVaultProbe()');
+	if (!first.ok) return { ok: false, error: first.error, ua: first.ua, width: first.width, steps: first.steps || [] };
+	await wd('POST', `/session/${id}/refresh`, {});
+	const second = await call(`latticeVaultAfterReload(${JSON.stringify(first.seed)})`);
 	const steps = [...first.steps, ...(second.steps || []).map((s) => ({ ...s, name: `after reload · ${s.name}` }))];
 	return { ok: !!second.ok, error: second.error, ua: second.ua ?? first.ua, width: first.width, steps };
 }

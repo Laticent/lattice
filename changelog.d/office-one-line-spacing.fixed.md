@@ -1,1 +1,0 @@
-- A one-line text box in an editable PowerPoint states 100% line spacing, placed to match, instead of the paragraph's multiple: apps disagree about where a multiple puts the first line (Google Slides drew it about 0.3 em higher than PowerPoint), which left inline icons looking low beside their words.

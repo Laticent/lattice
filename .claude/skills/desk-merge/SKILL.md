@@ -31,7 +31,8 @@ facts, and §🚦 Pre-merge card. Tag this session `desk:merge` and `ui:pinned`.
    digest. A PR it lists as "rebase first" (it conflicts with `main`) stays out of
    the digest: message its session to rebase (HARD RULE #16, a real conflict). For a
    pair it orders, message the second PR's session after the first lands: "#A
-   landed, rebase #B on main" (also a real conflict). A card that says "merge #X
+   landed, rebase #B on main" (also a real conflict), or "merge `main` in" when #B is a relay branch,
+   one with commits from more than one session (HARD RULE #31 overrides #16 there). A card that says "merge #X
    first" is a claim; the tool's order is the check. Every PR comes back in exactly
    one list. `held` (built on a PR that must rebase first) stays out of the digest
    with its parent. `unordered` (a dependency cycle; the tool exits 1) and any
@@ -47,7 +48,7 @@ facts, and §🚦 Pre-merge card. Tag this session `desk:merge` and `ui:pinned`.
    it); then one line per PR that starts `#N — head <sha>`, then `— one line — check
    state — card level`, in merge order, with the link to its card at the END of the
    row. Any other shape makes the owner's "all" deny. Send it to the
-   command center (your `meter:` ledger goes in a separate message, so the digest keeps its shape), which shows it to the owner as its own message, so the owner can
+   command center (your `meter:` ledger goes in a separate message, so the digest keeps its shape; it also rides on every other gate message, `engineering/workflow.md` §Desks "Completion meter"), which shows it to the owner as its own message, so the owner can
    answer exactly "all" or "all but #N" there (§Merging, batch the ask).
 5. **Who merges.** The owner's own typed answer in the command center is the owner's
    word, so the command center carries it out: for each PR named, it re-reads the head

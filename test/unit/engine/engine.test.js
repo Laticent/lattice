@@ -76,10 +76,10 @@ describe('lattice-engine: contract', () => {
     // the arm below. Slide A names no component, so it takes the catch-all `content`
     // layout (#1292) — `dark` is a modifier, not a layout, and a slide is never
     // layout-less. Slide B named `title`, a real component.
-    assert.equal(secs[0].cls, 'content dark form marks-muted marks-pigment');
+    assert.equal(secs[0].cls, 'chart-finish-pigment color-intensity-muted content dark form');
     // The title's manifest drops the running header (`chrome.header: false`), stamped as the band's own
     // switch (lib/core/component-chrome.js).
-    assert.equal(secs[1].cls, 'dark marks-muted marks-pigment no-header title');
+    assert.equal(secs[1].cls, 'chart-finish-pigment color-intensity-muted dark no-header title');
   });
 
   test('per-slide color mode wins over the deck-wide one (light slide in a dark deck)', () => {
@@ -104,8 +104,8 @@ describe('lattice-engine: contract', () => {
     assert.doesNotMatch(secs[1], /data-lattice-pagination=/);
     assert.doesNotMatch(secs[1], /--paginate:/);
     assert.match(secs[2], /data-lattice-pagination="3"/, 'the retired `_paginate: false` comment must not hide the number');
-    const off = makeEngine().render(`---\npaginate: false\n---\n\n${md}`, 'lattice').html.match(/<section[^>]*>/g);
-    assert.ok(off.every((s) => !/data-lattice-pagination=/.test(s)), 'front matter `paginate: false` numbers nothing');
+    const off = makeEngine().render(`---\npagination: false\n---\n\n${md}`, 'lattice').html.match(/<section[^>]*>/g);
+    assert.ok(off.every((s) => !/data-lattice-pagination=/.test(s)), 'front matter `pagination: false` numbers nothing');
   });
 
   // NB: plain render() is the EXPORT path — it strips data-debug (preview-only). The

@@ -1,14 +1,14 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · the universal coda"
 footer: "One cell for the trailing beats"
 acronyms:
   ROW: row
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # The universal coda
 
@@ -19,8 +19,8 @@ host decides how they dock, so a component never has to.
 
 ---
 
-<!-- _class: list -->
-<!-- _footer: "list · the step is a register change" -->
+<!-- @meta{layout=list, footer=list · the step is a register change} -->
+
 
 ## The step above the band is wider than any step inside a block.
 
@@ -33,8 +33,8 @@ host decides how they dock, so a component never has to.
 
 ---
 
-<!-- _class: compare-code -->
-<!-- _footer: "compare-code · was swallowed into the right-hand column" -->
+<!-- @meta{layout=compare-code, footer=compare-code · was swallowed into the right-hand column} -->
+
 
 `Attachment · selector shape vs. a host`
 
@@ -60,8 +60,8 @@ section .cell-coda
 
 ---
 
-<!-- _class: code -->
-<!-- _footer: "code · panel under a painted surface" -->
+<!-- @meta{layout=code, footer=code · panel under a painted surface} -->
+
 
 ## A filled panel needs more air beneath a filled panel than prose does.
 
@@ -78,8 +78,8 @@ function harvest(section) {
 
 ---
 
-<!-- _class: premise -->
-<!-- _footer: "premise · a flex ROW, so the band breaks to its own line" -->
+<!-- @meta{layout=premise, footer="premise · a flex ROW, so the band breaks to its own line"} -->
+
 
 ## Three structures cover every layout.
 
@@ -96,8 +96,8 @@ Each takes the band in its own way, and none names a component.
 
 ---
 
-<!-- _class: cards-grid -->
-<!-- _footer: "cards-grid · both beats, one cell" -->
+<!-- @meta{layout=cards-grid, footer="cards-grid · both beats, one cell"} -->
+
 
 ## Both beats share the cell, in reading order.
 
@@ -114,8 +114,8 @@ Source: measured on the real emulator render, in Chromium, across all sixty-one 
 
 ---
 
-<!-- _class: quote -->
-<!-- _footer: "quote · claims both, and says so" -->
+<!-- @meta{layout=quote, footer="quote · claims both, and says so"} -->
+
 
 > A layout that uses the trailing element for its own anatomy declares it, and the
 > contract stops advertising a block it never rendered.

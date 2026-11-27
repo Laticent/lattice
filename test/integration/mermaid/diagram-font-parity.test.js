@@ -207,7 +207,7 @@ describe('diagram font parity — the baked face IS the cascade\'s face', { skip
       ['mode: sketch', 'mode: sketch', ['', 'boardroom', 'sketch-clean-body', 'dark']],
       ['mode: sketch-clean', 'mode: sketch-clean', ['', 'sketch']],
       ['mode: boardroom', 'mode: boardroom', ['', 'sketch']],
-      ['plain deck', 'paginate: true', ['', 'sketch']],
+      ['plain deck', 'pagination: true', ['', 'sketch']],
       ['legacy class: sketch', 'class: sketch', ['', 'boardroom']],
     ];
     const mismatches = [];

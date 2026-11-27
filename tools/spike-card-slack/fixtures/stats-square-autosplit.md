@@ -2,7 +2,7 @@
 marp: true
 size: square
 theme: indaco
-paginate: true
+pagination: true
 ---
 
 <!-- A square deck whose `stats` slide autosplits down to ONE tile per page.
@@ -14,7 +14,7 @@ paginate: true
      is the shallowest geometry that reaches the lone-member split rule.
        node lattice.js tools/spike-card-slack/fixtures/stats-square-autosplit.md out.pdf -->
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 
 ## Operating numbers for the quarter
 

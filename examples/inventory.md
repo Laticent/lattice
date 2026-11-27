@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: cuoio
-paginate: true
+pagination: true
 footer: "Laticent · inventory component"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # One Content, Four Looks
 
@@ -15,7 +15,7 @@ The next four slides carry the **byte-identical** content — same eyebrow, same
 
 ---
 
-<!-- _class: inventory -->
+<!-- @meta{layout=inventory} -->
 
 `Framework · Four Components`
 
@@ -28,7 +28,7 @@ The next four slides carry the **byte-identical** content — same eyebrow, same
 
 ---
 
-<!-- _class: inventory cards -->
+<!-- @meta{layout=inventory, class=cards} -->
 
 `Framework · Four Components`
 
@@ -43,7 +43,7 @@ The next four slides carry the **byte-identical** content — same eyebrow, same
 
 ---
 
-<!-- _class: inventory timeline -->
+<!-- @meta{layout=inventory, class=timeline} -->
 
 `Framework · Four Components`
 
@@ -58,7 +58,7 @@ The next four slides carry the **byte-identical** content — same eyebrow, same
 
 ---
 
-<!-- _class: inventory editorial -->
+<!-- @meta{layout=inventory, class=editorial} -->
 
 `Framework · Four Components`
 
@@ -71,7 +71,7 @@ The next four slides carry the **byte-identical** content — same eyebrow, same
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 # Same Content. Four Looks.
 

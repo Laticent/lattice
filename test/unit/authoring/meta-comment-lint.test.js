@@ -46,7 +46,7 @@ test('meta-not-own-line: a record in a list item or a blockquote', () => {
 test('a record is never machine-fixed as if it were a one-line directive comment', () => {
   // `--fix` used to delete the whole record line for its `paginate` field, and the layout with it.
   const src = deck('<!-- @meta{layout=kpi, paginate=true} -->\n\n# One');
-  const f = core.lintTextWith(src, VOCAB).filter((x) => x.rule === 'paginate-comment-retired');
+  const f = core.lintTextWith(src, VOCAB).filter((x) => x.rule === 'pagination-comment-retired');
   assert.equal(f.length, 1);
   assert.equal(f[0].autofixable, undefined);
   assert.match(f[0].message, /record's `paginate` field/);
@@ -129,7 +129,7 @@ test('legacy-directive-comment: the fix writes what `lattice migrate meta` write
 test('legacy-directive-comment offers no machine fix where the migration keeps the comment as written', () => {
   // Inside a list item or a blockquote (a record there is not read), and a value that runs onto a second line (Marp's
   // several-directives comment). Marked fixable, the first one stopped Fix all for the whole deck (the checker).
-  const src = deck('## A\n\n- item\n  <!-- _class: invert -->', '> <!-- _class: invert -->\n\n## B', '<!--\nclass: invert\npaginate: true\n-->\n\n# C', '<!-- _class: kpi -->\n\n# D');
+  const src = deck('## A\n\n- item\n  <!-- _class: invert -->', '> <!-- _class: invert -->\n\n## B', '<!--\nclass: invert\npagination: true\n-->\n\n# C', '<!-- _class: kpi -->\n\n# D');
   const f = core.lintTextWith(src, VOCAB).filter((x) => x.rule === 'legacy-directive-comment');
   assert.deepEqual(f.map((x) => [x.slide, Boolean(x.autofixable)]), [[1, false], [2, false], [3, false], [4, true]]);
   assert.match(f[0].fix, /Move it to its own line/);

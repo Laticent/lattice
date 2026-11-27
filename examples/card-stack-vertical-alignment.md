@@ -1,24 +1,24 @@
 ---
 marp: true
 theme: indaco
-paginate: true
-header: "Lattice · the cards: register"
+pagination: true
+header: "Lattice · the align: register"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # The author decides where a card row's spare height goes
 
-`cards: center · stretch · top · spread`
+`align: top · middle · bottom · spread · fill`
 
 A row of cards gets the whole stage. When the cards are sparse, that height goes somewhere — and only the author knows where.
 
 ---
 
-<!-- _class: cards-grid cards-stretch -->
-<!-- _footer: "cards: stretch — what every deck did before the register. Now opt in." -->
+<!-- @meta{layout=cards-grid, class=align-fill, footer="align: fill — what every deck did before the register. Now opt in."} -->
 
-## Stretch fills the row, and a short card carries the difference.
+
+## Fill grows the row, and a short card carries the difference.
 
 - What this used to do.
   - Every deck rendered card rows this way.
@@ -31,8 +31,8 @@ A row of cards gets the whole stage. When the cards are sparse, that height goes
 
 ---
 
-<!-- _class: cards-grid -->
-<!-- _footer: "cards: center — the default. This slide names no value at all." -->
+<!-- @meta{layout=cards-grid, footer="align: middle — the default. This slide names no value at all."} -->
+
 
 ## Center shrinks the cards and centers the band.
 
@@ -47,8 +47,8 @@ A row of cards gets the whole stage. When the cards are sparse, that height goes
 
 ---
 
-<!-- _class: verdict-grid cards-top -->
-<!-- _footer: "cards: top — the band sits under the headline rule; spare height collects at the bottom." -->
+<!-- @meta{layout=verdict-grid, class=align-top, footer="align: top — the band sits under the headline rule; spare height collects at the bottom."} -->
+
 
 ## Top anchors the band where the eye enters.
 
@@ -67,8 +67,8 @@ A row of cards gets the whole stage. When the cards are sparse, that height goes
 
 ---
 
-<!-- _class: verdict-grid cards-spread -->
-<!-- _footer: "cards: spread — the spare height is shared out between the rows." -->
+<!-- @meta{layout=verdict-grid, class=align-spread, footer="align: spread — the spare height is shared out between the rows."} -->
+
 
 ## Spread shares the height out between the rows.
 
@@ -87,24 +87,24 @@ A row of cards gets the whole stage. When the cards are sparse, that height goes
 
 ---
 
-<!-- _class: list takeaway -->
-<!-- _footer: "How the register is built." -->
+<!-- @meta{layout=list, class=takeaway, footer=How the register is built.} -->
+
 
 ## One token, and every default survives it.
 
 1. **A class sets a variable**
-   - `cards: top` stamps a class that sets `--cards-align`.
+   - `align: top` stamps a class that sets `--align-v`.
 1. **Each row keeps its own default**
    - Each row reads the variable with its own fallback.
 1. **So a rule keeps its own default**
-   - `cards: center` stamps nothing; each fallback wins.
+   - `align: middle` stamps nothing; each fallback wins.
 1. **And the splitter still wins**
    - Split pages override it, so a run stays uniform.
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 ## Four values, one default, nothing forced.
 
-`center is the default — every other composition is one line of front matter away.`
+`middle is the default — every other composition is one line of front matter away.`

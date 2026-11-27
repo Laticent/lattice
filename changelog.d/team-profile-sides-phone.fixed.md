@@ -1,0 +1,1 @@
+- `team-profile sides` on a square slide read on a phone no longer cuts off a long role ("Solution Architect") at the slide's edge: the portraits are a little smaller and each team takes exactly half the slide. Laptop and room sizes are unchanged.

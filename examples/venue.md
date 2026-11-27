@@ -1,14 +1,14 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 venue: conference
 header: "Lattice · Venue"
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=title, header="", footer=""} -->
+
+
 
 # Write for the room
 
@@ -18,8 +18,8 @@ Name where the deck will be seen. The engine sizes the type for the back row.
 
 ---
 
-<!-- _class: table table-fill -->
-<!-- _footer: "The four venues · one per rung of the scale" -->
+<!-- @meta{layout=table, class=table-fill, footer=The four venues · one per rung of the scale} -->
+
 
 `Four venues`
 
@@ -34,8 +34,8 @@ Name where the deck will be seen. The engine sizes the type for the back row.
 
 ---
 
-<!-- _class: big-number -->
-<!-- _footer: "The equation · angle ≈ 3438 × share of screen height ÷ screen-heights away" -->
+<!-- @meta{layout=big-number, footer="The equation · angle ≈ 3438 × share of screen height ÷ screen-heights away"} -->
+
 
 `What decides legibility`
 
@@ -44,8 +44,8 @@ Name where the deck will be seen. The engine sizes the type for the back row.
 
 ---
 
-<!-- _class: cards-grid three -->
-<!-- _footer: "What a venue sets · this deck is venue: conference" -->
+<!-- @meta{layout=cards-grid, class=three, footer=What a venue sets · this deck is venue: conference} -->
+
 
 `What a venue sets`
 
@@ -60,8 +60,8 @@ Name where the deck will be seen. The engine sizes the type for the back row.
 
 ---
 
-<!-- _class: list takeaway -->
-<!-- _footer: "A fixed size · like desktop zoom" -->
+<!-- @meta{layout=list, class=takeaway, footer=A fixed size · like desktop zoom} -->
+
 
 `One size per deck`
 
@@ -73,8 +73,8 @@ Name where the deck will be seen. The engine sizes the type for the back row.
 
 ---
 
-<!-- _class: list takeaway -->
-<!-- _footer: "At venue: hall · fewer words, not only bigger ones" -->
+<!-- @meta{layout=list, class=takeaway, footer="At venue: hall · fewer words, not only bigger ones"} -->
+
 
 `Venue: hall`
 
@@ -85,9 +85,9 @@ Name where the deck will be seen. The engine sizes the type for the back row.
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 
 ## Name the room. The deck follows.
 

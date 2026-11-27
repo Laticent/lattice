@@ -7,7 +7,7 @@ One testing guide for people and agents. Read it a section at a time:
 - **Part 2** says how to write a test that cannot flake, and what to do when one does.
 - **Part 3** lists real traps, one example each, with the PR that taught it.
 
-This guide is an index for its topic, not a second copy of the rules. The flaky-test shapes F1–F9
+This guide is an index for its topic, not a second copy of the rules. The flaky-test shapes F1–F10
 live in `engineering/decisions/2026-11-06-flaky-tests.md`, the commands in
 `engineering/development.md`, and the binding rules in CLAUDE.md HARD RULES #23 and #32–#34.
 
@@ -87,8 +87,8 @@ produce the slides we expect, with the page count we expect.
   `@smoke` subset on `desktop`; the full suite runs in the Studio E2E nightly.
 - **Platform suites** (`.github/workflows/platform-suites.yml`, registry
   `.github/platform-suites.json`): real `macos-26` and `windows-2025` runners, and the iOS Simulator
-  on macOS for the `ios-safari-*` suites. A pull request runs the suites whose paths it touches; the
-  iOS suites run only by dispatch or on schedule.
+  on macOS for the `ios-safari-*` suites. Dispatch-only since 2026-11-27 (owner decision; the workflow
+  header says how to undo it): no pull request or nightly runs them, and a suite never sets a card's grade.
 - **Nightlies** (`.github/workflows/*-nightly.yml`): the full e2e suite, integration, fit,
   overflow, perf and WebKit baselines, each filing a rolling issue on failure.
 
@@ -159,7 +159,7 @@ shape.
 
 A test passes or fails on the code alone (HARD RULE #32). Before you write one that waits, times,
 randomizes or reaches the network, read `engineering/decisions/2026-11-06-flaky-tests.md`: its
-table names the nine shapes F1–F9 and the fix for each. The short form:
+table names the ten shapes F1–F10 and the fix for each. The short form:
 
 - **Wait for a signal, not a duration.** `expect(locator).toHaveText(…)`, `page.waitForResponse(…)`,
   `expect.poll(…)`. Never `waitForTimeout` (F2).
@@ -172,6 +172,9 @@ table names the nine shapes F1–F9 and the fix for each. The short form:
 - **Write temp files to `os.tmpdir()`**, never into `lib/` or `examples/`, where other tests walk
   (Part 3, #3238).
 - **No retries.** Playwright's `retries` is 0 and stays 0 (F9, #34).
+- **Never click a control that is still moving.** A layout change answers the input that caused it, in the frame after
+  its handlers finish; a control that moves later is a product bug a test must not wait out. `watchStillness`
+  (`docs/e2e/stillness.ts`) fails on one (F10).
 
 ## Test data
 

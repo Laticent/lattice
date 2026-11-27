@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · slides from headings"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `slides from your outline`
 
@@ -14,7 +14,7 @@ header: "Lattice · slides from headings"
 There's nothing to set — every `##` is a slide by default, so a deck reads like
 a document, with no `---` to remember or forget.
 
-<!-- _class: divider light -->
+<!-- @meta{layout=divider, class=light} -->
 
 ## Headings already mark your slides.
 
@@ -22,7 +22,7 @@ The first `#` is the lead slide; every `##` after it opens a new one. You were
 going to write those headings anyway — Lattice just lets them do the dividing
 by default, so the body stays clean Markdown an outliner or linter is happy with.
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 `How it reads`
 
@@ -35,7 +35,7 @@ by default, so the body stays clean Markdown an outliner or linter is happy with
 - No rules
   - Not a single `---` in the body.
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 `The detail that matters`
 
@@ -52,7 +52,7 @@ never orphans onto the slide before.
 - Same on export
   - The emulator and the marp-cli export divide identically.
 
-<!-- _class: agenda progress-2 -->
+<!-- @meta{layout=agenda, class=progress-2} -->
 
 `When you still want a rule`
 
@@ -63,7 +63,7 @@ never orphans onto the slide before.
 3. Use it for a slide with no heading `image`
 4. Or to split two slides under one idea `rare`
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 `No silent surprises`
 
@@ -76,7 +76,7 @@ never orphans onto the slide before.
 - The vocabulary
   - Exactly two modes: `headings` (default) and `rule`.
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `nothing to set`
 

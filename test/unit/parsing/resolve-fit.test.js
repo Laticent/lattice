@@ -2,10 +2,10 @@
  * `fit:` register decisions (engineering/decisions/2026-09-25-fit-policy.md). Each case is
  * one way a deck could silently get a different level than its author wrote:
  *
- *   · `heal` is the default and stamps no token (byte-identical renders);
+ *   · `heal` and `pack` (the default) stamp no token (byte-identical renders);
  *   · an annotated or oddly cased value still resolves, and an unknown one falls to the default;
  *   · the retired `guards:` spelling resolves to NOTHING (renames decision D2, 2026-11-21) —
- *     lint's `guards-renamed` rewrites it, the engine never reads it;
+ *     lint's `key-renamed` rewrites it, the engine never reads it;
  *   · `trimEnabled` (the TRIM gate, injected on its own) and `fitLevel` agree on every
  *     combination of override tokens — the two are written out separately because the
  *     injected one may not call the other, and this is what keeps them one rule.
@@ -16,11 +16,12 @@ const assert = require('node:assert/strict');
 const fit = require('../../../lib/core/resolve-fit');
 const {
   FIT_NAMES, FIT_TOKENS, fitClass, fitClassFromFrontMatter,
-  readFrontMatterFit, isKnownFit, isFitToken, fitLevel, trimEnabled,
+  readFrontMatterFit, isKnownFit, isFitToken, fitLevel, trimEnabled, fitPacks,
 } = fit;
 
-test('the vocabulary is report | heal | trim, and heal is the default with no token', () => {
-  assert.deepEqual([...FIT_NAMES], ['report', 'heal', 'trim']);
+test('the vocabulary is report | heal | trim | pack, and heal and pack carry no token', () => {
+  assert.deepEqual([...FIT_NAMES], ['report', 'heal', 'trim', 'pack']);
+  assert.equal(fitClass('pack'), '', 'pack is heal with a measured split: no class of its own');
   assert.equal(fitClass('heal'), '');
   assert.equal(fitClass('report'), 'fit-report');
   assert.equal(fitClass('TRIM '), 'fit-trim');
@@ -29,7 +30,7 @@ test('the vocabulary is report | heal | trim, and heal is the default with no to
 
 test('fitClassFromFrontMatter reads fit:, annotated or not, and nothing else', () => {
   assert.equal(fitClassFromFrontMatter('fit: report'), 'fit-report');
-  assert.equal(fitClassFromFrontMatter('theme: cuoio\nfit:   TRIM  \npaginate: true'), 'fit-trim');
+  assert.equal(fitClassFromFrontMatter('theme: cuoio\nfit:   TRIM  \npagination: true'), 'fit-trim');
   assert.equal(fitClassFromFrontMatter('fit: report  # for the rehearsal'), 'fit-report', 'an annotated value still resolves');
   assert.equal(fitClassFromFrontMatter('title: x'), '');
   assert.equal(fitClassFromFrontMatter(''), '');
@@ -71,6 +72,21 @@ test('trimEnabled (the TRIM gate) is exactly fitLevel === "trim", over every tok
     assert.equal(trimEnabled(cls), fitLevel(cls) === 'trim', JSON.stringify(cls));
     assert.equal(trimEnabled(cls.join(' ')), fitLevel(cls) === 'trim', `as a class string: ${cls.join(' ')}`);
   }
+});
+
+// Measuring is the DEFAULT split (owner, 2026-11-06): no `fit:` line, `fit: pack` and an unknown value
+// (which resolves to the default) measure; a level written by name keeps what it asks for. The retired
+// `guards:` key is not read (renames decision D2), so a deck with only `guards:` takes the default too.
+test('fitPacks: measuring is the default; heal, trim and report are not; guards: is not read', () => {
+  assert.equal(fitPacks(''), true, 'no front matter');
+  assert.equal(fitPacks('marp: true\nsize: square'), true, 'no fit: line');
+  assert.equal(fitPacks('fit: pack'), true);
+  assert.equal(fitPacks('fit: PACK  # measured'), true);
+  assert.equal(fitPacks('fit: reprot'), true, 'an unknown value resolves to the default');
+  for (const level of ['heal', 'trim', 'report']) assert.equal(fitPacks(`fit: ${level}`), false, level);
+  assert.equal(fitPacks('guards: loose'), true, 'the retired key is not read');
+  assert.equal(fitPacks('guards: strict'), true, 'the retired key is not read');
+  assert.equal(fitPacks('fit: heal\nguards: strict'), false, 'fit: decides');
 });
 
 test('TRIM_ENABLED_SRC is trimEnabled itself, closure-free', () => {

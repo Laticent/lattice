@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · matrix-grid"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # matrix-grid
 
@@ -15,8 +15,7 @@ Two ordered axes as an N×M chart-family grid — each cell marks a position (fi
 
 ---
 
-<!-- _class: matrix-grid -->
-<!-- _footer: "Default · matrix-grid" -->
+<!-- @meta{layout=matrix-grid, footer=Default · matrix-grid} -->
 
 ## Your level is a cell, not a rung.
 
@@ -38,9 +37,8 @@ Illustrative — placements vary by company.
 
 ---
 
-<!-- _class: matrix-grid -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · matrix-grid — Six categories by five scope columns." -->
+<!-- @meta{layout=matrix-grid, footer="Stress test · matrix-grid — Six categories by five scope columns."} -->
+<!-- @meta{stress-slide} -->
 
 ## Six categories by five columns is the grid's practical ceiling.
 
@@ -58,8 +56,7 @@ Illustrative — placements vary by company.
 
 ---
 
-<!-- _class: matrix-grid dark -->
-<!-- _footer: "Composition: dark · matrix-grid dark" -->
+<!-- @meta{layout=matrix-grid, class=dark, footer=Composition: dark · matrix-grid dark} -->
 
 ## Your level is a cell, not a rung.
 
@@ -81,8 +78,7 @@ Illustrative — placements vary by company.
 
 ---
 
-<!-- _class: matrix-grid compact -->
-<!-- _footer: "Composition: compact · matrix-grid compact" -->
+<!-- @meta{layout=matrix-grid, class=compact, footer=Composition: compact · matrix-grid compact} -->
 
 ## Your level is a cell, not a rung.
 
@@ -104,8 +100,7 @@ Illustrative — placements vary by company.
 
 ---
 
-<!-- _class: matrix-grid accent -->
-<!-- _footer: "Composition: accent · matrix-grid accent" -->
+<!-- @meta{layout=matrix-grid, class=accent, footer=Composition: accent · matrix-grid accent} -->
 
 ## Your level is a cell, not a rung.
 
@@ -127,8 +122,7 @@ Illustrative — placements vary by company.
 
 ---
 
-<!-- _class: cards-grid three claim-hero -->
-<!-- _footer: "Anti-patterns · matrix-grid" -->
+<!-- @meta{layout=cards-grid, class=three claim-hero, footer=Anti-patterns · matrix-grid} -->
 
 ## When NOT to reach for matrix-grid.
 
@@ -141,7 +135,7 @@ Illustrative — placements vary by company.
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

@@ -2,7 +2,7 @@
   "$schema": "../../manifest.schema.json",
   "name": "closing",
   "adapt": {
-    "mode": "native",
+    "mode": "reflow",
     "priority": [
       "heading",
       "subtitle",
@@ -20,7 +20,7 @@
     "board-deck"
   ],
   "description": "Final slide. Dark canvas mirror of title.",
-  "purpose": "Last slide of every deck. Restates the takeaway or call-to-action. Drops the page number and keeps the deck's header and footer, by the anchor-chrome rule (engineering/decisions/2026-11-08-anchor-chrome.md) — the dark canvas signals \"we're done.\" Add `spectrum` (mirrors `title`'s) when the deck itself is built on a multi-step color story worth echoing on the way out. The deck's `cover: light` register repaints the front and back cover together on the deck's light canvas, in both color modes (`cover-light`; a slide opts out with `cover-inverse`). `light` alone sets a scheme and keeps the dark panel (lib/base/base.registers.docs.md § cover). Seven cover compositions (`cover-masthead`, `cover-ledger`, `cover-column`, `cover-label`, `cover-stage`, `cover-frame`, `cover-poster`) set how the heading block sits; the deck writes one with the same register's second word (`cover: light column`) so both covers match, and `cover-plain` keeps one slide centered. A `cover-stage` or `cover-poster` heading holds about 60 characters; a longer one grows down from the top of the frame and overflows at the foot.",
+  "purpose": "Last slide of every deck. Restates the takeaway or call-to-action. Drops the page number and keeps the deck's header and footer, by the anchor-chrome rule (engineering/decisions/2026-11-08-anchor-chrome.md) — the dark canvas signals \"we're done.\" Add `spectrum` (mirrors `title`'s) when the deck itself is built on a multi-step color story worth echoing on the way out. The deck's `cover-layout: light` register repaints the front and back cover together on the deck's light canvas, in both color modes (`cover-light`; a slide opts out with `cover-inverse`). `light` alone sets a scheme and keeps the dark panel (lib/base/base.registers.docs.md § cover). Seven cover compositions (`cover-masthead`, `cover-ledger`, `cover-column`, `cover-label`, `cover-stage`, `cover-frame`, `cover-poster`) set how the heading block sits; the deck writes one with the same register's second word (`cover-layout: light column`) so both covers match, and `cover-plain` keeps one slide centered. A `cover-stage` or `cover-poster` heading holds about 60 characters; a longer one grows down from the top of the frame and overflows at the foot.",
   "variants": [
     "qr",
     "index",
@@ -76,9 +76,9 @@
       "description": "Optional supporting line. Capped at `--measure-bookend-lede` (26em ≈ 56 characters) — a reading measure, so a two-clause sign-off holds together instead of running the frame's ~90 characters. A trailing list's rows take the same measure."
     }
   },
-  "skeleton": "<!-- _class: closing -->\n\n## Closing takeaway or call to action\n\n`Optional eyebrow`\n",
+  "skeleton": "<!-- @meta{layout=closing} -->\n\n## Closing takeaway or call to action\n\n`Optional eyebrow`\n",
   "anatomyBlock": "closing-bookend",
-  "sample": "<!-- _class: closing silent -->\n\n## The closing mirrors the title — dark canvas, one last claim.\n\n`anchor · closing`\n",
+  "sample": "<!-- @meta{layout=closing, class=silent} -->\n\n## The closing mirrors the title — dark canvas, one last claim.\n\n`anchor · closing`\n",
   "whenToUse": [
     {
       "title": "Last slide of every deck",
@@ -146,7 +146,7 @@
     },
     {
       "variant": "index",
-      "useWhen": "The closing is a reference/see-also list of multiple next steps or resources, not a single takeaway sentence."
+      "useWhen": "The closing is a reference/see-also list of multiple next steps or resources, not a single takeaway sentence. On a square, tall or strip slide its rows read at body size, not lede size: five two-line rows at lede size ran past the footer on a phone square. It is the one closing that splits: a list that still does not fit becomes an accent cover and its rows over as many pages as they need (`split.onlyVariant`). Any other closing stays one slide, however long."
     },
     {
       "variant": "spectrum",
@@ -154,83 +154,83 @@
     },
     {
       "variant": "cover-masthead",
-      "useWhen": "A heavy rule over the title, set left: the editorial cover. Usually set deck-wide with `cover: masthead`, so the front cover matches."
+      "useWhen": "A heavy rule over the title, set left: the editorial cover. Usually set deck-wide with `cover-layout: masthead`, so the front cover matches."
     },
     {
       "variant": "cover-ledger",
-      "useWhen": "A small-caps title over a double rule: the annual-report cover. Usually set deck-wide with `cover: ledger`, so the front cover matches."
+      "useWhen": "A small-caps title over a double rule: the annual-report cover. Usually set deck-wide with `cover-layout: ledger`, so the front cover matches."
     },
     {
       "variant": "cover-column",
-      "useWhen": "An accent column at the right edge, clear of the chrome bands; the title is set left and wraps short of it. Usually set deck-wide with `cover: column`, so the front cover matches."
+      "useWhen": "An accent column at the right edge, clear of the chrome bands; the title is set left and wraps short of it. Usually set deck-wide with `cover-layout: column`, so the front cover matches."
     },
     {
       "variant": "cover-label",
-      "useWhen": "A gallery wall label: the title in the slide-title size, low on the left, under a hairline, with a quiet caption. Usually set deck-wide with `cover: label`, so the front cover matches."
+      "useWhen": "A gallery wall label: the title in the slide-title size, low on the left, under a hairline, with a quiet caption. Usually set deck-wide with `cover-layout: label`, so the front cover matches."
     },
     {
       "variant": "cover-stage",
-      "useWhen": "The title at stage size, centered: the display role, for a keynote room. Usually set deck-wide with `cover: stage`, so the front cover matches."
+      "useWhen": "The title at stage size, centered: the display role, for a keynote room. Usually set deck-wide with `cover-layout: stage`, so the front cover matches."
     },
     {
       "variant": "cover-frame",
-      "useWhen": "The title boxed in a keyline that follows the preset's rule weight and style. Usually set deck-wide with `cover: frame`, so the front cover matches."
+      "useWhen": "The title boxed in a keyline that follows the preset's rule weight and style. Usually set deck-wide with `cover-layout: frame`, so the front cover matches."
     },
     {
       "variant": "cover-poster",
-      "useWhen": "A giant title set left, heavy and tight: the poster cover. Usually set deck-wide with `cover: poster`, so the front cover matches."
+      "useWhen": "A giant title set left, heavy and tight: the poster cover. Usually set deck-wide with `cover-layout: poster`, so the front cover matches."
     }
   ],
   "variantDocs": {
     "spectrum": {
       "label": "spectrum",
       "summary": "Mirrors title's generated gradient bar — the deck's color story, one last time.",
-      "sample": "<!-- _class: closing silent spectrum -->\n\n## The closing echoes the same six-step spectrum.\n\n`Closing · spectrum`\n"
+      "sample": "<!-- @meta{layout=closing, class=silent spectrum} -->\n\n## The closing echoes the same six-step spectrum.\n\n`Closing · spectrum`\n"
     },
     "qr": {
       "label": "qr",
       "summary": "Scan to take the deck with you.",
-      "sample": "<!-- _class: closing qr -->\n\n`closing qr`\n\n## Leave a scannable takeaway behind.\n\nThe payload bullet renders as a QR code sized for the back row.\n\n- https://laticent.io/components/closing\n- Scan to open `caption`\n"
+      "sample": "<!-- @meta{layout=closing, class=qr} -->\n\n`closing qr`\n\n## Leave a scannable takeaway behind.\n\nThe payload bullet renders as a QR code sized for the back row.\n\n- https://laticent.io/components/closing\n- Scan to open `caption`\n"
     },
     "index": {
       "label": "index",
       "summary": "Ends on a reference list — see also, next steps.",
-      "sample": "<!-- _class: closing silent index -->\n\n## Where to go next.\n\n`Next steps`\n\n- `docs` — the component catalog and authoring contracts\n- `gallery` — every layout rendered in light and dark\n- `studio` — compose and preview a deck in the browser\n"
+      "sample": "<!-- @meta{layout=closing, class=silent index} -->\n\n## Where to go next.\n\n`Next steps`\n\n- `docs` — the component catalog and authoring contracts\n- `gallery` — every layout rendered in light and dark\n- `studio` — compose and preview a deck in the browser\n"
     },
     "cover-masthead": {
       "label": "cover-masthead",
       "summary": "A heavy rule over the title, set left.",
-      "sample": "<!-- _class: closing silent cover-masthead -->\n\n## The back cover composes as a masthead.\n\n`anchor · closing · cover-masthead`\n"
+      "sample": "<!-- @meta{layout=closing, class=silent cover-masthead} -->\n\n## The back cover composes as a masthead.\n\n`anchor · closing · cover-masthead`\n"
     },
     "cover-ledger": {
       "label": "cover-ledger",
       "summary": "A small-caps title over a double rule.",
-      "sample": "<!-- _class: closing silent cover-ledger -->\n\n## The back cover composes as a ledger.\n\n`anchor · closing · cover-ledger`\n"
+      "sample": "<!-- @meta{layout=closing, class=silent cover-ledger} -->\n\n## The back cover composes as a ledger.\n\n`anchor · closing · cover-ledger`\n"
     },
     "cover-column": {
       "label": "cover-column",
       "summary": "An accent column at the right edge, the title set left.",
-      "sample": "<!-- _class: closing silent cover-column -->\n\n## The back cover composes as a column.\n\n`anchor · closing · cover-column`\n"
+      "sample": "<!-- @meta{layout=closing, class=silent cover-column} -->\n\n## The back cover composes as a column.\n\n`anchor · closing · cover-column`\n"
     },
     "cover-label": {
       "label": "cover-label",
       "summary": "A gallery wall label: a smaller title low on the left under a hairline.",
-      "sample": "<!-- _class: closing silent cover-label -->\n\n## The back cover composes as a label.\n\n`anchor · closing · cover-label`\n"
+      "sample": "<!-- @meta{layout=closing, class=silent cover-label} -->\n\n## The back cover composes as a label.\n\n`anchor · closing · cover-label`\n"
     },
     "cover-stage": {
       "label": "cover-stage",
       "summary": "A stage-size centered title.",
-      "sample": "<!-- _class: closing silent cover-stage -->\n\n## Thank you.\n\n`anchor · closing · cover-stage`\n"
+      "sample": "<!-- @meta{layout=closing, class=silent cover-stage} -->\n\n## Thank you.\n\n`anchor · closing · cover-stage`\n"
     },
     "cover-frame": {
       "label": "cover-frame",
       "summary": "The title boxed in a keyline.",
-      "sample": "<!-- _class: closing silent cover-frame -->\n\n## The back cover composes as a frame.\n\n`anchor · closing · cover-frame`\n"
+      "sample": "<!-- @meta{layout=closing, class=silent cover-frame} -->\n\n## The back cover composes as a frame.\n\n`anchor · closing · cover-frame`\n"
     },
     "cover-poster": {
       "label": "cover-poster",
       "summary": "A giant title set left.",
-      "sample": "<!-- _class: closing silent cover-poster -->\n\n## Make it yours.\n\n`anchor · closing · cover-poster`\n"
+      "sample": "<!-- @meta{layout=closing, class=silent cover-poster} -->\n\n## Make it yours.\n\n`anchor · closing · cover-poster`\n"
     }
   },
   "specimenVoice": true,
@@ -247,5 +247,13 @@
   },
   "gesture": {
     "archetype": "statement"
+  },
+  "split": {
+    "strategy": "cover-paginate",
+    "axis": "item",
+    "perPage": 1,
+    "onlyVariant": "index",
+    "otherwise": { "strategy": "lede-page", "note": "Any other closing whose message overflows the page (measured) keeps its eyebrow and heading and gives the message a page of its own after it, on the same canvas (owner, 2026-11-16, \"lede page, all\"; fit-everywhere-model.md §25). lib/core/carousel.js lede-page." },
+    "note": "Only the `index` variant splits (owner, 2026-11-13): a see-also list that overflows becomes an accent cover and its own rows paginated. Any other closing, one line or two, never splits (onlyVariant). lib/core/carousel.js cover-paginate."
   }
 }

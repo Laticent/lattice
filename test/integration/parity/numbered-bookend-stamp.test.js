@@ -146,8 +146,8 @@ function readStamps(page, sectionSelector) {
         // the filter was inert — and worse than inert: had anyone reintroduced it,
         // this suite would have accepted it silently instead of reporting the change.
         // `form` is the Frame's own hook and `marks-*` is the finish every section wears (a look
-        // with no absent state, resolve-marks.js); neither is a class the author wrote.
-        cls: [...s.classList].filter((c) => c !== 'form' && !c.startsWith('marks-')).join(' '),
+        // with no absent state, resolve-chart-finish.js); neither is a class the author wrote.
+        cls: [...s.classList].filter((c) => c !== 'form' && !/^(chart-finish|color-intensity)-/.test(c)).join(' '),
         content: heading ? getComputedStyle(heading, '::after').content : '<no heading>',
         header: header ? getComputedStyle(header).display : '<no header>',
         footer: footer ? getComputedStyle(footer).display : '<no footer>',
@@ -295,7 +295,7 @@ describe('numbered bookend stamp — both render paths', { skip: skipWithoutChro
   // crosses the bottom of the mark, at any heading length. It measures the BLOCK, not the
   // heading — the eyebrow is the first thing up there, and an earlier cut of the authoring
   // rule measured the h2 alone and read a line late as a result.
-  const BAND_DECK = ['---', 'marp: true', 'theme: indaco', 'paginate: true', '---'].join('\n') +
+  const BAND_DECK = ['---', 'marp: true', 'theme: indaco', 'pagination: true', '---'].join('\n') +
     [3, 6, 9, 12, 15, 18, 24, 30]
       .map((n) => `\n\n<!-- _class: divider numbered -->\n\n\`section\`\n\n## ${'model '.repeat(n).trim()}\n\n---`)
       .join('')

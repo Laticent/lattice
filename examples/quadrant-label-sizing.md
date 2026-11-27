@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · quadrant label sizing"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # One crowded slide set the type for all of them.
 
@@ -15,7 +15,7 @@ A quadrant prints each item's name beside its dot. That name had **one size**, w
 
 ---
 
-<!-- _class: statement silent -->
+<!-- @meta{class=statement silent} -->
 
 ## The constant was a floor disguised as a size.
 
@@ -23,8 +23,8 @@ A quadrant prints each item's name beside its dot. That name had **one size**, w
 
 ---
 
-<!-- _class: quadrant -->
-<!-- _footer: "Four items, a half-empty plot — now sized to the room it has" -->
+<!-- @meta{layout=quadrant, footer="Four items, a half-empty plot — now sized to the room it has"} -->
+
 
 `[{Effort, 0..10}, {Reach, 0..100}]`
 
@@ -41,8 +41,8 @@ A quadrant prints each item's name beside its dot. That name had **one size**, w
 
 ---
 
-<!-- _class: quadrant -->
-<!-- _footer: "Ten items — still clears the bar, because names are short" -->
+<!-- @meta{layout=quadrant, footer="Ten items — still clears the bar, because names are short"} -->
+
 
 `[{Effort, 0..10}, {Reach, 0..100}]`
 
@@ -65,7 +65,7 @@ A quadrant prints each item's name beside its dot. That name had **one size**, w
 
 ---
 
-<!-- _class: statement silent -->
+<!-- @meta{class=statement silent} -->
 
 ## The size is asked of the geometry, not chosen.
 
@@ -73,7 +73,7 @@ The kernel walks a ladder of sizes **largest first** and keeps the first rung wh
 
 ---
 
-<!-- _class: statement silent -->
+<!-- @meta{class=statement silent} -->
 
 ## The box grows with the type, and that was not optional.
 
@@ -81,8 +81,8 @@ The kernel walks a ladder of sizes **largest first** and keeps the first rung wh
 
 ---
 
-<!-- _class: quadrant -->
-<!-- _footer: "Fourteen items — the ceiling, and unchanged at the floor size" -->
+<!-- @meta{layout=quadrant, footer="Fourteen items — the ceiling, and unchanged at the floor size"} -->
+
 
 `[{Effort, 0..10}, {Reach, 0..100}]`
 
@@ -109,7 +109,7 @@ The kernel walks a ladder of sizes **largest first** and keeps the first rung wh
 
 ---
 
-<!-- _class: statement silent -->
+<!-- @meta{class=statement silent} -->
 
 ## The ceiling is a design decision, not a limit we hit.
 
@@ -117,7 +117,7 @@ Plenty of sparse quadrants place every name at 18 or 20, and they are **not allo
 
 ---
 
-<!-- _class: statement silent -->
+<!-- @meta{class=statement silent} -->
 
 ## What this does not fix.
 

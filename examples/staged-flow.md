@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · staged flow"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Feature demo · list-steps chevron / converge / ghost`
 
@@ -17,7 +17,7 @@ all from the same plain numbered list.
 
 ---
 
-<!-- _class: list-steps chevron -->
+<!-- @meta{layout=list-steps, class=chevron} -->
 
 ## `chevron` — make the case, stage by stage.
 
@@ -32,7 +32,7 @@ all from the same plain numbered list.
 
 ---
 
-<!-- _class: list-steps converge compact -->
+<!-- @meta{layout=list-steps, class=converge compact} -->
 
 ## `converge` — four signals narrow onto one bet.
 
@@ -47,7 +47,7 @@ all from the same plain numbered list.
 
 ---
 
-<!-- _class: list-steps ghost compact -->
+<!-- @meta{layout=list-steps, class=ghost compact} -->
 
 ## `ghost` — the thesis, stated plainly.
 
@@ -62,7 +62,7 @@ all from the same plain numbered list.
 
 ---
 
-<!-- _class: list-steps chevron -->
+<!-- @meta{layout=list-steps, class=chevron} -->
 
 ## The chevron holds at three stages, too.
 
@@ -75,7 +75,7 @@ all from the same plain numbered list.
 
 ---
 
-<!-- _class: statement -->
+<!-- @meta{class=statement} -->
 
 ## Same list, three arguments.
 

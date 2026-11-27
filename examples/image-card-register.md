@@ -1,12 +1,12 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · image-card register"
 image-card: top-right soft sm compact
 ---
 
-<!-- _class: image spotlight -->
+<!-- @meta{layout=image, class=spotlight} -->
 
 ## One line styles every photo card.
 
@@ -16,7 +16,7 @@ image-card: top-right soft sm compact
 
 ---
 
-<!-- _class: image statement -->
+<!-- @meta{layout=image, class=statement} -->
 
 ## The statement scrim follows the same line.
 
@@ -26,7 +26,7 @@ Top right, at 80% strength, in the smaller type.
 
 ---
 
-<!-- _class: image spotlight image-card-bottom-left -->
+<!-- @meta{layout=image, class=spotlight image-card-bottom-left} -->
 
 ## A slide moves one axis.
 
@@ -36,7 +36,7 @@ Top right, at 80% strength, in the smaller type.
 
 ---
 
-<!-- _class: image spotlight image-card-lg image-card-regular -->
+<!-- @meta{layout=image, class=spotlight image-card-lg image-card-regular} -->
 
 ## Or two.
 
@@ -46,7 +46,7 @@ Top right, at 80% strength, in the smaller type.
 
 ---
 
-<!-- _class: content tint-corner at-bl -->
+<!-- @meta{layout=content, class=tint-corner at-bl} -->
 
 ## Other slides are untouched.
 
@@ -54,7 +54,7 @@ This prose slide keeps its own bottom-left tint and its regular spacing: the dec
 
 ---
 
-<!-- _class: image spotlight image-card-light image-card-solid -->
+<!-- @meta{layout=image, class=spotlight image-card-light image-card-solid} -->
 
 ## Ink and backing override per slide too.
 

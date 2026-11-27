@@ -16,4 +16,7 @@
    * an accent-tinted label ink that made the date and owner read as content (owner's call,
    * 2026-11-08, engineering/decisions/2026-11-08-anchor-chrome.md § The top band). */
   color: var(--marp-slide-header-color, var(--text-muted));
+  /* A meta that wraps (a narrow band stacks it under the title: tall, strip, a square at phone) breaks
+   * into even lines, not a full line and one stranded word. One line is unchanged. */
+  text-wrap: balance;
 }

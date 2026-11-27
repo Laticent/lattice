@@ -42,22 +42,34 @@ const ROOT = path.join(__dirname, '..');
 const EMULATOR = path.join(ROOT, 'lattice.js');
 const THEME = path.join(ROOT, 'dist', 'lattice.css');
 
+const { classLineWith, isClassLine } = require('../lib/core/meta-class-line.mjs');
+const { classEntries } = require('../lib/core/class-entries.mjs');
+
 const THEMES = ['light', 'dark'];
 
 // Append `dark` to every `<!-- _class: ... -->` directive that doesn't
 // already carry it. Idempotent: a slide that already includes `dark`
 // is left untouched. Other tokens (palette names, layout-specific
 // modifiers) are preserved verbatim.
+//
+// A slide whose class is a record (`<!-- @meta{layout=title, class=silent} -->`, what the generators write since the
+// clean break, record note §15) gets `dark` in that record's class. A record that sets no class (the generator's
+// `<!-- @meta{footer=…} -->` under a sample's old class comment) is left alone: a class there would override the
+// comment's.
 function injectDark(markdown) {
-  return markdown.replace(
-    /<!--\s*_class:\s*([^>]+?)\s*-->/g,
-    (whole, classList) => {
-      const tokens = classList.split(/\s+/).filter(Boolean);
-      if (tokens.includes('dark')) return whole;
-      tokens.push('dark');
-      return `<!-- _class: ${tokens.join(' ')} -->`;
-    },
-  );
+  return markdown
+    .split('\n')
+    .map((line) => {
+      if (!isClassLine(line)) return line;
+      const entry = classEntries(line)[0];
+      // A record gains `dark` in its class field; an old sample comment keeps its own spelling until the corpus sweep.
+      if (!entry || entry.record) return classLineWith(line, 'dark') ?? line;
+      const tokens = String(entry.value).trim().split(/\s+/).filter(Boolean);
+      if (tokens.includes('dark')) return line;
+      const open = line.indexOf('<!--');
+      return `${line.slice(0, open)}<!-- _class: ${[...tokens, 'dark'].join(' ')} -->${line.slice(line.lastIndexOf('-->') + 3)}`;
+    })
+    .join('\n');
 }
 
 function pdfPathForTheme(m, theme) {

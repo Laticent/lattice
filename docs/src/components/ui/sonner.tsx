@@ -42,6 +42,11 @@ import { Toaster as Sonner, type ToasterProps } from "sonner"
 // is the canonical base untouched. `lx-ui` carries the token reset into Sonner's
 // document-root portal.
 
+// (5) PLACE — bottom-center at every width. PR 3559 moved toasts to the top below 1024px so a Share failure would
+//     not cover the sheet's Download button; at the top they covered the Studio's top bar and toolbar instead (16
+//     controls at 390px, among them Markdown source, Chat, Present and Share), and seven nightly e2e specs lost their
+//     clicks to a toast (run 46014549714). The owner chose the bottom again. A message whose surface needs the top
+//     asks for it per message (`notify(…, { position })`): the Share sheet raises its failures there.
 function useMode(): "light" | "dark" {
   const [mode, setMode] = React.useState<"light" | "dark">("light")
   React.useEffect(() => {
@@ -62,7 +67,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
     <Sonner
       theme={mode}
       className="toaster group lx-ui"
-      position="bottom-center"
+      position="bottom-center" // (5)
       // (3) THE STACK IS CAPPED AT ONE PILL PER KIND. Sonner's default is 3
       // (`VISIBLE_TOASTS_AMOUNT`, dist/index.mjs:411) and that three is a STACK — three
       // arbitrary messages, which is what a pile-up looks like. This three is not:

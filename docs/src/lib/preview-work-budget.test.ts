@@ -48,10 +48,10 @@ const PLAIN = slides(40);
  * used to be derived by walking every section — so this shape re-parsed the whole deck on every
  * keystroke (63.2ms p50). #1280 supplies the section position instead. It must stay on the slice route.
  */
-const GALLERY = `---\npaginate: true\n---\n\n${slides(40, (i) => (i % 8 === 0 ? '<!-- _class: divider -->\n\n' : ''))}`;
+const GALLERY = `---\npagination: true\n---\n\n${slides(40, (i) => (i % 8 === 0 ? '<!-- _class: divider -->\n\n' : ''))}`;
 
 /** Paginated but no dividers — the #1272 case. Also must stay on the slice route. */
-const PAGINATED = `---\npaginate: true\n---\n\n${slides(40)}`;
+const PAGINATED = `---\npagination: true\n---\n\n${slides(40)}`;
 
 /**
  * NOT 40 SLIDES, deliberately. Every other fixture is exactly 40, so a regression conditioned on
@@ -59,7 +59,7 @@ const PAGINATED = `---\npaginate: true\n---\n\n${slides(40)}`;
  * while the 117-slide gallery this change exists for rendered un-positioned. That failure also
  * disables the slice cache silently, because the supplied position is part of its key.
  */
-const BIG = `---\npaginate: true\n---\n\n${slides(97)}`;
+const BIG = `---\npagination: true\n---\n\n${slides(97)}`;
 
 /**
  * A deck that trips a deck-derived fact. `glossary: auto` appends a derived appendix slide BUILT

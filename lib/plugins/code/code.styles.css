@@ -82,7 +82,10 @@ section .hljs-strong { font-weight: 700; }
  * follows the theme; the +/- that starts the line carries the meaning without color. Each band runs
  * the panel's full width (an inline-block as wide as the line box), so a short line does not leave
  * a ragged edge. highlight.js wraps exactly one line's text in each span, never the newline. */
-section .hljs-addition, section .hljs-deletion { display: inline-block; min-width: 100%; }
+/* `text-indent: 0`, as `.lat-diff-mark` below: on a phone a numbered block's line hangs its continuation with a
+ * negative indent, and these inline-blocks inherited it, so the +/- and the first letters overprinted the line
+ * numbers (checker, 2026-11-16). */
+section .hljs-addition, section .hljs-deletion { display: inline-block; min-width: 100%; text-indent: 0; }
 section .hljs-addition {
   color: var(--syntax-inserted);
   background-color: color-mix(in srgb, var(--syntax-inserted) 14%, transparent);
@@ -139,7 +142,10 @@ section :where(pre).lat-code .ln.lat-mark {
 }
 section :where(pre).lat-code .ln[data-diff="ins"] { background-color: color-mix(in srgb, var(--syntax-inserted) 14%, transparent); }
 section :where(pre).lat-code .ln[data-diff="del"] { background-color: color-mix(in srgb, var(--syntax-deleted) 14%, transparent); }
-section :where(pre).lat-code .lat-diff-mark { display: inline-block; width: 2ch; }
+/* `text-indent: 0`: a wrapped line hangs its continuation by indenting the line -2ch (the wrap rule above), and the
+ * mark is an inline-block that inherited it, so its glyph sat 2ch left of its own box and the panel's edge cut it in
+ * half on every phone diff (code-plugin.md 4). */
+section :where(pre).lat-code .lat-diff-mark { display: inline-block; width: 2ch; text-indent: 0; }
 section :where(pre).lat-code .ln[data-diff="ins"] .lat-diff-mark { color: var(--syntax-inserted); }
 section :where(pre).lat-code .ln[data-diff="del"] .lat-diff-mark { color: var(--syntax-deleted); }
 
@@ -211,6 +217,17 @@ section :where(pre).lat-code:is([data-indent="4"], [data-indent="tab"]) { tab-si
  * so it does not read as a new line of code. With numbers it hangs under its own text, not under
  * the number column. */
 section :where(pre).lat-code-wrap code { white-space: pre-wrap; overflow-wrap: anywhere; }
+/* On a phone or tablet every block wraps, as if it said `wrap` (owner, 2026-11-06): a cut line has no
+ * scrollbar on a page and no venue that reads it at a larger size. Handheld is a square, tall or strip
+ * slide with no room venue (base.modifiers.css: the phone is those shapes' default, `venue-tablet`
+ * the other); the shape is the box the slide renders at, which the render cannot know, so this is CSS.
+ * A 16:9 slide, and a narrow one set for a room, keep the line whole and lint's column budget.
+ * A plain block is one text run with no line spans, so its continuation hangs by `each-line hanging`:
+ * every line the author wrote starts where it was written, and only a wrapped continuation moves two
+ * columns in (measured in Chromium 153; the export is Chromium). A block with line spans (numbers,
+ * focus, marks, diff) takes the `wrap` rule below, the same as one that asked for it. */
+section:where([data-family="square"], [data-family="tall"], [data-family="strip"]):not(.venue-laptop, .venue-huddle, .venue-conference, .venue-hall) :where(pre).lat-code code { white-space: pre-wrap; overflow-wrap: anywhere; text-indent: 2ch hanging each-line; }
+section:where([data-family="square"], [data-family="tall"], [data-family="strip"]):not(.venue-laptop, .venue-huddle, .venue-conference, .venue-hall) :where(pre).lat-code .ln,
 section :where(pre).lat-code-wrap .ln {
   display: inline-block;
   box-sizing: border-box;
@@ -218,6 +235,7 @@ section :where(pre).lat-code-wrap .ln {
   padding-inline-start: 2ch;
   text-indent: -2ch;
 }
+section:where([data-family="square"], [data-family="tall"], [data-family="strip"]):not(.venue-laptop, .venue-huddle, .venue-conference, .venue-hall) :where(pre).lat-code.lat-code-numbers .ln,
 section :where(pre).lat-code-wrap.lat-code-numbers .ln {
   padding-inline-start: calc(var(--ln-digits) + 1.5ch);
   text-indent: calc(-1 * (var(--ln-digits) + 1.5ch));

@@ -2,7 +2,7 @@
 marp: true
 theme: indaco
 size: 16:9
-paginate: true
+pagination: true
 header: "Lattice · Palette audit"
 footer: "13 themes · every token tier"
 style: |
@@ -67,7 +67,7 @@ style: |
 
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # Palette audit
 ## every token tier, every theme
@@ -76,7 +76,7 @@ Each slide hardcodes the resolved hex values for one palette so the swatches sho
 
 ---
 
-<!-- _class: content note-warn -->
+<!-- @meta{layout=content, class=note-warn} -->
 
 `Before you copy anything · 2026-07-16`
 
@@ -88,7 +88,7 @@ The chart-palette scoring on the slides that follow is unaffected.
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="audit" style="background:#FFFFFF;color:#000">
 
@@ -105,7 +105,7 @@ The chart-palette scoring on the slides that follow is unaffected.
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="audit" style="background:#FAF7F2;color:#000">
 
@@ -122,7 +122,7 @@ The chart-palette scoring on the slides that follow is unaffected.
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="audit" style="background:#F5EFD8;color:#000">
 
@@ -139,7 +139,7 @@ The chart-palette scoring on the slides that follow is unaffected.
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="audit" style="background:#F8F2E5;color:#000">
 
@@ -156,7 +156,7 @@ The chart-palette scoring on the slides that follow is unaffected.
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="audit" style="background:#F8F2E5;color:#000">
 
@@ -173,7 +173,7 @@ The chart-palette scoring on the slides that follow is unaffected.
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="audit" style="background:#FAF8FC;color:#000">
 
@@ -190,7 +190,7 @@ The chart-palette scoring on the slides that follow is unaffected.
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="audit" style="background:#F2F5F7;color:#000">
 
@@ -207,7 +207,7 @@ The chart-palette scoring on the slides that follow is unaffected.
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="audit" style="background:#FCF8F5;color:#000">
 
@@ -224,7 +224,7 @@ The chart-palette scoring on the slides that follow is unaffected.
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="audit" style="background:#F0EDE6;color:#000">
 
@@ -241,7 +241,7 @@ The chart-palette scoring on the slides that follow is unaffected.
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="audit" style="background:#FAFAF9;color:#000">
 
@@ -258,7 +258,7 @@ The chart-palette scoring on the slides that follow is unaffected.
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="audit" style="background:#B8B8B5;color:#FFF">
 
@@ -275,7 +275,7 @@ The chart-palette scoring on the slides that follow is unaffected.
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="audit" style="background:#FFFFFF;color:#000">
 
@@ -292,7 +292,7 @@ The chart-palette scoring on the slides that follow is unaffected.
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="audit" style="background:#1A1A1C;color:#FFF">
 
@@ -310,7 +310,7 @@ The chart-palette scoring on the slides that follow is unaffected.
 
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # Palette proposals
 ## 5 strategies × 13 themes = 65 candidates
@@ -326,7 +326,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FFFFFF;color:#000">
 
@@ -359,7 +359,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FFFFFF;color:#000">
 
@@ -392,7 +392,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FFFFFF;color:#000">
 
@@ -425,7 +425,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FFFFFF;color:#000">
 
@@ -458,7 +458,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FFFFFF;color:#000">
 
@@ -491,7 +491,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FAF7F2;color:#000">
 
@@ -524,7 +524,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FAF7F2;color:#000">
 
@@ -557,7 +557,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FAF7F2;color:#000">
 
@@ -590,7 +590,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FAF7F2;color:#000">
 
@@ -623,7 +623,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FAF7F2;color:#000">
 
@@ -656,7 +656,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FCF8F0;color:#000">
 
@@ -689,7 +689,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FCF8F0;color:#000">
 
@@ -722,7 +722,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FCF8F0;color:#000">
 
@@ -755,7 +755,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FCF8F0;color:#000">
 
@@ -788,7 +788,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FCF8F0;color:#000">
 
@@ -821,7 +821,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#F5FAFC;color:#000">
 
@@ -854,7 +854,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#F5FAFC;color:#000">
 
@@ -887,7 +887,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#F5FAFC;color:#000">
 
@@ -920,7 +920,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#F5FAFC;color:#000">
 
@@ -953,7 +953,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#F5FAFC;color:#000">
 
@@ -986,7 +986,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FAF2F2;color:#000">
 
@@ -1019,7 +1019,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FAF2F2;color:#000">
 
@@ -1052,7 +1052,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FAF2F2;color:#000">
 
@@ -1085,7 +1085,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FAF2F2;color:#000">
 
@@ -1118,7 +1118,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FAF2F2;color:#000">
 
@@ -1151,7 +1151,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FAF8FC;color:#000">
 
@@ -1184,7 +1184,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FAF8FC;color:#000">
 
@@ -1217,7 +1217,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FAF8FC;color:#000">
 
@@ -1250,7 +1250,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FAF8FC;color:#000">
 
@@ -1283,7 +1283,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FAF8FC;color:#000">
 
@@ -1316,7 +1316,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#F2F5F7;color:#000">
 
@@ -1349,7 +1349,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#F2F5F7;color:#000">
 
@@ -1382,7 +1382,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#F2F5F7;color:#000">
 
@@ -1415,7 +1415,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#F2F5F7;color:#000">
 
@@ -1448,7 +1448,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#F2F5F7;color:#000">
 
@@ -1481,7 +1481,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FCF8F5;color:#000">
 
@@ -1514,7 +1514,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FCF8F5;color:#000">
 
@@ -1547,7 +1547,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FCF8F5;color:#000">
 
@@ -1580,7 +1580,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FCF8F5;color:#000">
 
@@ -1613,7 +1613,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FCF8F5;color:#000">
 
@@ -1646,7 +1646,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#F0EDE6;color:#000">
 
@@ -1679,7 +1679,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#F0EDE6;color:#000">
 
@@ -1712,7 +1712,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#F0EDE6;color:#000">
 
@@ -1745,7 +1745,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#F0EDE6;color:#000">
 
@@ -1778,7 +1778,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#F0EDE6;color:#000">
 
@@ -1811,7 +1811,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#EFEEEA;color:#000">
 
@@ -1844,7 +1844,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#EFEEEA;color:#000">
 
@@ -1877,7 +1877,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#EFEEEA;color:#000">
 
@@ -1910,7 +1910,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#EFEEEA;color:#000">
 
@@ -1943,7 +1943,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#EFEEEA;color:#000">
 
@@ -1976,7 +1976,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#B8B8B5;color:#FFF">
 
@@ -2009,7 +2009,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#B8B8B5;color:#FFF">
 
@@ -2042,7 +2042,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#B8B8B5;color:#FFF">
 
@@ -2075,7 +2075,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#B8B8B5;color:#FFF">
 
@@ -2108,7 +2108,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#B8B8B5;color:#FFF">
 
@@ -2141,7 +2141,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FAFAFA;color:#000">
 
@@ -2174,7 +2174,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FAFAFA;color:#000">
 
@@ -2207,7 +2207,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FAFAFA;color:#000">
 
@@ -2240,7 +2240,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FAFAFA;color:#000">
 
@@ -2273,7 +2273,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FAFAFA;color:#000">
 
@@ -2306,7 +2306,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#0F0E0C;color:#FFF">
 
@@ -2339,7 +2339,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#0F0E0C;color:#FFF">
 
@@ -2372,7 +2372,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#0F0E0C;color:#FFF">
 
@@ -2405,7 +2405,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#0F0E0C;color:#FFF">
 
@@ -2438,7 +2438,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#0F0E0C;color:#FFF">
 
@@ -2472,7 +2472,7 @@ coverage (higher = wider palette).
 
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # Palette proposals
 ## ranked top-5 per theme · 13 themes · 65 candidates
@@ -2481,7 +2481,7 @@ Each slide carries 12 paired slots, with the hue shared between light and dark v
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `How a candidate is scored`
 
@@ -2498,7 +2498,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FFFFFF;color:#000">
 
@@ -2531,7 +2531,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FFFFFF;color:#000">
 
@@ -2564,7 +2564,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FFFFFF;color:#000">
 
@@ -2597,7 +2597,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FFFFFF;color:#000">
 
@@ -2630,7 +2630,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FFFFFF;color:#000">
 
@@ -2663,7 +2663,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FAF7F2;color:#000">
 
@@ -2696,7 +2696,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FAF7F2;color:#000">
 
@@ -2729,7 +2729,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FAF7F2;color:#000">
 
@@ -2762,7 +2762,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FAF7F2;color:#000">
 
@@ -2795,7 +2795,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FAF7F2;color:#000">
 
@@ -2828,7 +2828,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FCF8F0;color:#000">
 
@@ -2861,7 +2861,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FCF8F0;color:#000">
 
@@ -2894,7 +2894,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FCF8F0;color:#000">
 
@@ -2927,7 +2927,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FCF8F0;color:#000">
 
@@ -2960,7 +2960,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FCF8F0;color:#000">
 
@@ -2993,7 +2993,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#F5FAFC;color:#000">
 
@@ -3026,7 +3026,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#F5FAFC;color:#000">
 
@@ -3059,7 +3059,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#F5FAFC;color:#000">
 
@@ -3092,7 +3092,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#F5FAFC;color:#000">
 
@@ -3125,7 +3125,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#F5FAFC;color:#000">
 
@@ -3158,7 +3158,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FAF2F2;color:#000">
 
@@ -3191,7 +3191,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FAF2F2;color:#000">
 
@@ -3224,7 +3224,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FAF2F2;color:#000">
 
@@ -3257,7 +3257,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FAF2F2;color:#000">
 
@@ -3290,7 +3290,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FAF2F2;color:#000">
 
@@ -3323,7 +3323,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FAF8FC;color:#000">
 
@@ -3356,7 +3356,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FAF8FC;color:#000">
 
@@ -3389,7 +3389,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FAF8FC;color:#000">
 
@@ -3422,7 +3422,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FAF8FC;color:#000">
 
@@ -3455,7 +3455,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FAF8FC;color:#000">
 
@@ -3488,7 +3488,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#F2F5F7;color:#000">
 
@@ -3521,7 +3521,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#F2F5F7;color:#000">
 
@@ -3554,7 +3554,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#F2F5F7;color:#000">
 
@@ -3587,7 +3587,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#F2F5F7;color:#000">
 
@@ -3620,7 +3620,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#F2F5F7;color:#000">
 
@@ -3653,7 +3653,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FCF8F5;color:#000">
 
@@ -3686,7 +3686,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FCF8F5;color:#000">
 
@@ -3719,7 +3719,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FCF8F5;color:#000">
 
@@ -3752,7 +3752,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FCF8F5;color:#000">
 
@@ -3785,7 +3785,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FCF8F5;color:#000">
 
@@ -3818,7 +3818,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#F0EDE6;color:#000">
 
@@ -3851,7 +3851,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#F0EDE6;color:#000">
 
@@ -3884,7 +3884,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#F0EDE6;color:#000">
 
@@ -3917,7 +3917,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#F0EDE6;color:#000">
 
@@ -3950,7 +3950,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#F0EDE6;color:#000">
 
@@ -3983,7 +3983,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#EFEEEA;color:#000">
 
@@ -4016,7 +4016,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#EFEEEA;color:#000">
 
@@ -4049,7 +4049,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#EFEEEA;color:#000">
 
@@ -4082,7 +4082,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#EFEEEA;color:#000">
 
@@ -4115,7 +4115,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#EFEEEA;color:#000">
 
@@ -4148,7 +4148,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#B8B8B5;color:#FFF">
 
@@ -4181,7 +4181,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#B8B8B5;color:#FFF">
 
@@ -4214,7 +4214,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#B8B8B5;color:#FFF">
 
@@ -4247,7 +4247,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#B8B8B5;color:#FFF">
 
@@ -4280,7 +4280,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#B8B8B5;color:#FFF">
 
@@ -4313,7 +4313,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FAFAFA;color:#000">
 
@@ -4346,7 +4346,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FAFAFA;color:#000">
 
@@ -4379,7 +4379,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FAFAFA;color:#000">
 
@@ -4412,7 +4412,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FAFAFA;color:#000">
 
@@ -4445,7 +4445,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#FAFAFA;color:#000">
 
@@ -4478,7 +4478,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#0F0E0C;color:#FFF">
 
@@ -4511,7 +4511,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#0F0E0C;color:#FFF">
 
@@ -4544,7 +4544,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#0F0E0C;color:#FFF">
 
@@ -4577,7 +4577,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#0F0E0C;color:#FFF">
 
@@ -4610,7 +4610,7 @@ Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark
 
 ---
 
-<!-- _class: blank -->
+<!-- @meta{class=blank} -->
 
 <div class="prop" style="background:#0F0E0C;color:#FFF">
 

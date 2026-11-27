@@ -2,11 +2,11 @@
 marp: true
 size: 4k
 theme: indaco
-paginate: true
+pagination: true
 header: "Orbit · H1 roadmap review"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 <!-- tier: short -->
 
 `Roadmap review · end of H1 2026`
@@ -17,7 +17,7 @@ We committed to seven things, shipped five, and learned why the other two slippe
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## Against the H1 plan: five of seven shipped, two slipped for known reasons.
@@ -26,7 +26,7 @@ At the start of the year we committed to seven roadmap items. Five shipped on or
 
 ---
 
-<!-- _class: roadmap -->
+<!-- @meta{layout=roadmap} -->
 <!-- tier: short -->
 
 ## What we committed to, and where each item landed.
@@ -40,7 +40,7 @@ At the start of the year we committed to seven roadmap items. Five shipped on or
 
 ---
 
-<!-- _class: kpi compact -->
+<!-- @meta{layout=kpi, class=compact} -->
 <!-- tier: short -->
 
 ## How delivery tracked against the plan we set in January.
@@ -57,7 +57,7 @@ At the start of the year we committed to seven roadmap items. Five shipped on or
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 <!-- tier: standard -->
 
 `Impact · shipped features`
@@ -77,7 +77,7 @@ At the start of the year we committed to seven roadmap items. Five shipped on or
 
 ---
 
-<!-- _class: timeline-list -->
+<!-- @meta{layout=timeline-list} -->
 <!-- tier: full -->
 
 `Slips · what happened`
@@ -95,7 +95,7 @@ At the start of the year we committed to seven roadmap items. Five shipped on or
 
 ---
 
-<!-- _class: matrix-2x2 -->
+<!-- @meta{layout=matrix-2x2} -->
 <!-- tier: short -->
 
 ## What to keep doing and what to change, going into H2.
@@ -111,7 +111,7 @@ At the start of the year we committed to seven roadmap items. Five shipped on or
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- @meta{layout=list, class=takeaway} -->
 <!-- tier: full -->
 
 ## The three changes we're carrying into H2 planning.
@@ -125,7 +125,7 @@ At the start of the year we committed to seven roadmap items. Five shipped on or
 
 ---
 
-<!-- _class: roadmap -->
+<!-- @meta{layout=roadmap} -->
 <!-- tier: full -->
 
 ## The H2 plan, with the slipped work front-loaded.
@@ -139,9 +139,9 @@ At the start of the year we committed to seven roadmap items. Five shipped on or
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 <!-- tier: short -->
 
 ## Five shipped, two replanned, three lessons carried forward.

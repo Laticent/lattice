@@ -1,23 +1,33 @@
 name: Release (publish)
 
-# Phase 2 of 2. The release PR from release.yml has merged, so main now
-# carries the version bump — this tags THAT commit and ships the artifacts.
+# Phase 2 of 2. The release PR from release.yml has merged, so main now carries
+# the new versions. This publishes every package npm does not have yet, then tags
+# what it published, on THAT commit.
 #
-# Why the tag is cut here and not in phase 1: the merge queue squashes the PR
+# Why the tags are cut here and not in phase 1: the merge queue squashes the PR
 # into a new commit, so a tag created on the branch would point at a sha that
-# never reaches main. Tagging after the merge is also what makes the tag
-# honest — it names a tree the required `ci` check passed on.
+# never reaches main. Tagging after the merge is also what makes the tags
+# honest — they name a tree the required `ci` check passed on.
+#
+# What publishes: tools/release-packages.js PUBLISH_SET (the engine and twelve
+# libraries). `changeset publish` publishes them in dependency order, the engine
+# last. Tags: `<name>@<version>` per package (Changesets' own shape) plus
+# `v<version>` for the engine, which names its GitHub Release.
 #
 # Tags are not covered by the "Main Merge Queue" ruleset (it targets
-# refs/heads/main), so pushing the tag needs no bypass. See RELEASE.md.
+# refs/heads/main), so pushing them needs no bypass. See RELEASE.md.
 on:
   push:
     branches: [main]
-    # The engine's version (packages/lattice/package.json, its publish folder)
-    # only moves on a release commit, so this is a tight filter — and the
-    # tag-existence guard below makes it idempotent for every other reason
-    # that manifest changes (a dependency bump).
-    paths: ['packages/lattice/package.json']
+    # A release commit always moves at least one package's version, and writes
+    # that package's CHANGELOG.md (the first release writes every CHANGELOG.md and
+    # bumps nothing, which is why the changelogs are listed too). The plan step
+    # below makes every other push that touches these files a quiet no-op.
+    paths:
+      - 'packages/lattice/package.json'
+      - 'packages/lattice/CHANGELOG.md'
+      - 'docs/src/lib/*/package.json'
+      - 'docs/src/lib/*/CHANGELOG.md'
   workflow_dispatch: # recovery: re-run against main after a partial failure
 
 concurrency:
@@ -31,6 +41,16 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-24.04
+    # Only a push that carries a release commit publishes: its squash title is `release: <name> (#N)`.
+    # Without this, a dependency bump or a nightly bless that touches a manifest would publish whatever
+    # main holds the moment nothing else blocks it (on release day, the gap between retiring the August
+    # tag and the release PR merging). EVERY commit of the push is checked, not only head_commit: the
+    # merge queue lands up to three PRs as one push, and the release PR need not be last. A looser match
+    # is safe because `tools/release.js --publish` also refuses any package whose CHANGELOG.md lacks its
+    # version's section. A dispatch is a human's recovery run and always proceeds.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      contains(toJSON(github.event.commits.*.message), '"release: ')
     # This phase needs no PAT — it pushes a tag, which the ruleset doesn't cover.
     # It declares the environment for NPM_TOKEN, the most dangerous secret in the
     # repo: stored here rather than repo-wide, it is unreadable from a PR branch,
@@ -41,35 +61,44 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # full history + tags for archive + the tag guard
+          fetch-depth: 0 # full history + tags: the plan reads the tags
           fetch-tags: true
 
-      # Nothing below runs unless main is sitting on an untagged version. A
-      # dependency bump touches the manifest too, and workflow_dispatch can be
-      # fired at any time — both must be quiet no-ops, not failures.
-      - name: Is this an unreleased version?
-        id: gate
-        run: |
-          set -euo pipefail
-          V="$(node -p "require('./packages/lattice/package.json').version")"
-          echo "version=$V" >> "$GITHUB_OUTPUT"
-          if git rev-parse -q --verify "refs/tags/v$V" >/dev/null; then
-            echo "v$V is already tagged — nothing to publish."
-            echo "release=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "release=true" >> "$GITHUB_OUTPUT"
-          fi
-
       - uses: actions/setup-node@v4
-        if: steps.gate.outputs.release == 'true'
         with:
           node-version: 22
           cache: npm
           registry-url: https://registry.npmjs.org
 
+      # Nothing below runs unless a publish-set package is missing from npm or untagged.
+      # A dependency bump touches a manifest too, and workflow_dispatch can be fired at
+      # any time; both must be quiet no-ops, not failures. Needs no `npm ci`: the plan
+      # reads the manifests, the tags and `npm view`.
+      - name: Is anything unpublished?
+        id: gate
+        run: node tools/release.js --plan
+
       - name: Install dependencies
         if: steps.gate.outputs.release == 'true'
         run: npm ci
+
+      # The engine's GitHub Release is created after npm, so a name that is already taken must stop the run
+      # BEFORE npm: the August release still owns `v1.0.0` until the owner relabels it (#3449, step 3).
+      - name: Is the engine's GitHub Release name free?
+        if: steps.gate.outputs.engine_due == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          V: ${{ steps.gate.outputs.version }}
+        run: |
+          # Only "release not found" means the name is free. Any other failure (rate limit, API error) stops
+          # the run too: guessing "free" would publish to npm and then fail at `gh release create`.
+          if out="$(gh release view "v$V" 2>&1)"; then
+            echo "::error::A GitHub Release named v$V already exists. Relabel it (issue #3449, release-day step 3) before publishing; nothing was published."
+            exit 1
+          elif ! grep -qi 'release not found' <<<"$out"; then
+            echo "::error::Could not check whether a GitHub Release named v$V exists: $out"
+            exit 1
+          fi
 
       - name: Configure git identity
         if: steps.gate.outputs.release == 'true'
@@ -77,38 +106,43 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      # Tags HEAD, rederives release/notes-v<version>.md from the changelog
-      # section the release PR committed, builds the showcase zip from the
-      # tagged tree, and pushes the tag. build:check runs (not --skip-checks):
-      # `ci` already passed on this state, and a second look costs a minute on
-      # a flow that runs a handful of times a year.
-      - name: Tag, package, push the tag
-        if: steps.gate.outputs.release == 'true'
-        run: node tools/release.js --publish --push
-
-      - name: Create GitHub Release
+      # tools/release.js --publish: build:check, the strict publish-set check, the
+      # engine's release notes and zip (before anything reaches npm), `changeset
+      # publish` in dependency order, then the tags for what npm now has, pushed.
+      # NPM_TOKEN is the bootstrap credential (issue #3449, B7). Trusted publishing
+      # (npm authenticating with this job's id-token, no token) needs npm 11.5.1+, and
+      # Node 22 ships npm 10.9: a step that upgrades npm must land BEFORE the token
+      # is revoked. That is slice F's PR, not this one.
+      - name: Publish to npm, tag, push the tags
+        id: publish
         if: steps.gate.outputs.release == 'true'
         env:
-          GH_TOKEN: ${{ github.token }}
-          V: ${{ steps.gate.outputs.version }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: 'true'
         run: |
+          if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
+            echo "::warning::NPM_TOKEN is not set. Without it npm refuses the publish and nothing is tagged (trusted publishing also needs an npm 11.5.1+ upgrade step this job does not have yet)."
+          else
+            # Prove the token authenticates before anything publishes: prints the npm user name, never the token.
+            npm whoami
+          fi
+          node tools/release.js --publish --push
+
+      # !cancelled(): the publish step goes red when a package is still missing after its retries, but by then the
+      # engine may be on npm and `v<version>` pushed. Its Release must still be created; a re-run would not, because
+      # the engine is no longer in the plan.
+      - name: Create the engine's GitHub Release
+        if: ${{ !cancelled() && steps.publish.outputs.engine_released == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          V: ${{ steps.publish.outputs.version }}
+          PRERELEASE: ${{ steps.publish.outputs.prerelease }}
+        run: |
+          # A release candidate (1.0.0-rc.1, on npm's `next` tag) is a GitHub pre-release and never "Latest".
+          if [ "$PRERELEASE" = "true" ]; then latest=(--prerelease --latest=false); else latest=(--latest); fi
           gh release create "v$V" \
             "release/lattice-v$V.zip" \
             --title "v$V" \
             --notes-file "release/notes-v$V.md" \
-            --verify-tag
-
-      # Opt-in by configuration, not by checkbox: the phase that publishes is
-      # no longer the phase a human dispatches, so there is no run to tick a
-      # box on. Setting NPM_TOKEN IS the opt-in; unset, this step is skipped
-      # and the GitHub Release + zip still ship.
-      - name: Publish to npm
-        if: steps.gate.outputs.release == 'true'
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
-            echo "::notice::NPM_TOKEN is not set — skipping npm publish (the GitHub Release still shipped)."
-            exit 0
-          fi
-          npm publish --workspace @laticent/lattice --access public --provenance
+            --verify-tag \
+            "${latest[@]}"

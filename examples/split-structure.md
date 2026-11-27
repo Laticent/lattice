@@ -1,11 +1,11 @@
 ---
 size: portrait
 theme: indaco
-paginate: true
+pagination: true
 footer: "Auto-split — structure decides"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # One thing per slide
 
@@ -15,7 +15,7 @@ A slide holding six things becomes six slides. The markup says how many, so ever
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## What changed
 
@@ -28,7 +28,7 @@ A slide holding six things becomes six slides. The markup says how many, so ever
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- @meta{layout=list, class=takeaway} -->
 
 ## What a split page owes the reader
 
@@ -42,7 +42,7 @@ _This numbered list — authored as the since-retired `list-criteria` then — c
 
 ---
 
-<!-- _class: timeline-list -->
+<!-- @meta{layout=timeline-list} -->
 
 ## How the cut was decided, over time
 
@@ -57,7 +57,7 @@ _This numbered list — authored as the since-retired `list-criteria` then — c
 
 ---
 
-<!-- _class: journey -->
+<!-- @meta{layout=journey} -->
 
 ## Reading a split run
 
@@ -74,7 +74,7 @@ _A chart splits when the splitter can reach its seam. On a tall deck journey sta
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## Enrollment across the catalog
 
@@ -87,7 +87,7 @@ _A bold lead becomes the next page's pointer — unless it is a FIGURE, which yi
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 # More slides, one thing each
 

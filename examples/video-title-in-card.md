@@ -1,14 +1,14 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · video"
 footer: "video keeps its title in the card"
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=title, header="", footer=""} -->
+
+
 
 # Video keeps its title in the card
 
@@ -18,7 +18,7 @@ Every composition now sits in the frame's stage, with its own title beside its o
 
 ---
 
-<!-- _class: video companion -->
+<!-- @meta{layout=video, class=companion} -->
 
 `Companion`
 
@@ -30,7 +30,7 @@ The running header and this slide's footer stay on the slide. The rebuild used t
 
 ---
 
-<!-- _class: video companion qr -->
+<!-- @meta{layout=video, class=companion qr} -->
 
 `Companion · qr`
 
@@ -42,7 +42,7 @@ The QR column fits the stage cell, so the poster no longer rides up to the top e
 
 ---
 
-<!-- _class: video gallery -->
+<!-- @meta{layout=video, class=gallery} -->
 
 `Gallery`
 
@@ -52,7 +52,7 @@ The QR column fits the stage cell, so the poster no longer rides up to the top e
 
 ---
 
-<!-- _class: video gallery qr -->
+<!-- @meta{layout=video, class=gallery qr} -->
 
 `Gallery · qr`
 
@@ -62,7 +62,7 @@ The QR column fits the stage cell, so the poster no longer rides up to the top e
 
 ---
 
-<!-- _class: video -->
+<!-- @meta{layout=video} -->
 
 `Default`
 
@@ -74,7 +74,7 @@ The default composition keeps the title and the framing paragraph above the post
 
 ---
 
-<!-- _class: video companion dark -->
+<!-- @meta{layout=video, class=companion dark} -->
 
 `Companion · dark`
 
@@ -86,7 +86,7 @@ Nothing about the fix depends on the palette. The card and its cells carry throu
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 `Next`
 

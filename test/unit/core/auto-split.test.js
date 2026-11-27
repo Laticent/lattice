@@ -372,7 +372,7 @@ describe('core: document-level bookkeeping across a split', () => {
     assert.doesNotMatch(html, /lat-pagination">0</, 'no page may render a literal 0');
   });
 
-  // The engine numbers a slide by its ABSOLUTE position and a `paginate: false` slide still
+  // The engine numbers a slide by its ABSOLUTE position and a `pagination: false` slide still
   // holds one (lib/engine/slides.js §3). Hierarchical numbering does not disturb that: it only
   // ever appends a decimal WITHIN a run, so a hidden slide's position is untouched by
   // construction rather than by a counter that has to remember it.

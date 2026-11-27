@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · Mermaid 12"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Mermaid 12 draws the diagrams you already have
 
@@ -15,7 +15,7 @@ The vendored Mermaid moved up a major, which brings its label sanitizer to DOMPu
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 ## A flowchart keeps its square edges and plain nodes.
 
@@ -28,7 +28,7 @@ flowchart LR
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 ## Short labels keep their snug boxes.
 
@@ -44,7 +44,7 @@ stateDiagram-v2
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 ## A mind map still fans out from its center.
 
@@ -64,7 +64,7 @@ mindmap
 
 ---
 
-<!-- _class: diagram sketch -->
+<!-- @meta{layout=diagram, class=sketch} -->
 
 ## A sketch slide now draws block diagrams by hand.
 
@@ -78,7 +78,7 @@ block-beta
 
 ---
 
-<!-- _class: diagram dark -->
+<!-- @meta{layout=diagram, class=dark} -->
 
 ## A dark slide keeps the palette.
 
@@ -92,7 +92,7 @@ flowchart LR
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 # Same diagrams, newer sanitizer
 
