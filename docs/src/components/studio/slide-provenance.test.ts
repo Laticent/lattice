@@ -321,6 +321,9 @@ describe('marks provenance + override', () => {
 		expect(marksProvenance(old, deck('marks: etch', old))).toMatchObject({ state: 'off', inheritable: false });
 		expect(getClassTokens(setMarks(slide, 'etch'))).toEqual(['bar', 'chart-finish-etch']);
 		expect(getClassTokens(setMarks(setMarks(slide, 'etch'), null))).toEqual(['bar']);
+		// A pick drops the old token, so the slide no longer carries a class lint reports.
+		expect(getClassTokens(setMarks(old, 'etch'))).toEqual(['bar', 'chart-finish-etch']);
+		expect(getClassTokens(setMarks(old, null))).toEqual(['bar']);
 	});
 	it('setMarks swaps the one token and keeps the component; null clears it', () => {
 		const on = setMarks(slide, 'etch');

@@ -27,7 +27,7 @@ const chrome = resolveChrome();
 const DECK = (finish) => `---
 marp: true
 theme: indaco
-marks: ${finish}
+chart-finish: ${finish}
 ---
 
 <!-- _class: columns ratio-40-60 -->

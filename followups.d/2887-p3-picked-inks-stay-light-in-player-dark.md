@@ -17,7 +17,7 @@ source: https://github.com/Laticent/lattice/pull/2887
                    ink (`--hs-icon-ink: light-dark(color(from …), color(from …))`, 10 rules before that PR,
                    the same after) has it still, and so may any custom property a member sets this way.
        where     — lib/export/player-core.mjs (`themeDualMode`, `hoistRuleLightDark`);
-                   tools/build-marks-css.js (the icon-ink rules).
+                   tools/build-chart-finish-css.js (the icon-ink rules).
        done when — the icon ink is right in `--player` dark mode: either the rule paints the icon's fill with a
                    light-dark() in a real property, or the dual-mode pass scopes a custom property to its rule.
        evidence  — `node dist/lattice.js deck.md out.html --player`, set data-lp-scheme=dark, read the icon's

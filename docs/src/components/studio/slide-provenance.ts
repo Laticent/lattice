@@ -278,8 +278,13 @@ export function marksProvenance(chunk: string, source: string): Provenance {
 	if (deckValue) return { state: 'inherited', value: deckValue, deckValue, inheritable: true };
 	return { state: 'off', inheritable: false };
 }
+// The retired `marks-*` finish spelling renders nothing (renames decision Q4), so a pick drops it too: the slide never
+// keeps an old token that lint reports as an error.
+const RETIRED_FINISH_TOKEN = /^marks-(pigment|etch|tone)$/;
 export function setMarks(chunk: string, name: string | null): string {
-	return setOverride(chunk, 'chart-finish', CHART_FINISH_PREFIX, CHART_FINISH_VALUES, name);
+	const tokens = getClassTokens(chunk);
+	const clean = tokens.some((t) => RETIRED_FINISH_TOKEN.test(t)) ? setClassTokens(chunk, tokens.filter((t) => !RETIRED_FINISH_TOKEN.test(t))) : chunk;
+	return setOverride(clean, 'chart-finish', CHART_FINISH_PREFIX, CHART_FINISH_VALUES, name);
 }
 
 const EYEBROW_VALUES = ['plain', 'dot', 'bar', 'arrow', 'underline'];

@@ -271,7 +271,7 @@ test('dropUnusedMarksRules reads a selector without its comment, and a finish cl
 	};
 	assert.equal(dropUnusedMarksRules('/* like .chart-finish-tone */ .lp-state{color:red}', noMatch), '/* like .chart-finish-tone */ .lp-state{color:red}');
 	assert.equal(dropUnusedMarksRules('/* a, b */ section.chart-finish-tone .m{fill:red}', noMatch), '');
-	const custom = '.my-marks-tone{a:1}';
+	const custom = '.my-chart-finish-tone{a:1}';
 	assert.equal(dropUnusedMarksRules(custom, () => false), custom);
 });
 

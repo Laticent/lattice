@@ -239,9 +239,35 @@ describe('chart-finish: the retired `marks:` key', () => {
     assert.equal(fixAll('---\nmarp: true\nmarks: vivid\n---\n\n## A\n'), '---\nmarp: true\ncolor-intensity: vivid\n---\n\n## A\n');
   });
 
-  test('a new key the deck already sets decides its axis, so the fix leaves that word out', () => {
-    assert.equal(fixAll('---\nmarks: tone vivid\nchart-finish: etch\n---\n\n## A\n'), '---\ncolor-intensity: vivid\nchart-finish: etch\n---\n\n## A\n');
-    assert.equal(fixAll('---\nmarks: tone vivid\nchart-finish: etch\ncolor-intensity: muted\n---\n\n## A\n'), '---\nchart-finish: etch\ncolor-intensity: muted\n---\n\n## A\n');
+  test('a `color-intensity:` the deck already sets decides its axis, so the fix leaves that word out', () => {
+    assert.equal(fixAll('---\nmarks: tone vivid\ncolor-intensity: muted\n---\n\n## A\n'), '---\nchart-finish: tone\ncolor-intensity: muted\n---\n\n## A\n');
+    // `chart-finish:` beside `marks:` is the OLD spelling, which `marks:` beat: the old line goes, `marks:` splits.
+    assert.equal(fixAll('---\nmarks: tone vivid\nchart-finish: etch\ncolor-intensity: muted\n---\n\n## A\n'), '---\nchart-finish: tone\ncolor-intensity: muted\n---\n\n## A\n');
+  });
+
+  test('with both `marks:` and the old `chart-finish:`, the fix keeps what rendered before: `marks:`', () => {
+    // Before the split `marks:` decided whole; the red team showed the fix losing `tone` or changing the look.
+    assert.equal(fixAll('---\nchart-finish: vivid\nmarks: tone\n---\n\n## A\n'), '---\nchart-finish: tone\n---\n\n## A\n');
+    assert.equal(fixAll('---\nmarks: tone vivid\nchart-finish: etch\n---\n\n## A\n'), '---\nchart-finish: tone\ncolor-intensity: vivid\n---\n\n## A\n');
+    assert.equal(fixAll('---\nchart-finish: tonal\nmarks: etch\n---\n\n## A\n'), '---\nchart-finish: etch\n---\n\n## A\n');
+  });
+
+  test('text inside a block scalar is not a key', () => {
+    const md = '---\ndescription: |\n  chart-finish: etch\n  color-intensity: vivid\nmarks: tone muted\n---\n\n## A\n';
+    assert.equal(fixAll(md), '---\ndescription: |\n  chart-finish: etch\n  color-intensity: vivid\nchart-finish: tone\ncolor-intensity: muted\n---\n\n## A\n');
+  });
+
+  test('a `marks:` block list has no fix, so the fix never orphans its items', () => {
+    const md = '---\ntheme: indaco\nmarks:\n  - etch\n  - vivid\n---\n\n# A\n';
+    const f = lint(md).findings.find((x) => x.rule === 'marks-split');
+    assert.ok(f && f.severity === 'error' && !f.autofixable, JSON.stringify(f));
+    assert.equal(fixAll(md), md);
+  });
+
+  test('an intensity under `chart-finish:` moves to `color-intensity:`, unless that key already decides', () => {
+    assert.equal(fixAll('---\nchart-finish: tone vivid\n---\n\n## A\n'), '---\nchart-finish: tone\ncolor-intensity: vivid\n---\n\n## A\n');
+    assert.equal(fixAll('---\nchart-finish: vivid\n---\n\n## A\n'), '---\ncolor-intensity: vivid\n---\n\n## A\n');
+    assert.equal(fixAll('---\nchart-finish: etch vivid\ncolor-intensity: muted\n---\n\n## A\n'), '---\nchart-finish: etch\ncolor-intensity: muted\n---\n\n## A\n');
   });
 
   test('after the fix the deck renders what the old key meant', () => {

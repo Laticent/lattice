@@ -18,7 +18,7 @@ source: https://github.com/Laticent/lattice/pull/2887
                    a pale wash under etch and tone while a checklist disc, a kpi pill or a roadmap disc on the
                    same slide stays solid.
        where     — the status components outside the chart family (checklist and verdict discs, kpi pills,
-                   roadmap discs) and lib/core/deck-settings.js (`preset:`); tools/build-marks-css.js owns the
+                   roadmap discs) and lib/core/deck-settings.js (`preset:`); tools/build-chart-finish-css.js owns the
                    --finish-* values they would read.
        done when — a disc, pill or roadmap mark outside the chart family takes its level, edge and border from
                    the same --finish-* values as a chart mark, under all three finishes, and `preset:` can name

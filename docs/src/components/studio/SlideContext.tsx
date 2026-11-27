@@ -822,7 +822,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 								<CatalogSelect ariaLabel="Slide finish" value={finishValue} onValueChange={onFinish} groups={finishGroups} className="w-full" />
 							</Row>
 							{isChart && (
-								<Row label="Marks" hint={marksProv.state === 'inherited' ? 'from deck' : undefined} desc="How this chart spends its color." find="chart finish pigment etch tone color" help={<><strong>Pigment</strong> puts the color in the body (the default), <strong>Etch</strong> in the line, <strong>Tone</strong> in stepped shades of one hue. Choosing one here overrides the deck's finish for this slide. Written as <code>_class: marks-*</code>.</>}>
+								<Row label="Marks" hint={marksProv.state === 'inherited' ? 'from deck' : undefined} desc="How this chart spends its color." find="chart finish pigment etch tone color" help={<><strong>Pigment</strong> puts the color in the body (the default), <strong>Etch</strong> in the line, <strong>Tone</strong> in stepped shades of one hue. Choosing one here overrides the deck's finish for this slide. Written as <code>_class: chart-finish-*</code>.</>}>
 									<Picker ariaLabel="Marks" value={marksOpt.value} onChange={onMarks} groups={marksOpt.groups} />
 								</Row>
 							)}
