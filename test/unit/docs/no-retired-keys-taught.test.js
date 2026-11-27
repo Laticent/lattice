@@ -9,8 +9,8 @@
 // This test reads the sources of everything an agent reads (SOURCES below) and reports each retired key, as
 // `path:line`, in three shapes:
 //   - FRONT MATTER: a `key:` line inside a `---` block that opens the file, opens a fenced code block, or opens a
-//     template string (`= \`---`), or any line of a ```yaml fence. A block is something to copy, so no wording
-//     excuses one.
+//     template string (`= \`---`); any line of a ```yaml fence; a column-0 key line in an unlabeled, ```md or
+//     ```markdown fence. A block is something to copy, so no wording excuses one.
 //   - INLINE, in Markdown: `` `key:` `` in backticks.
 //   - BARE, in plain text (a Studio tool's `chat` description, the llms.txt source): `key:` as a word.
 // The retired set is read from `DECK_SETTINGS`, so the next rename that retires a key turns its own leftover guidance
@@ -18,7 +18,8 @@
 //
 // Guidance may NAME a retired key to say what replaced it. An inline or bare mention passes when its paragraph (a run
 // of non-blank lines; each list item and table row is its own; a sentence in plain text) says so in words
-// RETIREMENT_CUE matches: "renamed", "retired", "the old key", "no longer", "becomes", "was `…`", "→" and the like. A mention no cue can
+// RETIREMENT_CUE matches: "renamed", "retired", "the old key", "no longer", "was `…`", "→", and "becomes" / "is now" /
+// "instead of" only between two code spans (`` `a:` becomes `b:` ``). A mention no cue can
 // excuse goes in SANCTIONED, with its reason and an exact count per key, so a new mention in that file still fails,
 // and so does a stale entry. A new entry goes in with its reason, never as a silent edit.
 const { test } = require('node:test');
@@ -32,7 +33,7 @@ const ROOT = path.resolve(__dirname, '../../..');
 
 /** What an agent reads, by the shape of its text: pathspecs for `git ls-files`, then a filter on the path. */
 const SOURCES = [
-  { kind: 'markdown', specs: ['design/skill.md', 'design/skills'], keep: /\.md$/ },
+  { kind: 'markdown', specs: ['design'], keep: /\.md$/ },
   { kind: 'markdown', specs: ['docs/src/content'], keep: /\.mdx?$/ },
   { kind: 'markdown', specs: ['lib/base', 'lib/components', 'lib/plugins/chart-family/kinds'], keep: /\.docs\.md$/ },
   { kind: 'markdown', specs: ['.claude/skills'], keep: /^\.claude\/skills\/lattice-[^/]+\/SKILL\.md$/ },
@@ -48,6 +49,18 @@ const SANCTIONED = {
   },
   'design/skills/chart-component.md': {
     why: "`form: canvas` is a chart manifest's Frame field, not the retired deck key",
+    keys: { form: 1 },
+  },
+  'design/forms.md': {
+    why: "`form:` here is a component manifest's Frame field, the subject of the doc, not the retired deck key",
+    keys: { form: 6 },
+  },
+  'design/concepts.md': {
+    why: "`form:` here is a component manifest's Frame field, not the retired deck key",
+    keys: { form: 1 },
+  },
+  'design/design-system.md': {
+    why: "`form:` here is a component manifest's Frame field, not the retired deck key",
     keys: { form: 1 },
   },
   'docs/src/content/docs/spec/lfm.md': {
@@ -72,7 +85,7 @@ const SANCTIONED = {
 // "before" or "old" on its own appears in plenty of current instructions, and a cue that broad excused
 // `` `guards: loose` is the default `` (lib/base/base.docs.md) because "before #2308" sat in the same paragraph.
 const RETIREMENT_CUE =
-  /\b(?:retired|retirement|renamed|was called|replaced|no longer|is now|legacy|migrat\w*|rewrites?|becomes|deprecated|(?:the|an?) old(?:er)? (?:name|names|key|keys|form|forms|spelling|one|note|syntax|classes)|old names|LFM 1\.x|reaches nothing|instead of)\b|\b(?:was|formerly) `|→/i;
+  /\b(?:retired|retirement|renamed|was called|replaced|no longer|legacy|migrat\w*|rewrites?|deprecated|(?:the|an?) old(?:er)? (?:name|names|key|keys|form|forms|spelling|one|note|syntax|classes)|old names|LFM 1\.x|reaches nothing|(?:is|are) ignored)\b|\b(?:was|formerly) `|→|`[^`]+`[ \t]*(?:becomes|is now|instead of)[ \t]+`/i;
 
 const RETIRED = DECK_SETTINGS.filter((r) => r.kind === 'retired').map((r) => r.key);
 const ALT = RETIRED.map((k) => k.replace(/[.*+?^${}()|[\]\\-]/g, '\\$&')).join('|');
@@ -80,6 +93,8 @@ const FM_LINE = new RegExp(`^[ \\t]*(${ALT})[ \\t]*:`);
 const INLINE = new RegExp(`\`(${ALT})[ \\t]*:`, 'g');
 const BARE = new RegExp(`(?<![\\w-])(${ALT})[ \\t]*:`, 'g');
 const FENCE = /^[ \t]*(`{3,}|~{3,})/;
+// A fence whose body is settings or a deck: a bare `key:` line in one is something an author copies.
+const SETTINGS_FENCE = /^[ \t]*(?:`{3,}|~{3,})[ \t]*(?:yaml|yml|md|markdown|lfm)?[ \t]*$/i;
 const YAML_FENCE = /^[ \t]*(?:`{3,}|~{3,})[ \t]*(?:yaml|yml)\b/i;
 const UNIT_START = /^[ \t]*(?:[-*+][ \t]|\d+\.[ \t]|\|)/;
 
@@ -105,6 +120,7 @@ function retiredKeys(text) {
   });
   let inFence = false;
   let inYaml = false; // inside a ```yaml fence: every line is a settings line, with or without `---`
+  let inDeck = false; // inside an unlabeled, ```md or ```markdown fence: a key at column 0 is a settings line
   let inFm = false;
   // True at the top of the file and right after a fence opens: the only places a `---` line opens front matter.
   let atStart = true;
@@ -118,12 +134,17 @@ function retiredKeys(text) {
       }
       return;
     }
+    if (inDeck && !FENCE.test(line) && /^[^ \t]/.test(line)) {
+      const m = FM_LINE.exec(line);
+      if (m) out.push({ line: i + 1, key: m[1], shape: 'front-matter' });
+    }
     if (!cued.has(unit[i])) for (const m of line.matchAll(INLINE)) out.push({ line: i + 1, key: m[1], shape: 'inline' });
     if (t === '') return;
     if ((t === '---' && atStart) || /=\s*`---$/.test(t)) inFm = true;
     if (FENCE.test(line)) {
       inFence = !inFence;
       inYaml = inFence && YAML_FENCE.test(line);
+      inDeck = inFence && !inYaml && SETTINGS_FENCE.test(line);
       atStart = inFence;
     } else atStart = false;
   });
@@ -204,6 +225,12 @@ test('a mention its paragraph marks as history passes; a front-matter block neve
   assert.equal(retiredKeys('| `guards:` | the fit policy |\n| `x:` | renamed |\n').length, 1);
   // A ```yaml fence is a settings block with or without `---`.
   assert.deepEqual(retiredKeys('Add:\n\n```yaml\npaginate: true\n```\n'), [{ line: 4, key: 'paginate', shape: 'front-matter' }]);
+  // A deck fence with no `---` still teaches a bare key line.
+  assert.deepEqual(retiredKeys('```markdown\npaginate: true\n\n## A\n```\n'), [{ line: 2, key: 'paginate', shape: 'front-matter' }]);
+  // "becomes", "is now" and "instead of" are cues only between two code spans: old `a:` becomes new `b:`.
+  assert.equal(retiredKeys('A new deck becomes numbered with `paginate: true`.\n').length, 1);
+  assert.equal(retiredKeys('Use `paginate: true` instead of a page-number comment.\n').length, 1);
+  assert.deepEqual(retiredKeys('`paginate: true` becomes `pagination: true`.\n'), []);
   // A common word is not a cue: "before" here is an instruction, not history.
   assert.equal(retiredKeys('Set `paginate: true` before the first slide.\n').length, 1);
   // A cue next to a block does not excuse the block.
