@@ -223,7 +223,7 @@ The CSS pattern is `p:has(> code:only-child) + h1/h2/…`. Eyebrows are
 so the eyebrow pattern can never violate heading-order rules.
 
 **The WHOLE paragraph has to be the code span.** `` `Section 01` `` is an
-eyebrow; `` `guards: loose` is the default `` is a sentence, and renders as
+eyebrow; `` `fit: heal` is the default `` is a sentence, and renders as
 one. CSS `:only-child` cannot see text, so before #2308 any paragraph holding
 exactly one code span matched — "The `background:` shorthand clears every
 longhand" after a heading was re-typeset as a muted subtitle and lost its
@@ -1417,7 +1417,7 @@ reads it as a *checked* box, the opposite of what a cross suggests.
 boardroom-ready styles, switchable per slide (`_class: checklist
 checks-outline`) or per deck (`class: checks-bold`). The marks and
 status colors never change — only the disc presentation. A finding's disc is the
-deck's status fill (`--pass-mark` … or their `-vivid` twins, by `marks:`),
+deck's status fill (`--pass-mark` … or their `-vivid` twins, by `color-intensity:`),
 its rail and label the slide ink (`--pass` …), and its row the theme's `--pass-bg` …
 (`engineering/decisions/2026-10-24-status-is-one-system.md`):
 

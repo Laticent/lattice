@@ -2,7 +2,7 @@
 /**
  * curate-status-triplets — solve each brand theme's status TRIPLET (fill, ink on it, edge) and write it into the theme.
  *
- * The contract (engineering/decisions/2026-11-16-status-triplets.md), per brand theme, per `marks:` intensity.
+ * The contract (engineering/decisions/2026-11-16-status-triplets.md), per brand theme, per `color-intensity:` value.
  *
  * THE LIGHT FACE curates a triplet:
  *   FILL   each status solid clears 4.5:1 AS PAINTED against every surface a status mark sits on: the slide, the

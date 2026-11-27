@@ -15,12 +15,12 @@ test.describe.configure({ timeout: 120_000 });
 // title / agenda / kpi / quote / stats / closing — the same shapes the seeded
 // "Q3 Board Review" proves in-studio.
 const DECK = [
-	'<!-- _class: title -->\n\n# Q4 Board Update\n\n`Board · Q4 2026`\n\nGrowth held; spend stayed disciplined.',
-	'<!-- _class: agenda -->\n\n## What this update covers.\n\n1. The quarter in four numbers\n2. What customers told us\n3. How the funnel converted\n4. The ask for Q1',
-	'<!-- _class: kpi -->\n\n`Financial · Q4 2026`\n\n## The quarter in four numbers\n\n1. $4.6M\n   - Net revenue\n   - target $4.4M · +16% YoY `On plan` `Board`\n2. +16%\n   - YoY growth\n   - vs +18% last quarter `On plan` `Investor`\n3. 155\n   - New logos\n   - target 130 · +19% `On plan` `Sales`\n4. 1.2%\n   - Net churn\n   - target < 2% `On plan` `Success`',
-	'<!-- _class: quote -->\n\n> Expansion outpaced new business again — the platform bet is compounding.\n\n— Maya Chen, COO',
-	'<!-- _class: stats -->\n\n`Funnel · Q4 2026`\n\n## How the funnel converted, stage to stage.\n\n1. 41%\n   - Trial → activation\n2. 63%\n   - Activation → paid\n3. 127%\n   - Net revenue retention\n4. 10 mo\n   - CAC payback',
-	'<!-- _class: closing -->\n\n## Fund the expansion motion — it is the cheapest growth we have.\n\n`Q1 plan follows`',
+	'<!-- @meta{layout=title} -->\n\n# Q4 Board Update\n\n`Board · Q4 2026`\n\nGrowth held; spend stayed disciplined.',
+	'<!-- @meta{layout=agenda} -->\n\n## What this update covers.\n\n1. The quarter in four numbers\n2. What customers told us\n3. How the funnel converted\n4. The ask for Q1',
+	'<!-- @meta{layout=kpi} -->\n\n`Financial · Q4 2026`\n\n## The quarter in four numbers\n\n1. $4.6M\n   - Net revenue\n   - target $4.4M · +16% YoY `On plan` `Board`\n2. +16%\n   - YoY growth\n   - vs +18% last quarter `On plan` `Investor`\n3. 155\n   - New logos\n   - target 130 · +19% `On plan` `Sales`\n4. 1.2%\n   - Net churn\n   - target < 2% `On plan` `Success`',
+	'<!-- @meta{layout=quote} -->\n\n> Expansion outpaced new business again — the platform bet is compounding.\n\n— Maya Chen, COO',
+	'<!-- @meta{layout=stats} -->\n\n`Funnel · Q4 2026`\n\n## How the funnel converted, stage to stage.\n\n1. 41%\n   - Trial → activation\n2. 63%\n   - Activation → paid\n3. 127%\n   - Net revenue retention\n4. 10 mo\n   - CAC payback',
+	'<!-- @meta{layout=closing} -->\n\n## Fund the expansion motion — it is the cheapest growth we have.\n\n`Q1 plan follows`',
 ].join('\n\n---\n\n');
 
 test('an exec drafts a quarterly deck, the Coach scores it board-ready, and it exports to PDF', async ({ page }) => {

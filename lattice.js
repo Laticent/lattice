@@ -2088,8 +2088,15 @@ function withInstalledComponents(source) {
   const cheapKnown = new Set([...COMPONENT_NAMES, ...reserved.names, ...embeddedComponentNames(r.source), ...r.used, ...retiredCandidates]);
   const doubtful = classTokens(r.source).filter((t) => !cheapKnown.has(t) && !reserved.prefixes.some((pre) => t === pre || t.startsWith(pre.endsWith('-') ? pre : `${pre}-`)));
   if (doubtful.length) {
-    const unknown = new Set(require('./lib/authoring/lint.js').lintText(r.source).filter((f) => f.rule === 'unknown-class').map((f) => f.classToken));
-    for (const t of doubtful.filter((x) => unknown.has(x))) {
+    const findings = require('./lib/authoring/lint.js').lintText(r.source).filter((f) => f.rule === 'unknown-class');
+    const unknown = new Set(findings.map((f) => f.classToken));
+    // A RENAMED class (lint-core `RENAMED_CLASSES`: `marks-tone` is `chart-finish-tone`) carries its new name as a
+    // fix with no fuzzy guess behind it; say that, not "install a package" (the inversion pass on #3510).
+    const renamed = new Map(findings.filter((f) => f.replace?.to && !f.didYouMean).map((f) => [f.classToken, f.replace.to]));
+    for (const t of doubtful.filter((x) => renamed.has(x))) {
+      console.error(`warning: "${t}" was renamed to "${renamed.get(t)}", and the old name now does nothing. \`lattice lint\` names each one and fixes it.`);
+    }
+    for (const t of doubtful.filter((x) => unknown.has(x) && !renamed.has(x))) {
       console.error(`warning: no component "${t}" — it is not shipped, embedded in the deck, or installed, so its slides render unstyled.`);
       console.error(`         to install one made in the Studio: lattice packages add ${t}.lattice-component.zip`);
     }

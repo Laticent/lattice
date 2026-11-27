@@ -1,6 +1,6 @@
 {
  "threshold": 0.95,
- "decks": 391,
+ "decks": 393,
  "ids": [
   "head:base.tokens#rest~2",
   "head:base.elements",
@@ -46,7 +46,6 @@
   "tail:watermark",
   "tail:code.styles",
   "tail:mermaid.styles",
-  "tail:chart-family.styles.generated",
   "tail:base.fluid-view",
   "generated:slicing"
  ],
@@ -95,7 +94,6 @@
   "tail:watermark": "04811124e45f36bc450e87c4687a075a67fe1bc08ecfc8f53b208176f5451b75",
   "tail:code.styles": "a0b0f421d317e55799386f283084824309fb4a6ad02dc430f6882e7c0bf43bea",
   "tail:mermaid.styles": "91b7518e3e07cf80f3b17eec2a0427e67a4313f6e03f26fe7d2c2a8623c38273",
-  "tail:chart-family.styles.generated": "a97973d0df8aafde3fda4635b290014ae20151ca15aec0f27f9b2cd55308c4ad",
   "tail:base.fluid-view": "daa6ac4f5f4a35ff09b01ff3a19b1f36b205d86fb8b1215dba2c19bbc89dc997",
   "generated:slicing": "8161a9a66a79460912608688e1f3eec1f29f28f1b9782a4aa1530efd4333d257"
  }

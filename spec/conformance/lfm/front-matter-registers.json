@@ -1105,12 +1105,12 @@
    }
   },
   {
-   "name": "marks: off (retired: a finish is always on)",
-   "source": "---\nmarks: off\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "chart-finish: off (retired: a finish is always on)",
+   "source": "---\nchart-finish: off\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": [
      {
-      "rule": "unknown-marks",
+      "rule": "unknown-chart-finish",
       "severity": "warning",
       "slide": 0
      }
@@ -1118,12 +1118,12 @@
    }
   },
   {
-   "name": "marks: etching (renamed to etch)",
-   "source": "---\nmarks: etching\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "chart-finish: etching (renamed to etch)",
+   "source": "---\nchart-finish: etching\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": [
      {
-      "rule": "unknown-marks",
+      "rule": "unknown-chart-finish",
       "severity": "warning",
       "slide": 0
      }
@@ -1131,66 +1131,106 @@
    }
   },
   {
-   "name": "chart-finish: tone (the old spelling of marks:, still renders)",
-   "source": "---\nchart-finish: tone\n---\n\n## A register\n\nOne line of text.\n",
-   "L2": {
-    "findings": [
-     {
-      "rule": "marks-renamed",
-      "severity": "info",
-      "slide": 0
-     }
-    ]
-   }
-  },
-  {
-   "name": "marks: pigment",
-   "source": "---\nmarks: pigment\n---\n\n## A register\n\nOne line of text.\n",
-   "L2": {
-    "findings": []
-   }
-  },
-  {
-   "name": "marks: etch",
-   "source": "---\nmarks: etch\n---\n\n## A register\n\nOne line of text.\n",
-   "L2": {
-    "findings": []
-   }
-  },
-  {
-   "name": "marks: tone ink (tone's source: the heading ink)",
-   "source": "---\nmarks: tone ink\n---\n\n## A register\n\nOne line of text.\n",
-   "L2": {
-    "findings": []
-   }
-  },
-  {
-   "name": "marks: etch accent (a source means something only under tone)",
-   "source": "---\nmarks: etch accent\n---\n\n## A register\n\nOne line of text.\n",
-   "L2": {
-    "findings": [
-     {
-      "rule": "marks-source-needs-tone",
-      "severity": "warning",
-      "slide": 0
-     }
-    ]
-   }
-  },
-  {
-   "name": "marks: tone",
+   "name": "marks: tone (retired: split into chart-finish: and color-intensity:)",
    "source": "---\nmarks: tone\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
+    "findings": [
+     {
+      "rule": "marks-split",
+      "severity": "error",
+      "slide": 0
+     }
+    ]
+   }
+  },
+  {
+   "name": "chart-finish: vivid (an intensity belongs on color-intensity:)",
+   "source": "---\nchart-finish: vivid\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": [
+     {
+      "rule": "marks-split",
+      "severity": "error",
+      "slide": 0
+     }
+    ]
+   }
+  },
+  {
+   "name": "chart-finish: pigment",
+   "source": "---\nchart-finish: pigment\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
     "findings": []
    }
   },
   {
-   "name": "marks: (unknown)",
-   "source": "---\nmarks: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "chart-finish: etch",
+   "source": "---\nchart-finish: etch\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "chart-finish: tone ink (tone's source: the heading ink)",
+   "source": "---\nchart-finish: tone ink\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "chart-finish: etch accent (a source means something only under tone)",
+   "source": "---\nchart-finish: etch accent\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": [
      {
-      "rule": "unknown-marks",
+      "rule": "chart-finish-source-needs-tone",
+      "severity": "warning",
+      "slide": 0
+     }
+    ]
+   }
+  },
+  {
+   "name": "chart-finish: tone",
+   "source": "---\nchart-finish: tone\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "chart-finish: (unknown)",
+   "source": "---\nchart-finish: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": [
+     {
+      "rule": "unknown-chart-finish",
+      "severity": "warning",
+      "slide": 0
+     }
+    ]
+   }
+  },
+  {
+   "name": "color-intensity: muted",
+   "source": "---\ncolor-intensity: muted\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "color-intensity: vivid",
+   "source": "---\ncolor-intensity: vivid\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "color-intensity: (unknown)",
+   "source": "---\ncolor-intensity: loud\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": [
+     {
+      "rule": "unknown-color-intensity",
       "severity": "warning",
       "slide": 0
      }

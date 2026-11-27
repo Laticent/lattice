@@ -342,7 +342,7 @@
    The eyebrow label is rendered for the heavy treatment but hidden here. */
 :is(section.roadmap, figure.roadmap) td.cell-state .cell-state-label { display:none; }
 /* Every disc below (the cell's, the key's, the `.status` corner's) paints `--state-fill` when a finish sets it on the
- * cell or key item: the status at the finish's one status level (tools/build-marks-css.js § ROADMAP). With no
+ * cell or key item: the status at the finish's one status level (tools/build-chart-finish-css.js § ROADMAP). With no
  * finish it falls back to the status solid. */
 /* Leading state token = a solid --state-color disc (::before) carrying the
  * shared --state-mark symbol (::after), knocked out in the canvas color via
