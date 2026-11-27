@@ -157,7 +157,7 @@ theme: indaco
 pagination: true
 ---
 
-${[1, 3, 14].map((n) => `<!-- @meta{layout=split-panel, class=pullquote} -->\n<!-- _footer: "${LONG_FOOTER}" -->\n\n> A quotation.\n\n\`Someone\`\n\n${points(n)}`).join('\n\n---\n\n')}
+${[1, 3, 14].map((n) => `<!-- @meta{layout=split-panel, class=pullquote} -->\n<!-- @meta{footer="${LONG_FOOTER}"} -->\n\n> A quotation.\n\n\`Someone\`\n\n${points(n)}`).join('\n\n---\n\n')}
 `;
 
 describe('portrait split-panel footer budget (real render)', () => {

@@ -73,7 +73,7 @@ footer: "Footer Text"
 logo: sample:logo-acme-mark.svg
 ---
 
-<!-- _class: content -->
+<!-- @meta{class=content} -->
 
 ## Control slide, no finish
 
@@ -81,7 +81,7 @@ Body copy that gives the stage real height to distribute.
 
 ---
 
-<!-- _class: content finish finish-atrium -->
+<!-- @meta{class=content finish finish-atrium} -->
 
 ## Subject slide, carrying a finish
 
@@ -89,7 +89,7 @@ Body copy that gives the stage real height to distribute.
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{class=divider} -->
 
 ## Control bookend, no finish
 
@@ -97,7 +97,7 @@ Subtitle copy under the divider heading.
 
 ---
 
-<!-- _class: divider finish finish-atrium -->
+<!-- @meta{class=divider finish finish-atrium} -->
 
 ## Subject bookend, carrying a finish
 
@@ -135,7 +135,7 @@ finish: atrium
 pagination: false
 ---
 
-<!-- _class: checklist -->
+<!-- @meta{class=checklist} -->
 
 ## A run long enough to split, so the k-of-N rail is emitted
 
@@ -264,7 +264,7 @@ ${['image clean', 'image spotlight', 'image statement', 'image gallery', 'image 
   .join('\n---\n\n')}
 ---
 
-<!-- _class: content -->
+<!-- @meta{class=content} -->
 
 ## A content slide
 
@@ -275,7 +275,7 @@ A trailing sentence.
 
 ---
 
-<!-- _class: title -->
+<!-- @meta{class=title} -->
 
 # A title bookend
 
@@ -285,7 +285,7 @@ A lede under the title.
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{class=divider} -->
 
 ## A divider bookend
 
@@ -293,7 +293,7 @@ Subtitle under the divider.
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{class=closing} -->
 
 ## A closing bookend
 
@@ -301,7 +301,7 @@ A sign-off line.
 
 ---
 
-<!-- _class: quote -->
+<!-- @meta{class=quote} -->
 
 > A pulled quote that stands on its own.
 
@@ -309,7 +309,7 @@ A sign-off line.
 
 ---
 
-<!-- _class: kpi -->
+<!-- @meta{class=kpi} -->
 
 ## Metrics
 

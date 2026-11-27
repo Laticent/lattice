@@ -44,7 +44,7 @@ const deck = (front, body) => `---\nmarp: true\ntheme: indaco\n${front}---\n\n${
 // --fs-message rows a shorter line wrapped already.
 const WRAP = 'A long line may spend twenty words or more, and this one spends every one of them on purpose to show exactly where the wrap lands on a wide slide.';
 const WIDE = deck('', `
-<!-- _class: list -->
+<!-- @meta{class=list} -->
 
 ## Five pills, one wrapping.
 
@@ -56,7 +56,7 @@ const WIDE = deck('', `
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- @meta{class=list takeaway} -->
 
 ## Four gloss rows.
 
@@ -71,7 +71,7 @@ const WIDE = deck('', `
 
 ---
 
-<!-- _class: list cards-stretch -->
+<!-- @meta{class=list cards-stretch} -->
 
 ## Stretch fills.
 
@@ -81,7 +81,7 @@ const WIDE = deck('', `
 
 ---
 
-<!-- _class: list cards-center -->
+<!-- @meta{class=list cards-center} -->
 
 ## Center does not.
 
@@ -90,7 +90,7 @@ const WIDE = deck('', `
 - Three.
 `);
 const PORTRAIT = deck('size: portrait\n', `
-<!-- _class: list -->
+<!-- @meta{class=list} -->
 
 ## A portrait list splits one row per page.
 

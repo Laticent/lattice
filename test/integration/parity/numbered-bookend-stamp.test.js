@@ -55,37 +55,37 @@ header: "Deck header"
 footer: "Deck footer"
 ---
 
-<!-- _class: divider -->
+<!-- @meta{class=divider} -->
 
 ## Control.
 
 ---
 
-<!-- _class: divider numbered -->
+<!-- @meta{class=divider numbered} -->
 
 ## Stamped.
 
 ---
 
-<!-- _class: divider silent numbered -->
+<!-- @meta{class=divider silent numbered} -->
 
 ## Stamped under silent.
 
 ---
 
-<!-- _class: divider light numbered -->
+<!-- @meta{class=divider light numbered} -->
 
 ## Stamped on the light canvas.
 
 ---
 
-<!-- _class: closing numbered -->
+<!-- @meta{class=closing numbered} -->
 
 ## A closing does not take the modifier.
 
 ---
 
-<!-- _class: divider silent -->
+<!-- @meta{class=divider silent} -->
 
 ## Silent, unstamped.
 `;

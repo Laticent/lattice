@@ -21,8 +21,8 @@ pagination: true
 
 ---
 
-<!-- _class: table -->
-<!-- _focusSteps: row 1 | row 2 -->
+<!-- @meta{class=table} -->
+<!-- @meta{focus-steps="row 1 | row 2"} -->
 
 ## Two rows, walked
 
@@ -33,7 +33,7 @@ pagination: true
 
 ---
 
-<!-- _build -->
+<!-- @meta{build} -->
 
 ## Built in place
 

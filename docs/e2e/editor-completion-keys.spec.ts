@@ -131,9 +131,12 @@ test('a front-matter key already set is not offered again @crosswidth @webkit-ph
 
 test('the editor completes what the Playground does: directive names, a nested backdrop map, map regions @crosswidth @webkit-phone @webkit-tablet @gecko', async ({ page }) => {
 	await gotoStudio(page);
-	await setEditorContent(page, '---\ntitle: Shared\n---\n\n<!-- _');
+	// Since the cut the record is the only setting offered after `<!-- `, never an old directive name (the Playground's
+	// own probe in editor-complete.test.ts says the same).
+	await setEditorContent(page, '---\ntitle: Shared\n---\n\n<!-- @m');
 	await page.keyboard.press('Control+Space');
-	await expect(menu(page).getByRole('option', { name: /^_header/ })).toBeVisible();
+	await expect(menu(page).getByRole('option', { name: /^@meta\{/ })).toBeVisible();
+	await expect(menu(page).getByRole('option', { name: /^_header/ })).toHaveCount(0);
 	await page.keyboard.press('Escape');
 	// Inside a nested map, the map's own keys, never the deck's.
 	await setEditorContent(page, '---\nbackdrop:\n  ');

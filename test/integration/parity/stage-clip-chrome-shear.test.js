@@ -65,7 +65,7 @@ const CASES = [
     mode: 'full',
     dense: `<!-- DENSE A — one-line heading, four extra body lines a side. -->
 
-<!-- _class: compare-prose -->
+<!-- @meta{class=compare-prose} -->
 
 ## Rebuild the ingest, or wrap the vendor feed.
 
@@ -85,7 +85,7 @@ const CASES = [
   - Schema changes wait a fortnight.`,
     overstuffed: `<!-- OVERSTUFFED CONTROL -->
 
-<!-- _class: compare-prose -->
+<!-- @meta{class=compare-prose} -->
 
 ## Overstuffed control — the same choice, at four times the length.
 
@@ -107,7 +107,7 @@ const CASES = [
     mode: 'full',
     dense: `<!-- DENSE — two-line heading (393px stage), ten-line justification on the tallest card. -->
 
-<!-- _class: decision -->
+<!-- @meta{class=decision} -->
 
 ## We are rebuilding the ingest ourselves rather than wrapping the vendor feed.
 
@@ -119,7 +119,7 @@ const CASES = [
   - The managed offer clears the audit and costs one engineer to integrate, but the exit price is data egress plus a rewrite, and the contract runs three years with automatic renewal. Throughput is contractual, so a peak we could absorb becomes a purchase order.`,
     overstuffed: `<!-- OVERSTUFFED CONTROL -->
 
-<!-- _class: decision -->
+<!-- @meta{class=decision} -->
 
 ## Overstuffed control — four options, each at paragraph length.
 
@@ -139,7 +139,7 @@ const CASES = [
     mode: 'full',
     dense: `<!-- DENSE — base shape, one blockquote, no trailing list. -->
 
-<!-- _class: redline -->
+<!-- @meta{class=redline} -->
 
 ## The opt-out clause gains a homepage link mandate.
 
@@ -150,7 +150,7 @@ const CASES = [
 > A business that <del>complies with subdivision (a)</del> <ins>processes an opt-out request received through the method described above</ins> shall <ins>treat that request as applying to every service provider and contractor to which it has disclosed the consumer's personal information, and</ins> shall not require the consumer to <del>create an account</del> <ins>verify their identity, create an account, or provide any information beyond that necessary to process the request</ins>, <ins>nor charge any fee, nor impose any additional step not required of a consumer who has not opted out, nor degrade the quality of the service provided</ins>.`,
     overstuffed: `<!-- OVERSTUFFED CONTROL — base shape, four subdivisions. -->
 
-<!-- _class: redline -->
+<!-- @meta{class=redline} -->
 
 ## Overstuffed control — the same clause with three further subdivisions.
 

@@ -67,7 +67,7 @@ header: "Adapter probe"
 footer: "A footer band, so the chrome exclusion is actually exercised"
 ---
 
-<!-- _class: content -->
+<!-- @meta{class=content} -->
 
 ## A slide whose body runs long.
 
@@ -75,7 +75,7 @@ ${'This paragraph is deliberately long so the slide overflows its frame and the 
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{class=content} -->
 
 ## A slide that fits.
 

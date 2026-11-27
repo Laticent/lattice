@@ -72,7 +72,7 @@ const DECK = `---
 theme: indaco
 ---
 
-<!-- _class: decision -->
+<!-- @meta{class=decision} -->
 
 ## Which path
 
@@ -83,7 +83,7 @@ theme: indaco
 
 ---
 
-<!-- _class: matrix-2x2 -->
+<!-- @meta{class=matrix-2x2} -->
 
 ## Effort vs impact
 
@@ -98,7 +98,7 @@ theme: indaco
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{class=stats} -->
 
 ## The quarter in three numbers
 
@@ -1033,7 +1033,7 @@ if (IS_CLI && process.argv.includes('--verify-paginates')) {
  * A REPORT, not a gate: it asserts nothing and exits 0. The tier assertions are the
  * default run above; this exists so a doc can name a command rather than a constant.
  */
-const PRESET_DECK = `<!-- _class: content -->
+const PRESET_DECK = `<!-- @meta{class=content} -->
 
 ## A heading for the probe
 

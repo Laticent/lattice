@@ -31,7 +31,7 @@ const deck = `---
 marp: true
 ---
 
-<!-- _class: collage -->
+<!-- @meta{class=collage} -->
 
 ## First slide
 
@@ -39,7 +39,7 @@ ${grid}
 
 ---
 
-<!-- _class: collage bleed -->
+<!-- @meta{class=collage bleed} -->
 
 ## Second slide
 
@@ -342,7 +342,7 @@ marp: true
 size: standard
 ---
 
-<!-- _class: collage bleed -->
+<!-- @meta{class=collage bleed} -->
 
 ## First slide
 

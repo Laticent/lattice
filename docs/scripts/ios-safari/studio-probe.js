@@ -21,7 +21,7 @@ async function latticeStudioProbe() {
 		'marp: true',
 		'---',
 		'',
-		'<!-- _class: checklist -->',
+		'<!-- @meta{class=checklist} -->',
 		'',
 		'# Payloads stay text',
 		'',

@@ -167,13 +167,13 @@ theme: indaco
 size: portrait
 ---
 
-<!-- _class: title -->
+<!-- @meta{class=title} -->
 
 # A deck
 
 ---
 
-<!-- _class: inventory -->
+<!-- @meta{class=inventory} -->
 
 \`Eyebrow\`
 
@@ -188,7 +188,7 @@ size: portrait
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{class=closing} -->
 
 # The end
 `;

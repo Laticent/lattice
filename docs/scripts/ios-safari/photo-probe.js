@@ -21,8 +21,8 @@ async function latticePhotoProbe() {
 	const BRIGHT =
 		'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAABsCAIAAACzYCrFAAAA1klEQVR42u3SMQ0AAAgEsfcvEwEMKMADYWxSBZfLdMFZJMBAGAgDYSAwEAbCQBgIDISBMBAGAgNhIAyEgcBAGAgDYSAMBAbCQBgIA4GBMBAGwkBgIAyEgTAQGAgDYSAMhIHAQBgIA2EgMBAGwkAYCAyEgTAQBgIDYSAMhIHAQBgIA2EgDAQGwkAYCAOBgTAQBsJAYCAMhIEwEBgIA2EgDISBwEAYCANhIDAQBsJAGAgMhIEwEAYCA2EgDISBMBAYCANhIAwEBsJAGAgDgYEwEAbCQGAgPi0bG28SdoIc2AAAAABJRU5ErkJggg==';
 	const SLIDES = [
-		['<!-- _class: image statement image-card-clear -->', '## A quiet harbor.', 'The words sit straight on a bright photo.', `![A bright harbor](${BRIGHT})`],
-		['<!-- _class: image spotlight image-card-clear -->', '## A dark photo.', 'The theme ink sits on a dark picture.', '![A dark lake](sample:photo-wide.svg)'],
+		['<!-- @meta{class=image statement image-card-clear} -->', '## A quiet harbor.', 'The words sit straight on a bright photo.', `![A bright harbor](${BRIGHT})`],
+		['<!-- @meta{class=image spotlight image-card-clear} -->', '## A dark photo.', 'The theme ink sits on a dark picture.', '![A dark lake](sample:photo-wide.svg)'],
 		['## Next steps', 'A plain slide after the photos.'],
 	];
 	// No front matter: a select-all-and-insert in WebKit can leave a blank first line, and front matter that does not start the
@@ -368,7 +368,7 @@ async function latticePhotoProbe() {
 		const said2 = finding2.textContent.trim();
 		const button2 = coachButton()?.textContent.trim();
 		step('slide 2: the Coach flags the thin card and offers a card ink', /^Set card ink (light|dark)$/.test(button2 ?? ''), `${said2} [${button2}]`);
-		const tip2 = await editorTooltip('_class: image spotlight image-card-clear');
+		const tip2 = await editorTooltip('class=image spotlight image-card-clear');
 		step('slide 2: the editor tooltip says what the Coach says', tip2.text.includes(said2), tip2.text);
 		step('slide 2: the editor tooltip offers the same button', tip2.button === button2, `${tip2.button} vs ${button2}`);
 

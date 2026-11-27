@@ -214,7 +214,7 @@ function buildDeck(m, probe, family) {
     const sp = splitSample(row.sample, m.name);
     for (const venue of VENUES) {
       const cls = [m.name, ...sp.tokens, ...(row.variant && !sp.tokens.includes(row.variant) ? row.variant.split(/\s+/) : []), VENUE_CLASS[venue]].filter(Boolean).join(' ');
-      slides.push(`<!-- _class: ${cls} -->\n\n${sp.body}\n`);
+      slides.push(`<!-- @meta{class="${cls}"} -->\n\n${sp.body}\n`);
       roster.push({ variant: row.variant, venue });
     }
   }
@@ -237,7 +237,7 @@ function buildBudgetDeck(m, family) {
       const n = row[venue];
       if (!n) continue;
       const cls = [m.name, ...sp.tokens, ...(variant ? [variant] : []), VENUE_CLASS[venue]].join(' ');
-      slides.push(`<!-- _class: ${cls} -->\n\n${fillSlot(m.name, sp.body, n)}\n`);
+      slides.push(`<!-- @meta{class="${cls}"} -->\n\n${fillSlot(m.name, sp.body, n)}\n`);
       roster.push({ variant, venue });
     }
   }

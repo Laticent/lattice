@@ -60,7 +60,7 @@ test('on a record slide, each note editor writes its own @note and leaves the re
 	// A record holds settings only (engineering/decisions/2026-11-20-four-notes.md): the four notes are their own
 	// comments, so writing one never edits the record, and the record's settings survive every write.
 	await gotoStudio(page);
-	await typeDeck(page, '---\ntitle: Record\n---\n\n<!-- {layout=kpi, footer=Q3} -->\n\n## Revenue\n');
+	await typeDeck(page, '---\ntitle: Record\n---\n\n<!-- @meta{layout=kpi, footer=Q3} -->\n\n## Revenue\n');
 	// The deck is saved before the panel is edited: a save landing after the fill re-renders the field over it (HARD RULE #32,
 	// wait for the signal, not a duration).
 	await expect.poll(() => persistedSource(page)).toContain('footer=Q3');
@@ -77,5 +77,5 @@ test('on a record slide, each note editor writes its own @note and leaves the re
 		await box.blur();
 		await expect.poll(() => persistedSource(page)).toContain(written);
 	}
-	expect(await persistedSource(page)).toContain('<!-- {layout=kpi, footer=Q3} -->');
+	expect(await persistedSource(page)).toContain('<!-- @meta{layout=kpi, footer=Q3} -->');
 });

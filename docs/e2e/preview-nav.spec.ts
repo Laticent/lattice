@@ -146,13 +146,13 @@ theme: indaco
 size: portrait
 ---
 
-<!-- _class: title -->
+<!-- @meta{class=title} -->
 
 # A deck
 
 ---
 
-<!-- _class: inventory -->
+<!-- @meta{class=inventory} -->
 
 ## Four levers moved the quarter.
 
@@ -163,7 +163,7 @@ size: portrait
 
 ---
 
-<!-- _class: title -->
+<!-- @meta{class=title} -->
 
 # The end
 `;

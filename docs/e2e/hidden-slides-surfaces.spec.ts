@@ -27,7 +27,7 @@ First shown slide.
 
 ---
 
-<!-- hide -->
+<!-- @meta{hide} -->
 
 ## Bravo secret
 

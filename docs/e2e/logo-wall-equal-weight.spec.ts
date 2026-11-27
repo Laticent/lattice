@@ -14,7 +14,7 @@ const deck = `---
 marp: true
 ---
 
-<!-- _class: logo-wall -->
+<!-- @meta{class=logo-wall} -->
 
 ## Four shapes, one weight.
 
@@ -68,7 +68,7 @@ marp: true
 size: portrait
 ---
 
-<!-- _class: logo-wall -->
+<!-- @meta{class=logo-wall} -->
 
 ## Crests, a badge and two wordmarks.
 
