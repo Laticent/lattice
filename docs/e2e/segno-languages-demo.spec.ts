@@ -42,7 +42,7 @@ test('@crosswidth @webkit-phone @webkit-tablet @gecko the demo re-reads only the
 
 	// An edit in the front matter reads the whole deck again.
 	await page.getByRole('button', { name: 'Edit the front matter' }).click();
-	await expect(page.locator('#fm')).toContainText('paginate: false');
+	await expect(page.locator('#fm')).toContainText('pagination: false');
 	await expect.poll(state).toEqual(['reread', 'reread', 'reread', 'reread', 'reread', 'reread']);
 	await expect(page.locator('#log')).toContainText('the whole deck was read again');
 	await expect(page.locator('#s-reused')).toHaveText('0');
