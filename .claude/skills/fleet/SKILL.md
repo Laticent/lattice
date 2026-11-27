@@ -49,16 +49,17 @@ If the field is missing, tell the owner once and stop. It is the backstop for id
 stops one by itself. Contract: `engineering/workflow.md` §Relay, the usage watch.
 
 **Auto-archive (the owner's standing rule, 2026-11-27).** On the same first `/fleet`, check
-`list_triggers` for a recurring scheduled task whose name starts "Command center check-in" (`9 */2 *
-* *`, two minutes after the usage watch so the two share a warm cache, bound to the command center).
-If it is missing, or bound to an archived command center, create it. Each run reads notifications,
-tells a session when its PR lands, nudges an idle session that has work left, and archives every
-session that passes the auto-archive checks in `engineering/workflow.md` §Desks, "Auto-archive". It
-never merges and never asks the owner anything while they are away. When a session reports it is
-done, the command center asks it at once, while its cache is warm, for `git status -sb`, `git stash
-list`, `git worktree list` and its local-only commits (`git log --oneline --branches --not
---remotes` and `git log --oneline HEAD --not --remotes`); it never wakes a session idle past an hour
-to ask. A session it cannot clear goes on the owner's list instead.
+`list_triggers` for a recurring scheduled task whose name starts "Command center check-in"
+(`9 */2 * * *`, two minutes after the usage watch so the two share a warm cache, bound to the
+command center). If it is missing, or bound to an archived command center, create it. Each run
+reads notifications, tells a session when its PR lands, nudges an idle session that has work left,
+and archives every session that passes the auto-archive checks in `engineering/workflow.md`
+§Desks, "Auto-archive". It never merges and never asks the owner anything while they are away.
+When a session reports it is done, the command center asks it at once, while its cache is warm,
+for `git status -sb`, `git stash list`, `git worktree list`,
+`git log --oneline --branches --not --remotes` and `git log --oneline HEAD --not --remotes`. It
+never wakes a session idle past an hour to ask. A session it cannot clear goes on the owner's
+list instead.
 
 **Links, always.** Outside the board too, every PR this session names to the owner
 (a relay, a digest, an answer, a question) is `[#N](https://github.com/Laticent/lattice/pull/N)`
