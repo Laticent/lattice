@@ -222,8 +222,11 @@ If steps 1–4 find no cause after you have reproduced the failure under load, `
 **A Chrome launch that times out** ("Timed out after 30000 ms while waiting for the WS endpoint URL")
 leaves no trace of its own: puppeteer says only that Chrome never printed its endpoint. Launch through
 `launchOrExplain(puppeteer, opts)` from `test/helpers/chrome.js`, which appends the machine's state at the
-failure: the wait, load, free memory, live Chrome processes and temp-dir space. It never retries and adds
-no timeout (#33). To reproduce a launch outside a test, `tools/shared-chrome-lab/launch-probe.mjs` loops
+failure: the wait, load, free memory, live Chrome processes, temp-dir space, the kernel's pressure-stall
+share for CPU, I/O and memory, and the cgroup's process count against its limit. Two thirds of the way
+through the wait it also snapshots the test's own child processes with their kernel state, so a stuck
+Chrome reads as `chrome:D(…)` (waiting on disk), `chrome:R` (starved of CPU) or `chrome:S(<function>)`
+(asleep in that kernel function). It never retries and adds no timeout (#33). To reproduce a launch outside a test, `tools/shared-chrome-lab/launch-probe.mjs` loops
 launches across workers and reports every slow one.
 `calco-chips.test.js` uses the helper because its one timeout could not be reproduced in 4,469 timed
 launches (PR #3577).

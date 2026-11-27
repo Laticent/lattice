@@ -271,8 +271,11 @@ longer than 1.93 s. They covered a quiet machine, an `npm run build` loop, that 
 beside the tier. On that sandbox it ruled out D-Bus (no socket, so it fails fast), fontconfig, disk space,
 `/dev/shm` and leaked temp profiles. calco-chips now launches through `launchOrExplain`
 (`test/helpers/chrome.js`). On the next failure, that helper appends the wait, load, free memory, live Chrome
-processes and temp space to the error, and that line is where to start. It names the cause only if the
-cause shows in those fields. The test stays owned by the flake desk's claim
+processes, temp space, kernel pressure-stall shares and the cgroup's process count to the error. It also
+adds a snapshot, taken two thirds of the way through the wait, of what the test's own child processes were
+doing. A real Chrome frozen before its endpoint reads `chrome:T(do_signal_stop)` there. That line is where
+to start. It names the cause only if the cause shows in those fields or that snapshot. A cgroup process
+limit is also ruled out: a fork Chrome cannot make fails it in under 0.2 s, not 30 s. The test stays owned by the flake desk's claim
 (`claim:test:test/integration/export/calco-chips.test.js#before`) until the cause is fixed.
 
 ## Recommendation (as written before the decision)

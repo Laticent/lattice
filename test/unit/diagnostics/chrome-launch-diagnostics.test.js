@@ -6,7 +6,8 @@
  */
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { launchOrExplain, launchDiagnostics } = require('../../helpers/chrome.js');
+const { spawn } = require('node:child_process');
+const { launchOrExplain, launchDiagnostics, parsePsiAvg10, describeDescendants } = require('../../helpers/chrome.js');
 
 const stub = (impl) => {
   const calls = [];
@@ -60,4 +61,29 @@ test('the diagnostics name the fields a starved launch would leave a trace in', 
   assert.match(line, /^launch diagnostics: waited=1234ms /);
   for (const key of ['load=', 'cpus=', 'mem_free=']) assert.ok(line.includes(key), `${key} in ${line}`);
   if (process.platform === 'linux') assert.match(line, /chrome_procs=\d+/);
+});
+
+test('parsePsiAvg10 reads the `some avg10` share, and says "?" when the line is missing', () => {
+  assert.equal(parsePsiAvg10('some avg10=12.30 avg60=4.00 avg300=1.00 total=99\nfull avg10=1.00 avg60=0 avg300=0 total=1\n'), '12.30%');
+  assert.equal(parsePsiAvg10(''), '?');
+});
+
+test('a stalled-launch snapshot passed to launchDiagnostics is printed with when it was taken', () => {
+  const line = launchDiagnostics(30000, { atMs: 20000, procs: 'chrome:D(io_schedule)' });
+  assert.match(line, / at_20000ms: chrome:D\(io_schedule\)$/);
+});
+
+// ci-skip: CI runs on Linux, so it never takes this branch; it only spares a macOS or Windows laptop.
+test('describeDescendants lists a child process with its kernel state', { skip: process.platform !== 'linux' && 'reads /proc' }, async () => {
+  const child = spawn('sleep', ['30'], { stdio: 'ignore' });
+  await new Promise((resolve, reject) => {
+    child.once('spawn', resolve);
+    child.once('error', reject);
+  });
+  try {
+    // After 'spawn' the exec has happened, so the child's comm is `sleep`; its state is R or S.
+    assert.match(describeDescendants(process.pid), /(^|,)sleep:[RS]/);
+  } finally {
+    child.kill('SIGKILL');
+  }
 });
