@@ -9,17 +9,65 @@
 // the raster photo XObjects different. The browser version was not the cause; the machine was.
 //
 // The control renders each drifting golden again at the commit its nightly bless RENDERED FROM
-// (named in the bless commit's subject), here, and compares the two fresh renders with the
-// gate's own per-page floor. Same machine, so an unchanged source renders identically:
-//   · 'machine': the fresh render matches its bless commit's render within the floor. The drift
-//     against the golden is the cross-machine band, not a source change above the floor. It
-//     passes only for a nightly bless's source (controlPasses).
-//   · 'source': the fresh render moved from its bless commit's render. Something on the render
-//     path changed since that bless; on main the nightly will bless it, on a branch look at it.
-//   · 'unavailable': the control could not answer honestly: the golden was never committed or
-//     has local changes, a shallow clone lacks the source commit, dependencies changed since it
-//     (the control tree borrows this checkout's node_modules), or its tree would not build or
-//     render. Never read as a pass.
+// (named in the bless commit's subject), here, and compares the two fresh renders with floor 0:
+// any pixel past the anti-aliasing fuzz counts. Same machine, so an unchanged source renders
+// identically (measured: no pixel past the fuzz on 3 real controls, decks and galleries).
+//   · 'machine': the two renders match. The drift against the golden is the cross-machine band.
+//     It passes only for a nightly bless's source with no dependency or workspace-package change
+//     since (controlPasses).
+//   · 'source': the fresh render moved from its source commit's render. Something on the render
+//     path changed since; on main the nightly will bless it, on a branch look at it.
+//   · 'unavailable': the control could not answer honestly (resolveSource lists why), or the
+//     source commit's tree would not build or render. Never read as a pass.
+
+// The commit whose SOURCE rendered a golden: { sha, nightly, depsChanged } or { error }.
+// Pure: every git call goes through `git(args)`, which returns trimmed stdout or throws on a
+// non-zero exit. A nightly bless commit names its source in its subject ("nightly bless of
+// <sha>", read by `blessFrom`): the bless renders main at that sha and merges later, so the
+// merge commit can already carry a render change the golden never saw. Any other commit that
+// last wrote the golden (a hand bless, a revert of a bless) is its own source with nightly
+// false, and such a control never passes (controlPasses).
+// It is { error } when no commit here can answer honestly:
+//   · the golden has local changes, or was never committed;
+//   · the clone is SHALLOW and the lookup lands on its cut-off commit, which only looks as if it
+//     wrote every file (measured in the sandbox: 614 of 655 committed PDFs), or the clone is
+//     shallow and its cut-off list could not be read (fail closed);
+//   · the bless's source sha is older than a shallow clone's history;
+//   · git itself fails.
+// depsChanged: any of `renderInputs` differs between that sha and the WORKING TREE. They are
+// the files the control tree cannot carry: it borrows this checkout's node_modules
+// (tools/lib/base-tree.mjs), and that holds the lockfile's packages AND links to this
+// checkout's own workspace packages (@laticent/markup, segno, lastra, …). So a change in any
+// of them reaches both control renders and cannot show. Compared with the working tree, not
+// HEAD, because the renders run what is on disk.
+export function resolveSource(golden, { git, cutoffs, isShallow, renderInputs, blessFrom }) {
+  try {
+    if (isShallow && !cutoffs.size) return { error: 'the clone is shallow and its cut-off list could not be read; run `git fetch --unshallow` and try again' };
+    if (git(['status', '--porcelain', '--', golden])) return { error: 'the golden has local changes (a local --bless), so no commit rendered it' };
+    const line = git(['log', '-1', '--format=%H%x09%s', '--', golden]);
+    if (!line) return { error: 'the golden was never committed' };
+    const [last, ...subject] = line.split('\t');
+    if (cutoffs.has(last)) return { error: `this clone's history stops at ${last.slice(0, 8)}, so the commit that rendered the golden is not here; run \`git fetch --unshallow\` and try again` };
+    const from = blessFrom(subject.join('\t'));
+    let sha = last;
+    if (from) {
+      try {
+        sha = git(['rev-parse', '--verify', `${from}^{commit}`]);
+      } catch {
+        return { error: `its bless rendered from ${from.slice(0, 8)}, which this clone does not have; run \`git fetch --unshallow\` and try again` };
+      }
+    }
+    let depsChanged = false;
+    try {
+      git(['diff', '--quiet', sha, '--', ...renderInputs]);
+    } catch {
+      depsChanged = true;
+    }
+    return { sha, nightly: Boolean(from), depsChanged };
+  } catch (err) {
+    return { error: `git could not answer (${String(err?.message || err).split('\n')[0]})` };
+  }
+}
 
 // One verdict from the per-page comparison of the two fresh renders.
 //   pages: pixelDiff's perPage rows ({ pixels, total }), pixels === -1 for a page-count change.
@@ -54,8 +102,8 @@ export function controlPasses(c) {
 // The line printed under a drifting row.
 export function controlLine(c) {
   const at = c.sha ? c.sha.slice(0, 8) : '—';
-  if (c.verdict === 'machine' && c.nightly && c.depsChanged) return `   ↳ control @${at}: same render here, but dependencies changed since @${at} and the control cannot see them; not counted as a pass`;
-  if (c.verdict === 'machine' && c.nightly) return `   ↳ control @${at}: same render here → cross-machine band (within the floor), not a source change`;
+  if (c.verdict === 'machine' && c.nightly && c.depsChanged) return `   ↳ control @${at}: same render here, but dependencies or workspace packages changed since @${at} and the control cannot see them; not counted as a pass`;
+  if (c.verdict === 'machine' && c.nightly) return `   ↳ control @${at}: same render here → cross-machine band (no pixel past the anti-aliasing fuzz), not a source change`;
   if (c.verdict === 'machine') return `   ↳ control @${at}: same render here, but no nightly bless wrote this golden, so @${at} is a guess; not counted as a pass`;
   if (c.verdict === 'source') return `   ↳ control @${at}: render moved since this bless (worst ${(c.worst * 100).toFixed(2)}%) → source drift; on a branch, look at it`;
   return `   ↳ control: unavailable (${c.error}); treat the drift as unexplained`;
