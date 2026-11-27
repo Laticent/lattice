@@ -190,6 +190,39 @@ its key insight example used `- **Title.** body` (a lint error on `cards-grid`),
 its front-matter examples still carried `marp: true`. The new
 `test/unit/components/skeletons-lint-clean.test.js` lints every one of its examples for errors.
 
+### 4.10 Paired, capped and two-turn (2026-11-27)
+
+The owner's calls (desk session_015KSkL4AtPNjvKkBShG56Nu, 2026-11-27): paid testing on our key
+with Haiku 5.5 and DeepSeek V4.1 Flash, alternating rather than stacked, under a USD 5 cap for the
+whole effort, and real evidence over claims. So `tools/agent-pack-eval.mjs` changed in five ways:
+
+- **A hard cap.** `--max-usd` (USD 1 unless set) is checked before every call: OpenRouter's reported
+  spend so far, plus the most that call could cost (2 bytes of prompt a token, the reply at
+  `max_tokens`), priced at the dearest provider OpenRouter lists for the model. The cheapest listing
+  is not a bound: routing can fall back to a dearer provider, and DeepSeek V4.1 Flash's dearest is about
+  30 times its cheapest. The request asks for the cheapest provider first (`provider.sort: 'price'`),
+  which also keeps nights comparable. A price that is not a number of at least 0 refuses the run, a
+  cost OpenRouter does not report counts at the worst case, and a stop exits 3, so a capped night is
+  red, not quietly short.
+- **Paired mode.** `--old <start.md>` runs each brief and repeat on the old and the new `start.md`, on
+  the same model, one after the other. One model per run: a comparison never mixes models. The nightly
+  workflow's `old_ref` input builds the old file from a git ref in its own checkout.
+- **A retrieval arm.** The 1.5k-token `start.md` (§4.9, #3569) links out to `layouts.md` and the rest
+  of the kit, so a one-turn arm would measure a model that cannot follow a link. The retrieval arm lets the
+  model reply with `READ: <path>` lines (up to six files, 160 KB in all, never outside the kit); the
+  harness serves them and asks again for the deck. A folder, a missing file or a path outside the kit gets a note instead.
+- **Ten briefs.** Seven more registers joined the first three: a postmortem, a product launch, an
+  investor update, an architecture proposal, research findings, an all-hands policy and a fundraising
+  ask. They are fixed: a new brief gets a new slug, so nights stay comparable.
+- **Records.** Every deck's row holds model, arm, old or new, brief, repeat, lint errors and
+  warnings, pass or fail, tokens in and out, OpenRouter's cost and latency, in `summary.json`, and
+  `summary.md` tabulates them with each row's sample size.
+
+The nightly now runs only the retrieval arm, Haiku on even days since the epoch and DeepSeek on odd
+ones, capped at USD 0.25. The small arm's default model is Haiku 5.5 (it was gpt-4o-mini). A capable
+model (Sonnet 5.5) runs once per release by dispatch (RELEASE.md). These runs are exploratory: ten
+briefs and a few repeats show a direction, they do not prove that the new `start.md` is no worse.
+
 ## 5. Left out
 
 - Publishing to npm (owner's call, §3).
