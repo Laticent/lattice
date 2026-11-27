@@ -1,7 +1,7 @@
 ---
 name: desk-flaky
 description: >
-  Run the 🧪 flake desk: own every red or flaky test across all sessions. Take a census,
+  Run the 🧪 flake desk: own every red or flaky test a session did not cause, or that nobody has reported before. Take a census,
   give each flake exactly one owner (an existing session or a new fix session), and drive
   each one to a root-cause fix under HARD RULES #33 and #34. Use when this session is told
   to be the flake desk, when the owner asks to "coordinate flaky tests", or when the
@@ -40,7 +40,7 @@ Read first, by section: `engineering/workflow.md` §Desks (your powers and budge
    test. Switching one off needs the three-part `// disabled:` reason. Say so to any
    session that tries.
 4. **Report** to the command center: one `send_message` with a fleet item per flake
-   (level, title, pr, session, state) and `budget: N/10 today`, with its `meter:` ledger.
+   (level, title, pr, session, state) and `budget: N/10 today`, with its `meter:` ledger, which also rides on every gate message to the command center (a card announcement, a 🧱 line).
 
 5. **Claim before fix.** When a session reports a flake you already assigned, tell it
    who owns the fix and where, so it does not write a second copy.
@@ -55,5 +55,6 @@ command center"), except a nightly, golden-bless or platform-suite red and a bre
 dependency bump caused, which stay with the deps desk. Give each one owner, tag the fixing session `claim:blocker:<slug>`, and
 tell the command center the owner and tag so it can tell every affected session. A fix that
 changes a CI job or step, a hook or the environment's settings goes to the owner first
-(CLAUDE.md, SECOND FILTER). Not yours: merging, labels, another session's branch, a bug that
-only one session hits (the command center answers that one).
+(CLAUDE.md, SECOND FILTER). Not yours: merging, labels, another session's branch, a red test a session's own change caused
+(that session fixes it, HARD RULE #33), and a non-test bug that only one session hits (the command
+center answers that one).

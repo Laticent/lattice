@@ -24,8 +24,8 @@
  *
  * Living comment (engineering/workflow.md §Relay): `--living <PR>` posts the card as the PR's one
  * `<!-- relay-handoff -->` comment, under a BATON block, editing it in place if it exists. Only the
- * baton holder may (push first). The YAML may carry a `relay:` block (`traps`, `unverified`,
- * `claims` lists) that prints under the card; it is read only with `--living`, and `--check`
+ * baton holder may (push first). The YAML may carry a `relay:` block (`decisions`, `answers`, `traps`,
+ * `unverified`, `caveats`, `claims` lists; engineering/workflow.md §Session rotation) that prints under the card; it is read only with `--living`, and `--check`
  * validates it so the living card can be dry-run first.
  *
  * Exit codes:
@@ -113,6 +113,8 @@ if (cut.length) {
 const card = doc.toJS();
 
 // The living comment's extra lists ride in a `relay:` block the card schema does not know.
+// The brief's sections 2-5 (workflow.md §Session rotation), in the order the living comment prints them.
+const RELAY_LISTS = ['decisions', 'answers', 'traps', 'unverified', 'caveats', 'claims'];
 let relayExtra = {};
 if (card && Object.hasOwn(card, 'relay')) {
   // --check validates the block too, so the exact living card can be dry-run before it is posted.
@@ -121,11 +123,11 @@ if (card && Object.hasOwn(card, 'relay')) {
     card.relay &&
     typeof card.relay === 'object' &&
     Object.entries(card.relay).every(
-      ([k, v]) => ['traps', 'unverified', 'claims'].includes(k) && Array.isArray(v) && v.every((t) => typeof t === 'string' && t.trim()),
+      ([k, v]) => RELAY_LISTS.includes(k) && Array.isArray(v) && v.every((t) => typeof t === 'string' && t.trim()),
     );
   if (!ok) {
     console.error('card: not valid, fix these and run again:');
-    console.error('  - relay: is read only with --living (or validated with --check), and holds only traps / unverified / claims lists of strings');
+    console.error(`  - relay: is read only with --living (or validated with --check), and holds only ${RELAY_LISTS.join(' / ')} lists of strings`);
     process.exit(1);
   }
   relayExtra = card.relay;

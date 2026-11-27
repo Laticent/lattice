@@ -34,14 +34,14 @@ the line is drawn, then `engineering/gotchas/ci.md`. Tag this session `desk:deps
    `platform-suites.yml` (dispatch-only since 2026-11-27, so only a run someone dispatched), and `ci.yml` on `main`. Route by kind: a `perf-nightly`
    regression goes to `/desk-optimize`, a `skillspector-nightly` red to
    `/desk-security`, a red `ci.yml` on `main` that is not a test is yours to fix.
-2. **A red test** goes to `/desk-flaky` (HARD RULE #33 makes the first session after a
-   red nightly its owner; you are that session, and the flake desk assigns the fix).
+2. **A red test** in any nightly, bless or platform-suite run goes to `/desk-flaky`, which owns
+   it (HARD RULE #33): send the 🧱 line with the run link.
    **A held golden** (the bless held a page change its source does not explain) goes to
    the owner, who alone dispatches `bless_held`. **Never re-run a job by
    hand.** `platform-suites-supervisor.yml` already re-runs once when the runner lost
    the job before any test reported; anything else is a red test (#33).
 3. **Report** to the command center: one fleet item per red run or PR, with
-   `budget: N/10 today`, with its `meter:` ledger.
+   `budget: N/10 today`, with its `meter:` ledger, which also rides on every gate message to the command center (a card announcement, a 🧱 line).
 
 ## Lane
 
