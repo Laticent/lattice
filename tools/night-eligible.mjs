@@ -111,7 +111,7 @@ export function reasons(f) {
   if (f.session && (f.commitMessages || []).some((m) => m.includes(`/${f.session}`))) {
     out.push(`#${pr} has commits from this night session (no self-approval)`);
   }
-  // A head can carry several \`ci\` runs (a skipped draft run, a re-run): the newest one decides.
+  // A head can carry several `ci` runs (a skipped draft run, a re-run): the newest one decides.
   const ci = (f.checks || [])
     .filter((c) => c.name === 'ci' && c.app === 'github-actions')
     .sort((a, b) => String(b.startedAt || '').localeCompare(String(a.startedAt || '')))[0];
