@@ -398,6 +398,11 @@ for (const width of [1440, 390]) {
 	const engines = width === 1440 ? ' @webkit-tablet @crosswidth' : ' @webkit-phone @crosswidth';
 	test(`the Coach and the editor show one message and one fix for the same slide (${width}px)${engines}`, async ({ page }) => {
 		await page.setViewportSize({ width, height: width < 600 ? 844 : 900 });
+		// This viewer has already been offered the Coach lesson. The first time the Coach opens, the Studio offers it in an
+		// action toast (StudioShell FIRST-OPEN OFFERS), and on a phone that toast sits over the editor header. Sonner holds a
+		// toast open while the pointer is over it, so the click on "Markdown source" below kept the toast alive and was
+		// refused for its whole 15 s timeout. The offer is not what this test checks; the verdict parity is.
+		await page.addInitScript(() => localStorage.setItem('lattice-studio-lessons-offered', JSON.stringify(['coach'])));
 		await gotoStudio(page);
 		await typeDeck(page, BODY_DECK);
 		await openCoach(page);
