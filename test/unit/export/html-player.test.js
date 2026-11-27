@@ -525,11 +525,12 @@ test('the color-system logo rules reach ONLY slides whose ground follows the OS'
 	// Follows the OS, so the rules must reach it.
 	assert.ok(reaches(['color-system', 'content']), 'an ordinary system slide follows the receiver');
 	// Permanently dark whatever the OS says — the engine forces color-scheme: dark on these.
-	// The bookends follow the scheme now (2026-11-23-cover-layout.md), so their mark follows it
-	// too: a system deck's title, closing and divider take the inverse mark in the dark scheme.
+	// The covers follow the scheme now (2026-11-23-cover-layout.md), so their mark follows it too: a
+	// system deck's title and closing take the inverse mark in the dark scheme. A divider is a dark
+	// ground in both modes, and the engine already gives it the inverse mark, so no reset reaches it.
 	assert.ok(reaches(['color-system', 'title']), 'a title follows the system scheme, and so does its mark');
 	assert.ok(reaches(['color-system', 'closing']), 'a closing follows it too');
-	assert.ok(reaches(['color-system', 'divider']), 'and so does a divider');
+	assert.ok(!reaches(['color-system', 'divider']), 'a divider keeps the inverse mark in every scheme');
 	// Permanently LIGHT — a pin, or the bright divider variant that replaces the canvas.
 	assert.ok(!reaches(['color-system', 'light']), 'a pinned-light slide is light whatever the OS says');
 	assert.ok(!reaches(['color-system', 'color-light']), 'a color-light slide is light whatever the OS says');

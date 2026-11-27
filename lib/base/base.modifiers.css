@@ -1317,6 +1317,15 @@ section.divider:not(.print) {
    * The section takes the field's primary ink itself, in both modes: `--text-body` measured
    * 1.33-2.10:1 on the light accent and 3.17:1 on concrete's dimmed field (bookends-follow-mode). */
   color: light-dark(var(--on-accent), var(--_bk-on-primary));
+  /* THE MARK TAKES THE INVERSE TREATMENT IN BOTH MODES. A filter cannot ride `light-dark()`, and
+   * it does not need to: the field is a dark ground in both. Measured on the 19 base themes, the
+   * light accent carries a light `--on-accent` on every one, and the dimmed field is dark by
+   * construction. The light-canvas mark (brightness 0.4) all but vanished on indaco's accent.
+   * (0,2,1) beats the `.light` reset (0,1,1) on purpose: `divider light` is this same dark field.
+   * A theme whose accent is pale enough to take a DARK `--on-accent` would want the light-canvas
+   * mark here; none ships, and a `logo-finish:` color word overrides this per deck. */
+  --deck-logo-filter: var(--deck-logo-filter-inverse);
+  --deck-logo-opacity: var(--deck-logo-opacity-inverse);
 }
 section.divider:not(.print) > * {
   /* The content-canvas inks too: text outside the named slots (a body line, a subsection lede, a

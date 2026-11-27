@@ -147,13 +147,18 @@ ourselves to the highest standard": no jank, no tech debt, no broken windows. Be
 
 ## 7. Found while building (2026-11-27)
 
-Four places still assumed a bookend is always dark, or that `divider light` is the small layout.
+Five places still assumed a bookend is always dark, or that `divider light` is the small layout.
 Each was fixed in this change, because each broke a surface that worked before it (HARD RULE #18):
 
 - **The player's system-mode logo.** `SYSTEM_LOGO_SEL` (`lib/export/player-core.mjs`) skipped
   `title`, `closing` and `divider`, which was right while they were forced dark. With the force gone,
   a `color-mode: system` deck in the player's dark scheme kept the light-canvas mark on a dark cover.
-  The bookends are back in that selector; `test/unit/export/html-player.test.js` asserts it.
+  The covers are back in that selector; `test/unit/export/html-player.test.js` asserts it.
+- **The logo on a divider.** The divider's field is a dark ground in both modes (the light accent
+  carries a light `--on-accent` on all 19 base themes), but in light mode the mark took the
+  light-canvas treatment and all but vanished on indaco's accent. A divider now takes the inverse mark
+  in both modes, and the player's system-mode reset leaves it alone. A theme with a pale accent and a
+  dark `--on-accent` would want the light mark there; none ships.
 - **The Studio's section rail.** `isSectionBoundary` (`docs/src/components/studio/present-sections.ts`)
   read `divider light` as a within-section waypoint. `light` is the color mode now, so a light-mode
   divider is a section start and the waypoint is `divider subsection`.

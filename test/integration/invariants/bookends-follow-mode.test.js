@@ -32,7 +32,8 @@ const ROOT = path.join(__dirname, '..', '..', '..');
 const THEMES = ['indaco', 'cuoio', 'onyx', 'a11y-protanopia', 'concrete', 'mustard'];
 const MODES = ['light', 'dark'];
 
-const FOOTER = '<span data-probe="footer" style="color:var(--marp-slide-footer-color)">Footer</span>';
+const FOOTER = '<span data-probe="footer" style="color:var(--marp-slide-footer-color)">Footer</span>'
+  + '<img class="deck-logo" alt="" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=">';
 const SLIDES = {
   title: (m) => `<section class="title spectrum ${m}" data-kind="cover">`
     + '<h1>A cover</h1><p><code>Eyebrow</code></p><p>A subtitle with <code>a chip</code>.</p>'
@@ -101,7 +102,7 @@ describe('the bookends follow the color mode, and every ink clears its bar on th
           const bgc = getComputedStyle(s).backgroundColor;
           const bg = parse(bgc);
           const row = { cls: s.className, kind: s.dataset.kind, mode, bg: rgb(bgc), scheme: getComputedStyle(s).colorScheme,
-            before: getComputedStyle(s, '::before').colorScheme, inks: [] };
+            before: getComputedStyle(s, '::before').colorScheme, logo: getComputedStyle(s.querySelector('img.deck-logo')).filter, inks: [] };
           const ink = (el, role, bar) => {
             if (!el) return;
             const c = parse(role === 'hairline' ? getComputedStyle(el, '::after').borderBottomColor : getComputedStyle(el).color);
@@ -119,13 +120,28 @@ describe('the bookends follow the color mode, and every ink clears its bar on th
           if (s.classList.contains('numbered')) ink(s.querySelector('h2'), 'hairline', 3.0);
           rows.push(row);
         }
-        return { refs, rows };
+        // The two logo treatments the engine defines, as Chromium computes them on a probe.
+        const probe = (filterVar) => {
+          const i = document.createElement('img');
+          i.className = 'deck-logo';
+          i.style.filter = filterVar;
+          document.querySelector('article').appendChild(i);
+          const f = getComputedStyle(i).filter;
+          i.remove();
+          return f;
+        };
+        const logos = { inverse: probe('var(--deck-logo-filter-inverse)'), canvas: probe('grayscale(1) brightness(0.4) contrast(1.2)') };
+        return { refs, rows, logos };
       });
       const bad = [];
       for (const r of res.rows) {
         for (const i of r.inks) if (i.ratio < i.bar) bad.push(`${r.cls} ${i.role} ${i.ratio.toFixed(2)}:1 < ${i.bar} on rgb(${r.bg})`);
         if (r.scheme !== r.mode) bad.push(`${r.cls}: color-scheme ${r.scheme}, expected ${r.mode}`);
         if (r.before !== r.mode) bad.push(`${r.cls}: ::before color-scheme ${r.before}, expected ${r.mode}`);
+        // The mark: the inverse treatment on any dark ground (a dark cover, a divider in either mode,
+        // since the light accent carries light ink on every shipped theme), the canvas one on a light cover.
+        const wantLogo = r.kind === 'cover' && r.mode === 'light' ? res.logos.canvas : res.logos.inverse;
+        if (r.logo !== wantLogo) bad.push(`${r.cls}: logo filter ${r.logo}, expected ${wantLogo}`);
         const ref = res.refs[r.mode];
         if (r.kind === 'cover') {
           const want = r.mode === 'light' ? ref.canvas : ref.panel;
