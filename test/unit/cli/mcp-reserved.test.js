@@ -64,3 +64,9 @@ test('completion, both help screens and the reference offer the verb', () => {
   assert.match(ref, /^## `lattice mcp`$/m, 'reference/cli.md has the section the line links to');
   assert.match(ref, /lattice \.\/mcp/, 'reference/cli.md says how to render a file named mcp');
 });
+
+test('lattice mcp <Tab> completes nothing: the verb takes no arguments', () => {
+  const C = require('../../../lib/cli/complete.js');
+  assert.equal(C.protocolOutput(['mcp', '']), ':values\n');
+  assert.equal(C.protocolOutput(['mcp', '--']), ':values\n');
+});
