@@ -76,7 +76,14 @@ who adds a front-matter key, a record field, a note or a rule ID gives it a pref
 The prefix is the name of the plugin that owns the name: `acme.tally` belongs to the plugin `acme`. A spec's own
 registries never use a prefix.
 
-<!-- PENDING the Segno desk: whether `.` is the separator its grammar accepts in a record field name and after `@`. -->
+The separator is `.` because `:` already separates a name from its value in front matter and in a record's block
+lines. A prefixed name is otherwise an ordinary name: a letter, then letters, digits and hyphens, on each side of
+the dot.
+
+<!-- Not yet true of the reference implementation (Segno desk, 2026-11-27): Segno's name rule refuses a dot
+(`isName`, docs/src/lib/segno/notation.ts:98, and schema.ts's fast bind), and only `@meta{` opens a record or a
+note door (`isRecordOpener`, lib/core/meta-door.mjs:79). The LFM 1.0 PR does not ratify §4 until both accept it;
+the Segno desk owns the first, the meta step E session the second. -->
 
 ### 4.1 A prefixed value is untrusted, and only a sanitizer lets it reach a rendered document
 
