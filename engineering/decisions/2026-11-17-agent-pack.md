@@ -85,7 +85,7 @@ on the branch alike. The folders keep the kit's names rather than new ones (`lay
 | Layer | URL | Holds | Budget |
 |---|---|---|---|
 | Router | `/llms.txt` | What Lattice is, then the pack first, the docs copies second, the 700 KB reference last | 4 KB (existing gate) |
-| Start | `/agents/start.md` | The file shape with a whole three-slide deck, the short deck canon, the rules, the 19 common layouts one line each, three modifier groups, the notes, check and render, and links on (§4.9) | **1,500 tokens** (owner, 2026-11-27): gated at 1,300 o200k; 1,273 today. Was 48,000 characters |
+| Start | `/agents/start.md` | The file shape with a whole three-slide deck, the short deck canon, the rules, the 19 common layouts one line each, one modifier from each of three groups, the notes, check and render, and links on (§4.9) | **1,500 tokens** (owner, 2026-11-27) on Claude's count: gated at 990 o200k; 984 today (Claude 1,476). Was 48,000 characters |
 | All layouts | `/agents/layouts.md` | What `start.md` held until 2026-11-27, less the full canon: the rules in detail, the parts any slide can carry, the registers, every layout in one line (job, capacity, words per item, variants), the modifiers, the plugins' inline notation, skeletons for the 19 most-used layouts and 2 charts | none; read on demand (10,700 o200k tokens) |
 | Plugins | `/agents/plugins/<name>.md` | The 16 plugin docs: pills, icons, sparks, checks, avatars, image, video, callout, legend, code, math, mermaid, function-plot, anima, meta, chart-family | read when a slide uses one |
 | Small model | `/agents/paste/lattice-instructions-solo.md` | 19 layouts, self-contained, for a 4,096-token local context | 10,000 characters (existing) |
@@ -122,7 +122,7 @@ bundles; every one of them is generated from the same pieces as the site pack, s
 In the kit build (`assertPack` in `tools/build-agent-kit.mjs`), so `npm run build` fails:
 
 1. Every relative link in every kit `.md` names a file the kit carries.
-2. `start.md` holds its budget: `START_TOKEN_MAX`, 1,300 o200k tokens since 2026-11-27 (§4.9).
+2. `start.md` holds its budget: `START_TOKEN_MAX`, 990 o200k tokens since 2026-11-27 (§4.9).
    It was `START_MAX`, 48,000 characters.
 3. Marp framing appears only in `render/lattice-export-to-marp.md` (and `skills/import.md`, whose
    job is importing Marp decks): no `marp: true` line, no "a Marp deck", no `--theme-set`, no
@@ -205,17 +205,32 @@ So the pack has two layers where it had one. `start.md` is the short contract an
 the reference behind it: everything `start.md` used to carry, moved whole, with the structure
 gates that guarded it (gates 4 and 5). The full canon (its traps, rhythm and chrome budgets) stays
 in `authoring/deck-canon.md`, linked from `start.md`. `start.md` keeps only what a deck cannot be
-written without (1,273 o200k tokens, measured):
+written without (984 o200k tokens, measured):
 
 | Section | Source | o200k tokens |
 |---|---|---|
-| Title, version, one-line pitch | `packages/lattice/package.json` `version` | 51 |
-| The file: a whole title, list and closing deck | `DECK_SETTINGS` (`theme`, `pagination`), each layout's `skeleton`, `silent` on the bookends as the canon says | 190 |
-| What a good deck is | `DECK_CANON_SHORT` | 264 |
-| Rules | `essentials()`, less the three the canon and §1 already say; the notes, from `NOTE_NAMES` | 210 |
-| The 19 common layouts | `SOLO_LAYOUTS` + `SOLO_INTENT`, the solo text's own list | 278 |
-| Modifiers | three of `UNIVERSAL_GROUPS` (mood, tone, insight) | 90 |
-| Check, render, more | the checker, `npx @laticent/lattice`, the render page, four links | 190 |
+| Title, version, one-line pitch | `packages/lattice/package.json` `version` | 39 |
+| The file: a whole title, list and closing deck, and how a record names a layout | `DECK_SETTINGS` (`theme`, `pagination`, `color-mode`), each layout's `skeleton`, `silent` on the bookends as the canon says | 190 |
+| What a good deck is | `DECK_CANON_SHORT`, less its RIGHT COMPONENT bullet (§4 is that bullet, as a list) | 221 |
+| Rules | `essentials(SOLO_LAYOUTS)`, less the three the canon and §1 already say; the notes, from `NOTE_NAMES` | 176 |
+| The 19 common layouts | `SOLO_LAYOUTS` + `SOLO_INTENT`, the solo text's own list | 237 |
+| Modifiers | the first token of three `UNIVERSAL_GROUPS` (mood, tone, insight), and the link | 54 |
+| Check, render, read more | the checker, `npx @laticent/lattice`, the render page, the full canon, the skills | 79 |
+
+What `start.md` no longer says, and where each now lives:
+
+| No longer in `start.md` | Now in |
+|---|---|
+| Every layout beyond the 19, with capacity, word budgets and variants | `layouts.md` §3 |
+| The skeletons beyond `title`, `list` and `closing` | `layouts.md` §6 and `components/<name>.md` |
+| The universal parts (key insight, below-note and the rest) and the deck-wide registers | `layouts.md` §2 |
+| The inline notation (pills, icons, sparks, checks) | `layouts.md` §5 |
+| The detailed rules: kpi row colors, kpi key-insight fit, the `big-number`/`quote` claim, timeline status words, `profile:` | `layouts.md` §1 and §2 |
+| The full canon: traps, rhythm, chrome word budgets | `authoring/deck-canon.md` (linked) |
+| The canon's RIGHT COMPONENT bullet | `start.md` §4's list does its job; `authoring/deck-canon.md` |
+| The ledger and statement rules for layouts outside the 19 (`authority-chain`, `regulatory-update`, `split-compare`, `principles`) | the linter, which reports both (`split-bodyless-item`, `statement-ol-bold`); `main`'s `start.md` never carried them either |
+| Every modifier token but `dark`, `tone-pass` and `insight-key` (chrome, decoration, state, table and the rest) | `authoring/modifiers.md` (linked); `silent` is in §1's deck |
+| The starter-deck link | the kit README's `examples/` row |
 
 Every slide record in `start.md` is written by `lib/core/meta-comment.mjs` `metaClass`, and every
 front-matter key is read from `DECK_SETTINGS` and refused when retired, so a later rename changes
@@ -227,13 +242,24 @@ The worked decks agree with the canon. The canon says both bookends carry `silen
 deck and the paste texts' worked decks write it; the skeletons, which are shapes, leave it to the
 author. A test holds the two together (`every worked deck writes \`silent\` on its bookends`).
 
-**Why the gate is 1,300 and not 1,500.** The gate counts with o200k_base, the tokenizer the repo
-already ships (`gpt-tokenizer`, the CLAUDE.md router gate's). Claude's and Gemini's tokenizers
-count the same Markdown somewhat higher. 1,300 o200k leaves a 200-token margin (about 15%) meant to
-keep all three at or under 1,500. If Claude counts this Markdown 20% higher than o200k, the 1,273
-measured today would be about 1,530, over the owner's number, so the probe matters. That margin is an estimate, not a measurement. A paid
-probe will calibrate it; that probe and `tools/agent-pack-eval.mjs`'s budget and workflow are the
-owner's open calls, so this change makes no paid call and leaves the eval as it is.
+**Why the gate is 990 and not 1,500.** The gate counts offline with o200k_base, the tokenizer the
+repo already ships (`gpt-tokenizer`, the CLAUDE.md router gate's); the build makes no network call.
+Claude is the pack's main reader, so the 1,500 must hold on Claude's count. The first draft gated at
+1,300 o200k on a guessed 15% margin. Measured on the real counters (Anthropic's `count_tokens` and
+Gemini's `countTokens`, both free count-only endpoints, no generation), the guess was wrong:
+
+| `start.md` | o200k | Gemini 3.x | Claude 5 (Opus, Sonnet, Haiku, Fable alike) |
+|---|---|---|---|
+| `main` (before) | 12,324 | — | — |
+| first draft (1,300 gate) | 1,273 | 1,360 | 1,956 |
+| as merged (990 gate) | 984 | 1,040 | 1,476 |
+
+Claude counts this file at **1.51×** o200k (1.54× on the draft); Gemini at 1.06–1.07×. So the gate
+is 990 o200k, about 1,495 on Claude's count (the desk picked this over keeping 1,300, 2026-11-27).
+The ratio belongs to this file, not to Markdown in general: **re-count `start.md` on Claude's and
+Gemini's counters in the per-release check**, and move `START_TOKEN_MAX` if the ratio moves.
+`tools/agent-pack-eval.mjs`'s budget and workflow stay the owner's open calls; this change leaves the
+eval as it is.
 
 **The engine version is stamped** into `start.md`, `layouts.md` and `/llms.txt`, read from
 `packages/lattice/package.json`. `publish-kits.yml` now republishes on a change to that file, so a

@@ -3278,20 +3278,23 @@ function layoutsDoc(files, cat) {
  * components.json, the canon is DECK_CANON_SHORT, the rules are `essentials()`, and the
  * modifier groups are UNIVERSAL_GROUPS. What stays in words is each item's one-line job.
  */
-const START_TOKEN_MAX = 1300;
+const START_TOKEN_MAX = 990;
 /**
- * Why 1,300 and not 1,500. The gate counts with o200k_base (OpenAI's tokenizer, the one this
- * repo ships). Claude's and Gemini's tokenizers count the same English Markdown somewhat
- * higher; 1,300 o200k leaves a 200-token (about 15%) margin so all three stay at or under the
- * owner's 1,500. The margin is an estimate, not a measurement: a paid probe (the owner's call,
- * tools/agent-pack-eval.mjs's workflow) will calibrate it, and this build makes no paid call.
+ * Why 990 and not 1,500. The gate counts offline with o200k_base (OpenAI's tokenizer, the one
+ * this repo ships); the build makes no network call. Claude is the main reader, and Claude 5's
+ * own counter (Anthropic's free count_tokens endpoint, 2026-11-27) read this file at 1.51 to
+ * 1.54 times its o200k count: 1,956 for the 1,273-token draft, 1,476 for the 984-token file.
+ * Gemini 3.x read 1.06 to 1.07 times. So 990 o200k is about 1,495 Claude tokens, the owner's
+ * 1,500. The ratio is this file's, measured; re-count start.md on Claude's and Gemini's
+ * counters in the per-release check (2026-11-17-agent-pack.md §4.9), and move this number if
+ * the ratio moves.
  */
-const START_MARGIN_NOTE = 'o200k ≤ 1,300 is meant to keep Claude, GPT and Gemini counts ≤ 1,500; the margin is an estimate a paid probe has not calibrated';
+const START_MARGIN_NOTE = 'o200k ≤ 990 keeps Claude 5 ≤ 1,500 at the measured 1.51× ratio (Gemini ≈ 1.07×)';
 /** The layouts whose real skeletons make start.md's example deck: open, one body slide, close. */
 const START_DECK = ['title', 'list', 'closing'];
 /** The bookends in START_DECK, which carry `silent` as the canon says. */
 const START_BOOKENDS = ['title', 'closing'];
-/** The modifier groups start.md names in full; the rest are one link away. `silent`, the chrome switch a deck needs most, is in start.md's example deck. */
+/** The modifier groups start.md names, one example each; every group is one link away. `silent`, the chrome switch a deck needs most, is in start.md's example deck. */
 const START_MODIFIER_GROUPS = ['mood', 'tone', 'insight'];
 
 /** The engine version the kit describes: packages/lattice/package.json, the published package. */
@@ -3342,34 +3345,38 @@ function startDoc(cat) {
     return [metaClass(`${n} silent`), ...rest].join('\n');
   };
   const deck = `${frontMatterLines().join('\n')}\n\n${START_DECK.map((n) => (START_BOOKENDS.includes(n) ? withSilent(n) : skeletonFor(cat, n))).join('\n\n---\n\n')}`;
-  const canon = DECK_CANON_SHORT.split('\n').slice(1).map((l) => l.replace(/^• /, '- '));
+  // The short canon, less its RIGHT COMPONENT bullet: section 4 is that bullet, as a list.
+  const canonAll = DECK_CANON_SHORT.split('\n').slice(1);
+  if (canonAll.filter((l) => /^• RIGHT COMPONENT/.test(l)).length !== 1) throw new Error('build-agent-kit: start.md drops the canon\'s RIGHT COMPONENT bullet, which no longer matches exactly one line.');
+  const canon = canonAll.filter((l) => !/^• RIGHT COMPONENT/.test(l)).map((l) => l.replace(/^• /, '- '));
   // Section 1 already says each slide opens with a record, and the canon how cards nest and
   // how the title slide reads; a rule that says it again is tokens start.md cannot spare.
   // Each drop must match exactly one essential.
   const canonSays = [/^Every slide starts with/, /^Card layouts nest:/, /^The title slide is/];
-  const rules = essentials();
+  // Scoped to the layouts start.md lists, as the solo text is: a rule about a layout the reader
+  // cannot pick from here is tokens spent on nothing.
+  const rules = essentials(SOLO_LAYOUTS);
   for (const re of canonSays) {
     if (rules.filter((r) => re.test(r)).length !== 1) throw new Error(`build-agent-kit: start.md drops the essential matching ${re}, which no longer matches exactly one.`);
   }
   const groups = START_MODIFIER_GROUPS.map((g) => {
     if (!UNIVERSAL_GROUPS[g]) throw new Error(`build-agent-kit: start.md names modifier group \`${g}\`, which UNIVERSAL_GROUPS does not have.`);
-    return `- ${g}: \`${UNIVERSAL_GROUPS[g].join(' ')}\``;
+    return `\`${UNIVERSAL_GROUPS[g][0]}\` (${g})`;
   });
   const layouts = SOLO_LAYOUTS.map((n) => {
     if (!cat.has(n)) throw new Error(`build-agent-kit: start.md lists \`${n}\`, which is not in the catalog.`);
-    return `- \`${n}\`: ${SOLO_INTENT[n]}`;
+    return `- ${n}: ${SOLO_INTENT[n].replace(/ \(.*\)$/, '')}`;
   });
   return [
     `# Write a Lattice deck (engine ${ENGINE_VERSION})`,
     '',
-    `One Markdown file becomes a deck: PDF, PowerPoint or web. [\`layouts.md\`](./layouts.md) has all ${cat.size} layouts and their skeletons.`,
+    `One Markdown file, one deck. All ${cat.size} layouts: [layouts.md](./layouts.md).`,
     '',
     '## 1. The file',
     '',
     ...fenced(deck, 'markdown'),
     '',
-    `- \`${theme.key}:\` picks the palette (\`${theme.default}\` is the default); \`${mode.key}: ${dark}\` gives the dark version.`,
-    `- Each slide opens with one \`${LAYOUT_RECORD}\` record; modifiers follow: \`${metaClass('cards-grid dark')}\`.`,
+    `\`${theme.key}:\` picks the palette; \`${mode.key}: ${dark}\` goes dark. Each slide opens with one \`${LAYOUT_RECORD}\`; modifiers follow, as \`${metaClass('cards-grid dark')}\`.`,
     '',
     '## 2. What a good deck is',
     '',
@@ -3384,26 +3391,17 @@ function startDoc(cat) {
     '',
     ...layouts,
     '',
-    `Copy each skeleton exactly from \`components/NAME.md\`. If nothing fits, use \`content\` or \`list\`. Never invent a name.`,
+    `Copy the skeleton from components/NAME.md. Nothing fits? Use \`content\` or \`list\`; never invent a name.`,
     '',
     '## 5. Modifiers',
     '',
-    ...groups,
+    `Add them after the layout name: ${groups.join(', ')} and more in [authoring/modifiers.md](./${AUTHORING}/modifiers.md).`,
     '',
-    `Every group: [\`authoring/modifiers.md\`](./${AUTHORING}/modifiers.md).`,
+    '## 6. Check, render, read more',
     '',
-    '## 6. Check and render',
+    ...fenced(['node review/check.mjs deck.md', 'npx @laticent/lattice deck.md deck.pdf'].join('\n'), 'sh'),
     '',
-    ...fenced(['node review/check.mjs deck.md            # from the kit root', 'npx @laticent/lattice deck.md deck.pdf   # or .pptx, .png, .html'].join('\n'), 'sh'),
-    '',
-    `On the web, or with no command line: [\`${RENDER}/lattice-render-a-deck.md\`](./${RENDER}/lattice-render-a-deck.md) (the checker, the Studio).`,
-    '',
-    '## 7. More',
-    '',
-    `- [\`layouts.md\`](./layouts.md): every layout, part, register and skeleton`,
-    `- [\`${AUTHORING}/deck-canon.md\`](./${AUTHORING}/deck-canon.md): the full canon, with its traps and rhythm`,
-    `- [\`${SKILLS}/README.md\`](./${SKILLS}/README.md): edit, restyle, charts, notes, fixing findings`,
-    `- [\`${EXAMPLES}/lattice-example-starter.md\`](./${EXAMPLES}/lattice-example-starter.md): a whole deck`,
+    `Web or no shell: [render](./${RENDER}/lattice-render-a-deck.md). More: [full canon](./${AUTHORING}/deck-canon.md), [skills](./${SKILLS}/README.md).`,
     '',
   ].join('\n');
 }

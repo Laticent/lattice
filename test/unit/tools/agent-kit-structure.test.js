@@ -882,8 +882,8 @@ test('agent kit structure', { skip }, async (t) => {
 	});
 
 	/**
-	 * start.md is the one file an agent reads first, at most 1,300 o200k tokens (the owner's
-	 * 1,500, less the cross-tokenizer margin; tools/build-agent-kit.mjs START_TOKEN_MAX). It
+	 * start.md is the one file an agent reads first, at most 990 o200k tokens: the owner's 1,500
+	 * on Claude's count, at the measured 1.51× ratio (tools/build-agent-kit.mjs START_TOKEN_MAX). It
 	 * teaches Lattice's own front matter, the slide record, the engine version it describes,
 	 * leads to the render route, and hands every layout on to layouts.md.
 	 */
@@ -891,7 +891,7 @@ test('agent kit structure', { skip }, async (t) => {
 		const { encode } = require('gpt-tokenizer/encoding/o200k_base');
 		const start = readKit('start.md');
 		const tokens = encode(start).length;
-		assert.ok(tokens <= 1300, `start.md is ${tokens} o200k tokens, over its 1,300 budget`);
+		assert.ok(tokens <= 990, `start.md is ${tokens} o200k tokens, over its 990 budget (1,500 on Claude's count)`);
 		const { version } = JSON.parse(fs.readFileSync(path.join(ROOT, 'packages', 'lattice', 'package.json'), 'utf8'));
 		assert.ok(start.startsWith(`# Write a Lattice deck (engine ${version})\n`), 'start.md names the engine version it describes');
 		assert.match(start, /^theme: indaco$/m);

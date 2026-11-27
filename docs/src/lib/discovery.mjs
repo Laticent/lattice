@@ -96,7 +96,7 @@ export const LLMS_LINKS = Object.freeze({
 	// scripts/sync-portal.mjs. Files, not pages, so they are linked as they are
 	// (engineering/decisions/2026-11-17-agent-pack.md).
 	'Write a deck': [
-		['/agents/start.md', 'Write a Lattice deck', 'Start here, about 1,300 tokens. The file shape, what a good deck is, the rules, the common layouts and modifiers, how to check and render', { file: true }],
+		['/agents/start.md', 'Write a Lattice deck', 'Start here, under 1,500 tokens. The file shape, what a good deck is, the rules, the common layouts and modifiers, how to check and render', { file: true }],
 		['/agents/layouts.md', 'Every layout', 'All layouts in one line each, the parts any slide can carry, the deck settings, the inline notation and the common skeletons', { file: true }],
 		['/agents/components/README.md', 'Layouts', 'One file per layout: how much it holds, its variants, its skeleton, the mistakes reviewers flag. Read one for each layout you use', { file: true }],
 		['/agents/skills/README.md', 'Craft guides', 'Edit or restyle a deck, chart from data, speaker notes, fix lint findings, diagrams, math, import', { file: true }],
