@@ -238,8 +238,8 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   `document.fonts.status` reads `loading`, yet every face in `document.fonts` reads `loaded` or `unloaded` and none
   reads `loading`.
 - **Cause:** Firefox misses the end of the load. In the 4 stuck loads sampled with a `loadingdone` listener it never
-  fired the event (the fifth, from a run without the listener, is not counted); in every good load it fired 50 to
-  900 ms after the `ready` promise was taken. The faces themselves load: both icon glyphs draw in Lattice Icons, and `document.fonts.check`
+  fired the event (the fifth, from a run without the listener, is not counted); in each of the 76 good loads sampled with
+  the listener it fired, 61 to 914 ms after the `ready` promise was taken. The faces themselves load: both icon glyphs draw in Lattice Icons, and `document.fonts.check`
   is true for the heading and body faces. Forcing a style and layout flush (`document.body.offsetHeight`, then two
   frames) does not unstick it. Measured 2026-11-27 (#3463's fix session) with a per-frame sampler of the status, each
   face's status and every `ready` promise: Playwright's gecko build, 4 workers plus 3 CPU burners, stuck in 5 of 120
