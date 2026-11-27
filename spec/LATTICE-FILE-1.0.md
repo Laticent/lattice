@@ -6,7 +6,8 @@ reference: lib/core/reopenable.js docs/src/components/studio/lattice-file.ts
 tests: spec/conformance/lattice-file/
 -->
 
-**Version:** 1.0 · **Status:** Draft, for the owner's sign-off · **Date:** 2026-10-08 · **Owner:** @saden1 ·
+**Version:** 1.0 · **Status:** Draft, for the owner's ratification at Lattice 1.0 · **Date:** 2026-11-27 · **Owner:** @saden1 ·
+**Follows:** [How the Lattice specs version and extend](./EXTENDING-1.0.md) ·
 **License:** [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/) (this document and its shared test cases)
 
 A `.lattice` file is a deck as a project: its Markdown source, byte for byte, plus what the source
@@ -75,7 +76,15 @@ A **comment** is `{ id, slide, author, body, createdAt, resolved }`: a string id
 file, the 1-based number of the slide it is anchored to, a free-text author label (not an identity),
 the comment text, when it was made (milliseconds since the epoch), and whether it is resolved.
 
-A reader treats a field it does not know as absent, and keeps going.
+A reader treats a field it does not know as absent, and keeps going. A tool that adds a manifest field of its own
+prefixes it with its name (`acme.reviewRound`), so it cannot collide with a field a later version of this spec adds
+([EXTENDING §4](./EXTENDING-1.0.md)).
+
+**The manifest is regenerated metadata.** A writer builds the manifest each time it writes the file, from the deck and
+its comments; the reference writer (`buildLatticeManifest`) writes only the fields of §3. So a writer that saves a
+file it opened MAY drop a manifest field it does not know, and this is the one place the shared rule "a writer keeps
+what it does not know" ([EXTENDING §5](./EXTENDING-1.0.md)) does not apply. It never applies to `deck.md`, which a
+writer keeps byte for byte (§2).
 
 ## 4. Packages
 
@@ -138,4 +147,5 @@ The manifest's `version` is the file's version.
 
 | Version | Date | Change |
 |---|---|---|
+| 1.0 | 2026-11-27 | Readied for ratification at Lattice 1.0 (owner, 2026-11-27: ".lattice for sure"). Cites the shared rules; a tool's own manifest field carries its prefix; the manifest is regenerated metadata, so a writer MAY drop a manifest field it does not know (§3). No change to what a conformant reader or writer does. Record: `engineering/decisions/2026-11-27-specs-1-0.md`. |
 | 1 | 2026-10-08 | First version, written from the reference implementation (spec audit §8.1), which has written manifest version 1 since 2026-06-16 (`engineering/decisions/2026-06-16-lattice-export-format.md`). Waits on the owner's sign-off. |

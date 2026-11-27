@@ -116,7 +116,8 @@ document as if that thing were absent. It MUST NOT show it: an unknown note stay
 does.
 
 A tool that writes a document back (an editor, an export, a migration) MUST keep every unknown key, field, note and
-fence as it found it.
+fence as it found it. A spec MAY name a part of its file as regenerated metadata (the `.lattice` manifest,
+[LATTICE-FILE §3](./LATTICE-FILE-1.0.md)); a writer rebuilds that part and MAY drop a field it does not know there.
 
 A linter SHOULD report an unknown name with no prefix (`unknown-key`, a warning), because that is how a misspelled key
 (`finsh: halo`) is caught. It SHOULD NOT report a name with a prefix that a loaded plugin owns.
