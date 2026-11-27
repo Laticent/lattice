@@ -2720,11 +2720,11 @@ owner (the command center relaying a desk's card included):
   what changes under each option and what it costs, and which option is recommended
   and why;
 - never asks with a bare code. "D1 A or B", "W1 keep or rename" or "night D1" with no
-  context are refused forms, even in a summary list of what is still open. A list of
+  context break this rule, even in a summary list of what is still open. A list of
   open items names each in plain words ("which theme colors the 1.0 spec promises").
 
-A choice the owner has already answered with "I don't understand" is asked again
-from the start, with a new example, not reworded.
+When the owner answers a choice with "I don't understand", ask it again from the
+start, with a new example, rather than rewording it.
 
 ### When to post it
 
@@ -3175,35 +3175,39 @@ The owner's `go` on the board's numbered action archives exactly the sessions th
 passed. The audit is read-only and can run as one subagent; it never archives.
 
 **Auto-archive (the owner's standing rule, 2026-11-27).** The owner asked, in the command
-center, for an "auto archive feature managed by you to ensure sessions that have completed all work
-and nothing pending are archived. we should strive to minimize token usage", then said "make auto
-archive a standing rule". So the command center archives finished sessions on its own, without a
-board or a `go`, and idle sessions stop holding machines without anyone paying to wake them.
-Its recurring check-in (`.claude/skills/fleet/SKILL.md`) archives a session only when all of
-these hold, read fresh in the same run, with `get_session` called immediately before
-`archive_session`:
+center, for an "auto archive feature managed by you to ensure sessions that have completed
+all work and nothing pending are archived. we should strive to minimize token usage", then
+said "make auto archive a standing rule". So the command center archives finished sessions
+on its own, without a board or a `go`, and idle sessions stop holding machines without
+anyone paying to wake them. Its recurring check-in (`.claude/skills/fleet/SKILL.md`)
+archives a session only when all of these hold, read fresh in the same run, with
+`get_session` called immediately before `archive_session`:
 
-1. It is not the command center, not a desk (`desk:*`), not `ui:pinned`, and no scheduled task
-   names it in `persistent_session_id`.
-2. It is idle, and its `updated_at` is at least 60 minutes old, or it has answered check 4(b)
-   since it last worked.
-3. Every PR it owns is merged or closed, no 🚦 card of its waits on the owner, and its summary
-   holds no `needs_action` and no question for the owner. A session with no PR must also say in
-   its summary (`post_turn_summary`) that its task is finished; silence is not finished.
-4. Nothing is local, shown two ways. **(a)** `external_metadata.unpushed_work` is present and
-   `false`; `true` or missing means the session stays and goes on the owner's list (a line in
-   the command center's next report, the morning report when the owner is away). **(b)** The
-   session's own reply to `git status -sb`, `git stash list` and
-   `git log --oneline --branches --not --remotes` shows a clean tree, no stash and no local
-   commits. The flag alone is not enough: on 2026-11-27 this command center wrote an untracked
-   file into its own checkout and `get_session` still read `"unpushed_work": false`, so the flag
-   missed an untracked file (at least while that turn was still running; whether it catches up
-   at the turn's end is not known). To keep (b) cheap, the command center asks for it while the
-   session's cache is still warm, right after the session reports it is done (its standup, its
-   "nothing left"), never by waking one that has sat idle past an hour. A session idle past an
-   hour with no such reply on record stays, and goes on the owner's list. A session can also say it
-   discarded its work while it still holds some: the 2026-11-27 Compose session still held a
-   local branch and a stash, and its flag read `true`.
+1. It is not the command center, not a desk (`desk:*`), not `ui:pinned`, and no scheduled
+   task names it in `persistent_session_id`.
+2. It is idle, and its `updated_at` is at least 60 minutes old, or it has answered check
+   4(b) since it last worked.
+3. Every PR it owns is merged or closed, no 🚦 card of its waits on the owner, and its
+   summary holds no `needs_action` and no question for the owner. A session with no PR must
+   also say in its summary (`post_turn_summary`) that its task is finished; silence is not
+   finished.
+4. Nothing is local, shown two ways. **(a)** `external_metadata.unpushed_work` is present
+   and `false`; `true` or missing means the session stays and goes on the owner's list (a
+   line in the command center's next report, the morning report when the owner is away).
+   **(b)** The session's own reply to `git status -sb`, `git stash list`, `git worktree
+   list`, `git log --oneline --branches --not --remotes` and `git log --oneline HEAD --not
+   --remotes` shows a clean tree, no stash, no extra worktree and no local commits (the last
+   command catches a commit made on a detached HEAD, which `--branches` skips). The flag
+   alone is not enough: on 2026-11-27 this command center wrote an untracked file into its
+   own checkout and `get_session` still read `"unpushed_work": false`, so the flag missed an
+   untracked file (at least while that turn was still running; nobody has yet checked
+   whether it catches up at the turn's end). To keep (b) cheap, the command center asks for
+   it while the session's cache is still warm, right after the session reports it is done
+   (its standup, its "nothing left"), never by waking one that has sat idle past an hour. A
+   session idle past an hour with no such reply on record stays, and goes on the owner's
+   list. A session can also say it discarded its work while it still holds some: the
+   2026-11-27 Compose session still held a local branch and a stash, and its flag read
+   `true`.
 5. Its leftovers are durable (check 2 above): every follow-up its summary names is found on
    `main` (`followups.d/`), in an open issue, or in a comment on one of its PRs. The command
    center reads the summary and checks those places; if a named item cannot be found, or the
@@ -3211,20 +3215,21 @@ these hold, read fresh in the same run, with `get_session` called immediately be
    ("nothing left", "no follow-ups"); one that is silent on them fails this check.
 6. No child session of it is still live.
 
-If anything changed between the reads, the session waits for the next run. Each archive adds one
-line (session, PRs, why it qualified) to the owner's morning report. Born on 2026-11-27, when a
-session woke between the audit and the archive and was archived with `unpushed_work: true`: an
-archive acts only on a read taken just before it.
+If anything changed between the reads, the session waits for the next run. Each archive adds
+one line (session, PRs, why it qualified) to the owner's morning report. Born on 2026-11-27,
+when a session woke between the audit and the archive and was archived with `unpushed_work:
+true`: an archive acts only on a read taken just before it.
 
-**The 90% sweep, a fallback for auto-archive (the owner's standing rule, 2026-11-27).** The owner
-asked: "when we hit 90% usage we should archive completed sessions. this way we never have to find
-out and wake them up when we come back." When the usage watch sends its `usage 90` line, it adds one
-request: every session whose work is all finished replies to the command center with `done` and its
-check 4(b) git output. Each session is taking a turn at that moment anyway, so its cache is warm and
-the reply costs little. The command center then archives every replier that passes all six checks
-above, with the same fresh `get_session` right before each `archive_session`, and lists them for the
-owner. A session that does not reply, or whose reply is not clean, stays. A desk, the command center,
-a pinned session, or one with an open PR or a question for the owner, is never archived by the sweep.
+**The 90% sweep, a fallback for auto-archive (the owner's standing rule, 2026-11-27).** The
+owner asked: "when we hit 90% usage we should archive completed sessions. this way we never
+have to find out and wake them up when we come back." When the usage watch sends its `usage
+90` line, it adds one request: every session whose work is all finished replies to the
+command center with `done` and its check 4(b) git output. Each session is taking a turn at
+that moment anyway, so its cache is warm and the reply costs little. The command center then
+archives every replier that passes all six checks above, with the same fresh `get_session`
+right before each `archive_session`, and lists them for the owner. A session that does not
+reply, or whose reply is not clean, stays. A desk, the command center, a pinned session, or
+one with an open PR or a question for the owner, is never archived by the sweep.
 
 **Finding each other.** The command center tags itself `command-center`; a desk
 reports to the one live session with that tag. If two or more live sessions hold
