@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · callouts on a journey and a risk matrix"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Notes pin to the task or the risk they name
 
@@ -15,8 +15,8 @@ A journey's task chip is ringed and the notes read in a list under the board; a 
 
 ---
 
-<!-- _class: journey -->
-<!-- _footer: "journey · a task by its label." -->
+<!-- @meta{layout=journey, footer=journey · a task by its label.} -->
+
 
 ## The journey scores each stage of the path.
 
@@ -35,8 +35,8 @@ A journey's task chip is ringed and the notes read in a list under the board; a 
 
 ---
 
-<!-- _class: risk-matrix -->
-<!-- _footer: "risk-matrix · a risk by its label." -->
+<!-- @meta{layout=risk-matrix, footer=risk-matrix · a risk by its label.} -->
+
 
 `Enterprise risk register · Q4 2026`
 

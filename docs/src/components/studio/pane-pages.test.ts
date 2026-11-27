@@ -43,7 +43,7 @@ const PANES = [
 
 /** A deck with the panes slide MID-deck, so there is a slide after the split to land on. */
 function deck(size?: string) {
-	const fm = `---\npaginate: true\n${size ? `size: ${size}\n` : ''}---\n\n`;
+	const fm = `---\npagination: true\n${size ? `size: ${size}\n` : ''}---\n\n`;
 	const body = ['# Opening', PANES, '## After the split\n\nThe slide the caret moves to.', '## Closing'].join(SLIDE_SEP);
 	return fm + body;
 }

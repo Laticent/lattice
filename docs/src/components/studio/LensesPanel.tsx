@@ -18,7 +18,7 @@ import {
 	taggedLensIds,
 	validateLadder,
 	type WorkspaceLensConfig,
-} from '@/lib/lente';
+} from '@/lib/lente-host';
 import { cn } from '@/lib/utils';
 import { slideClassValue } from '../../../../lib/core/class-entries.mjs';
 import { slideClass } from '../../lib/deck-lint';

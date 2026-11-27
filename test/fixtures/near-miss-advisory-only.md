@@ -15,13 +15,13 @@ theme: indaco
 section.near-miss-fixture .cell-stage > ul { min-height: 430px; }
 </style>
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # A deck whose only finding is a near miss.
 
 ---
 
-<!-- _class: content near-miss-fixture -->
+<!-- @meta{layout=content, class=near-miss-fixture} -->
 
 ## One list, padded past its stage by empty space.
 

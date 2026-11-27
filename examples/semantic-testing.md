@@ -2,7 +2,7 @@
 marp: true
 size: 4k
 theme: indaco
-paginate: true
+pagination: true
 profile: teaching
 header: "Semantic Testing"
 acronyms:
@@ -12,7 +12,7 @@ acronyms:
   ISTQB: { expansion: International Software Testing Qualifications Board }
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Semantic Testing
 
@@ -32,7 +32,7 @@ Timing: about 55 minutes, with two pauses for discussion.} -->
 
 ---
 
-<!-- _class: agenda -->
+<!-- @meta{layout=agenda} -->
 
 ## The session moves from naming tests to trusting their results.
 
@@ -44,7 +44,7 @@ Timing: about 55 minutes, with two pauses for discussion.} -->
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 `Part 1`
 
@@ -58,7 +58,7 @@ Timing: about 55 minutes, with two pauses for discussion.} -->
 
 ---
 
-<!-- _class: table table-fill -->
+<!-- @meta{layout=table, class=table-fill} -->
 
 ## Common test labels answer five different questions.
 
@@ -84,7 +84,7 @@ Timing matters, but it is a scheduling decision. A unit test runs at commit; a c
 
 ---
 
-<!-- _class: compare-prose vertical chosen -->
+<!-- @meta{layout=compare-prose, class=vertical chosen} -->
 
 `A better first question`
 
@@ -107,7 +107,7 @@ Ask the room for a test they wrote last week, and have them state its mission in
 
 ---
 
-<!-- _class: flowchart -->
+<!-- @meta{layout=flowchart} -->
 
 ## Only a tool that names its evidence is a strategy.
 
@@ -125,7 +125,7 @@ The last box is the one teams skip. Evidence that is collected but never interpr
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 `Part 2`
 
@@ -138,7 +138,7 @@ The last box is the one teams skip. Evidence that is collected but never interpr
 <!-- @say{Part two. Five missions, each reducing a different kind of risk. We will follow one five hundred dollar transfer through all of them.} -->
 
 ---
-<!-- _class: premise -->
+<!-- @meta{layout=premise} -->
 
 ## Each mission answers a question the others cannot.
 
@@ -165,7 +165,7 @@ The word System here means production parity. That is narrower than the ISTQB us
 
 ---
 
-<!-- _class: table table-fill -->
+<!-- @meta{layout=table, class=table-fill} -->
 
 ## One $500 transfer raises a different question for each mission.
 
@@ -188,7 +188,7 @@ Do not claim the missions are independent. The Safety row needs System-level con
 <!-- @say{One five hundred dollar transfer raises a different question for each mission. Unit asks whether an unauthorized approver is rejected. Integration asks whether exactly one row is stored and one event sent. System asks whether the transfer settles under peak load and failover. Experience asks whether the customer knows the money moved. And Safety asks whether a retry or an operator could pay twice.} -->
 
 ---
-<!-- _class: inventory editorial compact -->
+<!-- @meta{layout=inventory, class=editorial compact} -->
 
 ## Five kinds of test double do five different jobs.
 
@@ -210,11 +210,11 @@ Why it matters: a stub and a mock lead to different tests. A stub supports state
 
 ---
 
-<!-- _class: columns no-spine -->
+<!-- @meta{layout=columns, class=no-spine} -->
 
 ## Unit and integration tests catch different defects in the transfer.
 
-<!-- _pane: cards-stack -->
+<!-- @meta{pane=cards-stack} -->
 
 ### Unit
 
@@ -225,7 +225,7 @@ Why it matters: a stub and a mock lead to different tests. A stub supports state
 - Blind spot
   - Concurrent production writes.
 
-<!-- _pane: cards-stack -->
+<!-- @meta{pane=cards-stack} -->
 
 ### Integration
 
@@ -248,7 +248,7 @@ The objective decides the Integration label. A real database in a container, suc
 
 ---
 
-<!-- _class: split-panel -->
+<!-- @meta{layout=split-panel} -->
 
 `System mission`
 
@@ -277,7 +277,7 @@ Parity does not mean testing in production, and it does not mean using customer 
 
 ---
 
-<!-- _class: table table-fill -->
+<!-- @meta{layout=table, class=table-fill} -->
 
 ## Schema-valid test data can still misrepresent production.
 
@@ -301,7 +301,7 @@ Synthetic data is often the safer and more repeatable choice. Masked production 
 
 ---
 
-<!-- _class: flowchart -->
+<!-- @meta{layout=flowchart} -->
 
 ## Declare a fidelity gap instead of throwing the evidence away.
 
@@ -325,7 +325,7 @@ Write the gap down with three parts: what was substituted, what claim it weakens
 
 ---
 
-<!-- _class: checklist -->
+<!-- @meta{layout=checklist} -->
 
 `Experience mission`
 
@@ -348,11 +348,11 @@ Experience evidence comes from watching representative people do real tasks: mod
 
 ---
 
-<!-- _class: columns no-spine -->
+<!-- @meta{layout=columns, class=no-spine} -->
 
 ## Safety testing looks for harm from any cause, attackers included.
 
-<!-- _pane: cards-stack -->
+<!-- @meta{pane=cards-stack} -->
 
 ### Security asks
 
@@ -363,7 +363,7 @@ Experience evidence comes from watching representative people do real tasks: mod
 - Example harm
   - Stolen credentials move money.
 
-<!-- _pane: cards-stack -->
+<!-- @meta{pane=cards-stack} -->
 
 ### Safety asks
 
@@ -386,7 +386,7 @@ Harm can be financial, physical, legal, or a privacy loss. Security is one input
 
 ---
 
-<!-- _class: flowchart tb -->
+<!-- @meta{layout=flowchart, class=tb} -->
 
 ## Three correct services can still send the same transfer twice.
 
@@ -410,7 +410,7 @@ Ask: "Which of our five missions would have caught this?" Safety, run at System 
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 `Part 3`
 
@@ -424,7 +424,7 @@ Ask: "Which of our five missions would have caught this?" Safety, run at System 
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- @meta{layout=cards-stack} -->
 
 ## Confirm the known, and search for what you never imagined.
 
@@ -450,7 +450,7 @@ The cards describe the dominant intent. Fuzzing can confirm robustness against a
 <!-- @say{Confirm the known, and search for what you never imagined. For knowns, we know the condition and the expected result, so we write example based and contract tests. For known unknowns, we know the class of risk but not the case, so we generate inputs with property tests, fuzzing and fault injection. For unknown unknowns, we know nothing yet, so we explore, run chaos experiments, and learn from incidents.} -->
 
 ---
-<!-- _class: table table-fill -->
+<!-- @meta{layout=table, class=table-fill} -->
 
 ## Five techniques reach past examples; mutation testing tests the tests.
 
@@ -478,7 +478,7 @@ Chaos: the hypothesis comes first, for example "losing one broker node does not 
 
 ---
 
-<!-- _class: flowchart -->
+<!-- @meta{layout=flowchart} -->
 
 ## A test passes when it shares the code's wrong assumption.
 
@@ -506,7 +506,7 @@ The remedy is independent evidence: an oracle from a different source. A regulat
 
 ---
 
-<!-- _class: compare-code -->
+<!-- @meta{layout=compare-code} -->
 
 ## Two tests, same coverage: only one can catch the defect.
 
@@ -548,7 +548,7 @@ Coverage is still useful in one direction: an uncovered line is certainly untest
 
 ---
 
-<!-- _class: split-panel -->
+<!-- @meta{layout=split-panel} -->
 
 `Flakiness`
 
@@ -575,7 +575,7 @@ The practice: keep the trace from the failure, reproduce it under load, fix the 
 
 ---
 
-<!-- _class: cards-grid three -->
+<!-- @meta{layout=cards-grid, class=three} -->
 
 ## Testability is an architecture decision, made before the first test.
 
@@ -598,7 +598,7 @@ Analyzers matter here. A system test can assert "HTTP 200" and pass, while the t
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 `Part 4`
 
@@ -612,7 +612,7 @@ Analyzers matter here. A system test can assert "HTTP 200" and pass, while the t
 
 ---
 
-<!-- _class: math -->
+<!-- @meta{layout=math} -->
 
 `A rough guide for judgment`
 
@@ -639,7 +639,7 @@ K includes the hidden costs: run time on every commit, and the hours spent diagn
 <!-- @say{The next test must reduce more risk than it costs. As a rough guide, the value of a test is the chance the defect exists, times the cost if it escapes, times how much the test improves our chance of catching it, minus the cost of writing, running and maintaining the test. Nobody computes this exactly. It names the four things to argue about.} -->
 
 ---
-<!-- _class: list-tabular -->
+<!-- @meta{layout=list-tabular} -->
 
 ## Costly defects hide at the edges of a critical path.
 
@@ -666,7 +666,7 @@ Most suites walk down the middle of the road: the success case. The consequentia
 
 ---
 
-<!-- _class: list-steps -->
+<!-- @meta{layout=list-steps} -->
 
 ## Each stage trades feedback speed for fidelity.
 
@@ -693,7 +693,7 @@ Testing in production is legitimate only with guardrails: limit the blast radius
 
 ---
 
-<!-- _class: flowchart -->
+<!-- @meta{layout=flowchart} -->
 
 ## An escaped defect reveals gaps in product and tests alike.
 
@@ -716,7 +716,7 @@ This is a blameless review question. The goal is a better system; nobody is hunt
 
 ---
 
-<!-- _class: quote -->
+<!-- @meta{layout=quote} -->
 
 > We run Playwright against staging to check transfers.
 
@@ -732,7 +732,7 @@ Give the room a full minute. Take three answers before the reveal. Expect System
 
 ---
 
-<!-- _class: cards-grid four -->
+<!-- @meta{layout=cards-grid, class=four} -->
 
 `Reveal`
 
@@ -761,11 +761,11 @@ Mission decides the classification. Fidelity decides whether the evidence is goo
 
 ---
 
-<!-- _class: columns no-spine -->
+<!-- @meta{layout=columns, class=no-spine} -->
 
 ## Ten axioms hold the framework together.
 
-<!-- _pane: list -->
+<!-- @meta{pane=list} -->
 
 ### Evidence
 
@@ -775,7 +775,7 @@ Mission decides the classification. Fidelity decides whether the evidence is goo
 4. Fidelity must match the evidence required.
 5. Unexpected behavior deserves investigation.
 
-<!-- _pane: list -->
+<!-- @meta{pane=list} -->
 
 ### Practice
 
@@ -797,7 +797,7 @@ This is the slide to leave up during questions.} -->
 
 ---
 
-<!-- _class: decision -->
+<!-- @meta{layout=decision} -->
 
 ## Start with the mission you have the least evidence for.
 
@@ -822,7 +822,7 @@ The two rejected options are the usual reflexes. Both make a dashboard move with
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 ## Good testing buys evidence where being wrong costs the most.
 
@@ -838,7 +838,7 @@ Closing ask: each person names one mission that is weakly evidenced in their cur
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 `Reference`
 
@@ -851,7 +851,7 @@ Closing ask: each person names one mission that is weakly evidenced in their cur
 <!-- @say{Three reference pages follow, for after the session: key terms, common misconceptions, and questions for a team discussion.} -->
 
 ---
-<!-- _class: glossary -->
+<!-- @meta{layout=glossary} -->
 
 ## Eight terms carry most of the framework's precision.
 
@@ -880,7 +880,7 @@ Closing ask: each person names one mission that is weakly evidenced in their cur
 
 ---
 
-<!-- _class: list-tabular -->
+<!-- @meta{layout=list-tabular} -->
 
 ## Six common claims about testing need a better reading.
 
@@ -905,7 +905,7 @@ Closing ask: each person names one mission that is weakly evidenced in their cur
 
 ---
 
-<!-- _class: list -->
+<!-- @meta{layout=list} -->
 
 ## These six questions turn the framework into a team discussion.
 

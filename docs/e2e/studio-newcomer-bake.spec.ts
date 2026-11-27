@@ -62,7 +62,9 @@ async function recordWrites(page: import('@playwright/test').Page) {
 function previewState(page: import('@playwright/test').Page) {
 	return page.evaluate((sel) => {
 		const fr = document.querySelector<HTMLIFrameElement>(sel);
-		const host = fr?.parentElement ?? null;
+		// The frame sits in a display-sized slot (single-slide-render.ts `frameSlot`, #3304); the bake's outcome is on
+		// the host above it.
+		const host = fr?.closest('.lat-frame-slot')?.parentElement ?? fr?.parentElement ?? null;
 		const doc = fr?.contentDocument ?? null;
 		const w = window as unknown as { __liveWrites: Write[]; __swaps: string[]; __history0: number };
 		return {

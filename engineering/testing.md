@@ -7,7 +7,7 @@ One testing guide for people and agents. Read it a section at a time:
 - **Part 2** says how to write a test that cannot flake, and what to do when one does.
 - **Part 3** lists real traps, one example each, with the PR that taught it.
 
-This guide is an index for its topic, not a second copy of the rules. The flaky-test shapes F1–F9
+This guide is an index for its topic, not a second copy of the rules. The flaky-test shapes F1–F10
 live in `engineering/decisions/2026-11-06-flaky-tests.md`, the commands in
 `engineering/development.md`, and the binding rules in CLAUDE.md HARD RULES #23 and #32–#34.
 
@@ -136,6 +136,8 @@ modes, and a control is where a thumb can reach it.
   launches really runs with its OS sandbox on.
 - **The OpenRouter guard** (HARD RULE #24, `checkOpenRouterBudget`): our paid key never reaches the
   site, a test, or a per-PR workflow.
+- **The key-shaped-literal guard** (`checkKeyShapedLiterals`): no committed file carries a string
+  shaped like a real API key, so a secret scanner has nothing to flag ([Test data](#test-data)).
 - **CodeQL**, GitHub's default code-scanning setup, outside `ci.yml`.
 
 **What it proves.** That the gates guard the known routes to harm, and catch a new route of a known
@@ -157,7 +159,7 @@ shape.
 
 A test passes or fails on the code alone (HARD RULE #32). Before you write one that waits, times,
 randomizes or reaches the network, read `engineering/decisions/2026-11-06-flaky-tests.md`: its
-table names the nine shapes F1–F9 and the fix for each. The short form:
+table names the ten shapes F1–F10 and the fix for each. The short form:
 
 - **Wait for a signal, not a duration.** `expect(locator).toHaveText(…)`, `page.waitForResponse(…)`,
   `expect.poll(…)`. Never `waitForTimeout` (F2).
@@ -170,6 +172,33 @@ table names the nine shapes F1–F9 and the fix for each. The short form:
 - **Write temp files to `os.tmpdir()`**, never into `lib/` or `examples/`, where other tests walk
   (Part 3, #3238).
 - **No retries.** Playwright's `retries` is 0 and stays 0 (F9, #34).
+- **Never click a control that is still moving.** A layout change answers the input that caused it, in the frame after
+  its handlers finish; a control that moves later is a product bug a test must not wait out. `watchStillness`
+  (`docs/e2e/stillness.ts`) fails on one (F10).
+
+## Test data
+
+**A fixture never embeds a key-shaped literal; build the key at run time.** A secret scanner
+reads source, not intent: a string made of a provider's key prefix (`sk-ant-`, `sk-or-v1-`,
+`sk-proj-`, `AIza`, `AQ.`, `ghp_`, `github_pat_`, `AKIA`, `xoxb-` …) followed by a long run of
+key characters is flagged whether the key is live or a throwaway. On a public repository each flag becomes an alert
+that only the owner can resolve, and changing the string later does not clear one already raised
+on history.
+
+So pass the prefix and the body as two strings:
+
+```ts
+import { fakeKey } from '../src/test/fake-key'; // docs/src/test/fake-key.ts
+const key = fakeKey('sk-or-v1-', 'e2e-mock-key-0a0a'); // the same value, never one literal
+```
+
+Keep what the code under test reads: the prefix, the length and the character class a key-shape
+matcher checks (`docs/src/components/studio/key-providers.ts`). Code that runs inside the page
+and cannot import builds it with `['AIza', '…'].join('')`. `build:check` enforces this with
+`checkKeyShapedLiterals` in `tools/check-ownership.js`, which scans every committed text file at
+budget 0, with no allowlist. It counts 20 or more key characters after the prefix as "long" (for
+`AKIA`, exactly 16 upper-case letters or digits), so a short placeholder such as `sk-or-v1-…`
+passes; build a longer test key at run time all the same.
 
 ## Investigate a flaky test
 

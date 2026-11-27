@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · math"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Feature demo · math`
 
@@ -17,7 +17,7 @@ the alignment modifiers move it.
 
 ---
 
-<!-- _class: math -->
+<!-- @meta{layout=math} -->
 
 `Default`
 
@@ -29,7 +29,7 @@ $$
 
 ---
 
-<!-- _class: math align-left align-middle -->
+<!-- @meta{layout=math, class=align-left align-middle} -->
 
 `align-left align-middle`
 
@@ -41,7 +41,7 @@ $$
 
 ---
 
-<!-- _class: math align-right align-middle -->
+<!-- @meta{layout=math, class=align-right align-middle} -->
 
 `align-right align-middle`
 
@@ -53,7 +53,7 @@ $$
 
 ---
 
-<!-- _class: math align-center align-bottom -->
+<!-- @meta{layout=math, class=align-center align-bottom} -->
 
 `align-center align-bottom`
 
@@ -65,7 +65,7 @@ $$
 
 ---
 
-<!-- _class: math -->
+<!-- @meta{layout=math} -->
 
 `With a legend, the split stays`
 
@@ -81,7 +81,7 @@ $$
 
 ---
 
-<!-- _class: math align-middle -->
+<!-- @meta{layout=math, class=align-middle} -->
 
 `A longer equation still fits`
 
@@ -93,7 +93,7 @@ $$
 
 ---
 
-<!-- _class: math feature align-right align-bottom -->
+<!-- @meta{layout=math, class=feature align-right align-bottom} -->
 
 `feature behaves the same`
 

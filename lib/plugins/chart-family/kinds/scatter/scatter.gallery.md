@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · scatter"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # scatter
 
@@ -15,8 +15,7 @@ An XY plot with real units on both axes — one dot per entity, showing how two 
 
 ---
 
-<!-- _class: scatter -->
-<!-- _footer: "Default · scatter" -->
+<!-- @meta{layout=scatter, footer=Default · scatter} -->
 
 `[Annual cost, Teams adopting]`
 
@@ -36,8 +35,7 @@ Cost is the renewal we signed; adoption is the share of teams with a weekly acti
 
 ---
 
-<!-- _class: scatter bubble -->
-<!-- _footer: "bubble · scatter bubble — A third measure sizes each dot by area." -->
+<!-- @meta{layout=scatter, class=bubble, footer="bubble · scatter bubble — A third measure sizes each dot by area."} -->
 
 `[Annual cost, Teams adopting, Seats]`
 
@@ -53,8 +51,7 @@ Cost is the renewal we signed; adoption is the share of teams with a weekly acti
 
 ---
 
-<!-- _class: scatter trend -->
-<!-- _footer: "trend · scatter trend — A least-squares line through the cloud." -->
+<!-- @meta{layout=scatter, class=trend, footer="trend · scatter trend — A least-squares line through the cloud."} -->
 
 `[Annual cost, Teams adopting]`
 
@@ -72,9 +69,8 @@ Cost is the renewal we signed; adoption is the share of teams with a weekly acti
 
 ---
 
-<!-- _class: scatter -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · scatter — Twelve entities, four of them inside four points of each other." -->
+<!-- @meta{layout=scatter, footer="Stress test · scatter — Twelve entities, four of them inside four points of each other."} -->
+<!-- @meta{stress-slide} -->
 
 `[Annual cost, Teams adopting]`
 
@@ -96,8 +92,7 @@ Cost is the renewal we signed; adoption is the share of teams with a weekly acti
 
 ---
 
-<!-- _class: scatter dark -->
-<!-- _footer: "Composition: dark · scatter dark" -->
+<!-- @meta{layout=scatter, class=dark, footer=Composition: dark · scatter dark} -->
 
 `[Annual cost, Teams adopting]`
 
@@ -117,8 +112,7 @@ Cost is the renewal we signed; adoption is the share of teams with a weekly acti
 
 ---
 
-<!-- _class: scatter compact -->
-<!-- _footer: "Composition: compact · scatter compact" -->
+<!-- @meta{layout=scatter, class=compact, footer=Composition: compact · scatter compact} -->
 
 `[Annual cost, Teams adopting]`
 
@@ -138,8 +132,7 @@ Cost is the renewal we signed; adoption is the share of teams with a weekly acti
 
 ---
 
-<!-- _class: scatter accent -->
-<!-- _footer: "Composition: accent · scatter accent" -->
+<!-- @meta{layout=scatter, class=accent, footer=Composition: accent · scatter accent} -->
 
 `[Annual cost, Teams adopting]`
 
@@ -159,8 +152,7 @@ Cost is the renewal we signed; adoption is the share of teams with a weekly acti
 
 ---
 
-<!-- _class: cards-grid claim-hero -->
-<!-- _footer: "Anti-patterns · scatter · 1 of 2" -->
+<!-- @meta{layout=cards-grid, class=claim-hero, footer=Anti-patterns · scatter · 1 of 2} -->
 
 ## When NOT to reach for scatter.
 
@@ -171,8 +163,7 @@ Cost is the renewal we signed; adoption is the share of teams with a weekly acti
 
 ---
 
-<!-- _class: cards-grid claim-hero -->
-<!-- _footer: "Anti-patterns · scatter · 2 of 2" -->
+<!-- @meta{layout=cards-grid, class=claim-hero, footer=Anti-patterns · scatter · 2 of 2} -->
 
 ## When NOT to reach for scatter.
 
@@ -183,7 +174,7 @@ Cost is the renewal we signed; adoption is the share of teams with a weekly acti
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

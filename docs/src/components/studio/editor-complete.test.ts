@@ -45,7 +45,8 @@ describe('makeStudioCompletion', () => {
 	it('completes front-matter keys inside the --- block', () => {
 		const r = complete('---\nsi', 6);
 		expect(labels(r)).toContain('size');
-		expect(labels(r)).toContain('paginate');
+		expect(labels(r)).toContain('pagination');
+		expect(labels(r)).not.toContain('paginate');
 	});
 
 	it('completes the finish-override + mode keys in the --- block', () => {
@@ -462,10 +463,8 @@ describe('front-matter registers — keys and values', () => {
 	// vocabulary. It must be wired for value completion or named here as handled by its
 	// own branch, so a register can't ship with values the editor never offers.
 	it('every register value list in the lint vocab is wired for completion', () => {
-		// `guardsNames` is the old spelling of `fit:` — lint still reads it to name the new key
-		// (`guards-renamed`), and the editor offers `fit:` instead of it.
 		// finish, pace and theme complete from their own sources (built-in + saved finishes, the pace catalog, built-in + saved palettes).
-		const HANDLED_ELSEWHERE = new Set(['finishNames', 'paceNames', 'guardsNames', 'themeNames']);
+		const HANDLED_ELSEWHERE = new Set(['finishNames', 'paceNames', 'themeNames']);
 		const wired = new Set(Object.values(VOCAB_VALUE_FIELDS));
 		const unwired = Object.keys(vocab).filter((f) => f.endsWith('Names') && !wired.has(f) && !HANDLED_ELSEWHERE.has(f));
 		expect(unwired, 'add these to VOCAB_VALUE_FIELDS (or HANDLED_ELSEWHERE with a reason)').toEqual([]);
@@ -473,7 +472,7 @@ describe('front-matter registers — keys and values', () => {
 
 	// The gate above reads the FULL vocab, but the Studio receives what studio.astro
 	// serializes. That page used to hand-pick a few `*Names` lists, so this suite passed
-	// while the real editor had no `guards:` values at all. Pin the pass-everything spread.
+	// while the real editor had no `fit:` values at all. Pin the pass-everything spread.
 	it('the Studio page passes every register value list to the editor', () => {
 		const page = readFileSync(new URL('../../pages/studio.astro', import.meta.url), 'utf8');
 		expect(page).toMatch(/packedNames: packVocabNames\(v\)/);
@@ -486,9 +485,8 @@ describe('front-matter registers — keys and values', () => {
 	// editor, so the two surfaces can't offer different front-matter vocabularies.
 	it('every front-matter key the Studio Inspector writes is in autocomplete', () => {
 		const shell = readFileSync(new URL('./StudioShell.tsx', import.meta.url), 'utf8');
-		// A write whose value is a literal `null` only DELETES a key (the Fit field drops the old
-		// `guards:` spelling when it writes `fit:`), so it offers nothing to autocomplete. The Fit
-		// field's own `fit` write is a separate statement precisely so this pattern still sees it.
+		// A write whose value is a literal `null` only DELETES a key, so it offers nothing to
+		// autocomplete. The Fit field's `fit` write must stay visible to this pattern.
 		const written = new Set([...shell.matchAll(/writeFrontMatterLine\(\w+, '([\w-]+)', (?!null\))/g)].map((m) => m[1]));
 		expect(written.size).toBeGreaterThan(20);
 		expect(written.has('fit'), 'the Fit field\'s write must stay visible to this check').toBe(true);
@@ -841,7 +839,7 @@ describe('studioCompletionSources ⇄ the Playground (one shared list)', () => {
 		['the slot skeleton on an empty classed slide', `${FM}<!-- _class: cards-grid -->\n\n`, 'skeleton', null],
 		['a map region (the lazily loaded data source)', `${FM}<!-- _class: map -->\n\n- Fra`, 'France', null],
 		// Slice 3.
-		['a slide directive value', `${FM}<!-- _paginate: `, 'false', null],
+		['a slide directive value', `${FM}<!-- _pagination: `, 'false', null],
 		['a note after <!--', `${FM}<!-- @sa`, '@say{', null],
 		['the slide record after <!--', `${FM}<!-- @me`, '@meta{', null],
 		['a record field inside @meta, never inside the bare spelling', `${FM}<!-- @meta{lay`, 'layout', null],

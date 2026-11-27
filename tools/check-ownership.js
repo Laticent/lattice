@@ -136,6 +136,9 @@ const { resolveTokenExpr } = require('../lib/core/resolve-token-expr'); // cat-c
 const { oklabDistance } = require('../lib/core/color.js'); // cat-contrast: perceptual distance for the ink collapse arm
 // changelog fragments: the assembler owns the format — this gate only reports it (reused, not reinvented)
 const { fragmentProblems: changelogFragmentProblems } = require('./changelog');
+// changesets + the publish set: the formats live in their release modules; these gates only report them
+const { changesetProblems } = require('./changesets');
+const { publishSetProblems } = require('./release-packages');
 const { followupProblems } = require('./followups');
 // #1595: the contrast floor a token's value must meet, read off its role-based name.
 // One source — the floors live there, not here (reused, not reinvented).
@@ -190,10 +193,10 @@ const VARIANT_DECL_IGNORE = new Map([
   // `left`: legacy alias of `mirror` (base.modifiers.css). The others are DECK-REGISTER classes
   // (`rule:` → resolve-rule.js, `trim-spectrum:` → resolve-spectrum.js) that the card's divider reads
   // so it follows the deck's and the slide's own settings; they are not image variants.
-  // `card-o5` … `card-o95` are the in-between backing levels (resolve-image-card.js BACKING_LEVELS):
-  // one axis, documented once under `card-solid`/`soft`/`sheer`/`clear`. Declaring each would add
+  // `image-card-5` … `image-card-95` are the in-between backing levels (resolve-image-card.js BACKING_LEVELS):
+  // one axis, documented once under `image-card-solid`/`-soft`/`-sheer`/`-clear`. Declaring each would add
   // seventeen identical gallery slides.
-  ['image', new Set(['left', 'no-heading-rule', 'trim-spectrum-rainbow', 'trim-spectrum-solid', 'trim-spectrum-duo', 'trim-spectrum-mono', ...require('../lib/core/resolve-image-card.js').BACKING_LEVELS.map((n) => `card-o${n}`)])],
+  ['image', new Set(['left', 'no-heading-rule', 'trim-spectrum-rainbow', 'trim-spectrum-solid', 'trim-spectrum-duo', 'trim-spectrum-mono', ...require('../lib/core/resolve-image-card.js').BACKING_LEVELS.map((n) => `image-card-${n}`)])],
   ['state-chart', new Set(['horizontal'])],  // documented back-compat alias of `lr inline`
   ['word-cloud', new Set(['canvas'])],        // chart-family-wide surface modifier, not a word-cloud-specific variant
 ]);
@@ -2924,7 +2927,18 @@ function checkReadingRole(errors) {
 // Empty since the checks migration (engineering/decisions/2026-10-18-checks.md §17): verdict-grid's
 // `.badge` and obligation-matrix's `.pills` were the last two hand-rolled pills, and both now
 // ask the pill plugin for a pill holding a check.
-const SANCTIONED_PILL_READS = [];
+const SANCTIONED_PILL_READS = [
+  {
+    file: 'lib/components/legal/statute-stack/statute-stack.styles.css',
+    count: 1,
+    // The header's line box must be exactly one pill tall, or a floated status pill sits off the
+    // label's center (measured 1.5px high on a 16:9 card; 0.23px under the old flex row). The
+    // height is the plugin's own `1em + 2 * --pill-pad-y + 2px`; copying 0.3em instead would drift
+    // silently the day the plugin's padding changes. A read, never a write: the plugin still
+    // draws the pill.
+    why: 'statute-stack header line box = one pill height, so a floated pill shares the label center',
+  },
+];
 
 /** `var(--pill-*)` / `var(--lat-pill-*)` reads in one stylesheet, comments stripped. */
 function pillReadsIn(css) {
@@ -5928,7 +5942,14 @@ function writesMarkIdentity(src, key) {
   // that pairs backticks cannot see inside one, so literal-scoping reported four real emitters as
   // silent. Stripping comments removes the false positive that mattered — a docblock that merely
   // NAMES the attribute reddening the build — and nothing else here needs the narrower match.
-  const code = src.replace(COMMENTS, ' ');
+  // A READ IS NOT A WRITE. `readAttr(tag, 'data-label')` (@laticent/markup, the engine's one
+  // attribute reader) takes a member's declared name off markup another file already wrote:
+  // relationship.js names a split's next page that way. Booking it as an emitter would put a
+  // reader in a ledger whose third failure mode then holds it to keep "writing". So a
+  // `readAttr(…, 'data-<key>')` call leaves the code before the search; any other spelling of the
+  // attribute in the same file still counts.
+  const code = src.replace(COMMENTS, ' ')
+    .replace(new RegExp(`\\breadAttr\\s*\\([^()]*,\\s*(['"\`])data-${key}\\1\\s*\\)`, 'g'), ' ');
   // BOUNDED, because `data-label` is a PREFIX of `data-label-drops` — a different attribute that
   // label-drops.js really does write, and an unbounded search would book it as a mark identity.
   if (new RegExp(`data-${key}(?![-\\w])`).test(code)) return true;
@@ -7105,7 +7126,7 @@ const SANCTIONED_EOL_BOUNDARIES = [
   {
     file: 'lib/engine/index.js',
     count: 1,
-    why: 'prepareSource — the ONE preamble render(), geometry(), paneOrientations() and the _tokens() '
+    why: 'prepareSource — the ONE preamble render(), geometry(), paneOrientations() and the _tokens() test '
        + 'seam all call, so every door parses front matter alike (#1357 measured the divergence when '
        + 'only render() normalized) and runs the source hooks (a door that skipped them would leave '
        + 'slide-metadata records inert there). One fold, not one per door: a door added later calls '
@@ -7269,6 +7290,12 @@ const SANCTIONED_EOL_BOUNDARIES = [
  * question ("is this a boundary?") instead of a blanket exemption. Stale entries fail.
  */
 const SANCTIONED_EOL_NON_BOUNDARIES = [
+  {
+    file: 'tools/changesets.js',
+    why: 'reads `.changeset/*.md`, which are committed text (LF by .gitattributes), and is itself the gate for them: '
+       + '`changesetProblems` REJECTS a CR or a BOM by name before it parses, so normalizing at the read would hide the '
+       + 'very bytes it reports. `parseChangeset` also strips both before anchoring on `^---`, for its other callers.',
+  },
   {
     file: 'tools/platform-harness.js',
     why: 'folds a PR COMMENT the warm harness reads as a command (`/harness sh` and its bash fence): a comment typed on '
@@ -8554,16 +8581,16 @@ const SANCTIONED_SLIDE_TEXT_ADDRESS_READERS = [
     guards: 0,
     guard: 'none',
     why:
-      'The safety scanner for untrusted CSS (`findCssExfil`): its regexes FIND remote `url()`s in order to refuse them, and its one `url(${…})` is the text of the warning it prints. It writes no address anywhere.',
+      'The safety scanner for untrusted CSS (`findCssExfil`): its regexes FIND remote `url()`s in order to refuse them, and its one templated `url(…)` is the text of the warning it prints. It writes no address anywhere.',
   },
   {
     file: 'lib/core/pdf-compose/read-slide.mjs',
-    reads: ['regex', 'text'],
+    reads: ['text'],
     sinks: { 'property': 1 },
     guards: 0,
     guard: 'none',
     why:
-      'The PDF composer reads the FINISHED page to lay its text out as PDF glyphs; its one address write (`naturalSizeOf`, `im.src = url`) measures a background image the page already loaded, under the CLI\'s offline Chromium (lib/core/offline-chromium.js). It builds no address from text.',
+      'The PDF composer reads the FINISHED page to lay its text out as PDF glyphs; its one address write (`naturalSizeOf`, `im.src = url`) measures a background image the page already loaded, under the CLI\'s offline Chromium (lib/core/offline-chromium.js). It builds no address from text. Its `url(…)` reads go through the CSS tokenizer (`cssUrls`, Segno P5a), so no regex reads an address.',
   },
   {
     file: 'lib/core/remote-ref.js',
@@ -8626,7 +8653,7 @@ const SANCTIONED_SLIDE_TEXT_ADDRESS_READERS = [
     guards: 0,
     guard: 'none',
     why:
-      'Applies the image policy to pictures the player already baked as `data:` URIs, re-encoding them; `setAttribute(\'src\', next)` writes the re-encoded data URI of the same picture. It reads no slide text. The `url(${next})` write (PR #3183) puts back a picture the metadata cleaner rewrote, found by `cssRefSpans` at a `data:image/` value: `next` is only ever that picture re-encoded as base64, an SVG re-encoded as base64, or the percent-encoded drawn stand-in, none of which can hold a quote, a space or a `)`, so it cannot end the `url(…)` or its container, and it is never a web address.',
+      'Applies the image policy to pictures the player already baked as `data:` URIs, re-encoding them; `setAttribute(\'src\', next)` writes the re-encoded data URI of the same picture. It reads no slide text. The templated `url(…)` write (PR #3183) puts back a picture the metadata cleaner rewrote, found by `cssRefSpans` at a `data:image/` value: `next` is only ever that picture re-encoded as base64, an SVG re-encoded as base64, or the percent-encoded drawn stand-in, none of which can hold a quote, a space or a `)`, so it cannot end the `url(…)` or its container, and it is never a web address.',
   },
   {
     file: 'lib/integrations/markdown-it/plugins.js',
@@ -8950,24 +8977,19 @@ const SANCTIONED_SPINE_READERS = Object.freeze([
   { file: 'lib/core/image-aspect.js', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: reads the picture address off the `.lattice-bg` div the engine writes, to size the slide\'s picture bucket; a size, not a fetch.' },
   { file: 'lib/core/image-dimensions.js', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: the same `.lattice-bg` read as image-aspect.js, for the picture\'s dimensions.' },
   { file: 'lib/core/logo-wall-pack.js', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: reads the `--logo-mask:url(\'…\')` the logo-marks transformer wrote, to pack the wall.' },
-  { file: 'lib/transformers/logo-marks.js', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: reads back the `--logo-mask:url(\'…\')` it wrote.' },
   { file: 'lib/transformers/prose-projection.mjs', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: finds `url(#id)` fragment references, to follow a chart\'s own gradient ids; a fragment never fetches.' },
   { file: 'lib/components/connect/_qr-card/qr-general.transform.js', shape: 'attr-reader', count: 1, why: 'ENGINE-WRITTEN: reads the `<a href>` markdown-it rendered from the card\'s own link, to draw it as a QR code; a link, never fetched.' },
   { file: 'lib/core/payload-elision.js', shape: 'url-reader', count: 1, why: 'NOT A FETCH DECISION: `OPENER` asks whether a `data:` URI\'s base64 opens where a URL value does (`](`, `url(`, `=`), only to decide which runs the readers may skip and put back; a run it rejects is read whole. The web-image blocker (`blockWebImages`) does not consult it and reads every character (PR #3153).' },
   { file: 'lib/authoring/lint-core.js', shape: 'url-reader', count: 1, why: 'A PREFILTER: `findWebMarkup` skips a deck that holds no tag, no `url(`, no `style:` and no Mermaid fence; everything it lets through is read with `scanHtml` and `cssRefSpans`. A miss here would skip a deck that holds no such text.' },
   { file: 'lib/authoring/lint-core.js', shape: 'attr-reader', count: 1, why: 'LINT, NOT AN ADDRESS: `author-script-defers` tells an inline `<script>` from one with a `src`; it reads no address.' },
-  { file: 'lib/core/pdf-compose/read-slide.mjs', shape: 'url-reader', count: 7, why: 'ENGINE-WRITTEN: the PDF composer reads the COMPUTED style of the rendered slide (masks, gradients, backgrounds) to draw native shapes; the render already blocked every web address before it runs.' },
   { file: 'docs/src/lib/calco/picture.ts', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: Calco tests a computed background for the presence of a picture, to pick a tone; a presence test, never a fetch decision.' },
   { file: 'docs/src/lib/calco/reader.ts', shape: 'url-reader', count: 4, why: 'ENGINE-WRITTEN: Calco reads computed styles of the rendered slide (a picture present, an SVG data: mask) to build native shapes; the render already blocked.' },
-  { file: 'docs/src/components/studio/card-ink-sampler.ts', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: reads the picture off a panel\'s own `style.backgroundImage` (the engine\'s `.lattice-bg` photo panel) to sample its tone.' },
-  { file: 'docs/src/components/studio/photo-verdict.ts', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: the same panel read as card-ink-sampler.ts, for the photo verdict.' },
   { file: 'lib/export/html-player.js', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: matches the `--background-image:"url(\\"file://…\\")"` marker the engine writes for a local picture, to inline it.' },
   { file: 'lib/export/player-core.mjs', shape: 'url-reader', count: 3, why: 'ENGINE-WRITTEN: two skip url() tokens while minifying the player\'s own sheet; one reads the `@font-face` urls of the player\'s own fonts.' },
   { file: 'lib/export/player-core.mjs', shape: 'attr-reader', count: 1, why: 'A REPORT, not a guard: lists the `file://` `<script src>` addresses the player export removes, for its report; a parse pass removes every script, which is the guard.' },
   { file: 'lib/plugins/mermaid/mermaid.draw-shim.mjs', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: reads Mermaid\'s own `@font-face` src in its own sheet.' },
   // ── Refusals that fail closed on any url() ──
   { file: 'lib/core/door-attr.mjs', shape: 'url-reader', count: 1, why: 'A SECOND WALL: the door keeps an inline style declaration only when this pattern finds no `url(` (it misses an escaped `u\\72l(`); the wall that decides is `cssRefTargets`, which reads every address with the shared reader before this runs (`doorFilterAttr`).' },
-  { file: 'lib/core/image-painting.js', shape: 'url-reader', count: 1, why: 'FAILS CLOSED: a placeholder hatch is told apart by holding no url(); a missed spelling only means it is not treated as the hatch.' },
   { file: 'lib/core/rough-ink-dom.js', shape: 'url-reader', count: 2, why: 'FAILS CLOSED: rough ink skips any element whose fill or background holds a url().' },
   { file: 'docs/src/lib/anima/schema.ts', shape: 'url-reader', count: 1, why: 'FAILS CLOSED: an animation color holding `url(` or `image(` is refused outright.' },
   { file: 'docs/src/lib/vetrina/theme.ts', shape: 'url-reader', count: 1, why: 'FAILS CLOSED: a walkthrough theme value holding `url(`, `image(` or `expression(` is refused outright.' },
@@ -8986,13 +9008,9 @@ const SANCTIONED_SPINE_READERS = Object.freeze([
   { file: 'lib/export/player-images.mjs', shape: 'url-reader', count: 1, why: 'OWN ASSETS: finds `data:image` urls in the player\'s own CSS, to deduplicate them.' },
   { file: 'lib/fonts/face-css.js', shape: 'url-reader', count: 1, why: 'OWN ASSETS: reads the `src` of Lattice\'s own bundled `@font-face` rules.' },
   { file: 'lib/export/deck-assets.js', shape: 'url-reader', count: 1, why: 'OWN ASSETS: finds `asset:` names a deck references (the host\'s own map); it reads no web address.' },
-  { file: 'docs/src/lib/theme-fetch.ts', shape: 'url-reader', count: 1, why: 'OWN ASSETS: points a fetched theme\'s `fonts/` and KaTeX font urls at the site\'s own font folder.' },
-  { file: 'docs/src/playground/snapshot-cache.js', shape: 'url-reader', count: 2, why: 'OWN ASSETS: points a cached theme\'s `fonts/` urls at the site\'s own font folder.' },
-  { file: 'docs/src/playground/single-slide-render.ts', shape: 'url-reader', count: 1, why: 'OWN ASSETS: rebases relative url() targets in Lattice\'s own theme CSS onto the asset base.' },
   // ── The renderer's own sets, and readers that decide a fetch (follow-ups) ──
   { file: 'lib/core/remote-ref.js', shape: 'list-copy', count: 2, why: 'The scanner\'s own nested-document set (`NESTED_DOC`: iframe, frame, object, embed) and the three attributes a sample slide\'s `<script>` is read for (src, href, xlink:href); content-policy.js says the scanner keeps the sets its own logic needs.' },
   { file: 'lib/core/sanitize-slide-html.mjs', shape: 'list-copy', count: 1, why: 'The sanitizer\'s `blob:` allowance, `OBJECT_URL_TAGS`: which elements may keep the Studio\'s own object URL, not a list of what fetches.' },
-  { file: 'lib/core/pane-css.js', shape: 'url-reader', count: 1, why: 'KEPT (2026-11-05): reads an unquoted url() token only so the pane widening does not split it at a brace inside; it writes no address, decides no fetch, and each block it writes back goes through `sanitizeStyleText`. Moving it onto `cssRefSpans` would put the CSS parser in every route\'s engine (+5.1 KB gzip, measured) and the parser\'s first read of the 2.9 MB built sheet takes about 49 ms in Node (the spine note, "The picture camera, as built"). Its markup scan is held to the HTML reader by test/unit/core/pane-css-style-blocks.test.js.' },
   { file: 'lib/core/slide-camera.mjs', shape: 'list-copy', count: 1, why: 'A FALSE MATCH: the tuple `[el, abs, \'xlink:href\' : \'href\']` the picture export queues for each SVG image (three strings, two of them fetch attributes), not a list. The file reads CSS with `cssRefSpans` (followups.d/3024, done).' },
   { file: 'lib/export/inline-url-media.mjs', shape: 'attr-reader', count: 1, why: 'The same hint as its url-reader entry: whether a `<video poster>` in the source makes the export show its embed switch.' },
   { file: 'lib/export/inline-url-media.mjs', shape: 'url-reader', count: 1, why: 'KEPT, FAILS CLOSED (2026-11-05): a HINT over the deck SOURCE, whether the export panel shows its switch to embed web pictures. A false yes shows a switch that does nothing; a false no leaves the picture as the placeholder, which is what the export does without the switch. It decides no fetch: the embed reads with `scanHtml` and `cssRefSpans` (R4), and only for origins the author switched on.' },
@@ -9073,8 +9091,8 @@ function checkSecuritySpineCensus(errors, sanctions = SANCTIONED_SPINE_READERS, 
 // HARD RULE #32 — a test passes or fails on the code alone.
 // ══════════════════════════════════════════════════════════════════════════
 // A flaky test is one whose verdict depends on something the code does not control: the clock, the machine's load, the
-// order things finish, a random draw, the network (engineering/decisions/2026-11-06-flaky-tests.md lists the nine shapes,
-// F1 to F9). This census counts the three a parser can find in a committed test file:
+// order things finish, a random draw, the network (engineering/decisions/2026-11-06-flaky-tests.md lists the ten shapes,
+// F1 to F10). This census counts the three a parser can find in a committed test file:
 //
 //   fixed-sleep     F2  a hand-made sleep (`new Promise((r) => setTimeout(r, ANY))`), a call to a `sleep` / `delay` /
 //                       `wait` / `pause` helper, and `waitForTimeout(…)` OUTSIDE docs/e2e. Inside docs/e2e every
@@ -9403,7 +9421,7 @@ function flakyTestHits(text, rel = 'test/x.test.js') {
       // Only the test's own context: the first parameter of the nearest function passed to test()/it()/describe().
       let f = n.parent;
       while (f && !ts.isFunctionLike(f)) f = f.parent;
-      const p0 = f && f.parameters && f.parameters[0];
+      const p0 = f?.parameters?.[0];
       const isCtx = p0 && ts.isIdentifier(p0.name) && p0.name.text === e.expression.text && f.parent && ts.isCallExpression(f.parent) && ts.isIdentifier(f.parent.expression) && RUNNERS.test(f.parent.expression.text);
       if (isCtx && !viaHelper(n.arguments[0]) && !ciSkipOk(n)) bump('env-skip');
     }
@@ -9620,6 +9638,58 @@ function checkPlaywrightRetries(errors, file = path.join(ROOT, 'docs', 'playwrig
     const src = fs.readFileSync(path.join(e2e, n), 'utf8');
     if (!/\bretries\b/.test(src)) continue;
     errors.push(...playwrightRetriesFindings(src, path.relative(ROOT, path.join(e2e, n)), { optional: true }));
+  }
+}
+
+// ── Key-shaped literals: no committed file carries a string shaped like a real API key ──
+// A secret scanner reads source, not intent: `'<provider prefix><long run of key characters>'` is flagged whether the key
+// is live or a throwaway test value, and an alert raised on a public repo's history stays open until a human resolves it.
+// So a test fixture builds its fake key at run time from two strings (`fakeKey(prefix, body)`, docs/src/test/fake-key.ts),
+// and this gate holds every committed text file to zero literals of the shape (engineering/testing.md §Test data).
+// Budget 0, no allowlist: a real key is never committed either, and a fake one never needs to be one literal.
+// "Long" means 20 or more key characters after the prefix (AKIA: exactly 16 upper-case letters or digits); a shorter
+// placeholder such as `sk-or-v1-…` or a 12-character test body passes. Known limits: it reads the prefixes below and
+// nothing else (a provider with no fixed prefix passes), and a key split across two literals passes by design: that is the fix.
+const KEY_SHAPED_LITERAL = /(?<![A-Za-z0-9_])(?:(?:sk-ant-|sk-or-v1-|sk-proj-|gh[pousr]_|github_pat_|AIza|AQ\.|xox[abposr]-)[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16}(?![0-9A-Z]))/g;
+
+/** The key-shaped literals in one file's text: [{ line, prefix }]. The match itself is never returned, so a real key never reaches a log. */
+function keyShapedLiterals(text) {
+  const found = [];
+  const src = String(text);
+  for (const m of src.matchAll(KEY_SHAPED_LITERAL)) {
+    const prefix = /^(?:sk-ant-|sk-or-v1-|sk-proj-|gh[pousr]_|github_pat_|AIza|AQ\.|xox[abposr]-|AKIA)/.exec(m[0])[0];
+    found.push({ line: src.slice(0, m.index).split('\n').length, prefix });
+  }
+  return found;
+}
+
+function checkKeyShapedLiterals(errors, root = ROOT) {
+  // `git grep` (tracked text files only, binaries skipped) names the candidates by prefix in ~0.1 s; the exact
+  // shape is then matched here, so no grep flavor (-P is not built into every git) decides the verdict.
+  let files;
+  try {
+    files = execFileSync('git', ['grep', '--no-color', '-lIzE', 'sk-ant-|sk-or-v1-|sk-proj-|gh[pousr]_|github_pat_|AIza|AQ\\.|xox[abposr]-|AKIA'], { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] }).split('\0').filter(Boolean);
+  } catch (e) {
+    if (e.status === 1) return; // git grep exits 1 when nothing matches
+    errors.push(`the key-shaped-literal check could not search the committed files (${String(e.message).split('\n')[0]}). It needs git.`);
+    return;
+  }
+  for (const rel of files) {
+    let text;
+    try {
+      text = fs.readFileSync(path.join(root, rel), 'utf8');
+    } catch (e) {
+      if (e.code === 'ENOENT') continue; // tracked, but deleted in the working tree
+      errors.push(`the key-shaped-literal check could not read ${rel} (${e.code || e.message}); it fails closed rather than skip a candidate.`);
+      continue;
+    }
+    for (const { line, prefix } of keyShapedLiterals(text)) {
+      errors.push(
+        `${rel}:${line}: a literal shaped like an API key (\`${prefix}…\` and a long run of key characters). A secret scanner flags the ` +
+        `shape whether or not the key is real. Build a test key at run time, e.g. fakeKey('${prefix}', '<body>') from docs/src/test/fake-key.ts ` +
+        `(engineering/testing.md §Test data). If it is a real key, revoke it first: it is already in history.`,
+      );
+    }
   }
 }
 
@@ -11032,7 +11102,7 @@ function checkSegnoMarkdownBoundary(errors, dir = SEGNO_MARKDOWN_DIR) {
     allowNode: false,
     allowBare: new Set(),
     describe: (rel, spec) =>
-      `${rel} imports '${spec}', which escapes the Segno-markdown folder. @laticent/segno-markdown takes the host's ` +
+      `${rel} imports '${spec}', which escapes the Segno-markdown folder. @laticent/segno-languages/markdown takes the host's ` +
       `block rules as options and depends on nothing; every import must resolve inside docs/src/lib/segno-markdown/ ` +
       `(2026-10-22-segno-deck-pipeline.md §D4).`,
   });
@@ -13643,6 +13713,9 @@ const NUL_TEXT_EXTENSIONS = [
 const NUL_BINARY_EXTENSIONS = [
   '.pdf', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.avif', '.ico', '.mp3', '.mp4',
   '.wav', '.woff', '.woff2', '.wasm', '.ttf', '.otf', '.eot', '.zip', '.pptx', '.docx', '.xlsx',
+  // Compressed audio containers: the narration codec bake-off's fixtures (docs/scripts/ios-safari/codec-fixtures/),
+  // one 2 s sentence in every codec and container the iOS probe decodes.
+  '.aac', '.caf', '.flac', '.m4a', '.ogg', '.webm',
 ];
 
 // Binary extensions that hold only inside one folder: a corpus whose files take a name no other part of
@@ -14807,8 +14880,8 @@ function checkPhantomTokenReads(errors) {
 }
 
 /**
- * HARD RULE #10's landing spot is `changelog.d/`, not `CHANGELOG.md`
- * `## Unreleased` — one file per PR, so two PRs never edit the same region and
+ * HARD RULE #10's legacy landing spot is `changelog.d/` (a changeset in `.changeset/` is the
+ * other; see checkChangesets), never a CHANGELOG.md — one file per PR, so two PRs never edit the same region and
  * the merge queue cannot eject either one on a `CHANGELOG.md` conflict (#1593;
  * seven ejections in one evening before this).
  *
@@ -14822,6 +14895,23 @@ function checkPhantomTokenReads(errors) {
  */
 function checkChangelogFragments(errors) {
   for (const problem of changelogFragmentProblems()) errors.push(problem);
+}
+
+/**
+ * HARD RULE #10's other landing spot: a changeset in `.changeset/`. Changesets reads every one of
+ * them at release time, and a changeset it cannot read (a package that does not publish, a bump
+ * that is not patch/minor/major, a first line the notes cannot print) would fail `changeset
+ * version` on release day, after the queue had already landed the PR that wrote it. So the gate
+ * reads each one when it lands. The format is defined once, in tools/changesets.js.
+ *
+ * It also holds the publish set (tools/release-packages.js): every workspace package publishes,
+ * is held back by `.changeset/config.json` `ignore`, or is private, and the two lists agree. A
+ * public package in neither list would publish the first time anyone cut a release. This is the
+ * default check; the release runs the strict one, which also requires all thirteen to be public.
+ */
+function checkChangesets(errors) {
+  for (const problem of changesetProblems()) errors.push(problem);
+  for (const problem of publishSetProblems()) errors.push(`publish set: ${problem}`);
 }
 
 /**
@@ -15904,6 +15994,7 @@ function run() {
   checkMediaSourceCensus(errors);
   checkSecuritySpineCensus(errors);
   checkFlakyTests(errors);
+  checkKeyShapedLiterals(errors);
   checkPlaywrightRetries(errors);
   checkRegexCensus(errors);
   checkPlatformSuites(errors);
@@ -15951,6 +16042,7 @@ function run() {
   checkCommittedPdfs(errors);
   checkNulBytes(errors);
   checkChangelogFragments(errors);
+  checkChangesets(errors);
   checkFollowups(errors);
   checkSpecParts(errors);
   checkVerbatimDistCopies(errors);
@@ -15996,7 +16088,10 @@ function main(argv) {
 if (require.main === module) process.exit(main(process.argv.slice(2)));
 
 module.exports = {
+  writesMarkIdentity,
   readCssSource,
+  keyShapedLiterals,
+  checkKeyShapedLiterals,
   checkSpecParts,
   specPartProblems,
   checkTavolaBoundary,
@@ -16063,6 +16158,7 @@ module.exports = {
   SANCTIONED_NUL_FILES,
   NUL_TEXT_EXTENSIONS,
   checkChangelogFragments,
+  checkChangesets,
   checkFollowups,
   checkVerbatimDistCopies,
   verbatimCopyProblems,

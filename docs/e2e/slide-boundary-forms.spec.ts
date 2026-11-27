@@ -23,7 +23,7 @@ import { currentSlide, gotoStudio, railButtons, setEditorContent, slideCount } f
 const SEPARATORS = ['---', '***', '___', '- - -', '--- ', '----', '  ---'];
 
 const deckWith = (sep: string) =>
-	['---', 'theme: indaco', 'paginate: true', '---', '', '# Alpha', '', 'first slide', '', sep, '', '# Beta', '', 'second slide', ''].join('\n');
+	['---', 'theme: indaco', 'pagination: true', '---', '', '# Alpha', '', 'first slide', '', sep, '', '# Beta', '', 'second slide', ''].join('\n');
 
 test.describe('slide boundary forms — the rail agrees with the render', () => {
 	for (const sep of SEPARATORS) {

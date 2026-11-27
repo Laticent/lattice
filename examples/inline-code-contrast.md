@@ -1,10 +1,10 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Engine · inline code`
 
@@ -14,7 +14,7 @@ One chip rule, every surface — fill and border now derive from the ink, so the
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 `The problem`
 
@@ -50,7 +50,7 @@ The same `--accent` ink on a fixed `--bg-alt` fill — fine on the canvas, wrong
 
 ---
 
-<!-- _class: split-panel -->
+<!-- @meta{layout=split-panel} -->
 
 `Dark rail`
 
@@ -65,7 +65,7 @@ A reference to `var(--accent)` on the dark rail now inks on-dark instead of flas
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 ## On tinted card fills
 
@@ -80,7 +80,7 @@ A reference to `var(--accent)` on the dark rail now inks on-dark instead of flas
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 `AA throughout`
 

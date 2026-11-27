@@ -97,7 +97,7 @@ test.describe('descriptions a screen reader hears', () => {
 			await menu.click();
 			await page.getByRole('button', { name: 'Search / commands', exact: true }).click();
 		} else {
-			await page.getByRole('button', { name: 'Search or run a command', exact: true }).filter({ visible: true }).first().click();
+			await page.getByRole('button', { name: 'Search or run ⌘K, command palette', exact: true }).filter({ visible: true }).first().click();
 		}
 		await expect(page.getByRole('option').first()).toBeVisible();
 		const cdp = await page.context().newCDPSession(page);
@@ -128,7 +128,7 @@ test.describe('descriptions a screen reader hears', () => {
 			const island = document.querySelector('astro-island[component-url*="NavActions"]');
 			return !!island && !island.hasAttribute('ssr');
 		});
-		await page.getByRole('button', { name: 'Search (⌘K)', exact: true }).filter({ visible: true }).first().click();
+		await page.getByRole('button', { name: 'Search the docs, ⌘K', exact: true }).filter({ visible: true }).first().click();
 		await expect(dialog).toBeVisible();
 		await expect(dialog.getByRole('option').first()).toBeVisible();
 		const cdp = await page.context().newCDPSession(page);

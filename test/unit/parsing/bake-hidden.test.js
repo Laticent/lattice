@@ -52,8 +52,8 @@ test('split: headings — every baked part takes its block\'s state, and the res
 
 test('the title a hidden first slide would have supplied comes from the first shown h1-h3, `$` and all', () => {
   const { bakeHidden: bake } = require('../../../lib/core/bake-splits');
-  const withFm = bake('---\npaginate: true\n---\n\n<!-- hide -->\n# Secret\n\n---\n\n#### Small\n\n# Revenue $1B $& $$ ARR\n');
-  assert.match(withFm, /^---\npaginate: true\ntitle: "Revenue \$1B \$& \$\$ ARR"\n---\n/);
+  const withFm = bake('---\npagination: true\n---\n\n<!-- hide -->\n# Secret\n\n---\n\n#### Small\n\n# Revenue $1B $& $$ ARR\n');
+  assert.match(withFm, /^---\npagination: true\ntitle: "Revenue \$1B \$& \$\$ ARR"\n---\n/);
   assert.equal((withFm.match(/^---$/gm) || []).length, 3, 'the front matter closes once, and the slide rule stays');
   assert.match(bake('<!-- hide -->\n# Secret\n\n---\n\n## Shown\n'), /^---\ntitle: "Shown"\n---\n\n/);
   assert.doesNotMatch(bake('---\ntitle: Mine\n---\n\n<!-- hide -->\n# Secret\n\n---\n\n# Shown\n'), /Shown"/);

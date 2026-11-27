@@ -2,11 +2,11 @@
 marp: true
 size: portrait
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · inventory ordinal"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # The index rides the title
 
@@ -17,7 +17,7 @@ row's title, so it sits on that title's line at any row height.
 
 ---
 
-<!-- _class: inventory -->
+<!-- @meta{layout=inventory} -->
 
 `inventory · the parts ledger`
 
@@ -29,7 +29,7 @@ row's title, so it sits on that title's line at any row height.
 
 ---
 
-<!-- _class: statement -->
+<!-- @meta{class=statement} -->
 
 `what changed`
 
@@ -41,7 +41,7 @@ instead of having to chase it.
 
 ---
 
-<!-- _class: inventory compact -->
+<!-- @meta{layout=inventory, class=compact} -->
 
 `inventory · compact`
 
@@ -52,7 +52,7 @@ instead of having to chase it.
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 ## Measured on the render.
 

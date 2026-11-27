@@ -42,7 +42,7 @@ Use to contrast a before/after refactor, two API styles, or two configurations. 
 ## Authoring
 
 ```markdown
-<!-- _class: compare-code -->
+<!-- @meta{layout=compare-code} -->
 
 ## Heading framing the comparison.
 

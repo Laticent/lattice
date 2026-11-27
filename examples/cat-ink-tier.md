@@ -1,14 +1,14 @@
 ---
 marp: true
 theme: atelier
-paginate: true
+pagination: true
 header: "Lattice · Categorical ink"
 meta: "Categorical ink · --cat-N-ink"
 acronyms:
   AA: "double A"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Categorical tokens · the third ink tier`
 
@@ -20,7 +20,7 @@ Rendered in atelier rather than indaco, deliberately: indaco is one of the palet
 
 ---
 
-<!-- _class: math theorem -->
+<!-- @meta{layout=math, class=theorem} -->
 
 `math theorem · the repair`
 
@@ -36,7 +36,7 @@ The labels took the raw `--cat-4-mark` / `--cat-7-mark` as `color:` on the card'
 
 ---
 
-<!-- _class: premise -->
+<!-- @meta{layout=premise} -->
 
 ## A contrast workaround is not a typographic choice.
 
@@ -63,7 +63,7 @@ Each row's term is colored by its own categorical slot. The term used to be forc
 
 ---
 
-<!-- _class: split-panel proof -->
+<!-- @meta{layout=split-panel, class=proof} -->
 
 `split-panel · mix moved out`
 
@@ -78,7 +78,7 @@ Each row's term is colored by its own categorical slot. The term used to be forc
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `gitgraph · the second surface`
 
@@ -108,7 +108,7 @@ gitGraph
 
 ---
 
-<!-- _class: split-panel proof -->
+<!-- @meta{layout=split-panel, class=proof} -->
 
 `the gate · layer four`
 

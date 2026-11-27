@@ -2,7 +2,7 @@
 theme: indaco
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 `Lattice · Video`
 
@@ -10,7 +10,7 @@ theme: indaco
 
 ---
 
-<!-- _class: video companion qr -->
+<!-- @meta{layout=video, class=companion qr} -->
 
 ## Onboarding that sticks — watch a customer do it live.
 
@@ -20,7 +20,7 @@ Ninety seconds, unscripted: a first-day admin goes from signup to a published bo
 
 ---
 
-<!-- _class: video companion -->
+<!-- @meta{layout=video, class=companion} -->
 
 ## The launch film, without the QR.
 
@@ -30,7 +30,7 @@ Two minutes on why the category needed rebuilding from the data layer up — the
 
 ---
 
-<!-- _class: video gallery qr -->
+<!-- @meta{layout=video, class=gallery qr} -->
 
 ## Exhibit 1 — the onboarding flow, end to end.
 
@@ -38,7 +38,7 @@ Two minutes on why the category needed rebuilding from the data layer up — the
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 `Next`
 

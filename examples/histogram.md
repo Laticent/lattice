@@ -1,12 +1,12 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · Histogram"
 meta: "Histogram"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Charts · histogram`
 
@@ -16,7 +16,7 @@ Write each band as a range, `$1M..$10M`, and its share. Bars touch because the b
 
 ---
 
-<!-- _class: histogram -->
+<!-- @meta{layout=histogram} -->
 
 `[{Annual loss, $1M..$250M, log}, {Share of years}]`
 
@@ -29,7 +29,7 @@ Write each band as a range, `$1M..$10M`, and its share. Bars touch because the b
 
 ---
 
-<!-- _class: histogram -->
+<!-- @meta{layout=histogram} -->
 
 `[{Claim size}, {Share of claims}]`
 
@@ -44,7 +44,7 @@ Write each band as a range, `$1M..$10M`, and its share. Bars touch because the b
 
 ---
 
-<!-- _class: histogram -->
+<!-- @meta{layout=histogram} -->
 
 `[{Annual loss, log}]`
 
@@ -59,7 +59,7 @@ Write each band as a range, `$1M..$10M`, and its share. Bars touch because the b
 
 ---
 
-<!-- _class: histogram -->
+<!-- @meta{layout=histogram} -->
 
 `[{Annual loss}, {Share of years}]`
 
@@ -74,7 +74,7 @@ Add `log` to the axis line when the bands widen toward the tail, as on slide 2.
 
 ---
 
-<!-- _class: histogram dark -->
+<!-- @meta{layout=histogram, class=dark} -->
 
 `[{Annual loss, $1M..$250M, log}, {Share of years}]`
 
@@ -87,7 +87,7 @@ Add `log` to the axis line when the bands widen toward the tail, as on slide 2.
 
 ---
 
-<!-- _class: histogram -->
+<!-- @meta{layout=histogram} -->
 
 `[{Claim size}, {Share of claims}]`
 

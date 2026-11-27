@@ -41,7 +41,7 @@ Use for relational or topological visuals — flowcharts, sequence diagrams, sta
 ## Authoring
 
 ```markdown
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 ## How signals move from input to decision.
 

@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · authority-chain row fit"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # Each tier's gloss clears its card.
 
@@ -13,7 +13,7 @@ Four tiers share the stage. The citation now takes a line its own size, and each
 
 ---
 
-<!-- _class: authority-chain -->
+<!-- @meta{layout=authority-chain} -->
 
 ## The chain descends from statute to practice.
 
@@ -32,7 +32,7 @@ Four tiers share the stage. The citation now takes a line its own size, and each
 
 ---
 
-<!-- _class: authority-chain trail -->
+<!-- @meta{layout=authority-chain, class=trail} -->
 
 ## trail walks the chain as a breadcrumb.
 
@@ -51,7 +51,7 @@ Four tiers share the stage. The citation now takes a line its own size, and each
 
 ---
 
-<!-- _class: authority-chain pyramid -->
+<!-- @meta{layout=authority-chain, class=pyramid} -->
 
 ## pyramid weights the tiers by force.
 
@@ -70,7 +70,7 @@ Four tiers share the stage. The citation now takes a line its own size, and each
 
 ---
 
-<!-- _class: authority-chain bracket -->
+<!-- @meta{layout=authority-chain, class=bracket} -->
 
 ## bracket groups the tiers by actor.
 
@@ -89,8 +89,8 @@ Four tiers share the stage. The citation now takes a line its own size, and each
 
 ---
 
-<!-- _class: authority-chain -->
-<!-- stress-slide -->
+<!-- @meta{layout=authority-chain, stress-slide} -->
+
 
 ## Six tiers is the chain's ceiling.
 
@@ -109,7 +109,7 @@ Four tiers share the stage. The citation now takes a line its own size, and each
 
 ---
 
-<!-- _class: authority-chain dark -->
+<!-- @meta{layout=authority-chain, class=dark} -->
 
 ## The chain descends from statute to practice.
 

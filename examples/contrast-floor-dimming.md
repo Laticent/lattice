@@ -1,13 +1,13 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · Contrast floor + de-emphasis"
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
-<!-- _footer: "Title slide · title" -->
+<!-- @meta{layout=title, header="", footer=Title slide · title} -->
+
+
 
 # The contrast floor, and what "dimmed" should mean
 
@@ -18,8 +18,8 @@ de-emphasizes the thing it is not pointing at
 
 ---
 
-<!-- _class: list-tabular -->
-<!-- _footer: "The unit bug — #1722 · list-tabular" -->
+<!-- @meta{layout=list-tabular, footer="The unit bug — #1722 · list-tabular"} -->
+
 
 `The unit bug`
 
@@ -39,8 +39,8 @@ So the gate stopped grading on size. One floor, 4.5:1, applied to every run.
 
 ---
 
-<!-- _class: agenda progress-2 -->
-<!-- _footer: "Fixed — the dimmed row and its counter · agenda progress-2" -->
+<!-- @meta{layout=agenda, class=progress-2, footer="Fixed — the dimmed row and its counter · agenda progress-2"} -->
+
 
 ## What this deck covers, in order.
 
@@ -51,8 +51,8 @@ So the gate stopped grading on size. One floor, 4.5:1, applied to every run.
 
 ---
 
-<!-- _class: agenda checks progress-3 -->
-<!-- _footer: "Past ticks, current arrow, future box · agenda checks progress-3" -->
+<!-- @meta{layout=agenda, class=checks progress-3, footer="Past ticks, current arrow, future box · agenda checks progress-3"} -->
+
 
 ## Past sections tick off; the current one keeps the arrow.
 
@@ -63,8 +63,8 @@ So the gate stopped grading on size. One floor, 4.5:1, applied to every run.
 
 ---
 
-<!-- _class: kanban -->
-<!-- _footer: "Fixed — the done column recedes without fading · kanban" -->
+<!-- @meta{layout=kanban, footer="Fixed — the done column recedes without fading · kanban"} -->
+
 
 `Board · The de-emphasis backlog`
 
@@ -83,8 +83,8 @@ So the gate stopped grading on size. One floor, 4.5:1, applied to every run.
 
 ---
 
-<!-- _class: compare-prose decision -->
-<!-- _footer: "Fixed — the struck card keeps a legible label · compare-prose decision" -->
+<!-- @meta{layout=compare-prose, class=decision, footer="Fixed — the struck card keeps a legible label · compare-prose decision"} -->
+
 
 `Decision · Opacity vs ink`
 
@@ -99,8 +99,8 @@ Still struck. Only the wash that took its label to 3.24:1 is gone.
 
 ---
 
-<!-- _class: list-tabular -->
-<!-- _footer: "What the wash actually did · list-tabular" -->
+<!-- @meta{layout=list-tabular, footer=What the wash actually did · list-tabular} -->
+
 
 `Measured on the rendered gallery`
 
@@ -120,9 +120,9 @@ When the largest thing on a row is the least legible, the instrument is wrong.
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: "Closing bookend · closing" -->
+<!-- @meta{layout=closing, header="", footer=Closing bookend · closing} -->
+
+
 
 `What Is Still Owed`
 

@@ -190,11 +190,15 @@ function dropsFor(body, cls, orientation) {
  */
 const blankRun = (m) => m.replace(/[^\n]/g, ' ');
 
-/** Each `<!-- _class: … -->` section of a deck, with its title for reporting. */
+/** Each section of a deck that names its class, with its title for reporting. */
+const { slideClassDirectives } = require('../../../lib/core/class-directive-scan.mjs');
 function* chartSections(file) {
   const src = fs.readFileSync(P(file), 'utf8');
   for (const chunk of src.split(/^---\s*$/m)) {
-    const m = chunk.match(/<!--\s*_class:\s*([^>]*?)\s*-->/);
+    // The slide's class through the shared reader, so a record (`<!-- @meta{layout=bar} -->`, the corpus's spelling since
+    // the meta sweep) counts as a comment did. Only a slide that names its own class, as the old `_class:` match did.
+    const [own] = slideClassDirectives(chunk);
+    const m = own?.text && !/\bcarry\b|<!--\s*class\s*:/.test(own.text) ? [own.text, own.payload] : null;
     if (!m) continue;
     const body = chunk.replace(/<!--[\s\S]*?--!?>/g, blankRun).replace(/<!--|--!?>/g, blankRun);
     const titleMatch = body.match(/^##\s+(.*)$/m);

@@ -46,6 +46,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { componentDir: libComponentDir, loadAll, manifestBucket } = require('../lib/components');
 const { MARKER_CLASS } = require('../lib/core/checks-registry');
+const { metaComment } = require('../lib/core/meta-comment.mjs');
+const { readMetaField, writeMeta } = require('../lib/core/meta-edit.mjs');
 const { axisNoun } = require('../lib/authoring/lint-core');
 const { resolveAnatomy } = require('./anatomy-catalog');
 const MODIFIER_EFFECTS = require('../lib/core/modifier-effects.generated.json');
@@ -381,7 +383,7 @@ function emitAgentContract(m, lines) {
     for (const entry of m.variantDecisionRule) {
       // "default" is the no-modifier sentinel, not a class token — render it
       // distinctly from a real variant (backtick-wrapped) so an agent can't
-      // mistake it for a literal `_class:` modifier to copy.
+      // mistake it for a literal class modifier to copy.
       const label = entry.variant === 'default' ? 'default (no modifier)' : `\`${entry.variant}\``;
       lines.push(`- **${label}.** ${bulletLine(entry.useWhen)}`);
     }
@@ -579,7 +581,7 @@ function renderDocs(m) {
 /**
  * Universal modifiers we showcase per component in the gallery. Each gets
  * one composition slide that re-uses the component's sample with the
- * modifier appended to the `_class:` directive. Components opt out via
+ * modifier appended to the slide's class. Components opt out via
  * manifest.excludes (semi-universals) or by being unsuitable for the
  * modifier (e.g. layouts that already declare `dark` in their default
  * chrome — title, divider, closing — get no extra dark composition).
@@ -615,16 +617,15 @@ function compositionModifiersFor(m) {
 
 /**
  * Build a composition slide: take the sample (or another representative
- * slide content) and append the modifier to its `_class:` directive.
+ * slide content) and append the modifier to its class (the slide's leading `@meta` record).
  * Returns null if the manifest has no sample to compose from.
  */
 function renderCompositionSlide(m, modifier) {
   if (!m.sample) return null;
-  // Append the modifier to the existing _class directive.
-  const composed = m.sample.replace(
-    /^<!--\s*_class:\s*([^>]*?)\s*-->/,
-    (_match, klass) => `<!-- _class: ${klass.trim()} ${modifier} -->`
-  );
+  // Append the modifier to the slide's class, in its leading record (lib/core/meta-edit.mjs keeps the typed `layout=`).
+  const composed = LEAD_SETTINGS.test(m.sample)
+    ? writeMeta(m.sample, { class: `${readMetaField(m.sample, 'class').value.trim()} ${modifier}` })
+    : m.sample;
   return injectFooter(composed, `Composition: ${modifier} · ${m.name} ${modifier}`);
 }
 
@@ -666,7 +667,7 @@ function galleryPlan(m) {
   slides.push({
     kind: 'title',
     caption: m.description || '',
-    md: `<!-- _class: title silent -->
+    md: `${metaComment({ class: 'title silent' })}
 
 # ${m.name}
 
@@ -706,10 +707,7 @@ ${m.description}`,
     // tells lint-core to hold the capacity-crowd suggestion (overflow still
     // fires). Gated on specimenVoice so unmigrated decks stay byte-identical.
     if (specimen) {
-      md = md.replace(
-        /^(<!--\s*_class:[^>]*-->)/,
-        '$1\n<!-- stress-slide -->'
-      );
+      md = md.replace(LEAD_SETTINGS, '$&\n<!-- @meta{stress-slide} -->');
     }
     slides.push({
       kind: 'stress',
@@ -756,7 +754,7 @@ function renderGallery(m) {
   const frontMatter = `---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · ${m.name}"
 ---`;
 
@@ -764,17 +762,22 @@ header: "Lattice · ${m.name}"
   return `${frontMatter}\n\n${slides.join('\n\n---\n\n')}\n`;
 }
 
+/** A slide that opens with its settings: a record (`<!-- @meta{layout=…} -->`), or a sample still written as the old
+ *  `<!-- _class: … -->` comment until the corpus sweep (record note §15.3, slice 4) converts it. */
+const LEAD_RECORD = /^<!--[ \t]*@meta\{[^\n]*\}[ \t]*-->/;
+const LEAD_SETTINGS = /^<!--[ \t]*(?:@meta\{[^\n]*\}|_class:[^\n>]*?)[ \t]*-->/;
+
 /**
- * Inject a `<!-- _footer: "..." -->` directive immediately after the
- * `<!-- _class: ... -->` line of a slide. Idempotent — if the slide
- * already declares its own footer, leave it alone.
+ * Set the slide's footer as a record field. A slide that opens with a record gets it in that record
+ * (`<!-- @meta{layout=cards-grid, footer="…"} -->`); one that still opens with an old class comment gets a record of its
+ * own on the next line, so the sample's own text is left as its manifest writes it and the engine meets the class, then the
+ * footer, as before. Idempotent — if the slide already declares its own footer, leave it alone; a slide that opens with
+ * neither is left as written. Every footer the generator writes is a record (the one spelling Lattice writes, §15).
  */
 function injectFooter(slide, footer) {
-  if (/<!--\s*_footer:/.test(slide)) return slide;
-  return slide.replace(
-    /^<!--\s*_class:\s*([^>]*?)\s*-->/,
-    (_match, klass) => `<!-- _class: ${klass} -->\n<!-- _footer: "${footer}" -->`
-  );
+  if (!LEAD_SETTINGS.test(slide) || readMetaField(slide, 'footer').present) return slide;
+  if (LEAD_RECORD.test(slide)) return writeMeta(slide, { footer });
+  return slide.replace(LEAD_SETTINGS, (lead) => `${lead}\n${metaComment({ footer })}`);
 }
 
 /**
@@ -850,8 +853,7 @@ function renderAntiPatternsSlide(m, page = m.antiPatterns, index = 0, count = 1)
   // clips near 94 words a card with it and near 58 without. The slide's heading still names the
   // component, so the footer it hides carried nothing the reader needs.
   const klass = `${cols === 3 ? 'cards-grid three' : 'cards-grid'} claim-hero`;
-  return `<!-- _class: ${klass} -->
-<!-- _footer: "Anti-patterns · ${m.name}${part}" -->
+  return `${metaComment({ class: klass, footer: `Anti-patterns · ${m.name}${part}` })}
 
 ## When NOT to reach for ${m.name}.
 
@@ -886,7 +888,7 @@ function renderClosingSlide(m) {
   // inherited --text-body and vanished on the dark canvas under the light
   // theme. See closing.styles.css and closing.manifest.json.
   const items = m.related.map((r) => `- \`${r.name}\` — ${r.when}`).join('\n');
-  return `<!-- _class: closing silent index -->
+  return `${metaComment({ class: 'closing silent index' })}
 
 ## See also.
 

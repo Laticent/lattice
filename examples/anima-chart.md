@@ -1,12 +1,12 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · Anima"
 motion: on
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Animate the chart you already drew.
 
@@ -16,14 +16,14 @@ Set `motion:` once in the front matter — or pick it in **Deck Settings › Mot
 
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
+<!-- @meta{layout=divider, header=""} -->
+
 
 # One setting. Deck-wide, with a per-slide override.
 
 ---
 
-<!-- _class: funnel -->
+<!-- @meta{layout=funnel} -->
 
 ## Build — marks arrive in reading order.
 
@@ -38,7 +38,7 @@ In the PDF it renders as the finished still, unchanged.} -->
 
 ---
 
-<!-- _class: piechart motion-together -->
+<!-- @meta{layout=piechart, class=motion-together} -->
 
 ## Together — the whole chart fades in at once.
 
@@ -52,7 +52,7 @@ whole (never a slice short), and the gradient fills come through intact.} -->
 
 ---
 
-<!-- _class: funnel motion-rise motion-fast -->
+<!-- @meta{layout=funnel, class=motion-rise motion-fast} -->
 
 ## Rise — marks slide up into place.
 
@@ -67,7 +67,7 @@ place AND the build runs quick.} -->
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## Set it once; override anywhere.
 
@@ -78,7 +78,7 @@ Set `motion:` in the front matter (or **Deck Settings › Motion**) and every ch
 
 ---
 
-<!-- _class: funnel no-motion -->
+<!-- @meta{layout=funnel, class=no-motion} -->
 
 ## The same funnel, opted OUT — static everywhere.
 
@@ -92,7 +92,7 @@ is always available — a single slide can stand still inside an animated deck.}
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## What makes it authoritative, not guesswork.
 

@@ -2,11 +2,11 @@
 marp: true
 size: 4k
 theme: indaco
-paginate: true
+pagination: true
 header: "Engineered phage therapy · Grant proposal"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 <!-- tier: short -->
 
 `R01 Resubmission · Antimicrobial Resistance`
@@ -17,7 +17,7 @@ A three-aim program to turn bacteriophages into a tunable last-line therapy.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## Significance: resistant infections are rising, and the antibiotic pipeline is empty.
@@ -26,7 +26,7 @@ Carbapenem-resistant *Klebsiella* now causes infections with no reliable cure, a
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## The gap: natural phages work, but we cannot control them well enough for the clinic.
@@ -38,7 +38,7 @@ Compassionate-use cases prove phages can clear resistant infections. But natural
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- @meta{layout=list, class=takeaway} -->
 <!-- tier: short -->
 
 ## What this program must establish, across three aims.
@@ -52,7 +52,7 @@ Compassionate-use cases prove phages can clear resistant infections. But natural
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## Aim 1: a modular tail-fiber platform that retargets phages to new strains.
@@ -64,7 +64,7 @@ We will build a library of swappable receptor-binding domains so a single phage 
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## Aim 2: cocktails engineered so escape requires three independent mutations.
@@ -76,7 +76,7 @@ Single-phage therapy fails because one mutation defeats it. We will design three
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## Aim 3: efficacy and safety in a murine bacteremia model.
@@ -88,7 +88,7 @@ We will infect mice with a lethal carbapenem-resistant strain and treat with the
 
 ---
 
-<!-- _class: roadmap -->
+<!-- @meta{layout=roadmap} -->
 <!-- tier: short -->
 
 ## How the three aims unfold across the funding period.
@@ -101,7 +101,7 @@ We will infect mice with a lethal carbapenem-resistant strain and treat with the
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## Rigor and feasibility: why this team can deliver.
@@ -113,7 +113,7 @@ Our lab built the modular chassis; our co-investigator runs the regional phage b
 
 ---
 
-<!-- _class: kpi compact -->
+<!-- @meta{layout=kpi, class=compact} -->
 <!-- tier: short -->
 
 ## What a funded program delivers in five years.
@@ -130,7 +130,7 @@ Our lab built the modular chassis; our co-investigator runs the regional phage b
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## Innovation: we move phage therapy from artisanal to programmable.
@@ -142,9 +142,9 @@ Today each phage treatment is hand-matched to a patient over weeks. This program
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 <!-- tier: short -->
 
 ## When antibiotics run out, a programmable predator is the next line.

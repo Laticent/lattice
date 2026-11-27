@@ -1,12 +1,12 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · table"
 meta: "table · the component"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Comparison · ledger`
 
@@ -16,7 +16,7 @@ The table component. A markdown pipe table that owns its slide — with a row ca
 
 ---
 
-<!-- _class: table -->
+<!-- @meta{layout=table} -->
 
 `The default`
 
@@ -32,7 +32,7 @@ A three-row table reads as three rows, not three rows stretched over a screen. T
 
 ---
 
-<!-- _class: table table-fill -->
+<!-- @meta{layout=table, class=table-fill} -->
 
 `table-fill`
 
@@ -48,7 +48,7 @@ The rows spread to use the stage, and each cell centers in its band — the pair
 
 ---
 
-<!-- _class: table table-plain -->
+<!-- @meta{layout=table, class=table-plain} -->
 
 `table-plain`
 
@@ -64,7 +64,7 @@ The hairlines carry the rhythm alone. Independent of `table-fill` — the two co
 
 ---
 
-<!-- _class: table -->
+<!-- @meta{layout=table} -->
 
 `Row labels · measured`
 
@@ -80,7 +80,7 @@ Nothing was declared here. The rule looks at the column and turns the emphasis o
 
 ---
 
-<!-- _class: table -->
+<!-- @meta{layout=table} -->
 
 `Row labels · declined`
 
@@ -96,7 +96,7 @@ The same rule, the same slide class, the opposite answer — an all-numeric firs
 
 ---
 
-<!-- _class: table with-row-label -->
+<!-- @meta{layout=table, class=with-row-label} -->
 
 `with-row-label`
 
@@ -112,7 +112,7 @@ Same data as the slide before. You always have the last word — and `no-row-lab
 
 ---
 
-<!-- _class: table no-row-label -->
+<!-- @meta{layout=table, class=no-row-label} -->
 
 `no-row-label`
 
@@ -130,7 +130,7 @@ swallow, since it sets the same weight and ink.
 
 ---
 
-<!-- _class: table state-cells -->
+<!-- @meta{layout=table, class=state-cells} -->
 
 `state-cells`
 
@@ -146,8 +146,8 @@ swallow, since it sets the same weight and ink.
 
 ---
 
-<!-- _class: table state-cells -->
-<!-- _focus: row 4 -->
+<!-- @meta{layout=table, class=state-cells, focus=row 4} -->
+
 
 `_focus: row 4`
 
@@ -164,8 +164,8 @@ The data does not get simpler. The eye gets directed.
 
 ---
 
-<!-- _class: table state-cells -->
-<!-- _focus: col 5 -->
+<!-- @meta{layout=table, class=state-cells, focus=col 5} -->
+
 
 `_focus: col 5`
 
@@ -180,8 +180,8 @@ The data does not get simpler. The eye gets directed.
 
 ---
 
-<!-- _class: table state-cells -->
-<!-- _focus: cell 4,5 -->
+<!-- @meta{layout=table, class=state-cells, focus="cell 4,5"} -->
+
 
 `_focus: cell 4,5`
 
@@ -196,7 +196,7 @@ The data does not get simpler. The eye gets directed.
 
 ---
 
-<!-- _class: table -->
+<!-- @meta{layout=table} -->
 
 `Raw HTML`
 
@@ -215,7 +215,7 @@ Markdown hands raw HTML through untouched, so the rule never sees these rows. Th
 
 ---
 
-<!-- _class: table sketch -->
+<!-- @meta{layout=table, class=sketch} -->
 
 `mode: sketch`
 
@@ -231,7 +231,7 @@ Frame and row rules become seeded rough.js strokes; the type becomes handwriting
 
 ---
 
-<!-- _class: table dark -->
+<!-- @meta{layout=table, class=dark} -->
 
 `dark`
 
@@ -247,7 +247,7 @@ Zebra, hairlines and row-label ink all resolve from the theme. No rule in this c
 
 ---
 
-<!-- _class: table compact -->
+<!-- @meta{layout=table, class=compact} -->
 
 `compact`
 
@@ -266,7 +266,7 @@ Capacity is about four rows and crowds past six. `compact` buys some of that bac
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 ## One class, every switch.
 

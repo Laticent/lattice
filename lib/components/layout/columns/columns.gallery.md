@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · columns"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # columns
 
@@ -15,14 +15,13 @@ Two components side by side on one slide, at a ratio you choose.
 
 ---
 
-<!-- _class: columns ratio-60-40 -->
-<!-- _footer: "Default · columns" -->
+<!-- @meta{layout=columns, class=ratio-60-40, footer=Default · columns} -->
 
 `Q3 review`
 
 ## Services outgrew licenses for the first time.
 
-<!-- _pane: bar -->
+<!-- @meta{pane=bar} -->
 ### Revenue by line
 `$M, trailing four quarters`
 
@@ -30,7 +29,7 @@ Two components side by side on one slide, at a ratio you choose.
 - Services `47`
 - Training `9`
 
-<!-- _pane: list -->
+<!-- @meta{pane=list} -->
 ### What changed
 
 - Services passed licenses in March
@@ -41,8 +40,7 @@ Two components side by side on one slide, at a ratio you choose.
 
 ---
 
-<!-- _class: columns ratio-45-55 no-spine -->
-<!-- _footer: "no rule · columns no-spine — Drops the spine between the panes." -->
+<!-- @meta{layout=columns, class=ratio-45-55 no-spine, footer="no rule · columns no-spine — Drops the spine between the panes."} -->
 
 `Support · after the migration`
 
@@ -61,21 +59,20 @@ Two components side by side on one slide, at a ratio you choose.
 
 ---
 
-<!-- _class: columns ratio-40-60 -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · columns — A list beside a four-column table at 40/60, with the slide's Key Insight." -->
+<!-- @meta{layout=columns, class=ratio-40-60, footer="Stress test · columns — A list beside a four-column table at 40/60, with the slide's Key Insight."} -->
+<!-- @meta{stress-slide} -->
 
 `columns · stress`
 
 ## Two vendors cleared the security review.
 
-<!-- _pane: list -->
+<!-- @meta{pane=list} -->
 ### Cleared
 
 - Northwind
 - Contoso
 
-<!-- _pane: table -->
+<!-- @meta{pane=table} -->
 ### Findings by vendor
 
 | Vendor | Critical | High | Status |
@@ -89,14 +86,13 @@ Two components side by side on one slide, at a ratio you choose.
 
 ---
 
-<!-- _class: columns ratio-60-40 dark -->
-<!-- _footer: "Composition: dark · columns dark" -->
+<!-- @meta{layout=columns, class=ratio-60-40 dark, footer=Composition: dark · columns dark} -->
 
 `Q3 review`
 
 ## Services outgrew licenses for the first time.
 
-<!-- _pane: bar -->
+<!-- @meta{pane=bar} -->
 ### Revenue by line
 `$M, trailing four quarters`
 
@@ -104,7 +100,7 @@ Two components side by side on one slide, at a ratio you choose.
 - Services `47`
 - Training `9`
 
-<!-- _pane: list -->
+<!-- @meta{pane=list} -->
 ### What changed
 
 - Services passed licenses in March
@@ -115,14 +111,13 @@ Two components side by side on one slide, at a ratio you choose.
 
 ---
 
-<!-- _class: columns ratio-60-40 compact -->
-<!-- _footer: "Composition: compact · columns compact" -->
+<!-- @meta{layout=columns, class=ratio-60-40 compact, footer=Composition: compact · columns compact} -->
 
 `Q3 review`
 
 ## Services outgrew licenses for the first time.
 
-<!-- _pane: bar -->
+<!-- @meta{pane=bar} -->
 ### Revenue by line
 `$M, trailing four quarters`
 
@@ -130,7 +125,7 @@ Two components side by side on one slide, at a ratio you choose.
 - Services `47`
 - Training `9`
 
-<!-- _pane: list -->
+<!-- @meta{pane=list} -->
 ### What changed
 
 - Services passed licenses in March
@@ -141,14 +136,13 @@ Two components side by side on one slide, at a ratio you choose.
 
 ---
 
-<!-- _class: columns ratio-60-40 accent -->
-<!-- _footer: "Composition: accent · columns accent" -->
+<!-- @meta{layout=columns, class=ratio-60-40 accent, footer=Composition: accent · columns accent} -->
 
 `Q3 review`
 
 ## Services outgrew licenses for the first time.
 
-<!-- _pane: bar -->
+<!-- @meta{pane=bar} -->
 ### Revenue by line
 `$M, trailing four quarters`
 
@@ -156,7 +150,7 @@ Two components side by side on one slide, at a ratio you choose.
 - Services `47`
 - Training `9`
 
-<!-- _pane: list -->
+<!-- @meta{pane=list} -->
 ### What changed
 
 - Services passed licenses in March
@@ -167,8 +161,7 @@ Two components side by side on one slide, at a ratio you choose.
 
 ---
 
-<!-- _class: cards-grid three claim-hero -->
-<!-- _footer: "Anti-patterns · columns" -->
+<!-- @meta{layout=cards-grid, class=three claim-hero, footer=Anti-patterns · columns} -->
 
 ## When NOT to reach for columns.
 
@@ -181,7 +174,7 @@ Two components side by side on one slide, at a ratio you choose.
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

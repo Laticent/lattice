@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · roadmap label sets"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # "Shipped" is a product word.
 
@@ -17,8 +17,8 @@ and no deck could say otherwise. The words are now a *default*.
 
 ---
 
-<!-- _class: roadmap -->
-<!-- _footer: "Default · the manifest's words, unchanged" -->
+<!-- @meta{layout=roadmap, footer="Default · the manifest's words, unchanged"} -->
+
 
 ## A delivery plan reads correctly out of the box.
 
@@ -32,8 +32,8 @@ The key is derived: the states these cells use, in lifecycle order.
 
 ---
 
-<!-- _class: roadmap -->
-<!-- _footer: "Overridden · two words renamed, two left alone" -->
+<!-- @meta{layout=roadmap, footer="Overridden · two words renamed, two left alone"} -->
+
 
 `[{[x], Enacted}, {[-], In committee}]`
 
@@ -49,8 +49,8 @@ Two renamed; the two left unnamed keep their defaults.
 
 ---
 
-<!-- _class: roadmap -->
-<!-- _footer: "The key is the marker you already type" -->
+<!-- @meta{layout=roadmap, footer=The key is the marker you already type} -->
+
 
 `[{[ ], Not started}]`
 
@@ -66,8 +66,8 @@ as the cell spells it.
 
 ---
 
-<!-- _class: roadmap -->
-<!-- _footer: "Derived · only the states present get a row" -->
+<!-- @meta{layout=roadmap, footer=Derived · only the states present get a row} -->
+
 
 `[{[x], Landed}, {[/], Cut}]`
 
@@ -82,8 +82,8 @@ No cell here is in flight or planned, so neither gets a chip.
 
 ---
 
-<!-- _class: roadmap status -->
-<!-- _footer: "status · every cell labels itself, so no key at all" -->
+<!-- @meta{layout=roadmap, class=status, footer="status · every cell labels itself, so no key at all"} -->
+
 
 ## One variant still draws no key, and should not.
 
@@ -98,8 +98,8 @@ without an authored label set.
 
 ---
 
-<!-- _class: list -->
-<!-- _footer: "What this slide deck demonstrates" -->
+<!-- @meta{layout=list, footer=What this slide deck demonstrates} -->
+
 
 ## What the label set changed here.
 

@@ -50,7 +50,7 @@ Use when many regimes need comparing across the same obligations. Cells carry th
 ## Authoring
 
 ```markdown
-<!-- _class: obligation-matrix -->
+<!-- @meta{layout=obligation-matrix} -->
 
 ## Headline framing what the matrix compares.
 
@@ -87,7 +87,7 @@ Use when many regimes need comparing across the same obligations. Cells carry th
 Cells shaded by burden.
 
 ```markdown
-<!-- _class: obligation-matrix heat -->
+<!-- @meta{layout=obligation-matrix, class=heat} -->
 
 ## heat shades the cells by burden.
 
@@ -108,7 +108,7 @@ Heat marks burden, not relief — exempt cells stay neutral.
 Regimes differ in kind.
 
 ```markdown
-<!-- _class: obligation-matrix asymmetric -->
+<!-- @meta{layout=obligation-matrix, class=asymmetric} -->
 
 ## asymmetric admits the regimes differ in kind.
 
@@ -126,7 +126,7 @@ Each row promotes to a card with body-level breathing room.
 Cells as status words.
 
 ```markdown
-<!-- _class: obligation-matrix pills -->
+<!-- @meta{layout=obligation-matrix, class=pills} -->
 
 ## pills spell each cell as a status word.
 
@@ -147,7 +147,7 @@ Same data, neutral chrome — the state pills carry the meaning without the heat
 One regime per band.
 
 ```markdown
-<!-- _class: obligation-matrix lanes -->
+<!-- @meta{layout=obligation-matrix, class=lanes} -->
 
 ## lanes walks one regime per band.
 

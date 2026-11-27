@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 footer: "Laticent · code highlighting"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Code reads the same on every slide.
 
@@ -29,7 +29,7 @@ export async function load(id: string): Promise<User> {
 
 ---
 
-<!-- _class: code -->
+<!-- @meta{layout=code} -->
 
 ## A record above the fence configures the block.
 
@@ -133,9 +133,9 @@ npx lattice fmt deck.md --check
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 
 ## Any fence, any slide, one record.
 

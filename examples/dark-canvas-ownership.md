@@ -4,11 +4,11 @@ size: portrait
 theme: indaco
 color-mode: dark
 finish: atrium
-paginate: true
+pagination: true
 header: "Dark canvas ownership"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 `Engine · base.modifiers.css`
 
@@ -18,7 +18,7 @@ Nine of them lost the canvas they paint for themselves, because the deck-wide on
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 `Section 01`
 
@@ -26,8 +26,8 @@ Nine of them lost the canvas they paint for themselves, because the deck-wide on
 
 ---
 
-<!-- _class: topic -->
-<!-- _track: The anchors | [The covers] | What the gate holds -->
+<!-- @meta{layout=topic, track="The anchors | [The covers] | What the gate holds"} -->
+
 
 `Section 01 · Dark canvas`
 
@@ -37,7 +37,7 @@ An accent cover under dark had kept its accent ink and lost its accent ground.
 
 ---
 
-<!-- _class: decision -->
+<!-- @meta{layout=decision} -->
 
 `Decision · Dark canvas`
 
@@ -50,7 +50,7 @@ An accent cover under dark had kept its accent ink and lost its accent ground.
 
 ---
 
-<!-- _class: split-panel -->
+<!-- @meta{layout=split-panel} -->
 
 `Measured`
 
@@ -63,7 +63,7 @@ An accent cover under dark had kept its accent ink and lost its accent ground.
 
 ---
 
-<!-- _class: topic fact -->
+<!-- @meta{layout=topic, class=fact} -->
 
 `Section 02 · Topic`
 
@@ -75,7 +75,7 @@ A topic slide paints an inverse panel in every mode, and had never been named in
 
 ---
 
-<!-- _class: divider no-spectrum -->
+<!-- @meta{layout=divider, class=no-spectrum} -->
 
 `Section 02`
 
@@ -83,6 +83,6 @@ A topic slide paints an inverse panel in every mode, and had never been named in
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 ## The list cannot rot — a gate reads the stylesheets and fails if it drifts.

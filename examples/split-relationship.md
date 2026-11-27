@@ -1,13 +1,13 @@
 ---
 size: portrait
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · connected members"
 footer: "split relationship signal"
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
+<!-- @meta{layout=divider, header=""} -->
+
 
 `Section 01 · The four relationships`
 
@@ -15,7 +15,7 @@ footer: "split relationship signal"
 
 ---
 
-<!-- _class: list -->
+<!-- @meta{layout=list} -->
 
 ## One member per slide, and the set still reads as one thing.
 
@@ -32,7 +32,7 @@ footer: "split relationship signal"
 
 ---
 
-<!-- _class: list-steps -->
+<!-- @meta{layout=list-steps} -->
 
 ## How a scoring policy change ships.
 
@@ -49,7 +49,7 @@ footer: "split relationship signal"
 
 ---
 
-<!-- _class: cycle -->
+<!-- @meta{layout=cycle} -->
 
 ## The calibration loop never really ends.
 
@@ -64,7 +64,7 @@ footer: "split relationship signal"
 
 ---
 
-<!-- _class: authority-chain -->
+<!-- @meta{layout=authority-chain} -->
 
 ## Where the data-residency requirement actually comes from.
 
@@ -81,7 +81,7 @@ footer: "split relationship signal"
 
 ---
 
-<!-- _class: verdict-grid -->
+<!-- @meta{layout=verdict-grid} -->
 
 ## Which option meets the residency criteria.
 
@@ -108,8 +108,8 @@ footer: "split relationship signal"
 
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
+<!-- @meta{layout=divider, header=""} -->
+
 
 `Section 02 · What the split carries`
 
@@ -117,7 +117,7 @@ footer: "split relationship signal"
 
 ---
 
-<!-- _class: checklist -->
+<!-- @meta{layout=checklist} -->
 
 ## The readiness checklist for the rollout.
 

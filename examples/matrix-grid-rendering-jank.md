@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · matrix-grid column jank"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # The grid that moved after it painted.
 
@@ -15,8 +15,8 @@ header: "Lattice · matrix-grid column jank"
 
 ---
 
-<!-- _class: cards-stack compact -->
-<!-- _footer: "The defect · measured in the Studio" -->
+<!-- @meta{layout=cards-stack, class=compact, footer=The defect · measured in the Studio} -->
+
 
 `What was moving`
 
@@ -31,8 +31,8 @@ header: "Lattice · matrix-grid column jank"
 
 ---
 
-<!-- _class: matrix-grid -->
-<!-- _footer: "After · equal columns, fixed geometry" -->
+<!-- @meta{layout=matrix-grid, footer="After · equal columns, fixed geometry"} -->
+
 
 ## Your level is a cell, not a rung.
 
@@ -53,8 +53,8 @@ Every column is the same width, so the reach axis reads as equal steps.
 
 ---
 
-<!-- _class: matrix-grid -->
-<!-- _footer: "After · six rows by five columns holds the same rhythm" -->
+<!-- @meta{layout=matrix-grid, footer=After · six rows by five columns holds the same rhythm} -->
+
 
 ## Six categories by five columns is the grid's practical ceiling.
 
@@ -75,8 +75,8 @@ The widest label no longer buys width from its neighbors.
 
 ---
 
-<!-- _class: cards-stack compact -->
-<!-- _footer: "The fix · one declaration, and the reason it is the right one" -->
+<!-- @meta{layout=cards-stack, class=compact, footer="The fix · one declaration, and the reason it is the right one"} -->
+
 
 `How it is held still`
 
@@ -91,8 +91,8 @@ The widest label no longer buys width from its neighbors.
 
 ---
 
-<!-- _class: cards-stack -->
-<!-- _footer: "The limit · what this fix does not reach" -->
+<!-- @meta{layout=cards-stack, footer=The limit · what this fix does not reach} -->
+
 
 `Only wide is wide enough`
 
@@ -105,8 +105,8 @@ The widest label no longer buys width from its neighbors.
 
 ---
 
-<!-- _class: cards-stack -->
-<!-- _footer: "The limit · what this fix does not reach" -->
+<!-- @meta{layout=cards-stack, footer=The limit · what this fix does not reach} -->
+
 
 `Only wide is wide enough`
 
@@ -118,7 +118,7 @@ The widest label no longer buys width from its neighbors.
   - Square, tall and strip keep `auto` and render byte-identically. The shift stays live there, and `scale-2xl` leaves wide only `+19.7px`.
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

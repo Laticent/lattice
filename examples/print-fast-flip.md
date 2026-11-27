@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · Fast reprint"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Print drawer · rasterize once`
 
@@ -27,7 +27,7 @@ The Print drawer now rasterizes each slide **once** and caches the images. Chang
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 ## Rasterize and assemble are now two steps.
 
@@ -38,7 +38,7 @@ The Print drawer now rasterizes each slide **once** and caches the images. Chang
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 
 `What the flip costs now`
 
@@ -55,7 +55,7 @@ The Print drawer now rasterizes each slide **once** and caches the images. Chang
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 ## The cache key is the render, not the sheet.
 
@@ -80,7 +80,7 @@ The Print drawer now rasterizes each slide **once** and caches the images. Chang
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 `Print · shared kernel`
 

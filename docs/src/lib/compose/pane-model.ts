@@ -131,8 +131,8 @@ export function paneChoices(direction: PaneDirection, share: number): string[] {
 /** The `_pane` marker an author writes for `cls`, keeping the pane's own `no-title`. A component's
  *  modifiers belong to that component, so they are dropped when the component changes. */
 export function paneMarkerText(cls: string, mods: string[] = []): string {
-	// The comment form `<!-- _pane: … -->` (the form follows the slide until the cut, record note §5.4.1); every read
-	// takes each spelling.
+	// Always the record `<!-- @meta{pane=…} -->`, the one spelling Lattice writes (record note §15); every read still takes
+	// each spelling until the cut.
 	const words = [cls, ...mods.filter((w) => w === 'no-title')];
 	return setCommentField('', 'pane', words.join(' '));
 }
@@ -268,7 +268,9 @@ export function bodyFit(slide: PMNode, nodes: PMNode[], current: string, needs: 
  *  the component does not read as its own (`keepQuote`), which would become the slide's. */
 export function paneStarter(skeleton: string, keepQuote: boolean): string {
 	const lines = normalizeSourceText(String(skeleton || '')).split('\n');
-	const isDirective = (l: string) => /^\s*<!--\s*_?[A-Za-z][\w-]*\s*:/.test(l) && l.trim().endsWith('-->');
+	// A skeleton's settings line, in either spelling: the record every skeleton is written in (`<!-- @meta{layout=bar} -->`,
+	// record note §15) or an old directive comment. The pick writes the slide's own settings; the starter is body only.
+	const isDirective = (l: string) => (/^\s*<!--\s*_?[A-Za-z][\w-]*\s*:/.test(l) || /^\s*<!--\s*(?:@meta)?\{/.test(l)) && l.trim().endsWith('-->');
 	const pill = (l: string | undefined) => paneSpec.isPillLine(l || '');
 	const body = lines.filter((l) => !isDirective(l));
 	const h = body.findIndex((l) => /^ {0,3}#{1,2}(?:\s|$)/.test(l));
@@ -324,8 +326,8 @@ export function applyPaneChoice(state: EditorState, slidePos: number, index: num
 	}
 	if (!sameMarker) {
 		const words = [choice.cls, ...modifiers, ...pane.mods.filter((w) => w === 'no-title')];
-		// A new marker is `<!-- _pane: … -->`; one that is already a record is edited in its record and keeps its other
-		// fields (a `note`, say). Record note §5.4.1.
+		// A new or old-form marker becomes `<!-- @meta{pane=…} -->`; one that is already a record is edited in its record and
+		// keeps its other fields. Record note §5.4.1 and §15.
 		const old = pane.marker !== null ? String(at.slide.child(pane.marker).attrs.text ?? '') : '';
 		const marker = state.schema.nodes.comment.create({ text: setCommentField(old, 'pane', words.join(' ')) });
 		if (pane.marker !== null) {

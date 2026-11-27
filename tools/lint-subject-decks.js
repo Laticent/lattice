@@ -17,6 +17,11 @@
  */
 const SANCTIONED_SUBJECT_DECKS = Object.freeze([
   {
+    file: 'examples/slide-class-forms.md',
+    rule: 'legacy-directive-comment',
+    why: 'the demo deck of the directive-comment forms of a class (spot, running global, quoted): the engine reads them until the cut (record note §15, slice E), and the old spelling is the point; the meta sweep\'s tree test keeps it too',
+  },
+  {
     file: 'examples/chart-malformed-numbers.md',
     rule: 'chart-value-malformed',
     why: 'the demo deck for followups.d/2609-p2: it shows a chart drawing no value for `--5`, `(840` and `1,2,3`, so the warning is the point',

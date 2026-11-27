@@ -54,7 +54,7 @@ Use to pre-empt the room: line up the three or four hardest questions the audien
 ## Authoring
 
 ```markdown
-<!-- _class: q-and-a -->
+<!-- @meta{layout=q-and-a} -->
 
 ## What we expect to be asked.
 
@@ -90,7 +90,7 @@ Use to pre-empt the room: line up the three or four hardest questions the audien
 Pairs threaded down an accent spine.
 
 ```markdown
-<!-- _class: q-and-a spine -->
+<!-- @meta{layout=q-and-a, class=spine} -->
 
 ## spine threads the pairs down an accent spine.
 
@@ -107,7 +107,7 @@ Pairs threaded down an accent spine.
 Numbered exhibit rows in columns.
 
 ```markdown
-<!-- _class: q-and-a rail -->
+<!-- @meta{layout=q-and-a, class=rail} -->
 
 ## rail hangs the questions on a left rail.
 
@@ -124,7 +124,7 @@ Numbered exhibit rows in columns.
 Underlined prompts; answers hang below.
 
 ```markdown
-<!-- _class: q-and-a tab -->
+<!-- @meta{layout=q-and-a, class=tab} -->
 
 ## tab folds each answer under a question tab.
 
@@ -141,7 +141,7 @@ Underlined prompts; answers hang below.
 Four pairs in a two-by-two.
 
 ```markdown
-<!-- _class: q-and-a grid -->
+<!-- @meta{layout=q-and-a, class=grid} -->
 
 ## grid deals the pairs into two columns.
 
@@ -160,7 +160,7 @@ Four pairs in a two-by-two.
 One pair, the whole slide.
 
 ```markdown
-<!-- _class: q-and-a solo -->
+<!-- @meta{layout=q-and-a, class=solo} -->
 
 ## solo gives one question the whole slide.
 

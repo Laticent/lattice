@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 # This fixture pins the chart-frame DOM *skeleton* parity contract (progress-bars
 # / wedges / timeline-spine). It used to carry `form: off` to isolate the
 # section-class and flat-chrome assertions from the masthead hoist; Form is the
@@ -11,7 +11,7 @@ paginate: true
 # the claim the parity test makes, now against the composition authors actually get.
 ---
 
-<!-- _class: progress -->
+<!-- @meta{layout=progress} -->
 
 `H1 2026 · Phase 1 readiness`
 
@@ -29,7 +29,7 @@ _Source: Linear · refreshed 2026-05-07_
 
 ---
 
-<!-- _class: progress dark minimal -->
+<!-- @meta{layout=progress, class=dark minimal} -->
 
 `Phase 1 readiness`
 
@@ -40,7 +40,7 @@ _Source: Linear · refreshed 2026-05-07_
 
 ---
 
-<!-- _class: timeline-list -->
+<!-- @meta{layout=timeline-list} -->
 
 `Framework arc`
 
@@ -61,7 +61,7 @@ _Cross-functional sign-off · 2026-04-29 · two functions abstained_
 
 ---
 
-<!-- _class: piechart donut -->
+<!-- @meta{layout=piechart, class=donut} -->
 
 `H1 2026 · 1,840 person-hours`
 

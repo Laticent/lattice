@@ -61,8 +61,8 @@ const CORPUS_PAGE = path.join(TMP, 'corpus.html');
 const DECK_SRC = `---
 marp: true
 theme: indaco
-paginate: true
-guards: strict
+pagination: true
+fit: trim
 header: "Adapter probe"
 footer: "A footer band, so the chrome exclusion is actually exercised"
 ---
@@ -93,7 +93,7 @@ before(async () => {
   execFileSync('node', [path.join(ROOT, 'lattice.js'), DECK, PAGE, 'indaco', '-q'],
     { cwd: ROOT, stdio: 'ignore' });
   const shipped = fs.readFileSync(path.join(ROOT, 'examples', 'overflow-fix-me.md'), 'utf8');
-  fs.writeFileSync(CORPUS, shipped.replace(/^theme:.*$/m, (m) => `${m}\nguards: strict`));
+  fs.writeFileSync(CORPUS, shipped.replace(/^theme:.*$/m, (m) => `${m}\nfit: trim`));
   execFileSync('node', [path.join(ROOT, 'lattice.js'), CORPUS, CORPUS_PAGE, 'indaco', '-q'],
     { cwd: ROOT, stdio: 'ignore' });
   puppeteer = require('puppeteer');

@@ -2,12 +2,12 @@
 marp: true
 theme: indaco
 venue: hall
-paginate: true
+pagination: true
 header: "Lattice · venue chrome"
 footer: "Acme Corp · Confidential"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `typography · venue chrome`
 
@@ -17,7 +17,7 @@ At hall and conference the header, footer and page number step back.
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- @meta{layout=list, class=takeaway} -->
 
 `list takeaway · hall`
 
@@ -30,7 +30,7 @@ At hall and conference the header, footer and page number step back.
 
 ---
 
-<!-- _class: cards-grid three -->
+<!-- @meta{layout=cards-grid, class=three} -->
 
 `cards-grid · hall`
 
@@ -45,7 +45,7 @@ At hall and conference the header, footer and page number step back.
 
 ---
 
-<!-- _class: list -->
+<!-- @meta{layout=list} -->
 
 `list · hall`
 
@@ -58,7 +58,7 @@ At hall and conference the header, footer and page number step back.
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- @meta{layout=list, class=takeaway} -->
 
 `list takeaway · hall`
 

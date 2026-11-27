@@ -1,17 +1,17 @@
 ---
 theme: indaco
-paginate: true
+pagination: true
 size: portrait
 progress-rail: on
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 ## Alpha
 
 ---
 
-<!-- _class: list -->
+<!-- @meta{layout=list} -->
 
 ## A long list
 
@@ -30,7 +30,7 @@ progress-rail: on
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 ## Beta
 

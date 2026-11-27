@@ -2,11 +2,11 @@
 marp: true
 size: 4k
 theme: indaco
-paginate: true
+pagination: true
 header: "Payments outage · Retrospective"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 <!-- tier: short -->
 
 `Blameless retro · 9 June 2026`
@@ -17,7 +17,7 @@ What happened, what we learned, and the four changes we are making.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## On 2 June, payments were down for 47 minutes — here is what we learned.
@@ -26,7 +26,7 @@ A configuration change took the payments service offline during the evening peak
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## The blameless frame: we fix systems, not people.
@@ -38,7 +38,7 @@ Good people made reasonable decisions with the information they had. The outage 
 
 ---
 
-<!-- _class: timeline-list -->
+<!-- @meta{layout=timeline-list} -->
 <!-- tier: short -->
 
 `2 June 2026 · all times local`
@@ -56,7 +56,7 @@ Good people made reasonable decisions with the information they had. The outage 
 
 ---
 
-<!-- _class: big-number -->
+<!-- @meta{layout=big-number} -->
 <!-- tier: standard -->
 
 `Customer impact`
@@ -66,7 +66,7 @@ Good people made reasonable decisions with the information they had. The outage 
 
 ---
 
-<!-- _class: matrix-2x2 -->
+<!-- @meta{layout=matrix-2x2} -->
 <!-- tier: short -->
 
 ## What went well, and what went poorly.
@@ -82,7 +82,7 @@ Good people made reasonable decisions with the information they had. The outage 
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## Root cause: a manual change path that bypassed every safeguard.
@@ -94,7 +94,7 @@ The routing rule was changed through a console that writes straight to productio
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 <!-- tier: full -->
 
 `Response · this incident vs our targets`
@@ -114,7 +114,7 @@ The routing rule was changed through a console that writes straight to productio
 
 ---
 
-<!-- _class: list-steps -->
+<!-- @meta{layout=list-steps} -->
 <!-- tier: short -->
 
 ## The four changes we are making, with owners.
@@ -130,7 +130,7 @@ The routing rule was changed through a console that writes straight to productio
 
 ---
 
-<!-- _class: checklist -->
+<!-- @meta{layout=checklist} -->
 <!-- tier: full -->
 
 ## Action-item status as of this retro.
@@ -144,9 +144,9 @@ The routing rule was changed through a console that writes straight to productio
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 <!-- tier: short -->
 
 ## We fix the system so this can't happen the same way twice.

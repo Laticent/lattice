@@ -53,7 +53,8 @@ describe('applySlideLayout writes one class line and nothing else, unless it is 
 		const tr = applySlideLayout(state, 0, { tokens: ['big-number'], starter: null });
 		expect(tr).not.toBeNull();
 		const out = emit(state.apply(tr!), state);
-		expect(out).toBe(STATS.replace('<!-- _class: stats -->', '<!-- _class: big-number -->'));
+		// The old comment becomes the record in its place (record note §15); every other byte stays.
+		expect(out).toBe(STATS.replace('<!-- _class: stats -->', '<!-- @meta{layout=big-number} -->'));
 	});
 
 	it('swaps the body for a starter and keeps the eyebrow, the heading and the Key Insight', () => {
@@ -61,7 +62,9 @@ describe('applySlideLayout writes one class line and nothing else, unless it is 
 		const starter = slideStarter(SKELETON['list-steps'], false);
 		const tr = applySlideLayout(state, 0, { tokens: ['list-steps'], starter });
 		const out = emit(state.apply(tr!), state);
-		expect(out).toContain('<!-- _class: list-steps -->');
+		expect(out).toContain('<!-- @meta{layout=list-steps} -->');
+		// Once: the starter brings its body, never the skeleton's own record.
+		expect(out.match(/@meta\{/g)).toHaveLength(1);
 		expect(out).toContain('`Pilot results`');
 		expect(out).toContain('## By the numbers.');
 		expect(out).toContain('> Small set, wide reach.');

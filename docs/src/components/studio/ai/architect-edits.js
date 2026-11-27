@@ -168,7 +168,7 @@ export const EDIT_PROTOCOL =
   '```mermaid / ```chart fences, and a backtick wrapper collides with them. If the slide ' +
   'you are editing carries its OWN ~~~ fence, make your wrapper LONGER than it (~~~~):\n' +
   '  ~~~lattice-edit slide=3\n' +
-  '  <!-- _class: cards-grid -->\n' +
+  '  <!-- @meta{layout=cards-grid} -->\n' +
   '  ## Heading\n' +
   '  - Card title\n' +
   '    - body\n' +

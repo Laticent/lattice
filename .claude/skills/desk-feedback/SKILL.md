@@ -36,7 +36,7 @@ the docs, or a request?
    (CLAUDE.md's SECOND FILTER, row 5).
 5. **Write back** (through a session you start, counted in the budget). A reproduction becomes evidence on the issue's fix PR or follow-up.
 6. **Report** to the command center: new reports by kind, what was reproduced, where each
-   went, the reply drafts, and `budget: N/10 today`.
+   went, the reply drafts, and `budget: N/10 today`, with its `meter:` ledger.
 
 ## Lane
 

@@ -108,7 +108,7 @@ function bucketGalleryPdfPath(bucket, theme) {
 
 // Compose the bucket-survey markdown. Opens with a title slide (bucket
 // name + member list), then one slide per component using its
-// `manifest.sample` (which already includes the _class directive).
+// `manifest.sample` (which already opens with its `@meta` record).
 //
 // Title slide follows the title.docs.md contract: `title silent` for
 // chrome suppression in one token, ` `inline-code` ` eyebrow slot, and
@@ -144,12 +144,12 @@ function composeGalleryMarkdown({ title, blurb, manifests, surveyLabel }) {
   // composer byte-for-byte, so the freshness gate sees no drift).
   const count = manifests.length;
   const eyebrow = `\`${count} component${count === 1 ? '' : 's'}\``;
-  const titleSlide = ['<!-- _class: title silent -->', '', `# ${title}`, '', eyebrow, '', blurb, ''].join('\n');
+  const titleSlide = ['<!-- @meta{layout=title, class=silent} -->', '', `# ${title}`, '', eyebrow, '', blurb, ''].join('\n');
 
   // Per-slide attribution (2026-07-05 Specimen Book decision §3.4): each member
   // slide names its component. Gated per member on specimenVoice so a survey's
   // rendered output changes exactly once — inside the migration PR whose visual
-  // review covers it. injectFooter no-ops on a hand-set _footer: (banned in
+  // review covers it. injectFooter no-ops on a hand-set footer (banned in
   // samples by gallery-contract).
   const componentSlides = manifests
     .filter((m) => typeof m.sample === 'string' && m.sample.trim())

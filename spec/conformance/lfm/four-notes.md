@@ -1,4 +1,4 @@
-<!-- {layout=statement} -->
+<!-- @meta{layout=statement} -->
 
 ## The one claim
 

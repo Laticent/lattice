@@ -2,11 +2,11 @@
 marp: true
 size: 4k
 theme: indaco
-paginate: true
+pagination: true
 header: "Microbiome recovery · Thesis defense"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 <!-- tier: short -->
 
 `PhD Defense · Microbial Ecology · June 2026`
@@ -17,7 +17,7 @@ A four-year study of microbiome recovery and the keystone species that drive it.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## The question: a single antibiotic course can reshape the gut for years — but not in everyone.
@@ -26,7 +26,7 @@ A week of broad-spectrum antibiotics wipes out most gut bacteria in days. In mos
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## Why it matters: the guts that don't recover carry lasting health costs.
@@ -38,7 +38,7 @@ Incomplete recovery is linked to recurrent infection, metabolic dysregulation, a
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## Methods: a 200-person longitudinal cohort, sampled before, during, and for a year after.
@@ -50,7 +50,7 @@ We followed 200 adults prescribed a standard amoxicillin-clavulanate course. Sto
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## A keystone framing: not all species matter equally to recovery.
@@ -62,7 +62,7 @@ I model the gut as an ecological network and ask which species, if absent at bas
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 <!-- tier: short -->
 
 `Primary result · 12-month recovery outcomes`
@@ -82,7 +82,7 @@ I model the gut as an ecological network and ask which species, if absent at bas
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## The keystone is *Faecalibacterium prausnitzii* — present at baseline, recovery follows.
@@ -94,7 +94,7 @@ Participants who carried abundant *F. prausnitzii* before treatment recovered 3.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## Validation: the predictor holds in an independent 80-person replication cohort.
@@ -106,7 +106,7 @@ A separate cohort, sampled two years later with a different sequencing platform,
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## Discussion: why a single anaerobe holds the network together.
@@ -118,7 +118,7 @@ A separate cohort, sampled two years later with a different sequencing platform,
 
 ---
 
-<!-- _class: roadmap -->
+<!-- @meta{layout=roadmap} -->
 <!-- tier: short -->
 
 `Future work · 2026–2028`
@@ -133,7 +133,7 @@ A separate cohort, sampled two years later with a different sequencing platform,
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## Limitations I want the committee to weigh.
@@ -145,9 +145,9 @@ The cohort is observational — I show association, not proof that adding the ke
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 <!-- tier: short -->
 
 ## A fragile gut is one missing its keystone — and we can see it before the first dose.

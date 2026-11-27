@@ -42,7 +42,7 @@ skill. The others are authorable end-to-end from the file.
 | [`component`](./component.md) | Use when adding a new `_class:` layout to the catalog: manifest, palette-blind CSS, optional transform, generated docs. | 3.7k |
 | [`deck`](./deck.md) | Use when writing a whole deck from a blank file: narrative arc, front matter, picking layouts, the 10/10 bar and the ship checklist. | 3.3k |
 | [`finish`](./finish.md) | Use when creating or choosing a finish: backdrop — the layered, palette-blind atmosphere painted behind slide content. | 3.9k |
-| [`lens`](./lens.md) | Use when defining a reader lens (Lente): an approved subset of a deck's slides, projected for another audience without editing it. | 4.7k |
+| [`lens`](./lens.md) | Use when defining a reader lens (Lente): an approved subset of a deck's slides, projected for another audience without editing it. | 4.8k |
 | [`speaker-notes`](./speaker-notes.md) | Use when writing a slide's notes (@note, @say, @alt, @handout) or review comments, or when reviewing a deck against the notes rubric. | 4.6k |
 | [`theme`](./theme.md) | Use when creating a new palette (`themes/<name>/<name>.css`): the token contract, AA contrast, categorical colors and both modes. | 5.9k |
 
@@ -107,5 +107,5 @@ all of them:
   is invisible to the height math the overflow probe depends on. (HARD RULE #20.)
 - **One source of truth across render paths.** Transforms land in the shared
   kernel, never one path. (HARD RULE #1.)
-- **Record user-visible changes** in a `changelog.d/<slug>.<category>.md` fragment
-  as they land — one file per PR, NOT `CHANGELOG.md` `## Unreleased`. (HARD RULE #10.)
+- **Record user-visible changes** in a changeset (`npx changeset`, one file per
+  PR in `.changeset/`) as they land — never an edit to a `CHANGELOG.md`. (HARD RULE #10.)

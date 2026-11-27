@@ -45,7 +45,7 @@ test('a bare record is respelled `@meta`, its text untouched; code and inline co
 
 test('a value that runs onto a second line is kept as written, and named', async () => {
   const { migrateMetaSource } = await load();
-  const src = `${FM}<!--\nclass: invert\npaginate: true\n-->\n\n# A\n`;
+  const src = `${FM}<!--\nclass: invert\npagination: true\n-->\n\n# A\n`;
   const r = migrateMetaSource(src);
   assert.equal(r.source, src);
   assert.deepEqual(r.kept.map((k) => k.why), ['its value runs onto a second line; write one comment per directive']);

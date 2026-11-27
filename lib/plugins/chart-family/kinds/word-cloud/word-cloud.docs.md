@@ -49,7 +49,7 @@ Use for qualitative summaries — retrospective themes, survey verbatims. Word s
 ## Authoring
 
 ```markdown
-<!-- _class: word-cloud -->
+<!-- @meta{layout=word-cloud} -->
 
 ## What the team called out this quarter.
 
@@ -81,7 +81,7 @@ Use for qualitative summaries — retrospective themes, survey verbatims. Word s
 Words scattered like stars.
 
 ```markdown
-<!-- _class: word-cloud constellation -->
+<!-- @meta{layout=word-cloud, class=constellation} -->
 
 ## constellation scatters the words like stars.
 
@@ -98,7 +98,7 @@ Words scattered like stars.
 The cloud packed tight.
 
 ```markdown
-<!-- _class: word-cloud dense -->
+<!-- @meta{layout=word-cloud, class=dense} -->
 
 ## dense packs the cloud tight.
 
@@ -124,7 +124,7 @@ The cloud packed tight.
 Words colored along a scale.
 
 ```markdown
-<!-- _class: word-cloud spectrum -->
+<!-- @meta{layout=word-cloud, class=spectrum} -->
 
 ## spectrum colors the words along a scale.
 
@@ -143,7 +143,7 @@ Words colored along a scale.
 One word crowned the center.
 
 ```markdown
-<!-- _class: word-cloud focal -->
+<!-- @meta{layout=word-cloud, class=focal} -->
 
 ## focal crowns one word the center.
 

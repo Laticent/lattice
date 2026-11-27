@@ -58,7 +58,7 @@ Use to position items by two numeric attributes (cost × value, effort × impact
 ## Authoring
 
 ```markdown
-<!-- _class: quadrant -->
+<!-- @meta{layout=quadrant} -->
 
 `[{Effort, 0..10}, {Reach, 0..100}]`
 
@@ -104,7 +104,7 @@ Effort estimated in story-points; reach as percent of addressable teams.
 A third value sizes each point.
 
 ```markdown
-<!-- _class: quadrant bubble -->
+<!-- @meta{layout=quadrant, class=bubble} -->
 
 `[{Effort, 0..10}, {Reach, 0..100}]`
 
@@ -127,7 +127,7 @@ A third value sizes each point.
 Arrows show where points moved from.
 
 ```markdown
-<!-- _class: quadrant trail -->
+<!-- @meta{layout=quadrant, class=trail} -->
 
 `[{Effort, 0..10}, {Reach, 0..100}]`
 
@@ -147,7 +147,7 @@ Arrows show where points moved from.
 Points color by group.
 
 ```markdown
-<!-- _class: quadrant cohort -->
+<!-- @meta{layout=quadrant, class=cohort} -->
 
 `[{Effort, 0..10}, {Reach, 0..100}]`
 
@@ -172,7 +172,7 @@ Points color by group.
 The lines that matter, drawn.
 
 ```markdown
-<!-- _class: quadrant threshold -->
+<!-- @meta{layout=quadrant, class=threshold} -->
 
 `[{Effort, 0..10, 5}, {Reach, 0..100, 50}]`
 
@@ -194,7 +194,7 @@ The lines that matter, drawn.
 All four quadrants named.
 
 ```markdown
-<!-- _class: quadrant magic -->
+<!-- @meta{layout=quadrant, class=magic} -->
 
 `[{Completeness of vision, 0..100}, {Ability to execute, 0..100}]`
 
@@ -216,7 +216,7 @@ All four quadrants named.
 Just the points.
 
 ```markdown
-<!-- _class: quadrant minimal -->
+<!-- @meta{layout=quadrant, class=minimal} -->
 
 `[{Effort, 0..10}, {Reach, 0..100}]`
 

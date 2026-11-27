@@ -63,7 +63,7 @@ Use when the question is 'are we on plan'. Each row carries a measure bar, a per
 ## Authoring
 
 ```markdown
-<!-- _class: bullet -->
+<!-- @meta{layout=bullet} -->
 
 ## Are we on plan.
 
@@ -79,7 +79,7 @@ Use when the question is 'are we on plan'. Each row carries a measure bar, a per
 Forces one value axis across every row, even where the kernel would have chosen per-row scales. Use only when the rows really are the same ruler and you want the bars comparable by length.
 
 ```markdown
-<!-- _class: bullet shared-axis -->
+<!-- @meta{layout=bullet, class=shared-axis} -->
 
 ## shared-axis puts every row on one ruler.
 
@@ -93,7 +93,7 @@ Forces one value axis across every row, even where the kernel would have chosen 
 Forces per-row scales, so every target tick lands on one x and the bars are read against the plan line rather than against each other. Use when the rows are different measures that happen to share a unit.
 
 ```markdown
-<!-- _class: bullet own-axis -->
+<!-- @meta{layout=bullet, class=own-axis} -->
 
 ## own-axis lines the plan up and lets each row keep its scale.
 
