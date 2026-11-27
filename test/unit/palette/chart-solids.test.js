@@ -46,7 +46,7 @@ const curatesTriplet = (theme, m) => {
   return Boolean(fill && edge && JSON.stringify(fill) === JSON.stringify(edge));
 };
 /**
- * Each INTENSITY of `marks:` names its own fills (base.tokens.css § STATUS, IN TWO JOBS), so the status rows
+ * Each `color-intensity:` value names its own fills (base.tokens.css § STATUS, IN TWO JOBS), so the status rows
  * read the base tokens directly rather than the chart family's `--state-*` (which the `vivid` rule remaps on a slide,
  * and which a flat parse of the stylesheet would see as already remapped). `--mute-mark` has no vivid.
  */

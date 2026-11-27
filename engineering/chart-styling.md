@@ -110,8 +110,8 @@ too, with one sanctioned entry (`journey-face`, an icon on an `<svg>` wrapper).
 ## 3 · The three finishes
 
 A finish moves color; it never adds or removes it, and it never touches
-structure. A deck picks one with `marks:` (`lib/base/base.registers.docs.md`),
-and a slide can pin its own with `_class: marks-<name>`.
+structure. A deck picks one with `chart-finish:` (`lib/base/base.registers.docs.md`),
+and a slide can pin its own with `_class: chart-finish-<name>`.
 
 ### The solids — the base every finish styles
 
@@ -167,9 +167,9 @@ The contract, held for every palette in both modes and both intensities by
   slide, with a **2:1** step off the fill (dark slide; held to 3:1 off a mid-tone fill it washes out to near white); a
   deep ring on an `a11y-*` palette's bright dark-face fill against the fill.
 
-**Two intensities** (`marks: … muted | vivid`, `lib/core/resolve-marks.js`). Muted is `--X-mark`, the
+**Two intensities** (`color-intensity: muted | vivid`, `lib/core/resolve-chart-finish.js`). Muted is `--X-mark`, the
 default: done a quiet SAGE, the exceptions carrying the color as an amber and a red. Vivid is
-`--X-vivid-mark`, which `base.tokens.css` swaps in under `.marks-vivid` (§ THE STATUS FILL ON THIS SLIDE):
+`--X-vivid-mark`, which `base.tokens.css` swaps in under `.color-intensity-vivid` (§ THE STATUS FILL ON THIS SLIDE):
 every status more saturated, for a deck that celebrates its wins. Both keep the same ink (the theme's status
 triplet: the slide's paper on a light face, white on a dark one), and the rings are shared. The register sets every status fill on the slide, so a checklist disc, a kpi pill or a policy badge takes
 the same intensity as the chart beside it (`engineering/decisions/2026-10-24-status-is-one-system.md`).
@@ -233,13 +233,13 @@ every slot of every palette (onyx 3.19:1; most 3.5 to 4.5:1). The cost is a quie
 about 1.45:1 against the body, where it was the only thing that read. The bullet measure takes the same
 dark level. The light face is unchanged. A text-bearing etch mark and a status mark keep their quieter
 levels (14/19%), because text sits on them; a dark etch status bar stays under 3:1, which is recorded in
-`followups.d/` (etch-dark-status-level). `test/unit/components/marks-finish-contrast.test.js` reads the levels
+`followups.d/` (etch-dark-status-level). `test/unit/components/chart-finish-contrast.test.js` reads the levels
 out of the generated CSS and holds every slot.
 
-**Tone's source (`marks: tone ink`, `marks: tone accent`, 2026-11-20).** Every rule the generator writes for
+**Tone's source (`chart-finish: tone ink`, `chart-finish: tone accent`, 2026-11-20).** Every rule the generator writes for
 "the first hue" reads `--finish-one` and `--finish-one-ink`, which every finish block sets to chart color one
 (`--chart-cat-1-hue` / `-ink`). A source re-points those two tokens, and nothing else, on the slide and on every
-chart frame, under `section.marks-tone.marks-<source>`, so every tone rule follows without a rule of its own. It
+chart frame, under `section.chart-finish-tone.chart-finish-<source>`, so every tone rule follows without a rule of its own. It
 does not re-point `--chart-cat-1-hue` itself: the palette gates read the bundle as one flat list of declarations,
 where a scoped override would read as the palette's own slot one. A sequential ramp (heatmap, map) reads
 `--chart-ramp-hue` / `-ink` instead, which the chart declares from the palette's optional `--ramp-hue` / `--ramp-ink`
@@ -248,10 +248,10 @@ follows the source the way it follows a palette that names one. A mark no finish
 color is both the hue and the ink, so the source must read as text: `--text-heading` and `--accent` hold 4.5:1 or better against the slide on every
 built-in palette in both modes, and the strongest step clears 3:1 (the same test). Both classes are in the
 selector because a source means nothing under pigment or etch, which draw each category in its own hue;
-deck-lint names one there (`marks-source-needs-tone`). A deck that names no source stamps no class, so its render does
+deck-lint names one there (`chart-finish-source-needs-tone`). A deck that names no source stamps no class, so its render does
 not move.
 
-**A finish is always on, and `pigment` is the default.** `marks:` is a look
+**A finish is always on, and `pigment` is the default.** `chart-finish:` is a look
 like `icon:` and `spark:`, not a layer that can be absent: a deck that names none, or names
 a word that is not a finish, wears `pigment`, and every `<section>` is stamped with its
 finish (including a chart inside a pane, where the section never names the chart). There is
@@ -303,12 +303,12 @@ gradient, and `REACH` lists every mark no finish reaches with its reason.
 
 ### How the engine applies them
 
-`tools/build-marks-css.js` generates the rules from each manifest's
+`tools/build-chart-finish-css.js` generates the rules from each manifest's
 `kernel.marks`; its header is the long form. Each choice below was settled by
 measurement, and most undo a defect a render or the adversarial review found:
 
 - **A finish is a block of values, the way `dark` is.** Each finish sets about 90 `--finish-*` values on its
-  section (`section.marks-etch, figure.marks-etch { … }`): the base it mixes toward, the text ink, the edge
+  section (`section.chart-finish-etch, figure.chart-finish-etch { … }`): the base it mixes toward, the text ink, the edge
   weights, a body level and a text-bearing level per category slot (light and dark), a status level, a ramp band,
   a layered alpha, and `--finish-border` (0 where an ink edge is an inset ring, so a pill, a bar or a key tile
   drops its border). **One set of mark rules reads them and names no finish.** A mark's slot picks its own
@@ -316,7 +316,7 @@ measurement, and most undo a defect a render or the adversarial review found:
   and the rules after it say which KIND of mark paints with them, so there is no rule per slot. Only a
   treatment one finish owns is written under its name (tone's containers, pigment's neutral regions, etch's
   heavier line), in the generator's `ONLY` blocks. **A member stylesheet never names a finish**
-  (`marks-css.test.js` fails on one): what differs between finishes is a value the member reads
+  (`chart-finish-css.test.js` fails on one): what differs between finishes is a value the member reads
   (`var(--finish-border, 1)`), or a rule in the generator. Adding a finish is a new block of values; adding
   a mark is a manifest row, not three rules. Measured on the generated file: 194 KB raw and 9.8 KB gzipped
   before, 79 KB and 5.9 KB after, with every computed fill, stroke, edge, shadow and ring on the chart gallery
@@ -400,7 +400,7 @@ measurement, and most undo a defect a render or the adversarial review found:
   (`inkOn`, at least 4.58:1 on any body), so its text level IS its body level. A status mark keeps its status
   ink for its edge.
 - **Specificity (0,1,1), on purpose.** Every rule is
-  `section.marks-X :where(<mark>)` (X one finish, or an `:is()` of several, which takes a class's
+  `section.chart-finish-X :where(<mark>)` (X one finish, or an `:is()` of several, which takes a class's
   specificity) with `!important`. That beats every
   member's paint (no member marks paint `!important`) and loses to an a11y
   theme's texture fill, which is `!important` at (0,3,1) and loads later. So a
