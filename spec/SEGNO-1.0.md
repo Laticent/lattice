@@ -206,6 +206,10 @@ reads the same way under every 1.x, and a host may rely on the 1.0 grammar for w
 A change that would alter or refuse a span 1.0 reads is a 2.0, and needs a new major version of this
 spec and the owner's sign-off.
 
+**Dotted names stay refused in 1.0.** `acme.tally=3` is `bad-name` (§4.2), so no 1.0 host can write a
+name with `.` in it. A 1.x MAY admit them under the rule above, because doing so only makes a refused
+span readable. The owner chose this on 2026-11-27.
+
 A host MAY accept only part of the notation (a **profile**). LFM's `@meta` record is one. A profile
 MUST read every span it hands a Segno reader exactly as this spec does. The steps and forms §7 lets a
 host state for itself are outside that rule, because the notation never reads them.
@@ -220,4 +224,5 @@ this spec does not make any value safe to render.
 ## 10. Document history
 
 - **1.0, 2026-11-27, Draft.** First statement of the notation as the reference implementation reads
-  it on `main`, written by the Segno desk at the owner's choice (D2 on #3441).
+  it on `main`, written by the Segno desk at the owner's choice (D2 on #3441). Dotted names stay
+  refused in 1.0 (§8), also by the owner's choice.
