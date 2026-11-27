@@ -3,8 +3,8 @@
  * Generates lib/plugins/chart-family/chart-family.styles.generated.css — the chart finishes' rules.
  *
  * A finish moves color; it never adds or removes it, and it never touches structure
- * (engineering/chart-styling.md §3). The deck picks one with `marks:`
- * (lib/core/resolve-marks.js), which stamps `marks-<name>` on every section;
+ * (engineering/chart-styling.md §3). The deck picks one with `chart-finish:`
+ * (lib/core/resolve-chart-finish.js), which stamps `chart-finish-<name>` on every section;
  * this writes the rules those classes switch on into
  * lib/plugins/chart-family/chart-family.styles.generated.css, which tools/build-css.js
  * bundles after every chart member's own CSS.
@@ -23,7 +23,7 @@
  * that mark's ink — under `tone` there is one hue, so a name wears its ink. (The prototype's
  * "names go neutral under tone" block broke the second floor, and is not carried over.)
  *
- * SPECIFICITY IS KEPT LOW ON PURPOSE. Each rule is `section.marks-X :where(<mark>)` (X is one finish, or an
+ * SPECIFICITY IS KEPT LOW ON PURPOSE. Each rule is `section.chart-finish-X :where(<mark>)` (X is one finish, or an
  * `:is()` of several: the shared rules read the `--finish-*` values and name no finish)
  * — (0,1,1) — with `!important`, because member paint arrives as inline `url(#)` gradient
  * fills. `!important` alone beats every member rule (no chart member marks paint
@@ -34,7 +34,7 @@
  *
  * TWO ARMS, NOT A LEADING `:is()`, for every mark rule. `section.…` is the slide; `figure.…` is Read·Article's
  * re-hosted chart, which carries the token over (prose-projection.mjs `withMarks`). The ONE leading `:is()` is the
- * token blocks' third head (`:is(section, figure).marks-X .chart-frame`): it declares values, not paint, and must
+ * token blocks' third head (`:is(section, figure).chart-finish-X .chart-frame`): it declares values, not paint, and must
  * reach the frame a pane nests, where the chart family's variables live.
  *
  * WIDTHS. An SVG `stroke-width` is in viewBox units (chart-styling.md §2), so an edge is
@@ -42,8 +42,8 @@
  * takes its edge as an inset box-shadow, never a border: a border changes the box, and a
  * finish never touches structure.
  *
- *   node tools/build-marks-css.js           write the file
- *   node tools/build-marks-css.js --check   freshness gate (build:check)
+ *   node tools/build-chart-finish-css.js           write the file
+ *   node tools/build-chart-finish-css.js --check   freshness gate (build:check)
  */
 
 const fs = require('node:fs');
@@ -54,7 +54,7 @@ const OUT_FILE = path.join(ROOT, 'lib', 'plugins', 'chart-family', 'chart-family
 const check = process.argv.includes('--check');
 const silent = process.argv.includes('--silent');
 
-const { MARKS_FINISHES } = require('../lib/core/resolve-marks');
+const { CHART_FINISHES } = require('../lib/core/resolve-chart-finish');
 
 const SLOTS = [1, 2, 3, 4, 5, 6, 7, 8];
 // tone: one hue, eight value steps (the ramp the tone key publishes).
@@ -100,7 +100,7 @@ const TONE_STATUS = [100, 88];
  * hue clears 3:1 only at 99%, which is pigment. So the dark body mixes the category INK (the lighter member of the same
  * hue, the one the doubled edge is drawn in) toward the canvas instead. 78% is the least that holds 3:1 on every slot of
  * every built-in palette in dark (onyx slot 3, 3.19:1; most land 3.5 to 4.5:1), and it keeps the edge a step lighter
- * than the body. test/unit/components/marks-finish-contrast.test.js holds it. The light face is unchanged (the hue at 30%).
+ * than the body. test/unit/components/chart-finish-contrast.test.js holds it. The light face is unchanged (the hue at 30%).
  */
 const ETCH_BODY_INK_D = 78;
 
@@ -233,7 +233,7 @@ const textInk = (finish) => (finish === 'pigment' ? 'var(--chart-on-mark)' : 'va
  * the theme's curated solid, so its text is that status's curated ink, `--status-on-ink` (set per member from `data-s`,
  * chart-family.styles.css, and `--chart-on-mark` on the frame, so every element has one). Under etch a status body
  * is a pale wash like a category's, so its text is the finish's own ink, `--text-heading`. The finish picks with a
- * PERCENT, not a fallback chain (this file emits none, marks-css.test.js): `--finish-status-k` (light) and
+ * PERCENT, not a fallback chain (this file emits none, chart-finish-css.test.js): `--finish-status-k` (light) and
  * `--finish-status-k-d` (dark) are 100% under etch (a pale wash, under the heading ink) and 0% under pigment and tone,
  * whose status body is the curated fill or near it (TONE_STATUS) and so takes the status's own ink. A
  * color-mix at 0% or 100% IS the one color it names. One expression, every finish.
@@ -380,12 +380,12 @@ function swatchPaint(cls) {
 
 /**
  * The selector head for a rule that serves `finishes`. One finish keeps the class on both arms
- * (`section.marks-etch`); a set of them takes `:is()`, which is as specific as its most specific
+ * (`section.chart-finish-etch`); a set of them takes `:is()`, which is as specific as its most specific
  * member, so every head stays (0,1,1) with `:where()` after it.
  */
 function head(tag, finishes) {
   const names = [].concat(finishes);
-  return names.length === 1 ? `${tag}.marks-${names[0]}` : `${tag}:is(${names.map((n) => `.marks-${n}`).join(', ')})`;
+  return names.length === 1 ? `${tag}.chart-finish-${names[0]}` : `${tag}:is(${names.map((n) => `.chart-finish-${n}`).join(', ')})`;
 }
 
 function rule(finishes, mark, decls, important = true) {
@@ -508,12 +508,12 @@ function finishTokens(name) {
   // which is the slide in a plain chart slide and a nested element in a pane, where the slide is a `lat-pane-host` that
   // carries none of them. A block on the slide alone gave every pane chart a black fill; a second target on the frame
   // resolves the values where the variables are.
-  const heads = [`section.marks-${name}`, `figure.marks-${name}`, `:is(section, figure).marks-${name} .chart-frame`];
+  const heads = [`section.chart-finish-${name}`, `figure.chart-finish-${name}`, `:is(section, figure).chart-finish-${name} .chart-frame`];
   return [`${heads.join(',\n')} {`, ...d.map((x) => `  ${x};`), '}'].join('\n');
 }
 
 /**
- * TONE'S SOURCE — which one hue tone draws in (`marks: tone ink`, `marks: tone accent`; resolve-marks.js). Tone reads its
+ * TONE'S SOURCE — which one hue tone draws in (`chart-finish: tone ink`, `chart-finish: tone accent`; resolve-chart-finish.js). Tone reads its
  * hue as `--finish-one` and its ink as `--finish-one-ink` everywhere above (ONE, ONE_INK, TONE_BASE_REL), and a ramp as
  * `--chart-ramp-hue`, which reads the `--ramp-hue` / `--ramp-ink` hook. So a source re-points those four on the same
  * three heads as the finish's own block, after it, and every tone rule follows without one of its own. Both classes are in the selector: a source means nothing under pigment or etch, which draw every
@@ -523,21 +523,21 @@ function finishTokens(name) {
  *   accent  `--accent`: the theme's emphasis color, which each theme already holds at AA or better as text on the slide.
  *
  * One color is both the hue and the ink: each source is curated for text on the slide, so a name in it reads, and the
- * ladder's steps are mixes of it. marks-finish-contrast.test.js measures both against every palette, in both modes.
+ * ladder's steps are mixes of it. chart-finish-contrast.test.js measures both against every palette, in both modes.
  */
 const TONE_SOURCES = { ink: 'var(--text-heading)', accent: 'var(--accent)' };
 function sourceBlocks() {
-  const { MARKS_SOURCE_REGISTER, MARKS_SOURCE_FINISH } = require('../lib/core/resolve-marks');
+  const { CHART_FINISH_SOURCE_REGISTER, CHART_FINISH_SOURCE_FINISH } = require('../lib/core/resolve-chart-finish');
   const out = ['\n/* ══ TONE\'S SOURCE — the one hue tone draws in, when the deck names one ══ */'];
-  for (const [word, cls] of Object.entries(MARKS_SOURCE_REGISTER)) {
-    const on = `.marks-${MARKS_SOURCE_FINISH}.${cls}`;
+  for (const [word, cls] of Object.entries(CHART_FINISH_SOURCE_REGISTER)) {
+    const on = `.chart-finish-${CHART_FINISH_SOURCE_FINISH}.${cls}`;
     const heads = [`section${on}`, `figure${on}`, `:is(section, figure)${on} .chart-frame`];
     out.push(`${heads.join(',\n')} {\n  --finish-one: ${TONE_SOURCES[word]};\n  --finish-one-ink: ${TONE_SOURCES[word]};\n  --ramp-hue: ${TONE_SOURCES[word]} !important;\n  --ramp-ink: ${TONE_SOURCES[word]} !important;\n}`);
   }
   return out.join('\n');
 }
 
-const ALL = MARKS_FINISHES;
+const ALL = CHART_FINISHES;
 // Etch and tone move a ramp's text band, a heatmap value and a hub-spoke icon; pigment is the member's own span there.
 const MOVERS = ALL.filter((n) => n !== 'pigment');
 
@@ -551,8 +551,8 @@ function build() {
   const ramps = rampMembers();
   const out = [];
   const w = (s) => out.push(s);
-  w('/* GENERATED by tools/build-marks-css.js — do not edit by hand.');
-  w(' * The `marks:` register\'s rules. The header of the generator explains every choice');
+  w('/* GENERATED by tools/build-chart-finish-css.js — do not edit by hand.');
+  w(' * The `chart-finish:` key\'s rules. The header of the generator explains every choice');
   w(' * below; engineering/chart-styling.md §3 is the design.');
   w(' *');
   w(' * A finish is a block of --finish-* values on the section, the way `dark` is. The rules after the');
@@ -561,7 +561,7 @@ function build() {
   w('\n/* ══ THE FINISHES — the values each one sets ══ */');
   for (const name of ALL) w(`\n/* ${name} */\n${finishTokens(name)}`);
   // Tone's light base: the tone hue lifted to near-white, where the engine has relative color (see TONE_BASE_REL).
-  const toneHeads = ['section.marks-tone', 'figure.marks-tone', ':is(section, figure).marks-tone .chart-frame'];
+  const toneHeads = ['section.chart-finish-tone', 'figure.chart-finish-tone', ':is(section, figure).chart-finish-tone .chart-frame'];
   w(supports(`${toneHeads.join(',\n')} {\n  ${T.base}: ${TONE_BASE_REL};\n}`));
   w(sourceBlocks());
 
@@ -739,7 +739,7 @@ function build() {
   // where white clears 6.4:1, and on indaco the reverse. So the browser picks the ink from
   // the cell's own color: the value's fill is the step's body, taken to black above relative
   // luminance 0.1791 and white below it (inkOn). The step's --mix is the heatmap's own
-  // (--heatmap-stepN, else the member's default, which marks-css.test.js pins to
+  // (--heatmap-stepN, else the member's default, which chart-finish-css.test.js pins to
   // heatmap.styles.css). It sits behind @supports with its cell's text band (TEXT WAITS):
   // a declaration carrying var() always parses, so a plain one would fail at computed-value
   // time on an engine without relative color. There, the cell and its value keep the shipped
@@ -1243,14 +1243,14 @@ function main() {
   if (check) {
     const current = fs.existsSync(OUT_FILE) ? fs.readFileSync(OUT_FILE, 'utf8') : '';
     if (current !== css) {
-      console.error('[build-marks-css] STALE — run `node tools/build-marks-css.js` and commit ' + path.relative(ROOT, OUT_FILE));
+      console.error('[build-chart-finish-css] STALE — run `node tools/build-chart-finish-css.js` and commit ' + path.relative(ROOT, OUT_FILE));
       process.exit(1);
     }
-    if (!silent) console.log('[build-marks-css] up to date.');
+    if (!silent) console.log('[build-chart-finish-css] up to date.');
     return;
   }
   fs.writeFileSync(OUT_FILE, css);
-  if (!silent) console.log(`[build-marks-css] wrote ${path.relative(ROOT, OUT_FILE)} (${(css.match(/\{\n/g) || []).length} rules)`);
+  if (!silent) console.log(`[build-chart-finish-css] wrote ${path.relative(ROOT, OUT_FILE)} (${(css.match(/\{\n/g) || []).length} rules)`);
 }
 
 if (require.main === module) main();

@@ -1,7 +1,7 @@
 /**
  * Integration: a chart finish reaches a chart that sits in a PANE.
  *
- * A finish is a block of `--finish-*` values the mark rules read (tools/build-marks-css.js). Those values name the chart
+ * A finish is a block of `--finish-*` values the mark rules read (tools/build-chart-finish-css.js). Those values name the chart
  * family's own variables (`--chart-cat-N-hue`, `--chart-on-mark`), and a custom property resolves where it is declared.
  * The family declares its variables on the chart's frame: the slide itself for a plain chart slide, but a NESTED element
  * inside a pane, where the slide is a `lat-pane-host` that carries none. A first cut put the values on the slide alone

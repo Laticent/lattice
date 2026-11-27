@@ -160,6 +160,14 @@ the key):
   `test/integration/parity/runtime-marks.test.js` and `test/unit/shard-weights.json` (its file names).
 - **Presets.** None on `main` yet (#3470). If they land first, migrate `lib/presets/*/*.preset.json`.
 
+**Built 2026-11-27 (PR #3510).** One reader joins the two keys into the value the stampers already took
+(`chartFinishFromFrontMatter`), so every render path changed in one place. Each key gives only its own axes: an
+intensity word under `chart-finish:` sets nothing and is a `marks-split` error, like the old key itself. `marks:` is a
+`kind: 'retired'` row pointing at `marks-split`, whose `--fix` writes one line per new key and leaves out an axis the
+deck already sets with a new key. The old classes are `RENAMED_CLASSES` errors with a fix. The alias table
+`PRESET_KEY_ALIASES` went with the honored `chart-finish:` spelling, since nothing else used it. File names kept:
+`examples/marks.md` and `examples/marks-tone-source.md`, so their nightly goldens stay keyed.
+
 Verification this rename owes:
 - the adversarial trio, because it revives a retired key with a new meaning (HARD RULE #25);
 - an identity render, old source on `main` against new source on the branch, which must be pixel-identical (the

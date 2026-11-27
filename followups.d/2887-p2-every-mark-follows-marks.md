@@ -4,7 +4,7 @@ priority: P2
 recorded: 2026-10-26
 area: chart
 severity: medium
-swimlane: tools/build-marks-css.js
+swimlane: tools/build-chart-finish-css.js
 source: https://github.com/Laticent/lattice/pull/2887
 ---
 

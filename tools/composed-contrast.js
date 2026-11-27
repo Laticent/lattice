@@ -633,15 +633,15 @@ const SURFACES = [
   // A stop nobody lists is a stop nobody scores, which is the fourth time in this
   // swimlane that a raw color-mix ground has been invisible.
   ...['pass', 'warn', 'fail', 'info', 'mute'].map((state) => pillStop(state)),
-  // The VIVID intensity's fills (`marks: … vivid`): the same pill, re-pointed by the rule that stamps it.
+  // The VIVID intensity's fills (`color-intensity: vivid`): the same pill, re-pointed by the rule that stamps it.
   ...[...TRIO_STATES, 'info'].map((state) => ({
     ...pillStop(state),
     id: `chart/status-pill-${state}-vivid`,
-    ctx: `chart-family .marks-vivid .chart-status[${state}]: the status ink on the vivid fill`,
+    ctx: `chart-family .color-intensity-vivid .chart-status[${state}]: the status ink on the vivid fill`,
     groups: [{ bg: `var(--${state}-vivid-mark)` }],
     ink: statusInk(state),
     requires: [
-      [BASETOKENS, new RegExp(`\\.marks-vivid \\{[^}]*--_state-${state}-hue: var\\(--${state}-vivid-mark\\)`)],
+      [BASETOKENS, new RegExp(`\\.color-intensity-vivid \\{[^}]*--_state-${state}-hue: var\\(--${state}-vivid-mark\\)`)],
       [BASETOKENS, new RegExp(`--state-${state}-hue: var\\(--_state-${state}-hue, var\\(--${state}-mark\\)\\)`)],
     ],
   })),

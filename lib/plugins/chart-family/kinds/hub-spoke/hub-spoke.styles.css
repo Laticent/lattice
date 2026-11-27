@@ -80,7 +80,7 @@ section.form.hub-spoke:not(.claim-hero):not(.claim-bleed) .hub-spoke-figure {
 /* ── a group's hue, for the marks that carry it at a faint level or as ink ─────
  * The connector band, twig, arrowhead and name of a grouped spoke read the group's slot
  * through this member property rather than the family's --mark-hue / --mark-ink directly,
- * so the `tone` chart finish can re-point it to the one hue (tools/build-marks-css.js)
+ * so the `tone` chart finish can re-point it to the one hue (tools/build-chart-finish-css.js)
  * while the family slot table stays untouched. The discs and key swatches are not here:
  * they carry the mark contract and every finish repaints them. */
 :is(section.hub-spoke, figure.chart-frame) :is(.hub-spoke-neck, .hub-spoke-twig, .hub-spoke-arrow, .hub-spoke-name)[data-hue] {

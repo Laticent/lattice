@@ -4937,7 +4937,7 @@ const SANCTIONED_FALLBACK_READS = [
       '120-127). The step ink is OPTIONAL by design: a palette names one only when its one curated ink does not clear ' +
       'its darker dark-face critical band (the a11y palettes name black). Without one the read lands on --fail-on-mark, ' +
       'the fail ink, which is the same text-on-the-fail-fill contract and the exact ink main painted this number with, ' +
-      'so a palette that does not name one keeps its behavior. Held by marks-css.test.js (4.5:1 on both faces of every ' +
+      'so a palette that does not name one keeps its behavior. Held by chart-finish-css.test.js (4.5:1 on both faces of every ' +
       'a11y palette).',
   },
   ...Array.from({ length: 12 }, (_, i) => ({

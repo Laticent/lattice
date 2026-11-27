@@ -33,6 +33,7 @@ import { canEditClass, getClassTokens, readClassDirective, setClassTokens, setGr
 import { connectOpenRouter, generateDescription, useArchitectStatus } from './architect';
 import { autoSelected, type CatalogGroup, type CatalogOption, CatalogSelect, catalogOptions, withAutoHead } from './CatalogSelect';
 import { CARD_TAG_ROWS, cardTagOptionLabel } from './card-tag-rows';
+import { CHART_FINISHES, DEFAULT_CHART_FINISH } from './chart-finish-catalog';
 import { activeEyebrow, EYEBROWS } from './eyebrow-catalog';
 import { finishSelectGroups, finishSwatchFor, type SavedFinishMenuEntry } from './FinishPicker';
 import { activeHeadline, HEADLINES } from './headline-catalog';
@@ -41,7 +42,6 @@ import { CardBackingControl } from './image-card-backing';
 import { IMAGE_CARD_DEFAULT_LABEL, IMAGE_CARD_ROWS, imageCardOptionLabel } from './image-card-rows';
 import { followBus, useAppliedKey, useFollowRow, useViewKey } from './live/follow-bus';
 import { FOLLOW_GHOST, FollowChip } from './live/follow-ui';
-import { DEFAULT_MARKS, MARKS_FINISHES } from './marks-catalog';
 import { DEFAULT_STAMP, DEFAULT_TONE, glyphs, imageGlyph, optionGlyph, tagGlyph } from './option-glyphs';
 import type { SlideBaseline } from './panel-shells';
 import { activeRule, RULES } from './rule-catalog';
@@ -609,17 +609,17 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	const onEyebrow = (v: string) => onMutate((c) => setEyebrow(c, v === '__inherit__' ? null : v));
 	const headlineProv = React.useMemo(() => headlineProvenance(chunk, source), [chunk, source]);
 	// Chart finish — its own axis rather than overrideAxis, because its default (`pigment`) is ALSO a
-	// real per-slide choice: inside a `tone` deck, `marks-pigment` is how one slide asks for the
+	// real per-slide choice: inside a `tone` deck, `chart-finish-pigment` is how one slide asks for the
 	// default. So the head follows the deck and every OTHER finish stays in the list. Shown on chart
 	// slides only.
-	// Any token, not only the first: `_class: marks-tone bar` is a chart slide too.
+	// Any token, not only the first: `_class: chart-finish-tone bar` is a chart slide too.
 	const isChart = tokens.some((t) => catalog.find((c) => c.name === t)?.bucket === 'chart');
 	const marksProv = React.useMemo(() => marksProvenance(chunk, source), [chunk, source]);
 	const marksOpt = React.useMemo(() => {
-		const deck = marksProv.inheritable ? marksProv.deckValue : DEFAULT_MARKS;
-		// A slide token that restates the deck (`marks-pigment` in a deck with no finish, or
+		const deck = marksProv.inheritable ? marksProv.deckValue : DEFAULT_CHART_FINISH;
+		// A slide token that restates the deck (`chart-finish-pigment` in a deck with no finish, or
 		// the deck's own value) is what the head already says, so it selects the head.
-		return { value: inheritValue(marksProv.state === 'on' ? marksProv.value : null, deck), groups: inheritGroups([{ options: catalogOptions(MARKS_FINISHES) }], { value: deck }) };
+		return { value: inheritValue(marksProv.state === 'on' ? marksProv.value : null, deck), groups: inheritGroups([{ options: catalogOptions(CHART_FINISHES) }], { value: deck }) };
 	}, [marksProv]);
 	const onMarks = (v: string) => onMutate((c) => setMarks(c, v === '__inherit__' ? null : v));
 	const headlineOpt = overrideAxis(headlineProv, HEADLINES, 'auto', activeHeadline, glyphs('align'));

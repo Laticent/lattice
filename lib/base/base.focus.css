@@ -196,7 +196,7 @@ section[data-focus-axis="series"] path.lat-focus { stroke-width: 2.6; }
  * a soft fill on a dark canvas all but disappears, so the chart axes recede less. */
 section[data-focus-axis="mark"],
 section[data-focus-axis="series"] { --focus-dim: 0.4; }
-/* The `!important` on the mark edge answers the chart finish's own (`marks.generated.css` sets stroke and
+/* The `!important` on the mark edge answers the chart finish's own (`chart-family.styles.generated.css` sets stroke and
  * stroke-width `!important` on every pigment mark, #2905): without it the ring and the highlight lost to a
  * 1px hairline and never showed. The finish's selector sits in `:where`, so this one still wins on specificity. */
 /* Ring on a mark: an accent edge drawn BEHIND the fill (`paint-order`), so the

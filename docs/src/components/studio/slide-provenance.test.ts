@@ -295,38 +295,37 @@ describe('marks provenance + override', () => {
 	const slide = '<!-- _class: bar -->\n\n## Revenue';
 	it('off (not inheritable) when the deck sets no finish or names the default', () => {
 		expect(marksProvenance(slide, deck('theme: indaco', slide))).toMatchObject({ state: 'off', inheritable: false });
-		expect(marksProvenance(slide, deck('marks: pigment', slide))).toMatchObject({ state: 'off', inheritable: false });
+		expect(marksProvenance(slide, deck('chart-finish: pigment', slide))).toMatchObject({ state: 'off', inheritable: false });
 	});
 	it('a word that is not a finish reads as the default, as the engine renders it', () => {
-		expect(marksProvenance(slide, deck('marks: off', slide))).toMatchObject({ state: 'off', inheritable: false });
+		expect(marksProvenance(slide, deck('chart-finish: off', slide))).toMatchObject({ state: 'off', inheritable: false });
 	});
 	it('inherited from the deck finish', () => {
-		expect(marksProvenance(slide, deck('marks: tone', slide))).toMatchObject({ state: 'inherited', value: 'tone', deckValue: 'tone' });
+		expect(marksProvenance(slide, deck('chart-finish: tone', slide))).toMatchObject({ state: 'inherited', value: 'tone', deckValue: 'tone' });
 	});
-	it('reads the finish word out of a two-word value, in either order', () => {
-		expect(marksProvenance(slide, deck('marks: tone vivid', slide))).toMatchObject({ state: 'inherited', value: 'tone', deckValue: 'tone' });
-		expect(marksProvenance(slide, deck('marks: vivid etch', slide))).toMatchObject({ state: 'inherited', value: 'etch', deckValue: 'etch' });
-		expect(marksProvenance(slide, deck('marks: pigment vivid', slide))).toMatchObject({ state: 'off', inheritable: false });
+	it('reads the finish word out of a two-word value, in either order, and ignores the intensity key', () => {
+		expect(marksProvenance(slide, deck('chart-finish: tone ink', slide))).toMatchObject({ state: 'inherited', value: 'tone', deckValue: 'tone' });
+		expect(marksProvenance(slide, deck('chart-finish: accent etch', slide))).toMatchObject({ state: 'inherited', value: 'etch', deckValue: 'etch' });
+		expect(marksProvenance(slide, deck('chart-finish: pigment\ncolor-intensity: vivid', slide))).toMatchObject({ state: 'off', inheritable: false });
 	});
 	it('a slide asks for the default inside a finished deck with its own pigment token', () => {
-		const own = '<!-- _class: bar marks-pigment -->\n\n## Revenue';
-		expect(marksProvenance(own, deck('marks: tone', own))).toMatchObject({ state: 'on', value: 'pigment', deckValue: 'tone' });
+		const own = '<!-- _class: bar chart-finish-pigment -->\n\n## Revenue';
+		expect(marksProvenance(own, deck('chart-finish: tone', own))).toMatchObject({ state: 'on', value: 'pigment', deckValue: 'tone' });
 	});
 	it('chart-finish-off is not a finish token any more, so it is just an unknown class', () => {
 		const stale = '<!-- _class: bar chart-finish-off -->\n\n## Revenue';
-		expect(marksProvenance(stale, deck('marks: tone', stale))).toMatchObject({ state: 'inherited', value: 'tone' });
+		expect(marksProvenance(stale, deck('chart-finish: tone', stale))).toMatchObject({ state: 'inherited', value: 'tone' });
 	});
-	it('the old chart-finish spelling is read, on the slide and in the deck, and a pick replaces the old token', () => {
-		const old = '<!-- _class: bar chart-finish-tone -->\n\n## Revenue';
-		expect(marksProvenance(old, deck('marks: etch', old))).toMatchObject({ state: 'on', value: 'tone', deckValue: 'etch' });
-		expect(marksProvenance(slide, deck('chart-finish: tone', slide))).toMatchObject({ state: 'inherited', value: 'tone' });
-		expect(getClassTokens(setMarks(old, 'etch'))).toEqual(['bar', 'marks-etch']);
-		expect(getClassTokens(setMarks(old, null))).toEqual(['bar']);
+	it('the retired marks: key and the old marks-* slide class are read as nothing, as the engine renders them', () => {
+		const old = '<!-- _class: bar marks-tone -->\n\n## Revenue';
+		expect(marksProvenance(old, deck('marks: etch', old))).toMatchObject({ state: 'off', inheritable: false });
+		expect(getClassTokens(setMarks(slide, 'etch'))).toEqual(['bar', 'chart-finish-etch']);
+		expect(getClassTokens(setMarks(setMarks(slide, 'etch'), null))).toEqual(['bar']);
 	});
 	it('setMarks swaps the one token and keeps the component; null clears it', () => {
 		const on = setMarks(slide, 'etch');
-		expect(getClassTokens(on)).toEqual(['bar', 'marks-etch']);
-		expect(getClassTokens(setMarks(on, 'tone'))).toEqual(['bar', 'marks-tone']);
+		expect(getClassTokens(on)).toEqual(['bar', 'chart-finish-etch']);
+		expect(getClassTokens(setMarks(on, 'tone'))).toEqual(['bar', 'chart-finish-tone']);
 		expect(getClassTokens(setMarks(on, null))).toEqual(['bar']);
 	});
 });
