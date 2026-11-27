@@ -262,6 +262,10 @@ launching their own Chrome, as they do today. None of arms (a) to (d) will be bu
 the suite, the CLI or CI changes. `tools/shared-chrome-lab/` stays, because its baseline arm times every
 launch and can serve if the launch timeout is chased again.
 
+The decision is about sharing only. The calco-chips launch timeout that started this note is still
+open. Under HARD RULE #33 it is fixed at its cause on its own branch, `test/calco-chips-launch-timeout`,
+which the flake desk routed back to this note's author.
+
 ## Recommendation (as written before the decision)
 
 **Do not adopt a shared Chrome to fix the calco-chips timeout. It does not address the cause this
