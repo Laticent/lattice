@@ -2705,14 +2705,16 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		// if the gesture turns out to have been a step. See `onDeckTouchEnd`.
 		if (t) touchRef.current = { x: t.clientX, y: t.clientY, multi: false, driveWas: driveAtRef.current };
 	}, []);
-	/** A wheel or a finger actually moving the deck. Separate from the swipe rule above: a
-	 *  drag that never clears the swipe threshold is still the reader scrolling. */
 	/** A press on the frame's scrollbar (its root element): the reader is about to drag the deck. Stamps the input
 	 *  clock only, as a key does, so a walk scroll still on its way stands down (`walkEnRoute`). */
 	const onDeckPress = React.useCallback((e: PointerEvent) => {
 		const t = e.target as Element | null;
-		if (t && t === t.ownerDocument?.documentElement) userInputAtRef.current = Date.now();
+		// The root element is also the target of a press in any part of the frame the body does not cover, so the
+		// press must also sit in the scrollbar's own strip, right of the document's client width.
+		if (t && t === t.ownerDocument?.documentElement && e.clientX >= t.clientWidth) userInputAtRef.current = Date.now();
 	}, []);
+	/** A wheel or a finger actually moving the deck. Separate from the swipe rule above: a
+	 *  drag that never clears the swipe threshold is still the reader scrolling. */
 	const onDeckDrive = React.useCallback(() => {
 		const now = Date.now();
 		userInputAtRef.current = now;

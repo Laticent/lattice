@@ -338,12 +338,14 @@ test('a key that scrolls the preview mid-jump hands the walk to the reader, not 
 	await openExplore(page);
 	await mapOn(page);
 	const total = Number((await walkPos(page)).split('/')[1]);
-	// End inside the frame is the jump (a shell key: the walk's smooth scroll to the last slide), and Space straight
-	// after it lands while that scroll has barely begun, so the frame comes to rest between the two.
+	// End inside the frame is the jump (a shell key: the walk's smooth scroll to the last slide), and Space just after
+	// it lands while that scroll has barely begun, so the frame comes to rest between the two. The clock is frozen
+	// BETWEEN them, a little past the jump's own stamp: both clocks are this machine's, so the value is later than the
+	// jump's `armedAt` and earlier than its ceiling, and Space's stamp can never tie the jump's (a tie does not release).
 	await page.evaluate(() => (document.getElementById('preview') as HTMLIFrameElement).contentWindow?.focus());
 	await page.keyboard.press('End');
+	await page.clock.setFixedTime(Date.now() + 50);
 	await page.keyboard.press(' ');
-	await page.clock.setFixedTime(await page.evaluate(() => Date.now()));
 	// The bar left the jump's slide for one the reader can see. ON screen, not the MOST on screen: the walk keeps its
 	// slide while any of it shows (the hysteresis in `readingSlideIndex`), which `slideInView` does not.
 	await expect
