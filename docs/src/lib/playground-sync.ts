@@ -442,8 +442,13 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 		// AGAIN, because the load that calls this has re-fit the deck: the pick's scroll was aimed in the old geometry and
 		// goes on to the same pixel, which is another slide now (measured: aimed at 741px with 720px slides, the fit made
 		// them 313px and the tile for slide 2 landed on slide 4, "the tiles after it land on their own slides").
+		//
+		// Paid only once the pick is actually sent: a host that cannot place it yet keeps the debt, and the next call
+		// tries again. The focus debt goes with it: the re-sent pick is the slide the reader is on.
 		if (ports.now() < ownUntil) {
-			showPage();
+			if (!showPage()) return false;
+			owedFocus = false;
+			keptScroll = -1;
 			return true;
 		}
 		if (!owedFocus) return realign();
@@ -520,14 +525,16 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 		{ equals: (a, b) => a.seq === b.seq },
 	);
 
-	function showPage(f = hub.get()) {
+	/** Send the preview to the focus's page. False when it could not yet (no index, or the host said "not yet"). */
+	function showPage(f = hub.get()): boolean {
 		const ix = usable();
 		const page = ix && f.unitIndex >= 0 ? pageOfFlat(ix, f.flat) : -1;
-		if (page < 0) return;
+		if (page < 0) return false;
 		ownUntil = ports.now() + MAX_OWN_MS;
 		const from = ports.previewScroll();
 		const to = ports.show(page, { instant: false });
 		ownTrip = typeof to === 'number' ? { from, to } : null;
+		return to !== false;
 	}
 
 	return {
@@ -603,6 +610,13 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 			if (flat >= 0 && flat !== caretFlat) hub.go('preview-pick', { flat, grab: false });
 		},
 		previewScrolled() {
+			// The reader took the preview from a pick: it is past where the pick was going, or back past where it began.
+			// The pick no longer owns the preview, and a load in the next moments must not send it back there.
+			if (ownUntil && ownTrip) {
+				const y = ports.previewScroll();
+				const { from, to } = ownTrip;
+				if (y < Math.min(from, to) - 1 || y > Math.max(from, to) + 1) ownUntil = 0;
+			}
 			landEcho(echo.preview, ports.previewScroll());
 			// Only the reader's scrolls say whether the page keeps up: the follower's own echo lands in the same frame.
 			if (!isEcho(echo.preview)) noteScroll();

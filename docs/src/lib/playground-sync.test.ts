@@ -506,6 +506,41 @@ describe('a pick moves the caret', () => {
 		expect(r.log).toContain('page 3 instant=false');
 	});
 
+	it('a reader who scrolls away from a map pick is not sent back to it by a load', async () => {
+		const r = rig();
+		await r.land(deck, SLIDES, false);
+		r.hub.go('rail', { flat: 3 });
+		r.frame();
+		// Past where the pick was going: the reader's own scroll, not the pick's.
+		r.state.now += 20;
+		r.scrollPreview(r.pvLayout(SLIDES).content);
+		r.log.length = 0;
+		r.sync.loaded();
+		r.frame();
+		expect(r.log).not.toContain('page 3 instant=false');
+	});
+
+	it('a pick that settles a reopened pane leaves no focus debt for the next full write', async () => {
+		const r = rig();
+		await r.land();
+		r.hub.go('rail', { flat: 3 });
+		r.frame();
+		r.state.now += 20;
+		r.scrollPreview(300);
+		r.sync.collapsed();
+		r.sync.expanded();
+		r.sync.loaded();
+		r.frame();
+		// Long after the pick: a full write is owed the editor's place, not the old focus or a kept pixel.
+		r.state.now += 5000;
+		r.scrollEditor(900);
+		await r.land(deck, SLIDES, false);
+		r.log.length = 0;
+		r.sync.loaded();
+		r.frame();
+		expect(r.state.pv).toBeCloseTo(r.map().toB(r.state.ed), 6);
+	});
+
 	it('a frame stall in the middle of a pick does not let the slide it is passing take the focus', async () => {
 		// The busy-page case: the smooth scroll is half way when the page stops delivering frames for longer than the
 		// stillness window. The preview is still between where the pick started and where it is going, so it is the
