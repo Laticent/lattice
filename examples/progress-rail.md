@@ -4,7 +4,7 @@ theme: indaco
 pagination: true
 header: "Lattice · Section rail"
 footer: "Acme · Q3 board review"
-progress-rail: on
+progress-track: on
 ---
 
 <!-- @meta{layout=title} -->
@@ -39,7 +39,7 @@ The section rail answers "which part", and the page number answers "how far".
 - The divider before this slide drew the marks larger, where the rail sits on this slide
 - The footer repeats them small, with this section lit in the heading's ink
 - The page number keeps its own column, so it is not read as one more mark and the rail never moves
-- A deck needs three sections and fifteen slides before the rail draws on its own; this one says `progress-rail: on`
+- A deck needs three sections and fifteen slides before the rail draws on its own; this one says `progress-track: on`
 
 ---
 
@@ -50,23 +50,23 @@ The section rail answers "which part", and the page number answers "how far".
 
 ---
 
-<!-- @meta{class=progress-rail-center} -->
+<!-- @meta{class=progress-track-center} -->
 
 ## The rail can sit on the center line
 
-- `progress-rail: center` moves it to the middle of the footer band
+- `progress-track: center` moves it to the middle of the footer band
 - The page number stays at the right edge
 - The footer words keep the band's left half, and the rail holds the center on every slide
 
 ---
 
-<!-- @meta{class=progress-rail-edge} -->
+<!-- @meta{class=progress-track-edge} -->
 
 ## Or stand upright on the right edge
 
-- `progress-rail: edge` puts it in the right margin, at mid-height
+- `progress-track: edge` puts it in the right margin, at mid-height
 - It leaves the footer band to the footer words and the page number
-- One slide can move its own rail with `_class: progress-rail-edge`
+- One slide can move its own rail with `_class: progress-track-edge`
 
 ---
 
@@ -77,13 +77,13 @@ The section rail answers "which part", and the page number answers "how far".
 
 ---
 
-<!-- @meta{class=progress-rail-bar} -->
+<!-- @meta{class=progress-track-bar} -->
 
 ## A bar instead of dots
 
-- `progress-rail: bar` draws one thin segment per section
+- `progress-track: bar` draws one thin segment per section
 - Past eight sections the rail turns into a bar by itself
-- `progress-rail: off` hides the rail and the divider markers together
+- `progress-track: off` hides the rail and the divider markers together
 
 ---
 

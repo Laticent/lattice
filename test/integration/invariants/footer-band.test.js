@@ -467,8 +467,8 @@ describe('footer band — each mark pays for itself, and the band clears a botto
 
   test('the fixture draws a rail where it should — the assertions below depend on it', () => {
     const railed = slides.filter((x) => x.railShown);
-    assert.ok(railed.some((x) => !/progress-rail-center|no-progress|logo-bottom-right/.test(x.cls)), 'no plain slide draws a rail');
-    assert.ok(railed.some((x) => /progress-rail-center/.test(x.cls)), 'the center slide draws no rail');
+    assert.ok(railed.some((x) => !/progress-track-center|no-progress|logo-bottom-right/.test(x.cls)), 'no plain slide draws a rail');
+    assert.ok(railed.some((x) => /progress-track-center/.test(x.cls)), 'the center slide draws no rail');
   });
 
   test('a slide without a rail charges the footer no gap for the empty columns', () => {
@@ -485,7 +485,7 @@ describe('footer band — each mark pays for itself, and the band clears a botto
     // Every size word, a plate (its padding widens the mark), and a center rail (which stands down under this
     // logo). "Not overlapping" is too weak: a reserve that dropped the gap, or read the wrong scale, would pass it.
     const logoSlides = slides.filter((x) => /\blogo-bottom-right\b/.test(x.cls));
-    for (const re of [/\blogo-lg\b/, /\blogo-plate\b/, /\bprogress-rail-center\b/]) {
+    for (const re of [/\blogo-lg\b/, /\blogo-plate\b/, /\bprogress-track-center\b/]) {
       assert.ok(logoSlides.some((x) => re.test(x.cls)), `the fixture lost its bottom-right logo slide with ${re}`);
     }
     for (const s of logoSlides) {
@@ -493,7 +493,7 @@ describe('footer band — each mark pays for itself, and the band clears a botto
       assert.ok(!s.railShown, `p${s.page}: the rail still shows under a bottom-right logo`);
       const clear = s.logoLeft - s.footerRight;
       assert.ok(Math.abs(clear - s.gap) < 0.5,
-        `p${s.page} (${s.cls.split(' ').filter((c) => c.startsWith('logo-') || c.startsWith('progress-rail-c')).join(' ')}): `
+        `p${s.page} (${s.cls.split(' ').filter((c) => c.startsWith('logo-') || c.startsWith('progress-track-c')).join(' ')}): `
         + `the footer ends ${clear.toFixed(1)}px short of the logo, not one gap (${s.gap.toFixed(1)}px)`);
     }
   });
@@ -503,7 +503,7 @@ describe('footer band — each mark pays for itself, and the band clears a botto
     // (four named columns plus an implicit fifth for the items center places there), but its edge tracks are
     // no longer equal, so the rail is off the band's center.
     const symmetric = (t) => t.length === 5 && Math.abs(t[0] - t[4]) < 0.5;
-    const s = slides.find((x) => /\bprogress-rail-center\b/.test(x.cls) && !/\blogo-bottom-right\b/.test(x.cls));
+    const s = slides.find((x) => /\bprogress-track-center\b/.test(x.cls) && !/\blogo-bottom-right\b/.test(x.cls));
     assert.ok(s, 'the fixture lost its plain center slide');
     assert.ok(symmetric(s.tracks), `p${s.page}: center's tracks are not symmetric: ${s.tracks.join(' ')}`);
     // The fixed-column rule and center's grid can tie on specificity, and then the BUNDLE's order decides,
@@ -515,7 +515,7 @@ describe('footer band — each mark pays for itself, and the band clears a botto
     await page.goto('file://' + path.resolve(pdf.replace(/\.pdf$/, '.html')), { waitUntil: 'networkidle0' });
     await page.evaluate(() => document.fonts.ready);
     const tracks = await page.evaluate(() => {
-      const s = [...document.querySelectorAll('section.progress-rail-center')].find((x) => x.querySelector(':scope > .cell-footer > .tile-progress'));
+      const s = [...document.querySelectorAll('section.progress-track-center')].find((x) => x.querySelector(':scope > .cell-footer > .tile-progress'));
       return s ? getComputedStyle(s.querySelector(':scope > .cell-footer')).gridTemplateColumns.split(' ').filter((t) => /px$/.test(t)).map(parseFloat) : [];
     });
     await page.close();

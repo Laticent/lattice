@@ -4,7 +4,7 @@ pagination: true
 header: "Lattice · footer band room"
 footer: "Acme Holdings · Q3 board review · strictly confidential · do not forward outside the board and its advisers"
 logo: lattice
-progress-rail: dots on
+progress-track: dots on
 ---
 
 <!-- @meta{layout=divider} -->
@@ -57,7 +57,7 @@ progress-rail: dots on
 
 ---
 
-<!-- @meta{class=logo-bottom-right progress-rail-center} -->
+<!-- @meta{class=logo-bottom-right progress-track-center} -->
 
 ## A centered rail under a bottom-right logo
 
@@ -65,7 +65,7 @@ progress-rail: dots on
 
 ---
 
-<!-- @meta{class=progress-rail-center} -->
+<!-- @meta{class=progress-track-center} -->
 
 ## A centered rail
 

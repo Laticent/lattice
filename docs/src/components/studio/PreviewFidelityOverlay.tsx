@@ -71,7 +71,7 @@ const METRICS: Metric[] = [
 		key: 'route',
 		label: 'route',
 		value: (r) => (r.path === 'slice' ? 'this slide alone' : 'the whole deck'),
-		what: 'Which render produced what you are looking at. Drawing one slide alone is far cheaper, but a lone slide cannot know anything its neighbors decide — its page number, its progress-rail section, a proof panel’s color.',
+		what: 'Which render produced what you are looking at. Drawing one slide alone is far cheaper, but a lone slide cannot know anything its neighbors decide — its page number, its progress-track section, a proof panel’s color.',
 		rel: (r) =>
 			r.path === 'slice'
 				? 'nothing on this deck was flagged as needing its neighbors, so the cheap render runs.'

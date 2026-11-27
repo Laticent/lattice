@@ -35,7 +35,7 @@ A slide is no longer content with chrome bolted on. It is a Frame that divides t
 1. **Stage**
    - The deterministic content region between the bands — the box a component fills. It computes to pixels before its content lays out, which is why a chart finally has somewhere to live.
 1. **Footer**
-   - Three reserved zones that never collide: the footer text on the left, the section progress rail in the center, the page number on the right.
+   - Three reserved zones that never collide: the footer text on the left, the section progress track in the center, the page number on the right.
 
 ---
 
@@ -48,7 +48,7 @@ A slide is no longer content with chrome bolted on. It is a Frame that divides t
 - Stage Tile
   - The single `content` Tile — your component, which owns its own internal layout inside that Cell.
 - Footer Tiles
-  - Footer text, the progress rail, and pagination — all derived. Dividers become sections; `paginate` becomes the page number.
+  - Footer text, the progress track, and pagination — all derived. Dividers become sections; `paginate` becomes the page number.
 - Frame-anchored Tiles
   - The logo and the watermark dock in no band. Each holds its own Cell, pinned to the slide — which is why the mark rides the corner above the bay.
 
@@ -149,7 +149,7 @@ A short occupant given `align-middle` sits in the middle of the stage Cell. The 
 
 ## The bay carries the meta and the status; the watermark echoes the section.
 
-This slide is marked `confidential`, so a status chip docks in the masthead bay instead of stamping a corner. The `meta:` line rides the bay beside it. Behind this text, the watermark Tile ghosts the section number — derived from the deck's dividers, the same source the progress rail reads.
+This slide is marked `confidential`, so a status chip docks in the masthead bay instead of stamping a corner. The `meta:` line rides the bay beside it. Behind this text, the watermark Tile ghosts the section number — derived from the deck's dividers, the same source the progress track reads.
 
 ---
 
@@ -211,7 +211,7 @@ Read as a working slide. The full chrome orients a reader paging through the dec
 
 > Net revenue retention held at 114% across the March cohort. Expansion is concentrated — three segments drive 80% of the gain — so the base compounds without new-logo dependency.
 
-Same Tiles, a quieter Frame. The consumer chose to suppress the progress rail — the words never moved.
+Same Tiles, a quieter Frame. The consumer chose to suppress the progress track — the words never moved.
 
 ---
 

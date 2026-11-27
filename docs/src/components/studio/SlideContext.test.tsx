@@ -45,7 +45,7 @@ const lintVocab = {
 	semiUniversalVariants: ['compact', 'accent'],
 	finishNames: ['atrium', 'meridian'],
 	stampStyles: { boardroom: ['tab', 'notch', 'bracket', 'seal', 'pill'], range: ['ribbon', 'dot'] },
-	toneStyles: ['tone-rail', 'tone-edge', 'tone-glow'],
+	toneStyles: ['tone-stripe', 'tone-edge', 'tone-glow'],
 };
 const catalog = [{ name: 'kpi', effectiveVariants: ['compact', 'accent'] }];
 

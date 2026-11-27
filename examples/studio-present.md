@@ -13,7 +13,7 @@ footer: "Laticent · Studio Present"
 
 `Studio · Present mode`
 
-Sections become a progress rail, your speaker notes sit beside the slide, and the narration reads itself aloud — the same source you authored, now a live talk.
+Sections become a progress track, your speaker notes sit beside the slide, and the narration reads itself aloud — the same source you authored, now a live talk.
 
 <!-- @note{Open by naming what they're about to see: this is one Markdown deck, presented. Nothing here was staged for the demo — the rail, the notes, and the read-aloud all come from the source.} -->
 

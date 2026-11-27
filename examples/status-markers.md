@@ -2,7 +2,7 @@
 marp: true
 theme: indaco
 stamp: seal
-tone: rail
+tone: stripe
 pagination: true
 header: "Lattice · status markers"
 ---
@@ -73,7 +73,7 @@ serves every state; only the shape token changes.
 
 Uptime held at **99.98%**, net revenue retention rose to **+18%**, and the
 quarter closed with **zero** Sev-1 incidents. The tone marker sets the color
-(`--pass`); the deck `tone: rail` sets the shape.
+(`--pass`); the deck `tone: stripe` sets the shape.
 
 ---
 

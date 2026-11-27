@@ -1206,8 +1206,8 @@ async function main() {
   // marker on every step (progress.transform.js), docked in the bottom band where the rail sits.
   // Deck-level wayfinding is not the component under test, and fixed marker ink once froze the ink
   // union's edges so a `nowrap` heading running off the slide read as an INERT sweep
-  // (jank-sweep.test.js); `--front-matter 'progress-rail: on'` puts the marker back when it is.
-  const fm = FRONT_MATTER.some((e) => /^progress-rail\s*:/.test(e)) ? FRONT_MATTER : ['progress-rail: off', ...FRONT_MATTER];
+  // (jank-sweep.test.js); `--front-matter 'progress-track: on'` puts the marker back when it is.
+  const fm = FRONT_MATTER.some((e) => /^progress-track\s*:/.test(e)) ? FRONT_MATTER : ['progress-track: off', ...FRONT_MATTER];
   deck = deck.replace(/^---\n/, `---\n${fm.join('\n')}\n`);
   const render = renderProbe(deck, `jank-${COMP}-${FAMILY}`, { format: 'html', palette: THEME, keep: true });
   let rows;

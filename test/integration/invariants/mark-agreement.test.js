@@ -181,7 +181,7 @@ const strip = (h) => {
 const noDot = (t) => (/[^.]\.$/.test(t) ? t.slice(0, -1) : t);
 const plain = (t) => noDot(strip(String(t).replace(/`([^`]*)`/g, '$1').replace(/\*\*?|__?/g, '')));
 const isProof = (s) => s.tok.includes('split-panel') && (s.tok.includes('proof') || s.tok.includes('capstone'));
-const RAIL_OFF = ['no-progress', 'silent', 'progress-rail-off'];
+const RAIL_OFF = ['no-progress', 'silent', 'progress-track-off'];
 // The anchor components (title, divider, topic, closing) frame the deck and carry no page number by design. The
 // catalog's own bucket says which they are.
 const ANCHORS = fs.readdirSync(path.join(ROOT, 'lib/components/anchor'), { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name);
@@ -253,9 +253,9 @@ function check(html, src) {
   for (const s of shown) {
     const has = (t) => s.tok.includes(t);
     const railOn = has('with-progress') || !RAIL_OFF.some(has);
-    // The rail and the marker are FORCED on in a `progress-rail: on` deck of two sections or more, so there they must
+    // The rail and the marker are FORCED on in a `progress-track: on` deck of two sections or more, so there they must
     // be present. Elsewhere the rail's own policy (deck length) decides, and only what is drawn is checked.
-    const forced = has('progress-rail-on') && total >= 2 && railOn;
+    const forced = has('progress-track-on') && total >= 2 && railOn;
     const mk = s.inner.match(/divider-marker-count">\s*(\d+)\s*\/\s*(\d+)\s*</);
     if (s.divider && forced && !mk) bad('divider marker MISSING', s.page, 'none', `${s.sec} / ${total}`);
     if (mk) { run('divider k / N'); if (Number(mk[1]) !== s.sec || Number(mk[2]) !== total) bad('divider k / N', s.page, `${mk[1]} / ${mk[2]}`, `${s.sec} / ${total}`); }

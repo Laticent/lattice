@@ -133,7 +133,7 @@ const gesture = (hs: number[], ink: string): Glyph =>
  *  value each picker's Auto head names. Mirrored, not imported: that table and its prose would
  *  ride into the Studio's startup bundle for two words. option-glyphs.test.tsx pins them. */
 export const DEFAULT_STAMP = 'tab';
-export const DEFAULT_TONE = 'rail';
+export const DEFAULT_TONE = 'stripe';
 
 const GLYPHS = {
 	/** The edge words of `spectrum:` (Spectrum edge) and `card-spectrum:` (Card spectrum edge). */
@@ -250,9 +250,9 @@ const GLYPHS = {
 		bar: chipOf(fill('color-mix(in srgb, var(--accent) 82%, var(--text-heading))', 'right 2px top 3px', '60% 28%')),
 		pin: chipOf(fill(AC, '70% top', '3.5px 40%')),
 	},
-	/** `tone:` — how a review tone shows: a left rail, the top edge, or a ring. */
+	/** `tone:` — how a review tone shows: a left stripe, the top edge, or a ring. */
 	tone: {
-		rail: chipOf(fill(AC, 'left', '3px 100%')),
+		stripe: chipOf(fill(AC, 'left', '3px 100%')),
 		edge: chipOf(fill(AC, 'top', '100% 3px')),
 		glow: { swatch: { background: `${fill('var(--bg)', 'center', 'calc(100% - 5px) calc(100% - 5px)')}, ${AC}` } },
 	},

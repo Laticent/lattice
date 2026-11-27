@@ -68,7 +68,7 @@ type LintVocab = {
 	finishNames?: string[];
 	/** Stamp SHAPE vocabulary — the curated boardroom subset + the wider range. */
 	stampStyles?: { boardroom: string[]; range: string[] };
-	/** Tone SHAPE vocabulary — the `tone-<style>` tokens (rail / edge / glow). */
+	/** Tone SHAPE vocabulary — the `tone-<style>` tokens (stripe / edge / glow). */
 	toneStyles?: string[];
 } | null;
 

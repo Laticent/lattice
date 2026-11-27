@@ -31,7 +31,7 @@ A slide is not content with chrome bolted on. It is a Frame that divides the can
 
 ## Form is how a slide is composed, not a setting you turn on.
 
-There is no `form:` key and no per-slide token. Every slide carries the model, so the masthead band, the meta and status bay, and the progress rail are simply where slides put those things. The question an author answers is never *whether* Form — only which Frame a component brings with it.
+There is no `form:` key and no per-slide token. Every slide carries the model, so the masthead band, the meta and status bay, and the progress track are simply where slides put those things. The question an author answers is never *whether* Form — only which Frame a component brings with it.
 
 ---
 

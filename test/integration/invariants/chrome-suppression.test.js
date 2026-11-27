@@ -43,7 +43,7 @@ function resolveChrome() {
 // indices in `data-lattice-slide`). A leading divider establishes a SECTION so the
 // progress rail renders on the content slides that follow (the rail is a no-op
 // outside a section), and a closing one makes it TWO. A short deck draws no rail by
-// default, so the deck says `progress-rail: on` (progress.transform.js `railWanted`).
+// default, so the deck says `progress-track: on` (progress.transform.js `railWanted`).
 // The closing divider comes last so no index moves; the divider is a sovereign frame, so slides 2+ are the ones
 // under test.
 const DECK = `---
@@ -52,7 +52,7 @@ theme: indaco
 header: "Running Header"
 footer: "Footer Text"
 pagination: true
-progress-rail: on
+progress-track: on
 ---
 
 # Section One

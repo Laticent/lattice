@@ -59,7 +59,7 @@ test('every semantic tone supplies --tone-color from data-split-mods, with or wi
 test('the default rail and the glow ring match the split-page semantic; the style stays a class', () => {
   const rail = CSS.match(/section:is\([^{]*\)\s*\{\s*--tone-rail:\s*inset calc\(0\.55[^}]*box-shadow/)?.[0] ?? '';
   assert.match(rail, /\[data-split-mods~="tone-warn"\]/);
-  assert.match(CSS, /\nsection\.tone-rail\s*\{/);
+  assert.match(CSS, /\nsection\.tone-stripe\s*\{/);
   assert.match(CSS, /\[data-split-mods~="tone-skip"\]\)\.tone-glow\s*\{/);
 });
 

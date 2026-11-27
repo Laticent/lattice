@@ -1025,21 +1025,21 @@ describe('Studio — Inspector controls respond', () => {
 		expect(screen.getByLabelText('Deck source').textContent).not.toMatch(/header:/);
 	});
 
-	it('the Section-rail switch writes and clears `progress-rail: off`', async () => {
+	it('the Section-rail switch writes and clears `progress-track: off`', async () => {
 		const user = await setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
 		await clickSection(user, 'Chrome');
 		const sw = await screen.findByRole('switch', { name: 'Section rail' });
-		// Rail is ON by default (no `progress-rail:` line) — so the switch reads checked.
+		// Rail is ON by default (no `progress-track:` line) — so the switch reads checked.
 		expect(sw).toBeChecked();
-		// Turning it OFF writes the `off` word on the rail's one line (lib/core/resolve-progress-rail.js).
+		// Turning it OFF writes the `off` word on the rail's one line (lib/core/resolve-progress-track.js).
 		await user.click(sw);
 		expect(sw).not.toBeChecked();
-		expect(screen.getByLabelText('Deck source').textContent).toMatch(/progress-rail:\s*off/);
+		expect(screen.getByLabelText('Deck source').textContent).toMatch(/progress-track:\s*off/);
 		expect(screen.getByLabelText('Deck source').textContent).not.toMatch(/no-progress/);
 		// Turning it back ON drops the word, and with it the now-empty key.
 		await user.click(screen.getByRole('switch', { name: 'Section rail' }));
-		expect(screen.getByLabelText('Deck source').textContent).not.toMatch(/progress-rail/);
+		expect(screen.getByLabelText('Deck source').textContent).not.toMatch(/progress-track/);
 	});
 
 	it('the Size control writes a `size` directive to the source', async () => {
@@ -1114,12 +1114,12 @@ describe('Studio — Inspector controls respond', () => {
 	});
 
 	it('the Section-rail switch (a register write) preserves the rest of the block', async () => {
-		// It writes `progress-rail:` through the same lossless line writer as every register.
+		// It writes `progress-track:` through the same lossless line writer as every register.
 		const user = await setup();
 		await pasteRichDeck(user);
 		await clickSection(user, 'Chrome');
 		await user.click(await screen.findByRole('switch', { name: 'Section rail' }));
-		expect(screen.getByLabelText('Deck source').textContent).toContain('progress-rail: off');
+		expect(screen.getByLabelText('Deck source').textContent).toContain('progress-track: off');
 		expectFrontMatterIntact('Section rail');
 	});
 
@@ -1371,7 +1371,7 @@ describe('Studio — Inspector covers the registers that had no control', () => 
 		await user.click(await screen.findByRole('switch', { name: 'Section rail' }));
 		await waitFor(() => expect(source()).not.toMatch(/no-progress/));
 		expect(source()).toMatch(/class: no-note/);
-		expect(source()).not.toMatch(/progress-rail/);
+		expect(source()).not.toMatch(/progress-track/);
 	});
 
 	it('Pace writes the `pace:` register and clears at the default', async () => {

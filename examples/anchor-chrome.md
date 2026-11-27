@@ -4,7 +4,7 @@ theme: cuoio
 pagination: true
 header: "Lattice · Anchor chrome"
 footer: "Confidential · © 2026 Acme"
-progress-rail: on
+progress-track: on
 ---
 
 <!-- @meta{layout=title} -->
@@ -56,8 +56,8 @@ The title names the deck, so the running header steps back. The confidential lin
 
 - A divider draws its section marker where the rail will be
 - By default that is the bottom-right corner, where the page number sits
-- `progress-rail: center` moves both to the middle of the footer band
-- `progress-rail: edge` stands the marks upright on the right edge
+- `progress-track: center` moves both to the middle of the footer band
+- `progress-track: edge` stands the marks upright on the right edge
 
 ---
 

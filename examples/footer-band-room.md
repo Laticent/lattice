@@ -4,7 +4,7 @@ theme: indaco
 pagination: true
 header: "Lattice · Footer band"
 footer: "Acme · Q3 board review"
-progress-rail: on
+progress-track: on
 ---
 
 <!-- @meta{layout=title} -->

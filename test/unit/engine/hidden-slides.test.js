@@ -23,8 +23,8 @@ const attr = (s, name) => (s.match(new RegExp(`<section[^>]*\\s${name}="([^"]*)"
 const rail = (html) => (html.match(/<div class="tile-progress"[\s\S]*?<\/div>/) || [''])[0];
 const glyph = (html) => (html.match(/class="tile-watermark[^"]*"[^>]*>([^<]*)</) || ['', ''])[1];
 const deckOf = (slides, fm = '') => `---\ntheme: indaco\npagination: true\n${fm}---\n\n${slides.join('\n\n---\n\n')}\n`;
-// `progress-rail: on` draws the rail from two sections, so a six-slide fixture has one to compare.
-const RAIL_ON = 'progress-rail: on\n';
+// `progress-track: on` draws the rail from two sections, so a six-slide fixture has one to compare.
+const RAIL_ON = 'progress-track: on\n';
 const marker = (html) => (html.match(/<span class="divider-marker-count">([^<]*)</) || ['', ''])[1];
 const stamp = (html) => (html.match(/data-lat-section="([^"]*)"/) || ['', ''])[1];
 const topicEyebrow = (html) => (html.match(/<p data-derived="section"><code>([^<]*)</) || ['', ''])[1];
@@ -71,7 +71,7 @@ describe('engine: a hidden slide is marked and takes no number', () => {
     const s = sectionsOf(createEngine().render(deckOf([DIVIDER(1), BODY(1), hide(DIVIDER(2)), BODY(2), DIVIDER(3), BODY(3)], RAIL_ON), 'lattice').html);
     assert.equal(glyph(s[3]), '01', 'the slide after a hidden divider stays in the section before it');
     assert.equal(glyph(s[5]), '02');
-    assert.ok(rail(s[1]), 'the rail draws (progress-rail: on), so the comparison below is not two empty strings');
+    assert.ok(rail(s[1]), 'the rail draws (progress-track: on), so the comparison below is not two empty strings');
     assert.equal((rail(s[5]).match(/<span/g) || []).length, 2, 'two shown sections, two marks');
     assert.equal((rail(s[5]).match(/<span/g) || []).length, (rail(s[1]).match(/<span/g) || []).length);
   });

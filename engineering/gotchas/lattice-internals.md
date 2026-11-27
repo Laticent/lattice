@@ -3,10 +3,10 @@
 One topic of the gotchas. Find a symptom in the generated index, `dist/engineering/gotchas.md`;
 this file is the detail. Entry shape and the rule for adding one are in the [guide](../gotchas.md).
 
-## A page number / progress rail / proof-panel color looks wrong in the preview, right in the export
+## A page number / progress track / proof-panel color looks wrong in the preview, right in the export
 
 - **Symptom:** The Studio or Playground preview shows a slide numbered `1 of 1`
-  when the deck has twelve, or a progress rail with the wrong dot lit, or every
+  when the deck has twelve, or a progress track with the wrong dot lit, or every
   `split-panel proof` slide in one hue where the export gives each level its own.
   Export the same deck and it is correct.
 - **Cause:** The preview renders **one slide, not the deck** — re-parsing the whole
@@ -210,7 +210,7 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   the result to Cadenza's `buildTrack`, and a `diagram` slide comes back at
   ~4 seconds. The shipped caption for that same slide runs ~40 seconds, and
   the deck really does hold on it for that long. Any model calibrated against
-  the short figure — a pause budget, a dwell estimate, a progress rail — is
+  the short figure — a pause budget, a dwell estimate, a progress track — is
   wrong by most of an order of magnitude.
 - **Cause:** the projection is one stage of a multi-stage pipeline, not the
   narration. Both producers run the shared `narrateChart`

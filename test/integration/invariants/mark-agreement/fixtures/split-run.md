@@ -2,7 +2,7 @@
 theme: indaco
 pagination: true
 size: portrait
-progress-rail: on
+progress-track: on
 ---
 
 <!-- @meta{layout=divider} -->

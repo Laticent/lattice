@@ -251,12 +251,12 @@ describe('deck linter', () => {
     }
   });
 
-  test('warns on an unrecognized `tone:` (tone-marker shape) value; accepts rail/edge/glow', () => {
-    const bad = lintText('---\ntheme: indaco\ntone: raill\n---\n\n## H.\n', { vocab }).find((x) => x.rule === 'unknown-tone');
+  test('warns on an unrecognized `tone:` (tone-marker shape) value; accepts stripe/edge/glow', () => {
+    const bad = lintText('---\ntheme: indaco\ntone: stripee\n---\n\n## H.\n', { vocab }).find((x) => x.rule === 'unknown-tone');
     assert.ok(bad, 'unknown tone should warn');
-    assert.equal(bad.classToken, 'raill');
-    assert.match(bad.fix, /rail, edge, glow/);
-    for (const v of ['rail', 'edge', 'glow', 'GLOW']) {
+    assert.equal(bad.classToken, 'stripee');
+    assert.match(bad.fix, /stripe, edge, glow/);
+    for (const v of ['stripe', 'edge', 'glow', 'GLOW']) {
       const src = `---\ntheme: indaco\ntone: ${v}\n---\n\n## H.\n`;
       assert.equal(lintText(src, { vocab }).filter((x) => x.rule === 'unknown-tone').length, 0, v);
     }
