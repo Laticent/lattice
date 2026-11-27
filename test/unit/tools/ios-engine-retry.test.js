@@ -146,3 +146,11 @@ test('a connect that never answers gives up, so the proxy still starts', { timeo
 	const silent = () => ({ on() {}, destroy() {} });
 	assert.equal(await reachableAddress('localhost', 9, { lookup, connect: silent, timeoutMs: 20 }), 'localhost', 'falls back to the name');
 });
+
+test('a lookup that fails falls back to the name, so the proxy still starts', async () => {
+	const { reachableAddress } = await load();
+	const lookup = async () => {
+		throw Object.assign(new Error('getaddrinfo ENOTFOUND'), { code: 'ENOTFOUND' });
+	};
+	assert.equal(await reachableAddress('no-such-host.invalid', 80, { lookup }), 'no-such-host.invalid');
+});
