@@ -378,3 +378,98 @@ the core roles in every theme. Each plugin declares its contrast pairs in its ma
 which, and the floor: 4.5:1 for text, 3:1 for lines), and the build runs the same checker over every plugin file for
 every theme, the default included. A plugin that declares no pairs is not checked, and the theme gallery says so. That
 keeps "the core knows nothing about plugin semantics" true: the plugin states its pairs, the core only measures them.
+
+## 8. The design (owner's direction, 2026-11-27)
+
+**Status of the direction.** The owner chose it in the command center's question tool at about 05:57 UTC, not in a
+typed message, so it is recorded as "owner's choice in the question tool, typed confirmation pending". Their answers:
+"Yes, this direction" (the design below), and "default file+override+warn" for a theme a plugin has no file for.
+Timing and freezing are still under discussion: this section freezes nothing and changes no code.
+
+### 8.1 Two owners, no math
+
+| Owner | Owns | Knows about the other |
+|---|---|---|
+| **The theme** | the core: brand roles, the category colors, two ramps. Hand-picked, light and dark | nothing about any plugin |
+| **A plugin** | its own per-theme colors, if it wants them (Mermaid, code highlighting): one file per theme plus a default, folded into the theme's built file | only the core roles, which any plugin may read |
+
+No rendered color is computed from others, except a see-through wash of one picked color (opacity only). Charts are
+part of the core's audience: they read the core category colors and ramps directly, with no chart-only palette.
+
+### 8.2 The core a theme picks
+
+| Job | Tokens (light and dark each) | Today |
+|---|---|---|
+| Surfaces | page, alternate page, inverse surface, border, containers | `--bg` `--bg-alt` `--surface-inverse` `--border`, `--c-*` (moves to core as containers) |
+| Text | display, heading, body, secondary, label, muted | `--text-*` |
+| Accent | accent, soft accent, ink on each | `--accent` `--accent-soft` `--on-accent` … |
+| Status | pass, warn, fail, info, muted: each a strong color, a pale background and the ink on each | `--pass` … and their tiers |
+| Categories 1–12 | each: **strong** (a mark, a bar, a box with white or dark ink), **pale** (a background behind text only), **ink on strong**, **ink on pale** | `--chart-catN` (strong, 8 of 12), `--cat-N-fill` (pale), `--cat-N-mark`, `--cat-N-ink`, `--chart-catN-ink` |
+| Sequential ramp | 5 steps, each a color and its ink | computed today (`--heatmap-step*` are percentages) |
+| Diverging ramp | 5 steps (two ends, a middle, two between), each a color and its ink | none today |
+| Code | inline code ink, code block text | `--code-*` |
+
+**Strong and pale are two jobs, held to two rules.** The experiment of §7.8 (below) measured why: a strong category
+color carries white text at 4.6:1 or better and stands 3.7:1 or better off the page, so it can be a bar, a line or a
+box; a pale one stands only 1.3:1 off a light page, so it may sit only BEHIND text, never as a mark on the page. The
+contrast check enforces both rules.
+
+**Past six or twelve.** Charts keep their six-series cap and say so (lint), or fold the tail into "Other"
+(`followups.d/3554-p2-chart-series-past-six-vanish.md`). Past 12 nothing invents a color: the cycle repeats and the
+texture channel (`--cat-N-texture`, shipped by the a11y themes) tells repeats apart.
+
+### 8.3 Plugin colors
+
+A plugin that wants per-theme colors declares them in its manifest: `contributes.themes` maps a theme name to a CSS
+file and names a `default`. The build appends the file to that theme's built stylesheet (§7.7 b). A plugin's file may
+read core roles and may define names under its own prefix (`--mermaid-…`, `--code-…`), and nothing else. Code
+highlighting's 14 colors and Mermaid's 17 leave the theme files for those plugins' files.
+
+**A theme the plugin has no file for:** the plugin's `default` file, written from core roles; a theme package MAY ship
+its own file for a plugin (`themes/<theme>/plugins/<plugin>.css`), which wins; and the build and the theme gallery
+WARN, naming the plugin and the theme, whenever a plugin falls back to its default.
+
+**Contrast:** each plugin declares its pairs in its manifest (which of its colors sits on which, and the floor). The
+build measures every pair for every theme, the default file included. A plugin that declares none is unchecked, and
+the gallery says so. The core gate checks the core in every theme.
+
+**Safety:** a plugin's theme file is a stylesheet, so a zip plugin's file passes `sanitizeStyleText` before it joins
+a theme's file (HARD RULE #22).
+
+### 8.4 Naming, unchanged from §3
+
+Role, never look; one word per role; `--{family}-{role}[-{variant}][-{state}]`; numbers `-N` from 1; `--on-{surface}`
+for ink on a surface; no color mode in a name; outside names prefixed. The rename list comes from the audit and is
+the THEME PR's, under the trio.
+
+### 8.5 What this changes in the specs
+
+- **THEME 1.0** describes the core of §8.2: the jobs, their names, and the two contrast rules. It cites a token
+  registry (EXTENDING §3) for the list. It no longer lists `--syntax-*`, `--diagram-*`, `--c-*` or `--chart-*`.
+- **LPM** gains `contributes.themes` and the contrast-pair declaration. LPM stays a draft at 1.0.
+- **EXTENDING §4** already reserves prefixed names for plugins; a plugin's token prefix is its name.
+
+### 8.6 Still open
+
+Timing and freezing (whether THEME 1.0 freezes this core before Lattice 1.0, about December 1–2) are the owner's,
+still under discussion. Nothing here is built. The work, when the owner says when: the audit and rename list; the
+indaco category pairs that disagree in hue (§7.2); the two ramps for all 33 themes, solver-written and reviewed; the
+plugin files for Mermaid and code highlighting; the manifest field and its build step; the contrast-pair checker. A
+rename changes exported class and token names, so it owes the dark and light export sign-off.
+
+### 7.8 The swap experiment (scratch, 2026-11-27)
+
+Rendered at the owner's request: Mermaid (flowchart, mind map, sequence) drawn with the chart colors, and charts (bar,
+pie, line) drawn with Mermaid's diagram colors, in indaco and cuoio, light and dark, beside today's. Scratch themes,
+removed after; nothing committed but this paragraph. Contrast from the real values, with `contrastRatio`
+(`lib/core/color.js`):
+
+| | indaco light | indaco dark | cuoio light | cuoio dark |
+|---|---|---|---|---|
+| White on a chart (strong) color | 7.09 | 4.60 | 7.06 | 4.60 |
+| Chart (strong) color against the page | 7.09 | 3.69 | 6.61 | 4.04 |
+| Diagram (pale) color against the page | 1.30 | 2.41 | 1.29 | 2.64 |
+
+Mermaid with the strong colors passes and matches the charts; charts with the pale colors fail the 3:1 a chart mark
+needs, worst in light mode, where a line nearly disappears. In dark mode a theme's pale diagram fills are already close
+to its strong chart colors.
