@@ -1,4 +1,4 @@
-import { BookOpen, Cpu, Database, Download, ExternalLink, FileBox, FolderTree, Image as ImageIcon, KeyRound, Languages, LifeBuoy, MessageSquareText, MonitorDown, MousePointer2, PencilLine, PencilRuler, ShieldAlert, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, TriangleAlert, Type, Upload, Volume2, Wallet, Zap } from 'lucide-react';
+import { Archive, BookOpen, Cpu, Database, Download, ExternalLink, FileBox, FolderTree, Image as ImageIcon, KeyRound, Languages, LifeBuoy, MessageSquareText, MonitorDown, MousePointer2, PencilLine, PencilRuler, ShieldAlert, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, TriangleAlert, Type, Upload, Volume2, Wallet, Zap } from 'lucide-react';
 import * as React from 'react';
 import { orSupportsCache } from '@/components/studio/ai/or-cache.js';
 import { fmtPrice, fmtTokens, fmtUSD } from '@/components/studio/ai/or-catalog.js';
@@ -35,6 +35,7 @@ import { KEY_PROVIDER_INFO } from './key-providers';
 import { LanguageSelect } from './LanguageSelect';
 import { useViewKey } from './live/follow-bus';
 import { describeLocalUse } from './local-quota';
+import { deletePreMoveBackup, preMoveBackupZip } from './media-vault-move';
 import { AI_CONNECTIONS_LEAD, AI_MODELS_LEAD, AI_USED_BY, WORKSPACE_DEFAULT_TAB, WORKSPACE_HEADER, WORKSPACE_TABS, WorkspaceAiSection, WorkspaceGroupLabel, WorkspaceLead, WorkspaceSelectionLabel, type WorkspaceTab } from './panel-shells';
 import { listStoredScenes } from './scene-library';
 import { languageFor } from './studio-language';
@@ -94,7 +95,7 @@ const AiSection = WorkspaceAiSection;
 // A single Data-tab row — one storage category, its stat line, and the same
 // two-tap DeleteBtn the Library uses (HARD RULE #15: one delete affordance,
 // not a bespoke one per surface).
-function GovRow({ icon, title, description, stat, armed, busy, onArm, onConfirm, onCancel }: { icon: React.ReactNode; title: string; description: string; stat?: string; armed: boolean; busy: boolean; onArm: () => void; onConfirm: () => void; onCancel: () => void }) {
+function GovRow({ icon, title, description, stat, armed, busy, onArm, onConfirm, onCancel, action }: { icon: React.ReactNode; title: string; description: string; stat?: string; armed: boolean; busy: boolean; onArm: () => void; onConfirm: () => void; onCancel: () => void; action?: React.ReactNode }) {
 	return (
 		<div className="flex items-start gap-3 rounded-xl border border-border bg-card p-3">
 			<span className="grid size-9 shrink-0 place-items-center rounded-lg bg-[var(--accent-soft)] text-[var(--accent)]">{icon}</span>
@@ -103,7 +104,10 @@ function GovRow({ icon, title, description, stat, armed, busy, onArm, onConfirm,
 				<p className="mt-0.5 text-[11.5px] leading-relaxed text-muted-foreground">{description}</p>
 				{stat && <div className="mt-1 font-mono text-[11px] text-muted-foreground">{stat}</div>}
 			</div>
-			<div className="shrink-0 pt-0.5">{busy ? <span className="px-1 text-[11px] text-muted-foreground">…</span> : <DeleteBtn armed={armed} onArm={onArm} onConfirm={onConfirm} onCancel={onCancel} label={title} />}</div>
+			<div className="flex shrink-0 items-center gap-1 pt-0.5">
+				{!busy && !armed && action}
+				{busy ? <span className="px-1 text-[11px] text-muted-foreground">…</span> : <DeleteBtn armed={armed} onArm={onArm} onConfirm={onConfirm} onCancel={onCancel} label={title} />}
+			</div>
 		</div>
 	);
 }
@@ -1426,6 +1430,30 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 									onConfirm={() => clearCategory('narration', clearNarrationAudio, 'Narration audio cleared.')}
 									onCancel={() => setGovArmed(null)}
 								/>
+								{gov?.moveBackup && (
+									<GovRow
+										icon={<Archive className="size-4" />}
+										title="Backup from the storage move"
+										description="When your photos and videos moved into Lattice's new storage, it saved one backup of your whole workspace first. Download it to keep it, or use it with Restore if anything looks wrong; delete it to free the space."
+										stat={fmtBytes(gov.moveBackup.bytes) || undefined}
+										armed={govArmed === 'backup'}
+										busy={govBusy === 'backup'}
+										onArm={() => setGovArmed('backup')}
+										onConfirm={() => clearCategory('backup', deletePreMoveBackup, 'Backup deleted.')}
+										onCancel={() => setGovArmed(null)}
+										action={
+											<button
+												type="button"
+												aria-label="Download the backup from the storage move"
+												title="Download"
+												onClick={() => void preMoveBackupZip().then((zip) => (zip ? downloadBlob('lattice-backup-before-storage-move.zip', zip) : notify('The backup could not be read.')))}
+												className="grid place-items-center rounded-lg border border-border bg-card px-2.5 py-1.5 text-muted-foreground hover:text-[var(--text-heading)]"
+											>
+												<Download className="size-3.5" />
+											</button>
+										}
+									/>
+								)}
 								<GovRow
 									icon={<Database className="size-4" />}
 									title="Cache"

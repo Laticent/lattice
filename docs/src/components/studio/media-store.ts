@@ -3,8 +3,11 @@
 // engineering/decisions/2026-10-12-library-media-assets.md.
 //
 // Records live in the existing Workbench IndexedDB `assets` store as kind 'image' or 'video'.
-// They hold a real `Blob`, not a data URL: IndexedDB stores Blobs natively without the 33%
-// base64 inflation, and a video as a string would sit whole in memory.
+// Their BYTES live in the storage vault (`media-vault.ts`, vault slice 2): a row holds `vault`, the
+// file's path, and the reader hands back a `blob` read from there. Where the vault cannot open, and in a
+// row written before slice 2 that the move has not reached yet, the row holds the bytes itself, as a
+// `Blob` or an ArrayBuffer (`data`). Never a data URL: that is a 33% base64 inflation, and a video as a
+// string would sit whole in memory.
 //
 // ONE NAME, ONE ASSET. A deck writes `asset:<name>`, so `<name>` has to mean exactly one
 // thing. The generic store enforces `(kind, name)`; that is too weak here, because an image
@@ -18,6 +21,7 @@ import { deleteAsset } from '@/components/studio/library/asset-store.js';
 // A DEFAULT import: a CommonJS leaf (docs/src/plugins/vite-cjs-lib-dev.mjs).
 import limits from '../../../../lib/packages/limits.js';
 import { cleanCaption } from './agent-assets';
+import { mediaPath, removeVaultFile, studioVault, vaultBlob } from './media-vault';
 
 export type MediaKind = 'image' | 'video';
 /** `'library'` — every deck — or the id of the one deck that owns the asset. */
@@ -67,7 +71,17 @@ export type MediaRecord = {
 	 *  stored bytes and is not stored anywhere. */
 	hadLocation?: true;
 	addedAt: number;
+	/** Where the bytes live in the storage vault. Set on every photo saved where the vault opens; `blob` is
+	 *  then read from that file. Absent on a row that holds its own bytes. */
+	vault?: string;
+	/** The vault entry's stable id (design §6.1: identity lives in ids, not paths). Kept beside `vault` so a later
+	 *  slice that renames or moves the file (human names, deck folders, a rename from Drive) can resolve the row
+	 *  by id and never has to rewrite every row: the inversion review's "second migration". */
+	vaultId?: string;
 };
+
+/** A stored row: the record, minus `blob` when the bytes are elsewhere (`vault`) or a buffer (`data`). */
+export type MediaRow = Omit<MediaRecord, 'blob'> & { blob?: Blob; data?: ArrayBuffer };
 
 /** The most old names one photo keeps. A rename that would pass it is refused: dropping one would turn the decks
  *  that still write it into placeholders without a word. Shared with the `.lattice` reader (lib/packages/limits.js). */
@@ -76,7 +90,7 @@ export const MAX_ALIASES: number = limits.MAX_PHOTO_ALIASES;
 /** Every name a deck may write for this record: its own and its aliases. */
 export const namesOf = (m: Pick<MediaRecord, 'name' | 'aliases'>): string[] => [m.name, ...(m.aliases ?? [])];
 
-export type NewMedia = Omit<MediaRecord, 'id' | 'addedAt'>;
+export type NewMedia = Omit<MediaRecord, 'id' | 'addedAt' | 'vault' | 'vaultId'>;
 
 export const KINDS: MediaKind[] = ['image', 'video'];
 
@@ -155,24 +169,46 @@ export async function saveMedia(input: NewMedia, addedAt: number): Promise<Media
 		throw new Error(`${MEDIA_REFUSAL_PREFIX} “${input.name}” isn't a usable asset name. Use lowercase letters, digits, - and _.`);
 	}
 	const id = newId();
+	const roomless = () => new Error(`${MEDIA_REFUSAL_PREFIX} this browser has no room left to store photos or videos. Delete some photos, videos or other saved items and try again.`);
+	const vault = await studioVault();
+	if (vault) {
+		// Bytes first, then the row. A tab that dies between the two leaks one file no row names (nothing sweeps
+		// such files: media-vault-move.ts says why); a refused row (a name clash) deletes its file here.
+		const path = mediaPath(id, input.kind, input.mime);
+		let entryId: string;
+		try {
+			entryId = (await vault.write(path, input.blob)).id;
+		} catch (err) {
+			if (isQuota(err)) throw roomless();
+			throw new Error(`${MEDIA_REFUSAL_PREFIX} this browser would not store that file. Try again, or open Lattice in a normal window.`);
+		}
+		try {
+			return await putMedia(input, id, addedAt, { vault: path, vaultId: entryId });
+		} catch (err) {
+			await removeVaultFile(path).catch(() => {});
+			if (isRefusal(err)) throw err;
+			if (isQuota(err)) throw roomless();
+			throw new Error(`${MEDIA_REFUSAL_PREFIX} this browser would not store that file. Try again, or open Lattice in a normal window.`);
+		}
+	}
 	try {
-		return await putMedia(input, id, addedAt, false);
+		return await putMedia(input, id, addedAt, 'blob');
 	} catch (first) {
 		// A refusal of ours (a name clash) is the author's to fix: never retried, never reworded.
 		if (isRefusal(first)) throw first;
 		// A full disk is not a Blob problem, and a second attempt would only copy the bytes into memory
 		// and fail the same way. Say what is true.
-		if (isQuota(first)) throw new Error(`${MEDIA_REFUSAL_PREFIX} this browser has no room left to store photos or videos. Delete some photos, videos or other saved items and try again.`);
+		if (isQuota(first)) throw roomless();
 		// Some engines refuse to store a Blob at all: Safari in a private window answers
 		// "UnknownError: Error preparing Blob/File data to be stored in object store" (reproduced on real
 		// WebKit), while an ArrayBuffer stores fine. So the bytes go in as an ArrayBuffer and are rebuilt
 		// into a Blob on the way out. A Blob stays the first choice: IndexedDB hands it back file-backed, so
 		// a shelf of photos is not held in memory, and an ArrayBuffer is.
 		try {
-			return await putMedia(input, id, addedAt, true);
+			return await putMedia(input, id, addedAt, 'buffer');
 		} catch (second) {
 			if (isRefusal(second)) throw second;
-			if (isQuota(second)) throw new Error(`${MEDIA_REFUSAL_PREFIX} this browser has no room left to store photos or videos. Delete some photos, videos or other saved items and try again.`);
+			if (isQuota(second)) throw roomless();
 			throw new Error(`${MEDIA_REFUSAL_PREFIX} this browser would not store that file. A private window often cannot; open Lattice in a normal window and try again.`);
 		}
 	}
@@ -181,9 +217,10 @@ export async function saveMedia(input: NewMedia, addedAt: number): Promise<Media
 const isRefusal = (e: unknown): boolean => e instanceof Error && e.message.startsWith(MEDIA_REFUSAL_PREFIX);
 const isQuota = (e: unknown): boolean => (e as { name?: string } | null)?.name === 'QuotaExceededError';
 
-/** One attempt: the name check and the write share one readwrite transaction. `asBuffer` stores the
- *  bytes as an ArrayBuffer (`data`) instead of a Blob. */
-async function putMedia(input: NewMedia, id: string, addedAt: number, asBuffer: boolean): Promise<MediaRecord> {
+/** One attempt: the name check and the write share one readwrite transaction. The bytes go in as a Blob, as
+ *  an ArrayBuffer (`data`), or not at all when they are already in the vault (`{ vault }` names the file). */
+async function putMedia(input: NewMedia, id: string, addedAt: number, bytes: 'blob' | 'buffer' | { vault: string; vaultId: string }): Promise<MediaRecord> {
+	const asBuffer = bytes === 'buffer';
 	const data = asBuffer ? await input.blob.arrayBuffer() : null;
 	const db = await openDB();
 	return new Promise<MediaRecord>((resolve, reject) => {
@@ -212,7 +249,11 @@ async function putMedia(input: NewMedia, id: string, addedAt: number, asBuffer: 
 					return;
 				}
 				stored = { ...input, id, addedAt };
-				if (asBuffer) {
+				if (typeof bytes === 'object') {
+					const { blob: _blob, ...rest } = stored;
+					stored = { ...stored, vault: bytes.vault, vaultId: bytes.vaultId };
+					store.put({ ...rest, vault: bytes.vault, vaultId: bytes.vaultId });
+				} else if (asBuffer) {
 					const { blob: _blob, ...rest } = stored;
 					store.put({ ...rest, data });
 				} else {
@@ -232,6 +273,7 @@ async function putMedia(input: NewMedia, id: string, addedAt: number, asBuffer: 
  *  Blob is what the first import writes, so a rewrite writes the same kind. Read OUTSIDE the write transaction: awaiting inside one
  *  lets it commit early. */
 export async function detachedBlob(id: string): Promise<Blob | null> {
+	// A vault row holds no Blob, so there is nothing to detach: an edit rewrites metadata only.
 	try {
 		const db = await openDB();
 		const row = (await reqAsPromise(db.transaction(ASSET_STORE, 'readonly').objectStore(ASSET_STORE).get(id))) as (MediaRecord & { data?: ArrayBuffer }) | undefined;
@@ -242,11 +284,20 @@ export async function detachedBlob(id: string): Promise<Blob | null> {
 	}
 }
 
-/** A record as the app uses it: a `blob`, whichever way the bytes were stored. */
-export function readable(row: MediaRecord & { data?: ArrayBuffer }): MediaRecord {
-	if (row.blob || !row.data) return row;
+/** A record as the app uses it: a `blob`, from a row that holds its own bytes. A vault row needs `hydrate`. */
+export function readable(row: MediaRow): MediaRecord {
+	if (row.blob || !row.data) return row as MediaRecord;
 	const { data, ...rest } = row;
 	return { ...rest, blob: new Blob([data], { type: row.mime }) } as MediaRecord;
+}
+
+/** A record as the app uses it, whichever way the bytes were stored: in the vault, a Blob or a buffer. A vault
+ *  file that cannot be read comes back as an EMPTY blob, so the shelf shows the card as unreadable rather than
+ *  hiding a photo the person still has a record of. */
+export async function hydrate(row: MediaRow): Promise<MediaRecord> {
+	if (!row.vault || row.blob || row.data) return readable(row);
+	const blob = (await vaultBlob(row.vault, row.mime)) ?? new Blob([], { type: row.mime });
+	return { ...row, blob } as MediaRecord;
 }
 
 /** Every saved image and video, newest first. IndexedDB unavailable → an empty shelf. */
@@ -254,8 +305,8 @@ export async function listMedia(): Promise<MediaRecord[]> {
 	try {
 		const db = await openDB();
 		const store = db.transaction(ASSET_STORE, 'readonly').objectStore(ASSET_STORE);
-		const rows = await Promise.all(KINDS.map((k) => reqAsPromise(store.index('kind').getAll(k)) as Promise<MediaRecord[]>));
-		return rows.flat().map(readable).sort((a, b) => b.addedAt - a.addedAt);
+		const rows = await Promise.all(KINDS.map((k) => reqAsPromise(store.index('kind').getAll(k)) as Promise<MediaRow[]>));
+		return (await Promise.all(rows.flat().map(hydrate))).sort((a, b) => b.addedAt - a.addedAt);
 	} catch {
 		return [];
 	}
@@ -272,22 +323,23 @@ export function visibleMedia(all: MediaRecord[], activeDeckId: string | null): M
 export async function setMediaScope(id: string, scope: MediaScope): Promise<MediaRecord | null> {
 	const fresh = await detachedBlob(id);
 	const db = await openDB();
-	return new Promise<MediaRecord | null>((resolve, reject) => {
+	const out = await new Promise<MediaRow | null>((resolve, reject) => {
 		const t = db.transaction(ASSET_STORE, 'readwrite');
 		const store = t.objectStore(ASSET_STORE);
-		let out: MediaRecord | null = null;
+		let out: MediaRow | null = null;
 		t.oncomplete = () => resolve(out);
 		t.onabort = t.onerror = () => reject(t.error || new Error('setMediaScope: the change failed'));
 		const get = store.get(id);
 		get.onsuccess = () => {
-			const row = get.result as MediaRecord | undefined;
+			const row = get.result as MediaRow | undefined;
 			if (!row || !KINDS.includes(row.kind)) return;
-			// The raw row keeps whichever of `blob` or `data` it was stored with; only the copy handed back is made readable.
+			// The raw row keeps whichever of `vault`, `blob` or `data` it was stored with; only the copy handed back is made readable.
 			const next = { ...row, scope, ...(fresh && row.blob ? { blob: fresh } : {}) };
 			store.put(next);
-			out = readable(next);
+			out = next;
 		};
 	});
+	return out && hydrate(out);
 }
 
 /** Store a caption on one image. Resolves the updated record, or null when it no longer exists
@@ -296,23 +348,24 @@ export async function setMediaCaption(id: string, caption: string): Promise<Medi
 	const fresh = await detachedBlob(id);
 	const db = await openDB();
 	const clean = cleanCaption(caption);
-	return new Promise<MediaRecord | null>((resolve, reject) => {
+	const out = await new Promise<MediaRow | null>((resolve, reject) => {
 		const t = db.transaction(ASSET_STORE, 'readwrite');
 		const store = t.objectStore(ASSET_STORE);
-		let out: MediaRecord | null = null;
+		let out: MediaRow | null = null;
 		t.oncomplete = () => resolve(out);
 		t.onabort = t.onerror = () => reject(t.error || new Error('setMediaCaption: the change failed'));
 		const get = store.get(id);
 		get.onsuccess = () => {
-			const row = get.result as (MediaRecord & { data?: ArrayBuffer }) | undefined;
+			const row = get.result as MediaRow | undefined;
 			if (!row || row.kind !== 'image') return;
 			const { caption: _old, ...rest } = row;
 			const kept = clean ? { ...rest, caption: clean } : rest;
 			const next = fresh && row.blob ? { ...kept, blob: fresh } : kept;
 			store.put(next);
-			out = readable(next as MediaRecord & { data?: ArrayBuffer });
+			out = next;
 		};
 	});
+	return out && hydrate(out);
 }
 
 /** Remove one asset. */

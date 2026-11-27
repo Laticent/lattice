@@ -308,7 +308,8 @@ interface Vault {
   `createWritable`, worker `createSyncAccessHandle`, worker `createWritable`), as they do in Chromium and Firefox in
   both contexts. Safari Private Browsing probably behaves like the ephemeral context; that is untested. The vault fails
   visibly with `VaultError('unavailable')` (slice 1, #3442). What it falls back to is slice 2's decision (D1 on
-  #3442), and e2e tests run in persistent profiles.
+  #3442), and e2e tests run in persistent profiles. Built in slice 2: IndexedDB blobs, a choice the vault records
+  and keeps (`2026-11-27-vault-slice-2-as-built.md`).
 
 ### 6.3 Sync
 
