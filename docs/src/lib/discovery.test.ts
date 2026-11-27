@@ -93,4 +93,23 @@ describe('homeAgentEntryProblems', () => {
 			'/agents/start.md is linked from the homepage but was not built',
 		]);
 	});
+	it('reads single-quoted, unquoted and multi-word attributes', () => {
+		const loose = page
+			.replace('href="/agents/start.md" data', "href='/agents/start.md' data")
+			.replace('rel="describedby" type="text/plain"', 'rel="describedby author" type=text/plain')
+			.replace('rel="help"', 'REL="Help"');
+		expect(homeAgentEntryProblems(loose, exists)).toEqual([]);
+	});
+	it('ignores tags a browser would not act on', () => {
+		const inert = page.replace(/(<link rel="help"[^>]*>)/, '<!-- $1 -->').replace(/(<a [^>]*>Instructions<\/a>)/, '<template>$1</template>');
+		expect(homeAgentEntryProblems(inert, exists)).toEqual([
+			'expected one <a data-agent-entry> to /agents/start.md, found 0',
+			'expected one <link rel="help" href="…/agents/start.md">, found 0',
+		]);
+	});
+	it('does not accept another origin that happens to end in the same path', () => {
+		expect(homeAgentEntryProblems(page.replace('href="/llms.txt"', 'href="https://elsewhere.example/llms.txt"'), exists)).toEqual([
+			'expected one <link rel="describedby" href="…/llms.txt">, found 0',
+		]);
+	});
 });
