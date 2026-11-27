@@ -684,8 +684,9 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
         const { value, done } = await reader.read();
         // A Stop ends the round as an abort, as a rejected read does: never as a finished reply whose partial usage and
         // half-streamed tool calls would then be reported and run (#3533 S01).
-        if (signal?.aborted) { const e = new Error('aborted'); e.name = 'AbortError'; throw e; }
+        // The end first: a reply whose stream has ended finished, even if a Stop lands in that instant (#3533).
         if (done) break;
+        if (signal?.aborted) { const e = new Error('aborted'); e.name = 'AbortError'; throw e; }
         buf += dec.decode(value, { stream: true });
         let nl;
         while ((nl = buf.indexOf('\n')) >= 0) {

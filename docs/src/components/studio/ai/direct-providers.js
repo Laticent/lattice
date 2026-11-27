@@ -513,8 +513,9 @@ export function directBackend(provider, { catalog, catalogNow, defaultMaxTokens 
 			const { value, done: end } = await reader.read();
 			// A Stop ends the round as an abort, as a rejected read does: never as a finished reply whose partial usage and
 			// half-streamed tool calls would then be reported and run (#3533 S01).
-			if (signal?.aborted) throw abortError();
+			// The end first: a reply whose stream has ended finished, even if a Stop lands in that instant (#3533).
 			if (end) break;
+			if (signal?.aborted) throw abortError();
 			buf += dec.decode(value, { stream: true });
 			let nl;
 			while ((nl = buf.indexOf('\n')) >= 0) {
@@ -603,8 +604,9 @@ export function directBackend(provider, { catalog, catalogNow, defaultMaxTokens 
 			const { value, done: end } = await reader.read();
 			// A Stop ends the round as an abort, as a rejected read does: never as a finished reply whose partial usage and
 			// half-streamed tool calls would then be reported and run (#3533 S01).
-			if (signal?.aborted) throw abortError();
+			// The end first: a reply whose stream has ended finished, even if a Stop lands in that instant (#3533).
 			if (end) break;
+			if (signal?.aborted) throw abortError();
 			buf += dec.decode(value, { stream: true });
 			let nl;
 			while ((nl = buf.indexOf('\n')) >= 0) {

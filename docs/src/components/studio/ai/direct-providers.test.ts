@@ -245,6 +245,66 @@ describe('the transports', () => {
 		expect(tools).toEqual([]);
 	});
 
+	it('OpenAI and Gemini: a Stop mid-stream rejects as an abort, with no partial usage or tool call (#3533 S01)', async () => {
+		writeProviderKey('openai', 'sk-proj-test-key-0000000000');
+		await openRouterKeySettled();
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(
+				async () =>
+					new Response(
+						sse([
+							'data: {"choices":[{"delta":{"content":"Hel"}}]}',
+							'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"t1","type":"function","function":{"name":"edit_slides","arguments":"{\\"a\\":"}}]}}]}',
+							'data: {"choices":[],"usage":{"prompt_tokens":100,"completion_tokens":10,"total_tokens":110}}',
+							'data: [DONE]',
+						]),
+						{ status: 200 },
+					),
+			),
+		);
+		const b = directBackend('openai', { catalog: async () => CATALOG, catalogNow: () => CATALOG });
+		const ctl = new AbortController();
+		const accepted: number[] = [];
+		const usage: unknown[] = [];
+		const tools: unknown[] = [];
+		const run = b.complete({ model: 'gpt-6.1-terra', messages: [{ role: 'user', content: 'hi' }], signal: ctl.signal, onAccepted: () => accepted.push(1), onToken: () => ctl.abort(), onUsage: (u: unknown) => usage.push(u), onToolCalls: (c: unknown[]) => tools.push(...c) });
+		await expect(run).rejects.toMatchObject({ name: 'AbortError' });
+		expect(accepted).toEqual([1]);
+		expect(usage).toEqual([]);
+		expect(tools).toEqual([]);
+	});
+
+	it('a Stop that lands once the stream has ended keeps the finished reply and its exact usage', async () => {
+		// The end is read first: a reply whose stream ended finished, so its own usage stands instead of an estimate.
+		writeProviderKey('openai', 'sk-proj-test-key-0000000000');
+		await openRouterKeySettled();
+		const ctl = new AbortController();
+		const body = ['data: {"choices":[{"delta":{"content":"ok"}}]}', 'data: {"choices":[],"usage":{"prompt_tokens":100,"completion_tokens":10,"total_tokens":110}}'].map((l) => `${l}\n\n`).join('');
+		// One read holds every line; the Stop lands on the read that ends the stream, after the last line was handled. A real
+		// Response reads its source ahead, so the reader is hand-made to pin that order.
+		const chunk = new TextEncoder().encode(body);
+		let reads = 0;
+		const reader = {
+			async read() {
+				if (reads++ === 0) return { value: chunk, done: false };
+				ctl.abort();
+				return { value: undefined, done: true };
+			},
+			releaseLock() {},
+			cancel: async () => {},
+		};
+		vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, status: 200, headers: new Headers(), body: { getReader: () => reader } })));
+		const b = directBackend('openai', { catalog: async () => CATALOG, catalogNow: () => CATALOG });
+		const usage: Record<string, unknown>[] = [];
+		const out = await b.complete({ model: 'gpt-6.1-terra', messages: [{ role: 'user', content: 'hi' }], signal: ctl.signal, onToken: () => {}, onUsage: (u: Record<string, unknown>) => {
+			usage.push(u);
+		} });
+		expect(ctl.signal.aborted).toBe(true);
+		expect(out).toBe('ok');
+		expect(usage[0]).toMatchObject({ prompt_tokens: 100, completion_tokens: 10 });
+	});
+
 	it('OpenAI: the OpenRouter-shaped request at the provider base, max_completion_tokens, estimated usage', async () => {
 		writeProviderKey('openai', 'sk-proj-test-key-0000000000');
 		await openRouterKeySettled();
