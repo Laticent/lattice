@@ -104,7 +104,7 @@ catches and flakes.
 | 5 | C2 | render tier on the queue only | 4,043 min, 311 jobs | medium: ejections | do, after the flake fix |
 | 6 | C11 | fix the flakes that get re-run | 279 min in discarded attempts, plus ejections | none | do (it is #33 anyway) |
 | — | C9 | cache the build by its inputs | about 3 min (*estimate*, after measuring) | a wrong key gives a stale build | dropped (owner, round 2) |
-| 8 | C4 | `max_entries_to_build` 5 → 3 | up to 830 min | low: a long queue drains slower | done 2026-11-22 (§6) |
+| 8 | C4 | `max_entries_to_build` 5 → 3 | up to 830 min | low: a long queue drains slower | done 2026-11-21 (§6) |
 | 9 | C8 | node 24 unit leg to the nightly | 225 min, 28 jobs | low | owner's taste |
 | 10 | C10 | fail fast: heavy jobs wait on lint and unit | up to about 530 min | medium: +9 min and one more runner wait per PR run | not now |
 | 11 | C12 | affected-only test selection | up to about 1,300 min (ceiling) | medium-high: missed coverage | not now |
@@ -174,7 +174,7 @@ runs at 101.7 job-minutes each, about 830 a day. *Inferred* from the run list, n
 five is five runs, each holding the PRs ahead of it. A bigger group means more speculative runs to discard when one
 fails, not fewer runs. When a group fails, ALLGREEN removes the red PR and re-runs every entry behind it.
 
-**The lever is `max_entries_to_build`** (live: 5 when this was written; 3 since 2026-11-22, §6). D1 on 2026-10-30 recommended 3 on Team. Fewer groups building at
+**The lever is `max_entries_to_build`** (live: 5 when this was written; 3 since 2026-11-21, §6). D1 on 2026-10-30 recommended 3 on Team. Fewer groups building at
 once means fewer to discard after a failure; the cost is a slower drain when the queue is long. The saving is
 bounded by the 830 a day above.
 
@@ -349,7 +349,7 @@ for two PRs and a release.
 3. C3: `pr:park` as the `workflow.md` default.
 4. C11, then C2: fix the re-run flakes, then move the render tier to the queue. The D2 PR moves the tier, and merges only after #3275 (the one flake found in the 5-day window; the month's other re-run failures are the flake desk's).
 5. C9: dropped by the owner in round 2 (§6).
-6. C4 once the Team limit is confirmed in effect (done 2026-11-22, §6); C8 at the owner's taste.
+6. C4 once the Team limit is confirmed in effect (done 2026-11-21, §6); C8 at the owner's taste.
 7. C5, C10 and C12 stay parked until runner waits fall.
 
 ## 6. The owner's answers (2026-11-21)
@@ -362,7 +362,7 @@ relayed here. The D-numbers are the ❓ card's on PR #3388.
 | D1 | C1 | **weekly**: drop C# and Python from both CodeQL setups, and scan them once a week instead | The owner changes both setups in Settings. A session adds the weekly scan, which runs into the limit below |
 | D2 | C2 | **A**, after the flakes are fixed | The D2 PR moves it: `integration` runs in the merge queue only, and `npm run evidence` plans the same slice and the venue ratchet locally for any `code` PR. It merges only after #3275, the Chrome-download fix |
 | D3 | C6, C7 | **A** | One PR: `build:check:all` on unit shard 1. C7 measured no saving and is dropped (§2) |
-| D4 | C4 | **A** | Done: the owner set the queue to 3 / 3 on the Team plan, live 2026-11-22 (steps below, kept for the record) |
+| D4 | C4 | **A** | Done: the owner set the queue to 3 / 3 on the Team plan, live 2026-11-21 by 18:57 UTC (steps below, kept for the record) |
 | D5 | C9 | **A**, re-asked | Measured before building: a safe key hits about 2 of 312 PRs, about 3 min a day (§2, C9). Back to the owner: recommend dropping D5 |
 | W1–W5 | C5, C3, C10, C13, C8 | defaults stand | Nothing changes |
 
