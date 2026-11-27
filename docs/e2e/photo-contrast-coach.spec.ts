@@ -398,6 +398,11 @@ for (const width of [1440, 390]) {
 	const engines = width === 1440 ? ' @webkit-tablet @crosswidth' : ' @webkit-phone @crosswidth';
 	test(`the Coach and the editor show one message and one fix for the same slide (${width}px)${engines}`, async ({ page }) => {
 		await page.setViewportSize({ width, height: width < 600 ? 844 : 900 });
+		// The Coach has offered its lesson already. Opening the Coach for the first time raises a "New to Coach?" offer
+		// (StudioShell.tsx, FIRST-OPEN OFFERS), and on a phone that toast sits over the pane tabs. The click below on
+		// "Markdown source" moves the pointer onto it, Sonner pauses its timer while hovered, and the click never lands
+		// (red on the nightly since #3492, issue #2035). This test is about the verdict, not the offer.
+		await page.addInitScript(() => localStorage.setItem('lattice-studio-lessons-offered', JSON.stringify(['coach'])));
 		await gotoStudio(page);
 		await typeDeck(page, BODY_DECK);
 		await openCoach(page);
