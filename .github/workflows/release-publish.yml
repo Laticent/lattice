@@ -136,10 +136,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           V: ${{ steps.publish.outputs.version }}
+          PRERELEASE: ${{ steps.publish.outputs.prerelease }}
         run: |
+          # A release candidate (1.0.0-rc.1, on npm's `next` tag) is a GitHub pre-release and never "Latest".
+          if [ "$PRERELEASE" = "true" ]; then latest=(--prerelease --latest=false); else latest=(--latest); fi
           gh release create "v$V" \
             "release/lattice-v$V.zip" \
             --title "v$V" \
             --notes-file "release/notes-v$V.md" \
             --verify-tag \
-            --latest
+            "${latest[@]}"

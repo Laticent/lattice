@@ -272,6 +272,137 @@ describe('constraint 3: the publish phase', () => {
   });
 });
 
+describe('the release candidate: 1.0.0-rc.1 under npm `next` (issue #3518, owner answer 1)', () => {
+  const RC = '1.0.0-rc.1';
+
+  /**
+   * A fixture cut as a release commit, a stand-in `changeset` that records its arguments (no registry is
+   * reached, HARD RULE #32), an empty release-zip builder, and GITHUB_OUTPUT pointed at a private file. Every
+   * temp path is removed after the test.
+   */
+  function releaseCommit(t, engineVersion) {
+    const f = fixture(t, { engineVersion });
+    release.bootstrapPrepare(f.dir, { dry: false, date: '2026-11-29' });
+    fs.mkdirSync(path.join(f.dir, 'tools'));
+    fs.writeFileSync(path.join(f.dir, 'tools', 'build-release-zip.js'), '');
+    f.git('add', '-A');
+    f.git('commit', '-q', '-m', `release: v${engineVersion}`);
+    const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'rc-publish-'));
+    t.after(() => fs.rmSync(scratch, { recursive: true, force: true }));
+    const argsFile = path.join(scratch, 'args');
+    const bin = path.join(scratch, 'changeset.sh');
+    fs.writeFileSync(bin, `#!/bin/sh\necho "$@" > '${argsFile}'\n`, { mode: 0o755 });
+    const out = path.join(scratch, 'github-output');
+    const prior = process.env.GITHUB_OUTPUT;
+    process.env.GITHUB_OUTPUT = out;
+    t.after(() => { if (prior === undefined) delete process.env.GITHUB_OUTPUT; else process.env.GITHUB_OUTPUT = prior; });
+    return { f, bin, args: () => fs.readFileSync(argsFile, 'utf8').trim(), outputs: () => fs.readFileSync(out, 'utf8') };
+  }
+
+  test('a candidate of 1.0.0, not on npm and untagged, is the bootstrap; any other pre-release is refused', (t) => {
+    const f = fixture(t, { engineVersion: RC });
+    assert.equal(release.releaseMode(f.dir, { registry: () => false, hasTag: () => false }).mode, 'bootstrap');
+    for (const v of ['1.0.0-rc.0', '1.0.0-beta.1', '1.1.0-rc.1', '2.0.0-rc.1']) {
+      const g = fixture(t, { engineVersion: v });
+      assert.throws(() => release.releaseMode(g.dir, { registry: () => false, hasTag: () => false }), /never finished/, v);
+    }
+  });
+
+  test('the bootstrap keeps rc.1 and 0.1.0 and names the candidate in every first changelog section', (t) => {
+    const f = fixture(t, { engineVersion: RC });
+    const out = release.bootstrapPrepare(f.dir, { dry: false, date: '2026-11-29' });
+    assert.equal(out.name, `v${RC}`);
+    assert.equal(f.version(ENGINE), RC);
+    assert.equal(f.version('@laticent/ltt'), '0.1.0');
+    assert.match(f.read('packages/lattice/CHANGELOG.md'), /^## 1\.0\.0-rc\.1\n\n- Release candidate for 1\.0\.0, on npm under the `next` tag: `npm install @laticent\/lattice@next`\./m);
+    assert.match(f.read('libs/ltt/CHANGELOG.md'), /^## 0\.1\.0\n\n- First release on npm, under the `next` tag with @laticent\/lattice 1\.0\.0-rc\.1\.$/m);
+  });
+
+  test('the publish runs `changeset publish --tag next`, and reports a pre-release to the workflow', (t) => {
+    const { f, bin, args, outputs } = releaseCommit(t, RC);
+    const r = release.publish({ root: f.dir, dry: true, skipChecks: true, changesetBin: bin, registry: () => false });
+    assert.equal(args(), 'publish --tag next');
+    assert.equal(r.distTag, 'next');
+    assert.match(outputs(), /^prerelease=true$/m);
+    assert.ok(r.tags.includes(`v${RC}`) && r.tags.includes(`${ENGINE}@${RC}`), 'the candidate gets its own tags, not v1.0.0');
+    const notes = fs.readFileSync(r.notesFile, 'utf8');
+    assert.match(notes, /^> \*\*Release candidate\.\*\* `1\.0\.0-rc\.1` is on npm under the `next` tag/);
+    assert.match(notes, /# Lattice 1\.0\.0\n\n- Curated highlight\./, 'it borrows the curated 1.0.0 notes');
+  });
+
+  test('a recovery run at the candidate\'s commit, with only a library left, still publishes to `next`', (t) => {
+    const { f, bin, args } = releaseCommit(t, RC);
+    for (const name of PUBLISH_SET) if (name !== '@laticent/calco') f.git('tag', `${name}@${f.version(name)}`);
+    f.git('tag', `v${RC}`);
+    const r = release.publish({ root: f.dir, dry: true, skipChecks: true, changesetBin: bin, registry: (n) => n !== '@laticent/calco' });
+    assert.deepEqual(r.published.map((p) => p.name), ['@laticent/calco']);
+    assert.equal(args(), 'publish --tag next');
+  });
+
+  test('a candidate does not need the August v1.0.0 tag retired; 1.0.0 itself still does', (t) => {
+    const rc = releaseCommit(t, RC);
+    rc.f.git('tag', 'v1.0.0');
+    const r = release.publish({ root: rc.f.dir, dry: true, skipChecks: true, changesetBin: rc.bin, registry: () => false });
+    assert.ok(r.tags.includes(`v${RC}`), 'the candidate publishes past the August tag');
+    const final = releaseCommit(t, '1.0.0');
+    final.f.git('tag', 'v1.0.0');
+    assert.throws(
+      () => release.publish({ root: final.f.dir, dry: true, skipChecks: true, changesetBin: final.bin, registry: () => false }),
+      /That is the August tag: retire it first/,
+    );
+  });
+
+  test('a release (not a candidate) keeps npm\'s default tag', (t) => {
+    const { f, bin, args, outputs } = releaseCommit(t, '1.0.0');
+    const r = release.publish({ root: f.dir, dry: true, skipChecks: true, changesetBin: bin, registry: () => false });
+    assert.equal(args(), 'publish');
+    assert.equal(r.distTag, null);
+    assert.match(outputs(), /^prerelease=false$/m);
+  });
+
+  test('once any engine version shipped, a hand-set 1.0.0 or rc.2 is refused, never a second bootstrap', (t) => {
+    for (const v of ['1.0.0', '1.0.0-rc.2']) {
+      const f = fixture(t, { engineVersion: v });
+      f.git('tag', `${ENGINE}@${RC}`);
+      assert.throws(() => release.releaseMode(f.dir, { registry: () => false }), /already shipped, so this is not the first release/, v);
+    }
+  });
+
+  test('a library bump alone cannot turn rc.1 into 1.0.0 (real `changeset version`)', (t) => {
+    const f = fixture(t, { engineVersion: RC });
+    release.bootstrapPrepare(f.dir, { dry: false, date: '2026-11-29' });
+    // ltt 0.1.0 → 0.2.0 leaves the engine's ^0.1.0, so Changesets patches the engine, and patch(rc.1) is 1.0.0.
+    f.write('.changeset/lib.md', '---\n"@laticent/ltt": minor\n---\n\nA library change.\n');
+    assert.throws(
+      () => release.versionPrepare(f.dir, { dry: false, date: '2026-12-01', engine: { version: RC }, lock: false }),
+      /no pending changeset names the engine/,
+    );
+  });
+
+  test('once rc.1 is on npm, the next engine changeset of any bump releases 1.0.0 (real `changeset version`)', (t) => {
+    for (const bump of ['major', 'minor', 'patch']) {
+      const f = fixture(t, { engineVersion: RC });
+      release.bootstrapPrepare(f.dir, { dry: false, date: '2026-11-29' });
+      f.write('.changeset/rename.md', `---\n"${ENGINE}": ${bump}\n"@laticent/ltt": minor\n---\n\nA rename that landed after rc.1.\n`);
+      assert.equal(release.releaseMode(f.dir, { registry: () => true, hasTag: () => true }).mode, 'version');
+      const out = release.versionPrepare(f.dir, { dry: false, date: '2026-12-01', engine: { version: RC }, lock: false });
+      assert.equal(f.version(ENGINE), '1.0.0', `${bump}: rc.1 → 1.0.0, never 2.0.0`);
+      assert.equal(f.version('@laticent/ltt'), '0.2.0', 'a library changeset still bumps its library');
+      assert.equal(out.name, 'v1.0.0');
+      assert.deepEqual(out.majors, [], 'rc.1 → 1.0.0 crosses no major line');
+    }
+  });
+
+  test('the helpers', () => {
+    assert.equal(release.isPrerelease('1.0.0-rc.1'), true);
+    assert.equal(release.isPrerelease('1.0.0'), false);
+    assert.equal(release.isPrerelease('1.0.0+build-7'), false, 'a `-` in build metadata is not a pre-release');
+    assert.equal(release.notesVersion('1.0.0-rc.12'), '1.0.0');
+    assert.equal(release.isBootstrapVersion('1.0.0-rc.2'), true);
+    assert.equal(release.isBootstrapVersion('1.0.0-rc.01'), false);
+  });
+});
+
 describe('the publish gate runs before npm ci', () => {
   // release-publish.yml runs `tools/release.js --plan` before `npm ci`, so the release tools must load with
   // nothing installed. A top-level require of @changesets/parse once crashed that gate: the release commit
