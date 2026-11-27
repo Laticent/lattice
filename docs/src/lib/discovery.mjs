@@ -120,6 +120,36 @@ export const LLMS_LINKS = Object.freeze({
 });
 
 /**
+ * Where an agent starts (#3522 E2-S01). `AGENT_ENTRY` is the target of the homepage's visible
+ * anchor (ByomSection in components/landing/sections.tsx) and the first link llms.txt gives.
+ *
+ * `DESCRIBEDBY_LINK` names the llms.txt router from EVERY built page, the relation the llms.txt
+ * proposal (llmstxt.org) recommends for "the llms.txt that covers this page". scripts/md-twins.mjs
+ * writes it into each page's <head> after the build (`withDescribedBy`), because many routes
+ * write their own <head> and an Astro integration can inject only scripts; one writer means no
+ * route can forget it. `HOME_HEAD_LINKS` are the extra tags only the landing page carries:
+ * `help` names the entry. scripts/check-discovery.mjs fails the build when a page lacks the
+ * describedby tag, and scripts/home-agent-entry.mjs when the homepage loses its anchor or a
+ * tag, or a target was not built.
+ */
+export const AGENT_ENTRY = '/agents/start.md';
+export const DESCRIBEDBY_LINK = Object.freeze({ rel: 'describedby', type: 'text/plain', href: '/llms.txt' });
+export const HOME_HEAD_LINKS = Object.freeze([
+	Object.freeze({ rel: 'help', type: 'text/markdown', href: AGENT_ENTRY, title: 'How an agent writes a Lattice deck' }),
+]);
+/** Every head tag the homepage must carry, the site-wide one included. */
+export const HOME_AGENT_LINKS = Object.freeze([DESCRIBEDBY_LINK, ...HOME_HEAD_LINKS]);
+
+/** The describedby tag exactly as every page carries it. */
+export const DESCRIBEDBY_TAG = `<link rel="${DESCRIBEDBY_LINK.rel}" type="${DESCRIBEDBY_LINK.type}" href="${DESCRIBEDBY_LINK.href}">`;
+
+/** Add DESCRIBEDBY_TAG to a page's <head>, once; a page with no </head> is returned as it was. */
+export function withDescribedBy(html) {
+	if (!html.includes('</head>')) return html;
+	return html.split(DESCRIBEDBY_TAG).join('').replace('</head>', `${DESCRIBEDBY_TAG}</head>`);
+}
+
+/**
  * Markdown twins (scripts/md-twins.mjs): every content page has a plain-Markdown copy at its own
  * path plus `.md`. `/components/` is the one page whose twin another step already writes: the
  * whole component reference, from tools/build-docs-portal.js.
