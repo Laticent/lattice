@@ -159,7 +159,7 @@ picks, so two readers agree on every span:
 |---|---|
 | `reserved-pipe` | a `|` outside quotes and descriptions. It is reserved so a later version can give it a meaning (§8) |
 | `unclosed-quote` | a `"` outside a description that is never closed |
-| `stray-equals` | an `=` with no name before it, or a second `=` in one item (`a=b=c`) |
+| `stray-equals` | an `=` outside quotes and descriptions with no name before it, or a second `=` in one item (`a=b=c`). In a description it is text: `{>=x}` says "=x" |
 | `space-after-brace` | space directly after a record's `{` |
 | `unclosed-bracket` | a `{` or `[` outside a description that is never closed |
 | `bad-name` | the text before `=` is not a name (§4.2) |

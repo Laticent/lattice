@@ -635,6 +635,28 @@
           "text": "a{b"
         }
       }
+    },
+    {
+      "section": "4.7",
+      "title": "An = inside a description is text",
+      "input": "{>=x}",
+      "item": {
+        "value": {
+          "kind": "description",
+          "text": "=x"
+        }
+      }
+    },
+    {
+      "section": "4.7",
+      "title": "A second = inside a description is text",
+      "input": "{>a=b=c}",
+      "item": {
+        "value": {
+          "kind": "description",
+          "text": "a=b=c"
+        }
+      }
     }
   ]
 }
