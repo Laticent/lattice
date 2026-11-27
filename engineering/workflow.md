@@ -1346,7 +1346,8 @@ are ESCAPED into visible text, and a rule whose selector LEADS with
 
 ## Iterating on an open PR — park it as a draft, then mark it ready
 
-`ci.yml`, `platform-suites.yml` and `docs-preview.yml` skip every job while a PR is a draft. (A
+`ci.yml`, `platform-suites.yml` and `docs-preview.yml` skip every job while a PR is a draft. (`platform-suites.yml`
+has had no `pull_request` trigger since 2026-11-27, so today it never runs on a PR; its draft guard stays for the undo.) (A
 few cheap workflows still run on a draft push: `pr-closing-keywords.yml`, and the path-filtered
 `apt-cache-warm.yml` and `apt-mirror-probe.yml`.) Those three heavy workflows'
 `pull_request` trigger lists `opened`, `synchronize`, `reopened` and `ready_for_review`, and each
@@ -2565,12 +2566,18 @@ the agent's.** Below `VERY HIGH`, before any merge ask:
    surface the change reaches and the command for each: the Playwright engines
    (Chromium at three widths, `webkit-phone`, `webkit-tablet`, `gecko`), the
    PR render slice (`test:integration:pr`, which PR CI no longer runs: §Merge queue — the
-   facts), and a `workflow_dispatch` of the matching macOS / Windows / iOS
-   Simulator platform suites. Run every `local` row and dispatch every `dispatch` row.
+   facts), and, as an `optional` row, a `workflow_dispatch` of the matching macOS /
+   Windows / iOS Simulator platform suites. Run every `local` row and dispatch every
+   `dispatch` row (none today: the platform suites, the only dispatch, are `optional`).
    "Not installed" is not a stop (#23).
-   When a platform suite needs more than one round, use the **warm harness** rather
-   than re-dispatching: it builds once and takes `/harness` commands from the PR
-   (`engineering/development.md` §Platform suites).
+   **The platform suites are dispatch-only and never a card-grade requirement** (owner,
+   2026-11-27: off the merge path, nightly paused, because they were too flaky to run
+   unattended). The checker does not hold the grade below `VERY HIGH` for a suite that did
+   not run, and the loop does not dispatch one to raise the card. A claim about a real
+   macOS, Windows or iOS device stays **UNVERIFIED** (#23) unless a dispatched suite went
+   green, and the card says so under `left behind`. If you do dispatch one and it needs more
+   than one round, use the **warm harness** rather than re-dispatching: it builds once and
+   takes `/harness` commands from the PR (`engineering/development.md` §Platform suites).
 2. **Get the grade** from the checker (below).
 3. **If it is below `VERY HIGH`, do the `raise it` line**: drive the surface, add the
    test, fix the gap. Then grade again.

@@ -5,7 +5,8 @@ summary: >
   runs the ones a piece of work needs. Each suite declares its OS list, the paths that select it, its command and what it
   proves that Linux cannot. The nightly runs all of them, a manual dispatch picks some, and a pull request runs the suites its
   diff touches, so new work gets real-OS evidence by adding a registry entry instead of a workflow. Report-only until a
-  suite is promoted. The first entry is the file-confine check (`export-confine`, macOS).
+  suite is promoted. The first entry is the file-confine check (`export-confine`, macOS). Since 2026-11-27 the workflow is
+  dispatch-only: the owner took it off pull requests and paused the nightly.
 builds-on:
   - 2026-10-16-media-plugins.md
 ---
@@ -95,3 +96,14 @@ carries more than the four jobs the follow-up counted. Whole-job times, from the
 These match the dispatch-run times (within about 45 s each), so a scheduled run costs the same as a manual one. The whole run took
 under 5 minutes of wall-clock time once it started. Two scheduled runs have now been late by about five hours, so treat a nightly as
 "some time before midday UTC", not 04:41.
+
+## Dispatch-only (owner, 2026-11-27)
+
+The owner was asked in the command center whether to sideline the iOS Simulator and Windows suites, which had been too flaky
+to run unattended, and chose "Off the merge path + nightly paused". `platform-suites.yml` lost its `pull_request` trigger
+and its 04:41 UTC `schedule`, and kept `workflow_dispatch` with every input. All suites in the registry are affected,
+macOS and Android included, because they share one workflow. Since then, a suite never sets a pre-merge card's grade.
+`npm run evidence` lists the suites a diff reaches as an `optional` row, and without a green dispatched run, a claim about
+a real macOS, Windows or iOS device stays UNVERIFIED (HARD RULE #23). The cost the owner accepted: a regression on those
+platforms goes unnoticed until someone dispatches a suite. To undo it, re-add the two triggers; the workflow header gives
+the exact YAML.

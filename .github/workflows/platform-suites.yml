@@ -1,14 +1,25 @@
 name: Platform suites (macOS / Windows)
 
+# DISPATCH-ONLY since 2026-11-27 (owner decision in the command center, "Off the merge path + nightly paused": the iOS
+# Simulator and Windows suites were too flaky to run unattended). The `pull_request` trigger and the 04:41 UTC `schedule`
+# cron are removed; `workflow_dispatch` (suites, simulate, harness) is unchanged. No PR runs these suites, no nightly
+# runs them, and a suite result never sets a pre-merge card's grade; a claim about a real device stays UNVERIFIED (HARD
+# RULE #23) unless someone dispatches the suite and it is green. TO UNDO: re-add, under `on:`,
+#     schedule:
+#       - cron: '41 4 * * *'
+#     pull_request:
+#       types: [opened, synchronize, reopened, ready_for_review]
+# The pull_request and schedule handling in the jobs below is kept on purpose, so undoing it is that one edit.
+
 # REPORT-ONLY. Checks that need a real macOS or Windows runner, chosen from .github/platform-suites.json
 # (engineering/development.md § Platform suites). The per-PR CI is Linux only, so anything that depends on the OS
 # (symlinked temp folders, path separators, a native tool) has no evidence there; a suite here is that evidence.
 #
-# WHAT RUNS WHEN
-#   nightly            every suite
+# WHAT RUNS WHEN (only the dispatch row is live; see DISPATCH-ONLY above)
 #   workflow_dispatch  the suites named in the `suites` input (comma-separated), or every suite when it is empty
-#   pull_request       the suites whose `paths` match the diff, and all of them when the registry or this plumbing changed;
-#                      most PRs select none, so the matrix is skipped
+#   nightly            (paused 2026-11-27) every suite
+#   pull_request       (off 2026-11-27) the suites whose `paths` match the diff, and all of them when the registry or this
+#                      plumbing changed; most PRs selected none, so the matrix was skipped
 # tools/platform-suites-plan.js holds the rule.
 #
 # ALERT. A scheduled or manual run that fails (or is cancelled, which is how a timeout reads) opens a GitHub issue titled "Nightly
@@ -42,8 +53,6 @@ name: Platform suites (macOS / Windows)
 # `build-windows` 3 m 40 s, `export-confine-windows` 3 m 36 s, `os-sandbox-measure` 4 m 14 s.
 
 on:
-  schedule:
-    - cron: '41 4 * * *'
   workflow_dispatch:
     inputs:
       suites:
@@ -66,8 +75,6 @@ on:
         default: 'macos-26'
         type: choice
         options: ['macos-26', 'windows-2025']
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
 
 permissions:
   contents: read

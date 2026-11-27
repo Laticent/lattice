@@ -18,6 +18,12 @@ your lane first") and §The raise loop, `engineering/development.md` §Platform 
 (`grep -rln -iE 'ios|safari|windows' engineering/gotchas/`). Tag this session `desk:devices`
 and `ui:pinned`.
 
+**Since 2026-11-27 the platform suites are dispatch-only** (owner: off the merge path,
+nightly paused). No PR run or nightly starts them, so there is no nightly red to read, and
+a suite is never a card-grade requirement. A device claim stays UNVERIFIED (#23) until a
+dispatched suite goes green or the owner checks it on the device. `.github/workflows/platform-suites.yml`'s
+header says how to turn the triggers back on; that is the owner's call, not this desk's.
+
 **The question this desk owns:** what have we only seen in a simulator, an emulator or a
 harness? HARD RULE #23 says a claim names its surface. This desk keeps the list of claims
 whose surface was never reached.
