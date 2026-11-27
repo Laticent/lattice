@@ -263,8 +263,9 @@ the suite, the CLI or CI changes. `tools/shared-chrome-lab/` stays, because its 
 launch and can serve if the launch timeout is chased again.
 
 The decision is about sharing only. The calco-chips launch timeout that started this note is still
-open. Under HARD RULE #33 it is fixed at its cause on its own branch, `test/calco-chips-launch-timeout`,
-which the flake desk routed back to this note's author.
+open. PR #3577 hunted it under HARD RULE #33 and could not reproduce it in 4,469 timed launches, so the
+test now reports the machine's state if it times out again, and the cause is tracked in
+`followups.d/3577-p1-calco-chips-launch-timeout-cause.md`.
 
 ## Recommendation (as written before the decision)
 
