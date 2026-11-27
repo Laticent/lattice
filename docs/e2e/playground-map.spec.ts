@@ -327,3 +327,39 @@ test('a blank slide in a deck with a front matter header and page numbers is a t
 	await page.locator(`${RAIL} button[data-unit="3"]`).click();
 	await expect.poll(() => slideInView(page)).toBe('4');
 });
+
+test('a key that scrolls the preview mid-jump hands the walk to the reader, not to the jump', async ({ page }) => {
+	// THE READER OUTRANKS A JUMP STILL ON ITS WAY. The walk's guard holds while its own smooth scroll is between where
+	// it started and where it is going (`walkEnRoute`, PlaygroundApp.tsx), so a loaded page cannot rename the walk from
+	// the slide the scroll is passing. Space is the one key the shell leaves to the browser: it scrolls the frame by
+	// itself, cancels the jump, and leaves the frame between the two. Only the input clock can tell the guard the reader
+	// took over, so `Date.now()` is FROZEN just after Space: the guard's ceiling can then never pass, and the bar follows
+	// the reader's slide only if Space stamped it. Without the stamp it stays on the last slide for good.
+	await openExplore(page);
+	await mapOn(page);
+	const total = Number((await walkPos(page)).split('/')[1]);
+	// End inside the frame is the jump (a shell key: the walk's smooth scroll to the last slide), and Space straight
+	// after it lands while that scroll has barely begun, so the frame comes to rest between the two.
+	await page.evaluate(() => (document.getElementById('preview') as HTMLIFrameElement).contentWindow?.focus());
+	await page.keyboard.press('End');
+	await page.keyboard.press(' ');
+	await page.clock.setFixedTime(await page.evaluate(() => Date.now()));
+	// The bar left the jump's slide for one the reader can see. ON screen, not the MOST on screen: the walk keeps its
+	// slide while any of it shows (the hysteresis in `readingSlideIndex`), which `slideInView` does not.
+	await expect
+		.poll(async () => {
+			const bar = (await walkPos(page)).split('/')[0].trim();
+			const shown = await page.evaluate(() => {
+				const f = document.getElementById('preview') as HTMLIFrameElement;
+				const h = (f.contentWindow as Window).innerHeight;
+				return Array.from(f.contentDocument?.querySelectorAll('.lattice > section, .lattice > div[data-lv-ph]') ?? [])
+					.filter((el) => {
+						const r = el.getBoundingClientRect();
+						return r.bottom > 0 && r.top < h;
+					})
+					.map((el) => el.getAttribute('data-lattice-slide') ?? '');
+			});
+			return bar !== String(total) && shown.includes(bar) ? 'follows' : `bar ${bar}, on screen ${shown.join(',')}`;
+		})
+		.toBe('follows');
+});
