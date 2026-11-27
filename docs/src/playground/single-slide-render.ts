@@ -1012,7 +1012,8 @@ function sanitizeOnce(html: string): string {
 	}
 	return safe;
 }
-/** The measured-split module once a `fit: pack` slide has loaded it (lazy; never loaded for other decks). */
+/** The measured-split module once a slide the structural split cuts has loaded it (lazy; a 16:9 deck never loads it).
+ *  Measuring is the default (`fit:` absent or `pack`, resolve-fit.js `fitPacks`); `fit: heal` and the other names decline. */
 let measuredSplitModule: typeof import('../lib/measured-split') | null = null;
 function memoKey(markdown: string, theme: string, mode: string, extraCss: string, extraThemeCss: string): string {
 	// Hash the long strings; keep theme/mode literal so a collision cannot cross palettes.
@@ -1868,10 +1869,18 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			 *  11). Every other web image renders as a placeholder, and the frame's policy refuses
 			 *  it. Absent = none allowed, the default for every surface. */
 			webOrigins?: string[];
+			/** Internal: this render is the retry after the measured split FAILED for this slide. It draws each
+			 *  chart for the room its key insight takes (`measured: false`), as Present does, and runs only the
+			 *  structural split. Set by renderInto itself, never by a host. */
+			unmeasured?: boolean;
 		},
 	): Promise<RenderStatus> {
 		const PG = window.LatticePlayground;
 		if (!PG) return Promise.resolve({ ok: false, slides: 0, error: 'engine not loaded' });
+		// The arguments as the host passed them, before the 4K canvas below rewrites `markdown` and `opts`: the
+		// unmeasured retry re-enters with these, so it takes the same canvas route as this call did.
+		const entryMarkdown = markdown;
+		const entryOpts = opts;
 		// A render on an ALREADY-DISPOSED renderer is a no-op that returns the same sentinel the
 		// mid-flight bails use. Bail BEFORE `countIn()`: otherwise a `dispose()`-then-`renderInto()`
 		// order joins the refcount permanently — `counted` flips true, and dispose() will not
@@ -2072,7 +2081,8 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// A render that will not be split (no caret: Present, the slide overview) draws a phone chart with its key
 					// insight beside it (`measured: false`, render-engine.ts), so it never shares a cached render with the
 					// editor preview of the same slide, which is drawn for the page the insight leaves.
-					const measuredKey = typeof opts?.caretText === 'string' ? 'm' : 'u';
+					// The unmeasured retry (a failed measured split) draws as Present does, so it shares Present's cache entry.
+					const measuredKey = typeof opts?.caretText === 'string' && !opts?.unmeasured ? 'm' : 'u';
 					const key = typeof opts?.slideIndex === 'number'
 						? `${memoKey(renderSource, theme, mode, extraCss || '', extra?.css || '')}|${pluginKey}|${measuredKey}|${samplesBase}|${slicePage ? `${slicePage.offset}/${slicePage.total ?? ''}/${slicePage.deckSection ? `${slicePage.deckSection.index}of${slicePage.deckSection.total}` : ''}` : ''}`
 						: null;
@@ -2314,13 +2324,23 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// A chart or diagram slide the structural split leaves whole can still give its key insight a page of its own
 					// under the measured split (fit-measure.js `insightCrowds`), as the PDF does; measure it too (checker,
 					// 2026-11-22: the preview kept the insight on the slide while the export moved it).
-					const mayMeasure = r.changed > 0 || (r.applies === true && PG.codaMayMove?.(r.html) === true);
+					// The unmeasured retry never measures: it is what this slide shows when measuring failed.
+					const mayMeasure = !opts.unmeasured && (r.changed > 0 || (r.applies === true && PG.codaMayMove?.(r.html) === true));
 					const ms = mayMeasure
 						? ((await withinMs(import('../lib/measured-split'), LAZY_LOAD_MS).catch((e) => {
 								console.warn('lattice: the measured split did not load; keeping the structural split', e);
 								return null;
 							})) ?? null)
-						: measuredSplitModule;
+						: opts.unmeasured
+							? null
+							: measuredSplitModule;
+					// A slide that wanted the measured split and did not get it (the module did not load, or the measure
+					// failed or timed out) was drawn for the measured pages: each chart sized for the room its key insight
+					// would leave (`data-coda-moves`), while the structural split keeps the insight on the slide. Draw it
+					// again for the room the insight takes, as the Playground does (playground-engine.ts) and the CLI
+					// never needs to (checker, 2026-11-27). A module that did not load cannot say whether the deck
+					// wanted it, so it counts as wanted, as the Playground counts it.
+					let measuredFailed = mayMeasure && !ms;
 					if (ms) {
 						measuredSplitModule = ms;
 						const measured = await ms.previewPlan({
@@ -2342,7 +2362,9 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 						});
 						if (disposed || !host.isConnected) return { ok: false, slides: 0, error: 'renderer disposed' };
 						if (measured) r = measured;
+						else if (mayMeasure && ms.measuredSplitWanted(slideSource)) measuredFailed = true;
 					}
+					if (measuredFailed) return renderInto(host, entryMarkdown, drawn, paletteOverride, extra, modeOverride, extraCss, { ...entryOpts, unmeasured: true });
 					canSplit = r.applies === true;
 					if (r.changed) {
 						const pages = sectionsOf(r.html);

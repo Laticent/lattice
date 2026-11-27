@@ -10,8 +10,9 @@
  * `splitForPreview` with that plan, and verifies the split in the same frame. Every decision is
  * `lib/core/fit-measure.js`'s; this module only owns the frame.
  *
- * Loaded on demand, only for a deck that asks for the measured split: the Studio's and the
- * Playground's eager bundles are budgeted (docs/route-budget.json).
+ * Loaded on demand, the first time a slide is cut (a square, portrait or strip box) or its chart's key
+ * insight may move: the Studio's and the Playground's eager bundles are budgeted (docs/route-budget.json).
+ * Measuring is the default; a deck whose `fit:` names another mode declines (`measuredSplitWanted`).
  */
 import { pack } from '@laticent/fluido';
 import fitMeasure from '../../../lib/core/fit-measure.js';
@@ -373,6 +374,15 @@ export function notePlanFor(key: string, plan: Record<string, unknown>): void {
 	while (lastPlanByKey.size > PLAN_CACHE_CAP) lastPlanByKey.delete(lastPlanByKey.keys().next().value as string);
 }
 
+// THE LAYOUTS THAT COULD NOT BE MEASURED (a frame that never settled, the deadline, a failed verdict),
+// by the same layout key as the plan cache, so the same text in the same box does not wait again.
+const unmeasurable = new Set<string>();
+function noteUnmeasurable(k: string): void {
+	unmeasurable.delete(k);
+	unmeasurable.add(k);
+	while (unmeasurable.size > PLAN_CACHE_CAP) unmeasurable.delete(unmeasurable.values().next().value as string);
+}
+
 /** How long the author must pause before an edited `fit: pack` slide is measured again (§17). */
 const MEASURE_SETTLE_MS = 700;
 /** The pending pause measurement per preview host; a newer render marks the old one stale. */
@@ -422,12 +432,22 @@ export async function studioPlan<S extends object>(o: {
 }): Promise<Planned<S> | null> {
 	const keep = (m: { plan: Record<string, unknown>; memory: FitMemory; fontsLoaded?: boolean } | null) => {
 		if (!m) return;
-		rememberFit(o.key, o.source, m.memory);
 		// A plan measured with a fallback face is used for this render only: the next render of this
-		// layout measures again, once the face has loaded (checker, 2026-11-05).
-		if (m.fontsLoaded !== false) cachePlan(o.layout, m.plan);
+		// layout measures again, once the face has loaded (checker, 2026-11-05). Its MEMORY is not kept
+		// either: the §11 memory holds a remembered split while it still fits, so a split read with a wider
+		// fallback face would steer the measurement made with the real one, and that plan IS cached
+		// (checker, 2026-11-27).
+		if (m.fontsLoaded !== false) {
+			rememberFit(o.key, o.source, m.memory);
+			cachePlan(o.layout, m.plan);
+		}
 		notePlanFor(o.key, m.plan);
 	};
+	// A layout whose first measurement failed is not measured again on every render: each attempt
+	// waits out the frame's settle and the 12 s deadline before the slide paints, so stepping through
+	// its pages would pay that wait at every step (checker, 2026-11-27). Null keeps the structural
+	// split, which the renderer then draws for the room the insight takes. An edit, a resize or a theme
+	// change is a new layout and measures again.
 	const pending = settleByHost.get(o.host);
 	if (pending) {
 		clearTimeout(pending.timer);
@@ -435,10 +455,12 @@ export async function studioPlan<S extends object>(o: {
 	}
 	const reuse = cachedPlan(o.layout);
 	if (reuse) return { ...o.split(reuse), plan: reuse };
+	if (unmeasurable.has(o.layout)) return null;
 	const last = lastPlanFor(o.key);
 	if (!last) {
 		const m = await o.measure(() => false);
 		if (!o.alive()) return null;
+		if (!m) noteUnmeasurable(o.layout);
 		keep(m);
 		return m;
 	}

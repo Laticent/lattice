@@ -4415,9 +4415,9 @@ async function renderBody(browser, g, closeBrowser) {
       return r;
     };
     let r;
-    // `fit: pack` in the deck's front matter asks for the measured split on every surface (the
-    // Studio, the Playground and the webpage export read the same key); `--fit-pack` picks the
-    // packer and turns it on for any deck.
+    // The measured split is the default on every surface (`fit:` absent or `pack`; the Studio, the
+    // Playground and the webpage export read the same key through resolve-fit.js `fitPacks`); another
+    // `fit:` name declines it. `--fit-pack` picks the packer and turns it on for any deck.
     const fmBody = (md.match(/^\uFEFF?---\r?\n([\s\S]*?)\r?\n---/) || [])[1] || '';
     const packer = FIT_PACK || (require('./lib/core/resolve-fit').fitPacks(fmBody) ? 'knuth-plass' : null);
     if (packer) {

@@ -219,6 +219,40 @@ test.describe('@crosswidth @gecko the Playground when its measured split does no
 	});
 });
 
+// The same failure path in the Studio's preview and its webpage export (checker, 2026-11-27: both kept the measured
+// drawing, so a chart was sized for room its insight never left; the Playground alone drew it again).
+const insightChart = '---\nmarp: true\ntheme: indaco\nsize: portrait\n---\n\n<!-- _class: bar -->\n\n## Support load sits with two teams.\n\n- Platform `412`\n- Billing `388`\n- Mobile `96`\n- Web `71`\n\n> Two teams take four tickets in five, and the other two together take well under a fifth of the volume.\n';
+
+test.describe('@crosswidth @gecko the Studio when its measured split does not load', () => {
+	test.use({ viewport: { width: 1440, height: 900 } });
+
+	test('the preview draws a phone chart for the insight that stays on its slide', async ({ page }) => {
+		await page.route(/measured-split[^/]*\.js(\?|$)/, (route) => route.abort());
+		await gotoStudio(page);
+		await setEditorContent(page, insightChart);
+		const bar = livePreview(page).locator('section.bar.chart-frame').first();
+		await expect(livePreview(page).getByText('Two teams take four tickets in five').first()).toBeAttached({ timeout: 30_000 });
+		await expect(bar).toBeAttached();
+		await expect(bar).not.toHaveAttribute('data-coda-moves', 'true');
+	});
+
+	test('Share → Webpage draws it the same way', async ({ page }) => {
+		await page.route(/measured-split[^/]*\.js(\?|$)/, (route) => route.abort());
+		await gotoStudio(page);
+		await setEditorContent(page, insightChart);
+		await page.getByRole('button', { name: 'Share', exact: true }).click();
+		const dialog = page.getByRole('dialog');
+		await dialog.getByRole('button', { name: /Webpage/ }).click();
+		const download = page.waitForEvent('download', { timeout: 240_000 });
+		await dialog.getByRole('button', { name: /Download webpage/ }).click();
+		const html = readFileSync((await (await download).path()) as string, 'utf8');
+		const bars = html.split(/(?=<section\b)/).filter((p) => /class="[^"]*\bbar\b[^"]*\bchart-frame\b/.test(p.slice(0, 1200)));
+		expect(bars.length).toBeGreaterThan(0);
+		for (const p of bars) expect(p.slice(0, p.indexOf('>'))).not.toMatch(/data-coda-moves="true"/);
+		expect(html).toContain('Two teams take four tickets in five');
+	});
+});
+
 test.describe('@crosswidth @webkit-tablet @gecko the measured split in the Studio\'s webpage export', () => {
 	test.use({ viewport: { width: 1440, height: 900 } });
 

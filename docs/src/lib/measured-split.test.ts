@@ -4,7 +4,7 @@
 // face, and let a newer render or another slide call a pending measurement off.
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cachedPlan, cancelPendingMeasure, isCanceledMeasure, layoutKey, measuredSplitInFrame, studioPlan, UnmeasuredError } from './measured-split';
+import { cachedPlan, cancelPendingMeasure, fitMemoryFor, isCanceledMeasure, layoutKey, measuredSplitInFrame, studioPlan, UnmeasuredError } from './measured-split';
 
 type Shown = { html: string };
 const plan = (sizes: number[]) => ({ 2: sizes });
@@ -104,6 +104,33 @@ describe('studioPlan', () => {
 		const shown = await studioPlan(o);
 		expect(shown?.plan).toEqual(plan([1, 3]));
 		expect(cachedPlan(o.layout)).toBeNull();
+	});
+
+	it('nor is its memory kept, so it cannot steer the measurement made with the real face', async () => {
+		const key = fresh();
+		const { o, measure } = harness(key, 'text A');
+		measure.mockResolvedValue({ html: 'm', plan: plan([1, 3]), memory: { 2: { sizes: [1, 3] } }, fontsLoaded: false });
+		await studioPlan(o);
+		expect(fitMemoryFor(key, 'text A')).toBeNull();
+		// A plan read with every face loaded keeps its memory as before.
+		const b = harness(fresh(), 'text B');
+		b.measure.mockResolvedValue({ html: 'm', plan: plan([2, 2]), memory: { 2: { sizes: [2, 2] } }, fontsLoaded: true });
+		await studioPlan(b.o);
+		expect(fitMemoryFor(b.o.key, 'text B')).toEqual({ 2: { sizes: [2, 2] } });
+	});
+
+	it('a layout whose first measurement failed is not measured again on the next render', async () => {
+		const { o, measure } = harness(fresh(), 'text A');
+		measure.mockResolvedValue(null as never);
+		expect(await studioPlan(o)).toBeNull();
+		expect(measure).toHaveBeenCalledTimes(1);
+		// Stepping to the slide's next page renders the same layout: no second wait.
+		expect(await studioPlan(o)).toBeNull();
+		expect(measure).toHaveBeenCalledTimes(1);
+		// An edit is a new layout, and measures again.
+		const edited = { ...o, source: 'text A, edited', layout: layoutKey(o.key, 'text A, edited', 'box') };
+		await studioPlan(edited);
+		expect(measure).toHaveBeenCalledTimes(2);
 	});
 });
 
