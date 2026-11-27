@@ -6,7 +6,24 @@
  */
 import assert from 'node:assert/strict';
 import { afterEach, describe, it } from 'node:test';
-import { CASES, LEDGER_RULE, ledgerEstimate, probePrompt, runCase, verdict } from '../../../tools/stop-billing-probe.mjs';
+import {
+	ANTHROPIC_CASES,
+	ANTHROPIC_LEDGER_RULE,
+	ANTHROPIC_TOL,
+	anthropicBody,
+	billedFromUsage,
+	bucketUsage,
+	CASES,
+	LEDGER_RULE,
+	ledgerEstimate,
+	matchKeyId,
+	nextSlot,
+	probePrompt,
+	runAnthropicCase,
+	runCase,
+	settleFromReport,
+	verdict,
+} from '../../../tools/stop-billing-probe.mjs';
 
 const realFetch = globalThis.fetch;
 afterEach(() => {
@@ -97,5 +114,88 @@ describe('stop-billing-probe', () => {
 		const out = await runCase('before-200', { headers: {}, model: 'test/model', messages: probePrompt() });
 		assert.equal(aborted, true);
 		assert.equal(out.status, null);
+	});
+
+	describe('a direct Anthropic key', () => {
+		const sseEvent = (ev) => `event: ${ev.type}\ndata: ${JSON.stringify(ev)}`;
+		const EVENTS = [
+			sseEvent({ type: 'message_start', message: { usage: { input_tokens: 6604 } } }),
+			sseEvent({ type: 'content_block_start', index: 0, content_block: { type: 'thinking', thinking: '' } }),
+			sseEvent({ type: 'content_block_delta', index: 0, delta: { type: 'thinking_delta', thinking: '' } }),
+			sseEvent({ type: 'content_block_delta', index: 0, delta: { type: 'signature_delta', signature: 'sig' } }),
+			sseEvent({ type: 'content_block_start', index: 1, content_block: { type: 'text', text: '' } }),
+			sseEvent({ type: 'content_block_delta', index: 1, delta: { type: 'text_delta', text: 'Hello ' } }),
+			sseEvent({ type: 'content_block_delta', index: 1, delta: { type: 'text_delta', text: 'x'.repeat(500) } }),
+			sseEvent({ type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: { output_tokens: 130 } }),
+			sseEvent({ type: 'message_stop' }),
+		];
+
+		it('names a ledger rule for every case, and the message_start case is charged nothing', () => {
+			assert.deepEqual(Object.keys(ANTHROPIC_LEDGER_RULE).sort(), [...ANTHROPIC_CASES].sort());
+			assert.equal(ANTHROPIC_LEDGER_RULE['message-start'], 'nothing');
+			assert.equal(ANTHROPIC_CASES.at(-1), 'control', 'control runs last, so its landed bucket vouches for the others');
+		});
+
+		it('sends the system turn as `system` and streams', () => {
+			const b = anthropicBody(probePrompt());
+			assert.equal(b.stream, true);
+			assert.match(b.system, /review slide decks/);
+			assert.deepEqual(b.messages.map((m) => m.role), ['user']);
+		});
+
+		it('stops on message_start, and on the first event the Studio turns into a callback (an empty thought is not one)', async () => {
+			const sent = [];
+			globalThis.fetch = async (url, init) => {
+				sent.push({ url, headers: init.headers });
+				return streamingResponse(EVENTS, init.signal);
+			};
+			const ctx = { key: 'test-not-a-key', messages: probePrompt() };
+			const start = await runAnthropicCase('message-start', ctx);
+			assert.deepEqual([start.stoppedOn, start.startInputTokens, start.streamedChars], ['message_start', 6604, 0]);
+			const first = await runAnthropicCase('first-chunk', ctx);
+			assert.deepEqual([first.stoppedOn, first.streamedChars], ['text_delta', 6]);
+			const mid = await runAnthropicCase('mid-stream', ctx);
+			assert.equal(mid.stoppedOn, '400 characters');
+			const control = await runAnthropicCase('control', ctx);
+			assert.deepEqual([control.stoppedOn, control.streamedChars], [null, 506]);
+			assert.ok(sent.every((x) => x.url === 'https://api.anthropic.com/v1/messages' && x.headers['anthropic-version'] === '2023-06-01'));
+		});
+
+		it('prices a usage-report result with the Studio\'s cache rates', () => {
+			const u = { uncached_input_tokens: 1000, cache_read_input_tokens: 1000, output_tokens: 100, cache_creation: { ephemeral_5m_input_tokens: 1000, ephemeral_1h_input_tokens: 1000 } };
+			const price = { prompt: 1, completion: 10 };
+			assert.equal(billedFromUsage(u, price), 1000 + 100 + 1250 + 2000 + 1000);
+		});
+
+		it('reads each case from its own minute, and reads every case as unsettled until the control has landed', () => {
+			const run = { model: 'claude-haiku-5-5', rows: [
+				{ case: 'at-200', minute: '2026-11-28T10:01:00.000Z', streamedChars: 0 },
+				{ case: 'message-start', minute: '2026-11-28T10:03:00.000Z', streamedChars: 0 },
+				{ case: 'control', minute: '2026-11-28T10:05:00.000Z', streamedChars: 500 },
+			] };
+			const bucket = (start, results) => ({ starting_at: start, ending_at: start, results });
+			const partial = { data: [bucket('2026-11-28T10:01:00Z', []), bucket('2026-11-28T10:03:00Z', [{ uncached_input_tokens: 6604, output_tokens: 0 }])] };
+			assert.ok(settleFromReport(run, partial).every((r) => r.billed === null), 'no control bucket yet: nothing settles, nothing reads 0');
+			const full = { data: [...partial.data, bucket('2026-11-28T10:05:00Z', [{ uncached_input_tokens: 6604, output_tokens: 130 }])] };
+			const rows = settleFromReport(run, full);
+			assert.equal(rows[0].billed, 0);
+			assert.ok(rows[1].billed > ANTHROPIC_TOL);
+			assert.match(verdict(rows[0], ANTHROPIC_TOL, ANTHROPIC_LEDGER_RULE), /^match: not billed/);
+			assert.match(verdict(rows[1], ANTHROPIC_TOL, ANTHROPIC_LEDGER_RULE), /^UNDERCHARGED/);
+			assert.equal(bucketUsage(full, '2026-11-28T10:09:00Z'), null);
+		});
+
+		it('finds the probe key by its last four characters, and refuses a guess', () => {
+			const keys = [{ id: 'apikey_a', partial_key_hint: 'sk-ant-api03-R2D...igAA' }, { id: 'apikey_b', partial_key_hint: 'sk-ant-api03-X9Q...zzBB' }];
+			assert.equal(matchKeyId(keys, 'igAA'), 'apikey_a');
+			assert.throws(() => matchKeyId(keys, 'none'), /0 API keys/);
+			assert.throws(() => matchKeyId([...keys, { id: 'apikey_c', partial_key_hint: 'sk-…igAA' }], 'igAA'), /2 API keys/);
+		});
+
+		it('gives each case a whole UTC minute, a gap after the first', () => {
+			const now = Date.parse('2026-11-28T10:00:41.500Z');
+			assert.deepEqual(nextSlot(now), { minute: '2026-11-28T10:01:00.000Z', startAt: Date.parse('2026-11-28T10:01:02Z') });
+			assert.equal(nextSlot(now, 2).minute, '2026-11-28T10:02:00.000Z');
+		});
 	});
 });

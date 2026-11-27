@@ -172,6 +172,12 @@ the 200-only case before. The estimate runs under the bill by about a quarter he
 OpenRouter the generation id, which arrives with the first chunk, corrects it to the exact cost. One sample per case, on one model
 and one route: a direct Anthropic, OpenAI or Gemini key was not measured, and the chat applies the same first-chunk rule to them.
 
+On a direct Anthropic key the first event after the 200 is `message_start`, which carries the prompt's token count; the
+Studio's transport reads it and fires no callback, so a Stop there is charged nothing. Whether Anthropic bills that request is
+what `tools/stop-billing-probe.mjs --provider anthropic` measures: six stops, one UTC minute each, read back from the
+organization's usage report by key (it needs a fresh API key and an Admin API key, so the owner runs it). Until it runs, the
+direct-key rows are the first-chunk rule applied without a measurement.
+
 **The maker-checker pass** caught two regressions in this change's first cut, both reproduced with a scripted backend: a round
 that reported its usage and then errored was charged twice ($0.0309 for $0.003), and a refused request was charged a permanent
 estimate about 28 times its real cost. Both are fixed and held by tests, with the Stop-before-send and Stop-between-chunks cases.
