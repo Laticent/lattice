@@ -1,6 +1,6 @@
-studio: +1460
+studio: +1580
 playground: +680
-home: +500
+home: +610
 The measured split (`fit: pack`, engineering/decisions/2026-10-28-fit-everywhere-model.md §16, §17) runs on
 every preview surface, so each one carries its eager entry point: a one-line check for a `fit:` line
 (`src/lib/fit-pack-wanted.ts`), the lazy `import()` of `src/lib/measured-split.ts`, and the call that
@@ -49,3 +49,10 @@ and measured-split chunks wait at most 8 s (`src/lib/within-ms.ts`, imported by 
 render bridge). Merged onto `main` at 4f32ecd, CI on 977883e measured +1430 B gz on studio (+409 venue.ts, +368
 progress-rail, +289 single-slide-render, +156 StudioIsland, +104 front-matter-fence) and +641 on playground (+421
 PlaygroundIsland, +104 front-matter-fence, +59 video-overlay, +47 fit-pack-wanted). Declared +1460 and +680.
+The failure-path fix (2026-11-27, a maker-checker's findings) re-enters the Studio renderer unmeasured when the
+measured split fails, so a chart is drawn for the room its key insight takes, as the Playground already did; the
+layout memory and the export's bounded waits live in the lazy module and the export chunk. Merged onto `main` at
+89405b4 (#3510's chart-finish split), CI on a2b4393 measured +1539 B gz on studio (+409 venue.ts, +387
+single-slide-render, +368 progress-rail) and +572 on home (+387 single-slide-render, +104 front-matter-fence); `main`'s
+own chunk changes moved `within-ms` and `theme-fetch` into one another (+1930, -1863). Playground is +652, under its
++680. Declared +1580 and +610 for gzip variation, inside the 2048 B a PR may declare.
