@@ -372,7 +372,8 @@ test('a reply that reasoned through the whole budget fails as "no deck was writt
 
 test('auto bounds reasoning the way each provider honors it, and a probe never asks for reasoning', async (t) => {
   const { reasoningFor, REASONING_BUDGET, MODELS, run, parseArgs } = await load();
-  assert.deepEqual(reasoningFor(MODELS.haiku, 'auto'), { max_tokens: REASONING_BUDGET }, 'Anthropic takes an exact budget');
+  assert.deepEqual(reasoningFor(MODELS.haiku, 'auto'), { effort: 'none' }, 'Haiku fetched kit files on 10 of 10 decks with reasoning off');
+  assert.deepEqual(reasoningFor(MODELS.sonnet, 'auto'), { max_tokens: REASONING_BUDGET }, 'an unmeasured Anthropic model takes an exact budget');
   assert.deepEqual(reasoningFor(MODELS.deepseek, 'auto'), { effort: 'none' }, 'DeepSeek was measured to accept none and to fetch kit files with it');
   assert.deepEqual(reasoningFor('openai/some-model', 'auto'), { effort: 'minimal' }, 'an unmeasured model never gets none: one that must reason rejects it');
   assert.ok(REASONING_BUDGET >= 1024 && REASONING_BUDGET <= 3000, 'Anthropic needs 1,024; the deck needs the rest of max_tokens');
@@ -383,7 +384,7 @@ test('auto bounds reasoning the way each provider honors it, and a probe never a
   const anyPrice = async () => ({ ok: true, json: async () => ENDPOINTS });
   const calls = [];
   await run(parseArgs(['--arm', 'start', '--model', MODELS.haiku, '--limit', '1', '--out', tmpDir(t)]), { ...deps(t, calls), fetchImpl: anyPrice });
-  assert.deepEqual(calls[0].reasoning, { max_tokens: REASONING_BUDGET });
+  assert.deepEqual(calls[0].reasoning, { effort: 'none' });
   const probe = [];
   await run(parseArgs(['--arm', 'retrieval', '--model', MODELS.deepseek, '--probe', '--out', tmpDir(t)]), { ...deps(t, probe), fetchImpl: anyPrice });
   assert.equal(probe[0].reasoning, null);

@@ -40,7 +40,7 @@ on:
         required: false
         default: '0'
       reasoning:
-        description: 'Reasoning: auto (a 1,500-token budget for Anthropic, off for DeepSeek, effort minimal for others), none (off; a model that must reason refuses it), low, minimal, medium, high, or default (send nothing).'
+        description: 'Reasoning: auto (off for Haiku and DeepSeek, a 1,500-token budget for other Anthropic models, effort minimal for the rest), none (off; a model that must reason refuses it), low, minimal, medium, high, or default (send nothing).'
         required: false
         default: 'auto'
       max_usd:

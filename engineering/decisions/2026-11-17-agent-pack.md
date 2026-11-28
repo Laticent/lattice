@@ -365,24 +365,21 @@ whole effort, and real evidence over claims. So `tools/agent-pack-eval.mjs` chan
   | 46099328828 | Haiku 5.5 | `max_tokens: 1500` | 7 | 0 | 0.0185 |
   | 46099331532 | DeepSeek V4.1 Flash | `effort: minimal` | 7 | 1 | 0.0095 |
   | 46099333931 | DeepSeek V4.1 Flash | `effort: none` | 5 | 0 | 0.0070 |
+  | 46104381486 | Haiku 5.5 | `effort: none` | 9 | 0 | 0.0290 |
 
-  So `--reasoning auto`, the default, now gives an Anthropic model a hard budget,
-  `reasoning: { max_tokens: 1500 }`. OpenRouter passes that to Anthropic exactly (minimum 1,024).
-  DeepSeek gets `effort: 'none'` (`REASONING_OFF`), for coverage rather than quality. With it, DeepSeek
-  asked for kit files on 7 of 10 decks; at `minimal` it asked for none, so the retrieval arm tested
-  nothing. Its pass rates (5 against 7 of 10) are too few to tell apart. Haiku with its budget
-  fetched no files either; whether it would with reasoning off is not yet measured. Every other model gets
-  `effort: 'minimal'`, because for an effort-only model OpenRouter only picks an effort from a token
-  budget, and a model that must reason rejects `none`. The decks that passed wrote their text in about 800 to 1,500
-  tokens, so 4,500 is enough room. `max_tokens` stays at 6,000, so the cost ceiling does not move.
-  A Claude model given a budget is sent no temperature, since Anthropic refuses one while thinking.
-  `--reasoning none` switches reasoning off. It is never the default, because a model that must
-  reason rejects it. A probe never sends a setting.
-  Old and new `start.md` always get the same one. The workflow takes a `reasoning` input, a row
-  records its reasoning tokens, and a reply that reasoned through its whole budget fails as "no deck
-  was written". The Haiku `max_tokens: 1500` row and the DeepSeek `none` row are what `auto` sends now. Neither
-  ran a deck out of budget, and their failures are lint errors and overflow: the defects this eval
-  exists to find.
+  So `--reasoning auto`, the default, switches reasoning off (`effort: 'none'`) for both nightly
+  models (`REASONING_OFF`). The choice is made for coverage, not quality: the retrieval arm exists to
+  test whether a model fetches the files `start.md` links to, and with reasoning on, neither model
+  fetched any. With it off, DeepSeek fetched on 7 of 10 decks and Haiku on 10 of 10. Pass rates on
+  ten decks (DeepSeek 5 against 7, Haiku 9 against 7) are too few to tell the settings apart. Any
+  other Anthropic model gets a hard budget, `reasoning: { max_tokens: 1500 }`, which OpenRouter passes
+  through exactly (minimum 1,024), and is sent no temperature, since Anthropic refuses one while
+  thinking. Any other model gets `effort: 'minimal'`, because a model that must reason rejects
+  `none`. `max_tokens` stays at 6,000, so the cost ceiling does not move. A probe never sends a
+  setting, and old and new `start.md` always get the same one. The workflow takes a `reasoning`
+  input, a row records its reasoning tokens, and a reply that reasoned through its whole budget fails
+  as "no deck was written". No deck run at the settings `auto` now sends ran out of budget. The ones
+  that failed did so on lint errors and overflow, the defects this eval exists to find.
 
 The nightly now runs only the retrieval arm, Haiku on even days since the epoch and DeepSeek on odd
 ones, capped at USD 0.25. The small arm's default model is Haiku 5.5 (it was gpt-4o-mini). A capable
