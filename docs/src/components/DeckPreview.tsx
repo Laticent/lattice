@@ -357,8 +357,17 @@ export function DeckPreview({
 	// the iPad's first-render stall, followups.d/3368-p1) then left a person with a spinner and no way out. Like an engine
 	// failure, a slide that reveals meanwhile (the bake) keeps the failure as the bar; only a settled render clears it.
 	// engineering/decisions/2026-11-28-hung-first-render-card.md.
-	const [stalled, setStalled] = React.useState(false);
+	const [stalled, setStalledState] = React.useState(false);
+	// Read by a settling render, which runs outside React's render: an older render must not clear a stall a newer one raised.
+	const stalledRef = React.useRef(false);
+	const setStalled = React.useCallback((v: boolean) => {
+		stalledRef.current = v;
+		setStalledState(v);
+	}, []);
+	// The hung-render clock: each render's number, the renders still unsettled, and the one timer.
 	const renderClockRef = React.useRef(0);
+	const pendingRendersRef = React.useRef(new Set<number>());
+	const hungTimerRef = React.useRef(0);
 	// The engine failed again after the author pressed Retry. An in-page retry imports the entry under a fresh URL, but
 	// the entry's own sub-files keep theirs, and whether a browser fetches a failed sub-file again depends on its build:
 	// measured on PR #3385, Playwright 1.65's Chromium and Gecko did on Retry and its WebKit on a reload, while 1.56's
@@ -831,7 +840,7 @@ export function DeckPreview({
 	// reaches the current palette/mode. whenReady() may reject (bundle load) — the
 	// scheduler's own `.catch` swallows it, so no unhandled rejection.
 	const runRenderRef = React.useRef<() => Promise<{ heavy: boolean } | undefined>>(async () => undefined);
-	const renderOnce = async () => {
+	const renderOnce = async (clock: number) => {
 		const host = stageRef.current as (HTMLElement & { __latticeCoalesce?: number }) | null;
 		if (host) host.__latticeCoalesce = coalesceRef.current || 1;
 		coalesceRef.current = 0;
@@ -913,10 +922,15 @@ export function DeckPreview({
 				setSplitPage(null);
 				if (issuedRef.current) onSplitPageRef.current?.({ ...issuedRef.current, canSplit: false, page: null });
 			}
-			setFailed(isFailure);
-			setFailedOverSlide(false);
-			setStalled(false);
-			setFailedWhy(isFailure ? String(status.error ?? '') : '');
+			// An older render settling under a stall a NEWER render raised says nothing about the newer one, which is
+			// still unsettled: the card stays (the checker on #3617).
+			const staleUnderStall = stalledRef.current && clock !== renderClockRef.current;
+			if (!staleUnderStall) {
+				setFailed(isFailure);
+				setFailedOverSlide(false);
+				setStalled(false);
+				setFailedWhy(isFailure ? String(status.error ?? '') : '');
+			}
 			// A render ran, so the engine is loaded.
 			retriedRef.current = false;
 			setEngineFailed(false);
@@ -958,25 +972,36 @@ export function DeckPreview({
 		if (status) watchOverflow();
 		return { heavy: status?.writePath === 'write' };
 	};
-	// The hung-render clock (`stalled` above): armed for each render on a loader host, cleared when it settles either way.
-	// A newer render takes the clock over, so a render the frame scheduler's watchdog gave up on cannot raise the card
-	// over a newer one that is still inside its 30 s.
+	// The hung-render clock (`stalled` above), on a loader host. It times the OLDEST render still unsettled since the frame was
+	// last current: one timer, armed when the first render goes unsettled, never re-armed by the renders an edit starts after
+	// it (a person typing into a stalled preview must still see the card), and stopped when the NEWEST render settles, which
+	// leaves the frame current whatever older renders still hang.
 	runRenderRef.current = async () => {
 		const clock = ++renderClockRef.current;
-		const timer = loader
-			? window.setTimeout(() => {
-					if (renderClockRef.current !== clock) return;
+		if (loader) {
+			pendingRendersRef.current.add(clock);
+			if (!hungTimerRef.current)
+				hungTimerRef.current = window.setTimeout(() => {
+					hungTimerRef.current = 0;
+					if (!pendingRendersRef.current.size) return;
 					const shown = stageRef.current?.querySelector<HTMLIFrameElement>('iframe.live');
 					setFailedOverSlide(!!(shown?.style.opacity && shown.style.opacity !== '0'));
 					setStalled(true);
 					setFailedWhy('the slide did not finish loading; check the connection, then Retry');
 					setFailed(true);
-				}, HUNG_RENDER_MS)
-			: 0;
+				}, HUNG_RENDER_MS);
+		}
 		try {
-			return await renderOnce();
+			return await renderOnce(clock);
 		} finally {
-			window.clearTimeout(timer);
+			if (loader) {
+				pendingRendersRef.current.delete(clock);
+				if (clock === renderClockRef.current) {
+					pendingRendersRef.current.clear();
+					window.clearTimeout(hungTimerRef.current);
+					hungTimerRef.current = 0;
+				}
+			}
 		}
 	};
 
@@ -1071,6 +1096,10 @@ export function DeckPreview({
 			// flag made `bindAnima` add a SECOND listener to that frame, so every later srcdoc
 			// rewrite ran `syncAnima` twice and the count grew by one per cycle.
 			engineRef.current = null;
+			// A render still hung at unmount raises no card on a host that is gone.
+			window.clearTimeout(hungTimerRef.current);
+			hungTimerRef.current = 0;
+			pendingRendersRef.current.clear();
 			animaRef.current = null;
 			animaLoadingRef.current = false;
 			animaBackstopRef.current = undefined;
@@ -1149,7 +1178,7 @@ export function DeckPreview({
 		setStalled(false);
 		setFailedWhy('');
 		schedulerRef.current?.schedule();
-	}, []);
+	}, [setStalled]);
 	// The engine failed again after Retry: a reload clears a sub-file the browser cached as failed in Chromium and Gecko
 	// (`reloadNeeded`). It marks the tab first, so the reloaded page knows a reload was already tried (`reloaded`).
 	const reload = React.useCallback(() => {

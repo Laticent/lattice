@@ -399,16 +399,53 @@ describe('DeckPreview — render failure affordance (#1164)', () => {
 			vi.useRealTimers();
 		});
 
-		it('Retry starts a fresh render, and the card goes when it settles', async () => {
+		it('Retry starts a fresh render: if that one hangs too the card comes back at 30 s, and it goes when one settles', async () => {
 			vi.useFakeTimers();
 			hang();
 			const { container, getByText } = render(<DeckPreview options={opts} sample="# A" drawn={false} loader aria-label="p" />);
 			await advance(30000);
 			expect(container.querySelector('.nacre-failed')).toBeTruthy();
+			const releaseRetry = hang();
 			fireEvent.click(getByText('Retry'));
 			await advance(16);
 			expect(renderInto).toHaveBeenCalledTimes(2);
 			expect(container.querySelector('.nacre-failed')).toBeNull();
+			await advance(30000);
+			expect(text(container)).toContain('did not finish loading');
+			await releaseRetry();
+			await advance(0);
+			expect(container.querySelector('.nacre-failed')).toBeNull();
+			vi.useRealTimers();
+		});
+
+		it('edits that keep starting renders while each hangs still show the card 30 s after the first', async () => {
+			// The checker on #3617: a clock re-armed by every new render never fired for a person typing into a stalled preview.
+			vi.useFakeTimers();
+			renderInto.mockImplementation(() => new Promise(() => {}));
+			const { container, rerender } = render(<DeckPreview options={opts} sample="# A0" drawn={false} loader aria-label="p" />);
+			for (let i = 1; i <= 5; i++) {
+				await advance(5000);
+				rerender(<DeckPreview options={opts} sample={`# A${i}`} drawn={false} loader aria-label="p" />);
+			}
+			await advance(16);
+			expect(renderInto.mock.calls.length).toBeGreaterThan(2);
+			await advance(30000 - 5 * 5000 - 16);
+			expect(text(container)).toContain('did not finish loading');
+			vi.useRealTimers();
+		});
+
+		it('an older render that settles does not clear the card a newer, still hung render raised', async () => {
+			vi.useFakeTimers();
+			const releaseFirst = hang();
+			const { container, rerender } = render(<DeckPreview options={opts} sample="# A" drawn={false} loader aria-label="p" />);
+			await advance(5000);
+			hang();
+			rerender(<DeckPreview options={opts} sample="# B" drawn={false} loader aria-label="p" />);
+			await advance(25000);
+			expect(text(container)).toContain('did not finish loading');
+			await releaseFirst();
+			await advance(0);
+			expect(text(container)).toContain('did not finish loading');
 			vi.useRealTimers();
 		});
 

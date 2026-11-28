@@ -24,20 +24,29 @@ never settles was neither, so the Studio spun for good. That is what a person sa
 
 ## The rule, as built (`docs/src/components/DeckPreview.tsx`)
 
-- `HUNG_RENDER_MS = 30000`. Each render on a loader host arms a clock and clears it when the render settles, either
-  way. A newer render takes the clock over, so a render the frame scheduler's 4 s watchdog gave up on cannot raise the
-  card over a newer render that settled, or is still inside its own 30 s.
+- `HUNG_RENDER_MS = 30000`, timed from the OLDEST render still unsettled since the frame was last current. One timer,
+  armed when the first render goes unsettled; the renders an edit starts after it do not re-arm it, so a person typing
+  into a stalled preview still sees the card 30 s after the stall began. The NEWEST render settling stops the clock,
+  whatever older renders still hang (the frame scheduler's 4 s watchdog lets a newer render start beside a hung one).
+- An older render that settles while a newer one's stall card is up leaves the card: the newer render is still
+  unsettled. (The first cut re-armed the clock on every render and let any settle clear the card; the checker on #3617
+  found both.)
 - At 30 s: `stalled`, `failed`, and the reason "the slide did not finish loading; check the connection, then Retry". If
   the frame is revealed, it is the bar: "The preview stopped loading, so edits will not show here."
 - A slide that reveals during a stall keeps the failure, as the bar (the recovery effect treats a stall like an engine
   failure). Only a settled render clears it. A render that settles `ok` clears it, as any successful render always has.
 - Non-loader hosts are unchanged: their 32 s never-paint ceiling stays.
+- Present's slide is a loader host too (`PresentOverlay.tsx`), so a presented slide whose render hangs gets the card the
+  same way. Its bar's wording ("edits will not show here") fits the editing preview, not Present; the engine-failure bar
+  has the same wording there. Not changed here.
 
 ## Why 30 s
 
-Past the single-slide preview's reveal poll (~30 s), so a slow cold load the poll still reveals rarely sees the card.
-When it does, the card shows briefly and clears itself. The owner accepted that cost: "On a very slow machine the card
-may flash briefly."
+The owner's number. The clock times a render SETTLING, not the frame revealing. A render that writes the frame returns
+without waiting for the reveal poll (~30 s), so a slow paint after a write does not hold it. A render that comes after a
+write and finds that frame's document still loading does wait for it (`DOC_LOAD_WAIT_MS`, 30 s a round, single-slide-
+render.ts), so on a very slow machine the card can show while a frame is still loading, then clear when the render
+settles. The owner accepted that cost: "On a very slow machine the card may flash briefly."
 
 ## What Retry can and cannot do
 
@@ -51,5 +60,6 @@ cache, so Retry fetches it again (`docs/e2e/preview-hung-render.spec.ts`).
 `DeckPreview.test.tsx` (fake time): no card at 29,999 ms, the card at 30,000 ms, the bar over a revealed slide, the
 card clears on settle, Retry renders again, and a stale clock raises nothing. `docs/e2e/preview-hung-render.spec.ts`
 (Playwright's page clock; desktop, webkit-tablet, webkit-phone, gecko): a held lazy chunk shows the card at 30 s and
-clears when the chunk answers; a held theme shows the card, fails, and Retry renders. Every arm fails on the code
-before this change.
+clears when the chunk answers; a held theme shows the card, fails, and Retry renders. Every positive arm fails on the code
+before this change; the negative arms (a stale clock, a non-loader host) fail when their guard is removed, and the
+oldest-render and newest-only arms fail on the first cut.

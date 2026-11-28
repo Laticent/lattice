@@ -83,6 +83,8 @@ test('@crosswidth @webkit-phone @webkit-tablet @gecko a render held on the theme
 	// The held request fails (a connection that drops): the render settles as a failure, and the theme fetcher drops it,
 	// so the next ask fetches again. The requests after this one pass.
 	await h.fail();
+	// The failed render has settled: its own card replaces the stall card (it never waits on the stall card already up).
+	await expect(card(page).locator('.nacre-failed__text')).not.toContainText('did not finish loading');
 	await expect(card(page)).toHaveCount(1);
 	await card(page).getByRole('button', { name: 'Retry' }).click();
 	await expect.poll(() => revealed(page)).toBe('1');
