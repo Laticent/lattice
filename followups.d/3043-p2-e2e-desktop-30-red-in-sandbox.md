@@ -6,7 +6,7 @@ updated: 2026-11-28
 area: infra
 severity: medium
 swimlane: engineering/gotchas/ci.md
-deferred: off-path — what is left is the WebKit and Gecko items, which another session owns, and deck-register-gap, which #3307 owns; no Chromium red remains on main
+deferred: off-path — each load-only red below has an owner the flake desk named on 2026-11-28 (deck-register-gap and compose-layout-button: session_015KSkL5qA3FjXiw1Cr933XL; filo-undo and workspace-restore-gate: session_015KSkL7sXyLNDKsTcTWygYP), and the mobile-touch avatar tap has none yet; none of them has been seen red on main itself
 source: https://github.com/Laticent/lattice/pull/3043
 ---
 
@@ -21,13 +21,15 @@ open      — deck-register-gap.spec.ts:99 (desktop): red only under full-suite 
             compose-avatar-icon-editor.spec.ts:122 (mobile-touch, the `@parity` tap test): red once, in a full
             all-projects run on PR #3480's merged tree (main 7c252ae + the PR), 2026-11-27: the tap on the avatar
             never showed the popover within 15 s. It passed every run after that: 10 of 10 alone (--repeat-each=10),
-            5 of 5 at --workers=4 --repeat-each=5, and 15 of 15 at --workers=4 with two extra CPU-burning processes
-            on a fresh `build:e2e` of e9be16e. Cause unknown; no claim on it. The owner chose to record it here
+            5 of 5 at --workers=4 --repeat-each=5, and 15 of 15 at --workers=4 on a fresh `build:e2e`
+            (the log of that run does not record the extra CPU load it ran under, or its commit). Cause unknown; no claim on it. The owner chose to record it here
             rather than hold #3480 (2026-11-27).
             WebKit and Gecko, the paragraphs below (another session owns those projects). The same #3480 run also
             met plugin-admission.spec.ts:375 (webkit-tablet, Preview button click timeout) and
             compose-layout-button.spec.ts:85 (gecko), red once each and green alone and under load since.
-            2026-11-28, PR #3491's all-projects run at --workers=4 (f3222b0), four reds, each 3 of 3 alone after:
+            2026-11-28, PR #3491's branch (f3222b0), --workers=4, two runs that together cover every project (the
+            first stopped at 2,565 of 3,621 tests; the second ran webkit-phone, webkit-tablet and gecko, 1,301 of 1,311
+            passed): four reds, each 3 of 3 alone after:
             deck-register-gap.spec.ts:21 (desktop, `align: spread` never became `"spread right"`) and
             compose-layout-button.spec.ts:85 (gecko again, "Replace text" never appeared), both given to
             session_015KSkL5qA3FjXiw1Cr933XL; filo-undo.spec.ts:80 (webkit-tablet, ⌘Z from the rail left the edit)
