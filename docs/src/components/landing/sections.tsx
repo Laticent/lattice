@@ -488,12 +488,12 @@ export function DriftDemo() {
 			<MiniSlideRow
 				slides={DRIFTED}
 				label="Four people, four blank canvases"
-				caption="The title font, the brand color, the logo's corner and the page number change from slide to slide."
+				caption="Each author picks the title font, the brand color, the logo's corner and the page number, so no two slides match."
 			/>
 			<MiniSlideRow
 				slides={ALIGNED}
-				label="The same four slides, one Lattice palette"
-				caption="In Lattice none of them move: the theme sets them, not the author."
+				label="The same four slides, made in Lattice"
+				caption="Your palette, your logo, your layouts: Lattice applies them the same way on every slide, whoever writes it."
 			/>
 		</figure>
 	);
