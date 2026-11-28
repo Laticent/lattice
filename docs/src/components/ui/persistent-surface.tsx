@@ -5,7 +5,7 @@ import { DismissableLayer } from "radix-ui/internal"
 import * as React from "react"
 import { createPortal, flushSync } from "react-dom"
 
-import { caretWithin, focusLauncher, raisesTouchKeyboard, returnFocus, tappedLauncher } from "@/components/ui/focus-return"
+import { type Caret, caretWithin, focusLauncher, raisesTouchKeyboard, returnFocus, tappedLauncher } from "@/components/ui/focus-return"
 import { useEverTrue } from "@/components/ui/keep-mounted"
 import { cn } from "@/lib/utils"
 
@@ -105,7 +105,7 @@ export function PersistentSurface({
   const rootRef = React.useRef<HTMLDivElement>(null)
   const boxRef = React.useRef<HTMLDivElement>(null)
   const returnTo = React.useRef<HTMLElement | null>(null)
-  const caret = React.useRef<Range | null>(null)
+  const caret = React.useRef<Caret | null>(null)
   const launcher = React.useRef<HTMLElement | null>(null)
   const layerRef = React.useRef<HTMLDivElement>(null)
   // COVERED: a menu or select opened from inside the box is a Radix layer ABOVE this one, and it

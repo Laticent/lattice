@@ -51,37 +51,49 @@ export function focusLauncher(launcher: HTMLElement | null): boolean {
   return document.activeElement === launcher
 }
 
+/** Where the caret was, as the selection's two ends, and the text each end sat in when it was taken. */
+export type Caret = { anchor: Node; anchorOffset: number; focus: Node; focusOffset: number; anchorText: string | null; focusText: string | null }
+
 /**
- * The caret inside `el` when a sheet opens over it, so the close can give it back: a copy of the page's selection when
- * `el` is editable text (`contenteditable`) and holds it, else null. An input or a textarea keeps its own selection and
- * needs none.
+ * The caret inside `el` when a sheet opens over it, so the close can give it back: the page's selection, when `el` is
+ * editable text (`contenteditable`) and holds both of its ends, else null. An input or a textarea keeps its own
+ * selection and needs none.
  *
  * WHY. A sheet that takes focus (the gallery's search field) takes the page's selection with it, so refocusing an
  * editor on close finds no caret inside. The browser then puts one at the start of the text, and ProseMirror puts its
- * own back only when that reset arrives within 200 ms of the focus event (prosemirror-view `DOMObserver.flush`). On a
- * loaded machine it arrives later and the author's caret jumps to the first slide (compose-stress.spec.ts, closing
- * the add-slide gallery, red under a 4-worker desktop run).
+ * own back only when that reset arrives within 200 ms of the focus event (prosemirror-view `DOMObserver.flush`; CodeMirror
+ * has the same window). On a loaded machine it arrives later and the author's caret jumps to the first slide
+ * (compose-stress.spec.ts, closing the add-slide gallery, red under a 4-worker desktop run).
+ *
+ * The ends are kept as nodes and offsets, not as a `Range`: a Range is live, and when its text is rewritten the browser
+ * moves it to a surviving parent, so it would always look valid. The text each end sat in is kept to tell.
  */
-export function caretWithin(el: HTMLElement | null): Range | null {
-  if (!el || !el.isContentEditable) return null
+export function caretWithin(el: HTMLElement | null): Caret | null {
+  if (!el?.isContentEditable) return null
   const sel = typeof getSelection === "function" ? getSelection() : null
-  if (!sel || sel.rangeCount === 0) return null
-  const range = sel.getRangeAt(0)
-  return el.contains(range.startContainer) && el.contains(range.endContainer) ? range.cloneRange() : null
+  if (!sel?.anchorNode || !sel.focusNode || !el.contains(sel.anchorNode) || !el.contains(sel.focusNode)) return null
+  return {
+    anchor: sel.anchorNode,
+    anchorOffset: sel.anchorOffset,
+    focus: sel.focusNode,
+    focusOffset: sel.focusOffset,
+    anchorText: sel.anchorNode.textContent,
+    focusText: sel.focusNode.textContent,
+  }
 }
 
 /**
  * Give focus back to `el`, with the caret `caretWithin` took when the sheet opened, in the same task. The
- * `selectionchange` that follows then reads the author's caret, not the browser's reset, however late it is handled. A
- * caret whose text is gone from `el` (an edit made while the sheet was open) is left to the browser and the editor.
+ * `selectionchange` that follows then reads the author's caret, not the browser's reset, however late it is handled.
+ * Direction is kept (anchor and focus, not start and end). A caret whose text changed while the sheet was open (an edit,
+ * a re-render) is not put back: the editor's own mapping, through its 200 ms window, is the better guess then.
  */
-export function returnFocus(el: HTMLElement, caret: Range | null): void {
+export function returnFocus(el: HTMLElement, caret: Caret | null): void {
   el.focus({ preventScroll: true })
-  if (!caret || document.activeElement !== el || !el.contains(caret.startContainer) || !el.contains(caret.endContainer)) return
-  const sel = getSelection()
-  if (!sel) return
-  sel.removeAllRanges()
-  sel.addRange(caret)
+  if (!caret || document.activeElement !== el) return
+  const same = (n: Node, text: string | null) => n.isConnected && el.contains(n) && n.textContent === text
+  if (!same(caret.anchor, caret.anchorText) || !same(caret.focus, caret.focusText)) return
+  getSelection()?.setBaseAndExtent(caret.anchor, caret.anchorOffset, caret.focus, caret.focusOffset)
 }
 
 /** For tests: forget the last input. */

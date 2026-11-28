@@ -553,9 +553,8 @@ test('@parity @crosswidth @webkit-phone closing the add-slide gallery from Compo
 // that, the caret landed in slide 0, and the test above lost slide 1's launcher (the surface now hands the caret back
 // itself, ui/focus-return.ts `returnFocus`). The stall below makes the slow machine every run: 300 ms of main thread
 // right after the editor's focus, before the browser reports where its caret is.
-test('@parity closing the add-slide gallery gives a mouse its caret back on the same slide, on a slow machine too', async ({ page }) => {
-	const fine = await page.evaluate(() => window.matchMedia('(hover: hover) and (pointer: fine)').matches);
-	test.skip(!fine, 'a coarse pointer gets no caret back (it would raise the keyboard): the test above covers it');
+// Untagged, so only `desktop` (a mouse) runs it: a coarse pointer gets no caret back, which the test above covers.
+test('closing the add-slide gallery gives a mouse its caret back on the same slide, on a slow machine too', async ({ page }) => {
 	await caretInto(page, 1);
 	await composeSlide(page, 1).getByRole('button', { name: 'Add slide below' }).click();
 	const dialog = page.getByRole('dialog').filter({ visible: true }).last();
