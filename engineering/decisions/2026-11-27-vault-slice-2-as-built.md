@@ -169,12 +169,21 @@ in-tab lock stands in.
   finding that changed code is named where it landed. Not changed: a tab left open from before the deploy
   reads a moved photo as having no bytes (deploy skew, which ends at its next reload); AVIF and HEIC are
   missing from the backup's extension table, which predates this slice.
-- **iOS:** UNVERIFIED. `webkit-phone` is Linux WebKit, not iOS. The Simulator's `PROBE=vault` is
-  dispatch-only now and was not run for this slice. Eviction on a real device is the devices desk's
-  (`followups.d/3148-p2`).
-
-## Left for later
-
+- **iOS Simulator** (warm harness on #3582, the owner's two dispatches):
+  - `PROBE=vault` passed on iPhone and iPad at `6b1f8b6` and again at `a6dad85`: 22/22 blob writes through the sync
+    handle, a reload, and a startup scan that verified 22/22 with nothing damaged.
+  - `PROBE=media-vault` (`docs/scripts/ios-safari/media-vault-probe.js`) drives the Studio's own move and move-back.
+    It passed every step on an iPhone (402 px) and an iPad (1032 px), Safari 26.5, at `a6dad85` (harness run
+    46087018694, PR comment 7231485707, artifact `harness-macos-26`). Steps:
+    - two photos are planted as Blobs the pre-slice-2 way;
+    - after a reload, both are in the vault (OPFS) with the recorded SHA-256, both decode at their size, and the
+      backup is written first;
+    - after a second reload on the way back, both rows hold the same bytes as Blobs and decode, the vault files are
+      gone, and the device records 0 left behind.
+    - The Playwright self-test passes the same probe on WebKit's IndexedDB-blob path, and fails it when the build
+      ignores the direction.
+- **iOS eviction** with photos in the vault on a real, full device: UNVERIFIED. No runner here can reach it; it is the
+  devices desk's (`followups.d/3148-p2`).
 - **Reference PDFs, themes and other asset kinds, and narration audio** into the vault: `followups.d/3148-p2`,
   `deferred: large`. Each has its own store, its own writers and its own move. Together they would have taken
   this PR past the 1.5k lines the command center set.
