@@ -1,0 +1,20 @@
+# Install: sudo cp lattice-runners.service /etc/systemd/system/ && sudo systemctl enable --now lattice-runners
+# Logs:    journalctl -u lattice-runners -f
+[Unit]
+Description=Lattice self-hosted GitHub Actions runners (one-job Docker containers)
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=simple
+ExecStart=/opt/lattice-runner/runner-supervisor.sh
+Restart=always
+RestartSec=10
+# On stop, the supervisor gives each running container 30 s and then kills it: a job in flight
+# is cancelled and shows as failed on GitHub. Stop the service between jobs where you can.
+TimeoutStopSec=60
+KillMode=mixed
+
+[Install]
+WantedBy=multi-user.target
