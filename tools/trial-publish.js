@@ -16,7 +16,8 @@
  *            because `npm install @laticent/lattice` could never resolve it.
  *   registry starts Verdaccio (pinned) on 127.0.0.1 with storage in a temp folder.
  *   libraries publishes every non-private library under docs/src/lib/, each through its own
- *            prepack (tools/library-prepack.js builds its dist/ and copies the license).
+ *            prepack (tools/library-prepack.js builds its dist/ and stages its license: an
+ *            Apache-2.0 library's own LICENSE and NOTICE, or the root LICENSE for an AGPL one).
  *   engine   stages packages/lattice/ (tools/stage-engine-package.js) and publishes it with
  *            --ignore-scripts: the build is the caller's (CI already ran it), and the engine's
  *            prepublishOnly would run `npm run build && npm test` again.

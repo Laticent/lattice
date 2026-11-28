@@ -178,7 +178,7 @@ finding below was reproduced, fixed and given a test:
 | PowerPoint would re-wrap a line set in a wider substitute font | `.pptx` boxes do not wrap, and the fonts are now embedded (§6) |
 
 Recorded, not fixed: PowerPoint itself (§6), the AGPL license for a library meant for
-anyone (the owner's call), and the `types` entry pointing at TypeScript source (as every
+anyone (the owner's call; settled 2026-11-28, Calco stays AGPL-3.0-only as a product feature: #3542, `LICENSING.md`), and the `types` entry pointing at TypeScript source (as every
 sibling does). The Studio's CSS counters, which rendered as `0` in every Studio image
 export, were fixed on 2026-10-07: html-to-image never copied the counter properties
 (`engineering/gotchas/export.md`).

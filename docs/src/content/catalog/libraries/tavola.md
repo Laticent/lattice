@@ -13,7 +13,7 @@ facts:
   - { k: Status, v: Coming to npm with Lattice 1.0 }
   - { k: Runs in, v: "The browser (and Node, for tests)" }
   - { k: Dependencies, v: "None (Trystero optional, for browser-to-browser; Yjs, y-protocols and lib0 optional, for the Yjs adapter)" }
-  - { k: License, v: AGPL-3.0 }
+  - { k: License, v: Apache-2.0 }
 reference:
   - label: The README
     href: https://github.com/Laticent/lattice/blob/main/docs/src/lib/tavola/README.md

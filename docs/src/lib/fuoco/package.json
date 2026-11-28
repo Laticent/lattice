@@ -2,7 +2,7 @@
   "name": "@laticent/fuoco",
   "version": "0.1.0",
   "description": "One focus for every view of a document: editors, outlines, previews and rails stay in step through a tiny, framework-free hub with stable unit ids, origin-aware delivery and frame-coalesced updates. An optional React adapter at ./react.",
-  "license": "AGPL-3.0-only",
+  "license": "Apache-2.0",
   "author": "Sharmarke Aden (Laticent) <sharmarke.aden@gmail.com>",
   "repository": {
     "type": "git",
@@ -44,7 +44,8 @@
     "*.ts",
     "!*.test.ts",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "NOTICE"
   ],
   "publishConfig": {
     "access": "public"

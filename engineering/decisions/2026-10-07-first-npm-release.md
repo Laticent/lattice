@@ -99,6 +99,10 @@ Each of these can be undone until the first publish, and none can be undone afte
   points out that AGPL keeps them out of closed-source web apps. Changing a
   license is the owner's call, and it is far cheaper before the first publish
   than after it.
+  **Superseded on 2026-11-28** for 14 of the libraries: the owner moved them to
+  Apache-2.0 before any first publish (#3542). Calco, Fluido, Trama, Lente and
+  Cenno stay AGPL-3.0-only.
+  Which part is which: `LICENSING.md`.
 
 ## 5. The slices, in order
 

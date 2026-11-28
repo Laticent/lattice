@@ -49,4 +49,5 @@ Tests: `cd docs && npx vitest run src/lib/markup`.
 
 ## License
 
-AGPL-3.0-only.
+Apache-2.0. The full text ships as `LICENSE` in the package, and the copyright notice as `NOTICE`.
+Which part of Lattice is under which license: [`LICENSING.md`](https://github.com/Laticent/lattice/blob/main/LICENSING.md).
