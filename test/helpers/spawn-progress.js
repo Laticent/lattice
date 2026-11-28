@@ -33,7 +33,9 @@
  *     second forever, so its CPU never stalls and takes minutes to reach the budget;
  *   - an ORPHANED PIPE: the child has exited but its output never closes, because a grandchild it started still holds
  *     stdout. After `stallMs` it is reported as such.
- * A hung child is killed with its whole tree, so a stuck Chromium does not outlive the test.
+ * A hung child is killed with its whole tree and its process group, so a stuck Chromium does not outlive the test.
+ * Known limit: a grandchild that leaves the group (`detached`) and exits its parent before any poll sees it is out of
+ * reach of both. It is not killed, but it cannot keep the test waiting: the child's pipes are let go on a hang.
  *
  * `runNodeSync` is the same watch for a test that runs synchronously (`spawnSync`): it spawns this file as a small
  * watcher process that runs the child under `runNode` and relays its output and exit status.
@@ -68,10 +70,20 @@ function cpuMs(pid) {
   return Number.isFinite(ticks) ? (ticks * 1000) / USER_HZ : null;
 }
 
-/** Whether `pid` is still running: present in `/proc` and not a zombie (state Z: dead, waiting to be reaped). */
-function running(pid) {
+/** Whether `pid` is still running: present in `/proc` and not a zombie (state Z: dead, waiting to be reaped). With
+ * `start`, only while it is still that process: a pid the kernel has reused reads as not running. */
+function running(pid, start) {
   const f = statFields(pid);
-  return f !== null && f[0] !== 'Z';
+  return f !== null && f[0] !== 'Z' && (start === undefined || f[19] === start);
+}
+
+/** Clock ticks since boot, the unit of a process's start time in `/proc/<pid>/stat`; null when `/proc` cannot say. */
+function bootTicks() {
+  try {
+    return Math.ceil(Number(fs.readFileSync('/proc/uptime', 'utf8').split(' ')[0]) * USER_HZ);
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -122,6 +134,55 @@ function treeCpu(root) {
   return { read, live: () => alive };
 }
 
+/** Whether a child gets a process group of its own, so a hang can kill every process in it with one signal. Windows
+ * has no process groups. */
+const OWN_GROUP = process.platform !== 'win32';
+/** The process groups of children still running (a child leaves the set when it exits: after that its pid, and so
+ * the group id, may be reused). When this process ends they are killed, since a child in its own group no longer
+ * gets the terminal's Ctrl-C. */
+const liveGroups = new Set();
+function killLiveGroups() {
+  for (const pgid of liveGroups) {
+    try { process.kill(-pgid, 'SIGKILL'); } catch { /* already gone */ }
+  }
+  liveGroups.clear();
+}
+let groupCleanupArmed = false;
+function armGroupCleanup() {
+  if (groupCleanupArmed) return;
+  groupCleanupArmed = true;
+  process.on('exit', killLiveGroups);
+}
+/**
+ * Kill the live groups on SIGINT, SIGTERM and SIGHUP too, then end the way the signal would have. Only the watcher
+ * process arms this. In a test process a JavaScript handler would hold the signal back while `runNodeSync` blocks the
+ * event loop (up to the ceiling), where the default action ends the process at once. The watcher's loop never blocks,
+ * and it shares the terminal's group, so Ctrl-C reaches it and it takes the child's group down with it.
+ */
+function armSignalCleanup() {
+  for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
+    process.once(sig, () => { killLiveGroups(); process.kill(process.pid, sig); });
+  }
+}
+
+/** The processes still running in process group `pgid`, each with its start time. Field 5 of `stat` is the group. */
+function groupMembers(pgid) {
+  const out = [];
+  let names;
+  try {
+    names = fs.readdirSync('/proc');
+  } catch {
+    return out;
+  }
+  for (const name of names) {
+    const c = name.charCodeAt(0);
+    if (c < 48 || c > 57) continue;
+    const f = statFields(name);
+    if (f && Number(f[2]) === pgid && f[0] !== 'Z') out.push({ pid: Number(name), start: f[19] });
+  }
+  return out;
+}
+
 /**
  * Run `node <script> <args>` and resolve `{ status, stdout, stderr }` (plus `signal` when a signal ended it), or reject
  * when it hangs.
@@ -134,7 +195,14 @@ function treeCpu(root) {
 function runNode(script, args = [], opts = {}) {
   const { cwd, env = process.env, cpuBudgetMs = 10_000, stallMs = 10_000, stallCpuMs = 0, ceilingMs = 120_000, pollMs = 250, watchProc = HAS_PROC } = opts;
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [script, ...args], { cwd, env });
+    // Its own process group (`detached`), so a hang kills everything it started that stayed in the group, including a
+    // grandchild the tree walk cannot see: one started after the last poll, or one reparented to init once its parent
+    // exited (the orphaned-pipe case). Chromium, which puppeteer starts in a group of its own, is found by the walk.
+    const child = spawn(process.execPath, [script, ...args], { cwd, env, detached: OWN_GROUP });
+    if (OWN_GROUP && child.pid) {
+      armGroupCleanup();
+      liveGroups.add(child.pid);
+    }
     let stdout = '';
     let stderr = '';
     // setEncoding, not toString per chunk: a character split across two chunks would decode as two U+FFFD.
@@ -154,29 +222,46 @@ function runNode(script, args = [], opts = {}) {
       if (isHung) return;
       isHung = true;
       done();
-      tree?.read(); // a fresh walk, so a process started since the last poll is killed too
+      tree?.read(); // a fresh walk, while the child still runs; once it has exited the walk finds nothing new
       // Kill a pid only while it is still the process we saw: same start time. A pid freed and handed to an unrelated
-      // process (possible on the orphaned-pipe path, where the last walk can be `stallMs` old) is left alone.
-      const pids = (tree?.live() ?? []).filter(({ pid, start }) => statFields(pid)?.[19] === start).map(({ pid }) => pid);
-      for (const pid of pids) {
+      // process (possible on the orphaned-pipe path, where the last walk can be `stallMs` old) is left alone. The
+      // child's process group is killed whole as well, which reaches what the walk missed.
+      // The group: while the child runs, its pid is in use, so the group id is ours and is killed whole. Once the child
+      // has exited (the orphaned-pipe path) its pid may already belong to a new group, so only members that started
+      // before the child exited are ours, and each is killed by pid.
+      const members = OWN_GROUP && tree ? groupMembers(child.pid) : [];
+      const ours = exitedAt === null ? members : members.filter(({ start }) => Number(start) <= exitedAt);
+      const seenLive = [...(tree?.live() ?? []), ...ours];
+      const procs = [...new Map(seenLive.filter(({ pid, start }) => running(pid, start)).map((p) => [p.pid, p])).values()];
+      if (OWN_GROUP && exitedAt === null) {
+        try { process.kill(-child.pid, 'SIGKILL'); } catch { /* the group is already gone */ }
+      }
+      liveGroups.delete(child.pid);
+      for (const { pid } of procs) {
         try { process.kill(pid, 'SIGKILL'); } catch { /* already gone */ }
       }
       child.kill('SIGKILL');
+      // Let go of the child's pipes: a process outside the tree that still holds one must not keep this process open.
+      child.stdout.destroy();
+      child.stderr.destroy();
       const fail = (also = '') => reject(Object.assign(new Error(`test child hung: ${why}: ${what}${also}`), { stdout, stderr }));
-      if (!pids.length) return fail();
+      if (!procs.length) return fail();
       // SIGKILL is sent, not done: reject only once every process of the tree has died, so a hung Chromium never
       // outlives the test that started it. A process that survives 5 s of SIGKILL is named in the error.
       const killedBy = Date.now() + 5000;
       const reaped = setInterval(() => {
-        const left = pids.filter(running);
+        const left = procs.filter(({ pid, start }) => running(pid, start));
         if (left.length && Date.now() < killedBy) return;
         clearInterval(reaped);
-        fail(left.length ? ` (and pid ${left.join(', ')} survived SIGKILL)` : '');
+        fail(left.length ? ` (and pid ${left.map(({ pid }) => pid).join(', ')} survived SIGKILL)` : '');
       }, 20);
     };
     const ceiling = setTimeout(() => hung(`still running after ${ceilingMs / 1000} s`), ceilingMs);
     let orphaned = null;
+    let exitedAt = null; // boot ticks when the child exited; a group member that started later is not ours
     child.on('exit', () => {
+      exitedAt = bootTicks() ?? 0;
+      liveGroups.delete(child.pid); // its pid, and so its group id, may now be reused
       clearInterval(poll);
       if (isHung) return; // killed for a hang: nothing is left to wait on
       orphaned = setTimeout(() => hung(`exited, but its output was still open ${stallMs / 1000} s later (a process it started holds the pipe)`), stallMs);
@@ -196,6 +281,7 @@ function runNode(script, args = [], opts = {}) {
       hung(stallCpuMs === 0 ? `used no CPU for ${s} s` : `used ${Math.round(used - before)} ms of CPU in ${s} s, no more than an idle process`);
     }, pollMs);
     child.on('close', (status, signal) => {
+      liveGroups.delete(child.pid);
       if (isHung) return;
       done();
       // `signal` only when a signal ended it, so a plain exit reads `{ status, stdout, stderr }`, as before.
@@ -232,7 +318,13 @@ function runNodeSync(script, args = [], opts = {}) {
     cwd, env, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe', 'pipe'],
   });
   if (r.error) throw r.error;
-  const verdict = JSON.parse(r.output[VERDICT_FD] || '{}');
+  // The watcher always writes a verdict ("{}" for a plain exit). None means the watcher itself died, so its status and
+  // stderr say nothing about the child: report that, not a result.
+  let verdict = null;
+  try {
+    verdict = JSON.parse(r.output[VERDICT_FD]);
+  } catch { /* no verdict */ }
+  if (!verdict) throw new Error(`runNodeSync's watcher died (status ${r.status}, signal ${r.signal}) before it reported\n--- its stderr ---\n${r.stderr}`);
   if (verdict.hung) throw new Error(`${verdict.hung}\n--- its stderr ---\n${r.stderr}`);
   return verdict.signal ? { status: null, signal: verdict.signal, stdout: r.stdout, stderr: r.stderr } : { status: r.status, stdout: r.stdout, stderr: r.stderr };
 }
@@ -241,6 +333,16 @@ function runNodeSync(script, args = [], opts = {}) {
 // fd 3 whether it hung or a signal ended it. (It reports the signal rather than raising it on itself: SIGUSR1 would
 // open Node's debugger, and an ignored signal would leave the watcher exiting 0.)
 if (require.main === module) {
+  armSignalCleanup();
+  // If the test process dies (killed, or its job cancelled), nobody is left to read the verdict: take the child down
+  // at once rather than letting it run on to its own ceiling. A dead parent shows as a new ppid (init, or a subreaper).
+  const parent = process.ppid;
+  setInterval(() => {
+    if (process.ppid !== parent) {
+      killLiveGroups();
+      process.exit(1);
+    }
+  }, 250).unref();
   const [watch, script, ...args] = process.argv.slice(2);
   const say = (verdict) => fs.writeSync(VERDICT_FD, JSON.stringify(verdict));
   runNode(script, args, JSON.parse(watch)).then(
@@ -248,13 +350,13 @@ if (require.main === module) {
       process.stdout.write(stdout);
       process.stderr.write(stderr);
       say(signal ? { signal } : {});
-      process.exitCode = signal ? 1 : status;
+      process.exitCode = signal ? 1 : status; // not process.exit: that would cut off output still draining to the pipe
     },
     (err) => {
       process.stdout.write(err.stdout ?? '');
       process.stderr.write(err.stderr ?? '');
       say({ hung: err.message });
-      process.exitCode = 124;
+      process.exitCode = 124; // runNode let go of the child's pipes, so nothing it left behind keeps this process open
     },
   );
 }

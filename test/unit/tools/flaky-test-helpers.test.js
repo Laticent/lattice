@@ -249,6 +249,52 @@ describe('runNode', { skip: process.platform !== 'linux' && 'watches /proc, whic
     assert.throws(() => runNodeSync('-e', ['0'], { input: 'x' }), /does not take `input`/);
   });
 
+  test('failing arm: a grandchild that holds the pipe after the child exits is killed, and does not hold the test', () => {
+    // The child starts a grandchild that inherits its output, then exits at once: before any poll can see the
+    // grandchild. The grandchild writes its pid, and if it lives out 30 s it writes `finished`. runNodeSync must report
+    // the orphaned pipe and leave the grandchild dead, killed rather than finished. No clock: a helper that waits on
+    // the pipe sees `finished` appear; one that returns without killing finds the pid still running.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'spawn-progress-'));
+    const pidFile = path.join(dir, 'holder.pid');
+    const finished = path.join(dir, 'finished');
+    const holder = "const fs = require('node:fs'); fs.writeFileSync(process.argv[1], String(process.pid)); setTimeout(() => fs.writeFileSync(process.argv[2], 'yes'), 30_000);";
+    const code = "require('node:child_process').spawn(process.execPath, ['-e', process.argv[1], process.argv[2], process.argv[3]], { stdio: 'inherit' }).unref();";
+    let pid = null;
+    try {
+      assert.throws(() => runNodeSync('-e', [code, holder, pidFile, finished], { stallMs: 1000 }), /exited, but its output was still open/);
+      assert.equal(fs.existsSync(finished), false, 'the grandchild lived out its 30 s: runNodeSync waited on it');
+      pid = Number(fs.readFileSync(pidFile, 'utf8'));
+      let state = 'gone';
+      try { state = fs.readFileSync(`/proc/${pid}/stat`, 'utf8').split(') ')[1][0]; } catch { /* reaped */ }
+      assert.ok(state === 'gone' || state === 'Z', `the grandchild ${pid} holding the pipe survived (state ${state})`);
+    } finally {
+      if (pid) try { process.kill(pid, 'SIGKILL'); } catch { /* already gone */ } // never leak it, pass or fail
+    }
+  });
+
+  test('runNodeSync says so when its watcher dies, instead of passing that off as the child\'s result', () => {
+    // A watcher whose Node refuses to start (a bad NODE_OPTIONS) writes no verdict: that is the watcher dying, and it
+    // must not come back as the child's own exit status and stderr.
+    assert.throws(() => runNodeSync('-e', ['0'], { env: { ...process.env, NODE_OPTIONS: '--no-such-node-flag' } }), /watcher died/);
+  });
+
+  test('a test process blocked in runNodeSync still dies at once on SIGTERM, even after runNode ran in it', async () => {
+    // runNode used to arm SIGTERM handlers in the test process. While runNodeSync then blocked the event loop, a
+    // JavaScript handler could not run, so the signal waited for the child: up to the ceiling, then exit 1. With no
+    // handler there the default action ends it, so it dies BY the signal. The signal it ends by is the assertion.
+    const helper = path.join(__dirname, '..', '..', 'helpers', 'spawn-progress.js');
+    const parent = "const { runNode, runNodeSync } = require(process.argv[1]); runNode('-e', ['0']).then(() => { console.log('blocking'); runNodeSync('-e', ['setInterval(() => {}, 1e9)'], { stallMs: 20_000, ceilingMs: 20_000 }); });";
+    const p = require('node:child_process').spawn(process.execPath, ['-e', parent, helper]);
+    try {
+      await once(p.stdout, 'data'); // "blocking": runNodeSync is about to block
+      p.kill('SIGTERM');
+      const [code, signal] = await once(p, 'exit');
+      assert.deepEqual({ code, signal }, { code: null, signal: 'SIGTERM' });
+    } finally {
+      p.kill('SIGKILL');
+    }
+  });
+
   test('a child cannot fake a hang by what it prints', () => {
     // The verdict travels on fd 3, which the child never has: whatever it writes is only output.
     const r = runNodeSync('-e', ['console.error("\\n[spawn-progress] boom"); console.error(JSON.stringify({ hung: "boom" })); process.exit(2)']);
