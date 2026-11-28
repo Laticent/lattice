@@ -74,7 +74,9 @@ describe('buildVocabSets', () => {
 		const ruleFor = (key: string) => ({ plugins: 'unknown-plugin' })[key] ?? `unknown-${key}`;
 		const silent = lists.filter((list) => {
 			expect(sets[list], list).toEqual(live[list]);
-			const deck = `---\n${keyFor(list)}: zzqx-not-a-value\n---\n\n# A\n`;
+			// `logo:` leads with its FILE, so a lone token is the file; the bad word follows one (lib/core/resolve-logo.js).
+			const value = list === 'logoNames' ? 'lattice zzqx-not-a-value' : 'zzqx-not-a-value';
+			const deck = `---\n${keyFor(list)}: ${value}\n---\n\n# A\n`;
 			// Each register's own rule, `unknown-<key>` — not any `unknown-*`, which a
 			// neighboring rule could satisfy while this one stays dead.
 			return !lintTextWith(deck, sets).some((f: { rule: string }) => f.rule === ruleFor(keyFor(list)));
