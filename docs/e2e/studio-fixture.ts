@@ -563,8 +563,13 @@ export function liveToast(page: Pick<Page, 'locator'>, text: RegExp | string): L
  */
 export async function recordToasts(page: Page): Promise<() => Promise<string[]>> {
 	await page.evaluate(() => {
-		const w = window as unknown as { __latticeToastLog?: string[] };
-		if (w.__latticeToastLog) return;
+		const w = window as unknown as { __latticeToastLog?: string[]; __latticeToastRead?: () => void };
+		// "From now on": a second call starts the log over rather than adding a second observer.
+		if (w.__latticeToastLog && w.__latticeToastRead) {
+			w.__latticeToastLog.length = 0;
+			w.__latticeToastRead();
+			return;
+		}
 		const log: string[] = [];
 		w.__latticeToastLog = log;
 		const read = () => {
@@ -573,6 +578,7 @@ export async function recordToasts(page: Page): Promise<() => Promise<string[]>>
 				if (t && !log.includes(t)) log.push(t);
 			}
 		};
+		w.__latticeToastRead = read;
 		new MutationObserver(read).observe(document.body, { childList: true, subtree: true, characterData: true });
 		read();
 	});
