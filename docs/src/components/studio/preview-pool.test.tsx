@@ -13,6 +13,8 @@ let mounts = 0;
 let unmounts = 0;
 /** A frame whose Mermaid flag CHANGED — a full `srcdoc` rewrite, a fresh document on WebKit. */
 let reshapes = 0;
+/** Samples the mock reports a paint for (DeckPreview's `onPaint`), so a test can say which slides land. Empty: none paints. */
+const paints = new Set<string>();
 vi.mock('@/components/DeckPreview', async () => {
 	const React = await import('react');
 	return {
@@ -23,6 +25,10 @@ vi.mock('@/components/DeckPreview', async () => {
 					unmounts++;
 				};
 			}, []);
+			React.useEffect(() => {
+				const s = String(props.sample);
+				if (paints.has(s)) (props.onPaint as ((p: { sample: string; extraCss: string | undefined }) => void) | undefined)?.({ sample: s, extraCss: props.extraCss as string | undefined });
+			}, [props.sample]);
 			const shape = React.useRef(props.drawn);
 			if (shape.current !== props.drawn) {
 				shape.current = props.drawn;
@@ -34,7 +40,7 @@ vi.mock('@/components/DeckPreview', async () => {
 });
 
 import { slotShows } from './pool-capture';
-import { APPLY_MS, BASE_SLOTS, CAPTURE_INPUT_QUIET_MS, CAPTURE_QUIET_MS, captureWait, FRAME_BLEED, HARD_MAX_SLOTS, hearInput, PARK_MS, PENDING_MAX_MS, PooledThumbFace, type PoolReport, PreviewPool, paintedIsCurrent, RELEASE_GRACE, readerQuietFor, showsOther, tierSlotCaps } from './preview-pool';
+import { APPLY_MS, BASE_SLOTS, CAPTURE_INPUT_QUIET_MS, CAPTURE_QUIET_MS, captureWait, FRAME_BLEED, HARD_MAX_SLOTS, hearInput, PARK_MS, PENDING_HARD_MS, PENDING_MAX_MS, PooledThumbFace, type PoolReport, PreviewPool, paintedIsCurrent, RELEASE_GRACE, readerQuietFor, showsOther, tierSlotCaps } from './preview-pool';
 
 // A controllable IntersectionObserver: jsdom has none, and the pool's no-IO fallback treats
 // every tile as in band, which would make every assertion here vacuous.
@@ -232,6 +238,7 @@ beforeEach(() => {
 	observers = [];
 	rects.clear();
 	widths.clear();
+	paints.clear();
 	listeners.clear();
 	vi.useFakeTimers();
 	(globalThis as { IntersectionObserver?: unknown }).IntersectionObserver = FakeIO;
@@ -992,6 +999,9 @@ describe('showsOther, the check that hides a frame until it paints its new slide
 	});
 	it('the backstop is short enough that a frame that never reports cannot leave a tile blank for long', () => {
 		expect(PENDING_MAX_MS).toBeLessThanOrEqual(2000);
+		// The hard bound keeps a frame that painted another slide hidden well past a slow write, but never indefinitely.
+		expect(PENDING_HARD_MS).toBeGreaterThan(PENDING_MAX_MS);
+		expect(PENDING_HARD_MS).toBeLessThanOrEqual(10000);
 	});
 });
 
@@ -1005,5 +1015,51 @@ describe('paintedIsCurrent, which paint may unhide a slot (#3507)', () => {
 		expect(paintedIsCurrent(p('# B'), { sample: '# A', extraCss: undefined })).toBe(false);
 		expect(paintedIsCurrent(p('# B', 'y{}'), { sample: '# B', extraCss: 'x{}' })).toBe(false);
 		expect(paintedIsCurrent(null, { sample: '# B', extraCss: undefined })).toBe(false);
+	});
+});
+
+describe('a slot handed another slide is hidden until it paints it, and never for long (#3507)', () => {
+	function One({ sample }: { sample: string }) {
+		return (
+			<PreviewPool>
+				<div data-testid="tile-0">
+					<PooledThumbFace options={{ themeBase: '', runtimeUrl: '', engineUrl: '' }} sample={sample} className="aspect-video w-full" />
+				</div>
+			</PreviewPool>
+		);
+	}
+	const shown = (c: HTMLElement) => slotsOf(c).map((s) => `${s.sample}:${s.visible ? 'shown' : 'hidden'}`);
+
+	it('keeps the old picture hidden past the soft backstop, then shows the slot at the hard bound', () => {
+		paints.add('# A');
+		const { container, rerender, unmount } = render(<One sample="# A" />);
+		intersect(face(container, 0), true);
+		settle();
+		expect(shown(container)).toEqual(['# A:shown']);
+		// The slot moves to a slide whose render never lands: the frame still holds `# A`, the wrong picture.
+		rerender(<One sample="# B" />);
+		settle();
+		expect(shown(container)).toEqual(['# B:hidden']);
+		act(() => {
+			vi.advanceTimersByTime(PENDING_MAX_MS + 100);
+		});
+		expect(shown(container), 'the soft backstop showed a frame that painted another slide').toEqual(['# B:hidden']);
+		act(() => {
+			vi.advanceTimersByTime(PENDING_HARD_MS - PENDING_MAX_MS);
+		});
+		expect(shown(container), 'past the hard bound the tile must not stay blank').toEqual(['# B:shown']);
+		unmount();
+	});
+
+	it('shows the slot the moment it paints the slide it now holds', () => {
+		paints.add('# A');
+		paints.add('# B');
+		const { container, rerender, unmount } = render(<One sample="# A" />);
+		intersect(face(container, 0), true);
+		settle();
+		rerender(<One sample="# B" />);
+		settle();
+		expect(shown(container)).toEqual(['# B:shown']);
+		unmount();
 	});
 });
