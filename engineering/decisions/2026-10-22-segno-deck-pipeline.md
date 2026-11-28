@@ -1345,10 +1345,16 @@ unchanged. Five names are added: `Frontmatter`, `FrontmatterMark` and `Frontmatt
 definition produces no token, so its `LinkReference` node is written from the definition the detail parse records,
 inside the quote or list item that holds it.
 
-**The inline parser.** `deckInlineParser()` (lib/core/deck-model.mjs) is S2 configured as the engine's markdown-it:
+**The inline parser.** `deckInlineOptions()` (lib/core/deck-inline.mjs) configures S2 as the engine's markdown-it:
 `html`, `~~`, and every plugin inline rule at its manifest's anchor and triggers. The token adapter reads its
 configuration off a markdown-it instance; an editor has none to read. `model-tokens.test.js` holds the two parsers to
 the same tapes on every committed deck.
+
+**Bytes.** The package entry is one module (`dist/index.mjs`), and a bundler keeps a module in one chunk: the eager
+chunk that holds the block pass for the outline. So the first cut, which read the inline pass through that entry, put
+it on the Studio's and the home page's eager JavaScript, +10,189 B gzipped on each, past both ceilings (CI's per-PR
+allowance named the chunk). The deck language now imports the inline pass from its source modules, so only its own
+chunk carries it, and `deckInlineOptions()` returns options rather than a parser built from the entry's class.
 
 **Incremental, counted (HARD RULE #32).** Each slide's subtree is kept with the model's segment for that slide, which
 `updateDeckModel` reuses when the edit is elsewhere, and the model rides on the tree, so the next parse finds it in

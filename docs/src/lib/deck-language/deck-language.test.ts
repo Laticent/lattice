@@ -8,7 +8,9 @@ import { type DeckModel, deckModelStats, F_EMPTY, I_FLAGS, I_FROM, I_KIND, I_TO,
 import type { SyntaxNode, Tree } from '@lezer/common';
 import { Tree as LezerTree } from '@lezer/common';
 import { describe, expect, it } from 'vitest';
-import { deckInlineParser, deckModel, updateDeckModel } from '../../../../lib/core/deck-model.mjs';
+import { deckInlineOptions } from '../../../../lib/core/deck-inline.mjs';
+import { deckModel, updateDeckModel } from '../../../../lib/core/deck-model.mjs';
+import { InlineParser } from '../segno-markdown/inline';
 import { deckMarkdown, deckNodeSet, deckTree, deckTreeStats, modelOf } from './deck-language';
 
 // THE TREE IS THE MODEL'S (engineering/decisions/2026-10-22-segno-deck-pipeline.md §P4b landed). Held on every committed
@@ -100,7 +102,7 @@ function againstModel(m: DeckModel, tree: Tree): string[] {
 		if (!ok) misses.push(`${r.type} on line ${r.fromLine}`);
 	}
 	// Inline structure, exactly.
-	const p = deckInlineParser();
+	const p = new InlineParser(deckInlineOptions());
 	for (let seg = 0; seg < m.segs.length; seg++) {
 		for (const { tape, leaf } of inlineSlide(m, seg, p)) {
 			const opens: number[] = [];

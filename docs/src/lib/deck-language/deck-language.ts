@@ -27,11 +27,19 @@ import { html } from '@codemirror/lang-html';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { yamlLanguage } from '@codemirror/lang-yaml';
 import { Language, LanguageSupport } from '@codemirror/language';
+import { COL_SHIFT, F_CLOSED, KIND, STRIDE, T_AUX, T_FLAGS, T_KIND, T_L0, T_L1, T_NEST } from '@laticent/segno-languages/markdown';
+import { type Input, NodeProp, NodeSet, NodeType, Parser, type PartialParse, parseMixed, Tree, type TreeFragment } from '@lezer/common';
+import { styleTags, tags as t } from '@lezer/highlight';
+import { deckInlineOptions as deckInlineOptionsJs } from '../../../../lib/core/deck-inline.mjs';
+import { deckModel as deckModelJs, updateDeckModel as updateDeckModelJs } from '../../../../lib/core/deck-model.mjs';
+// THE INLINE PASS COMES FROM ITS SOURCE MODULES, not from the package entry the block pass is read through. The entry is
+// one module (`dist/index.mjs`) and a bundler keeps a module in one chunk, the eager one the outline needs, so an inline
+// import from it put the whole inline pass on the Studio's and the home page's eager path (+10,189 B gzipped, #3599).
+// From here it rides only in this module's own chunk. The model's block pass is the entry's; these modules read a model
+// by its fields, so they read the entry's models as they read their own.
+import type { DeckModel } from '../segno-markdown/deck';
+import type { Detail, RefRecord } from '../segno-markdown/detail';
 import {
-	COL_SHIFT,
-	type DeckModel,
-	type Detail,
-	F_CLOSED,
 	F_EMPTY,
 	I_AUX,
 	I_FLAGS,
@@ -40,12 +48,10 @@ import {
 	I_NEST,
 	I_TO,
 	IKIND,
-	type InlineLeaf,
-	type InlineParser,
+	InlineParser,
+	type InlineParserOptions,
 	type InlineTape,
 	ISTRIDE,
-	inlineSlide,
-	KIND,
 	L_CHILD,
 	L_DEST0,
 	L_DEST1,
@@ -57,26 +63,24 @@ import {
 	LINK_INLINE,
 	LINK_REF,
 	LSTRIDE,
-	leafToBody,
-	type RefRecord,
-	referencesOf,
 	SPECIAL_ENTITY,
-	STRIDE,
-	slideDetail,
-	T_AUX,
-	T_FLAGS,
-	T_KIND,
-	T_L0,
-	T_L1,
-	T_NEST,
-} from '@laticent/segno-languages/markdown';
-import { type Input, NodeProp, NodeSet, NodeType, Parser, type PartialParse, parseMixed, Tree, type TreeFragment } from '@lezer/common';
-import { styleTags, tags as t } from '@lezer/highlight';
-import { deckInlineParser as deckInlineParserJs, deckModel as deckModelJs, updateDeckModel as updateDeckModelJs } from '../../../../lib/core/deck-model.mjs';
+} from '../segno-markdown/inline';
+import { type InlineLeaf, inlineSlide, leafToBody, referencesOf, slideDetail } from '../segno-markdown/model-inline';
 
 const buildModel = deckModelJs as (source: string) => DeckModel;
 const updateModel = updateDeckModelJs as (prev: DeckModel, next: string) => DeckModel;
-const inlineParser = deckInlineParserJs as () => InlineParser;
+const inlineOptions = deckInlineOptionsJs as () => InlineParserOptions;
+let parser: InlineParser | null = null;
+let parserFor: InlineParserOptions | null = null;
+/** The editors' inline parser, rebuilt when the admitted plugins change (`deckInlineOptions` returns new options then). */
+function inlineParser(): InlineParser {
+	const o = inlineOptions();
+	if (!parser || parserFor !== o) {
+		parser = new InlineParser(o);
+		parserFor = o;
+	}
+	return parser;
+}
 
 /** What building trees has cost, for the tests and the editor census: counted, never timed. */
 export const deckTreeStats = { models: 0, updates: 0, slidesBuilt: 0, slidesReused: 0, nodes: 0 };
