@@ -138,8 +138,8 @@ const VSCODE_THEMES = [
 
 /**
  * Every `dist/fonts/` file the kit's CSS references, via the EXPORT's walker.
- * `fontAssetsFor` strips CSS comments first and bounds the filename charset at
- * `[^)'"\s]{1,256}` — both hard-won, and both were lost in the copy this replaces.
+ * `fontAssetsFor` reads `url(…)` on the CSS tokenizer (a ref in a comment or a string does not count) and
+ * bounds the filename charset at `[^)'"\s]{1,256}` — both hard-won, and both were lost in the copy this replaces.
  */
 function fontFiles(cssTexts) {
   const files = new Set();
