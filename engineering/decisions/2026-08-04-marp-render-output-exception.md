@@ -176,7 +176,13 @@ grants nothing and withholds nothing.
 
 **Does not:** touch `LICENSE-EXCEPTIONS`. Option A is a change to what Lattice
 *grants*, it is one-way, and it is the copyright holder's decision. Awaiting it
-is why this note's status is `blocked` rather than `proposed`.
+is why this note's status was `blocked` rather than `proposed`.
+
+> **Resolved 2026-11-28 (#3598, #3622).** The owner chose option A. `LICENSE-EXCEPTIONS`
+> went to 1.2 (#3598) rather than 1.1, because 1.1 was already taken by the rename, and the
+> kit `NOTICE.md` cites it. The bundle got no `NOTICE.md`: #3622 ships `LICENSE` and
+> `LICENSE-EXCEPTIONS` themselves in every bundle, and the bundle README names them and
+> what they grant. That is why the status is now `shipped`. The text above is kept as written.
 
 ## Logged, not fixed here (HARD RULE #18, off-path)
 
@@ -223,6 +229,9 @@ the file needed, from `assets/licenses/`).
 > is not waiting on the A-or-B call below.
 
 ## For whoever picks this up
+
+> **Done 2026-11-28.** Item 1 shipped as the Resolved callout above describes; item 2 shipped
+> as #1354. The list below is kept as written.
 
 1. Owner decides A or B-only. If A, `LICENSE-EXCEPTIONS` goes to 1.1 and both the
    kit `NOTICE.md` and a new bundle `NOTICE.md` cite the new version.
