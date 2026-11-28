@@ -129,7 +129,7 @@ A slide's settings are one **record**: an HTML comment, on its own line at the t
 item, a blockquote or another HTML block), whose body starts `@meta{`:
 
 ```markdown
-<!-- @meta{layout=split-compare, class=dark, footer="Q3 review", lens="brief -evidence"} -->
+<!-- @meta{layout=split-compare, class=dark, lens="brief -evidence"} -->
 ```
 
 - `layout` names one component (§4.1) and `class` the modifier tokens after it; the slide's class is the two joined,
@@ -189,7 +189,7 @@ where the note shows up:
 ## Where the pipeline leaks.
 
 <!-- @note{Open on the drop.} -->
-<!-- @say{The pipeline holds until activation, then loses seventy percent before paid.} -->
+<!-- @say{It holds until activation, then loses seventy percent.} -->
 <!-- @alt{Funnel chart: 12,000 visitors narrowing to 620 paid.} -->
 <!-- @handout{Activation-to-paid is measured over 30 days.} -->
 ```
