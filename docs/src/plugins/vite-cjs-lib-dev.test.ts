@@ -82,6 +82,52 @@ describe('docs/src imports CommonJS lib/ files by default import only', () => {
 	});
 });
 
+/**
+ * Third arm (PR #3621): the ESM files under `lib/` that docs/src REACHES. The two scans above read
+ * only `docs/src`, but a browser module that imports `lib/theme/chain.mjs` loads chain.mjs's own
+ * imports too, through the same dev-server shim. chain.mjs took `{ cssImports }` off CommonJS
+ * `css-tokens.js`, and every live slide on the home page rendered blank under `npm run dev`; six
+ * more lib/ modules (slide-camera, inline-url-media, css-rules, read-slide, prose-projection,
+ * player-core) failed to load the same way. So walk the import graph from docs/src into lib/ and
+ * hold every ESM file it reaches to the same rule.
+ */
+function reachableLibEsm(): string[] {
+	const seen = new Set<string>();
+	const queue: string[] = [];
+	const visit = (from: string, spec: string) => {
+		if (!spec.startsWith('.')) return;
+		const target = path.resolve(path.dirname(from), spec);
+		if (!target.startsWith(LIB) || seen.has(target) || !fs.existsSync(target) || isCjs(target)) return;
+		if (!/\.m?js$/.test(target)) return;
+		seen.add(target);
+		queue.push(target);
+	};
+	for (const file of sources(DOCS_SRC)) for (const m of fs.readFileSync(file, 'utf8').matchAll(IMPORT)) visit(file, m[2]);
+	while (queue.length) {
+		const file = queue.shift() as string;
+		for (const m of fs.readFileSync(file, 'utf8').matchAll(IMPORT)) visit(file, m[2]);
+	}
+	return [...seen];
+}
+
+describe('lib/ ESM that docs/src reaches imports CommonJS lib/ files by default import only', () => {
+	it('has no named or namespace import off a CJS file', () => {
+		const reached = reachableLibEsm();
+		// The walk has to be reaching lib/, or the pass means nothing.
+		expect(reached.length).toBeGreaterThan(20);
+		const offenders: string[] = [];
+		for (const file of reached) {
+			for (const m of fs.readFileSync(file, 'utf8').matchAll(IMPORT)) {
+				const target = path.resolve(path.dirname(file), m[2]);
+				if (!target.startsWith(LIB) || !target.endsWith('.js') || !fs.existsSync(target) || !isCjs(target)) continue;
+				const clause = m[1].trim();
+				if (!/^[A-Za-z_$][\w$]*$/.test(clause)) offenders.push(`${path.relative(REPO, file)}: import ${clause} from '${m[2]}'`);
+			}
+		}
+		expect(offenders, 'use `import x from …` then `const { a } = x;`').toEqual([]);
+	});
+});
+
 describe('inlineSiblingLeaves', () => {
 	it('inlines remote-ref.js and its media-sources.js sibling into one working module', () => {
 		const dir = path.join(REPO, 'lib', 'core');
