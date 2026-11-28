@@ -1363,9 +1363,18 @@ describe('export-formats', () => {
 
   test('SVG look renders the chart/diagram independent of the slides (color slides + print SVGs)', { timeout: TIMEOUT }, async () => {
     const JSZip = require('jszip');
+    // The chart slide alone. Every assertion below reads the pie chart; the fixture's Mermaid
+    // slide added a diagram render, plus a print re-bake, to each export: two of the three
+    // Chromium launches a print export makes. The print look's diagram re-bake has its own
+    // tests further down ("a dark-source deck exports a print-safe (B&W) Mermaid diagram").
+    const chartOnly = path.join(tmpDir(), 'chart.md');
+    const chartSlide = fs.readFileSync(CHART_DIAGRAM_FIXTURE, 'utf8').split(/\n---\n\n<!-- @meta\{layout=diagram\}/)[0];
+    assert.match(chartSlide, /@meta\{layout=piechart\}/, 'the fixture still opens with its pie chart');
+    assert.doesNotMatch(chartSlide, /```mermaid/, 'the chart-only deck carries no diagram');
+    fs.writeFileSync(chartOnly, chartSlide);
     const chartSvg = async (svgBackground) => {
       const out = path.join(tmpDir(), 'deck.zip');
-      const r = spawnSync(process.execPath, [EMULATOR, CHART_DIAGRAM_FIXTURE, out, '--quiet', '--image-mode', 'light', '--svg-background', svgBackground], {
+      const r = spawnSync(process.execPath, [EMULATOR, chartOnly, out, '--quiet', '--image-mode', 'light', '--svg-background', svgBackground], {
         cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
       });
       assert.equal(r.status, 0, `emulator failed (${svgBackground}): ${r.stderr}`);
