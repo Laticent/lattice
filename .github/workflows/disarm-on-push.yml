@@ -44,3 +44,4 @@ jobs:
           gh pr merge --disable-auto "$PR_URL"
           echo "Auto-merge turned off: a new head ($HEAD) arrived after it was armed. Ask again, or let the night desk re-check it." >> "$GITHUB_STEP_SUMMARY"
 # probe: throwaway test PR for the disarm fix; never merge
+# probe B: push while armed, old permissions
