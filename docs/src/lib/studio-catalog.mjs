@@ -59,6 +59,7 @@ export function buildStudioCatalog(root = join(process.cwd(), '..')) {
 				// detail rail; without them the shared search core throws on undefined `tags`.
 				substance: c.substance || '',
 				tags: Array.isArray(c.tags) ? c.tags : [],
+				searchTerms: Array.isArray(c.searchTerms) ? c.searchTerms : [],
 				purpose: c.purpose || '',
 				description: c.description || '',
 				// The add-slide gallery's tile name, where the class reads worse ("Two columns"), and a

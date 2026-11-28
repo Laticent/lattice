@@ -73,6 +73,7 @@
     "agile",
     "ownership"
   ],
+  "searchTerms": ["board", "tasks", "backlog", "in progress", "todo", "workflow"],
   "variants": [
     "keyline",
     "tinted"

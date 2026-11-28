@@ -52,6 +52,8 @@ export type PickerItem = {
 	form?: string;
 	substance?: string;
 	tags?: string[];
+	/** The everyday words an author types to find it (manifest `searchTerms`). */
+	searchTerms?: string[];
 	/** Detail-rail prose. */
 	purpose?: string;
 	/** A local component's own CSS → preview `extraCss` so its tile renders STYLED. */
@@ -133,6 +135,7 @@ function toCatalogItem(it: PickerItem): CatalogItem {
 		description: it.description || '',
 		purpose: it.purpose || '',
 		tags: it.tags ?? [],
+		searchTerms: it.searchTerms ?? [],
 		variants: it.variants ?? [],
 	};
 }

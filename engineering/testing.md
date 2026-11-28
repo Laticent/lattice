@@ -535,6 +535,21 @@ viewport. Nothing opened, 1–2 red in 50 at 4 workers on `webkit-phone`.
 **Do instead.** Require the frame's box and the tap point to sit inside the current viewport before
 tapping (#3243).
 
+## A DevTools quota set after the page has written IndexedDB
+
+**Trap.** Chromium's IndexedDB reads how much space an origin has left once, at that origin's first
+write, and keeps the figure. `Storage.overrideQuotaForOrigin` sent after that write is never seen by
+IndexedDB, even at a quota of 1 byte, though `Storage.getUsageAndQuota` reports the override as
+active. A `quotaSize` of 0 leaves writes unlimited.
+
+**Example.** `checkpoint-storage.spec.ts` set the quota to the measured usage plus 256 bytes right
+after `gotoStudio`. It passed only when the override beat the Studio's startup writes: 5 red in 8 at
+4 workers on `main`. In a bare page, an override made before the first write refused a 5 KB write
+at a quota of 1 KB; the same override made after one write admitted 500 KB.
+
+**Do instead.** Send the override before the page loads, as for a person whose storage is already
+full, and use a quota of 1 byte, not 0. The Studio boots cleanly under it.
+
 ## A CodeMirror parse that runs out of time finishes in a second slice
 
 **Trap.** CodeMirror parses a transaction with a 20 ms budget (`Work.Apply` in `@codemirror/language`). When the
@@ -548,4 +563,4 @@ at p50; a stall of 20 ms or more (preemption, a GC pause) splits it.
 
 **Do instead.** Make the second call cost nothing when the text is the one the fragments already read, and count
 that work, not the calls. To hit the split on every run, replace `Date.now` with a clock that jumps 1 s per read
-around `state.update`, and restore it before `ensureSyntaxTree` (#3593's ejection; the fix's PR).
+around `state.update`, and restore it before `ensureSyntaxTree` (#3593's ejection, #3627).

@@ -47,6 +47,7 @@
     "assessment",
     "board-deck"
   ],
+  "searchTerms": ["risk curve", "loss", "probability", "insurance", "exceedance"],
   "description": "An exceedance-probability curve: the loss to expect once every N years, with return periods across on a log scale and up to four curves (OEP and AEP, gross and net).",
   "purpose": "Use when the question is how big a loss to plan for: a reinsurance program's 1-in-100 and 1-in-250 losses, a cat model's output, a capital model's tail. Each point is `{return period, loss}`; a curve is a name with its points nested under it.",
   "axisSet": {

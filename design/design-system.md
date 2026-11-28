@@ -688,6 +688,34 @@ allow-listed in `SINGLETON_TAGS`. Tags surface in the generated
 `<name>.docs.md`, the aggregated `dist/docs/components.md`, and as
 chips + a live filter facet on the docs-site component pages.
 
+### Search terms — the words a person actually types
+
+Tags are a **controlled** vocabulary, which is exactly why they cannot
+carry everyday words: "grades", "movie", "data" or "photos" would never
+cluster as facets. `searchTerms` is the other half (2026-11-23,
+`engineering/decisions/2026-11-23-search-by-meaning.md`): **3–12 plain
+English words or short phrases** an author would type into the Studio's
+slide gallery to find this component, without knowing its name.
+
+- **Free, per manifest.** Not drawn from `TAG_GROUPS`, and they may
+  repeat across components ("data" is on every chart that shows data).
+- **Required for the shipped catalog, optional in the schema.** A unit
+  test fails if any in-tree manifest lacks them, so a new component cannot
+  ship unfindable. The schema leaves them optional so a component an
+  author makes in the Studio is not rejected for lacking them.
+- **Plain words only:** lowercase letters, digits, spaces and hyphens
+  (write `qa`, not `q&a`).
+- **Stemmed, so list a word once.** "grade" also finds "grades".
+- **Meaning pass only.** The Workspace "literal only" search turns the
+  meaning pass off, and `searchTerms` with it.
+- **Measured.** `tools/intent-bakeoff` scores them on an everyday-words
+  query set and a held-out set, and `docs/src/lib/search-everyday.test.ts`
+  holds the floor: everyday one-word queries went from 44% to 89% top-1
+  (tuning set) and from 22% to 66% (held-out).
+
+General English that belongs to no single component (pic, vid, vs) lives
+in the ranker's small `SYNONYMS` table instead (`intent-search.ts`).
+
 ### For agents
 
 AI agents authoring decks get a discovery surface and a validation loop:
@@ -701,6 +729,13 @@ AI agents authoring decks get a discovery surface and a validation loop:
   plus the controlled vocabularies. This is what TOOLS load; at 95k tokens it is not a
   document to read for a pick. Both are generated alongside `components.md/.html` by
   `tools/build-docs-portal.js`.
+- **`components.json` is versioned.** Its top-level `schemaVersion` is an integer
+  (today `1`). A new field keeps the version, so a reader ignores fields it does not
+  know. Removing or renaming a field, or changing what one means, bumps it, so a
+  reader checks `schemaVersion` before it trusts a field. The bump is
+  `COMPONENTS_JSON_SCHEMA_VERSION` in `tools/build-docs-portal.js`.
+  `test/unit/cli/components-json-schema-version.test.js` fails when a field in
+  `test/fixtures/components-json-fields.json` disappears without one.
 - **Capacity — pick by content shape.** A layout overflows when it holds more
   elements than it's built for — the most common authoring slip. A component's
   optional `capacity` block (`{ axis, sweet, soft, hard, escalateTo }`) declares
