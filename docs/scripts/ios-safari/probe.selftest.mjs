@@ -6,6 +6,7 @@
  *
  *   node scripts/ios-safari/probe.selftest.mjs
  *   PROBE=undo node scripts/ios-safari/probe.selftest.mjs   # the undo probe: edit, WebKit undo command, reload
+ *   PROBE=media-vault node scripts/ios-safari/probe.selftest.mjs    # the Studio's photo move and move-back across two reloads
  *   PROBE=chat-storage node scripts/ios-safari/probe.selftest.mjs   # chats move to IndexedDB across a reload; the allowance
  *   PROBE=font-cache node scripts/ios-safari/probe.selftest.mjs   # the font cache probe, against font-cache-server.mjs
  *   PROBE=codec-support node scripts/ios-safari/probe.selftest.mjs   # the narration codec probe, in Chromium, WebKit and Firefox
@@ -80,6 +81,35 @@ if (process.env.PROBE === 'font-cache') {
 		await context.close();
 		fs.rmSync(dir, { recursive: true, force: true });
 	}
+	process.exit(failed ? 1 : 0);
+}
+if (process.env.PROBE === 'media-vault') {
+	// The Studio's photo move and move-back, as run.mjs runs them: plant, reload, check the move, reload, check the move-back.
+	const MV = fs.readFileSync(path.join(here, 'media-vault-probe.js'), 'utf8');
+	for (const { label, options } of shapes) {
+		const context = await browser.newContext(options);
+		const page = await context.newPage();
+		await page.addInitScript(SEED);
+		const load = async (reload) => {
+			if (reload) await page.reload({ waitUntil: 'domcontentloaded' });
+			else await page.goto(`${BASE}/studio/`, { waitUntil: 'domcontentloaded' });
+			await page.addScriptTag({ content: MV });
+		};
+		await load(false);
+		const first = await page.evaluate(() => globalThis.latticeMediaVaultProbe());
+		report(label, 'media-vault-probe.js', first);
+		if (first.ok) {
+			await load(true);
+			const second = await page.evaluate((seed) => globalThis.latticeMediaVaultAfterMove(seed), first.seed);
+			report(label, 'media-vault-probe.js after the move', second);
+			if (second.ok) {
+				await load(true);
+				report(label, 'media-vault-probe.js after the move-back', await page.evaluate((seed) => globalThis.latticeMediaVaultAfterMoveBack(seed), first.seed));
+			}
+		}
+		await context.close();
+	}
+	await browser.close();
 	process.exit(failed ? 1 : 0);
 }
 if (process.env.PROBE === 'chat-storage') {
