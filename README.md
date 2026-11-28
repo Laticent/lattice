@@ -477,16 +477,19 @@ a fluid HTML export also inlines the runtime JavaScript. The [Lattice Output
 Exception](LICENSE-EXCEPTIONS) lets you convey those embedded assets as part of
 that deck, under terms of your choice: the AGPL does not extend to the deck as a
 whole, and you need not offer the assets' source. The same holds for an HTML
-deck that Marp renders (`marp --html`, for example) from the Marp kit or an
-Export-to-Marp bundle. It covers only assets embedded by Lattice's own export
-pipeline or by one of the Marp tools the exception names. It does not cover:
+deck that Marp CLI or Marp for VS Code renders from the Marp kit or an
+Export-to-Marp bundle (`marp --html`, for example), together with the script and
+style files that deck loads from beside it, as long as you leave the kit's or
+bundle's CSS and JavaScript unmodified. It does not cover:
 
 - the engine or its assets, conveyed any way other than inside a rendered deck,
-  including the Marp kit and the Export-to-Marp bundle themselves;
+  including the Marp kit and the Export-to-Marp bundle themselves (beyond the
+  files a rendered deck loads);
 - assets extracted from a rendered deck for reuse;
 - a modified engine, or embedded assets changed beyond what the export pipeline
   or a Marp tool does;
-- a deck that any other tool builds from Lattice's files.
+- a deck that any other tool builds from Lattice's files, including another
+  program that uses Marp Core or Marpit.
 
 Outside the exception, the AGPL's conditions apply to the engine code a file
 carries. They also attach to the engine itself: if you redistribute it, serve it

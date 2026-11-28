@@ -220,3 +220,15 @@ test('the kit ships the layout snippets VS Code completes from', () => {
   const repo = fs.readFileSync(path.join(__dirname, '..', '..', '..', '.vscode', 'lattice.code-snippets'), 'utf8');
   assert.equal(text('.vscode/lattice.code-snippets'), repo);
 });
+
+test('NOTICE cites the exception version the kit actually ships', () => {
+  // The kit is copy-and-go: NOTICE.md names an exception version by hand, and the
+  // kit carries a verbatim copy of LICENSE-EXCEPTIONS. If the two drift, every
+  // copy taken in between cites a grant it does not contain (#3598).
+  const header = text('LICENSE-EXCEPTIONS').match(/^LATTICE OUTPUT EXCEPTION, version (\d+\.\d+)$/m);
+  assert.ok(header, 'LICENSE-EXCEPTIONS has no version header');
+  const cited = [...text('NOTICE.md').matchAll(/version\s+(\d+\.\d+)/g)].map((m) => m[1]);
+  assert.ok(cited.length > 0, 'NOTICE.md cites no exception version');
+  for (const v of cited) assert.equal(v, header[1], `NOTICE.md cites ${v}; the kit ships ${header[1]}`);
+  assert.doesNotMatch(text('NOTICE.md'), /and later/, 'NOTICE.md must not promise versions nobody has written');
+});

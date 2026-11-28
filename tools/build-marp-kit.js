@@ -233,12 +233,14 @@ function vscodeSettings() {
  *
  * RESOLVED 2026-11-28: the owner extended the exception to Marp renders
  * (option A of the note above; `LICENSE-EXCEPTIONS` version 1.2, "Marp
- * renders"). The `--html` bullet now states that grant. It names the version on
- * purpose: this is a COPY-AND-GO folder with no update channel, and it ships its
- * own copy of `LICENSE-EXCEPTIONS`, so the sentence and the grant it cites
+ * renders"). The `--html` bullet now states that grant. It says "version
+ * 1.2", never "and later": no copy can promise a version nobody has written.
+ * It names the version on purpose: this is a COPY-AND-GO folder with no
+ * update channel, and it ships its own copy of `LICENSE-EXCEPTIONS`, so the sentence and the grant it cites
  * travel together and stay true in every copy. Do not re-broaden it past what
- * that file grants: a modified kit, a tool that is not a named Marp Tool, and
- * the loose folder itself stay outside the exception.
+ * that file grants: modified kit CSS or JavaScript, a tool that is not a named
+ * Marp Tool, extracted assets and the loose folder itself stay outside it. A
+ * unit test (marp-kit.test.js) keeps this version equal to the file's header.
  */
 function notice() {
   return `# Notices
@@ -275,10 +277,13 @@ one of them puts engine code in your hands to pass on:
   Render either way and share the file however you like. (The one route not
   measured is \`--pptx-editable\`, which converts through LibreOffice.)
 - **\`marp --html\` inlines the engine stylesheet** — about 852 KB of it — into
-  the output file. The output exception covers it (version 1.2 and later): you
-  may publish that file under terms of your choice, with no duty to offer the
-  stylesheet's source, as long as you render with a Marp tool the exception
-  names and leave this kit's files unmodified.
+  the output file, and the file loads \`lattice-runtime-min.js\` and the other
+  scripts from beside it. If you leave this kit's CSS and JavaScript unmodified
+  and render with Marp CLI or Marp for VS Code, the output exception (version
+  1.2, in \`LICENSE-EXCEPTIONS\` beside this file) covers that file and the
+  scripts it loads: you may publish them together under terms of your choice,
+  with no duty to offer their source. Lifting the CSS or scripts out for other
+  use is not covered.
 
 If you plan to redistribute the kit itself, or ship a service built on it, read
 \`LICENSE\`.
