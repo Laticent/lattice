@@ -6122,8 +6122,16 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			stop?.();
 		};
 	}, []);
-	const checkpoint = React.useCallback((label: string) => setCheckpoints(saveCheckpoint(deck.id, source, label, Date.now())), [deck.id, source]);
-	const saveVersion = () => { checkpoint('Saved version'); notify('Version saved to history.'); };
+	// "Saved" only once the version is durable. It used to show at the click, so a save the browser refused showed both
+	// "Version saved to history." and the storage-full notice, and a second refusal inside the notice's one-a-minute
+	// limit showed only "saved". The version is listed at once either way (the store's cache holds it until a reload).
+	const saveVersion = () => {
+		const saved = saveCheckpointDurably(deck.id, source, 'Saved version', Date.now());
+		setCheckpoints(loadCheckpoints(deck.id));
+		void saved.then((ok) => {
+			if (ok) notify('Version saved to history.');
+		}, () => {});
+	};
 	function restoreCheckpoint(cp: Checkpoint) {
 		// Snapshot the current state first so a restore is itself reversible.
 		saveCheckpoint(deck.id, source, 'Before restore', Date.now());
