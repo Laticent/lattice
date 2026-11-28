@@ -136,8 +136,70 @@ describe('resolveSource', () => {
   });
 });
 
-test('renderEnvOverrides names every render setting that would reach both control renders', () => {
-  const env = { PATH: '/bin', LATTICE_PDF_PHOTO_QUALITY: '60', LATTICE_ACTOR: 'kirk', NODE_TEST_CONTEXT: 'child', LATTICE_PDF_PHOTO_FAST: '1' };
-  assert.deepEqual(m.renderEnvOverrides(env), ['LATTICE_PDF_PHOTO_FAST', 'LATTICE_PDF_PHOTO_QUALITY', 'NODE_TEST_CONTEXT']);
+test('renderEnvOverrides refuses every LATTICE_* setting but the inert ones, and the test marker', () => {
+  const env = {
+    PATH: '/bin', LATTICE_ACTOR: 'kirk', NODE_TEST_CONTEXT: 'child',
+    LATTICE_PDF_PHOTO_QUALITY: '60', LATTICE_MERMAID_SINGLE: '1', LATTICE_OVERFLOW_MARKER: 'off', LATTICE_HOME: '/tmp/h',
+  };
+  assert.deepEqual(m.renderEnvOverrides(env), ['LATTICE_HOME', 'LATTICE_MERMAID_SINGLE', 'LATTICE_OVERFLOW_MARKER', 'LATTICE_PDF_PHOTO_QUALITY', 'NODE_TEST_CONTEXT']);
   assert.deepEqual(m.renderEnvOverrides({ PATH: '/bin', LATTICE_ACTOR: 'kirk' }), []);
+});
+
+describe('renderBuildSteps and staleSteps', () => {
+  test('every gitignored build a PDF render loads, in build order, from the tree\'s own tools/', () => {
+    const scripts = ['build-css.js', 'build-zeta-lib.js', 'build-pdf-compose.js', 'build-agent-kit.mjs', 'build-alpha-lib.js',
+      'build-segno-grammar.js', 'build-dagre-bundle.js', 'build-callout-browser.js', 'build-default-bundle.js', 'build-runtime.js'];
+    assert.deepEqual(m.renderBuildSteps(scripts), ['build-segno-grammar.js', 'build-alpha-lib.js', 'build-zeta-lib.js',
+      'build-css.js', 'build-default-bundle.js', 'build-dagre-bundle.js', 'build-callout-browser.js', 'build-pdf-compose.js']);
+    // An old tree without a step simply lacks it.
+    assert.deepEqual(m.renderBuildSteps(['build-css.js', 'build-markup-lib.js']), ['build-markup-lib.js', 'build-css.js']);
+  });
+
+  test('staleSteps names each step whose check throws', () => {
+    const ran = [];
+    const stale = m.staleSteps(['build-markup-lib.js', 'build-css.js', 'build-pdf-compose.js'], (step) => {
+      ran.push(step);
+      if (step !== 'build-css.js') throw new Error('stale');
+    });
+    assert.deepEqual(stale, ['markup', 'pdf-compose']);
+    assert.equal(ran.length, 3, 'every step is checked, not only up to the first failure');
+  });
+});
+
+describe('linkTreeModules', () => {
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const path = require('node:path');
+  let bt;
+  before(async () => {
+    bt = await import('../../../tools/lib/base-tree.mjs');
+  });
+
+  test('third-party packages are borrowed; the tree\'s workspaces are its own; a gone workspace is not borrowed', () => {
+    const base = fs.mkdtempSync(path.join(os.tmpdir(), 'regress-tree-'));
+    try {
+      const repo = path.join(base, 'repo');
+      const tree = path.join(base, 'tree');
+      // This checkout: a third-party package, a workspace link the tree's commit does not have, docs/node_modules.
+      fs.mkdirSync(path.join(repo, 'node_modules', 'leftpad'), { recursive: true });
+      fs.mkdirSync(path.join(repo, 'docs', 'src', 'lib', 'renamed'), { recursive: true });
+      fs.mkdirSync(path.join(repo, 'node_modules', '@laticent'), { recursive: true });
+      fs.symlinkSync(path.join(repo, 'docs', 'src', 'lib', 'renamed'), path.join(repo, 'node_modules', '@laticent', 'renamed'));
+      fs.mkdirSync(path.join(repo, 'docs', 'node_modules'), { recursive: true });
+      // The tree: one workspace under its own name.
+      fs.mkdirSync(path.join(tree, 'docs', 'src', 'lib', 'markup'), { recursive: true });
+      fs.writeFileSync(path.join(tree, 'package.json'), JSON.stringify({ workspaces: ['docs/src/lib/markup'] }));
+      fs.writeFileSync(path.join(tree, 'docs', 'src', 'lib', 'markup', 'package.json'), JSON.stringify({ name: '@laticent/markup-old' }));
+
+      const linked = bt.linkTreeModules(repo, tree);
+      const nm = path.join(tree, 'node_modules');
+      assert.deepEqual([...linked], ['@laticent/markup-old']);
+      assert.equal(fs.realpathSync(path.join(nm, 'leftpad')), fs.realpathSync(path.join(repo, 'node_modules', 'leftpad')));
+      assert.equal(fs.realpathSync(path.join(nm, '@laticent', 'markup-old')), fs.realpathSync(path.join(tree, 'docs', 'src', 'lib', 'markup')));
+      assert.equal(fs.existsSync(path.join(nm, '@laticent', 'renamed')), false, "this checkout's own workspace must not leak into the tree");
+      assert.equal(fs.realpathSync(path.join(tree, 'docs', 'node_modules')), fs.realpathSync(path.join(repo, 'docs', 'node_modules')));
+    } finally {
+      fs.rmSync(base, { recursive: true, force: true });
+    }
+  });
 });

@@ -162,8 +162,9 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   `node tools/regression-gate.mjs --only examples/<name> --control` re-renders the
   golden at the commit its nightly bless rendered from, on this machine. It then says
   "cross-machine band", "source drift" or "unavailable". In a shallow clone it says
-  "unavailable" until `git fetch --unshallow --filter=blob:none`, and with stale
-  workspace builds until `npm run build`. A "band" passes only for a nightly bless with
+  "unavailable" until `git fetch --unshallow --filter=blob:none`, with a stale or
+  missing render build until `npm run build`, and with any `LATTICE_*` setting but
+  `LATTICE_ACTOR` in the environment. A "band" passes only for a nightly bless with
   no dependency change since. The limits are in `engineering/development.md`, after the
   `regress` spot-check.
 - **Lesson:** a stale artifact is not a broken renderer. Exclude the boring cause

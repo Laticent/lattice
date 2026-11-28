@@ -62,7 +62,7 @@
 //                                                       # re-render each drift at the commit its golden was
 //                                                       # rendered from, HERE: "cross-machine band" (passes
 //                                                       # only for a nightly bless with unchanged deps;
-//                                                       # refused under stale workspace builds or LATTICE_PDF_*),
+//                                                       # refused under stale render builds or LATTICE_*),
 //                                                       # "source drift" or "unavailable" (fail). ~50 s per
 //                                                       # commit tree + two renders per drift, one at a time
 //                                                       # (it ignores --jobs); tools/lib/regress-control.mjs
@@ -97,7 +97,7 @@ import {
   THEMES,
 } from './lib/golden-render.mjs';
 import { deckGoldenPdfs } from './lib/golden-set.mjs';
-import { controlLine, controlPasses, controlVerdict, groupByBlessCommit, hostLine, renderEnvOverrides, resolveSource } from './lib/regress-control.mjs';
+import { controlLine, controlPasses, controlVerdict, groupByBlessCommit, hostLine, renderBuildSteps, renderEnvOverrides, resolveSource, staleSteps } from './lib/regress-control.mjs';
 
 const require = createRequire(import.meta.url);
 const { pixelDiff, montageTriptych, pngsToPdf } = require('./pixel-check.js');
@@ -566,21 +566,28 @@ function controlOne(treeRoot, item) {
   }
 }
 
-// Why the control cannot run at all here, or ''. The workspace check is each builder's own
-// `--check` (tools/build-*-lib.js), about 17 s for all of them.
+// Why the control cannot run at all here, or ''. Every render build is `--check`ed in this checkout,
+// about 20 s for all of them; nothing is rebuilt, so the drift above and the control's HEAD render
+// see the same files.
 function controlRefusal() {
   const env = renderEnvOverrides(process.env);
   if (env.length) return `render settings in the environment (${env.join(', ')}) would reach both renders alike; unset them and run again`;
-  const stale = [];
-  for (const f of readdirSync(join(ROOT, 'tools')).filter((n) => /^build-.+-lib\.js$/.test(n)).sort()) {
-    try {
-      execFileSync(process.execPath, [join('tools', f), '--check'], { cwd: ROOT, stdio: 'ignore' });
-    } catch {
-      stale.push(f.replace(/^build-|-lib\.js$/g, ''));
-    }
-  }
-  if (stale.length) return `this checkout's workspace builds are stale (${stale.join(', ')}); run \`npm run build\` and try again`;
+  const steps = renderBuildSteps(readdirSync(join(ROOT, 'tools')));
+  const stale = staleSteps(steps, (step) => execFileSync(process.execPath, [join('tools', step), '--check'], { cwd: ROOT, stdio: 'ignore' }));
+  if (stale.length) return `this checkout's render builds are stale or missing (${stale.join(', ')}); run \`npm run build\` and try again`;
   return '';
+}
+
+// The tree's own render builds, made explicitly and then checked: buildBaseTree's general build
+// swallows a failed step, and a render bundle missing on BOTH sides would make both renders fall
+// back alike (the PDF writer, for one, falls back to Chrome's print) and read as "machine".
+function treeWithRenderBuilds(tree) {
+  if (tree.error) return tree;
+  const steps = renderBuildSteps(readdirSync(join(tree.root, 'tools')));
+  const run = (args) => (step) => execFileSync(process.execPath, [join('tools', step), ...args], { cwd: tree.root, stdio: 'ignore' });
+  const failed = staleSteps(steps, run([]));
+  const stale = failed.length ? failed : staleSteps(steps, run(['--check']));
+  return stale.length ? { error: `the source commit's render builds failed or are incomplete (${stale.join(', ')})` } : tree;
 }
 
 // Attach a control verdict to every drifting mood in the report. One tree per bless commit.
@@ -593,7 +600,7 @@ function runControl(report) {
   }
   // Two things this checkout's render carries that the control's tree does not, and that the
   // control would therefore read as "machine": render settings in the environment, and stale
-  // workspace builds (the HEAD render loads this checkout's gitignored docs/src/lib/*/dist, while
+  // gitignored builds (the HEAD render loads this checkout's dist/ and docs/src/lib/*/dist, while
   // the tree builds its own fresh). Either one makes every control unavailable.
   const refusal = controlRefusal();
   if (refusal) {
@@ -604,7 +611,7 @@ function runControl(report) {
   for (const [key, list] of groupByBlessCommit(items, (g) => JSON.stringify(resolveSource(g, ctx)))) {
     const src = JSON.parse(key);
     const dir = join(OUT, `control-${src.sha ? src.sha.slice(0, 12) : 'none'}`);
-    const tree = src.error ? { error: src.error } : buildBaseTree({ repoRoot: ROOT, ref: src.sha, dir, ownWorkspaces: true });
+    const tree = src.error ? { error: src.error } : treeWithRenderBuilds(buildBaseTree({ repoRoot: ROOT, ref: src.sha, dir, ownWorkspaces: true }));
     for (const item of list) {
       const c = tree.error ? { verdict: 'unavailable', error: tree.error } : controlOne(tree.root, item);
       // An old tree runs on this checkout's node_modules, so a package it imports may be gone.

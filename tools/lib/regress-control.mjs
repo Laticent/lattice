@@ -68,12 +68,45 @@ export function resolveSource(golden, { git, cutoffs, isShallow, renderInputs, b
   }
 }
 
-// Environment settings that change a render and would reach BOTH control renders alike, so the
-// control could not see them: the PDF photo layer's speed, quality and scale switches, and the
-// test runner's marker, which turns the fast photo on (lattice.js PDF_PHOTO_FAST). The control
-// refuses to run under any of them (the third review of #3589, finding 2).
+// Environment settings that could change a render and would reach BOTH control renders alike, so
+// the control could not see them. Every LATTICE_* variable counts except the ones listed as inert:
+// lattice.js reads a dozen (the PDF photo layer's LATTICE_PDF_*, LATTICE_MERMAID_SINGLE,
+// LATTICE_OVERFLOW_MARKER, LATTICE_HOME's plugins, …) and a list of the harmful ones goes stale the
+// day one more is added (the fourth review of #3589, finding 2). NODE_TEST_CONTEXT counts too: the
+// test runner sets it, and lattice.js turns the fast photo on under it.
+export const INERT_ENV = new Set(['LATTICE_ACTOR']);
 export function renderEnvOverrides(env) {
-  return Object.keys(env).filter((k) => k.startsWith('LATTICE_PDF_') || k === 'NODE_TEST_CONTEXT').sort();
+  return Object.keys(env).filter((k) => (k.startsWith('LATTICE_') && !INERT_ENV.has(k)) || k === 'NODE_TEST_CONTEXT').sort();
+}
+
+// The gitignored builds a PDF render loads, as the tools/ scripts that write them, in build order:
+// the Segno grammar, every workspace library (@laticent/*, each into its own dist/), the CSS bundle
+// and the default bundle built from it, the dagre and callout-placer bundles, and the PDF writer.
+// Both sides of a control must have each one fresh: this checkout is checked (`--check`, never
+// rebuilt, so the drift and the control see the same files), and the tree is built and checked.
+// `scripts` is the file list of a tree's tools/ folder, so an old tree yields its own set.
+export function renderBuildSteps(scripts) {
+  const have = new Set(scripts);
+  const libs = scripts.filter((f) => /^build-[a-z][a-z-]*-lib\.js$/.test(f)).sort();
+  const pick = (...names) => names.filter((n) => have.has(n));
+  return [
+    ...pick('build-segno-grammar.js'),
+    ...libs,
+    ...pick('build-css.js', 'build-default-bundle.js', 'build-dagre-bundle.js', 'build-callout-browser.js', 'build-pdf-compose.js'),
+  ];
+}
+
+// The steps whose `--check` fails, by short name. `runCheck(step)` throws when the check fails.
+export function staleSteps(steps, runCheck) {
+  const stale = [];
+  for (const step of steps) {
+    try {
+      runCheck(step);
+    } catch {
+      stale.push(step.replace(/^build-/, '').replace(/(-lib)?\.js$/, ''));
+    }
+  }
+  return stale;
 }
 
 // One verdict from the per-page comparison of the two fresh renders.

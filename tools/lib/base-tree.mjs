@@ -16,40 +16,33 @@
 // Measured 2026-11-27 in the 4-core sandbox: about 50 s to export and build.
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { existsSync, mkdirSync, readdirSync, rmSync, symlinkSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { join } from 'node:path';
+
+const { linkOwnWorkspaces } = createRequire(import.meta.url)('./workspace-links.js');
 
 // OWN WORKSPACES (opt-in, `ownWorkspaces: true`; `regress --control` uses it, golden-diff does not).
 // The borrowed node_modules links each @laticent/* workspace package back to THIS checkout, so a
 // tree that borrows it renders this checkout's workspace code and its prebuilt, gitignored dist/,
 // not the commit's (the third review of #3589). With ownWorkspaces the tree gets a real
-// node_modules folder instead: every entry of this checkout's node_modules is linked in, except that
-// each workspace the COMMIT's package.json lists is linked to the commit's own copy, which
-// `tools/build.js --only-uncommitted` then builds. An old commit whose workspace a later rename
-// removed therefore finds its own package again.
-function linkOwnWorkspaces(repoRoot, dir) {
+// node_modules folder instead, laid out as tools/render-identity.mjs lays out its reference tree:
+// every third-party entry of this checkout's node_modules is linked in, and the commit's own
+// workspaces are linked under the names ITS package.json files declare (tools/lib/workspace-links.js,
+// shared with render-identity and squadra's reference tree, which also refuses a glob or unscoped
+// workspace). docs/node_modules is linked too, since workspace code under docs/src/lib resolves
+// through it first. An old commit whose workspace a later rename removed finds its own package.
+export function linkTreeModules(repoRoot, dir) {
   const borrowed = join(repoRoot, 'node_modules');
   const own = join(dir, 'node_modules');
   mkdirSync(join(own, '@laticent'), { recursive: true });
-  const { workspaces = [] } = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'));
-  const names = new Set();
-  for (const ws of workspaces) {
-    const pkg = join(dir, ws, 'package.json');
-    if (!existsSync(pkg)) continue;
-    const { name } = JSON.parse(readFileSync(pkg, 'utf8'));
-    if (!name?.startsWith('@laticent/')) continue;
-    names.add(name.slice('@laticent/'.length));
-    symlinkSync(relative(join(own, '@laticent'), join(dir, ws)), join(own, '@laticent', name.slice('@laticent/'.length)));
-  }
   for (const entry of readdirSync(borrowed)) {
     if (entry !== '@laticent') symlinkSync(join(borrowed, entry), join(own, entry));
   }
-  // A @laticent package this checkout installed from the registry, not as a workspace, is borrowed.
-  for (const entry of readdirSync(join(borrowed, '@laticent'))) {
-    if (names.has(entry)) continue;
-    const target = realpathSync(join(borrowed, '@laticent', entry));
-    if (!target.startsWith(`${repoRoot}/`) || target.includes('/node_modules/')) symlinkSync(target, join(own, '@laticent', entry));
-  }
+  const linked = linkOwnWorkspaces(dir);
+  const docsModules = join(repoRoot, 'docs', 'node_modules');
+  if (existsSync(docsModules) && existsSync(join(dir, 'docs'))) symlinkSync(docsModules, join(dir, 'docs', 'node_modules'), 'dir');
+  return linked;
 }
 
 // Returns { root } once built, or { error } if it could not be. Never throws.
@@ -61,7 +54,7 @@ export function buildBaseTree({ repoRoot, ref, dir, ownWorkspaces = false }) {
     execFileSync('git', ['archive', '--format=tar', '-o', tar, ref, '--', '.', ':(exclude)*.pdf'], { cwd: repoRoot, stdio: 'ignore' });
     execFileSync('tar', ['-xf', tar, '-C', dir]);
     rmSync(tar, { force: true });
-    if (ownWorkspaces) linkOwnWorkspaces(repoRoot, dir);
+    if (ownWorkspaces) linkTreeModules(repoRoot, dir);
     else execFileSync('ln', ['-s', join(repoRoot, 'node_modules'), join(dir, 'node_modules')]);
     try {
       execFileSync(process.execPath, ['tools/build.js', '--only-uncommitted'], { cwd: dir, stdio: 'ignore' });

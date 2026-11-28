@@ -337,20 +337,30 @@ galleries: no pixel past the fuzz). The verdicts:
 - **Source drift**: the render path changed since that bless. On `main` the nightly will
   bless it; on a branch, look at it.
 - **Unavailable**: never a pass. It means one of these:
-  - render settings are in the environment (`LATTICE_PDF_*`, or `NODE_TEST_CONTEXT`, which
-    `node --test` sets);
-  - this checkout's workspace builds (`docs/src/lib/*/dist`) are stale: run `npm run build`
-    (the check runs each `tools/build-*-lib.js --check`, about 17 s);
+  - a render setting is in the environment: any `LATTICE_*` variable but `LATTICE_ACTOR`
+    (lattice.js reads about a dozen, from `LATTICE_PDF_*` to `LATTICE_MERMAID_SINGLE`), or
+    `NODE_TEST_CONTEXT`, which `node --test` sets;
+  - a gitignored build this checkout's render loads is stale or missing: run `npm run build`.
+    The check runs `--check` on every one, about 20 s: the Segno grammar, the 19 workspace
+    libraries (`docs/src/lib/*/dist`), `dist/lattice.css` and the default bundle, the dagre
+    and callout-placer bundles, and the PDF writer (`dist/lattice-pdf-compose-min.js`);
   - the golden has local changes, or was never committed;
   - the clone is shallow and lacks the source commit, or its cut-off list cannot be read
     (run `git fetch --unshallow --filter=blob:none`);
   - git failed;
-  - the old tree would not build or render.
+  - the old tree would not build, its own render builds failed or came out incomplete, or it
+    would not render.
 
 What the control tree carries and what it borrows. It is the source commit's files plus a
 `node_modules` folder of its own (`buildBaseTree({ ownWorkspaces: true })`, in
-`tools/lib/base-tree.mjs`). Each `@laticent/*` workspace links to the tree's own copy, which
-the tree builds. Everything else links to this checkout's installed packages. So:
+`tools/lib/base-tree.mjs`), laid out as `tools/render-identity.mjs` lays out its reference tree:
+
+- Each `@laticent/*` workspace links to the tree's own copy, under the name the tree's
+  package.json gives it (`tools/lib/workspace-links.js`).
+- Every third-party package, and `docs/node_modules`, links to this checkout's install.
+- The gate then builds the tree's render builds one by one and `--check`s them.
+
+So:
 
 - A workspace change since the source shows up as source drift, like any other source.
 - An old tree finds its own packages, even ones a later rename removed.
