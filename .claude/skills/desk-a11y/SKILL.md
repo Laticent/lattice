@@ -44,7 +44,7 @@ ships (decks, themes, charts) and what the author uses (the Studio, the docs sit
 5. **Write back** (through a session you start, counted in the budget). A new trap becomes a gotcha entry; a gap you will not fix this pass
    becomes a `followups.d/` file (`deferred: large|blocked|off-path`).
 6. **Report** to the command center: the surface checked, the top items as fleet rows, what
-   stayed UNVERIFIED and why, and `budget: N/10 today`, with its `meter:` ledger, which also rides on every gate message to the command center (a card announcement, a 🧱 line).
+   stayed UNVERIFIED and why, and `budget: N/10 today`, with its `meter:` ledger, which also rides on every other gate message to the command center (a `card ready` line, a 🧱 line, a ❓ card) and is never sent as a message of its own (`engineering/workflow.md` §Desks, "A worker messages the command center only at a gate").
 
 ## Lane
 

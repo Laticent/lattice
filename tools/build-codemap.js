@@ -116,6 +116,7 @@ const FOLDERS = {
   'docs/src/lib/anima/': 'Anima, the motion library: compiles a scene spec into the moves an animated slide plays.',
   'docs/src/lib/code-packages/': 'The code-package door: how the Studio runs a code package a deck uses, sandboxed and only with consent.',
   'docs/src/lib/compose/': "Compose, the Studio's rich-text editor: the whole deck as one editable document, and the commands that edit it.",
+  'docs/src/lib/deck-language/': "The source editor's syntax tree, built from the deck model the engine renders with (Segno P4b).",
   'docs/src/lib/deck-outline/': 'The deck as an outline, so the Markdown and Compose editors keep the same place in it.',
   'docs/src/lib/vault/': 'The vault: one folder-shaped storage interface for Studio data, backed by OPFS and IndexedDB in the browser and by memory in tests.',
   'docs/src/lib/vetrina-exemplars/': 'Exemplar walkthroughs and a stress battery that prove the Vetrina library on a host other than the Studio.',

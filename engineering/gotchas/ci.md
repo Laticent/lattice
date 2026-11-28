@@ -32,6 +32,25 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   evidence until its inputs have completed.**
 - **Triggered by:** #1427.
 
+## `Analyze (csharp)` fails with "No source files found" on an older PR branch
+
+- **Symptom:** a PR goes red on `Analyze (csharp)`. The job log says `0 source files found on
+  the filesystem` and `0 project files found`, then `Error: No source files found` from
+  `autobuild.sh`. Newer PRs and every push to `main` pass the same check.
+- **Cause:** CodeQL's default setup scans the PR's own head (`refs/pull/N/head`), not the PR
+  merged into `main`, but it takes the language list from the repository, and C# is on it. The
+  repo's only C# is the Open XML SDK checker that the `.pptx` conformance test runs
+  (`tools/office-conformance/openxml-check`), and it landed with #2852 on 2026-10-22. A branch
+  cut before that has no C#, so the C# job finds nothing and fails.
+- **How to tell:** the run's `head_branch` is `refs/pull/N/head`, and
+  `git merge-base --is-ancestor a45a89a <head>` fails (`a45a89a` is #2852).
+- **Fix:** bring `main` into the branch. The PR needs code that landed on `main`, which is a
+  rebase HARD RULE #16 allows; name #2852 in the commit message. Do not untick C# in the
+  default setup: that stops scanning the conformance checker.
+- **Triggered by:** PR #2865 (job 120597936347), and any PR whose branch is older than #2852.
+- **Removable when:** no open PR predates #2852. If C# ever leaves the repo, the failure comes
+  back on every PR, and unticking C# becomes the right fix.
+
 ## Rendering in the cloud sandbox needs `CHROME_PATH`
 
 - **Symptom:** Rendering a deck in a Claude Code on Web session fails

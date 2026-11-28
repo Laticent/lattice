@@ -76,7 +76,9 @@ raise.
    choices, such as which PR to ask about first. It never answers a ❓ item, judges a
    finding, takes a decision the owner reserved, or speaks for the owner on GitHub.
 6. **The morning report**, when the owner is back or nothing is left: one card to the command
-   center and on each PR it concerns, covering:
+   center and on each PR it concerns. It is the night pass's end-of-pass report, the only message
+   this desk sends the command center on its own, and it carries the `meter:` ledger
+   (`engineering/workflow.md` §Desks, "A worker messages the command center only at a gate"). It covers:
    - what merged (PR, head, card level);
    - a `🚦 Merge digest` of the VISUAL PRs that are VERY HIGH, with their rendered artifacts
      attached, so the owner can look and answer `all`;

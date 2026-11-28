@@ -94,6 +94,32 @@ function latticeStallReport() {
 }
 
 /**
+ * How far the Studio's own boot got: an island Astro has not hydrated still carries `ssr`; a script or modulepreload the
+ * page names but Resource Timing never logged was never fetched (or is still pending); a slow one names a stalled fetch.
+ * The browser keeps 250 resource entries by default and the Studio fetches more, so a full list says so, and "not
+ * fetched" reads unknown rather than naming files that did load. Shared by studio-probe.js's first wait and
+ * engine-retry.mjs's trace (followups.d/3368-p1: the iPhone first-render stall, run 46108750060, never mounted the preview).
+ */
+// biome-ignore lint/correctness/noUnusedVariables: a global for WebDriver's execute-script
+function latticeBootReport() {
+	try {
+		const isl = [...document.querySelectorAll('astro-island')];
+		const ent = performance.getEntriesByType('resource');
+		const full = ent.length >= 250;
+		const names = new Set(ent.map((e) => e.name));
+		const short = (u) => String(u).replace(/^.*\/_astro\//, '');
+		const want = [...document.querySelectorAll('script[src*="/_astro/"], link[rel=modulepreload][href*="/_astro/"]')].map((e) => e.src || e.href);
+		const astro = ent.filter((e) => /\/_astro\//.test(e.name));
+		const unhydrated = isl.filter((i) => i.hasAttribute('ssr')).map((i) => short(i.getAttribute('component-url') || '?')).join(', ') || 'none';
+		const missing = full ? `unknown (resource list full at ${ent.length}: later fetches are not listed)` : want.filter((u) => !names.has(u)).map(short).slice(0, 12).join(', ') || 'none';
+		const slow = astro.filter((e) => e.duration > 3000).map((e) => `${short(e.name)} ${Math.round(e.duration)}ms`).join(', ') || (full ? 'none listed (list full)' : 'none');
+		return `boot: islands ${isl.length} (unhydrated: ${unhydrated}); _astro fetched ${astro.length}${full ? '+ (list full)' : ''}; named but not fetched: ${missing}; over 3 s: ${slow}`;
+	} catch (e) {
+		return `boot report failed: ${e}`;
+	}
+}
+
+/**
  * The preview's fallbacks this page took since `latticeWatch()` (#2988): a measured split that failed or ran past its
  * deadline, or a splitter or measured-split chunk that did not load in time. Each one logs a warning, so a probe that
  * passes with this list empty rendered the real split, not the bounded wait's fallback.

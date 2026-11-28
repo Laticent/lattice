@@ -42,7 +42,7 @@ costs more than a missing one, because an agent reads it and acts on it.
    that keeps drifting the same way is a sign a generated doc or a gate is missing: propose
    one to the optimize desk.
 6. **Report** to the command center: the surface audited, the top items, and
-   `budget: N/10 today`, with its `meter:` ledger, which also rides on every gate message to the command center (a card announcement, a 🧱 line).
+   `budget: N/10 today`, with its `meter:` ledger, which also rides on every other gate message to the command center (a `card ready` line, a 🧱 line, a ❓ card) and is never sent as a message of its own (`engineering/workflow.md` §Desks, "A worker messages the command center only at a gate").
 
 ## Lane
 

@@ -49,7 +49,7 @@ is the floor. A claim here names its surface and carries an artifact from it (HA
    `deferred: large|blocked|off-path`.
 6. **Report** to the command center: the surface swept, the top items as fleet rows with
    their artifacts attached (`SendUserFile`), a taste call as a ❓ item with the picture,
-   and `budget: N/10 today`, with its `meter:` ledger, which also rides on every gate message to the command center (a card announcement, a 🧱 line).
+   and `budget: N/10 today`, with its `meter:` ledger, which also rides on every other gate message to the command center (a `card ready` line, a 🧱 line, a ❓ card) and is never sent as a message of its own (`engineering/workflow.md` §Desks, "A worker messages the command center only at a gate").
 
 ## Lane
 

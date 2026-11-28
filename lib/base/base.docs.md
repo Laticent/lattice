@@ -1752,7 +1752,7 @@ sample pictures (`lib/samples/README.md`), and it resolves on every surface.
 and a `sample:` or `asset:` name. Anything else (`javascript:`, `file:`, `http:`,
 `data:text/html`, a protocol-relative `//host/x`) is dropped: the deck shows no
 logo and the render carries a `meta/url-scheme` diagnostic. A slide's
-`_backgroundImage: url(…)` follows the same list and drops the image instead.
+`background-image=url(…)` record field follows the same list and drops the image instead.
 The one list is `lib/core/url-scheme.js`.
 
 A real DOM element (rather than a `::before` pseudo) is what lets
