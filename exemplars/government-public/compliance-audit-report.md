@@ -75,13 +75,13 @@ Subrecipient monitoring is the largest: 4 of 18 subrecipients had no documented 
 
 ## Where each finding sits on likelihood against financial impact.
 
-- **Likely · Low impact.**
+- Likely · Low impact
   - Late time-and-effort certifications
-- **Likely · High impact.**
+- Likely · High impact
   - Unmonitored subrecipients holding large awards
-- **Unlikely · Low impact.**
+- Unlikely · Low impact
   - Isolated procurement-doc gaps at closeout
-- **Unlikely · High impact.**
+- Unlikely · High impact
   - Undisclosed conflict tainting an award decision
 
 ---

@@ -34,7 +34,7 @@ describe('glossary slide — applyToDom', () => {
     );
     const rows = [...section.querySelectorAll('tbody tr')];
     assert.equal(rows.length, 2);
-    assert.equal(rows[0].children[0].innerHTML, '<strong>ARR</strong>');
+    assert.equal(rows[0].children[0].innerHTML, '<span class="lat-label">ARR</span>');
     assert.match(rows[0].children[1].textContent, /^Revenue a business/);
   });
 
@@ -57,7 +57,7 @@ describe('glossary slide — applyToDom', () => {
     const doc = dom('<ul><li><p>ARR</p><ul><li><p>Recurring revenue.</p></li></ul></li></ul>');
     kernel.applyToDom(doc);
     const cells = doc.querySelectorAll('tbody tr td');
-    assert.equal(cells[0].innerHTML, '<strong>ARR</strong>');
+    assert.equal(cells[0].innerHTML, '<span class="lat-label">ARR</span>');
     assert.equal(cells[1].innerHTML, 'Recurring revenue.');
   });
 
@@ -65,14 +65,14 @@ describe('glossary slide — applyToDom', () => {
     const doc = dom('<ul><li>\n  <p>ARR</p>\n  <ul><li>  <p>Recurring revenue.</p>  </li></ul></li></ul>');
     kernel.applyToDom(doc);
     const cells = doc.querySelectorAll('tbody tr td');
-    assert.equal(cells[0].innerHTML, '<strong>ARR</strong>');
+    assert.equal(cells[0].innerHTML, '<span class="lat-label">ARR</span>');
     assert.equal(cells[1].innerHTML, 'Recurring revenue.');
   });
 
-  test('keeps an already-bold term as authored rather than double-wrapping', () => {
-    const doc = dom('<ul><li><strong>ARR</strong><ul><li>d</li></ul></li></ul>');
+  test('an already-bold term is emphasis inside the label, never the label itself (W3)', () => {
+    const doc = dom('<ul><li><strong>ARR</strong> run-rate<ul><li>d</li></ul></li></ul>');
     kernel.applyToDom(doc);
-    assert.equal(doc.querySelector('tbody td').innerHTML, '<strong>ARR</strong>');
+    assert.equal(doc.querySelector('tbody td').innerHTML, '<span class="lat-label"><strong>ARR</strong> run-rate</span>');
   });
 
   test('is idempotent — table not rebuilt, pill not re-stamped', () => {

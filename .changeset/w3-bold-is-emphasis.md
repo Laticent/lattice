@@ -1,0 +1,15 @@
+---
+"@laticent/lattice": major
+---
+
+**Breaking:** bold in a slide's list is now only emphasis, so a card's title, a tag's label or a KPI's value comes from the item's own first line, and `lattice lint --fix --rule bold-lead` rewrites decks that relied on bold.
+
+No layout reads `**bold**` as structure any more (R4, W3 of the 2026-11-19 deterministic-authoring audit). Before, a bold run decided what a layout drew: `- **A** rest` on `decision` or `compare-prose` made A the corner tag and moved "rest" into the body, `1. **$4.2M** ARR` on `kpi` made only the bold run the value, `cards-grid` and `cards-stack` pushed the text after a bold run to the card's right edge, `citation-card pull-quote` hid every item without bold, and `inventory`, `matrix-2x2`, `verdict-grid`, `redline` and `statute-stack` taught `- **Title.** body` as their only form.
+
+What changes for a deck:
+
+- **The engine's label is its own element.** The slot-label lift wraps an item's whole lead in `<span class="lat-label">` instead of `<strong>`, and an author's bold inside it is emphasis. Theme or consumer CSS that targeted `li > strong` on a slot layout (`decision`, `compare-prose`, `kpi`, `stats`, `q-and-a`, `statute-stack`, `redline`, `actors`, `premise`, `split-panel`, `split-compare`, `regulatory-update`, `authority-chain`, the lifted `list-steps` variants) targets `li > .lat-label` now. The `glossary` term is a label too.
+- **Titles come from nesting.** `inventory` and `citation-card` join the lift: an inventory row is `- Lead` with its detail nested under it, and a citation card's action callout is its last item with a nested body (`- What we must do` + the action). `math matrix` legends are `- shape` with the value nested; a `math theorem` card's label is its `> ### Theorem.` heading. These three label only an item that HAS a nested body, so an un-migrated `- **Lead.** detail` row degrades to body text with a bold word instead of one long title.
+- **A new `bold-lead` finding** names every bold lead on a layout whose lead is structural, and a theorem card's bold label. It is an ERROR where the render moved (a `- **Title.** body` line now renders as one title; on `decision`, `compare-prose` and `split-compare` a `- **A** rest` tag now reads the whole line) and a WARNING where it renders the same (a wholly bold lead). `lattice lint --fix` (and the repo's `lint:deck --fix`) rewrites each (`- **Title.** body` becomes `- Title` with the body nested, `- **Title.**` becomes `- Title`), and `--fix --rule bold-lead` applies only that rewrite; `--rule` takes any rule id or a comma list. The repo's decks, galleries and samples are migrated.
+- **Bold stops breaking three charts.** A bold word in a `word-cloud` is drawn (it vanished, as an HTML `<strong>` inside SVG text); a bold `**Done**` `kanban` lane keeps its done state; a `list-tabular` name that opens with a bold word stays one cell instead of splitting across the name and value columns.
+- **The manifest catalog refuses a bold lead** in a structural layout's sample, skeleton or variant sample, so the generated docs and galleries cannot teach it again.

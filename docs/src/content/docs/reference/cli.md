@@ -209,6 +209,7 @@ endings and a byte-order mark stay as the file had them.
 | Option | What it does |
 |---|---|
 | `--fix` | Apply every machine fix in place, then lint what is left |
+| `--rule <id>` | With `--fix`, apply only that rule's fixes (a comma list works). `--fix --rule bold-lead` moves a deck off bold-as-title in one command |
 | `--strict` | Exit 1 on a warning too, not only on an error |
 | `--json` | Print the findings as JSON |
 | `--no-review` | Leave out the advisory presentation suggestions |

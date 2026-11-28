@@ -156,14 +156,14 @@ Three changes account for most of the 4.4-point gain.
 
 ## Each lane sits in one of four pricing positions.
 
-- **High margin · High volume.**
+- High margin · High volume
   - Rotterdam to Ruhr
   - Lyon to Milan
-- **High margin · Low volume.**
+- High margin · Low volume
   - Gdansk to Berlin
-- **Low margin · High volume.**
+- Low margin · High volume
   - Antwerp to Paris
-- **Low margin · Low volume.**
+- Low margin · Low volume
   - Barcelona to Toulouse
 
 ---
@@ -349,7 +349,7 @@ def floor_price(lane, margin=0.15):
 > Any single capital commitment above five percent of trailing annual revenue requires the prior approval of the Board.
 
 - The $34M trailer purchase is 5.6% of FY2026 revenue, so it crosses the threshold.
-- **What we must do.**
+- What we must do
   - Approve the purchase at this meeting so the trailers arrive before the spring peak.
 
 ---

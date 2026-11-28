@@ -13,7 +13,7 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const {
-  SLOT_LAYOUTS, LIST_STEPS_LIFT_VARIANTS, slotLayoutPattern, slotLayoutSelector,
+  SLOT_LAYOUTS, LIST_STEPS_LIFT_VARIANTS, HOST_VARIANT_LIFTS, liftsOnClass, slotLayoutPattern, slotLayoutSelector,
 } = require('../../../lib/core/slot-label-lift');
 
 describe('slot-label-lift layout list', () => {
@@ -39,7 +39,9 @@ describe('slot-label-lift layout list', () => {
     for (const v of LIST_STEPS_LIFT_VARIANTS) {
       assert.ok(selectors.includes(`section.list-steps.${v}`), `selector is missing list-steps.${v}`);
     }
-    assert.equal(selectors.length, SLOT_LAYOUTS.length + LIST_STEPS_LIFT_VARIANTS.length);
+    const hostScoped = Object.values(HOST_VARIANT_LIFTS).reduce((n, vs) => n + vs.length, 0);
+    assert.ok(selectors.includes('section.math.matrix'), 'math matrix lifts on its host (W3)');
+    assert.equal(selectors.length, SLOT_LAYOUTS.length + hostScoped);
   });
 
   test('the list-steps variants lift only on a list-steps host, never bare', () => {
@@ -47,6 +49,16 @@ describe('slot-label-lift layout list', () => {
       assert.ok(!slotLayoutSelector().split(', ').includes(`section.${v}`),
         `${v} is a generic modifier — it must not lift on its own`);
     }
+  });
+
+  test('a host-scoped variant lifts on its host only (liftsOnClass mirrors the selector)', () => {
+    assert.ok(liftsOnClass('math matrix'));
+    assert.ok(liftsOnClass('math matrix decompose'));
+    assert.ok(!liftsOnClass('math'), 'the plain math legend is prose');
+    assert.ok(!liftsOnClass('matrix'), 'matrix alone is a generic word');
+    assert.ok(liftsOnClass('list-steps ghost'));
+    assert.ok(!liftsOnClass('ghost'));
+    assert.ok(liftsOnClass('inventory cards'), 'inventory lifts its row titles (W3)');
   });
 
   test('the layouts the drift lost are in the list', () => {
@@ -60,7 +72,7 @@ describe('slot-label-lift layout list', () => {
     const REPO = path.join(__dirname, '..', '..', '..');
     const plugin = fs.readFileSync(path.join(REPO, 'lib/integrations/markdown-it/plugins.js'), 'utf8');
     const runtime = fs.readFileSync(path.join(REPO, 'lib/runtime/index.js'), 'utf8');
-    assert.match(plugin, /slotLayoutPattern\(\)/);
+    assert.match(plugin, /liftsOnClass\(/);
     assert.match(runtime, /slotLayoutSelector\(\)/);
     // A second hard-coded copy of the list is what caused the drift.
     for (const [name, src] of [['plugin', plugin], ['runtime', runtime]]) {

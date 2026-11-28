@@ -1,7 +1,7 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "cycle",
-  "inlineRun": { "depths": [1], "slots": ["strong"] },
+  "inlineRun": { "depths": [1] },
   "function": "progression",
   "form": "timeline",
   "substance": "structure",

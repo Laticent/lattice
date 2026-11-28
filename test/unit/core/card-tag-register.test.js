@@ -130,12 +130,12 @@ test('css: the register re-points tokens only, and sets the pair on the tag itse
   const css = fs.readFileSync(path.join(ROOT, 'lib/base/base.card-tag.css'), 'utf8');
   assert.match(css, /section\.tag-small\s*\{\s*--card-tag-scale:\s*0\.85;\s*\}/);
   assert.match(css, /section\.tag-large\s*\{\s*--card-tag-scale:\s*1\.2;\s*\}/);
-  // The pair is declared on the tag (pseudo-element / lifted strong), not on the card, so it
+  // The pair is declared on the tag (pseudo-element / lifted label), not on the card, so it
   // beats decision's per-card pair by being the element's own value.
   const plain = css.match(/((?:section\.tag-plain[^{,]*,\s*)+section\.tag-plain[^{]*)\{([^}]*)\}/);
   assert.ok(plain, 'a tag-plain rule exists');
   assert.match(plain[1], /li::before/);
-  assert.match(plain[1], /li > strong:first-child/);
+  assert.match(plain[1], /li > \.lat-label:first-child/);
   assert.match(plain[2], /--card-tag-fill:\s*var\(--bg\)/);
   assert.match(plain[2], /--card-tag-ink:\s*var\(--text-body\)/);
   const none = css.match(/((?:section\.tag-bare[^{,]*,\s*)+section\.tag-bare[^{]*)\{([^}]*)\}/);
@@ -166,12 +166,12 @@ test('css: every placement and alignment word has a rule on every tagged layout'
   for (const word of ['foot', 'notch', 'band']) {
     for (const l of layouts) {
       // band also answers to its alias, so its rules open `section:is(.tag-band, .banner-tag…)`
-      assert.match(css, new RegExp(`section(?:\\.tag-${word}|:is\\(\\.tag-${word}, [^{]*?\\)\\))\\.${l}[^{]*(::before|strong:first-child)`), `${word} on ${l}`);
+      assert.match(css, new RegExp(`section(?:\\.tag-${word}|:is\\(\\.tag-${word}, [^{]*?\\)\\))\\.${l}[^{]*(::before|\\.lat-label:first-child)`), `${word} on ${l}`);
     }
   }
   // inline is list-steps' native place, so its rule covers the other five
   for (const l of layouts.filter((x) => x !== 'list-steps')) {
-    assert.match(css, new RegExp(`section\\.tag-inline\\.${l}[^{]*(::before|strong:first-child)`), `inline on ${l}`);
+    assert.match(css, new RegExp(`section\\.tag-inline\\.${l}[^{]*(::before|\\.lat-label:first-child)`), `inline on ${l}`);
   }
   // corner is native everywhere but list-steps, which needs the box recipe
   assert.match(css, /section:is\(\.tag-corner, \.tag-foot, \.tag-notch, \.tag-band, \.banner-tag:not\(\.tag-inline\)\)\.list-steps/);

@@ -48,13 +48,13 @@ Short rows and tiles hug their text and sit where the deck's `align:` says. `fil
 
 ## Three owners, three rows.
 
-- **Owns the budget**
+- Owns the budget
   - Keeps the plan inside the quarter's envelope.
   - `Finance`
-- **Owns the launch**
+- Owns the launch
   - Sets the date and holds the line on scope.
   - `Product`
-- **Owns the risk**
+- Owns the risk
   - Names what could slip and who decides.
   - `Legal`
 
@@ -65,10 +65,10 @@ Short rows and tiles hug their text and sit where the deck's `align:` says. `fil
 
 ## Two owners, filling the stage.
 
-- **Owns the budget**
+- Owns the budget
   - A verb-first responsibility, one line.
   - `Finance`
-- **Owns the launch**
+- Owns the launch
   - A verb-first responsibility, one line.
   - `Product`
 
@@ -79,10 +79,10 @@ Short rows and tiles hug their text and sit where the deck's `align:` says. `fil
 
 ## Two owners, spread out.
 
-- **Owns the budget**
+- Owns the budget
   - A verb-first responsibility, one line.
   - `Finance`
-- **Owns the launch**
+- Owns the launch
   - A verb-first responsibility, one line.
   - `Product`
 

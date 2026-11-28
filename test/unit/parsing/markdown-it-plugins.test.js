@@ -1238,7 +1238,7 @@ describe('markdown-it-plugins', () => {
 
   // ── slotLabelLift ───────────────────────────────────────────────────
 
-  test('slotLabelLift: wraps lead inline content in <strong> on decision slides', () => {
+  test('slotLabelLift: wraps lead inline content in the engine label on decision slides', () => {
     const m = makeHost(plugins.slotLabelLift);
     const md = [
       '<!-- @meta{layout=decision} -->',
@@ -1248,11 +1248,11 @@ describe('markdown-it-plugins', () => {
       '  - body about not buying',
     ].join('\n');
     const { html } = m.render(md);
-    assert.match(html, /<li><strong>Build<\/strong>/);
-    assert.match(html, /<li><strong>Why not buy<\/strong>/);
+    assert.match(html, /<li><span class="lat-label">Build<\/span>/);
+    assert.match(html, /<li><span class="lat-label">Why not buy<\/span>/);
   });
 
-  test('slotLabelLift: idempotent — pre-bolded `**Label**` is left alone', () => {
+  test('slotLabelLift: a pre-bolded `**Label**` is emphasis INSIDE the label (W3)', () => {
     const m = makeHost(plugins.slotLabelLift);
     const md = [
       '<!-- @meta{layout=compare-prose, class=transition} -->',
@@ -1260,11 +1260,15 @@ describe('markdown-it-plugins', () => {
       '  - body',
     ].join('\n');
     const { html } = m.render(md);
-    // Should have exactly ONE pair of <strong> tags around "Before",
-    // not nested doubles like <strong><strong>Before</strong></strong>.
-    const matches = html.match(/<strong>Before<\/strong>/g) || [];
-    assert.equal(matches.length, 1, `expected single <strong> wrap, got: ${html}`);
-    assert.doesNotMatch(html, /<strong><strong>/);
+    // The label wraps the author's bold; the bold is never the label on its own.
+    assert.match(html, /<span class="lat-label"><strong>Before<\/strong><\/span>/, html);
+  });
+
+  test('slotLabelLift: a bold FIRST WORD does not split the label (W3)', () => {
+    const m = makeHost(plugins.slotLabelLift);
+    const md = '<!-- @meta{layout=decision} -->\n- **Build** in region\n  - body';
+    const { html } = m.render(md);
+    assert.match(html, /<span class="lat-label"><strong>Build<\/strong> in region<\/span>/, html);
   });
 
   test('slotLabelLift: fires on compare-prose, compare-prose transition, and decision', () => {
@@ -1272,7 +1276,7 @@ describe('markdown-it-plugins', () => {
       const m = makeHost(plugins.slotLabelLift);
       const md = `<!-- @meta{class=${cls}} -->\n- Lead\n  - body`;
       const { html } = m.render(md);
-      assert.match(html, /<strong>Lead<\/strong>/, `expected lift on ${cls} but got: ${html}`);
+      assert.match(html, /<span class="lat-label">Lead<\/span>/, `expected lift on ${cls} but got: ${html}`);
     }
   });
 
@@ -1281,7 +1285,7 @@ describe('markdown-it-plugins', () => {
       const m = makeHost(plugins.slotLabelLift);
       const md = `<!-- @meta{class=${cls}} -->\n- Lead\n  - body`;
       const { html } = m.render(md);
-      assert.doesNotMatch(html, /<strong>Lead<\/strong>/, `should not lift on ${cls}`);
+      assert.doesNotMatch(html, /<span class="lat-label">Lead<\/span>/, `should not lift on ${cls}`);
     }
   });
 
@@ -1290,18 +1294,18 @@ describe('markdown-it-plugins', () => {
       const m = makeHost(plugins.slotLabelLift);
       const md = `<!-- @meta{class=${cls}} -->\n- Lead\n  - body`;
       const { html } = m.render(md);
-      assert.match(html, /<strong>Lead<\/strong>/, `expected lift on ${cls} but got: ${html}`);
+      assert.match(html, /<span class="lat-label">Lead<\/span>/, `expected lift on ${cls} but got: ${html}`);
     }
   });
 
   test('slotLabelLift: fires on the list-steps staged-flow variants (chevron, converge, ghost)', () => {
-    // These variants style `li > strong` as the stage label, so the lift is
-    // load-bearing — nested `- Problem` MUST become <strong>Problem</strong>.
+    // These variants style `li > .lat-label` as the stage label, so the lift is
+    // load-bearing — nested `- Problem` MUST become the label.
     for (const cls of ['chevron', 'converge', 'ghost']) {
       const m = makeHost(plugins.slotLabelLift);
       const md = `<!-- @meta{class=list-steps ${cls}} -->\n- Lead\n  - body`;
       const { html } = m.render(md);
-      assert.match(html, /<strong>Lead<\/strong>/, `expected lift on list-steps ${cls} but got: ${html}`);
+      assert.match(html, /<span class="lat-label">Lead<\/span>/, `expected lift on list-steps ${cls} but got: ${html}`);
     }
   });
 
@@ -1313,7 +1317,7 @@ describe('markdown-it-plugins', () => {
       const m = makeHost(plugins.slotLabelLift);
       const md = `<!-- @meta{class=${cls}} -->\n- Lead\n  - body`;
       const { html } = m.render(md);
-      assert.doesNotMatch(html, /<strong>Lead<\/strong>/, `should not lift on bare .${cls}`);
+      assert.doesNotMatch(html, /<span class="lat-label">Lead<\/span>/, `should not lift on bare .${cls}`);
     }
   });
 
@@ -1322,7 +1326,7 @@ describe('markdown-it-plugins', () => {
       const m = makeHost(plugins.slotLabelLift);
       const md = `<!-- @meta{class=${cls}} -->\n- Why not delay?\n  - Because the window closes.`;
       const { html } = m.render(md);
-      assert.match(html, /<li><strong>Why not delay\?<\/strong>/, `expected lift on ${cls} but got: ${html}`);
+      assert.match(html, /<li><span class="lat-label">Why not delay\?<\/span>/, `expected lift on ${cls} but got: ${html}`);
     }
   });
 
@@ -1333,15 +1337,15 @@ describe('markdown-it-plugins', () => {
     const m = makeHost(plugins.slotLabelLift);
     const md = '<!-- @meta{layout=timeline-list} -->\n1. `2024 Q3` Lead\n   - body';
     const { html } = m.render(md);
-    assert.doesNotMatch(html, /<strong>/, `timeline-list must not be lifted, got: ${html}`);
+    assert.doesNotMatch(html, /lat-label/, `timeline-list must not be lifted, got: ${html}`);
   });
 
-  test('slotLabelLift: actors keeps the trailing `code` actor-name pill outside <strong>', () => {
+  test('slotLabelLift: actors keeps the trailing `code` actor-name pill outside the label', () => {
     const m = makeHost(plugins.slotLabelLift);
     const md = '<!-- @meta{layout=actors} -->\n- Owns the model `Head of Product`\n  - body';
     const { html } = m.render(md);
     // Label lifted; the code chip stays a sibling, not a child of <strong>.
-    assert.match(html, /<strong>Owns the model\s*<\/strong>\s*<code>Head of Product<\/code>/);
+    assert.match(html, /<span class="lat-label">Owns the model\s*<\/span>\s*<code>Head of Product<\/code>/);
   });
 
   test('slotLabelLift: only the top-level li lead is lifted, not nested li leads', () => {
@@ -1352,9 +1356,9 @@ describe('markdown-it-plugins', () => {
       '  - nested lead text',
     ].join('\n');
     const { html } = m.render(md);
-    assert.match(html, /<strong>Build<\/strong>/);
-    // The nested li's lead text should NOT be wrapped in <strong>.
-    assert.doesNotMatch(html, /<strong>nested lead text<\/strong>/);
+    assert.match(html, /<span class="lat-label">Build<\/span>/);
+    // The nested li's lead text should NOT be wrapped in the label.
+    assert.doesNotMatch(html, /<span class="lat-label">nested lead text<\/span>/);
   });
 
   // ── stripHeadingPeriods ─────────────────────────────────────────────

@@ -109,3 +109,39 @@ test('usage: --help exits 0; no file, and the repo-only --all, exit 2', () => {
   assert.equal(all.status, 2);
   assert.match(all.stderr, /--all lints a Lattice checkout's own decks/);
 });
+
+// W3 (bold is emphasis): `--fix --rule bold-lead` is the one-command migration off bold-as-title outside this repo.
+// It must rewrite the bold lead and ONLY the rule it names: the retired `marks:` key in the same deck stays as written.
+const BOLD_DECK = [
+  '---',
+  'theme: indaco',
+  'marks: tone ink vivid',
+  '---',
+  '',
+  '<!-- @meta{layout=redline} -->',
+  '',
+  '## The amendment narrows the duty.',
+  '',
+  '> A business <del>shall</del> <ins>may</ins> provide one method.',
+  '',
+  '- **Why this matters.** The duty becomes optional.',
+  '',
+].join('\n');
+
+test('--fix --rule bold-lead rewrites the bold lead and nothing else', (t) => {
+  const file = deckIn(t, BOLD_DECK);
+  const r = run('--fix', '--rule', 'bold-lead', file);
+  const after = fs.readFileSync(file, 'utf8');
+  assert.match(after, /^- Why this matters\n {2}- The duty becomes optional\.$/m, r.stderr);
+  assert.doesNotMatch(after, /\*\*Why this matters/);
+  assert.match(after, /^marks: tone ink vivid$/m, 'a rule --rule did not name is left alone');
+  assert.match(r.stderr, /marks-split/, 'the unfixed finding is still reported');
+});
+
+test('--rule with no rule id is a usage error and writes nothing', (t) => {
+  const file = deckIn(t, BOLD_DECK);
+  const r = run('--fix', file, '--rule');
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /--rule needs a rule id/);
+  assert.equal(fs.readFileSync(file, 'utf8'), BOLD_DECK);
+});

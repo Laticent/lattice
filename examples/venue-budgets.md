@@ -120,7 +120,7 @@ Two-thirds of trials that reach the first generated report convert to paid; the 
 > "Personal information" identifies a particular consumer.
 
 - In plain English: any data tied to a household.
-- **What we must do.**
+- What we must do
   - Treat household identifiers as personal information.
 
 ---

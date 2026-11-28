@@ -73,7 +73,6 @@ section.pricing > .cell-stage > ul > li {
   box-shadow: var(--elevation-card);
 }
 /* Back-compat: if an author wraps the name in **…**, render it identically. */
-section.pricing > .cell-stage > ul > li > strong { font-weight: inherit; color: inherit; }
 
 /* ── Price ── trailing inline code, promoted to a display figure. */
 section.pricing > .cell-stage > ul > li > code {

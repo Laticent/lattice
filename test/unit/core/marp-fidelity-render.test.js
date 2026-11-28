@@ -179,15 +179,15 @@ const { bootRuntime } = require('../../helpers/runtime-boot');
  * it, BEFORE any lattice transform; `probe` projects the claimed output out of
  * a rendered document; `min` is the anti-vacuity floor.
  */
-/** Each lifted label with the class of the element left beside its <strong>: `label|chip:lat-avatar`.
- *  A chip that landed inside the <strong> reads `chip:` (nothing beside it), and so does a literal
+/** Each lifted label with the class of the element left beside its label: `label|chip:lat-avatar`.
+ *  A chip that landed inside the label reads `chip:` (nothing beside it), and so does a literal
  *  `<code>`, which is why a probe floor names the drawn class. */
 function chipTailProbe(doc) {
   return [...doc.querySelectorAll('section ul > li')]
-    .filter((li) => li.querySelector(':scope > strong'))
+    .filter((li) => li.querySelector(':scope > .lat-label'))
     .map((li) => {
-      const chip = [...li.children].find((c) => c.tagName !== 'STRONG' && c.tagName !== 'UL' && c.tagName !== 'OL');
-      return `${li.querySelector(':scope > strong').textContent.replace(/\s+/g, ' ').trim()}|chip:${chip ? (chip.className || chip.tagName.toLowerCase()) : ''}`;
+      const chip = [...li.children].find((c) => !c.classList.contains('lat-label') && c.tagName !== 'UL' && c.tagName !== 'OL');
+      return `${li.querySelector(':scope > .lat-label').textContent.replace(/\s+/g, ' ').trim()}|chip:${chip ? (chip.className || chip.tagName.toLowerCase()) : ''}`;
     });
 }
 
@@ -539,18 +539,18 @@ const PROBES = {
       '- Product. Our retention leads the category.',
       '- Risk. One contract carries a third of revenue.',
     ].join('\n'),
-    // Same host-text reasoning as `marked`: a lift that creates the <strong> but
+    // Same host-text reasoning as `marked`: a lift that creates the label but
     // leaves the original `Market.` text beside it is invisible to the label alone.
     probe: (doc) =>
-      [...doc.querySelectorAll('li > strong')].map(
+      [...doc.querySelectorAll('li > .lat-label')].map(
         (el) => `${el.textContent.trim()}|host:${el.parentElement.textContent.trim()}`,
       ),
   },
 
-  // The actors shape: a trailing `{…}` pill stays a SIBLING of the <strong> label, so the
+  // The actors shape: a trailing `{…}` pill stays a SIBLING of the label, so the
   // component's `li > .lat-pill` placement rule matches. The runtime builds the pill before
   // its label lift runs, so the lift has to know a pill span is a chip as well as a `<code>`;
-  // when it did not, the pill landed INSIDE the <strong> and rendered inline and unhued in a
+  // when it did not, the pill landed INSIDE the label and rendered inline and unhued in a
   // real marp-cli export (found by driving that export, never by a test).
   'slotLabelLift@actors-pill': {
     row: 'slotLabelLift',
@@ -564,10 +564,10 @@ const PROBES = {
     ].join('\n'),
     probe: (doc) =>
       [...doc.querySelectorAll('section > * > ul > li, section ul > li')]
-        .filter((li) => li.querySelector(':scope > strong'))
+        .filter((li) => li.querySelector(':scope > .lat-label'))
         .map((li) => {
           const pill = [...li.children].find((c) => c.classList?.contains('lat-pill'));
-          return `${li.querySelector(':scope > strong').textContent.replace(/\s+/g, ' ').trim()}|pill:${pill ? pill.textContent.trim() : ''}`;
+          return `${li.querySelector(':scope > .lat-label').textContent.replace(/\s+/g, ' ').trim()}|pill:${pill ? pill.textContent.trim() : ''}`;
         }),
   },
 

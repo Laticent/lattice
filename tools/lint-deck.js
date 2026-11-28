@@ -11,6 +11,7 @@
  *   node tools/lint-deck.js --strict examples/a.md    # warnings fail too
  *   node tools/lint-deck.js --json examples/a.md      # machine-readable
  *   node tools/lint-deck.js --fix examples/a.md       # apply every machine fix, in place
+ *   node tools/lint-deck.js --fix --rule bold-lead a.md  # apply only that rule's fixes (a comma list works)
  *   node tools/lint-deck.js --all                     # every deck in the repo
  *
  * Exit codes: 0 clean, 1 errors (or any finding under --strict), 2 usage error.

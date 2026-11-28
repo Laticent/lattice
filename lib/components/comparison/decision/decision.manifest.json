@@ -141,7 +141,7 @@
     },
     {
       "mistake": "Manually bolding the option name with `**…**`.",
-      "fix": "The lead text auto-lifts to `<strong>` (the corner-tag CSS keys off it), and the lift step already skips an already-bolded lead — a manually bolded lead and a plain one produce byte-identical output. Wrapping it yourself is a harmless no-op, not a defect, but it's also unnecessary — write plain text and let the lift handle the weight."
+      "fix": "The lead auto-lifts to the engine's label (the corner-tag CSS keys off it). A wholly bolded lead renders the same as a plain one, so the bold is noise. A bold FIRST WORD followed by more text no longer makes that word the tag: the tag reads the whole line (`- **Build** in region` tags “Build in region”), which `lint:deck` reports as an error and `--fix` splits into `- Build` with the rest nested. Write the tag plain and short."
     }
   ],
   "variantDecisionRule": [

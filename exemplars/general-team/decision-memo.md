@@ -100,13 +100,13 @@ We compared staying self-hosted, moving to Managed-A, and moving to Managed-B. T
 
 ## Where each option lands on cost and operational burden.
 
-- **High cost · High burden.**
+- High cost · High burden
   - Self-hosted today
-- **High cost · Low burden.**
+- High cost · Low burden
   - Managed-B — strong, but pricier
-- **Low cost · High burden.**
+- Low cost · High burden
   - A second self-hosted cluster
-- **Low cost · Low burden.**
+- Low cost · Low burden
   - Managed-A — our recommendation
 
 ---

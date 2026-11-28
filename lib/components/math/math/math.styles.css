@@ -501,15 +501,21 @@ section.math.math.form.derivation:where([data-family="tall"], [data-family="stri
 }
 
 /* ── math.theorem ──
- * Authoring: blockquotes labeled by their first **Bold.** word.
+ * Authoring: blockquotes labeled by their leading `### heading`.
  *   ## Title
- *   > **Definition.** A function $f:\mathbb{R}\to\mathbb{R}$ is continuous
+ *   > ### Definition.
+ *   >
+ *   > A function $f:\mathbb{R}\to\mathbb{R}$ is continuous
  *   > at $a$ if $\lim_{x\to a} f(x) = f(a)$.
  *   >
- *   > **Theorem (IVT).** If $f$ is continuous on $[a,b]$ and $y$ lies
+ *   > ### Theorem (IVT).
+ *   >
+ *   > If $f$ is continuous on $[a,b]$ and $y$ lies
  *   > between $f(a)$ and $f(b)$, then $\exists c \in [a,b]$ with $f(c)=y$.
  *   >
- *   > **Proof.** By contradiction. …
+ *   > ### Proof.
+ *   >
+ *   > By contradiction. …
  *
  * The blockquotes render as stacked color-coded cards. Markdown wraps
  * each `>`-prefixed block in a single `<blockquote>`; theorem-card stripes
@@ -545,7 +551,7 @@ section.math.form.theorem blockquote {
   color: var(--text-body);
 }
 /* Suppress the default "KEY INSIGHT" eyebrow that lattice.css emits on every
- * blockquote outside .quote — the bold inline label (Definition.,
+ * blockquote outside .quote — the card's heading label (Definition.,
  * Theorem., Proof.) carries the type, and a second label clutters the card. */
 section.math.form.theorem blockquote::before { content: none; }
 section.math.form.theorem blockquote p {
@@ -554,14 +560,19 @@ section.math.form.theorem blockquote p {
 section.math.form.theorem blockquote p + p {
   padding-top: var(--sp-xs);
 }
-section.math.form.theorem blockquote strong:first-child {
+/* THE CARD'S LABEL IS ITS HEADING: `> ### Theorem.` then the statement. It was a leading
+ * `**Theorem.**` until bold stopped carrying structure (R4, W3 of
+ * engineering/decisions/2026-11-19-deterministic-authoring-audit.md); a bold word in the statement
+ * is emphasis now. The heading sits on its own line above the statement, as an eyebrow. */
+section.math.form.theorem blockquote > :is(h3, h4, h5, h6):first-child {
   font-family: var(--font-label);
   font-size: var(--fs-meta);
   letter-spacing: 0.18em;
   text-transform: uppercase;
   font-weight: 700;
+  line-height: var(--lh-tight);
   color: var(--accent);
-  padding-right: 0.5em;
+  padding-bottom: var(--sp-2xs);
 }
 /* Position-based accent stripe — Definition (start) cooler, Theorem (middle)
  * warmer, Proof (end) neutral. Two tiers of the same categorical slot, because
@@ -569,7 +580,7 @@ section.math.form.theorem blockquote strong:first-child {
  *
  *   border-left-color → --cat-N-mark  the stroke tier, gated 3:1 vs the canvas
  *                                     (WCAG 1.4.11 non-text) — exactly its role.
- *   strong:first-child → --cat-N-ink  the label is TEXT on the blockquote's
+ *   the heading label → --cat-N-ink  the label is TEXT on the blockquote's
  *                                     --bg-alt, so it needs 4.5:1.
  *
  * These labels used to paint the raw mark as well, which is what put 11 of 56
@@ -583,19 +594,19 @@ section.math.form.theorem blockquote strong:first-child {
 section.math.form.theorem blockquote:nth-of-type(3n+1) {
   border-left-color: var(--cat-4-mark, var(--accent));
 }
-section.math.form.theorem blockquote:nth-of-type(3n+1) strong:first-child {
+section.math.form.theorem blockquote:nth-of-type(3n+1) > :is(h3, h4, h5, h6):first-child {
   color: var(--cat-4-ink, var(--cat-4-mark, var(--accent)));
 }
 section.math.form.theorem blockquote:nth-of-type(3n+2) {
   border-left-color: var(--cat-7-mark, var(--accent));
 }
-section.math.form.theorem blockquote:nth-of-type(3n+2) strong:first-child {
+section.math.form.theorem blockquote:nth-of-type(3n+2) > :is(h3, h4, h5, h6):first-child {
   color: var(--cat-7-ink, var(--cat-7-mark, var(--accent)));
 }
 section.math.form.theorem blockquote:nth-of-type(3n) {
   border-left-color: var(--muted-mark);
 }
-section.math.form.theorem blockquote:nth-of-type(3n) strong:first-child {
+section.math.form.theorem blockquote:nth-of-type(3n) > :is(h3, h4, h5, h6):first-child {
   color: var(--text-secondary);
 }
 section.math.form.theorem blockquote :is(.katex-display, mjx-container[display="true"]) {
@@ -879,10 +890,14 @@ section.math.form.canvas > .cell-stage > p > img {
  * Authoring (default — one matrix + properties):
  *   ## Title
  *   $$ M = \begin{pmatrix} 1 & 2 & 3 \\ 4 & 5 & 6 \end{pmatrix} $$
- *   - **shape** — $2 \times 3$
- *   - **rank** — $2$
- *   - **rows** — observations
- *   - **cols** — features
+ *   - shape
+ *     - $2 \times 3$
+ *   - rank
+ *     - $2$
+ *   - rows
+ *     - observations
+ *   - cols
+ *     - features
  *
  * Authoring (`.decompose` — three matrices in sequence):
  *   ## Title
@@ -946,7 +961,7 @@ section.math.form.matrix > .cell-stage > :is(ul, ol) > li {
   text-indent: -5em;
   color: var(--text-body);
 }
-section.math.form.matrix > .cell-stage > :is(ul, ol) > li > strong {
+section.math.form.matrix > .cell-stage > :is(ul, ol) > li > .lat-label {
   display: inline-block;
   min-width: 4em;
   font-family: var(--font-mono);
@@ -958,6 +973,18 @@ section.math.form.matrix > .cell-stage > :is(ul, ol) > li > strong {
   padding-right: 0.5em;
   text-indent: 0;
 }
+/* THE VALUE IS THE ROW'S NESTED LINE. A legend row is `- shape` with its value nested under it
+ * (`  - $n \times (p+1)$`): the lift (a host-scoped `math matrix` lift, lib/core/slot-label-lift.js)
+ * wraps the lead in `.lat-label`, the label column above, and the nested list runs inline beside
+ * it, so the hanging indent still holds a wrapped value in the value column. It was
+ * `- **shape** — value` until bold stopped carrying structure (R4, W3). */
+section.math.form.matrix > .cell-stage > :is(ul, ol) > li > :is(ul, ol) {
+  display: inline; list-style: none; padding: 0; margin: 0;
+}
+section.math.form.matrix > .cell-stage > :is(ul, ol) > li > :is(ul, ol) > li {
+  display: inline; list-style: none; padding: 0; margin: 0; text-indent: 0;
+}
+section.math.form.matrix > .cell-stage > :is(ul, ol) > li > :is(ul, ol) > li::before { content: none; }
 /* A LABEL THAT IS A SYMBOL IS SET AS A SYMBOL. The chrome above — uppercase mono at
  * `--fs-meta` — is right for a word (`shape`, `rank`, `cols`). It is wrong for `$A$`,
  * which `decompose`'s own docs use for every label: uppercasing does nothing to rendered
@@ -965,19 +992,19 @@ section.math.form.matrix > .cell-stage > :is(ul, ol) > li > strong {
  * 14.98px inside a 21.38px list item on the shipped gallery). The symbol is the subject of
  * the row and should be at least as large as its definition.
  *
- * THE SCALE GOES ON THE MATH, NOT ON THE `<strong>`, and that distinction is the whole
+ * THE SCALE GOES ON THE MATH, NOT ON THE LABEL BOX, and that distinction is the whole
  * rule. Enlarging the element enlarges its `min-width: 4em` with it, because `em` resolves
  * against the element's OWN font-size — so a slide mixing symbol labels with word labels
  * got two different label columns and its em-dashes no longer lined up. Measured: the
  * `--fs-body`/`--fs-meta` ratio is not even constant across families (1.37 at square,
  * 1.43 at hd, 1.56 at tall), so no single multiplier would have fixed it either. The box
  * keeps its `--fs-meta` reservation; only what is drawn inside it takes `--fs-body`. */
-section.math.form.matrix > .cell-stage > :is(ul, ol) > li > strong:has(:is(.katex, mjx-container)) {
+section.math.form.matrix > .cell-stage > :is(ul, ol) > li > .lat-label:has(:is(.katex, mjx-container)) {
   text-transform: none;
   letter-spacing: normal;
   color: var(--text-heading);
 }
-section.math.form.matrix > .cell-stage > :is(ul, ol) > li > strong :is(.katex, mjx-container) {
+section.math.form.matrix > .cell-stage > :is(ul, ol) > li > .lat-label :is(.katex, mjx-container) {
   font-size: var(--fs-body);
 }
 
@@ -1115,7 +1142,7 @@ section.math.form.matrix.decompose > .cell-stage > :is(ul, ol) {
    matrix) takes most of the first line, and the gloss after it set eleven characters a line at
    story@hall. The label takes its own line above the gloss. */
 @container lattice (width < 17em) {
-  section.math.form.matrix > .cell-stage > :is(ul, ol) > li > strong { display: block; padding-inline-end: 0; }
+  section.math.form.matrix > .cell-stage > :is(ul, ol) > li > .lat-label { display: block; padding-inline-end: 0; }
 }
 
 /* ── math.stats ──

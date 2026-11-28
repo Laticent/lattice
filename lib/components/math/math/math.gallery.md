@@ -65,11 +65,17 @@ $$ \ell(\beta) = \sum_{i=1}^{n} \left[ y_i \log \sigma(x_i^\top \beta) + (1 - y_
 
 ## theorem boxes the statement and its proof.
 
-> **Definition.** A function $f : [a,b] \to \mathbb{R}$ is *continuous* on $[a,b]$ if $\lim_{x\to c} f(x) = f(c)$ for every $c \in [a,b]$.
+> ### Definition.
+>
+> A function $f : [a,b] \to \mathbb{R}$ is *continuous* on $[a,b]$ if $\lim_{x\to c} f(x) = f(c)$ for every $c \in [a,b]$.
 
-> **Theorem.** Let $f$ be continuous on $[a,b]$ and let $y$ lie strictly between $f(a)$ and $f(b)$. Then there exists $c \in (a,b)$ with $f(c) = y$.
+> ### Theorem.
+>
+> Let $f$ be continuous on $[a,b]$ and let $y$ lie strictly between $f(a)$ and $f(b)$. Then there exists $c \in (a,b)$ with $f(c) = y$.
 
-> **Proof.** Set $S = \{x \in [a,b] : f(x) < y\}$. $S$ is non-empty and bounded; let $c = \sup S$. Continuity at $c$ forces $f(c) = y$. $\square$
+> ### Proof.
+>
+> Set $S = \{x \in [a,b] : f(x) < y\}$. $S$ is non-empty and bounded; let $c = \sup S$. Continuity at $c$ forces $f(c) = y$. $\square$
 
 
 ---
@@ -129,11 +135,16 @@ X = \begin{pmatrix}
 \end{pmatrix}
 $$
 
-- **shape** — $n \times (p+1)$
-- **rows** — observations
-- **cols** — intercept + $p$ features
-- **rank** — full-rank for OLS to have a unique solution
-- **column 0** — all-ones, absorbs the intercept
+- shape
+  - $n \times (p+1)$
+- rows
+  - observations
+- cols
+  - intercept + $p$ features
+- rank
+  - full-rank for OLS to have a unique solution
+- column 0
+  - all-ones, absorbs the intercept
 
 
 ---
@@ -163,10 +174,14 @@ $$
 \begin{pmatrix} 2 & 1 \\ 0 & 1 \end{pmatrix}
 $$
 
-- **$A$** — the original matrix being factorized
-- **$L$** — lower-triangular, unit diagonal
-- **$U$** — upper-triangular
-- **use** — solve $Ax = b$ by forward then back substitution
+- $A$
+  - the original matrix being factorized
+- $L$
+  - lower-triangular, unit diagonal
+- $U$
+  - upper-triangular
+- use
+  - solve $Ax = b$ by forward then back substitution
 
 
 ---

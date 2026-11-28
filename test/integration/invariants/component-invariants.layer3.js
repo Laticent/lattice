@@ -129,11 +129,11 @@ const LAYER3 = {
   },
   'compare-prose': {
     'renders two labeled prose options (strong + nested point)':
-      eachWith('ul > li', ['strong', ':scope > ul'], 2, 'compare-prose did not render two labeled options'),
+      eachWith('ul > li', ['.lat-label', ':scope > ul'], 2, 'compare-prose did not render two labeled options'),
   },
   decision: {
     'renders two labeled options, each with its reasoning':
-      eachWith('ul > li', ['strong', ':scope > ul'], 2, 'decision did not render two reasoned options'),
+      eachWith('ul > li', ['.lat-label', ':scope > ul'], 2, 'decision did not render two reasoned options'),
     // NOTE: the flush-corner badge's ABSOLUTE positioning is a Form-ON property
     // (the treatment reaches the label through `> .cell-stage >`), but this
     // harness pins `form: off` for component isolation — so that guard lives in
@@ -188,11 +188,11 @@ const LAYER3 = {
   },
   kpi: {
     'each KPI tile pairs a figure (strong) with a caption':
-      eachWith('ol > li', ['strong', ':scope > ul'], 2, 'kpi did not render figure+caption tiles'),
+      eachWith('ol > li', ['.lat-label', ':scope > ul'], 2, 'kpi did not render figure+caption tiles'),
   },
   stats: {
     'each stat tile pairs a figure (strong) with a label':
-      eachWith('ol > li', ['strong', ':scope > ul'], 2, 'stats did not render figure+label tiles'),
+      eachWith('ol > li', ['.lat-label', ':scope > ul'], 2, 'stats did not render figure+label tiles'),
   },
 
   // ── imagery ──
@@ -260,7 +260,7 @@ const LAYER3 = {
   // ── legal ──
   'authority-chain': {
     'each tier renders a label and a citation':
-      eachWith('ol > li', ['strong', 'code'], 3, 'authority-chain did not render labeled tiers with citations'),
+      eachWith('ol > li', ['.lat-label', 'code'], 3, 'authority-chain did not render labeled tiers with citations'),
   },
   'citation-card': {
     'renders the citation (blockquote)':
@@ -278,11 +278,11 @@ const LAYER3 = {
   },
   'regulatory-update': {
     'each update renders a citation and an effective-date badge':
-      eachWith('ol > li', ['strong', 'code'], 3, 'regulatory-update did not render cited, dated updates'),
+      eachWith('ol > li', ['.lat-label', 'code'], 3, 'regulatory-update did not render cited, dated updates'),
   },
   'statute-stack': {
     'each jurisdiction renders a label and a statutory citation':
-      eachWith('ul > li', ['strong', '.lat-pill'], 3, 'statute-stack did not render labeled rows with citations'),
+      eachWith('ul > li', ['.lat-label', '.lat-pill'], 3, 'statute-stack did not render labeled rows with citations'),
   },
 
   // ── math ──

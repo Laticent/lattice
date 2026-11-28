@@ -23,9 +23,12 @@ row's title, so it sits on that title's line at any row height.
 
 ## Three rows, one per page.
 
-- **The ordinal indexes the row.** So it belongs on the row's title line.
-- **A split page is page-tall.** The lone row centers; the title moves down.
-- **A centered box is not a centered line.** The old ordinal centered on the box.
+- The ordinal indexes the row
+  - So it belongs on the row's title line.
+- A split page is page-tall
+  - The lone row centers; the title moves down.
+- A centered box is not a centered line
+  - The old ordinal centered on the box.
 
 ---
 
@@ -47,8 +50,10 @@ instead of having to chase it.
 
 ## compact splits the same way.
 
-- **Same anchor, denser rows.** The offset is not re-tuned per variant.
-- **The fallback is the old placement.** A row with no lead has no title.
+- Same anchor, denser rows
+  - The offset is not re-tuned per variant.
+- The fallback is the old placement
+  - A row with no lead has no title.
 
 ---
 

@@ -6,7 +6,7 @@
 
 **Tags** `overview` · `summary` · `showcase`
 
-Use for a small register of related items where each carries similar weight. Author the content once (a bold lead + detail per item, optional trailing insight) and pick the look with a variant: the default numbered ledger, a cards grid, a horizontal timeline, or a magazine-style editorial split — no re-authoring. For more than six items, escalate to list-tabular or split across slides.
+Use for a small register of related items where each carries similar weight. Author the content once (a lead line per item with its detail nested under it, optional trailing insight) and pick the look with a variant: the default numbered ledger, a cards grid, a horizontal timeline, or a magazine-style editorial split — no re-authoring. For more than six items, escalate to list-tabular or split across slides.
 
 ## Agent contract
 
@@ -22,7 +22,8 @@ Use for a small register of related items where each carries similar weight. Aut
 |---|---|---|---|
 | `eyebrow` | a line of `inline code` | no | Optional kicker above the title (lifts into the masthead band under Form). |
 | `title` | a `## ` heading | yes | Slide heading. |
-| `items` | a list | yes | Each list item is one entry, authored as `- **Lead.** detail sentence.` — the bold lead is the entry name, the rest is its description. |
+| `items` | a list | yes | Each list item is one entry: its lead line is the entry name (`- Lead`) and its one-sentence detail nests under it (`  - detail sentence.`). A `**bold**` lead is emphasis, never the name. |
+| `details` | a list nested 1 level under an item | no | The entry's one-sentence detail, nested under its lead (`  - detail sentence.`). Set as the row's body prose in every look. |
 | `insight` | a `>` blockquote | no | Optional trailing insight or takeaway. Renders as an accent band (ledger), a centered pull-quote (cards), a kicker above the run (timeline), or an accent-ruled sidebar (editorial). |
 
 ### Variant decision rule
@@ -41,14 +42,14 @@ Use for a small register of related items where each carries similar weight. Aut
 
 - **A parallel register.** Two to five related items of similar weight — a framework's parts, a set of principles, the moving pieces of a system.
 - **One content, your choice of look.** Write the items once; switch the variant to re-render the same content as a ledger, cards, timeline, or editorial split — no re-authoring.
-- **A bold lead per item.** Each entry reads as a short bold name followed by a one-sentence detail. Equal density across entries keeps every look balanced.
+- **A short lead per item.** Each entry reads as a short name with a one-sentence detail nested under it. Equal density across entries keeps every look balanced.
 - **An optional closing insight.** A trailing blockquote becomes the look's accent — a band, a pull-quote, a kicker, or a sidebar.
 
 ## When NOT to use
 
 - **More than five items.** Past five rows at 16:9 the looks lose scannability (cards and timeline past four). Escalate to list-tabular or split across slides.
 - **Ordered steps.** If sequence carries meaning, use list-steps or `list takeaway` over a `1.` list. inventory entries are parallel, of similar weight.
-- **Nested-bullet authoring.** inventory takes an inline bold lead (`- **Lead.** detail`), not the nested `- Title` / `  - body` shape that card-style components use.
+- **An inline bold lead.** inventory reads the nested `- Lead` / `  - detail` shape that card-style components use. `- **Lead.** detail` on one line renders as one title run: bold is emphasis, never the entry name (`lint:deck --fix` rewrites it).
 - **Lopsided density.** Equalize the prose when one entry has three sentences and the rest have one — uneven density unbalances every look.
 
 ## Authoring
@@ -60,10 +61,14 @@ Use for a small register of related items where each carries similar weight. Aut
 
 ## Slide heading.
 
-- **First entry.** One-sentence description.
-- **Second entry.** One-sentence description.
-- **Third entry.** One-sentence description.
-- **Fourth entry.** One-sentence description.
+- First entry
+  - One-sentence description.
+- Second entry
+  - One-sentence description.
+- Third entry
+  - One-sentence description.
+- Fourth entry
+  - One-sentence description.
 
 > Optional trailing insight.
 ```
@@ -101,10 +106,14 @@ The register as tiles with a pull-quote.
 
 ## cards deals the parts into tiles.
 
-- **One part per row.** A name and one clause of body.
-- **Four parts reads best.** Five fits, and five is the ceiling.
-- **Bodies stay clauses.** Fourteen words soft, twenty-two hard.
-- **Looks reskin the list.** cards, timeline, editorial change form, not content.
+- One part per row
+  - A name and one clause of body.
+- Four parts reads best
+  - Five fits, and five is the ceiling.
+- Bodies stay clauses
+  - Fourteen words soft, twenty-two hard.
+- Looks reskin the list
+  - cards, timeline, editorial change form, not content.
 ```
 
 ### `timeline` — Timeline
@@ -118,10 +127,14 @@ A numbered run along a line.
 
 ## timeline strings the parts along a line.
 
-- **One part per row.** A name and one clause of body.
-- **Four parts reads best.** Five fits, and five is the ceiling.
-- **Bodies stay clauses.** Fourteen words soft, twenty-two hard.
-- **Looks reskin the list.** cards, timeline, editorial change form, not content.
+- One part per row
+  - A name and one clause of body.
+- Four parts reads best
+  - Five fits, and five is the ceiling.
+- Bodies stay clauses
+  - Fourteen words soft, twenty-two hard.
+- Looks reskin the list
+  - cards, timeline, editorial change form, not content.
 ```
 
 ### `editorial` — Editorial
@@ -135,10 +148,14 @@ A magazine split with a sidebar takeaway.
 
 ## editorial sets the parts as a column.
 
-- **One part per row.** A name and one clause of body.
-- **Four parts reads best.** Five fits, and five is the ceiling.
-- **Bodies stay clauses.** Fourteen words soft, twenty-two hard.
-- **Looks reskin the list.** Same content, magazine form.
+- One part per row
+  - A name and one clause of body.
+- Four parts reads best
+  - Five fits, and five is the ceiling.
+- Bodies stay clauses
+  - Fourteen words soft, twenty-two hard.
+- Looks reskin the list
+  - Same content, magazine form.
 
 > The sidebar carries the register's one takeaway.
 ```

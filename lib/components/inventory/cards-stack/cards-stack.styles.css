@@ -47,10 +47,6 @@ section.cards-stack .card {
 }
 section.cards-stack > .cell-stage > ul > li::marker, section.cards-stack > .cell-stage > ol > li::marker { content:''; }
 
-/* — title strong: backwards-compat shim. Legacy slides that wrap the title in
- *   `**…**` render identically; the strong simply inherits the li's bold. — */
-section.cards-stack > .cell-stage > ul > li > strong, section.cards-stack > .cell-stage > ol > li > strong,
-section.cards-stack .card > strong { font-weight:inherit; color:inherit; }
 
 /* — a pill on the title row, right-anchored by the card's `space-between`. The author writes it
  *   with the pills plugin's notation (`` `{shipped}` ``) and the plugin draws it; the stack only
@@ -125,12 +121,6 @@ section.cards-stack.horizontal .cards-stack-inner {
  * This used to drop card text to `--fs-body-compact` to fit a fourth card. */
 
 
-/* Hardening: element siblings of <strong> in a card li don't inherit
- * the parent's font-weight:700. Covers cases like `<strong>Title.</strong>
- * <em>italic body</em>`. Text-node siblings still inherit (CSS can't
- * target text nodes); the manifest validator catches that case at
- * lint time. See CARD_STYLE_LAYOUTS in lib/components/index.js. */
-section.cards-stack :is(ul,ol) > li > strong ~ * { font-weight: 400; }
 
 /* Portrait / square (social) — content-height cards distributed across the frame,
    not flex:1 balloons. Mirrors the list de-balloon; keyed on data-orientation. */

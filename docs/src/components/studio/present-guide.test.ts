@@ -240,9 +240,9 @@ describe('the three nameable misses (followups.d/2363-p3)', () => {
 			<p>Prepared for the Northwind Analytics board of directors.</p>`);
 	const decision = () =>
 		doc(`<h2>We recommend exiting SMB by June 2027.</h2><p><code>Decision requested · Q3 FY26</code></p><ul>
-			<li><strong>Exit SMB</strong><ul><li>Payback back to 14 months by Q3 FY27; nine sellers move to the segment that converts.</li></ul></li>
-			<li><strong>Why not fix it</strong><ul><li>$2.1M to reach a 20-month payback on a segment that brought in $0.5M of new ARR this quarter.</li></ul></li>
-			<li><strong>Why not wait</strong><ul><li>Every quarter we wait adds roughly 60 accounts we would later have to migrate.</li></ul></li></ul>`);
+			<li><span class="lat-label">Exit SMB</span><ul><li>Payback back to 14 months by Q3 FY27; nine sellers move to the segment that converts.</li></ul></li>
+			<li><span class="lat-label">Why not fix it</span><ul><li>$2.1M to reach a 20-month payback on a segment that brought in $0.5M of new ARR this quarter.</li></ul></li>
+			<li><span class="lat-label">Why not wait</span><ul><li>Every quarter we wait adds roughly 60 accounts we would later have to migrate.</li></ul></li></ul>`);
 	const card = (d: Document, i: number) => d.querySelectorAll('section > ul > li')[i];
 
 	it('hears "third-quarter … fiscal twenty-six" as the title\'s Q3 FY26', () => {
@@ -281,7 +281,7 @@ describe('the three nameable misses (followups.d/2363-p3)', () => {
 	it('refuses a label word the rest of the slide also says, and a tie between two labels', () => {
 		// "exit" is in the first card's label AND the headline ("exiting"), so it names neither.
 		expect(findLabelTarget(decision(), 'The exit is our call.')).toBeNull();
-		const two = doc('<ul><li><strong>Fix pricing</strong><ul><li>Raise list.</li></ul></li><li><strong>Fix churn</strong><ul><li>Save accounts.</li></ul></li></ul>');
+		const two = doc('<ul><li><span class="lat-label">Fix pricing</span><ul><li>Raise list.</li></ul></li><li><span class="lat-label">Fix churn</span><ul><li>Save accounts.</li></ul></li></ul>');
 		expect(findLabelTarget(two, 'We can fix it.')).toBeNull();
 		// A bare item has no label: its whole text is its body, which the paraphrase tier owns.
 		expect(findLabelTarget(doc('<h2>Options</h2><ul><li>Why not fix it</li><li>Why not wait</li></ul>'), 'We did look hard at the fix.')).toBeNull();
@@ -294,12 +294,12 @@ describe('the three nameable misses (followups.d/2363-p3)', () => {
 		expect(findLabelTarget(d, 'Customers will wait for the new release.')).toBeNull();
 		// A frame sentence on a chart slide is about the picture (the checker's case).
 		const chart = doc(`<h2>Growth by segment</h2><div class="chart-body"><svg></svg></div>
-			<ul><li><strong>Enterprise growth</strong><ul><li>Up 31%.</li></ul></li></ul>`);
+			<ul><li><span class="lat-label">Enterprise growth</span><ul><li>Up 31%.</li></ul></li></ul>`);
 		expect(findLabelTarget(chart, 'Growth, measured from zero.')).toBeNull();
 		// The word is on the slide outside the card, in a plain div or a mark's declared label.
-		const eyebrow = doc('<div class="eyebrow">Pricing review</div><ul><li><strong>Raise pricing</strong><ul><li>Ten percent.</li></ul></li></ul>');
+		const eyebrow = doc('<div class="eyebrow">Pricing review</div><ul><li><span class="lat-label">Raise pricing</span><ul><li>Ten percent.</li></ul></li></ul>');
 		expect(findLabelTarget(eyebrow, 'Pricing moves first.')).toBeNull();
-		const mark = doc('<svg><rect data-label="Enterprise"></rect></svg><ul><li><strong>Enterprise</strong><ul><li>Grew.</li></ul></li></ul>');
+		const mark = doc('<svg><rect data-label="Enterprise"></rect></svg><ul><li><span class="lat-label">Enterprise</span><ul><li>Grew.</li></ul></li></ul>');
 		expect(findLabelTarget(mark, 'Enterprise led.')).toBeNull();
 	});
 
@@ -1659,7 +1659,7 @@ describe('markerBox — deriving a bullet nobody can measure', () => {
 
 describe('headerRange — a card’s own leading text', () => {
 	it('takes a `<strong>` label before a nested list', () => {
-		const d = doc('<ul><li><strong>Build everything</strong><ul><li>Owns the plumbing.</li></ul></li></ul>');
+		const d = doc('<ul><li><span class="lat-label">Build everything</span><ul><li>Owns the plumbing.</li></ul></li></ul>');
 		expect(headerRange(d.querySelector('li') as Element)?.toString().trim()).toBe('Build everything');
 	});
 
@@ -1673,7 +1673,7 @@ describe('headerRange — a card’s own leading text', () => {
 	it('accepts a one-character header — a stats value is "7"', () => {
 		// A two-character floor handed back a header for "42%" and "18 days" and the whole card for
 		// "7", so the same slide cued its three figures three different ways.
-		const d = doc('<ul><li><strong>7</strong><ul><li>Competitive losses.</li></ul></li></ul>');
+		const d = doc('<ul><li><span class="lat-label">7</span><ul><li>Competitive losses.</li></ul></li></ul>');
 		expect(headerRange(d.querySelector('li') as Element)?.toString().trim()).toBe('7');
 	});
 
@@ -1697,7 +1697,7 @@ describe('headerRange — a card’s own leading text', () => {
 
 describe('findSpanningTarget — a cue the projection built out of two blocks', () => {
 	const OPTION = '<div class="option"><strong>Build everything</strong><ul><li>Owns the plumbing and the scoring alike</li><li>Two engineer-quarters before anyone scores</li></ul></div>';
-	const STAT = '<ul><li><strong>42%</strong><ul><li>Renewal risk caught before the CRM noticed</li></ul></li><li><strong>7</strong><ul><li>Competitive losses, one competitor</li></ul></li></ul>';
+	const STAT = '<ul><li><span class="lat-label">42%</span><ul><li>Renewal risk caught before the CRM noticed</li></ul></li><li><span class="lat-label">7</span><ul><li>Competitive losses, one competitor</li></ul></li></ul>';
 
 	it('names the card when a cue joins its label to its first body line', () => {
 		// The reported symptom: split-compare's FIRST bullet was not cued and the others were,

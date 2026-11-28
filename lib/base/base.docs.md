@@ -694,10 +694,24 @@ is consumed by a label.
 (incl. `transition`), `decision`.
 
 **Authoring is plain.** Write the slot label as the first line of each
-list item — no bold, no syntax. The build pipeline lifts it into a
-`<strong>` automatically because in these named-slot layouts the
-leading text is structurally a slot label, not editorial emphasis.
-Authors don't carry presentational markup.
+list item — no bold, no syntax. The build pipeline lifts it into the
+engine's label, `<span class="lat-label">`, because in these named-slot
+layouts the leading text is structurally a slot label, not editorial
+emphasis. Authors don't carry presentational markup.
+
+**Bold is emphasis, never structure.** The WHOLE lead is the label, so a
+`**bold**` word in it is never the label on its own: `- **Build** in region`
+tags "Build in region", not "Build". Inside a label the bold adds nothing you
+can see (the label is already set at heading weight), so keep a tag short and
+plain. On a corner-tag layout (`decision`, `compare-prose`, `split-compare`)
+a leading bold run followed by more text is an error, because the tag now
+reads the whole sentence; `--fix` keeps the bold word as the tag and nests the
+rest as the first body line. The same holds on every layout whose item lead is its title, value or term
+(cards, ledgers, `kpi`, `inventory`, `glossary`, `citation-card`, `math
+matrix`): titles come from nesting (`- Title` / `  - body`) or from a
+heading, never from bold. `lint:deck` flags a bold lead there
+(`bold-lead`) and `--fix` rewrites it (W3 of
+`engineering/decisions/2026-11-19-deterministic-authoring-audit.md`).
 
 - Tag chrome matches the numbered corner tag — accent fill, white mono
   text, flush top-left geometry. The labeled and numbered variants are

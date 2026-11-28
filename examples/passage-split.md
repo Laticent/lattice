@@ -41,7 +41,7 @@ On a phone, a quote that does not fit moves its notes to the next page. A quote 
 > "Personal information" means information that identifies, relates to, describes, is reasonably capable of being associated with, or could reasonably be linked, directly or indirectly, with a particular consumer or household.
 
 - In plain English: any data tied to a household or device, not just a named person. IP addresses, cookie IDs and device fingerprints are all in scope.
-- **What we must do.**
+- What we must do
   - Treat household identifiers as personal information in our notice, retention and access-request workflows.
 
 ---
@@ -77,8 +77,10 @@ On a phone, a quote that does not fit moves its notes to the next page. A quote 
 
 > A business shall provide <del>two or more</del> <ins>at least one</ins> designated method for opt-out requests. The method shall include a clear and conspicuous link on the homepage. The link shall be titled "Your Privacy Choices."
 
-- **Why this matters.** SB-362 pins a single link title, so the homepage and the request workflow need one shared label.
-- **What changes.** The footer link is renamed in every market, not only in California.
+- Why this matters
+  - SB-362 pins a single link title, so the homepage and the request workflow need one shared label.
+- What changes
+  - The footer link is renamed in every market, not only in California.
 
 ---
 

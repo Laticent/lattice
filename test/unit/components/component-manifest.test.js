@@ -527,14 +527,24 @@ describe('component-manifest', () => {
       assert.ok(!validate(m).some((e) => /ordered-list statement/.test(e)));
     });
 
-    test('non-card-style layouts permit inline format', () => {
+    test('a prose layout permits a bold lead: there bold is only emphasis', () => {
       const m = {
         ...GOOD,
-        name: 'actors', // NOT in CARD_STYLE_LAYOUTS — its li is one conceptual unit
-        sample: '<!-- @meta{layout=actors} -->\n\n- **Author.** Drafts the deck.\n',
+        name: 'list', // a prose list: its item lead is not a title, so bold reads as emphasis
+        sample: '<!-- @meta{layout=list} -->\n\n- **Author.** Drafts the deck.\n',
       };
       const errors = validate(m);
       assert.deepEqual(errors, []);
+    });
+
+    test('a layout whose lead is its label refuses a bold lead in its sample (W3)', () => {
+      const m = {
+        ...GOOD,
+        name: 'actors', // a slot layout: the lead is lifted into the label, so bold taught a retired form
+        sample: '<!-- @meta{layout=actors} -->\n\n- **Author.** Drafts the deck.\n',
+      };
+      const errors = validate(m);
+      assert.ok(errors.some((e) => /bold is emphasis, never a title/.test(e)), JSON.stringify(errors));
     });
   });
 

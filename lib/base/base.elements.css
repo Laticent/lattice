@@ -253,6 +253,18 @@ section h6 { font-family:var(--font-display); font-size:var(--fs-h6); font-weigh
 
 section p { margin:0; }
 section strong { color:var(--text-heading); font-weight:600; }
+/* THE ENGINE'S LABEL (`<span class="lat-label">`). A slot layout's lead (a decision card's
+ * corner tag, a kpi value, an inventory row's title) is wrapped in this span by the slot-label
+ * lift (lib/core/slot-label-lift.js), never in `<strong>`: bold is the author's emphasis and never
+ * structure (R4, W3 of engineering/decisions/2026-11-19-deterministic-authoring-audit.md). It
+ * takes the weight and ink the lifted `<strong>` used to get from the rule above, so every label
+ * renders as it did. A layout restyles it through its own `> .lat-label` rule. */
+section .lat-label { color:var(--text-heading); font-weight:600; }
+/* An author's `**bold**` INSIDE a label is emphasis: it takes the label's own ink and one step
+ * heavier than the label (`bolder`), never the `section strong` 600 above, which would draw a
+ * LIGHTER word inside a 700 title. In a label a layout sets at body weight (a citation card's
+ * reading line) the bold shows as bold; in a heavy tag it is as heavy as the face goes. */
+section .lat-label :is(strong, b) { color:inherit; font-weight:bolder; }
 section em { font-style:italic; }
 /* Inline code chip. Surface-aware: the ink is --code-inline-fg (default
  * --accent), and the fill/border derive from that ink via color-mix(currentColor)

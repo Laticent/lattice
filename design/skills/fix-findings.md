@@ -113,6 +113,7 @@ allows 95. The `wall-of-text` message names whichever budget tripped.
 | Rule | Sev. | What it means | Fix |
 |---|---|---|---|
 | `card-style-inline-title` | error | `- **Title.** body` on a card layout | `- Title` then `  - body` (HARD RULE #5). `--fix` does it. |
+| `bold-lead` | warning | a `**bold**` lead on a layout whose lead is the title, value or term; a `> **Theorem.**` card label | `- Title` then `  - body`; `> ### Theorem.` for a theorem card. Bold is emphasis, never structure. `--fix` does it. |
 | `statement-ol-bold` | error | `**bold**` inside a numbered statement item | Remove the bold; the layout already weights it. |
 | `capacity-overflow` | warning | more items than the component holds | The `fix:` line's escalation target, or split. |
 | `capacity-scale` | warning | too much for the `venue:` / `scale-*` size | Split, or pick the venue that matches the room. |

@@ -136,13 +136,13 @@ The $64M federal formula match expires at the close of FY2028. A state appropria
 
 ## Where each funding scenario sits on cost against service risk.
 
-- **High cost · Low risk.**
+- High cost · Low risk
   - Full backlog clearance in one cycle
-- **High cost · High risk.**
+- High cost · High risk
   - Emergency-only spending, no planning
-- **Low cost · High risk.**
+- Low cost · High risk
   - Defer the request another year
-- **Low cost · Low risk.**
+- Low cost · Low risk
   - $214M phased request with federal match
 
 ---

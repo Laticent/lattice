@@ -153,6 +153,10 @@ edit deck.md  →  npm run lint:deck -- deck.md  →  fix  →  render
 - **Card-style components use nested bullets, not inline bold.**
   `- Title` then `  - body`, never `- **Title.** body`. The linter catches
   this; so does the commit gate.
+- **Bold is emphasis, never structure.** No layout reads `**bold**` as a
+  title, label, term or value: the lead line is the title and the body nests
+  under it; a `math theorem` card's label is its `### heading`. A bold lead on a
+  structural layout is a `bold-lead` warning that `lint:deck --fix` rewrites.
 - **Title slides:** `title silent` + a backtick-wrapped `` `eyebrow` `` +
   a plain subtitle paragraph. See `components.json` → `title`.
 - **No hand-editing generated files** (`dist/**`, `<name>.docs.md`,

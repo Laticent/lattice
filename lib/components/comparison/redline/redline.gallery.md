@@ -23,7 +23,8 @@ Clause-by-clause comparison — verbatim language with inline `<ins>`/`<del>` tr
 
 > A business that <del>collects</del> <ins>collects, sells, or shares</ins> consumers' personal information shall provide <del>two or more</del> <ins>at least one</ins> designated method for submitting requests to opt-out. <ins>The method shall include, at minimum, a clear and conspicuous link on the homepage titled "Your Privacy Choices."</ins> Consumers use it to <del>opt out of the sale of</del> <ins>direct the business not to sell or share</ins> their personal information.
 
-- **Why this matters.** SB-362 collapses sale and sharing into one duty and pins a uniform link title — homepage chrome and DSAR workflows both need a uniform UX.
+- Why this matters
+  - SB-362 collapses sale and sharing into one duty and pins a uniform link title — homepage chrome and DSAR workflows both need a uniform UX.
 
 
 ---
@@ -36,9 +37,12 @@ Clause-by-clause comparison — verbatim language with inline `<ins>`/`<del>` tr
 
 > A business that <del>collects</del> <ins>collects, sells, or shares</ins><sup>1</sup> consumers' personal information shall provide <del>two or more</del> <ins>at least one</ins><sup>2</sup> designated method for submitting requests to opt-out, <ins>including, at minimum, a clear and conspicuous link on the homepage titled "Your Privacy Choices,"</ins><sup>3</sup> for use by consumers.
 
-- **Scope expansion.** Collapses sale and sharing into one duty.
-- **Method floor.** One method is now sufficient; previously two were required.
-- **Link mandate.** Pins a uniform link title across all businesses.
+- Scope expansion
+  - Collapses sale and sharing into one duty.
+- Method floor
+  - One method is now sufficient; previously two were required.
+- Link mandate
+  - Pins a uniform link title across all businesses.
 
 
 ---
@@ -53,9 +57,12 @@ Clause-by-clause comparison — verbatim language with inline `<ins>`/`<del>` tr
 
 > A business that collects, sells, or shares consumers' personal information shall provide at least one designated method for submitting requests to opt-out, including a clear and conspicuous homepage link titled "Your Privacy Choices."
 
-- **Scope.** Sale and sharing fold into one duty.
-- **Method floor.** One method now suffices.
-- **Link title.** Homepage label is mandatory and standardized.
+- Scope
+  - Sale and sharing fold into one duty.
+- Method floor
+  - One method now suffices.
+- Link title
+  - Homepage label is mandatory and standardized.
 
 
 ---
@@ -70,7 +77,8 @@ Clause-by-clause comparison — verbatim language with inline `<ins>`/`<del>` tr
 
 > A business that collects, sells, or shares consumers' personal information shall provide at least one designated method for submitting requests to opt-out, including a clear and conspicuous homepage link titled "Your Privacy Choices."
 
-- **Why this matters.** The left column is the prior text; the right is the amendment. Reading across makes the scope expansion obvious.
+- Why this matters
+  - The left column is the prior text; the right is the amendment. Reading across makes the scope expansion obvious.
 
 
 ---
@@ -85,7 +93,8 @@ Clause-by-clause comparison — verbatim language with inline `<ins>`/`<del>` tr
 
 > A business that collects, sells, or shares consumers' personal information shall provide at least one designated method for submitting requests to opt-out, including a clear and conspicuous homepage link titled "Your Privacy Choices."
 
-- **Why this matters.** Stacking keeps the reading order vertical when each passage is a full sentence or more.
+- Why this matters
+  - Stacking keeps the reading order vertical when each passage is a full sentence or more.
 
 
 ---
@@ -110,7 +119,8 @@ Clause-by-clause comparison — verbatim language with inline `<ins>`/`<del>` tr
 
 > A business that <del>collects</del> <ins>collects, sells, or shares</ins> consumers' personal information shall provide <del>two or more</del> <ins>at least one</ins> designated method for submitting requests to opt-out. <ins>The method shall include, at minimum, a clear and conspicuous link on the homepage titled "Your Privacy Choices."</ins> Consumers use it to <del>opt out of the sale of</del> <ins>direct the business not to sell or share</ins> their personal information.
 
-- **Why this matters.** SB-362 collapses sale and sharing into one duty and pins a uniform link title — homepage chrome and DSAR workflows both need a uniform UX.
+- Why this matters
+  - SB-362 collapses sale and sharing into one duty and pins a uniform link title — homepage chrome and DSAR workflows both need a uniform UX.
 
 
 ---
@@ -123,7 +133,8 @@ Clause-by-clause comparison — verbatim language with inline `<ins>`/`<del>` tr
 
 > A business that <del>collects</del> <ins>collects, sells, or shares</ins> consumers' personal information shall provide <del>two or more</del> <ins>at least one</ins> designated method for submitting requests to opt-out. <ins>The method shall include, at minimum, a clear and conspicuous link on the homepage titled "Your Privacy Choices."</ins> Consumers use it to <del>opt out of the sale of</del> <ins>direct the business not to sell or share</ins> their personal information.
 
-- **Why this matters.** SB-362 collapses sale and sharing into one duty and pins a uniform link title — homepage chrome and DSAR workflows both need a uniform UX.
+- Why this matters
+  - SB-362 collapses sale and sharing into one duty and pins a uniform link title — homepage chrome and DSAR workflows both need a uniform UX.
 
 
 ---
@@ -136,7 +147,8 @@ Clause-by-clause comparison — verbatim language with inline `<ins>`/`<del>` tr
 
 > A business that <del>collects</del> <ins>collects, sells, or shares</ins> consumers' personal information shall provide <del>two or more</del> <ins>at least one</ins> designated method for submitting requests to opt-out. <ins>The method shall include, at minimum, a clear and conspicuous link on the homepage titled "Your Privacy Choices."</ins> Consumers use it to <del>opt out of the sale of</del> <ins>direct the business not to sell or share</ins> their personal information.
 
-- **Why this matters.** SB-362 collapses sale and sharing into one duty and pins a uniform link title — homepage chrome and DSAR workflows both need a uniform UX.
+- Why this matters
+  - SB-362 collapses sale and sharing into one duty and pins a uniform link title — homepage chrome and DSAR workflows both need a uniform UX.
 
 
 ---

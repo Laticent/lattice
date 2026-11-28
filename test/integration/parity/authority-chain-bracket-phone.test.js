@@ -87,7 +87,7 @@ const rowsByPage = () =>
         const card = li.getBoundingClientRect();
         const chip = li.querySelector(':scope > :is(ul, ol) > li:first-child > code');
         const body = li.querySelector(':scope > :is(ul, ol)');
-        return { label: li.querySelector(':scope > strong')?.textContent.trim(), cardRight: card.right, chipRight: chip ? chip.getBoundingClientRect().right : null, bodyX: body ? body.getBoundingClientRect().left : null };
+        return { label: li.querySelector(':scope > .lat-label')?.textContent.trim(), cardRight: card.right, chipRight: chip ? chip.getBoundingClientRect().right : null, bodyX: body ? body.getBoundingClientRect().left : null };
       }))
       .filter((rows) => rows.length));
 

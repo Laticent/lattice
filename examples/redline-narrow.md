@@ -83,8 +83,10 @@ A pane is the one narrow box a wide deck has; the read-across grid now stacks th
 
 > At least one designated method, including a homepage link.
 
-- **Floor.** One method now suffices.
-- **Link.** The homepage label is mandatory.
+- Floor
+  - One method now suffices.
+- Link
+  - The homepage label is mandatory.
 
 ---
 

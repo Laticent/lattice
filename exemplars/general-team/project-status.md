@@ -112,13 +112,13 @@ The current hybrid app crashes at three times the industry rate and can't use th
 
 ## Our open risks, placed by likelihood and impact.
 
-- **Low likelihood · Low impact.**
+- Low likelihood · Low impact
   - App-store review delay
-- **Low likelihood · High impact.**
+- Low likelihood · High impact
   - Data-sync conflict bug at scale
-- **High likelihood · Low impact.**
+- High likelihood · Low impact
   - Minor UI polish slipping past beta
-- **High likelihood · High impact.**
+- High likelihood · High impact
   - Auth SDK slips again and blocks beta
 
 ---

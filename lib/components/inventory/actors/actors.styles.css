@@ -4,9 +4,9 @@
 
 /* ── ACTORS ────────────────────────────────────────────────────────────
  * ## heading
- * - **Signal custody** `Signal owner`
+ * - Signal custody `Signal owner`     (the lead, lifted to `.lat-label`)
  *   - Manages intake quality and source diversity. Never tunes the weights directly.
- * - **Policy** `Framework operator`
+ * - Policy `Framework operator`
  *   - Owns scoring policy, calibration cadence, version floors.
  *
  * Roster of responsibilities owned by named actors. Strong = the
@@ -37,7 +37,7 @@ section.actors[data-align="bottom"] > .cell-stage > :is(ul, ol) { justify-conten
 section.actors > .cell-stage > ul > li,
 section.actors > .cell-stage > ol > li {
   /* flex mirror of `grid-template-columns:1fr auto` + a full-width second row: the header
-   * (strong + chip) rides row 1, the body wraps to row 2 at flex-basis:100% (flex shop §11.A,
+   * (label + chip) rides row 1, the body wraps to row 2 at flex-basis:100% (flex shop §11.A,
    * the two-cells-then-full-width pattern). */
   display:flex;
   flex-wrap:wrap;
@@ -60,8 +60,8 @@ section.actors > .cell-stage > ol > li {
 section.actors > .cell-stage > ul > li::marker,
 section.actors > .cell-stage > ol > li::marker { content:''; }
 /* Strong = primary header (responsibility / capability), left-aligned. */
-section.actors > .cell-stage > ul > li > strong,
-section.actors > .cell-stage > ol > li > strong {
+section.actors > .cell-stage > ul > li > .lat-label,
+section.actors > .cell-stage > ol > li > .lat-label {
   flex:1 1 auto;
   font-size:var(--fs-body);
   font-weight:700;
@@ -69,7 +69,7 @@ section.actors > .cell-stage > ol > li > strong {
   line-height:var(--lh-snug);
 }
 /* The actor name is a pill — written `{First seat}` in inline code and drawn by the pills plugin,
- * outlined in the row's categorical hue and kept at its natural width so the strong label takes
+ * outlined in the row's categorical hue and kept at its natural width so the label takes
  * the rest of the header row (that is what right-anchors it). The --cN-dark palette is
  * theme-defined; both cuoio (warm earth pigments) and indaco (cool L≈32 deeps) ship balanced sets. */
 section.actors > .cell-stage > ul > li > .lat-pill,
@@ -120,12 +120,12 @@ section.actors > .cell-stage > ol > li > ol > li {
    grid placement. */
 /* Collapse to a single column: the responsibility fills row 1 (flex-basis:100%), so the
    chip and body each wrap onto their own line below it. */
-/* the strong's padding-bottom (not a chip margin-top) supplies the sp-2xs gap above
-   the wrapped chip — measurable, and strong carries no background so the inset is
+/* the label's padding-bottom (not a chip margin-top) supplies the sp-2xs gap above
+   the wrapped chip — measurable, and the label carries no background so the inset is
    invisible. */
-section.actors.actors:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li > strong { flex: 0 0 100%; padding-bottom: var(--sp-2xs); }
+section.actors.actors:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li > .lat-label { flex: 0 0 100%; padding-bottom: var(--sp-2xs); }
 /* Drop the chip onto its own line, hanging at the LEFT under the responsibility. The
-   chip rides the row's far end through the strong label's `flex:1`; here the label takes the full
+   chip rides the row's far end through the label's `flex:1`; here the label takes the full
    line (above), so the chip wraps onto its own line and hangs at the left. */
 
 
@@ -142,7 +142,7 @@ section.actors:not([data-family="tall"], [data-family="strip"]) > .cell-stage > 
   flex-wrap:nowrap;
   padding-block:var(--sp-xs);
 }
-section.actors:not([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol):has(> li:nth-child(5)) > li > strong {
+section.actors:not([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol):has(> li:nth-child(5)) > li > .lat-label {
   order:1; flex:0 0 22%;
 }
 section.actors:not([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol):has(> li:nth-child(5)) > li > :is(ul, ol) {

@@ -2382,7 +2382,8 @@ export function salience(el: Element): number {
 	// A CHART MARK is a datum the narration is naming, not prose about it.
 	if (el.matches('[data-mark], [data-series]')) score += 2;
 	// EMPHASIS the author typed: **strong**, a <mark>.
-	if (el.matches('strong, b, mark') || el.querySelector('strong, b, mark') || el.closest('strong, b')) score += 2;
+	// `.lat-label` is the engine's lifted lead, a `<strong>` until W3 (a kpi value, a decision tag).
+	if (el.matches('strong, b, mark, .lat-label') || el.querySelector('strong, b, mark, .lat-label') || el.closest('strong, b, .lat-label')) score += 2;
 	// THE EXTREME of its chart: the tallest bar or largest wedge outranks the smallest.
 	score += chartExtreme(el);
 	// NAMED BY THE HEADLINE. The headline is the slide's claim, so a mark or item it names ("EMEA

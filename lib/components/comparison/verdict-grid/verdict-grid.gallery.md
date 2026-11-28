@@ -19,15 +19,15 @@ Options scored against criteria as a verdict matrix.
 
 ## The grid scores options against shared criteria.
 
-- **Option one.**
+- Option one
   - [!] Criterion
   - [-] Criterion
   - Why the checks land this way.
-- **Option two.**
+- Option two
   - [x] Criterion
   - [?] Criterion
   - Unknown is not a no.
-- **Option three.**
+- Option three
   - [x] Criterion
   - [x] Criterion
   - The sweep is the verdict. Recommended.
@@ -40,23 +40,23 @@ Options scored against criteria as a verdict matrix.
 
 ## Five options is the verdict grid's ceiling.
 
-- **First.**
+- First
   - [!] Check
   - [!] Check
   - Early cards set the criteria order.
-- **Second.**
+- Second
   - [-] Check
   - [ ] Check
   - Partial marks keep the grid honest.
-- **Third.**
+- Third
   - [x] Check
   - [-] Check
   - The middle card is read most carefully.
-- **Fourth.**
+- Fourth
   - [x] Check
   - [x] Check
   - Late cards inherit the reader's fatigue.
-- **Fifth.**
+- Fifth
   - [x] Check
   - [x] Check
   - The hard stop; six wants table.
@@ -68,15 +68,15 @@ Options scored against criteria as a verdict matrix.
 
 ## The grid scores options against shared criteria.
 
-- **Option one.**
+- Option one
   - [!] Criterion
   - [-] Criterion
   - Why the checks land this way.
-- **Option two.**
+- Option two
   - [x] Criterion
   - [?] Criterion
   - Unknown is not a no.
-- **Option three.**
+- Option three
   - [x] Criterion
   - [x] Criterion
   - The sweep is the verdict. Recommended.
@@ -88,15 +88,15 @@ Options scored against criteria as a verdict matrix.
 
 ## The grid scores options against shared criteria.
 
-- **Option one.**
+- Option one
   - [!] Criterion
   - [-] Criterion
   - Why the checks land this way.
-- **Option two.**
+- Option two
   - [x] Criterion
   - [?] Criterion
   - Unknown is not a no.
-- **Option three.**
+- Option three
   - [x] Criterion
   - [x] Criterion
   - The sweep is the verdict. Recommended.
@@ -108,15 +108,15 @@ Options scored against criteria as a verdict matrix.
 
 ## The grid scores options against shared criteria.
 
-- **Option one.**
+- Option one
   - [!] Criterion
   - [-] Criterion
   - Why the checks land this way.
-- **Option two.**
+- Option two
   - [x] Criterion
   - [?] Criterion
   - Unknown is not a no.
-- **Option three.**
+- Option three
   - [x] Criterion
   - [x] Criterion
   - The sweep is the verdict. Recommended.

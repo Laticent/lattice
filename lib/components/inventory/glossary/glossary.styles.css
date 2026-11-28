@@ -22,7 +22,7 @@ section.glossary thead th { padding:0.46875cqi var(--sp-sm) 0.78125cqi; text-ali
 section.glossary td { padding:0.46875cqi var(--sp-sm); color:var(--text-body); vertical-align:top; font-size:var(--fs-body); word-wrap:break-word; overflow-wrap:break-word; border-bottom:none; }
 section.glossary tbody tr:nth-child(odd) { background:var(--bg-alt); }
 section.glossary td:first-child,
-section.glossary td:first-child strong { color:var(--accent); padding-right:var(--sp-md); white-space:nowrap; font-weight:600; }
+section.glossary td:first-child .lat-label { color:var(--accent); padding-right:var(--sp-md); white-space:nowrap; font-weight:600; }
 /* The heading is a justified row (title left · auto-derived range pill right), so it must span the
  * full lede width. The masthead-lede is a flex column with `align-items:flex-start` (masthead-lede.css),
  * which would otherwise shrink this h2 to its content and collapse the pill against the title —
@@ -76,7 +76,7 @@ section.glossary > .cell-stage { container-type: inline-size; }
    the rest. A one-word term renders exactly as before. */
 @container lattice (width < 23em) {
   section.glossary.glossary:not(.no-table-reflow) > .cell-stage > table:not(.lat-reflow-held) td:first-child,
-  section.glossary.glossary:not(.no-table-reflow) > .cell-stage > table:not(.lat-reflow-held) td:first-child strong { white-space: normal; }
+  section.glossary.glossary:not(.no-table-reflow) > .cell-stage > table:not(.lat-reflow-held) td:first-child .lat-label { white-space: normal; }
 }
 
 @container lattice (width < 17em) {

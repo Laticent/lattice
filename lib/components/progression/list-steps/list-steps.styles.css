@@ -39,7 +39,6 @@ section.list-steps ol:where(.cell-stage > *) > li:not(:last-child)::after {
   z-index:1;
 }
 section.list-steps ol:where(.cell-stage > *) > li::before { content:'STEP ' counter(step-counter, decimal-leading-zero); color:var(--card-tag-inline-ink); }   /* the tag voice: lib/base/base.card-tag.css */
-section.list-steps ol:where(.cell-stage > *) > li strong { display:block; }
 section.list-steps ol:where(.cell-stage > *) > li p { font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-base); margin:0; }
 section.list-steps ol:where(.cell-stage > *) > li:not(:has(> ul)) > p { flex:1; }
 /* Nested list format: - body text under each step */
@@ -164,12 +163,6 @@ section.list-steps.capsule ol:where(.cell-stage > *) > li::before {
   box-shadow: var(--card-tag-edge);
   font-size: var(--card-tag-fs);
 }
-section.list-steps.capsule ol:where(.cell-stage > *) > li strong {
-  font-family: var(--font-display);
-  font-size: var(--fs-h4);
-  font-weight: 600;
-  color: var(--text-heading);
-}
 section.list-steps.capsule ol:where(.cell-stage > *) > li > p,
 section.list-steps.capsule ol:where(.cell-stage > *) > li > ul > li {
   text-align: center;
@@ -209,7 +202,7 @@ section.list-steps.capsule ol:where(.cell-stage > *) > li:nth-child(8n) { --card
  * Dots-on-a-spine: ordered stages as labeled nodes along one horizontal axis.
  * ol → numbered discs; ul → plain dots. Resets the list-steps card + STEP-badge
  * + arrow-connector chrome. Merged from the standalone timeline on 2026-06-07.
- * Lifted to <strong> by the timeline token in the shared slot-label-lift paths. */
+ * Lifted to `.lat-label` by the timeline token in the shared slot-label-lift paths. */
 section.list-steps.timeline > .cell-stage { display:flex; flex-direction:column; justify-content:safe center; align-items:center; }
 /* The heading is framing text — it follows the headline-alignment seam (`headline:`) via its
  * own align-self, leaving the centered timeline body below untouched. `auto` → center (byte-
@@ -289,14 +282,14 @@ section.list-steps.timeline > .cell-stage > ol[data-ordered="false"] > li::befor
   background:var(--accent); border:3px solid var(--bg);
   box-shadow:0 0 0 1px var(--border); flex-shrink:0;
 }
-section.list-steps.timeline > .cell-stage > :is(ol,ul) > li > strong { display:block; padding-top:1.09375cqi; padding-bottom:0.3125cqi; }
+section.list-steps.timeline > .cell-stage > :is(ol,ul) > li > .lat-label { display:block; padding-top:1.09375cqi; padding-bottom:0.3125cqi; }
 section.list-steps.timeline > .cell-stage > :is(ol,ul) > li > :is(ul,ol) { list-style:none; padding:0; margin:0; }
 section.list-steps.timeline > .cell-stage > :is(ol,ul) > li > :is(ul,ol) > li { font-weight:400; }
 section.list-steps.timeline > .cell-stage > :is(ol,ul) > li > :is(ul,ol) > li em { font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-snug); font-style:normal; }
 
 /* ── chevron · converge · ghost — vertical staged-flow variants ──
  * Three looks for a labeled argument cascading DOWN the frame (Problem →
- * Vision → … → Plan), each riding the same list-steps DOM: `li > strong` is the
+ * Vision → … → Plan), each riding the same list-steps DOM: `li > .lat-label` is the
  * stage label (slot-label-lifted from the nested `- Title`), `li > ul > li` is
  * the one-line description. Added 2026-07-06 from the chevron-cascade design
  * bake-off (engineering/decisions/2026-07-06-vertical-staged-flow.md).
@@ -325,7 +318,7 @@ section.list-steps.chevron ol:where(.cell-stage > *) { gap:1.4cqi; }
 section.list-steps.chevron ol:where(.cell-stage > *) > li {
   display:grid; grid-template-columns:16cqi 1fr; gap:2cqi; align-items:stretch; min-height:7.4cqi;
 }
-section.list-steps.chevron ol:where(.cell-stage > *) > li > strong {
+section.list-steps.chevron ol:where(.cell-stage > *) > li > .lat-label {
   display:flex; align-items:center; justify-content:center; text-align:center;
   background:var(--accent); color:var(--on-accent);
   font-family:var(--font-label); font-size:var(--fs-h5); font-weight:700;
@@ -333,6 +326,10 @@ section.list-steps.chevron ol:where(.cell-stage > *) > li > strong {
   padding:0 1cqi 2cqi;
   clip-path:polygon(0 0, 100% 0, 100% 66%, 50% 100%, 0 66%);
 }
+/* The tab is a flex box, so an author's `**bold**` word inside it would become a flex item of its
+ * own and the tag's words would split apart ("PROBLEM" beside a stacked "AND MORE"). The emphasis
+ * hands its weight to its text and leaves the tag one run (W3: bold is emphasis, never structure). */
+section.list-steps.chevron ol:where(.cell-stage > *) > li > .lat-label > :is(strong, b, em, i) { display:contents; }
 section.list-steps.chevron ol:where(.cell-stage > *) > li > ul {
   display:flex; flex-direction:column; justify-content:center;
   background:var(--bg-alt); border:1px solid var(--border); border-left:0.7cqi solid var(--accent);
@@ -346,7 +343,7 @@ section.list-steps.chevron ol:where(.cell-stage > *) > li > ul > li { font-size:
  * width too. The band's bottom padding is the chevron's point. */
 @container lattice (width < 23em) {
   section.list-steps.chevron ol:where(.cell-stage > *) > li { grid-template-columns: minmax(0, 1fr); gap: 0; }
-  section.list-steps.chevron ol:where(.cell-stage > *) > li > strong { padding: 1cqi 2.2cqi 3cqi; }
+  section.list-steps.chevron ol:where(.cell-stage > *) > li > .lat-label { padding: 1cqi 2.2cqi 3cqi; }
 }
 
 /* converge — every band is full-width, clipped to a trapezoid whose edges sit on
@@ -369,9 +366,9 @@ section.list-steps.converge ol:where(.cell-stage > *) > li:nth-child(1)    { cli
 section.list-steps.converge ol:where(.cell-stage > *) > li:nth-child(2)    { clip-path:polygon(6.75% 0,  93.25% 0,   86.5% 100%,  13.5% 100%);  padding-inline:13cqi; background:color-mix(in srgb, var(--accent) 12%, var(--accent-soft)); }
 section.list-steps.converge ol:where(.cell-stage > *) > li:nth-child(3)    { clip-path:polygon(13.5% 0,  86.5% 0,    79.75% 100%, 20.25% 100%); padding-inline:19cqi; background:color-mix(in srgb, var(--accent) 92%, var(--accent-soft)); }
 section.list-steps.converge ol:where(.cell-stage > *) > li:nth-child(n+4)  { clip-path:polygon(20.25% 0, 79.75% 0,   73% 100%,    27% 100%);    padding-inline:25cqi; background:var(--accent); }
-section.list-steps.converge ol:where(.cell-stage > *) > li:nth-child(-n+2) :is(strong, ul li) { color:var(--accent-soft-body); }
-section.list-steps.converge ol:where(.cell-stage > *) > li:nth-child(n+3)  :is(strong, ul li) { color:var(--on-accent); }
-section.list-steps.converge ol:where(.cell-stage > *) > li > strong {
+section.list-steps.converge ol:where(.cell-stage > *) > li:nth-child(-n+2) :is(.lat-label, ul li) { color:var(--accent-soft-body); }
+section.list-steps.converge ol:where(.cell-stage > *) > li:nth-child(n+3)  :is(.lat-label, ul li) { color:var(--on-accent); }
+section.list-steps.converge ol:where(.cell-stage > *) > li > .lat-label {
   font-family:var(--font-label); font-size:var(--fs-h5); font-weight:700;
   text-transform:uppercase; letter-spacing:0.05em;
 }
@@ -392,7 +389,7 @@ section.list-steps.ghost ol:where(.cell-stage > *) > li::before {
   width:6.2cqi; height:6.2cqi; background:var(--accent); opacity:0.12;
   clip-path:polygon(50% 88%, 0 34%, 14% 20%, 50% 60%, 86% 20%, 100% 34%);
 }
-section.list-steps.ghost ol:where(.cell-stage > *) > li > strong {
+section.list-steps.ghost ol:where(.cell-stage > *) > li > .lat-label {
   display:block; font-family:var(--font-label); font-size:var(--fs-meta); color:var(--accent);
   font-weight:700; text-transform:uppercase; letter-spacing:0.18em; line-height:var(--lh-snug);
   padding-bottom:0.7cqi;
@@ -515,7 +512,7 @@ section.list-steps:not(.vertical):not(.timeline):not(.chevron):not(.converge):no
     display: grid; grid-template-columns: fit-content(40%) minmax(0, 1fr); column-gap: 2cqi; row-gap: 1.4cqi;
   }
   section.list-steps.list-steps.chevron:not(:where([data-family="tall"], [data-family="strip"])) > .cell-stage > ol > li { grid-column: 1 / -1; grid-template-columns: subgrid; }
-  section.list-steps.list-steps.chevron:not(:where([data-family="tall"], [data-family="strip"])) > .cell-stage > ol > li > strong { padding-inline: var(--sp-xs); }
+  section.list-steps.list-steps.chevron:not(:where([data-family="tall"], [data-family="strip"])) > .cell-stage > ol > li > .lat-label { padding-inline: var(--sp-xs); }
 }
 
 /* ── `-` steps: the same cards, no number tag ──

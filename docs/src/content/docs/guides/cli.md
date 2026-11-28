@@ -439,6 +439,7 @@ The options, one per line:
 npm run lint:deck -- 'decks/*.md'          # every deck matching a glob (keep the quotes)
 npm run lint:deck -- --strict deck.md      # warnings fail too
 npm run lint:deck -- --fix deck.md         # apply every automatic fix, in place
+npm run lint:deck -- --fix --rule bold-lead deck.md   # apply only one rule's fixes
 npm run lint:deck -- --json deck.md        # machine-readable, for scripts and agents
 ```
 

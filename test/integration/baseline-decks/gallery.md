@@ -964,11 +964,11 @@ Dark and light dividers share one series, so a mid-deck light break reads 05 str
 
 `Decision · 2026 Q1`
 
-- **Build**
+- Build
   - Owns the scoring policy, the calibration loop, the timeline. And the pager.
-- **Why not buy**
+- Why not buy
   - Two vendors evaluated; neither exposes the calibration weights to the customer, and both decks were the same deck.
-- **Why not delay**
+- Why not delay
   - The competitive window closes in 18 months — two reorgs from now.
 
 ---
@@ -980,9 +980,9 @@ Dark and light dividers share one series, so a mid-deck light break reads 05 str
 
 `Decision close-time · before vs after`
 
-- **Before**
+- Before
   - Every prioritization debate from first principles. Average close 4 hours, p99 an entire offsite, and the outcome was whatever the most senior person wanted, expressed as consensus.
-- **After**
+- After
   - Decisions resolve against logged weights and prior outcomes. Average close 18 minutes. The argument reaches the retrospective, not the next quarter.
 
 The architecture change is the calibration loop — logged, weighted, time-bound scoring — not a meeting we ran until everyone stopped arguing.
@@ -1701,7 +1701,7 @@ Filled = applies, half = partial, empty = exempt — a rare grid where empty is 
 
 > "Personal information" means information that identifies, relates to, describes, is reasonably capable of being associated with, or could reasonably be linked, directly or indirectly, with a particular consumer or household.
 
-- **What we must do.**
+- What we must do
   - Treat the decision log as a PI store: device and household identifiers ride along with every intake transcript, whichever platform hosts it. The statute does not care who won the bake-off.
 
 ---
@@ -1737,7 +1737,8 @@ Filled = applies, half = partial, empty = exempt — a rare grid where empty is 
 
 > Upon termination, Provider shall return Customer Data in <del>an open, machine-readable format</del> <ins>Provider's standard export format</ins> within <del>thirty (30)</del> <ins>ninety (90)</ins> days, <ins>subject to a data-processing fee at then-current rates,</ins> after which Provider <del>shall delete</del> <ins>may retain for archival purposes</ins> all Customer Data.
 
-- **Why this matters.** The exit clause is where per-seat pricing hides. Draft 3 makes leaving slower, billable, and optional for them — the calibration weights were never coming back anyway.
+- Why this matters
+  - The exit clause is where per-seat pricing hides. Draft 3 makes leaving slower, billable, and optional for them — the calibration weights were never coming back anyway.
 
 ---
 
@@ -1790,10 +1791,14 @@ $$ \hat\beta = (X^\top X)^{-1} X^\top y $$
 
 ## The system has four moving parts.
 
-- **Signal Intake.** Weekly structured collection across conversations and market data.
-- **Scoring Model.** Each signal scored on confidence, recency, and relevance.
-- **Decision Log.** Every call recorded with the signals that informed it.
-- **Calibration Loop.** Outcomes compared to predictions each cycle.
+- Signal Intake
+  - Weekly structured collection across conversations and market data.
+- Scoring Model
+  - Each signal scored on confidence, recency, and relevance.
+- Decision Log
+  - Every call recorded with the signals that informed it.
+- Calibration Loop
+  - Outcomes compared to predictions each cycle.
 
 ---
 

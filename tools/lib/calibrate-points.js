@@ -10,7 +10,7 @@
  * tallest card's height (2026-09-25-font-scale-fit.md, Amendment (10)).
  *
  * THE MODEL, per register. The column holds the slide's points, each a `title` (the lead, lifted to
- * <strong>) over `body` lines (its nested items), and on some slides a `sub` heading (`###`) and a
+ * `.lat-label`) over `body` lines (its nested items), and on some slides a `sub` heading (`###`) and a
  * `para` above them. Each role's lines are wrapped at its characters a line and summed at its line
  * height.
  *
@@ -152,7 +152,7 @@ async function main() {
             const grid = getComputedStyle(list).display === 'grid';
             const heights = lis.map((li, k) => {
               const pre = grid && k === 0 ? '0' : '';
-              const lead = li.querySelector(':scope > strong');
+              const lead = li.querySelector(':scope > .lat-label');
               const sub = li.querySelector(':scope > ul, :scope > ol');
               let h = lead ? role(`title${pre}`, lead) : 0;
               if (sub) for (const b of sub.children) h += role(`body${pre}`, b);

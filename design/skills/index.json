@@ -62,7 +62,7 @@
       "description": "Use when writing a whole deck from a blank file: narrative arc, front matter, picking layouts, the 10/10 bar and the ship checklist.",
       "kind": "make",
       "studio": true,
-      "tokens": 3267
+      "tokens": 3376
     },
     {
       "name": "diagram",
@@ -98,7 +98,7 @@
       "description": "Use when turning lint, Coach or overflow findings into fixes: reading lint:deck output, the common rule ids and their fixes, and fitting a slide without shrinking type.",
       "kind": "operate",
       "studio": true,
-      "tokens": 3587
+      "tokens": 3648
     },
     {
       "name": "import",
@@ -125,7 +125,7 @@
       "description": "Use when a slide carries math: inline $x$ or a display equation, the math layout and its variants, legends for symbols, and when prose beats an equation.",
       "kind": "operate",
       "studio": true,
-      "tokens": 2763
+      "tokens": 2784
     },
     {
       "name": "restyle-deck",

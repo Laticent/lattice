@@ -124,13 +124,13 @@ Retention didn't slide evenly. Churn is clustered among providers in their first
 
 ## We're prioritizing the early-tenure earnings guarantee first.
 
-- **High impact · Slow to ship.**
+- High impact · Slow to ship
   - Demand smart-routing engine
-- **Low impact · Slow to ship.**
+- Low impact · Slow to ship
   - Provider mentor-pairing program
-- **Low impact · Fast to ship.**
+- Low impact · Fast to ship
   - Expanded email support hours
-- **High impact · Fast to ship.**
+- High impact · Fast to ship
   - First-month earnings guarantee
 
 ---

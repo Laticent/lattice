@@ -372,7 +372,7 @@ section.sketch.pricing > .cell-stage > ul > li:nth-child(3n) {
 /* ── corner tags: number badges + lifted-label / banner headers ────────────
  * The numbered card badge (cards-grid/cards-stack `::before` counter) and the
  * lifted-label corner tag / banner header (decision + compare-prose
- * `strong:first-child`) ship as accent chips in the MONO face with clean
+ * `.lat-label:first-child`) ship as accent chips in the MONO face with clean
  * geometric corners — so they sat un-sketched on otherwise hand-drawn cards.
  * Give the numerals the hand display face, the labels the hand sans, and the
  * flush chips a wobbled corner. Banner headers keep their straight full-width
@@ -776,7 +776,7 @@ section.sketch.image.contain p:last-of-type {
  * panel (and the section clips it). Hold every line, titles included, at
  * --fs-body, the one reading size (typography.md §7), so the set fits. It was
  * --fs-body-compact before reading text had one size; body measured to fit. */
-section.sketch.split-panel .panel-right :is(p, li, strong) {
+section.sketch.split-panel .panel-right :is(p, li, strong, .lat-label) {
   font-size: var(--fs-body);
 }
 

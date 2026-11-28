@@ -75,10 +75,10 @@ can use is KaTeX's (<https://katex.org/docs/supported.html>).
 | One closed form with its symbols | `math` (or `math feature`) | hero equation plus a "where:" legend |
 | A point estimate with uncertainty | `math stats` | estimate, interval and n, then a plain reading |
 | A chain of two to four steps | `math derivation` | a two-column table: step and justification |
-| Definition, theorem, proof | `math theorem` | stacked cards from `>` blockquotes |
+| Definition, theorem, proof | `math theorem` | stacked cards from `>` blockquotes, each led by its `> ### Theorem.` heading |
 | Two or three formulations | `math compare` | one `###` column each |
 | An equation and its shape | `math canvas` | the equation beside a `functionplot` graph |
-| A matrix and its properties | `math matrix` | matrix plus a shape/rank legend |
+| A matrix and its properties | `math matrix` | matrix plus a shape/rank legend: `- shape` with its value nested under it |
 | A factorization | `math matrix decompose` | a product of matrices, each term named |
 
 ---

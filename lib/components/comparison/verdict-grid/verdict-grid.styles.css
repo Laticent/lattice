@@ -57,7 +57,6 @@ section.verdict-grid > .cell-stage > ul > li:last-child::after {
   pointer-events:none;
 }
 section.verdict-grid > .cell-stage > ul > li:last-child:nth-child(odd) { width:100%; }
-section.verdict-grid > .cell-stage > ul > li > strong { font-weight:inherit; color:inherit; }
 /* Inner ul = badge row */
 section.verdict-grid > .cell-stage > ul > li > ul { display:flex; flex-wrap:wrap; gap:0.390625cqi; list-style:none; padding:0; margin:0; align-content:flex-start; }
 /* Criterion items (all but the last nested li) hold one composed pill. The item itself draws
@@ -72,12 +71,6 @@ section.verdict-grid > .cell-stage > ul > li > ul > li:last-child { width:100%; 
 section.verdict-grid > .cell-stage > ul > li:last-child > ul > li:last-child { padding-inline-end:3.125cqi; }
 section.verdict-grid > .cell-stage > ul > li > ul > li::before { display:none; content:none; }
 
-/* Hardening: element siblings of <strong> in a card li don't inherit
- * the parent's font-weight:700. Covers cases like `<strong>Title.</strong>
- * <em>italic body</em>`. Text-node siblings still inherit (CSS can't
- * target text nodes); the manifest validator catches that case at
- * lint time. See CARD_STYLE_LAYOUTS in lib/components/index.js. */
-section.verdict-grid :is(ul,ol) > li > strong ~ * { font-weight: 400; }
 
 /* ── Portrait / square reflow (social/mobile @sizes). Keyed on the deck-wide
  * data-orientation stamp (lib/engine/slides.js); landscape untouched. See

@@ -29,13 +29,13 @@ footer: "Mermaid 12.3 · rendered through the diagram component"
 
 Stable diagrams render with full theme control. Experimental ones marked 🔥 may evolve in syntax and have limited theming surfaces.
 
-- **15**
+- 15
   - **Stable**
   - Flowchart, sequence, class, state, ER, journey, gantt, pie, quadrant, requirement, gitgraph, c4, mindmap, timeline, zenuml.
-- **11**
+- 11
   - **Experimental 🔥**
   - Sankey, xy chart, block, packet, kanban, architecture, radar, treemap, venn, ishikawa, treeView.
-- **6**
+- 6
   - **Themeable**
   - Flowchart, sequence, pie, state, class, journey have named themeVariables. Everything else inherits from the core six.
 

@@ -21,7 +21,7 @@ Use to evaluate 2–4 options against the same set of criteria, with a check per
 | Slot | Write | Required | Description |
 |---|---|---|---|
 | `title` | a `## ` heading | yes | Slide heading naming the choice. |
-| `options` | a list | yes | One outer li per option, lead with **Option name.**. Then one inner li per criterion, each led by a state marker ([x]/[-]/[!]/[?]/[ ]/[/]) followed by a label of AT MOST TWO WORDS; the check and the label are drawn as one pill. Criteria are shared across every option, in the same order. The last option renders as the focal verdict. |
+| `options` | a list | yes | One outer li per option, lead with the option name (`- Option name`). Then one inner li per criterion, each led by a state marker ([x]/[-]/[!]/[?]/[ ]/[/]) followed by a label of AT MOST TWO WORDS; the check and the label are drawn as one pill. Criteria are shared across every option, in the same order. The last option renders as the focal verdict. |
 | `rationale` | a list nested 1 level under an item | yes | REQUIRED. The final inner li of every option carries NO state marker — one short prose line giving the verdict for that option. This content line is what fills the card; omit it and the card renders empty below the criteria. |
 
 ### Common mistakes
@@ -50,17 +50,17 @@ Use to evaluate 2–4 options against the same set of criteria, with a check per
 
 ## Which option meets the criteria.
 
-- **First option.**
+- First option
   - [x] First criterion
   - [-] Second criterion
   - [!] Third criterion
   - One-line rationale giving the verdict for this option.
-- **Second option.**
+- Second option
   - [x] First criterion
   - [x] Second criterion
   - [?] Third criterion
   - One-line rationale giving the verdict for this option.
-- **Third option.**
+- Third option
   - [x] First criterion
   - [x] Second criterion
   - [x] Third criterion

@@ -26,7 +26,7 @@ const SIG = `function signature(node) {
   return node.tagName + cls + '(' + [...node.childNodes].map(signature).filter(Boolean).join(',') + ')';
 }`;
 
-const OPTS = '<ul><li><strong>A</strong></li><li><strong>B</strong></li></ul>';
+const OPTS = '<ul><li><span class="lat-label">A</span></li><li><span class="lat-label">B</span></li></ul>';
 const CASES = [];
 for (const cls of ['split-panel', 'split-compare']) {
   CASES.push([cls, `<h2>H</h2></p><p>C.</p>${OPTS}`]);                                  // a stray </p>
@@ -40,7 +40,7 @@ CASES.push(['split-compare', `<h2>H</h2><a><div>x</a></div><p>C.</p>${OPTS}`]);
 CASES.push(['split-panel', '<h2>H</h2><h3>sig</h3><p>C.</p><ul><li>one</li></ul>']);    // the lede's h3 boundary
 CASES.push(['split-panel', '<h2>H</h2><blockquote><h3>nested</h3></blockquote><p>C.</p><ul><li>one</li></ul>']);
 CASES.push(['split-compare', `<h2>H</h2><h6>eyebrow</h6><p>C.</p>${OPTS}`]);
-for (const list of ['<ul><li><strong>A</strong><li><strong>B</strong></ul>', '<ul><li><strong>A</strong><li><strong>B</strong>']) {
+for (const list of ['<ul><li><span class="lat-label">A</span><li><span class="lat-label">B</span></ul>', '<ul><li><span class="lat-label">A</span><li><span class="lat-label">B</span>']) {
   CASES.push(['split-compare', `<h2>H</h2><p>C.</p>${list}`]);                           // an omitted </li>, </ul>
   CASES.push(['split-panel', `<h2>H</h2><p>C.</p>${list}`]);
 }
@@ -49,8 +49,8 @@ CASES.push(['split-panel', '<b><table></b><h2>X</h2><p>Lede</p></table><ul><li>o
 CASES.push(['split-panel', '<h2>H</h2><table><p>C.</table><ul><li>one</li></ul><p>after</p>']);
 CASES.push(['split-panel', '<h2>H</h2><p>C.</p><ul><li>A</li>stray<li>B</li></ul>']);
 // Markdown-shaped controls: what every committed deck carries.
-CASES.push(['split-panel', '<p><code>Eyebrow</code></p>\n<h2>Headline</h2>\n<p>Lede.</p>\n<ul>\n<li><strong>Point</strong>\n<ul>\n<li>body</li>\n</ul>\n</li>\n</ul>\n']);
-CASES.push(['split-compare', '<p><code>Frame</code></p>\n<h2>Choice</h2>\n<p>Context.</p>\n<ul>\n<li><strong>A</strong></li>\n<li><strong>B</strong></li>\n</ul>\n<blockquote>\n<p>Pick B.</p>\n</blockquote>\n']);
+CASES.push(['split-panel', '<p><code>Eyebrow</code></p>\n<h2>Headline</h2>\n<p>Lede.</p>\n<ul>\n<li><span class="lat-label">Point</span>\n<ul>\n<li>body</li>\n</ul>\n</li>\n</ul>\n']);
+CASES.push(['split-compare', '<p><code>Frame</code></p>\n<h2>Choice</h2>\n<p>Context.</p>\n<ul>\n<li><span class="lat-label">A</span></li>\n<li><span class="lat-label">B</span></li>\n</ul>\n<blockquote>\n<p>Pick B.</p>\n</blockquote>\n']);
 
 let browser, page, bundle;
 before(async () => {

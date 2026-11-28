@@ -221,11 +221,16 @@ Categories overlap by design. One test run can contribute evidence to several mi
 
 ## Five kinds of test double do five different jobs.
 
-- **Dummy.** Fills a parameter list and is never used.
-- **Stub.** Returns canned answers to the calls the test makes.
-- **Spy.** A stub that also records how it was called.
-- **Mock.** Fails the test if expected calls do not happen.
-- **Fake.** A working, simplified version, such as an in-memory database.
+- Dummy
+  - Fills a parameter list and is never used.
+- Stub
+  - Returns canned answers to the calls the test makes.
+- Spy
+  - A stub that also records how it was called.
+- Mock
+  - Fails the test if expected calls do not happen.
+- Fake
+  - A working, simplified version, such as an in-memory database.
 
 > With a stub, check the balance afterward. With a mock, check that the ledger was called.
 

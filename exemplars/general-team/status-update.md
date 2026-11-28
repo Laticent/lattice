@@ -113,13 +113,13 @@ The vendor pulls security patches for the legacy stack at the end of July. Migra
 
 ## Where our open risks sit by likelihood and impact.
 
-- **Low likelihood · Low impact.**
+- Low likelihood · Low impact
   - Documentation lag on internal APIs
-- **Low likelihood · High impact.**
+- Low likelihood · High impact
   - Payment-gateway timeout under peak load
-- **High likelihood · Low impact.**
+- High likelihood · Low impact
   - Minor dashboard parity gaps post-cutover
-- **High likelihood · High impact.**
+- High likelihood · High impact
   - Unrehearsed peak load on cutover day
 
 ---
