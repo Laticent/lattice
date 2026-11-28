@@ -358,7 +358,7 @@ export function SizeChip({ size }: { size: string }) {
 	return <SwatchChip background={`${fill('var(--bg)', 'center', inner)}, ${fill(AC, 'center', box)}, var(--bg)`} />;
 }
 
-/** The logo's four Inspector axes (`logo-finish:`). The plate has no picker of its own. */
+/** The logo's four Inspector axes (the `logo:` words). The plate has no picker of its own. */
 const LOGO_AXIS: Record<string, GlyphAxis> = { placement: 'logoPlacement', color: 'logoColor', size: 'logoSize', scope: 'logoScope' };
 export function logoGlyph(axis: string, value: string): React.ReactNode {
 	return LOGO_AXIS[axis] ? optionGlyph(LOGO_AXIS[axis], value) : undefined;

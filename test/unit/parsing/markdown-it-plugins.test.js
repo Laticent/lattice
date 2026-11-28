@@ -839,7 +839,7 @@ describe('markdown-it-plugins', () => {
     for (const fm of [
       '---\nlogo: ./acme.svg\n---\n',
       '---\nlogo: ./acme.svg\nlogo-x: 50\nlogo-y: 84\n---\n',
-      '---\nlogo: ./acme.svg\nlogo-finish: brand\n---\n',
+      '---\nlogo: ./acme.svg brand\n---\n',
     ]) {
       assert.doesNotMatch(plugins.applyDeckLogoToHtml(html, fm), /data-logo-corner/);
     }

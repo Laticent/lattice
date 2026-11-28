@@ -1686,7 +1686,7 @@ follow-up.
 
 The section rail is the small row of marks that says which section of the deck a slide is in:
 one mark per `divider`, the current one lit. `progress-rail:` places and styles it on ONE line, up
-to one word per axis — the `logo-finish:` shape (`lib/core/resolve-progress-rail.js`), completed word
+to one word per axis — the `logo:` words' shape (`lib/core/resolve-progress-rail.js`), completed word
 by word in the Studio editor and set from the Deck Inspector (**Chrome → Section rail**).
 
 ```yaml

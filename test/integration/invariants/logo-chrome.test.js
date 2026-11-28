@@ -6,7 +6,7 @@
  * section, so the header, footer or page number vanished on slides the `title` scope skipped, on
  * `no-logo` slides, on decks with no `logo:` at all, and (for `bottom-right`) stayed visible on the
  * sovereign frames that carry no `form` class. The rule now keys on `:has(> img.deck-logo)`.
- * Found by the independent checker on the branch that introduced `logo-finish:`.
+ * Found by the independent checker on the branch that introduced the logo's axis words (then `logo-finish:`, now on `logo:`).
  *
  * Also pins the placement itself under a finish: no real-render test covered a placement word once
  * the old `logo-x` / `logo-y` one was retired.
@@ -25,7 +25,7 @@ const deck = (fm, body) => `---\nmarp: true\ntheme: indaco\nheader: "Running hea
 // (engineering/decisions/2026-11-08-anchor-chrome.md), so without it the cover's `header: false` would
 // hold whatever the logo did, and `no-logo` could never give the header back.
 const SCOPED = (placement) => deck(
-  `logo: sample:logo-acme-mark.svg\nlogo-finish: ${placement} title\nfinish: atrium`,
+  `logo: sample:logo-acme-mark.svg ${placement} title\nfinish: atrium`,
   slides(
     '<!-- @meta{layout=title, class=with-header} -->\n\n# Cover',
     '## Plain slide\n\nBody copy.',
@@ -34,7 +34,7 @@ const SCOPED = (placement) => deck(
   ),
 );
 
-describe('logo-finish placement clears chrome only where the mark is (real render)', () => {
+describe('logo placement clears chrome only where the mark is (real render)', () => {
   const chrome = resolveChrome();
   if (!chrome) {
     test('needs Chromium', { skip: skipWithoutChrome(chrome) }, () => assert.fail('no Chromium on this runner: install it (test/helpers/chrome.js)'));
@@ -66,7 +66,7 @@ describe('logo-finish placement clears chrome only where the mark is (real rende
   }
 
   test('top-left: the header goes where the mark is, and only there', async () => {
-    const [cover, plain, noLogo] = await probe(SCOPED('top-left'), 'logo-finish-top-left');
+    const [cover, plain, noLogo] = await probe(SCOPED('top-left'), 'logo-top-left');
     assert.equal(cover.logo, true);
     assert.equal(cover.header, false, 'the header yields on the slide that carries the mark');
     assert.equal(plain.logo, false);
@@ -75,7 +75,7 @@ describe('logo-finish placement clears chrome only where the mark is (real rende
   });
 
   test('bottom-center: the footer yields, seated at the bottom middle, under a finish', async () => {
-    const [cover, plain, , divider] = await probe(SCOPED('bottom-center'), 'logo-finish-bottom-center');
+    const [cover, plain, , divider] = await probe(SCOPED('bottom-center'), 'logo-bottom-center');
     assert.ok(Math.abs(cover.cx - 50) <= 1, `centered across, got ${cover.cx}%`);
     assert.ok(cover.cy > 88, `on the bottom inset, got ${cover.cy}%`);
     assert.equal(plain.footer, true, 'no mark on this slide, so the footer stays');
@@ -83,14 +83,14 @@ describe('logo-finish placement clears chrome only where the mark is (real rende
   });
 
   test('bottom-right: the page number yields on the title frame too (it carries no `form` class)', async () => {
-    const [cover, plain] = await probe(SCOPED('bottom-right'), 'logo-finish-bottom-right');
+    const [cover, plain] = await probe(SCOPED('bottom-right'), 'logo-bottom-right');
     assert.equal(cover.logo, true);
     assert.equal(cover.page, false, 'the page number is hidden under the mark on a sovereign frame');
     assert.equal(plain.page, true, 'and kept on a slide with no mark');
   });
 
   test('a placement word with no `logo:` hides nothing', async () => {
-    const out = await probe(deck('logo-finish: top-left bottom-right', slides('## One\n\nBody.', '## Two\n\nBody.')), 'logo-finish-no-logo');
+    const out = await probe(deck('logo: top-left bottom-right', slides('## One\n\nBody.', '## Two\n\nBody.')), 'logo-no-file');
     assert.ok(out.every((s) => s.header && s.footer && s.page), 'no mark, no stand-down');
   });
 });

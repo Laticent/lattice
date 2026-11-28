@@ -28,11 +28,11 @@ function runtime(deckSource, markup) {
 }
 
 const sec = (n, cls = '') => `<section data-lattice-slide="${n}" class="${cls}"><h2>Slide ${n}</h2></section>`;
-const DECK = (fm) => `---\ntheme: indaco\nlogo: lattice\n${fm}\n---\n\n## x\n`;
+const DECK = (words) => `---\ntheme: indaco\nlogo: lattice ${words}\n---\n\n## x\n`;
 
 test('runtime: the title scope, `no-logo`, a tint and a per-slide color override reach the engine\'s answer', async () => {
   const markup = [sec(1, 'title'), sec(2), sec(3, 'title no-logo'), sec(4, 'title logo-ink')].join('');
-  const doc = await runtime(DECK('logo-finish: bottom-center accent title'), markup);
+  const doc = await runtime(DECK('bottom-center accent title'), markup);
   const [one, two, three, four] = [...doc.querySelectorAll('section')];
   const has = (s) => !!s.querySelector(':scope > img.deck-logo');
   assert.equal(has(one), true, 'the cover carries the mark');
@@ -48,7 +48,7 @@ test('runtime: the title scope, `no-logo`, a tint and a per-slide color override
 });
 
 test('runtime: an untinted deck injects the img and no svg or inline vars', async () => {
-  const doc = await runtime(DECK('logo-finish: top-left'), sec(1, 'title') + sec(2));
+  const doc = await runtime(DECK('top-left'), sec(1, 'title') + sec(2));
   const [a, b] = [...doc.querySelectorAll('section')];
   assert.ok(a.querySelector(':scope > img.deck-logo') && b.querySelector(':scope > img.deck-logo'));
   assert.equal(doc.querySelectorAll('svg.deck-logo-tint').length, 0);

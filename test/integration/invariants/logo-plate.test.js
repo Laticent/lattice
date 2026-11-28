@@ -1,9 +1,9 @@
 /**
  * The deck logo has no plate unless asked for (real render; HARD RULE #23: a cascade fact, asserted on a real page).
  *
- * `logo-finish: brand` used to paint a soft plate behind the mark, so a logo with a transparent background showed a box
+ * `brand` (then on `logo-finish:`, now on `logo:`) used to paint a soft plate behind the mark, so a logo with a transparent background showed a box
  * and the only way out was a `!important` override in the deck's own `style:`. The plate is now its own word on the
- * register (`plate` / `no-plate`, lib/core/resolve-logo-finish.js): off by default, on for the deck or for one slide,
+ * register (`plate` / `no-plate`, lib/core/resolve-logo.js): off by default, on for the deck or for one slide,
  * and a slide can take the deck's plate back.
  */
 
@@ -15,8 +15,8 @@ const { renderHtml } = require('../../helpers/semantic-render');
 const deck = (words) => `---
 marp: true
 theme: indaco
-logo: sample:logo-acme-mark.svg
-${words ? `logo-finish: ${words}\n` : ''}---
+logo: sample:logo-acme-mark.svg${words ? ` ${words}` : ''}
+---
 
 ## One
 

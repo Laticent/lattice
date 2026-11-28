@@ -3041,8 +3041,8 @@ section.lattice-exporting .fit-culprit { outline: none !important; }
  * applyDeckLogoFromFrontMatter (lattice-runtime.js), the one genuine second
  * implementation (a DOM mirror of the same injection).
  *
- * Placement, size and color are the `logo-finish:` register's words, stamped as classes on the
- * SECTION (lib/core/resolve-logo-finish.js), so a section-level rule can read them — the stand-down
+ * Placement, size and color are the `logo:` line's axis words, stamped as classes on the
+ * SECTION (lib/core/resolve-logo.js), so a section-level rule can read them — the stand-down
  * of the header, footer and page number below does. The mark's box is two section-level tokens,
  * `--deck-logo-w` (its width, from `--logo-scale`, which `logo-sm` / `logo-lg` set on the section) and
  * `--logo-plate-pad` (the plate's padding, `logo-plate` only), so the footer band can reserve exactly the
@@ -3109,7 +3109,7 @@ img.deck-logo {
    * engineering/decisions/2026-08-12-slide-plane-model.md § The wash that was a rasterizer. */
   z-index: var(--z-content);
   position: absolute;
-  /* Default: the top-right corner via frame insets. The `logo-finish:` register moves and sizes
+  /* Default: the top-right corner via frame insets. The `logo:` line's words move and size
    * the mark with section classes (below) — a placement word, a size word. */
   top: var(--frame-inset-t);
   right: var(--frame-inset-r);
@@ -3143,7 +3143,7 @@ img.deck-logo {
   filter: var(--deck-logo-filter, grayscale(1) brightness(0.4) contrast(1.2));
 }
 
-/* ── THE `logo-finish:` REGISTER, as section classes (lib/core/resolve-logo-finish.js) ──────
+/* ── THE `logo:` WORDS, as section classes (lib/core/resolve-logo.js) ──────
  * The deck's words and a slide's own land as classes on the section, so every rule below reads the
  * slide's FINAL word on each axis. `no-logo` removes the mark itself (the injectors skip the
  * slide), which is why the stand-down rules guard on `:not(.no-logo)`. */
@@ -3205,7 +3205,7 @@ section.logo-brand img.deck-logo {
   filter: none;
 }
 
-/* `plate` — the file's own colors on a soft plate. Opt-in: the deck's `logo-finish:` line or one slide's
+/* `plate` — the file's own colors on a soft plate. Opt-in: the deck's `logo:` line or one slide's
  * `_class: logo-plate` asks for it, and `logo-no-plate` takes it back on one slide. The plate is the img's own
  * background, and `opacity` and `filter` act on the whole element, background included, so a plate under the
  * watermark's grayscale-and-fade or a tint's flood filter would be washed out or flooded solid. The plate therefore

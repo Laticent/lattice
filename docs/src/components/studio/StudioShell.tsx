@@ -137,7 +137,7 @@ import { FOLLOW_GHOST, FollowChip } from './live/follow-ui';
 import { liveColor } from './live/live-model';
 import { type LiveLook, type LiveRecords, NO_RECORDS } from './live/live-store';
 import { storedLiveName, useLiveSession } from './live/use-live-session';
-import { LOGO_PLACEMENT_HIDES, type LogoFinishAxis, logoFinishLabel, logoFinishOptions, logoFinishValue, logoFinishWords, parseLogoFinish } from './logo-finish';
+import { LOGO_PLACEMENT_HIDES, type LogoAxis, logoLineValue, logoWordLabel, logoWordOptions, logoWordsOf, parseLogoWords, splitLogoLine } from './logo-words';
 import { MotionTargets } from './MotionTargets';
 import { type DiagramError, extractDiagrams } from './mermaid-check';
 import { readTargets, setSlideMotionOff } from './motion-sheet';
@@ -2967,16 +2967,20 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// The deck LOGO and its four placement modifiers. Read by plugins.js + lib/runtime,
 	// rendered by the masthead logo tile. `logo:` is a path or URL; the modifiers only
 	// mean anything once it is set, so the Inspector hides them until then.
-	const logo = getFrontMatter(source, 'logo') || '';
-	const setLogo = (v: string) => settingsWrite('Logo', (s) => writeFrontMatterLine(s, 'logo', v.trim() || null));
-	// ONE line styles it (`logo-finish:`, lib/core/resolve-logo-finish.js): placement, color, size, scope.
-	// A default word is left out and the key goes once every axis is default, like `image-card:`.
-	const logoWords = parseLogoFinish(getFrontMatter(source, 'logo-finish') || '');
-	// Read the CURRENT source inside the write, not the render's copy: two quick picks must both land.
-	const setLogoWord = (axis: LogoFinishAxis, v: string) =>
+	// ONE `logo:` line carries the file AND its words (lib/core/resolve-logo.js): placement, color, plate,
+	// size, scope. The Logo row edits the file and keeps the words; a word pick keeps the file. A default
+	// word is left out and the key goes once there is neither a file nor a word, like `image-card:`.
+	const logoLine = splitLogoLine(getFrontMatter(source, 'logo') || '');
+	const logo = logoLine.file;
+	// Read the CURRENT source inside each write, not the render's copy: two quick picks must both land.
+	const setLogo = (v: string) =>
+		settingsWrite('Logo', (s) => writeFrontMatterLine(s, 'logo', logoLineValue(v, parseLogoWords(splitLogoLine(getFrontMatter(s, 'logo') || '').words)) || null));
+	const logoWords = parseLogoWords(logoLine.words);
+	const setLogoWord = (axis: LogoAxis, v: string) =>
 		settingsWrite('Logo style', (s) => {
-			const next = { ...parseLogoFinish(getFrontMatter(s, 'logo-finish') || ''), [axis]: v === AUTO_VALUE ? undefined : v };
-			return writeFrontMatterLine(s, 'logo-finish', logoFinishValue(next) || null);
+			const line = splitLogoLine(getFrontMatter(s, 'logo') || '');
+			const next = { ...parseLogoWords(line.words), [axis]: v === AUTO_VALUE ? undefined : v };
+			return writeFrontMatterLine(s, 'logo', logoLineValue(line.file, next) || null);
 		});
 	// The masthead META line (`meta:`) — the small line in the status bay.
 	const metaLine = getFrontMatter(source, 'meta') || '';
@@ -7069,8 +7073,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					<SettingsScope label="Logo" keywords="brand mark image" className="mt-1 space-y-0.5 border-l-2 border-border pl-2.5">
 						{(['placement', 'color', 'size', 'scope'] as const).map((axis) => {
 							const meta = {
-								placement: { label: 'Position', desc: logoWords.placement ? (LOGO_PLACEMENT_HIDES[logoWords.placement] ?? '') : 'Top right, beside the header.', help: <>Which of the six berths the logo sits in: a corner, or the top or bottom center. Whatever chrome lives in that band stands down so the mark never overlaps it — the brand wins. Written as one word on the <code>logo-finish:</code> line.</> },
-								color: { label: 'Color', desc: 'Auto, or a palette color.', help: <><strong>Auto</strong> keeps the faint watermark that flips on dark slides. A palette color recolors the mark from the theme and follows light and dark on its own; the blends mix two roles evenly. <strong>Original colors</strong> keeps the file's own colors with nothing behind them; the plate is a separate word in <code>logo-finish:</code>.</> },
+								placement: { label: 'Position', desc: logoWords.placement ? (LOGO_PLACEMENT_HIDES[logoWords.placement] ?? '') : 'Top right, beside the header.', help: <>Which of the six berths the logo sits in: a corner, or the top or bottom center. Whatever chrome lives in that band stands down so the mark never overlaps it — the brand wins. Written as one word on the <code>logo:</code> line.</> },
+								color: { label: 'Color', desc: 'Auto, or a palette color.', help: <><strong>Auto</strong> keeps the faint watermark that flips on dark slides. A palette color recolors the mark from the theme and follows light and dark on its own; the blends mix two roles evenly. <strong>Original colors</strong> keeps the file's own colors with nothing behind them; the plate is a separate word on the <code>logo:</code> line.</> },
 								size: { label: 'Size', desc: 'Small, medium or large.', help: <>Scales the mark — medium is the default size.</> },
 								scope: { label: 'Show on', desc: 'Every slide, or just the cover.', help: <>The title slide only means the deck's first slide and any slide using the <code>title</code> layout. One slide can hide the logo with <code>_class: no-logo</code>.</> },
 							}[axis];
@@ -7078,14 +7082,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 								<Field key={axis} label={meta.label} desc={meta.desc} help={meta.help}>
 									<CatalogSelect
 										ariaLabel={`Choose logo ${axis === 'placement' ? 'position' : axis === 'scope' ? 'scope' : axis}`}
-										value={logoWords[axis] && (axis === 'placement' || logoWords[axis] !== logoFinishWords(axis)[0]) ? (logoWords[axis] as string) : AUTO_VALUE}
+										value={logoWords[axis] && (axis === 'placement' || logoWords[axis] !== logoWordsOf(axis)[0]) ? (logoWords[axis] as string) : AUTO_VALUE}
 										onValueChange={(v) => setLogoWord(axis, v)}
 										className="w-full"
 										// Placement's Auto is the ABSENCE of a word (top right, beside the header),
 										// which no listed word gives: naming `top-right` also clears the header.
 										groups={withAutoHead(
-											[{ options: logoFinishOptions(axis).map((w) => ({ value: w, label: axis === 'placement' && w === 'top-right' ? 'Top right, header clear' : logoFinishLabel(w), icon: logoGlyph(axis, w) })) }],
-											{ label: axis === 'placement' ? 'Top right' : axis === 'color' ? 'Watermark' : logoFinishLabel(logoFinishWords(axis)[0]) },
+											[{ options: logoWordOptions(axis).map((w) => ({ value: w, label: axis === 'placement' && w === 'top-right' ? 'Top right, header clear' : logoWordLabel(w), icon: logoGlyph(axis, w) })) }],
+											{ label: axis === 'placement' ? 'Top right' : axis === 'color' ? 'Watermark' : logoWordLabel(logoWordsOf(axis)[0]) },
 										)}
 									/>
 								</Field>

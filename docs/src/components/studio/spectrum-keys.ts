@@ -4,7 +4,7 @@
 //   card-spectrum: <style> <edge> <weight>   the stripe on each card
 //   trim-spectrum: <style>                   the accent on tables, timelines and rules
 //
-// One line per key, up to one word per axis (axis-line.ts), the way `logo-finish:` and `progress-rail:`
+// One line per key, up to one word per axis (axis-line.ts), the way `logo:` and `progress-rail:`
 // work. A preset fills only the axes the deck leaves empty, exactly as the engine's `mergedValue` does,
 // so a deck that moves the stripe on a `preset: brand` deck keeps the preset's solid style. No key follows another:
 // a `card-spectrum:` line that names an edge or a weight but no style turns the stripe on in rainbow, as the engine does.
