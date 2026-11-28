@@ -77,22 +77,12 @@ const SANCTIONED = {
     why: 'a check-list item that says no Marp directive comment (`<!-- _class: … -->`) is left in an imported deck',
     keys: { _class: 1 },
   },
-  // TEMPORARY, reported to desk:agent-native on 2026-11-28: each still teaches `_class` as current, in a file this PR
-  // does not own. The stale-entry check fails once the file is fixed, so the entry goes with the fix.
-  'docs/src/content/docs/guides/authoring.md': {
-    why: "TEMPORARY: :147 says to add a claim to the slide's `_class:`; reported to desk:agent-native",
-    keys: { _class: 1 },
-  },
-  'design/design-system.gallery.md': {
-    why: 'TEMPORARY: :105 and :107 show layout names in the `<!-- _class: … -->` form; reported to desk:agent-native',
-    keys: { _class: 2 },
-  },
   'docs/src/content/docs/reference/cli.md': {
     why: "the `lattice migrate notes` table lists the old forms it rewrites; the row's left column is the input",
     keys: { say: 2 },
   },
   'docs/src/content/docs/spec/diagnostics.md': {
-    why: "the diagnostics table names what each rule reports: `stray-overflow-marker`'s retired key, and `say:` as an unknown `terms:` field. TEMPORARY for `_class`: the `meta-class-overridden` row (:440) still lists a `_class:` comment as a way to set a slide's class; reported to desk:agent-native",
+    why: "the diagnostics table names what each rule reports: `stray-overflow-marker`'s retired key, and `say:` as an unknown `terms:` field. TEMPORARY for `_class`: the `meta-class-overridden` row (:440) still lists a `_class:` comment as a way to set a slide's class; #3554 (the spec desk) fixes it",
     keys: { 'overflow-marker': 1, say: 1, _class: 1 },
   },
 };
