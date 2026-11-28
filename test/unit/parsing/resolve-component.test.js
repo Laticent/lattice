@@ -37,7 +37,7 @@ describe('resolve-component — the name vocabulary', () => {
   });
 
   test('modifiers, variants and register tokens are NOT components', () => {
-    for (const t of ['dark', 'light', 'numbered', 'lifted', 'flat', 'finish-atrium', 'sketch', 'no-spectrum', 'stamp-seal', 'tone-pass', 'head-center', 'rule-full']) {
+    for (const t of ['dark', 'light', 'numbered', 'card-lift-on', 'card-lift-off', 'finish-atrium', 'sketch', 'no-spectrum', 'stamp-shape-seal', 'tone-pass', 'headline-align-center', 'heading-rule-full']) {
       assert.equal(isComponentToken(t), false, `${t} must not read as a component`);
     }
   });

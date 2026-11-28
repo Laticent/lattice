@@ -36,15 +36,15 @@ import { CARD_TAG_ROWS, cardTagOptionLabel } from './card-tag-rows';
 import { CHART_FINISHES, DEFAULT_CHART_FINISH } from './chart-finish-catalog';
 import { activeEyebrow, EYEBROWS } from './eyebrow-catalog';
 import { finishSelectGroups, finishSwatchFor, type SavedFinishMenuEntry } from './FinishPicker';
-import { activeHeadline, HEADLINES } from './headline-catalog';
+import { activeHeadingRule, HEADING_RULES } from './heading-rule-catalog';
+import { activeHeadlineAlign, HEADLINE_ALIGNS } from './headline-align-catalog';
 import { SrDescriptionIcon } from './icons';
 import { CardBackingControl } from './image-card-backing';
 import { IMAGE_CARD_DEFAULT_LABEL, IMAGE_CARD_ROWS, imageCardOptionLabel } from './image-card-rows';
 import { followBus, useAppliedKey, useFollowRow, useViewKey } from './live/follow-bus';
 import { FOLLOW_GHOST, FollowChip } from './live/follow-ui';
-import { DEFAULT_STAMP, DEFAULT_TONE, glyphs, imageGlyph, optionGlyph, tagGlyph } from './option-glyphs';
+import { DEFAULT_STAMP_SHAPE, DEFAULT_TONE, glyphs, imageGlyph, optionGlyph, tagGlyph } from './option-glyphs';
 import type { SlideBaseline } from './panel-shells';
-import { activeRule, RULES } from './rule-catalog';
 import { SlideComments } from './SlideComments';
 
 const { NO_PAGINATION } = chromeGenerated as { NO_PAGINATION: readonly string[] };
@@ -52,7 +52,7 @@ const { NO_PAGINATION } = chromeGenerated as { NO_PAGINATION: readonly string[] 
 import { activeCardSpectrum, CARD_SPECTRA } from './card-spectrum-catalog';
 import { activeCardSpectrumEdge, CARD_SPECTRUM_EDGES } from './card-spectrum-edge-catalog';
 import { getSlideNote, type NoteName, setSlideNote } from './slide-notes';
-import { BACKDROP_MASKS, backdropProvenance, CARD_TAG_AXES, CARD_TAG_LAYOUTS, type Canvas, type CardTagAxis, canvasProvenance, cardTagProvenance, deckDefaults, eyebrowProvenance, finishProvenance, headlineProvenance, type ImageCardAxis, imageCardProvenance, imageCardWords, marksProvenance, motionPlayProvenance, motionSpeedProvenance, motionStyleProvenance, ruleProvenance, setBackdrop, setCanvas, setCardTag, setEyebrow, setFinish, setHeadline, setImageCard, setMarks, setMotionPlay, setMotionSpeed, setMotionStyle, setRule, setSpectrumAxis, setStampStyle, setToneStyle, spectrumAxisProvenance, stampStyleProvenance, toneStyleProvenance } from './slide-provenance';
+import { BACKDROP_MASKS, backdropProvenance, CARD_TAG_AXES, CARD_TAG_LAYOUTS, type Canvas, type CardTagAxis, canvasProvenance, cardTagProvenance, deckDefaults, eyebrowProvenance, finishProvenance, headlineProvenance, type ImageCardAxis, imageCardProvenance, imageCardWords, marksProvenance, motionPlayProvenance, motionSpeedProvenance, motionStyleProvenance, ruleProvenance, setBackdrop, setCanvas, setCardTag, setEyebrow, setFinish, setHeadline, setImageCard, setMarks, setMotionPlay, setMotionSpeed, setMotionStyle, setRule, setSpectrumAxis, setStampShape, setToneStyle, spectrumAxisProvenance, stampShapeProvenance, toneStyleProvenance } from './slide-provenance';
 import { activeSpectrum, SPECTRA } from './spectrum-catalog';
 import { activeSpectrumEdge, SPECTRUM_EDGES } from './spectrum-edge-catalog';
 import { activeSpectrumWeight, SPECTRUM_WEIGHTS } from './spectrum-weight-catalog';
@@ -67,7 +67,7 @@ type LintVocab = {
 	semiUniversalVariants?: string[];
 	finishNames?: string[];
 	/** Stamp SHAPE vocabulary — the curated boardroom subset + the wider range. */
-	stampStyles?: { boardroom: string[]; range: string[] };
+	stampShapes?: { boardroom: string[]; range: string[] };
 	/** Tone SHAPE vocabulary — the `tone-<style>` tokens (stripe / edge / glow). */
 	toneStyles?: string[];
 } | null;
@@ -457,7 +457,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	const bdMaskGroups = inheritGroups([{ options: BACKDROP_MASKS.map((m) => ({ value: m, label: maskLabel(m) })) }], bdMask.deckValue ? { value: bdMask.deckValue } : { label: maskLabel() });
 	const onBdStrength = (v: string | null) => onMutate((c) => setBackdrop(c, 'strength', v));
 	const onBdMask = (v: string) => onMutate((c) => setBackdrop(c, 'mask', v === '__inherit__' ? null : v));
-	// Card tags — the deck `tag:` register's per-slide override (lib/core/resolve-card-tag.js), on
+	// Card tags — the deck `card-tag:` register's per-slide override (lib/core/resolve-card-tag.js), on
 	// the layouts that draw a tag. Four axes, each Auto = follow the deck, then the component.
 	const showsCardTag = (CARD_TAG_LAYOUTS as readonly string[]).includes(component);
 	const cardTag = React.useMemo(
@@ -590,7 +590,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	): { value: string; groups: CatalogGroup[] } => {
 		const inherits = active(prov.inheritable ? prov.deckValue : defaultName).name;
 		// Every value is a per-slide token, the default included: its restore token
-		// (`spectrum-top`, `rule-auto`, …) is how one slide returns to the default inside a
+		// (`spectrum-top`, `heading-rule-auto`, …) is how one slide returns to the default inside a
 		// deck that set another value. Only the value Auto already gives leaves the list.
 		const options = catalogOptions(entries, glyph);
 		return { value: inheritValue(prov.state === 'on' ? prov.value : null, inherits), groups: inheritGroups([{ options }], { value: inherits }) };
@@ -602,7 +602,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	const weight = overrideAxis(weightProv, SPECTRUM_WEIGHTS, 'regular', activeSpectrumWeight);
 	const onWeight = (v: string) => onMutate((c) => setSpectrumAxis(c, 'spectrum', 'weight', v === '__inherit__' ? null : v));
 	const ruleProv = React.useMemo(() => ruleProvenance(chunk, source), [chunk, source]);
-	const ruleOpt = overrideAxis(ruleProv, RULES, 'auto', activeRule);
+	const ruleOpt = overrideAxis(ruleProv, HEADING_RULES, 'auto', activeHeadingRule);
 	const onRule = (v: string) => onMutate((c) => setRule(c, v === '__inherit__' ? null : v));
 	const eyebrowProv = React.useMemo(() => eyebrowProvenance(chunk, source), [chunk, source]);
 	const eyebrowOpt = overrideAxis(eyebrowProv, EYEBROWS, 'plain', activeEyebrow);
@@ -622,7 +622,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 		return { value: inheritValue(marksProv.state === 'on' ? marksProv.value : null, deck), groups: inheritGroups([{ options: catalogOptions(CHART_FINISHES) }], { value: deck }) };
 	}, [marksProv]);
 	const onMarks = (v: string) => onMutate((c) => setMarks(c, v === '__inherit__' ? null : v));
-	const headlineOpt = overrideAxis(headlineProv, HEADLINES, 'auto', activeHeadline, glyphs('align'));
+	const headlineOpt = overrideAxis(headlineProv, HEADLINE_ALIGNS, 'auto', activeHeadlineAlign, glyphs('align'));
 	const onHeadline = (v: string) => onMutate((c) => setHeadline(c, v === '__inherit__' ? null : v));
 	// Card spectrum STYLE — an off/rainbow/solid/duo/mono axis of its own, never copied from the slide
 	// edge. Auto follows the deck; every catalog value is an explicit per-slide choice (off included). A Picker (not a Seg) keeps it consistent with the other accent pickers and
@@ -695,23 +695,23 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	const toneAxis = axes.tone ?? groups.tone ?? [];
 	const stateGroup = groups.state ?? [];
 
-	// Marker SHAPE pickers — the deck `stamp:` / `tone:` register's per-slide override.
+	// Marker SHAPE pickers — the deck `stamp-shape:` / `tone:` register's per-slide override.
 	// Orthogonal to WHICH marker shows (the chips above): these pick the shape it renders
 	// in. Provenance-aware, so an inherited deck default reads as "Auto — <name>" and a
 	// per-slide pick overrides it. The boardroom subset leads; the wider range follows.
-	const stampStyles = vocab.stampStyles ?? { boardroom: [], range: [] };
-	const hasStampStyles = stampStyles.boardroom.length > 0 || stampStyles.range.length > 0;
-	const stampStyle = React.useMemo(() => stampStyleProvenance(chunk, source), [chunk, source]);
-	const stampInherits = (stampStyle.inheritable && stampStyle.deckValue) || DEFAULT_STAMP;
-	const stampStyleValue = inheritValue(stampStyle.state === 'on' ? stampStyle.value : null, stampInherits);
-	const stampStyleGroups = inheritGroups(
+	const stampShapes = vocab.stampShapes ?? { boardroom: [], range: [] };
+	const hasStampShapes = stampShapes.boardroom.length > 0 || stampShapes.range.length > 0;
+	const stampShape = React.useMemo(() => stampShapeProvenance(chunk, source), [chunk, source]);
+	const stampInherits = (stampShape.inheritable && stampShape.deckValue) || DEFAULT_STAMP_SHAPE;
+	const stampShapeValue = inheritValue(stampShape.state === 'on' ? stampShape.value : null, stampInherits);
+	const stampShapeGroups = inheritGroups(
 		[
-			{ label: 'Boardroom', options: stampStyles.boardroom.map((n) => ({ label: cap(n), value: n, icon: optionGlyph('stamp', n) })) },
-			...(stampStyles.range.length ? [{ label: 'More', options: stampStyles.range.map((n) => ({ label: cap(n), value: n, icon: optionGlyph('stamp', n) })) }] : []),
+			{ label: 'Boardroom', options: stampShapes.boardroom.map((n) => ({ label: cap(n), value: n, icon: optionGlyph('stamp-shape', n) })) },
+			...(stampShapes.range.length ? [{ label: 'More', options: stampShapes.range.map((n) => ({ label: cap(n), value: n, icon: optionGlyph('stamp-shape', n) })) }] : []),
 		],
 		{ value: stampInherits },
 	);
-	const onStampStyle = (v: string) => onMutate((c) => setStampStyle(c, v === INHERIT ? null : v));
+	const onStampShape = (v: string) => onMutate((c) => setStampShape(c, v === INHERIT ? null : v));
 
 	const toneStyleTokens = vocab.toneStyles ?? [];
 	const toneStyle = React.useMemo(() => toneStyleProvenance(chunk, source, toneStyleTokens), [chunk, source, toneStyleTokens]);
@@ -1083,9 +1083,9 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 										<SettingsScope label="Stamp" keywords="state badge draft confidential corner" className="my-1.5">
 											<GroupHead label="Stamp" desc="A small state badge in a corner — like Draft or Confidential." />
 											<ChipRow ariaLabel="State stamp" value={cur(stateGroup)} onChange={(v) => groupSet(stateGroup, v)} options={stateGroup.map((s) => ({ label: cap(s), value: s }))} />
-											{hasStampStyles && (
-												<Row label="Shape" hint={stampStyle.state === 'inherited' ? 'from deck' : undefined} desc="The badge's shape." help={<>The deck sets a default shape for every badge in Deck settings ▸ Accent; this pins a different one for this slide alone.</>}>
-													<Picker ariaLabel="Stamp style" value={stampStyleValue} onChange={onStampStyle} groups={stampStyleGroups} />
+											{hasStampShapes && (
+												<Row label="Shape" hint={stampShape.state === 'inherited' ? 'from deck' : undefined} desc="The badge's shape." help={<>The deck sets a default shape for every badge in Deck settings ▸ Accent; this pins a different one for this slide alone.</>}>
+													<Picker ariaLabel="Stamp style" value={stampShapeValue} onChange={onStampShape} groups={stampShapeGroups} />
 												</Row>
 											)}
 										</SettingsScope>

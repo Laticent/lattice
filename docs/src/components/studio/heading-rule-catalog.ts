@@ -1,12 +1,12 @@
-// The Studio rule catalog — DISPLAY metadata for the `rule:` register (the HEADING
+// The Studio rule catalog — DISPLAY metadata for the `heading-rule:` register (the HEADING
 // underline: auto / full / short / accent / none). Sibling of spectrum-catalog.ts, an accent
-// finish. The engine's single source of truth is RULE_NAMES (lib/core/resolve-rule.js). THIS
-// file adds only the human layer the picker needs; the rot-guard is rule-catalog.test.ts.
+// finish. The engine's single source of truth is HEADING_RULE_NAMES (lib/core/resolve-heading-rule.js). THIS
+// file adds only the human layer the picker needs; the rot-guard is heading-rule-catalog.test.ts.
 //
-// Authored deck-wide via `rule:` or per-slide via `_class: rule-short` etc.
+// Authored deck-wide via `heading-rule:` or per-slide via `_class: heading-rule-short` etc.
 
-export type RuleEntry = {
-	/** the `rule:` register value (and engine RULE_NAMES member) */
+export type HeadingRuleEntry = {
+	/** the `heading-rule:` register value (and engine HEADING_RULE_NAMES member) */
 	name: string;
 	label: string;
 	/** For an entry whose own label is "Auto": what auto RESOLVES to, for the
@@ -28,7 +28,7 @@ const ruled = (ink: string, width: string, weight: string) =>
 	`${HEAD}, linear-gradient(${ink}, ${ink}) 3px 70% / ${width} ${weight} no-repeat, var(--bg)`;
 
 // Ordered as the picker shows them. `auto` is the named baseline (today's render).
-export const RULES: RuleEntry[] = [
+export const HEADING_RULES: HeadingRuleEntry[] = [
 	{
 		name: 'auto', label: 'Auto', autoLabel: 'Hairline',
 		blurb: 'Today’s render — a hairline where the masthead already draws one, else nothing.',
@@ -56,12 +56,12 @@ export const RULES: RuleEntry[] = [
 	},
 ];
 
-export const RULE_BY_NAME: Record<string, RuleEntry> = Object.fromEntries(
-	RULES.map((s) => [s.name, s]),
+export const RULE_BY_NAME: Record<string, HeadingRuleEntry> = Object.fromEntries(
+	HEADING_RULES.map((s) => [s.name, s]),
 );
 
 /** The active rule entry for a value; unknown / empty → the `auto` default. */
-export function activeRule(value: string | undefined | null): RuleEntry {
+export function activeHeadingRule(value: string | undefined | null): HeadingRuleEntry {
 	const key = (value ?? '').trim().toLowerCase();
 	return RULE_BY_NAME[key] ?? RULE_BY_NAME.auto;
 }

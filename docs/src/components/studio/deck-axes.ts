@@ -1,4 +1,4 @@
-// The deck-level axis tables the Studio reads at startup: `backdrop:`, `tag:` and `image-card:`, their
+// The deck-level axis tables the Studio reads at startup: `backdrop:`, `card-tag:` and `image-card:`, their
 // deck-line readers and writers, and the image-card class helpers the photo tools use. Split out of
 // slide-provenance.ts so the Studio's first load does not carry the slide drawer's provenance code:
 // slide-provenance.ts is imported eagerly only through these, and SlideContext (lazy) takes the rest.
@@ -37,11 +37,11 @@ export function backdropDeckValue(strength?: string | null, mask?: string | null
 	return v || null;
 }
 
-// ── card tag (the `tag:` register) ──────────────────────────────────────────────────────────
+// ── card tag (the `card-tag:` register) ──────────────────────────────────────────────────────────
 // Mirrors lib/core/resolve-card-tag.js, which the docs build cannot import (CJS); a unit test pins
-// the lists to it. Four axes on ONE deck line (`tag: plain band center`), each overridden per
-// slide by its own `tag-*` token; a slide token evicts the deck's on that axis only. `banner-tag`
-// is the band placement's older name and is left alone here (the drawer writes `tag-band`).
+// the lists to it. Four axes on ONE deck line (`card-tag: plain band center`), each overridden per
+// slide by its own `card-tag-*` token; a slide token evicts the deck's on that axis only. `banner-tag`
+// is the band placement's older name and is left alone here (the drawer writes `card-tag-band`).
 export const CARD_TAG_AXES = {
 	color: ['color', 'plain', 'bare'],
 	size: ['small', 'regular', 'large'],
@@ -54,9 +54,9 @@ export const CARD_TAG_AXIS_ORDER: readonly CardTagAxis[] = ['color', 'size', 'pl
 export const CARD_TAG_LAYOUTS = ['cards-grid', 'cards-stack', 'decision', 'compare-prose', 'split-compare', 'list-steps'] as const;
 export const cardTagValues = (axis: CardTagAxis): readonly string[] => CARD_TAG_AXES[axis];
 
-/** The deck's `tag:` value split onto its four axes (first recognized word per axis). */
+/** The deck's `card-tag:` value split onto its four axes (first recognized word per axis). */
 export function deckCardTag(source: string): Partial<Record<CardTagAxis, string>> {
-	const raw = (getFrontMatter(source, 'tag') || '').replace(/\s#.*$/, '').trim().toLowerCase();
+	const raw = (getFrontMatter(source, 'card-tag') || '').replace(/\s#.*$/, '').trim().toLowerCase();
 	const out: Partial<Record<CardTagAxis, string>> = {};
 	for (const word of raw.split(/[\s,]+/).filter(Boolean)) {
 		const axis = CARD_TAG_AXIS_ORDER.find((a) => cardTagValues(a).includes(word));

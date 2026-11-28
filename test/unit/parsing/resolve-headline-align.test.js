@@ -1,10 +1,10 @@
 /**
- * Unit: the `headline:` register resolver (lib/core/resolve-headline.js) — the HEADLINE
- * ALIGNMENT register. Maps the deck front-matter `headline:` value to the `head-<value>`
+ * Unit: the `headline-align:` register resolver (lib/core/resolve-headline-align.js) — the HEADLINE
+ * ALIGNMENT register. Maps the deck front-matter `headline-align:` value to the `headline-align-<value>`
  * class token both render paths append to every section. `auto` is the default and carries
  * NO token (the component keeps its baked alignment); `left` and `center` carry tokens.
  * (`right` is a deferred follow-up — same box machinery as center, rarely wanted.)
- * Sibling of resolve-eyebrow / resolve-rule / resolve-spectrum / resolve-lift.
+ * Sibling of resolve-eyebrow / resolve-heading-rule / resolve-spectrum / resolve-card-lift.
  */
 
 const { test, describe } = require('node:test');
@@ -12,71 +12,71 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const {
-  HEADLINE_NAMES,
-  HEADLINE_TOKENS,
-  readFrontMatterHeadline,
-  isKnownHeadline,
-  headlineClass,
-  headlineClassFromSource,
-} = require('../../../lib/core/resolve-headline');
+  HEADLINE_ALIGN_NAMES,
+  HEADLINE_ALIGN_TOKENS,
+  readFrontMatterHeadlineAlign,
+  isKnownHeadlineAlign,
+  headlineAlignClass,
+  headlineAlignClassFromSource,
+} = require('../../../lib/core/resolve-headline-align');
 
-describe('resolve-headline', () => {
+describe('resolve-headline-align', () => {
   test('left / center / right map to their class tokens; auto maps to no token (default)', () => {
-    assert.equal(headlineClass('left'), 'head-left');
-    assert.equal(headlineClass('center'), 'head-center');
-    assert.equal(headlineClass('right'), 'head-right');
-    assert.equal(headlineClass('auto'), '', 'auto is the default — no class, component keeps its alignment');
-    assert.ok(isKnownHeadline('center'));
-    assert.ok(isKnownHeadline('right'));
+    assert.equal(headlineAlignClass('left'), 'headline-align-left');
+    assert.equal(headlineAlignClass('center'), 'headline-align-center');
+    assert.equal(headlineAlignClass('right'), 'headline-align-right');
+    assert.equal(headlineAlignClass('auto'), '', 'auto is the default — no class, component keeps its alignment');
+    assert.ok(isKnownHeadlineAlign('center'));
+    assert.ok(isKnownHeadlineAlign('right'));
   });
 
   test('omitted / unrecognized resolve to no class; case/whitespace-insensitive', () => {
-    assert.equal(headlineClass(''), '');
-    assert.equal(headlineClass('   '), '');
-    assert.equal(headlineClass('lft'), '', 'typo → no class (deck-lint flags it)');
-    assert.equal(headlineClass(undefined), '');
-    assert.equal(headlineClass(null), '');
-    assert.equal(headlineClass('  LEFT '), 'head-left');
+    assert.equal(headlineAlignClass(''), '');
+    assert.equal(headlineAlignClass('   '), '');
+    assert.equal(headlineAlignClass('lft'), '', 'typo → no class (deck-lint flags it)');
+    assert.equal(headlineAlignClass(undefined), '');
+    assert.equal(headlineAlignClass(null), '');
+    assert.equal(headlineAlignClass('  LEFT '), 'headline-align-left');
   });
 
-  test('isKnownHeadline recognizes the four names only', () => {
-    for (const n of ['auto', 'left', 'center', 'right']) assert.ok(isKnownHeadline(n), n);
+  test('isKnownHeadlineAlign recognizes the four names only', () => {
+    for (const n of ['auto', 'left', 'center', 'right']) assert.ok(isKnownHeadlineAlign(n), n);
     // A near-miss that is NOT a name. This used to be the British `centre`; the
     // US-English sweep would have turned it into `center`, which IS one — so the
     // counter-example is now a form no spelling pass can collapse into a real name.
-    assert.ok(!isKnownHeadline('centered'));
-    assert.ok(!isKnownHeadline('middle'));
-    assert.ok(!isKnownHeadline(''));
-    assert.ok(!isKnownHeadline(undefined));
+    assert.ok(!isKnownHeadlineAlign('centered'));
+    assert.ok(!isKnownHeadlineAlign('middle'));
+    assert.ok(!isKnownHeadlineAlign(''));
+    assert.ok(!isKnownHeadlineAlign(undefined));
   });
 
-  test('HEADLINE_NAMES / HEADLINE_TOKENS list the recognized set', () => {
-    assert.deepEqual([...HEADLINE_NAMES], ['auto', 'left', 'center', 'right']);
-    assert.deepEqual([...HEADLINE_TOKENS], ['head-auto', 'head-left', 'head-center', 'head-right']);
+  test('HEADLINE_ALIGN_NAMES / HEADLINE_ALIGN_TOKENS list the recognized set', () => {
+    assert.deepEqual([...HEADLINE_ALIGN_NAMES], ['auto', 'left', 'center', 'right']);
+    assert.deepEqual([...HEADLINE_ALIGN_TOKENS], ['headline-align-auto', 'headline-align-left', 'headline-align-center', 'headline-align-right']);
   });
 
-  test('readFrontMatterHeadline extracts from the front-matter block only; quotes + absence', () => {
-    const md = '---\nmarp: true\nheadline: left\n---\n\n# H\n\n`headline: not-this` in body\n';
-    assert.equal(readFrontMatterHeadline(md), 'left');
-    assert.equal(headlineClassFromSource(md), 'head-left');
-    assert.equal(readFrontMatterHeadline('---\nheadline: "left"\n---\n'), 'left');
-    assert.equal(readFrontMatterHeadline('---\ntheme: carta\n---\n'), null);
-    assert.equal(readFrontMatterHeadline(''), null);
+  test('readFrontMatterHeadlineAlign extracts from the front-matter block only; quotes + absence', () => {
+    const md = '---\nmarp: true\nheadline-align: left\n---\n\n# H\n\n`headline-align: not-this` in body\n';
+    assert.equal(readFrontMatterHeadlineAlign(md), 'left');
+    assert.equal(headlineAlignClassFromSource(md), 'headline-align-left');
+    assert.equal(readFrontMatterHeadlineAlign('---\nheadline-align: "left"\n---\n'), 'left');
+    assert.equal(readFrontMatterHeadlineAlign('---\ntheme: carta\n---\n'), null);
+    assert.equal(readFrontMatterHeadlineAlign(''), null);
   });
 
   test('CSS contract — the token drives the alignment seam; palette-blind, no margin', () => {
     const css = fs.readFileSync(path.join(__dirname, '../../../lib/base/base.accent-finish.css'), 'utf8');
-    // `head-auto` is the restore token (a slide back on the default inside a deck that set another
+    // `headline-align-auto` is the restore token (a slide back on the default inside a deck that set another
     // value): it draws nothing of its own, so it has no rule, and must not grow one.
-    for (const cls of HEADLINE_TOKENS.filter((t) => t !== 'head-auto')) {
+    for (const cls of HEADLINE_ALIGN_TOKENS.filter((t) => t !== 'headline-align-auto')) {
       assert.ok(css.includes(`.${cls}`), `${cls} has no rule in base.accent-finish.css`);
     }
-    assert.ok(!css.includes('.head-auto'), 'head-auto is a restore token and draws nothing');
+    assert.ok(!css.includes('.headline-align-auto'), 'headline-align-auto is a restore token and draws nothing');
     // The register drives one inherited property, not a scattered set of text-aligns.
     assert.ok(css.includes('--headline-align'), 'the register must set the shared --headline-align seam');
     // center + right ship (box machinery via the flex lede + flexed framing containers).
-    assert.ok(css.includes('head-center'), 'head-center must have a rule');
-    assert.ok(css.includes('head-right'), 'head-right must have a rule (right ships)');
+    assert.ok(css.includes('headline-align-center'), 'headline-align-center must have a rule');
+    assert.ok(css.includes('headline-align-right'), 'headline-align-right must have a rule (right ships)');
     // center anchors to the lede (spans-frame with no bay, beside-the-bay with one), so no
     // fragile `:has(:empty)` bay-collapse is needed — it must NOT ship.
     assert.ok(!css.includes(':empty'), 'center uses the lede anchor, not an empty-bay collapse');
@@ -86,7 +86,7 @@ describe('resolve-headline', () => {
   });
 
   // Rot-guard (2026-07-20 trio, Munger #1): the seam is opt-in by convention — a framing paint
-  // site only follows `headline:` if it READS `var(--headline-align, …)` (and `--headline-justify`
+  // site only follows `headline-align:` if it READS `var(--headline-align, …)` (and `--headline-justify`
   // for the flex-boxed pieces). There is no machine definition of "all framing text", so this
   // can't catch a NEW component that forgets to opt in (documented coverage boundary). What it
   // DOES catch: a regression that drops the seam read from a currently-covered site. Extend this

@@ -181,7 +181,7 @@ describe('makeStudioCompletion', () => {
 			modifierGroups: [
 				{ name: 'mood', label: 'Canvas', tokens: ['dark', 'light'], exclusive: true },
 				{ name: 'chrome', label: 'Chrome', tokens: ['silent', 'no-footer'] },
-				{ name: 'rule', label: 'Heading rule', tokens: ['no-heading-rule'], surface: 'heading' },
+				{ name: 'heading-rule', label: 'Heading rule', tokens: ['no-heading-rule'], surface: 'heading' },
 				{ name: 'table', label: 'Table', tokens: ['table-fill'], surface: 'table' },
 				{ name: 'cards', label: 'Card spacing', tokens: ['align-spread'], surface: 'card-row' },
 			],
@@ -228,11 +228,11 @@ describe('makeStudioCompletion', () => {
 			const cat = [
 				{ name: 'kpi', bucket: 'evidence', description: 'KPIs', variants: ['ops'], surfaces: ['slide', 'heading'], variantSurfaces: { ops: ['card-surface'] }, inertSurfaces: ['table'] },
 			];
-			const vocab = { ...VOCAB, modifierGroups: [...VOCAB.modifierGroups, { name: 'lift', label: 'Card lift', tokens: ['lifted'], surface: 'card-surface' }] };
+			const vocab = { ...VOCAB, modifierGroups: [...VOCAB.modifierGroups, { name: 'card-lift', label: 'Card lift', tokens: ['card-lift-on'], surface: 'card-surface' }] };
 			const k = makeStudioCompletion(cat, [], [], { vocab });
 			const at = (doc: string, line = doc.split('\n')[0]) => (k(new CompletionContext(EditorState.create({ doc }), line.length, true))?.options ?? []).map((o) => o.label);
-			expect(at('<!-- _class: kpi ')).not.toContain('lifted');
-			expect(at('<!-- _class: kpi ops ')).toContain('lifted');
+			expect(at('<!-- _class: kpi ')).not.toContain('card-lift-on');
+			expect(at('<!-- _class: kpi ops ')).toContain('card-lift-on');
 			// A table on the slide does not bring back modifiers measured to do nothing here.
 			expect(at('<!-- _class: kpi \n\n| a | b |\n|---|---|\n')).not.toContain('table-fill');
 		});
@@ -439,7 +439,7 @@ describe('front-matter registers — keys and values', () => {
 	});
 
 	it('tag: keeps completing after its first word too', () => {
-		const next = done('---\ntag: plain ');
+		const next = done('---\ncard-tag: plain ');
 		expect(next).not.toContain('none');
 		expect(next).toContain('large');
 	});
@@ -846,7 +846,7 @@ describe('studioCompletionSources ⇄ the Playground (one shared list)', () => {
 		['a note after <!--', `${FM}<!-- @sa`, '@say{', null],
 		['the slide record after <!--', `${FM}<!-- @me`, '@meta{', null],
 		['a record field inside @meta, never inside the bare spelling', `${FM}<!-- @meta{lay`, 'layout', null],
-		['a register value inside @meta', `${FM}<!-- @meta{headline=`, 'left', null],
+		['a register value inside @meta', `${FM}<!-- @meta{headline-align=`, 'left', null],
 		['a pane key inside a record, and never a retired note key', `${FM}<!-- @meta{pa`, 'panes', 'say'],
 		['a TeX command in inline math', `${FM}Growth $g = \\fr`, '\\frac', null],
 		['a TeX command in a display block', `${FM}$$\n\\sum_{i=1}^{n} \\al`, '\\alpha', null],
@@ -897,7 +897,7 @@ describe('studioCompletionSources ⇄ the Playground (one shared list)', () => {
 	it('the retired bare record `<!-- {` completes no field in either editor (only `@meta{` is taught)', async () => {
 		for (const ed of [studio, playground]) {
 			expect(await ask(ed, `${FM}<!-- {lay`)).not.toContain('layout');
-			expect(await ask(ed, `${FM}<!-- {headline=`)).not.toContain('left');
+			expect(await ask(ed, `${FM}<!-- {headline-align=`)).not.toContain('left');
 		}
 	});
 
@@ -1026,5 +1026,16 @@ describe('positionCompletionInfo', () => {
 		const out = positionCompletionInfo(view, list, option, { left: 0, right: 300, top: 0, bottom: 40 }, { left: 0, right: 1440, top: 0, bottom: 900 }, tooltip);
 		expect(out.class).toBe('cm-completionInfo-right');
 		expect(out.style).toMatch(/^top: 0px;/);
+	});
+});
+
+describe('card-tag: completes one word per axis under its renamed key', () => {
+	it('after a color word, offers the other axes and not a second color', async () => {
+		const { nextAxisWords } = await import('./editor-complete');
+		const words = ['color', 'plain', 'bare', 'small', 'large', 'corner', 'band', 'start', 'end'];
+		const next = nextAxisWords('card-tag', 'plain ', words);
+		expect(next).not.toContain('color');
+		expect(next).not.toContain('bare');
+		expect(next).toEqual(expect.arrayContaining(['small', 'band', 'start']));
 	});
 });

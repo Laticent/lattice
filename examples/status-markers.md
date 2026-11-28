@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-stamp: seal
+stamp-shape: seal
 tone: stripe
 pagination: true
 header: "Lattice · status markers"
@@ -9,8 +9,8 @@ header: "Lattice · status markers"
 
 <!-- @note{Status markers are a SHAPE SYSTEM. A state marker (confidential / wip / …) sets a
      label + palette color; a tone marker (tone-pass / …) sets a color. The deck-wide
-     `stamp:` / `tone:` registers pick the SHAPE both render in — once, for the whole
-     deck — and a per-slide `stamp-*` / `tone-*` token overrides. This deck seals its
+     `stamp-shape:` / `tone:` registers pick the SHAPE both render in — once, for the whole
+     deck — and a per-slide `stamp-shape-*` / `tone-*` token overrides. This deck seals its
      state markers and rails its tones by default, then overrides a few slides to show
      the range. Every color is a palette token, so the markers are on-brand by theme.} -->
 
@@ -38,18 +38,18 @@ register says **what shape**. Set it once, override anywhere.
 
 ## The default shape is a coherent family
 
-Set nothing and every state marker renders in this deck's `stamp: seal` — the
+Set nothing and every state marker renders in this deck's `stamp-shape: seal` — the
 uniform corner seal — so a mixed-marker deck reads as one hand, not eight
 competing signatures. This slide is **WIP** in that same seal.
 
 ---
 
-<!-- @meta{layout=cards-grid, class=draft stamp-notch} -->
+<!-- @meta{layout=cards-grid, class=draft stamp-shape-notch} -->
 
 ## Override one slide's shape
 
 - Same marker, different shape
-  - Still **Draft**, but wearing `stamp-notch` — a top hairline band — not the deck seal.
+  - Still **Draft**, but wearing `stamp-shape-notch` — a top hairline band — not the deck seal.
 - The marker never changed
   - Only the shape token did; the label and `--warn` color are identical.
 - Boardroom subset first
@@ -57,11 +57,11 @@ competing signatures. This slide is **WIP** in that same seal.
 
 ---
 
-<!-- @meta{layout=content, class=redacted stamp-bracket} -->
+<!-- @meta{layout=content, class=redacted stamp-shape-bracket} -->
 
 ## Bracket is the quiet technical tag
 
-`stamp-bracket` frames the label as `[ REDACTED ]` with no fill — the
+`stamp-shape-bracket` frames the label as `[ REDACTED ]` with no fill — the
 monospaced option for engineering and legal decks. The same marker-blind rule
 serves every state; only the shape token changes.
 
@@ -111,4 +111,4 @@ the tone band never overlap, by construction. One vocabulary, two signals.
 
 # Set it once, override anywhere
 
-`stamp:` + `tone:` in front matter, a token per slide — every marker on brand.
+`stamp-shape:` + `tone:` in front matter, a token per slide — every marker on brand.

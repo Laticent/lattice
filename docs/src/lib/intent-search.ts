@@ -39,7 +39,9 @@ import type { CatalogItem } from './component-search';
  *  `purpose` is second (~7 points of recall on real prose), and `tags`/`facets`
  *  contribute within noise — they are kept at low weight because they cost nothing
  *  and they are the only signal for a component whose prose is terse. */
-const WEIGHTS = { name: 3, tags: 2.2, facets: 1, description: 1.4, purpose: 1 } as const;
+// `terms` is the manifest's `searchTerms`: the everyday words an author types (2026-11-23-search-by-meaning.md).
+// Tag weight, because like tags it is a short, curated list where every word is meant as a handle.
+const WEIGHTS = { name: 3, tags: 2.2, terms: 2.2, facets: 1, description: 1.4, purpose: 1 } as const;
 type Field = keyof typeof WEIGHTS;
 
 /** Words that carry no intent. Deliberately includes the verbs an author wraps a
@@ -74,6 +76,18 @@ const SYNONYMS: Record<string, string> = {
 	jargon: 'term definition glossary',
 	circle: 'donut pie',
 	qr: 'code scan',
+	// Everyday short forms stemming cannot reach (2026-11-23-search-by-meaning.md). General English, not fitted to a
+	// benchmark query: a component's own everyday words belong in its manifest's `searchTerms`, not here.
+	pic: 'image picture photo',
+	pics: 'image picture photo',
+	img: 'image picture',
+	vid: 'video',
+	vs: 'versus compare',
+	bio: 'team profile people',
+	bios: 'team profile people',
+	headshot: 'team profile people',
+	kpis: 'kpi metrics',
+	stat: 'stats statistics',
 };
 
 const SYNONYM_BOOST = 0.85;
@@ -105,7 +119,8 @@ export const americanize = (w: string) =>
 const MAX_TOKEN = 40;
 
 function words(text: string): string[] {
-	return (text.toLowerCase().match(/[a-z][a-z0-9+#]*/g) ?? [])
+	// A letter-&-letter abbreviation is one word: `q&a` → `qa`, `r&d` → `rd` (two one-letter tokens would both be dropped).
+	return (text.toLowerCase().replace(/\b([a-z])&([a-z])\b/g, '$1$2').match(/[a-z][a-z0-9+#]*/g) ?? [])
 		.filter((w) => w.length > 1 && !STOP.has(w))
 		.map((w) => (w.length > MAX_TOKEN ? w.slice(0, MAX_TOKEN) : w))
 		.map(americanize);
@@ -123,6 +138,7 @@ function fieldsOf(it: CatalogItem): Record<Field, string> {
 	return {
 		name: it.name.replace(/-/g, ' '),
 		tags: [...(it.tags ?? []), ...(it.variants ?? [])].join(' ').replace(/-/g, ' '),
+		terms: (it.searchTerms ?? []).join(' ').replace(/-/g, ' '),
 		facets: `${it.function} ${it.bucket} ${it.form} ${it.substance} ${it.familyLabel}`,
 		description: it.description ?? '',
 		purpose: it.purpose ?? '',
@@ -215,27 +231,6 @@ function queryTerms(query: string, index: IntentIndex): QueryTerm[] {
 		}
 	}
 	return out;
-}
-
-/**
- * True when a query reads like a DESCRIBED INTENT rather than a remembered name.
- *
- * Two content words is the threshold, and it decides pass ORDER in component-search.ts.
- * A single token is overwhelmingly a name someone half-remembers, and the fuzzy pass is
- * far better at that than this module is: measured over every single-character deletion
- * of every component name (n=520), putting the intent pass first scored 82.1% top-1
- * against the fuzzy pass's 96.0% — `tabel` returned `compare-code` instead of
- * `compare-table`, 73 names regressed. (Measured pre-rename, against the name
- * list of the time; the n=520 figures are not re-derivable against the current
- * list, and are kept as the record of why the passes are ordered this way.) BM25 happily matches one mangled token against
- * some unrelated component's prose; Levenshtein over the name list does not.
- */
-export function looksLikeIntent(query: string): boolean {
-	// Counted on WHITESPACE, not on the content tokenizer — `words()` splits hyphens, so
-	// `cards-rid` looked like two words and routed a misspelled hyphenated NAME down the
-	// intent path (that alone was 60 of the 73 regressions). What a person typed as one
-	// token is one token, however many pieces the indexer later cuts it into.
-	return query.trim().split(/\s+/).filter((w) => /[a-z]/i.test(w)).length >= 2;
 }
 
 export type IntentHit = { name: string; score: number };

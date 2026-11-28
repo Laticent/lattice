@@ -25,10 +25,10 @@ import {
 	setMotionStyle,
 	setRule,
 	setSpectrumAxis,
-	setStampStyle,
+	setStampShape,
 	setToneStyle,
 	spectrumAxisProvenance,
-	stampStyleProvenance,
+	stampShapeProvenance,
 	toneStyleProvenance,
 } from './slide-provenance';
 
@@ -147,21 +147,21 @@ describe('motion provenance — three axes (Play / Style / Speed)', () => {
 
 describe('stamp-style provenance + override', () => {
 	it('off (the uniform default) when neither slide nor deck sets a shape', () => {
-		expect(stampStyleProvenance('<!-- @meta{layout=kpi, class=confidential} -->', '# deck').state).toBe('off');
+		expect(stampShapeProvenance('<!-- @meta{layout=kpi, class=confidential} -->', '# deck').state).toBe('off');
 	});
-	it('inherited from the deck `stamp:` register', () => {
-		const src = deck('stamp: seal', '<!-- @meta{layout=kpi} -->');
-		expect(stampStyleProvenance('<!-- @meta{layout=kpi} -->', src)).toMatchObject({ state: 'inherited', value: 'seal', deckValue: 'seal', inheritable: true });
+	it('inherited from the deck `stamp-shape:` register', () => {
+		const src = deck('stamp-shape: seal', '<!-- @meta{layout=kpi} -->');
+		expect(stampShapeProvenance('<!-- @meta{layout=kpi} -->', src)).toMatchObject({ state: 'inherited', value: 'seal', deckValue: 'seal', inheritable: true });
 	});
 	it('on when the slide overrides with its own stamp-* shape', () => {
-		const src = deck('stamp: seal', '<!-- @meta{layout=kpi, class=stamp-notch} -->');
-		expect(stampStyleProvenance('<!-- @meta{layout=kpi, class=stamp-notch} -->', src)).toMatchObject({ state: 'on', value: 'notch', deckValue: 'seal' });
+		const src = deck('stamp-shape: seal', '<!-- @meta{layout=kpi, class=stamp-shape-notch} -->');
+		expect(stampShapeProvenance('<!-- @meta{layout=kpi, class=stamp-shape-notch} -->', src)).toMatchObject({ state: 'on', value: 'notch', deckValue: 'seal' });
 	});
-	it('setStampStyle never stacks shapes; null clears back to inherit/default', () => {
-		let chunk = '<!-- @meta{layout=kpi, class=stamp-seal} -->';
-		chunk = setStampStyle(chunk, 'notch');
-		expect(getClassTokens(chunk).filter((t) => t.startsWith('stamp-'))).toEqual(['stamp-notch']);
-		expect(getClassTokens(setStampStyle(chunk, null)).some((t) => t.startsWith('stamp-'))).toBe(false);
+	it('setStampShape never stacks shapes; null clears back to inherit/default', () => {
+		let chunk = '<!-- @meta{layout=kpi, class=stamp-shape-seal} -->';
+		chunk = setStampShape(chunk, 'notch');
+		expect(getClassTokens(chunk).filter((t) => t.startsWith('stamp-shape-'))).toEqual(['stamp-shape-notch']);
+		expect(getClassTokens(setStampShape(chunk, null)).some((t) => t.startsWith('stamp-shape-'))).toBe(false);
 	});
 });
 
@@ -252,9 +252,9 @@ describe('restore tokens (each register default as a per-slide choice)', () => {
 	const cases = [
 		['spectrum: left', setSpectrumEdge, spectrumEdgeProvenance, 'top', 'spectrum-top'],
 		['spectrum: band', setSpectrumWeight, spectrumWeightProvenance, 'regular', 'spectrum-regular'],
-		['rule: accent', setRule, ruleProvenance, 'auto', 'rule-auto'],
+		['heading-rule: accent', setRule, ruleProvenance, 'auto', 'heading-rule-auto'],
 		['eyebrow: dot', setEyebrow, eyebrowProvenance, 'plain', 'eyebrow-plain'],
-		['headline: center', setHeadline, headlineProvenance, 'auto', 'head-auto'],
+		['headline-align: center', setHeadline, headlineProvenance, 'auto', 'headline-align-auto'],
 		['card-spectrum: rainbow top', setCardEdge, cardEdgeProvenance, 'left', 'card-spectrum-left'],
 	] as const;
 	for (const [fm, set, read, name, token] of cases) {
@@ -333,7 +333,7 @@ describe('marks provenance + override', () => {
 	});
 });
 
-describe('card-tag provenance (the `tag:` register)', () => {
+describe('card-tag provenance (the `card-tag:` register)', () => {
 	it('mirrors the kernel word lists exactly', async () => {
 		const { CARD_TAG_AXES } = await import('./slide-provenance');
 		const kernel = await import('../../../../lib/core/resolve-card-tag.js');
@@ -342,17 +342,17 @@ describe('card-tag provenance (the `tag:` register)', () => {
 
 	it('reads the deck line per axis, overrides one axis per slide, and writes the line back', async () => {
 		const { cardTagProvenance, setCardTag, deckCardTag, cardTagDeckValue } = await import('./slide-provenance');
-		const src = deck('tag: plain band center  # quiet', '## A');
+		const src = deck('card-tag: plain band center  # quiet', '## A');
 		expect(deckCardTag(src)).toEqual({ color: 'plain', placement: 'band', align: 'center' });
-		const chunk = '<!-- @meta{layout=decision, class=tag-foot} -->\n\n## A';
+		const chunk = '<!-- @meta{layout=decision, class=card-tag-foot} -->\n\n## A';
 		expect(cardTagProvenance(chunk, src, 'placement')).toMatchObject({ state: 'on', value: 'foot', deckValue: 'band' });
 		expect(cardTagProvenance(chunk, src, 'color')).toMatchObject({ state: 'inherited', value: 'plain' });
 		expect(cardTagProvenance(chunk, src, 'size')).toMatchObject({ state: 'off' });
 		const set = setCardTag(chunk, 'placement', 'notch');
-		expect(getClassTokens(set)).toEqual(['decision', 'tag-notch']);
+		expect(getClassTokens(set)).toEqual(['decision', 'card-tag-notch']);
 		expect(getClassTokens(setCardTag(set, 'placement', null))).toEqual(['decision']);
 		// banner-tag is a modifier, not a register token: the placement setter leaves it alone.
-		expect(getClassTokens(setCardTag('<!-- @meta{layout=decision, class=banner-tag} -->\n', 'placement', 'foot'))).toEqual(['decision', 'banner-tag', 'tag-foot']);
+		expect(getClassTokens(setCardTag('<!-- @meta{layout=decision, class=banner-tag} -->\n', 'placement', 'foot'))).toEqual(['decision', 'banner-tag', 'card-tag-foot']);
 		expect(cardTagDeckValue({})).toBeNull();
 		expect(cardTagDeckValue({ align: 'end', color: 'none', placement: undefined })).toBe('none end');
 	});

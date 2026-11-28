@@ -36,7 +36,7 @@ Under a variant, a slot changes shape:
 - **`chosen`.** One option is the winner and the other keeps its full, undiminished case — crowns the second option without dimming the first.
 - **`decision`.** The decision is made and the slide is the record — composes `chosen` with a de-emphasized first card and a stronger connector.
 - **`vertical`.** Either case needs more room than the two-column width can hold — stacks the panes top/bottom instead of side by side.
-- **`tag-band`.** The corner labels are short, loud verdicts (camps, teams) that deserve a full-width banner instead of a quiet corner tag. `tag-band` is the shared card-tag placement (formerly `banner-tag`, which still works); it, or `tag: band` deck-wide, works on every tagged layout.
+- **`card-tag-band`.** The corner labels are short, loud verdicts (camps, teams) that deserve a full-width banner instead of a quiet corner tag. `card-tag-band` is the shared card-tag placement (formerly `banner-tag`, which still works); it, or `card-tag: band` deck-wide, works on every tagged layout.
 - **`rejected`.** One option was considered and explicitly declined — dims and strikes the second card as the record of what didn't make it.
 
 ### Common mistakes
@@ -165,14 +165,14 @@ Stacks the panes for longer cases.
   - The trade is simultaneity — the eye compares in sequence, so lead with the keeper.
 ```
 
-### `tag-band` — tag-band
+### `card-tag-band` — card-tag-band
 
 Corner tags become banners.
 
 ```markdown
-<!-- @meta{layout=compare-prose, class=tag-band} -->
+<!-- @meta{layout=compare-prose, class=card-tag-band} -->
 
-## tag-band fills the corner tags at banner weight.
+## card-tag-band fills the corner tags at banner weight.
 
 - OPTION A
   - The tag takes the accent fill and full contrast.

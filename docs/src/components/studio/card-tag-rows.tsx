@@ -1,7 +1,7 @@
 import type * as React from 'react';
 import type { CardTagAxis } from './deck-axes';
 
-// The Tag rows the deck settings and the slide drawer share — one row per axis of the `tag:`
+// The Tag rows the deck settings and the slide drawer share — one row per axis of the `card-tag:`
 // register (lib/core/resolve-card-tag.js, lib/base/base.registers.docs.md § tag:). Both surfaces
 // read the labels from here, so a word is named the same way in each.
 
@@ -25,7 +25,7 @@ export const CARD_TAG_ROWS: readonly CardTagRow[] = [
 		native: 'color',
 		help: (
 			<>
-				The label that names a card. <strong>Plain</strong> is a neutral pill; <strong>None</strong> is bare text. Written as <code>tag: plain</code>.
+				The label that names a card. <strong>Plain</strong> is a neutral pill; <strong>None</strong> is bare text. Written as <code>card-tag: plain</code>.
 			</>
 		),
 	},
@@ -37,7 +37,7 @@ export const CARD_TAG_ROWS: readonly CardTagRow[] = [
 		native: 'regular',
 		help: (
 			<>
-				0.85×, 1× or 1.2×. Written as <code>tag: large</code>.
+				0.85×, 1× or 1.2×. Written as <code>card-tag: large</code>.
 			</>
 		),
 	},
@@ -49,7 +49,7 @@ export const CARD_TAG_ROWS: readonly CardTagRow[] = [
 		native: 'corner',
 		help: (
 			<>
-				A <strong>Notch</strong> straddles the card's top edge; a <strong>Band</strong> spans the card top; <strong>Inline</strong> sits above the text, as steps do. Written as <code>tag: band</code>.
+				A <strong>Notch</strong> straddles the card's top edge; a <strong>Band</strong> spans the card top; <strong>Inline</strong> sits above the text, as steps do. Written as <code>card-tag: band</code>.
 			</>
 		),
 	},
@@ -61,7 +61,7 @@ export const CARD_TAG_ROWS: readonly CardTagRow[] = [
 		native: 'start',
 		help: (
 			<>
-				Shows in a band or a widened tag. Written as <code>tag: center</code>.
+				Shows in a band or a widened tag. Written as <code>card-tag: center</code>.
 			</>
 		),
 	},

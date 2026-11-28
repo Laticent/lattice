@@ -1,12 +1,12 @@
 import { Layers, Monitor, Moon, Printer, Sun } from 'lucide-react';
 import * as React from 'react';
 import { AUTO_VALUE, autoSelected, type CatalogGroup, type CatalogOption, CatalogSelect, catalogOptions, withAutoHead } from '@/components/studio/CatalogSelect';
-import { CORNERS } from '@/components/studio/corners-catalog';
 import { EYEBROWS } from '@/components/studio/eyebrow-catalog';
 import { activeFinish } from '@/components/studio/finish-catalog';
-import { HEADLINES } from '@/components/studio/headline-catalog';
+import { HEADING_RULES } from '@/components/studio/heading-rule-catalog';
+import { HEADLINE_ALIGNS } from '@/components/studio/headline-align-catalog';
 import { glyphs, optionGlyph, SizeChip } from '@/components/studio/option-glyphs';
-import { RULES } from '@/components/studio/rule-catalog';
+import { SLIDE_CORNERS } from '@/components/studio/slide-corners-catalog';
 import { sizeRatio } from '@/components/studio/slide-size';
 import { defaultVenue, familyForAspect, venueOption, venueOptionsFor } from '@/components/studio/venue';
 import { MODES } from '@/lib/mode-catalog';
@@ -61,10 +61,10 @@ const SPLITS: CatalogOption[] = [
 	{ value: 'rule', label: 'On --- dividers', icon: optionGlyph('split', 'rule') },
 ];
 const LOOK = {
-	headline: catalogOptions(HEADLINES, glyphs('align')),
-	rule: catalogOptions(RULES),
+	'headline-align': catalogOptions(HEADLINE_ALIGNS, glyphs('align')),
+	'heading-rule': catalogOptions(HEADING_RULES),
 	eyebrow: catalogOptions(EYEBROWS),
-	corners: catalogOptions(CORNERS, glyphs('corners')),
+	'slide-corners': catalogOptions(SLIDE_CORNERS, glyphs('slide-corners')),
 } as const;
 type LookKey = keyof typeof LOOK;
 
@@ -164,7 +164,7 @@ export function DeckConfigPanel({
 				{note ?? 'These live in the deck’s front matter — managed for you, so the Markdown stays clean. They apply to the whole deck and travel with an exported .md.'}
 			</p>
 
-			{group('Look', ['theme', 'color-mode', 'preset', 'finish', 'headline', 'rule', 'eyebrow', 'corners', 'lift', 'mode'])}
+			{group('Look', ['theme', 'color-mode', 'preset', 'finish', 'headline-align', 'heading-rule', 'eyebrow', 'slide-corners', 'card-lift', 'mode'])}
 			{show('theme') && palettes.length > 0 && themeRow()}
 			{show('color-mode') &&
 				selectRow('color-mode', 'Color mode', 'The mode the deck opens in everywhere — pin light/dark, follow the OS, or match the host', [{ options: withUnknown(COLOR_MODES, fm['color-mode']) }], fm['color-mode'], '', {
@@ -190,11 +190,11 @@ export function DeckConfigPanel({
 					fm.finish || 'none',
 					presetFinish,
 				)}
-			{lookRow('headline', 'Headline alignment', 'Where the eyebrow, heading and subtitle sit on every slide')}
-			{lookRow('rule', 'Heading rule', 'The line under each slide’s heading')}
+			{lookRow('headline-align', 'Headline alignment', 'Where the eyebrow, heading and subtitle sit on every slide')}
+			{lookRow('heading-rule', 'Heading rule', 'The line under each slide’s heading')}
 			{lookRow('eyebrow', 'Eyebrow', 'The mark before the small label above a heading')}
-			{lookRow('corners', 'Slide corners', 'Square, or rounded at the theme’s radius')}
-			{show('lift') && <SwitchRow label="Card lift" hint="Lift card surfaces off the slide with a subtle shadow — reads in light & dark, safe in the PDF export" on={fm.lift} onChange={(on) => apply('lift', on)} />}
+			{lookRow('slide-corners', 'Slide corners', 'Square, or rounded at the theme’s radius')}
+			{show('card-lift') && <SwitchRow label="Card lift" hint="Lift card surfaces off the slide with a subtle shadow — reads in light & dark, safe in the PDF export" on={fm['card-lift']} onChange={(on) => apply('card-lift', on)} />}
 			{show('mode') && selectRow('mode', 'Mode', 'The rendering hand — clean or sketch — applies to the whole deck', [{ options: withUnknown(catalogOptions(MODES), fm.mode) }], fm.mode, 'boardroom')}
 
 			{group('Format', ['size', 'venue', 'split'])}

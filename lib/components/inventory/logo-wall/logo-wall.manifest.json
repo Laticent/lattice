@@ -23,6 +23,7 @@
     "showcase",
     "pitch"
   ],
+  "searchTerms": ["logos", "partners", "sponsors", "customers", "clients", "brands", "donors"],
   "description": "A grid of customer, partner, or funder logos as social proof.",
   "purpose": "Use for the credibility slide — the 'trusted by' / 'our funders' / 'participating agencies' wall. Marks render as token-colored silhouettes (a CSS mask filled with `var(--logo-ink)`), so the wall is one cohesive texture that re-tones per theme and color-mode and stays AA on any ground; the `color` variant gives each mark its own categorical palette hue.",
   "variants": [

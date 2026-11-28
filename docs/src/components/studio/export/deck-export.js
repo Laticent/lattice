@@ -1424,10 +1424,10 @@ export async function withCaptureFixups(section, capture, pixelRatioOverride, co
 	//
 	// TWO properties carry a corner into the clone and BOTH have to be handled, which is
 	// the trap the previous code fell into from the other side:
-	//   · `clip-path`  — the deck's real corner, from `section.corners-rounded`. Evicting
+	//   · `clip-path`  — the deck's real corner, from `section.slide-corners-rounded`. Evicting
 	//                    the token is what clears it; resetting border-radius does not.
 	//   · `border-radius` — html-to-image DOES honor this when it inlines computed style,
-	//                    and `section.corners-rounded` sets it alongside the clip. The
+	//                    and `section.slide-corners-rounded` sets it alongside the clip. The
 	//                    capture frame's own chrome once added a 6px of its own on every
 	//                    section (deck-preview.js); it no longer does — the preview frames
 	//                    slides with the shared slide frame on `.lattice`, which a capture
@@ -1437,7 +1437,7 @@ export async function withCaptureFixups(section, capture, pixelRatioOverride, co
 	//                    Studio once shipped transparent PPTX corners while the CLI baked
 	//                    white.
 	// So: evict the token, and zero the radius unless this is a corner we are KEEPING.
-	const wantsRound = section.classList.contains('corners-rounded');
+	const wantsRound = section.classList.contains('slide-corners-rounded');
 	const keepRound = wantsRound && cornerSurvivesExport(cornerTarget);
 	const hadRounded = wantsRound && !keepRound;
 	const prevRadius = section.style.borderRadius;
@@ -1450,7 +1450,7 @@ export async function withCaptureFixups(section, capture, pixelRatioOverride, co
 	// the disposable offscreen iframe `createCaptureFrame` builds, which every caller
 	// tears down in its own `finally`. A throw takes the whole frame with it, so there is
 	// no node left behind to be seen and no later export that could read a stripped
-	// `corners-rounded` and square a rounded deck. That failure mode cannot happen here.
+	// `slide-corners-rounded` and square a rounded deck. That failure mode cannot happen here.
 	let restoreVisibility = () => {};
 	let restoreWeb = () => {};
 	let w = 0;
@@ -1461,7 +1461,7 @@ export async function withCaptureFixups(section, capture, pixelRatioOverride, co
 	// explicit ratio (its size preset / thumbnail scale, already OOM-capped by the
 	// shared kernel), which wins over this default.
 	try {
-		if (hadRounded) section.classList.remove('corners-rounded');
+		if (hadRounded) section.classList.remove('slide-corners-rounded');
 		if (!keepRound) section.style.borderRadius = '0';
 		// The engine's slide EDGE (a host keyline, base.modifiers.css) is screen chrome: an
 		// exported artifact never carries it, whatever the capture frame's host scale said.
@@ -1479,7 +1479,7 @@ export async function withCaptureFixups(section, capture, pixelRatioOverride, co
 		restoreWeb();
 		restoreVisibility();
 		if (!hadExporting) section.classList.remove('lattice-exporting');
-		if (hadRounded) section.classList.add('corners-rounded');
+		if (hadRounded) section.classList.add('slide-corners-rounded');
 		if (!keepRound) section.style.borderRadius = prevRadius;
 		section.style.removeProperty('--slide-edge-k');
 	}
@@ -2394,13 +2394,13 @@ async function buildPdfBlobShared(sections, fontEmbedCSS, name, onStatus, meta, 
 		// spectrum bar and the dark hairline in the photo, soft at 4K (read-slide.mjs readSectionEdges).
 		const edgeK = section.style.getPropertyValue('--slide-edge-k');
 		section.style.setProperty('--slide-edge-k', '0');
-		const squared = section.classList.contains('corners-rounded') && !cornerSurvivesExport('pdf');
+		const squared = section.classList.contains('slide-corners-rounded') && !cornerSurvivesExport('pdf');
 		const radius = section.style.borderRadius;
-		if (squared) { section.classList.remove('corners-rounded'); section.style.borderRadius = '0'; }
+		if (squared) { section.classList.remove('slide-corners-rounded'); section.style.borderRadius = '0'; }
 		try {
 			return fn();
 		} finally {
-			if (squared) { section.classList.add('corners-rounded'); section.style.borderRadius = radius; }
+			if (squared) { section.classList.add('slide-corners-rounded'); section.style.borderRadius = radius; }
 			if (edgeK) section.style.setProperty('--slide-edge-k', edgeK); else section.style.removeProperty('--slide-edge-k');
 			if (strip) { strip.style.height = clip.height; strip.style.overflow = clip.overflow; }
 			section.style.transform = fit.transform;

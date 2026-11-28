@@ -37,7 +37,7 @@ The pinstripes here are canvas. The ghost numeral above them is atmosphere.
 
 ---
 
-<!-- @meta{layout=cards-stack, class=confidential stamp-seal} -->
+<!-- @meta{layout=cards-stack, class=confidential stamp-shape-seal} -->
 
 `THE THREE THAT RISE`
 

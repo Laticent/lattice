@@ -714,11 +714,11 @@ Authors don't carry presentational markup.
   as siblings (kpi.trajectory = top accent, decision = bottom accent).
 - Composes with `compare-prose` modifiers `chosen` / `decision` — the
   corner tag inherits the modifier's editorial signal.
-- **`tag-band` modifier** (formerly `banner-tag`) flips each card from a flush-corner tag
+- **`card-tag-band` modifier** (formerly `banner-tag`) flips each card from a flush-corner tag
   into a full-width header strip:
 
   ```markdown
-  <!-- @meta{layout=decision, class=tag-band} -->
+  <!-- @meta{layout=decision, class=card-tag-band} -->
   ```
 
   The card becomes a vertical column-flex: tag fits its content height
@@ -806,7 +806,7 @@ be the table's outer bottom edge, and the stage already draws a boundary under i
 below-note's hairline sits about 25px below a table that fills the stage, and two
 rules that close with nothing between them read as one thick line rather than two
 boundaries. If you want the table bounded top *and* bottom instead, put the deck (or
-the slide) on `rule: none` — the masthead hairline steps aside and the table's own
+the slide) on `heading-rule: none` — the masthead hairline steps aside and the table's own
 spectrum bar becomes its top edge. See
 `engineering/decisions/2026-09-03-table-outer-edge-rules.md`.
 
@@ -1249,14 +1249,14 @@ Or per slide: `<!-- @meta{layout=cards-grid, class=sketch} -->`.
 ### Front-matter registers — moved
 
 The deck-level registers that used to live here — **`mode:`, `finish:`, `split:`,
-`stamp:` / `tone:`, `spectrum:` / `card-spectrum:` / `trim-spectrum:`, `rule:`, `eyebrow:`,
-`headline:`, `lift:`** and **`corners:`** — are in
+`stamp-shape:` / `tone:`, `spectrum:` / `card-spectrum:` / `trim-spectrum:`, `heading-rule:`, `eyebrow:`,
+`headline-align:`, `card-lift:`** and **`slide-corners:`** — are in
 **[`base.registers.docs.md`](base.registers.docs.md)**, with a table at the top
 naming what each one selects and its default.
 
 Nine of them were nested under `### sketch` above, which is a per-slide variant:
 `mode: sketch` is how you turn sketch on deck-wide, so the first register landed
-there fairly, and eight more followed it. Nothing about `headline:` or `lift:`
+there fairly, and eight more followed it. Nothing about `headline-align:` or `card-lift:`
 belongs under a section on handwriting, and the heading structure gave a reader
 no way to find them.
 
@@ -1270,13 +1270,13 @@ register it belongs to. Each is documented in
 |---|---|
 | `mode:` | `sketch-clean-body` |
 | `finish:` | `finish-atrium` · `finish-gallery` · `finish-halo` · `finish-ledger` · `finish-loom` · `finish-meridian` · `finish-nimbus` · `no-finish` · `finish-savile` · `finish-strata` |
-| `stamp:` | `stamp-bar` · `stamp-bracket` · `stamp-dot` · `stamp-flag` · `stamp-mark` · `stamp-notch` · `stamp-pill` · `stamp-pin` · `stamp-ribbon` · `stamp-seal` · `stamp-tab` · `stamp-underline` · `stamp-veil` |
+| `stamp-shape:` | `stamp-shape-bar` · `stamp-shape-bracket` · `stamp-shape-dot` · `stamp-shape-flag` · `stamp-shape-mark` · `stamp-shape-notch` · `stamp-shape-pill` · `stamp-shape-pin` · `stamp-shape-ribbon` · `stamp-shape-seal` · `stamp-shape-tab` · `stamp-shape-underline` · `stamp-shape-veil` |
 | `spectrum:` | `with-card-spectrum` · `no-card-spectrum` · `card-spectrum-duo` · `card-spectrum-bottom` · `card-spectrum-left` · `card-spectrum-right` · `card-spectrum-top` · `card-spectrum-mono` · `card-spectrum-solid` · `spectrum-duo` · `spectrum-bottom` · `spectrum-left` · `no-spectrum` · `with-spectrum` · `spectrum-right` · `spectrum-top` · `spectrum-mono` · `spectrum-solid` · `spectrum-regular` · `spectrum-hairline` · `spectrum-band` · `card-spectrum-regular` · `card-spectrum-hairline` · `card-spectrum-band` · `trim-spectrum-quiet` · `trim-spectrum-rainbow` · `trim-spectrum-solid` · `trim-spectrum-duo` · `trim-spectrum-mono` |
-| `rule:` | `rule-accent` · `rule-auto` · `rule-full` · `no-heading-rule` · `with-heading-rule` · `rule-short` |
+| `heading-rule:` | `heading-rule-accent` · `heading-rule-auto` · `heading-rule-full` · `no-heading-rule` · `with-heading-rule` · `heading-rule-short` |
 | `eyebrow:` | `eyebrow-arrow` · `eyebrow-bar` · `eyebrow-dot` · `eyebrow-plain` · `eyebrow-underline` |
-| `headline:` | `head-auto` · `head-center` · `head-left` · `head-right` |
-| `lift:` | `lifted` |
-| `corners:` | `corners-rounded` · `corners-square` |
+| `headline-align:` | `headline-align-auto` · `headline-align-center` · `headline-align-left` · `headline-align-right` |
+| `card-lift:` | `card-lift-on` |
+| `slide-corners:` | `slide-corners-rounded` · `slide-corners-square` |
 
 An earlier version of this paragraph named eight of them and told you to grep the
 folder instead. Both were wrong for the same reason: HARD RULE #6 says to open
@@ -1285,7 +1285,7 @@ rule. Moving the registers out cost 38 of these tokens their only hit here, whic
 a checker pass caught — the list above is derived from the class names in
 `lib/base/*.css` rather than hand-picked, so it is complete by construction as of
 2026-08-30 — except for the six RESTORE tokens (`with-spectrum`, `spectrum-top`,
-`card-spectrum-left`, `rule-auto`, `eyebrow-plain`, `head-auto`), which return one slide
+`card-spectrum-left`, `heading-rule-auto`, `eyebrow-plain`, `headline-align-auto`), which return one slide
 to a register's default and so have no CSS to be derived from. They are added by hand; what
 they do is under "Back to the default on one slide" in `base.registers.docs.md`.
 
@@ -1303,13 +1303,13 @@ style: |
 
 | Token | Unset value | What reads it |
 |---|---|---|
-| `--rule-w` | `1px` (the short segment: `0.22cqi`) | The heading rule: the `form` masthead hairline, `rule: full`, the `rule: short` / `accent` segment's height, the `split-panel` kicker, and the split-page runheads (`split-panel`, `compare-prose`, `decision`, `list-tabular`, `compare-code`) |
+| `--rule-w` | `1px` (the short segment: `0.22cqi`) | The heading rule: the `form` masthead hairline, `heading-rule: full`, the `heading-rule: short` / `accent` segment's height, the `split-panel` kicker, and the split-page runheads (`split-panel`, `compare-prose`, `decision`, `list-tabular`, `compare-code`) |
 | `--rule-style` | `solid` | The same rules, except the short / accent segment, which is a filled bar |
-| `--rule-mark` | `var(--border)` | The same rules, except `rule: accent` (always `--accent`) and the dark `split-panel metric` kicker |
+| `--rule-mark` | `var(--border)` | The same rules, except `heading-rule: accent` (always `--accent`) and the dark `split-panel metric` kicker |
 | `--rail-w` | `0.35cqi` of the slide | The `card-spectrum:` stripe on every card it paints (wins over its weight word) |
 | `--radius-card` | `var(--radius-md)` | The cards, meaning the bordered or filled tiles that can carry a card tag: `cards-grid`, `cards-stack`, `stats`, `pricing`, `verdict-grid`, `list-steps`, `list` (ordered), `actors`, `decision`, `compare-prose`, `split-compare` options and verdict, `split-panel` proof and watermark tiles, `citation-card` triptych tiles, `statute-stack`. Also what sits in a card's corner: the card tag's flush corner and band, and `pricing`'s badge, so a tag always matches its card |
 
-`--radius-card` is not `corners:`, which shapes the slide's own surface and is square by
+`--radius-card` is not `slide-corners:`, which shapes the slide's own surface and is square by
 default. Pills keep `--radius-full`. Quote and callout panels, and diagram-like tiles
 (`matrix-2x2` quadrants, `cycle`, `authority-chain`, `regulatory-update`), keep `--radius-md`.
 
@@ -1392,7 +1392,7 @@ Apply a semantic tone to the slide's accent strip. Used to signal
 overall slide status (e.g. `tone-pass` for an "all green" KPI slide,
 `tone-fail` for an alert slide). The tone token sets the **color**; the
 **shape** it paints in (stripe / edge / glow) comes from the deck-wide `tone:`
-register or a per-slide `tone-<style>` token — see *The `stamp:` / `tone:`
+register or a per-slide `tone-<style>` token — see *The `stamp-shape:` / `tone:`
 front-matter registers* in [`base.registers.docs.md`](base.registers.docs.md).
 
 ```markdown
@@ -2001,8 +2001,8 @@ always removed): `engineering/decisions/2026-10-12-library-media-assets.md` § E
 ## Related
 
 - `base.registers.docs.md` — the ten deck-level front-matter registers
-  (`mode:` `finish:` `split:` `stamp:`/`tone:` `spectrum:` `rule:` `eyebrow:`
-  `headline:` `lift:` `corners:`) and their per-slide tokens.
+  (`mode:` `finish:` `split:` `stamp-shape:`/`tone:` `spectrum:` `heading-rule:` `eyebrow:`
+  `headline-align:` `card-lift:` `slide-corners:`) and their per-slide tokens.
 
 - `design/design-system.md §6.5` — the variant tier system (universal,
   semi-universal, layout-specific) and the rules manifests follow.

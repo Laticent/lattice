@@ -44,7 +44,7 @@ const lintVocab = {
 	},
 	semiUniversalVariants: ['compact', 'accent'],
 	finishNames: ['atrium', 'meridian'],
-	stampStyles: { boardroom: ['tab', 'notch', 'bracket', 'seal', 'pill'], range: ['ribbon', 'dot'] },
+	stampShapes: { boardroom: ['tab', 'notch', 'bracket', 'seal', 'pill'], range: ['ribbon', 'dot'] },
 	toneStyles: ['tone-stripe', 'tone-edge', 'tone-glow'],
 };
 const catalog = [{ name: 'kpi', effectiveVariants: ['compact', 'accent'] }];
@@ -241,14 +241,14 @@ describe('SlideContextBody controls', () => {
 		const { applied } = setup('<!-- @meta{layout=kpi, class=confidential} -->\n\n# Hi');
 		await goTab('Marks');
 		await pickOption(/stamp style/i, 'Seal');
-		expect(applied()).toContain('stamp-seal');
+		expect(applied()).toContain('stamp-shape-seal');
 	});
 
 	it('picking the inherited/default stamp head clears the per-slide shape', async () => {
-		const { applied } = setup('<!-- @meta{layout=kpi, class=confidential stamp-notch} -->\n\n# Hi');
+		const { applied } = setup('<!-- @meta{layout=kpi, class=confidential stamp-shape-notch} -->\n\n# Hi');
 		await goTab('Marks');
 		await pickOption(/stamp style/i, 'Auto — Tab');
-		expect(applied().some((t) => t.startsWith('stamp-'))).toBe(false);
+		expect(applied().some((t) => t.startsWith('stamp-shape-'))).toBe(false);
 	});
 
 	it('sets the tone SHAPE without disturbing the semantic tone', async () => {
@@ -260,8 +260,8 @@ describe('SlideContextBody controls', () => {
 		expect(toks).toContain('tone-edge');
 	});
 
-	it('reads the stamp shape as Auto, naming the deck `stamp:` value it resolves to', async () => {
-		const src = '---\nstamp: seal\n---\n\n<!-- @meta{layout=kpi, class=confidential} -->\n\n# Hi';
+	it('reads the stamp shape as Auto, naming the deck `stamp-shape:` value it resolves to', async () => {
+		const src = '---\nstamp-shape: seal\n---\n\n<!-- @meta{layout=kpi, class=confidential} -->\n\n# Hi';
 		setup('<!-- @meta{layout=kpi, class=confidential} -->\n\n# Hi', src);
 		await goTab('Marks');
 		const label = await selectedOptionText(/stamp style/i);

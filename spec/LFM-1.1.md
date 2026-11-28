@@ -96,12 +96,12 @@ component may opt out in its manifest. A renderer that exports to Marpit MUST wr
 **Registers** set one deck-wide choice from a list of values. Each value is a word, matched
 without regard to case (`mode: Sketch` is `sketch`). A renderer applies the register to every
 slide. A single-word register whose value is not in the list MUST NOT change the render. A
-register that takes one word per axis (`backdrop:`, `tag:`, `spark:`, `icon:`) applies each word
-it knows and ignores the rest, so `tag: corner foot` places tags in the corner. Either way, an L2
+register that takes one word per axis (`backdrop:`, `card-tag:`, `spark:`, `icon:`) applies each word
+it knows and ignores the rest, so `card-tag: corner foot` places tags in the corner. Either way, an L2
 tool reports an unknown word, or a second word for one axis, as `unknown-<key>` (the rule ID in the
 last column).
 
-Many registers also have a per-slide token a slide's `_class` can carry (`lifted`, `corners-rounded`,
+Many registers also have a per-slide token a slide's `_class` can carry (`card-lift-on`, `slide-corners-rounded`,
 `inline-code-literal`). Those tokens are listed in `lib/base/base.registers.docs.md`; 1.1 does not
 specify them, and `split:` and `preset:` have none.
 
@@ -112,20 +112,20 @@ specify them, and `split:` and `preset:` have none.
 | `backdrop:` | a strength (`20` `40` `60` `80` `full`), a mask (`clear` `open` `clear-footer` `clear-hero`) or a spot (`spot-tl` `spot-t` `spot-tr` `spot-l` `spot-c` `spot-r` `spot-bl` `spot-b` `spot-br`); up to one of each | How strongly the finish shows, and where it clears. | `unknown-backdrop` |
 | `preset:` | `classic` · `editorial` · `brand` · `minimal` | A named look that sets several registers at once, and MAY also recommend `theme:`, `color-mode:`, `mode:`, `chart-finish:`, `color-intensity:` and `backdrop:`. A register the deck sets itself wins over the preset's, and a color-axis token in a deck-wide `class:` (such as `dark`, `light` or `print`), or a `-dark` theme, keeps its color mode over a recommended one. | `unknown-preset` |
 | `split:` | `headings` · `rule` | How the deck divides into slides: at headings as well as `---` (§2.2), or at `---` only. | `unknown-split` |
-| `stamp:` | `tab` `notch` `bracket` `seal` `pill` `ribbon` `flag` `underline` `dot` `mark` `veil` `bar` `pin` | The shape of a slide's marker. | `unknown-stamp` |
+| `stamp-shape:` | `tab` `notch` `bracket` `seal` `pill` `ribbon` `flag` `underline` `dot` `mark` `veil` `bar` `pin` | The shape of a slide's marker. | `unknown-stamp-shape` |
 | `tone:` | `stripe` · `edge` · `glow` | The marker's tone. | `unknown-tone` |
 | `spectrum:` | up to one word per axis: style (`rainbow` `solid` `duo` `mono` `off`), edge (`top` `left` `right` `bottom`), weight (`regular` `hairline` `band`) | The stripe on the slide edge: its gradient, the edge it sits on, and how thick it is. `off` drops the stripe; the accents in the content keep their style. | `unknown-spectrum` |
 | `card-spectrum:` | up to one word per axis: style (`off` `rainbow` `solid` `duo` `mono`), edge (`left` `top` `right` `bottom`), weight (`regular` `hairline` `band`) | The stripe on each card, with its own style: no key follows another. An edge or weight with no style means `rainbow`. | `unknown-card-spectrum` |
 | `trim-spectrum:` | `quiet` · `rainbow` · `solid` · `duo` · `mono` | The style of the structural accents: table rails, code strips, rules. | `unknown-trim-spectrum` |
-| `rule:` | `auto` · `full` · `short` · `accent` · `none` | The underline beneath a slide heading. | `unknown-rule` |
+| `heading-rule:` | `auto` · `full` · `short` · `accent` · `none` | The underline beneath a slide heading. | `unknown-heading-rule` |
 | `eyebrow:` | `plain` · `dot` · `bar` · `arrow` · `underline` | The decoration on a kicker (§3.4). | `unknown-eyebrow` |
-| `headline:` | `auto` · `left` · `center` · `right` | The alignment of a slide's framing text. | `unknown-headline` |
-| `lift:` | `off` · `on` | Whether cards are raised off the slide. | `unknown-lift` |
+| `headline-align:` | `auto` · `left` · `center` · `right` | The alignment of a slide's framing text. | `unknown-headline-align` |
+| `card-lift:` | `off` · `on` | Whether cards are raised off the slide. | `unknown-card-lift` |
 | `align:` | up and down `top` · `middle` · `bottom` · `spread` · `fill`; side to side `left` · `center` · `right` · `full` | Where content sits on the slide. One word or two, in any order; `center` alone centers both axes. Omitted, each component keeps its own. | `unknown-align` |
-| `tag:` | up to one word per axis: color (`color` `plain` `bare`), size (`small` `regular` `large`), placement (`corner` `foot` `notch` `band` `inline`), alignment (`start` `center` `end`) | The look of a card's tag. | `unknown-tag` |
+| `card-tag:` | up to one word per axis: color (`color` `plain` `bare`), size (`small` `regular` `large`), placement (`corner` `foot` `notch` `band` `inline`), alignment (`start` `center` `end`) | The look of a card's tag. | `unknown-card-tag` |
 | `image-card:` | up to one word per axis: placement (`top-left` `top` `top-right` `center` `bottom-left` `bottom` `bottom-right`), backing (`solid` `soft` `sheer` `clear`, or a level in 5% steps: `5%` `10%` `15%` `20%` `25%` `30%` `35%` `40%` `45%` `50%` `60%` `65%` `70%` `75%` `85%` `90%` `95%`), ink (`light` `dark`), size (`sm` `md` `lg`), density (`regular` `compact`), shape (`float` `band`) | The text card on an `image` slide that floats its words over the photo (`spotlight`, `statement`). Image slides only. | `unknown-image-card` |
-| `cover-layout:` | up to one word per axis: a surface (`inverse` `light`) and a composition (`plain` `masthead` `ledger` `column` `label` `stage` `frame` `poster`) | The front and back cover. The surface is the dark inverse panel (default) or the deck's light canvas, in both color modes; the composition sets how the heading block sits on it (`plain`, the default, is today's centered block). Title and closing slides only; dividers and `topic` keep their own surfaces. The older key `cover:` is retired: the reference implementation no longer reads it and reports it as `key-renamed`. | `unknown-cover-layout` |
-| `corners:` | `square` · `rounded` | The corners of the slide itself. | `unknown-corners` |
+| `cover-layout:` | up to one word per axis: a surface (`inverse` `light`) and a composition (`plain` `masthead` `ledger` `column` `label` `stage` `frame` `poster`) | The front and back cover. The surface is the dark inverse panel (default) or the deck's light canvas, in both color modes; the composition sets how the heading block sits on it (`plain`, the default, is today's centered block). Title and closing slides only; dividers and `topic` keep their own surfaces. | `unknown-cover-layout` |
+| `slide-corners:` | `square` · `rounded` | The corners of the slide itself. | `unknown-slide-corners` |
 | `chart-finish:` | `pigment` · `etch` · `tone` · `ink` · `accent` | How every chart spends its color: a finish and, under `tone`, a source (the hue tone draws in), one word per axis in either order (`tone ink`). A look with no absent state, like `icon:` and `spark:`: a deck that names none wears `pigment`; a deck that names no source draws tone in chart color one. A source under another finish does nothing and is diagnosed (`chart-finish-source-needs-tone`). Replaces `marks:` with `color-intensity:` (`marks-split`). | `unknown-chart-finish` |
 | `color-intensity:` | `muted` · `vivid` | How loud every status color on the slide is, under any finish and not only in charts. A deck that names none wears `muted`. | `unknown-color-intensity` |
 | `callout:` | `on` · `off` | Whether the callout plugin draws the callouts an author pins to a chart's marks (`@callout{…}`); `off` hides them. | `unknown-callout` |

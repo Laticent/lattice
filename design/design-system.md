@@ -121,10 +121,10 @@ backdrops), each its own front-matter key, palette-blind, defaulting to today's 
 | **Spectrum** | `spectrum:` | the stripe on the slide edge, one word per axis: style (`rainbow`/`solid`/`duo`/`mono`/`off`), edge (`top`/`left`/`right`/`bottom`), weight (`regular`/`hairline`/`band`) |
 | **Card spectrum** | `card-spectrum:` | a stripe on card surfaces with its own style, never the slide edge's, one word per axis: style (`off`/`rainbow`/`solid`/`duo`/`mono`), edge (`left`/`top`/`right`/`bottom`), weight (`regular`/`hairline`/`band`) |
 | **Trim spectrum** | `trim-spectrum:` | the style of the structural accents (`quiet`/`rainbow`/`solid`/`duo`/`mono`), never the slide edge's — quiet = an accent-tint hairline by default |
-| **Corners** | `corners:` | whether the slide's own surface is square or rounded (`square`/`rounded`) — square is the default; the engine sets how round, and clips with `clip-path` so the brand bar follows |
-| **Heading rule** | `rule:` | the heading underline (`auto`/`full`/`short`/`accent`/`none`) |
+| **Corners** | `slide-corners:` | whether the slide's own surface is square or rounded (`square`/`rounded`) — square is the default; the engine sets how round, and clips with `clip-path` so the brand bar follows |
+| **Heading rule** | `heading-rule:` | the heading underline (`auto`/`full`/`short`/`accent`/`none`) |
 | **Eyebrow** | `eyebrow:` | the kicker's mark (`plain`/`dot`/`bar`/`arrow`/`underline`); its face comes from `typography:` |
-| **Headline alignment** | `headline:` | the framing-text cluster's horizontal alignment (`auto`/`left`/`center`/`right`) — `auto` keeps each component's own default; `left`/`center`/`right` pin the whole cluster, even on a layout whose default is the other way |
+| **Headline alignment** | `headline-align:` | the framing-text cluster's horizontal alignment (`auto`/`left`/`center`/`right`) — `auto` keeps each component's own default; `left`/`center`/`right` pin the whole cluster, even on a layout whose default is the other way |
 
 The accent registers are documented for authors in `lib/base/base.registers.docs.md`; design in
 `engineering/decisions/2026-07-15-accent-finish-consolidation.md`.
@@ -536,8 +536,8 @@ listing them risks drift if the universal set changes later.
 **Which modifiers a component is offered: surfaces, not lists.** Every modifier
 a slide accepts without a manifest declaring it lives in ONE grouped registry,
 `MODIFIER_GROUPS` in `lib/components/index.js`: the Tier 1 and Tier 2 sets above,
-plus the register tokens (`rule-*`, `eyebrow-*`, `head-*`, `cards-*`,
-`lifted`/`flat`, `corners-*`, the `spectrum-*` bar and card rail, `stamp-*`/`tone-*`
+plus the register tokens (`heading-rule-*`, `eyebrow-*`, `headline-align-*`, `cards-*`,
+`card-lift-on`/`card-lift-off`, `slide-corners-*`, the `spectrum-*` bar and card rail, `stamp-shape-*`/`tone-*`
 shapes), the stage-frame controls (`align-*`, `fill-*`, `footer-inset`) and the
 motion hooks. Each group names the **surface** it acts on, meaning the part of the
 slide it changes:
@@ -545,11 +545,11 @@ slide it changes:
 | Surface | Modifiers acting on it | Which components have it |
 |---|---|---|
 | slide | `dark`, `light`, `silent`, `no-*`, state stamps, `tone-*`, brand bar, tints, frame, `scale-*` | every component |
-| heading | `rule-*`, `head-*`, `with-period` / `no-period` | a slot selects an h1–h6, or the sample writes one |
+| heading | `heading-rule-*`, `headline-align-*`, `with-period` / `no-period` | a slot selects an h1–h6, or the sample writes one |
 | eyebrow | `eyebrow-*` | the sample opens a block with a lone inline-code line |
 | table | `table-plain`, `table-fill`, `state-cells`, `with-row-label` | a slot selects a table, or the sample writes one |
 | card-row | `cards-*` | the manifest declares a `cards` composition |
-| card-surface | `lifted`, `flat` | the stylesheet reads `--elevation-card` |
+| card-surface | `card-lift-on`, `card-lift-off` | the stylesheet reads `--elevation-card` |
 | card-rail | `card-spectrum-*` | named in the card-rail paint rule |
 | chart-marks | `motion-*`, `chart-anima` | the render draws `data-mark` SVG or a scene |
 | key-insight · below-note | `note-warn` · `no-note` | `authoring.blocks` |
@@ -562,7 +562,7 @@ lists modifiers. `lib/components/surfaces.js` derives each component's surfaces 
 facts that already exist, and **the render proof corrects the derivation**.
 `npm run check:modifier-effects` renders every component's sample bare and with each
 modifier, fingerprints the result, and records per component which probed surfaces
-actually change. It also re-probes each declared variant, so `lifted` is offered
+actually change. It also re-probes each declared variant, so `card-lift-on` is offered
 after `kpi ops` (whose stylesheet reads the lift there) and not after plain `kpi`.
 The measurement, `lib/core/modifier-effects.generated.json`, is the source for the
 surfaces it probes. A component it has not measured yet falls back to the
@@ -688,6 +688,34 @@ allow-listed in `SINGLETON_TAGS`. Tags surface in the generated
 `<name>.docs.md`, the aggregated `dist/docs/components.md`, and as
 chips + a live filter facet on the docs-site component pages.
 
+### Search terms — the words a person actually types
+
+Tags are a **controlled** vocabulary, which is exactly why they cannot
+carry everyday words: "grades", "movie", "data" or "photos" would never
+cluster as facets. `searchTerms` is the other half (2026-11-23,
+`engineering/decisions/2026-11-23-search-by-meaning.md`): **3–12 plain
+English words or short phrases** an author would type into the Studio's
+slide gallery to find this component, without knowing its name.
+
+- **Free, per manifest.** Not drawn from `TAG_GROUPS`, and they may
+  repeat across components ("data" is on every chart that shows data).
+- **Required for the shipped catalog, optional in the schema.** A unit
+  test fails if any in-tree manifest lacks them, so a new component cannot
+  ship unfindable. The schema leaves them optional so a component an
+  author makes in the Studio is not rejected for lacking them.
+- **Plain words only:** lowercase letters, digits, spaces and hyphens
+  (write `qa`, not `q&a`).
+- **Stemmed, so list a word once.** "grade" also finds "grades".
+- **Meaning pass only.** The Workspace "literal only" search turns the
+  meaning pass off, and `searchTerms` with it.
+- **Measured.** `tools/intent-bakeoff` scores them on an everyday-words
+  query set and a held-out set, and `docs/src/lib/search-everyday.test.ts`
+  holds the floor: everyday one-word queries went from 44% to 89% top-1
+  (tuning set) and from 22% to 66% (held-out).
+
+General English that belongs to no single component (pic, vid, vs) lives
+in the ranker's small `SYNONYMS` table instead (`intent-search.ts`).
+
 ### For agents
 
 AI agents authoring decks get a discovery surface and a validation loop:
@@ -701,6 +729,13 @@ AI agents authoring decks get a discovery surface and a validation loop:
   plus the controlled vocabularies. This is what TOOLS load; at 95k tokens it is not a
   document to read for a pick. Both are generated alongside `components.md/.html` by
   `tools/build-docs-portal.js`.
+- **`components.json` is versioned.** Its top-level `schemaVersion` is an integer
+  (today `1`). A new field keeps the version, so a reader ignores fields it does not
+  know. Removing or renaming a field, or changing what one means, bumps it, so a
+  reader checks `schemaVersion` before it trusts a field. The bump is
+  `COMPONENTS_JSON_SCHEMA_VERSION` in `tools/build-docs-portal.js`.
+  `test/unit/cli/components-json-schema-version.test.js` fails when a field in
+  `test/fixtures/components-json-fields.json` disappears without one.
 - **Capacity — pick by content shape.** A layout overflows when it holds more
   elements than it's built for — the most common authoring slip. A component's
   optional `capacity` block (`{ axis, sweet, soft, hard, escalateTo }`) declares

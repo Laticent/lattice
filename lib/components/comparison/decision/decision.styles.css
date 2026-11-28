@@ -19,7 +19,7 @@ section.decision:where(:not(.compare-prose)) > .cell-stage { display:flex; flex-
  * reserves the right bay. A 70.3125cqi cap used to sit here; it held the verdict heading
  * below its band on 8 of 12 measured slides and cost every one of them an extra line
  * (`compare-prose decision` — the authored pairing — included). Framing behavior is the
- * deck's call via the `headline:` alignment register, not a per-component bake. */
+ * deck's call via the `headline-align:` alignment register, not a per-component bake. */
 section.decision:where(:not(.compare-prose)) h2 {
   font-size:var(--fs-h2);
   line-height:var(--lh-tight);

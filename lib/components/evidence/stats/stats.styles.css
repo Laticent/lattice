@@ -46,14 +46,14 @@
 
 section.stats:where(:not(.math)) > .cell-stage { display:flex; flex-direction:column; justify-content:safe center; align-items:center; }
 /* The heading + subtitle are framing text — they follow the headline-alignment seam
- * (`headline:`) via their OWN align-self, so the centered stat strip below is untouched (its
+ * (`headline-align:`) via their OWN align-self, so the centered stat strip below is untouched (its
  * `align-items:center` on the stage stays). `auto`/no register → the fallback `center`, so a
  * default stats slide is byte-identical. */
 section.stats:where(:not(.math)) h2 { padding-bottom:var(--sp-xs); text-align:var(--headline-align, center); align-self:var(--headline-justify, center); }
 /* CONSISTENT-DEFAULTS: stats centers its heading + tiles, so its WHOLE masthead framing centers to
  * match. The lede is a flex column (masthead-lede.css); override its fallbacks to `center` here so
  * the eyebrow, heading, and heading-rule <hr> all center as one cluster by default. Per-selector
- * fallback → `headline: left` still overrides (the register SETS the seam; a set value beats a
+ * fallback → `headline-align: left` still overrides (the register SETS the seam; a set value beats a
  * fallback). The rule <hr> follows the cluster automatically (it's a flex child) — no per-component
  * rule handling, no bay-drift. */
 section.form.stats:where(:not(.math)) .cell-masthead .masthead-lede { text-align:var(--headline-align, center); align-items:var(--headline-justify, center); }

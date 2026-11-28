@@ -69,7 +69,7 @@ describe('buildVocabSets', () => {
 		expect(lists.length).toBeGreaterThanOrEqual(21);
 		// The front-matter key each list validates: camelCase → kebab-case, with the two
 		// SHAPE registers named for the key rather than the style.
-		const keyFor = (list: string) => ({ stampStyleNames: 'stamp', toneStyleNames: 'tone', pluginNames: 'plugins' })[list] ?? list.replace(/Names$/, '').replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
+		const keyFor = (list: string) => ({ stampShapeNames: 'stamp-shape', toneStyleNames: 'tone', pluginNames: 'plugins' })[list] ?? list.replace(/Names$/, '').replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
 		// `plugins:` predates the `unknown-<key>` convention: its rule is the singular `unknown-plugin`.
 		const ruleFor = (key: string) => ({ plugins: 'unknown-plugin' })[key] ?? `unknown-${key}`;
 		const silent = lists.filter((list) => {

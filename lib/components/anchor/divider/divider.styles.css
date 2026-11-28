@@ -12,9 +12,9 @@
  * one; background-vs-::before keeps both. (box-shadow can't carry the rainbow gradient,
  * so background is the right layer.) See
  * engineering/decisions/2026-07-03-status-marker-style-variants.md §spectrum. */
-/* align-items + the h2 text-align read the headline seam (`headline:` register). The default
+/* align-items + the h2 text-align read the headline seam (`headline-align:` register). The default
  * divider is LEFT (heading in the lower-left) — the fallbacks encode that, so `auto`/no register
- * is byte-identical; `head-left` re-anchors it left. */
+ * is byte-identical; `headline-align-left` re-anchors it left. */
 /* LONGHANDS, not the `background:` shorthand, so a theme missing the ribbon loses the RAIL
  * and not the CANVAS. One undefined var() invalidates the WHOLE declaration at
  * computed-value time and the property falls to its INITIAL value, so the shorthand form
@@ -74,7 +74,7 @@ section.divider h2 { font-size:var(--fs-h1); color:var(--text-display); max-widt
  * Sits between a dark divider and a run of content slides for finer
  * orientation. Merged from the standalone subtopic on 2026-06-07. */
 /* The light variant CENTERS by default — its fallbacks encode center, so `auto` is
- * byte-identical while head-left/right still re-anchor it. */
+ * byte-identical while headline-align-left/right still re-anchor it. */
 section.divider.light { --_edge-l: 1; background:var(--bg); color-scheme: light; padding-left:var(--_wide-gutter, 0px); justify-content:center; align-items:var(--headline-justify, center); }
 /* The light heading keeps `max-width:none` — it renders a tier down (--fs-h2),
  * so the frame is already a sane measure for it and a cap only ever costs a

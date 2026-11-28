@@ -806,14 +806,14 @@ test('themeDualMode carries DERIVED tokens onto the pinned scope, transitively',
 test('themeDualMode reads DERIVED tokens from :root only — a component-local one is never hoisted', () => {
 	// The hoist drops the original selector, which is sound ONLY for `:root` tokens (see the
 	// function's docblock). The engine also declares custom properties inside COMPONENT rules
-	// — `--elevation-card` on `section.lifted`, `--pill-border` on an nth-child arm, the whole
+	// — `--elevation-card` on `section.card-lift-on`, `--pill-border` on an nth-child arm, the whole
 	// `--fs-*` scale on size classes. Scanning the WHOLE sheet lifted those onto every slide
-	// at (0,7,1), outranking the rules they were read from: `_class: flat` got the lifted
+	// at (0,7,1), outranking the rules they were read from: `_class: card-lift-off` got the card-lift-on
 	// card's shadow back, and a pill border recolored to a categorical mark. Measured on
 	// dist/lattice.css + themes/indaco/indaco.css, 281 of 435 candidate tokens were affected.
 	const css = [
 		':root{--text-heading:light-dark(#0A1628,#FFFFFF);--cat-on-fill:var(--text-heading)}',
-		'section.lifted{--elevation-card:var(--text-heading)}',
+		'section.card-lift-on{--elevation-card:var(--text-heading)}',
 		':root[data-lattice-view="fluid"] .lattice-bg{--bg-local:var(--text-heading)}',
 	].join('');
 	const { darkBlock } = themeDualMode(css);

@@ -243,7 +243,7 @@ const TAIL_SOURCES = [
   'lib/base/base.media.css',
   ...FORMS_CELL_CSS_SOURCES,
   ...FORMS_TILE_CSS_SOURCES,
-  // Accent finishes (`rule:` heading underline + `eyebrow:` kicker) — bundled AFTER the
+  // Accent finishes (`heading-rule:` heading underline + `eyebrow:` kicker) — bundled AFTER the
   // Form Cell CSS (which draws the masthead hairline) and base.modifiers' eyebrow rule, so
   // these overrides win by source order as well as specificity. See base.accent-finish.css
   // and engineering/decisions/2026-07-15-accent-finish-consolidation.md.

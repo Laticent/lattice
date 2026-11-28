@@ -43,6 +43,7 @@
     "onboarding",
     "kickoff"
   ],
+  "searchTerms": ["outline", "contents", "schedule", "topics", "plan for today", "course", "lesson", "class"],
   "description": "Auto-numbered table of contents for the deck.",
   "purpose": "Use as the second slide of any multi-section deck. Numbers are generated; authors just write the section titles. Leave the list out and it fills itself: one item per `divider` slide, named by its heading, and an agenda repeated inside a section marks that section with `progress-N`. Three styles, each with its own job — the default `ledger` (a contents page with optional page references), `circles` (a track of stops) and `checks` (done, here, ahead) — all compose with the `progress-N` 'you are here' modifier.",
   "variants": [

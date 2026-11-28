@@ -239,8 +239,14 @@ describe('writeMeta on records: the inversion’s cases', () => {
   });
   test('the layout word stays first: register words come after `class`', () => {
     const { readRecord } = require('../../../lib/core/meta-door.mjs');
-    assert.equal(readRecord(' @meta{headline=left, class=stats} ').d.class, 'stats head-left');
+    assert.equal(readRecord(' @meta{headline-align=left, class=stats} ').d.class, 'stats headline-align-left');
     assert.equal(readRecord(' @meta{finish=ledger, layout=cards, class=compact} ').d.class, 'cards compact finish finish-ledger');
+  });
+  test('a field the D1 renames retired is refused and applies nothing (lint names the new spelling)', () => {
+    const { readRecord } = require('../../../lib/core/meta-door.mjs');
+    const r = readRecord(' @meta{layout=cards, headline=left, lift=on} ');
+    assert.equal(r.d.class, 'cards');
+    assert.deepEqual(r.diagnostics.map((x) => x.code), ['meta-unknown-key', 'meta-unknown-key']);
   });
 });
 

@@ -146,32 +146,32 @@ export function setMode(chunk: string, mode: 'sketch' | 'sketch-clean' | 'boardr
 }
 
 // ── stamp / tone STYLE (shape) ─────────────────────────────────────────────────
-// The deck `stamp:` / `tone:` front-matter register picks a deck-wide SHAPE for the
-// state / tone markers (resolve-stamp.js / resolve-tone-style.js), appended onto every
-// section by deckClassPropagate; a per-slide `stamp-<name>` / `tone-<style>` class token
+// The deck `stamp-shape:` / `tone:` front-matter register picks a deck-wide SHAPE for the
+// state / tone markers (resolve-stamp-shape.js / resolve-tone-style.js), appended onto every
+// section by deckClassPropagate; a per-slide `stamp-shape-<name>` / `tone-<style>` class token
 // OVERRIDES. There is no opt-out token — the no-config shape IS the uniform default
 // (`tab` / `rail`) — so provenance is just inherited (deck) / on (this slide) / off
 // (falls back to the default). Tone STYLE tokens share the `tone-` prefix with the tone
 // SEMANTIC tokens, so callers pass the known style-token set (vocab.toneStyles) to
-// disambiguate; stamp-style tokens (`stamp-*`) never collide with a state marker.
+// disambiguate; stamp-style tokens (`stamp-shape-*`) never collide with a state marker.
 
-const isStampStyleToken = (t: string) => /^stamp-.+$/.test(t);
+const isStampShapeToken = (t: string) => /^stamp-shape-.+$/.test(t);
 
 /** Effective stamp-STYLE (shape) state for a slide. `value` is the bare style name. */
-export function stampStyleProvenance(chunk: string, source: string): Provenance {
-	const own = getClassTokens(chunk).find(isStampStyleToken);
-	const deckValue = (getFrontMatter(source, 'stamp') || '').trim() || undefined;
+export function stampShapeProvenance(chunk: string, source: string): Provenance {
+	const own = getClassTokens(chunk).find(isStampShapeToken);
+	const deckValue = (getFrontMatter(source, 'stamp-shape') || '').trim() || undefined;
 	const inheritable = deckValue !== undefined;
-	if (own) return { state: 'on', value: own.slice('stamp-'.length), deckValue, inheritable };
+	if (own) return { state: 'on', value: own.slice('stamp-shape-'.length), deckValue, inheritable };
 	if (deckValue) return { state: 'inherited', value: deckValue, deckValue, inheritable: true };
 	return { state: 'off', inheritable: false };
 }
 
-/** Set the slide's stamp style. `name` → `stamp-<name>`; `null` → inherit (clear it).
+/** Set the slide's stamp style. `name` → `stamp-shape-<name>`; `null` → inherit (clear it).
  *  Existing stamp-style tokens are cleared first so a style never stacks. */
-export function setStampStyle(chunk: string, name: string | null): string {
-	const kept = getClassTokens(chunk).filter((t) => !isStampStyleToken(t));
-	if (name) kept.push(`stamp-${name}`);
+export function setStampShape(chunk: string, name: string | null): string {
+	const kept = getClassTokens(chunk).filter((t) => !isStampShapeToken(t));
+	if (name) kept.push(`stamp-shape-${name}`);
 	return setClassTokens(chunk, kept);
 }
 
@@ -226,9 +226,9 @@ export function setSpectrumAxis(chunk: string, key: SpectrumKey, axis: SpectrumA
 }
 
 // ── rule (heading underline) / eyebrow (kicker) / headline ─────────────────────────────────────
-// Sibling "override" axes: a per-slide token (`rule-<v>` / `eyebrow-<v>` / `head-<v>`) overrides
+// Sibling "override" axes: a per-slide token (`heading-rule-<v>` / `eyebrow-<v>` / `headline-align-<v>`) overrides
 // the deck register. The DEFAULT value (auto/plain) renders with no token, and also has a RESTORE
-// token (`rule-auto`, `eyebrow-plain`, `head-auto`)
+// token (`heading-rule-auto`, `eyebrow-plain`, `headline-align-auto`)
 // that a slide carries to return to it inside a deck that set another value (the engine evicts
 // the deck's token for it). So provenance is inherited (deck non-default) / on (this slide) /
 // off (the default). A shared helper keeps the three in step. The `none`/`off` VALUE is a real
@@ -256,10 +256,10 @@ function setOverride(chunk: string, deckKey: string, prefix: string, values: rea
 
 const RULE_VALUES = ['auto', 'full', 'short', 'accent', 'none'];
 export function ruleProvenance(chunk: string, source: string): Provenance {
-	return overrideProvenance(chunk, source, 'rule', 'rule-', RULE_VALUES, 'auto');
+	return overrideProvenance(chunk, source, 'heading-rule', 'heading-rule-', RULE_VALUES, 'auto');
 }
 export function setRule(chunk: string, name: string | null): string {
-	return setOverride(chunk, 'rule', 'rule-', RULE_VALUES, name);
+	return setOverride(chunk, 'heading-rule', 'heading-rule-', RULE_VALUES, name);
 }
 
 // The chart finish (resolve-chart-finish.js). A look with no absent state, so the deck default is
@@ -295,14 +295,14 @@ export function setEyebrow(chunk: string, name: string | null): string {
 	return setOverride(chunk, 'eyebrow', 'eyebrow-', EYEBROW_VALUES, name);
 }
 
-// The deck key is `headline` but the per-slide token prefix is `head-` (head-left/center/right);
-// overrideProvenance takes the two separately, so the mismatch is fine.
+// The deck key is `headline-align`, and so is the per-slide token prefix (headline-align-left/center/right);
+// overrideProvenance still takes the two separately.
 const HEADLINE_VALUES = ['auto', 'left', 'center', 'right'];
 export function headlineProvenance(chunk: string, source: string): Provenance {
-	return overrideProvenance(chunk, source, 'headline', 'head-', HEADLINE_VALUES, 'auto');
+	return overrideProvenance(chunk, source, 'headline-align', 'headline-align-', HEADLINE_VALUES, 'auto');
 }
 export function setHeadline(chunk: string, name: string | null): string {
-	return setOverride(chunk, 'headline', 'head-', HEADLINE_VALUES, name);
+	return setOverride(chunk, 'headline-align', 'headline-align-', HEADLINE_VALUES, name);
 }
 
 // ── motion (chart animation) — THREE independent axes ────────────────────────────────────────────
@@ -401,10 +401,10 @@ export function setBackdrop(chunk: string, axis: BackdropAxis, name: string | nu
 
 export function cardTagProvenance(chunk: string, source: string, axis: CardTagAxis): Provenance {
 	const values = cardTagValues(axis);
-	const own = getClassTokens(chunk).find((t) => t.startsWith('tag-') && values.includes(t.slice(4)));
+	const own = getClassTokens(chunk).find((t) => t.startsWith('card-tag-') && values.includes(t.slice(9)));
 	const deckValue = deckCardTag(source)[axis];
 	const inheritable = deckValue !== undefined;
-	if (own) return { state: 'on', value: own.slice(4), deckValue, inheritable };
+	if (own) return { state: 'on', value: own.slice(9), deckValue, inheritable };
 	if (deckValue) return { state: 'inherited', value: deckValue, deckValue, inheritable: true };
 	return { state: 'off', inheritable: false };
 }
@@ -412,8 +412,8 @@ export function cardTagProvenance(chunk: string, source: string, axis: CardTagAx
 /** Set one axis on the slide; `null` clears it so the slide follows the deck. */
 export function setCardTag(chunk: string, axis: CardTagAxis, name: string | null): string {
 	const values = cardTagValues(axis);
-	const kept = getClassTokens(chunk).filter((t) => !(t.startsWith('tag-') && values.includes(t.slice(4))));
-	if (name && values.includes(name)) kept.push(`tag-${name}`);
+	const kept = getClassTokens(chunk).filter((t) => !(t.startsWith('card-tag-') && values.includes(t.slice(9))));
+	if (name && values.includes(name)) kept.push(`card-tag-${name}`);
 	return setClassTokens(chunk, kept);
 }
 

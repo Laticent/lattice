@@ -33,14 +33,14 @@ test('completion: `<!-- @m` offers the record, inside it its fields, then a regi
 	await expect(editorText(page)).toContainText('<!-- @meta{}');
 	await expect(menu.getByRole('option', { name: /^layout/ })).toBeVisible();
 	await page.keyboard.type('headl');
-	await expect(menu.getByRole('option', { name: /^headline/ })).toBeVisible();
+	await expect(menu.getByRole('option', { name: /^headline-align/ })).toBeVisible();
 	await acceptCompletion(page);
-	await expect(editorText(page)).toContainText('<!-- @meta{headline=}');
+	await expect(editorText(page)).toContainText('<!-- @meta{headline-align=}');
 	// After `=`, the register's own words: `l` narrows to `left`.
 	await page.keyboard.type('l');
 	await expect(menu.getByRole('option', { name: /^left/ })).toBeVisible();
 	await acceptCompletion(page);
-	await expect(editorText(page)).toContainText('<!-- @meta{headline=left}');
+	await expect(editorText(page)).toContainText('<!-- @meta{headline-align=left}');
 });
 
 test('completion: the retired bare `<!-- {` offers no record fields @crosswidth @gecko', async ({ page }) => {
