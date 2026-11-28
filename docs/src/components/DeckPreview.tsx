@@ -781,18 +781,26 @@ export function DeckPreview({
 	}, []);
 	// The frame shows a render: the `onPaint` signal. Skipped while a write's old document is still in the frame; that
 	// render's `load` (bound in bindAnima) fires it once the new document is in.
+	// Also skipped while the engine says a full write's document is still loading (`__latticePendingLoad`): the frame can hold
+	// an EARLIER write's document by then, which document identity alone cannot tell apart (checker on #3507). Nothing is
+	// reported before a render has landed, since there is no source to name.
 	const firePaint = React.useCallback(() => {
-		const doc = stageRef.current?.querySelector<HTMLIFrameElement>('iframe.live')?.contentDocument;
-		if (!doc || doc === staleDocRef.current) return;
-		onPaintRef.current?.(landedSourceRef.current ?? { sample: sampleRef.current, extraCss: undefined });
+		const host = stageRef.current as (HTMLElement & { __latticePendingLoad?: boolean }) | null;
+		const doc = host?.querySelector<HTMLIFrameElement>('iframe.live')?.contentDocument;
+		if (!doc || doc === staleDocRef.current || host?.__latticePendingLoad || !landedSourceRef.current) return;
+		onPaintRef.current?.(landedSourceRef.current);
 	}, []);
+	// The `load` listener reports a tick later, so the engine's own onload has cleared `__latticePendingLoad` first.
+	const firePaintAfterLoad = React.useCallback(() => {
+		window.setTimeout(firePaint, 0);
+	}, [firePaint]);
 	const bindAnima = React.useCallback(() => {
 		const fr = stageRef.current?.querySelector<HTMLIFrameElement>('iframe.live');
 		if (!fr || animaBoundRef.current) return;
 		animaBoundRef.current = true;
 		fr.addEventListener('load', paintStep);
 		fr.addEventListener('load', syncAnima);
-		fr.addEventListener('load', firePaint);
+		fr.addEventListener('load', firePaintAfterLoad);
 		// The runtime draws a Mermaid diagram AFTER the render this host syncs on, so a deck whose only
 		// animatable figure is a diagram reads as motion-free at sync time and never loads the host.
 		// Re-run the gate each time a diagram draws. Bound to the <iframe> ELEMENT, like `load`, because
@@ -800,7 +808,7 @@ export function DeckPreview({
 		// circuits to rebind(), which is a no-op diff for an already-mounted diagram.)
 		watchDiagramDrawn(fr, syncAnima);
 		if (fr.contentDocument?.readyState === 'complete') syncAnima();
-	}, [syncAnima, paintStep, firePaint]);
+	}, [syncAnima, paintStep, firePaintAfterLoad]);
 	// A step move repaints the frame in place: no render, the slide is already there.
 	const stepKey = step == null ? 'rest' : typeof step === 'number' ? String(step) : `enter:${step.enter}`;
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `stepKey` is the trigger; `paintStep` reads the step through its ref.
@@ -930,7 +938,8 @@ export function DeckPreview({
 		syncAnima();
 		if (status) {
 			landedSlideRef.current = issuedRef.current ? issuedRef.current.slide : null;
-			landedSourceRef.current = issuedSourceRef.current;
+			// A render the engine abandoned (disposed, detached, stood down) drew nothing: the frame still holds what it held.
+			if (status.error !== 'renderer disposed') landedSourceRef.current = issuedSourceRef.current;
 			// A full write whose frame still holds the document from BEFORE this render has not navigated yet: it paints
 			// on the frame's `load` instead (bound in bindAnima). A write that already swapped the document paints now.
 			const docNow = stageRef.current?.querySelector<HTMLIFrameElement>('iframe.live')?.contentDocument ?? null;
@@ -949,7 +958,7 @@ export function DeckPreview({
 		// here). Gated on a real `status` so a deferred inactive-host bail (status undefined) doesn't
 		// fire it — matches the prop contract and can't drive a phantom re-pin on a host that didn't paint.
 		if (status) onRenderRef.current?.();
-		if (status) firePaint();
+		if (status && status.error !== 'renderer disposed') firePaint();
 		if (status) watchOverflow();
 		return { heavy: status?.writePath === 'write' };
 	};

@@ -15,6 +15,8 @@ let unmounts = 0;
 let reshapes = 0;
 /** Samples the mock reports a paint for (DeckPreview's `onPaint`), so a test can say which slides land. Empty: none paints. */
 const paints = new Set<string>();
+/** The last `onPaint` the mock was handed, so a test can deliver a paint of any source at any moment. */
+let paintNow: ((p: { sample: string; extraCss: string | undefined }) => void) | undefined;
 vi.mock('@/components/DeckPreview', async () => {
 	const React = await import('react');
 	return {
@@ -25,6 +27,7 @@ vi.mock('@/components/DeckPreview', async () => {
 					unmounts++;
 				};
 			}, []);
+			paintNow = props.onPaint as typeof paintNow;
 			React.useEffect(() => {
 				const s = String(props.sample);
 				if (paints.has(s)) (props.onPaint as ((p: { sample: string; extraCss: string | undefined }) => void) | undefined)?.({ sample: s, extraCss: props.extraCss as string | undefined });
@@ -40,7 +43,7 @@ vi.mock('@/components/DeckPreview', async () => {
 });
 
 import { slotShows } from './pool-capture';
-import { APPLY_MS, BASE_SLOTS, CAPTURE_INPUT_QUIET_MS, CAPTURE_QUIET_MS, captureWait, FRAME_BLEED, HARD_MAX_SLOTS, hearInput, PARK_MS, PENDING_HARD_MS, PENDING_MAX_MS, PooledThumbFace, type PoolReport, PreviewPool, paintedIsCurrent, RELEASE_GRACE, readerQuietFor, showsOther, tierSlotCaps } from './preview-pool';
+import { APPLY_MS, BASE_SLOTS, CAPTURE_INPUT_QUIET_MS, CAPTURE_QUIET_MS, captureWait, FRAME_BLEED, HARD_MAX_SLOTS, hearInput, PARK_MS, PENDING_HARD_MS, PooledThumbFace, type PoolReport, PreviewPool, paintedIsCurrent, RELEASE_GRACE, readerQuietFor, showsOther, tierSlotCaps } from './preview-pool';
 
 // A controllable IntersectionObserver: jsdom has none, and the pool's no-IO fallback treats
 // every tile as in band, which would make every assertion here vacuous.
@@ -998,9 +1001,8 @@ describe('showsOther, the check that hides a frame until it paints its new slide
 		expect(showsOther(null, p('# A'))).toBe(false);
 	});
 	it('the backstop is short enough that a frame that never reports cannot leave a tile blank for long', () => {
-		expect(PENDING_MAX_MS).toBeLessThanOrEqual(2000);
-		// The hard bound keeps a frame that painted another slide hidden well past a slow write, but never indefinitely.
-		expect(PENDING_HARD_MS).toBeGreaterThan(PENDING_MAX_MS);
+		// Long enough for a slow phone's full write, short enough that a lost render never leaves a tile blank for long.
+		expect(PENDING_HARD_MS).toBeGreaterThanOrEqual(3000);
 		expect(PENDING_HARD_MS).toBeLessThanOrEqual(10000);
 	});
 });
@@ -1030,7 +1032,7 @@ describe('a slot handed another slide is hidden until it paints it, and never fo
 	}
 	const shown = (c: HTMLElement) => slotsOf(c).map((s) => `${s.sample}:${s.visible ? 'shown' : 'hidden'}`);
 
-	it('keeps the old picture hidden past the soft backstop, then shows the slot at the hard bound', () => {
+	it('keeps the old picture hidden until the bound, then shows the slot', () => {
 		paints.add('# A');
 		const { container, rerender, unmount } = render(<One sample="# A" />);
 		intersect(face(container, 0), true);
@@ -1041,13 +1043,31 @@ describe('a slot handed another slide is hidden until it paints it, and never fo
 		settle();
 		expect(shown(container)).toEqual(['# B:hidden']);
 		act(() => {
-			vi.advanceTimersByTime(PENDING_MAX_MS + 100);
+			// The slot began waiting inside `settle()`, up to APPLY_MS before it returned: stay clear of the edge.
+			vi.advanceTimersByTime(PENDING_HARD_MS - APPLY_MS - 100);
 		});
-		expect(shown(container), 'the soft backstop showed a frame that painted another slide').toEqual(['# B:hidden']);
+		expect(shown(container), 'a slot showed the old picture before the bound').toEqual(['# B:hidden']);
 		act(() => {
-			vi.advanceTimersByTime(PENDING_HARD_MS - PENDING_MAX_MS);
+			vi.advanceTimersByTime(APPLY_MS + 200);
 		});
 		expect(shown(container), 'past the hard bound the tile must not stay blank').toEqual(['# B:shown']);
+		unmount();
+	});
+
+	it('a late paint of the slide it held before does not show the slot (the render issued for it landed late)', () => {
+		const { container, rerender, unmount } = render(<One sample="# A" />);
+		intersect(face(container, 0), true);
+		settle();
+		rerender(<One sample="# B" />);
+		settle();
+		// A's first render, still in flight when the slot moved, lands now and reports A.
+		act(() => paintNow?.({ sample: '# A', extraCss: undefined }));
+		act(() => {
+			vi.advanceTimersByTime(2000);
+		});
+		expect(shown(container), 'a paint of the old slide unhid the new tile').toEqual(['# B:hidden']);
+		act(() => paintNow?.({ sample: '# B', extraCss: undefined }));
+		expect(shown(container)).toEqual(['# B:shown']);
 		unmount();
 	});
 

@@ -354,12 +354,10 @@ export const RELEASE_GRACE = 600;
  */
 export const PARK_MS = 5000;
 
-/** How long a slot handed a different slide may stay hidden waiting for its paint before it shows anyway. A patch paints in
- *  well under this; a full write on a slow phone takes longer, and then the old picture is the lesser evil than a blank tile. */
-export const PENDING_MAX_MS = 1500;
-/** The hard bound: past this, a hidden slot shows whatever it holds, even a frame that painted another slide. A tile must
- *  never stay blank indefinitely (checker on #3507 saw two tiles blank past 15 s under load); this is far past a slow
- *  phone's write, so the old picture only comes back when the new slide's render is genuinely lost. */
+/** How long a slot handed a different slide stays hidden waiting to paint it, counted from when THAT slot began waiting.
+ *  Past this it shows whatever it holds, so no tile stays blank indefinitely. It is deliberately far past a slow phone's
+ *  full write: an earlier 1.5 s backstop showed the old slide on the new tile whenever a paint landed late under load
+ *  (checker on #3507), and a frame that has not painted shows nothing, so a shorter bound buys nothing. */
 export const PENDING_HARD_MS = 6000;
 /** Whether `next` puts a different SLIDE in a slot than `prev` did: the one change whose old picture is wrong rather than
  *  merely stale (a palette or mode change repaints the same slide). A slot with no props yet has no picture to hide. PURE. */
@@ -415,10 +413,22 @@ export function PreviewPool({ children, className, baseSlots: hostBase = BASE_SL
 	const parkTimer = React.useRef<number | null>(null);
 	/** The pass that runs when the last grace window ends. */
 	const graceTimer = React.useRef<number | null>(null);
-	const pendingTimer = React.useRef<number | null>(null);
 	const hardTimer = React.useRef<number | null>(null);
-	/** slot index → the source its frame last painted (DeckPreview's `onPaint`), whichever slide that was. */
-	const lastPainted = React.useRef(new Map<number, { sample: string; extraCss: string | undefined }>());
+	const armHard = React.useCallback((delay: number) => {
+		hardTimer.current = window.setTimeout(() => {
+			hardTimer.current = null;
+			setSlots((prev) => {
+				const now = Date.now();
+				const due = (x: { pending?: boolean; pendingSince?: number }) => x.pending === true && now - (x.pendingSince ?? 0) >= PENDING_HARD_MS;
+				const out = prev.some(due) ? prev.map((x) => (due(x) ? { ...x, pending: false } : x)) : prev;
+				const left = out.filter((x) => x.pending).map((x) => (x.pendingSince ?? now) + PENDING_HARD_MS - now);
+				if (left.length && hardTimer.current === null) armHardRef.current(Math.max(0, Math.min(...left)));
+				return out;
+			});
+		}, delay);
+	}, []);
+	const armHardRef = React.useRef(armHard);
+	armHardRef.current = armHard;
 	const slotsRef = React.useRef(slots);
 	slotsRef.current = slots;
 	const pending = React.useRef<number | null>(null);
@@ -656,8 +666,6 @@ export function PreviewPool({ children, className, baseSlots: hostBase = BASE_SL
 					spare.id = idk;
 					spare.gen++;
 					spare.props = null;
-					// A remounted frame has painted nothing yet.
-					lastPainted.current.delete(next.indexOf(spare));
 					slot = spare;
 				}
 				slot.tileId = t.id;
@@ -674,42 +682,12 @@ export function PreviewPool({ children, className, baseSlots: hostBase = BASE_SL
 			// A LOWERED CEILING (the device tier dropped to LITE mid-session) gives back the free frames above it. Only from the
 			// END, because a slot's place in the list is its React identity; a held slot there is trimmed by a later pass, once its
 			// tile leaves, since the cap above already keeps `want` within the ceiling.
-			while (next.length > ceilingRef.current && next[next.length - 1].tileId === null) {
-				next.pop();
-				lastPainted.current.delete(next.length);
-			}
+			while (next.length > ceilingRef.current && next[next.length - 1].tileId === null) next.pop();
 			setSlots(next);
-			// THE BACKSTOP for a hidden slot: a frame that never reports a paint must not leave its tile blank for good, which is
-			// a worse defect than the stale picture the hiding prevents. Past PENDING_MAX_MS it shows a frame that has painted
-			// nothing yet, and keeps hiding one that painted another slide (see the timer body); past PENDING_HARD_MS it shows
-			// every slot, so no tile is blank for longer than that.
-			// Armed only when none is armed: re-arming on every pass let a scroll that kept re-pointing other slots push it back
-			// for as long as the scroll lasted (checker on #3507).
-			if (pendingTimer.current === null && next.some((x) => x.pending)) {
-				pendingTimer.current = window.setTimeout(() => {
-					pendingTimer.current = null;
-					// ...but never a frame that painted ANOTHER slide: that picture is the very defect the hiding exists for, and
-					// under load (`--workers=4`) the new slide's paint routinely lands after this timer (checker on #3507: the
-					// backstop fired, then `math` wore the video poster until its paint 1.4 s later). A frame that has painted
-					// nothing has no wrong picture to show, and a failed render still reports a paint (its failure card), so
-					// what stays hidden is only a reused frame whose render has not landed; its tile shows its own face until it
-					// lands or PENDING_HARD_MS passes.
-					setSlots((prev) => (prev.some((x, i) => x.pending && !lastPainted.current.has(i)) ? prev.map((x, i) => (x.pending && !lastPainted.current.has(i) ? { ...x, pending: false } : x)) : prev));
-				}, PENDING_MAX_MS);
-			}
-			// Per slot, from when THAT slot started waiting: a pool-wide clock would show a slot that began waiting a moment
-			// before it fired, old picture and all, which is the defect again.
-			const armHard = (delay: number) => {
-				hardTimer.current = window.setTimeout(() => {
-					hardTimer.current = null;
-					const now = Date.now();
-					const due = (x: { pending?: boolean; pendingSince?: number }) => x.pending === true && now - (x.pendingSince ?? 0) >= PENDING_HARD_MS;
-					setSlots((prev) => (prev.some(due) ? prev.map((x) => (due(x) ? { ...x, pending: false } : x)) : prev));
-					const left = slotsRef.current.filter((x) => x.pending && !due(x)).map((x) => (x.pendingSince ?? now) + PENDING_HARD_MS - now);
-					if (left.length) armHard(Math.max(0, Math.min(...left)));
-				}, delay);
-			};
-			if (hardTimer.current === null && next.some((x) => x.pending)) armHard(PENDING_HARD_MS);
+			// THE BOUND on a hidden slot: a frame that never reports a paint of its new slide must not leave its tile blank for
+			// good. Each slot is shown PENDING_HARD_MS after it began waiting, whatever it holds. The next deadline is read from
+			// the state the updater just produced, never from `slotsRef`, which can lag a queued `setSlots` (checker on #3507).
+			if (hardTimer.current === null && next.some((x) => x.pending)) armHardRef.current(PENDING_HARD_MS);
 			// A tile held only by its grace window loses its slot when the window ends — but only if a
 			// pass runs then, and when a whole surface closes nothing else would arm one: every slot
 			// stayed held by tiles nobody could see, for good, and none of them was ever parked.
@@ -882,7 +860,6 @@ export function PreviewPool({ children, className, baseSlots: hostBase = BASE_SL
 	// after the slot moved on, and reading that paint as the new one showed the old picture again (`movie` then `science`
 	// under `--workers=4`, checker on #3507).
 	const slotPainted = React.useCallback((index: number, painted: { sample: string; extraCss: string | undefined }) => {
-		lastPainted.current.set(index, painted);
 		const s = slotsRef.current[index];
 		if (!s?.pending || !paintedIsCurrent(s.props, painted)) return;
 		setSlots((prev) => prev.map((x, j) => (j === index && x.pending ? { ...x, pending: false } : x)));
@@ -972,8 +949,6 @@ export function PreviewPool({ children, className, baseSlots: hostBase = BASE_SL
 			pending.current = null;
 			window.clearTimeout(parkTimer.current as number);
 			window.clearTimeout(graceTimer.current as number);
-			window.clearTimeout(pendingTimer.current as number);
-			pendingTimer.current = null;
 			window.clearTimeout(hardTimer.current as number);
 			hardTimer.current = null;
 			if (raf.current) window.cancelAnimationFrame(raf.current);
