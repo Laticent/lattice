@@ -108,16 +108,18 @@ const paletteLabel = (name) => A11Y_LABELS[name] ?? titleCase(name);
 const lightToken = (name, token) =>
 	tokensCss.match(new RegExp(`\\[data-palette="${name}"\\]\\[data-mode="light"\\]\\{[^}]*?--${token}:(#[0-9A-Fa-f]{3,8})`))?.[1];
 const paletteAccents = [...palettes.filter((n) => !n.startsWith('a11y-')), ...palettes.filter((n) => n.startsWith('a11y-'))].map(
-	(name) => ({
-		name,
-		label: paletteLabel(name),
-		accent: lightToken(name, 'accent') ?? '#888888',
-		// The four color-blind-safe palettes share their accent and chart hues; what sets
-		// them apart is their status colors, so their swatches show those instead.
-		cat1: lightToken(name, name.startsWith('a11y-') ? 'pass' : 'chart-cat1'),
-		cat2: lightToken(name, name.startsWith('a11y-') ? 'warn' : 'chart-cat2'),
-		a11y: name.startsWith('a11y-'),
-	}),
+	(name) => {
+		const a11y = name.startsWith('a11y-');
+		const accent = lightToken(name, 'accent') ?? '#888888';
+		// The swatch: the accent over half the dot, two more of the palette's colors over the
+		// rest. The four color-blind-safe palettes share their accent and chart hues; what sets
+		// them apart is their status colors, so their swatches show those instead. Built here,
+		// not in the island, because the home route sits at its eagerJsGz ceiling.
+		const c1 = lightToken(name, a11y ? 'pass' : 'chart-cat1');
+		const c2 = lightToken(name, a11y ? 'warn' : 'chart-cat2');
+		const fill = c1 && c2 ? `conic-gradient(${accent} 0 50%, ${c1} 50% 75%, ${c2} 75% 100%)` : accent;
+		return { name, label: paletteLabel(name), accent, fill, a11y };
+	},
 );
 
 // Live-render data: the islands render the hero, the field cards, and the
