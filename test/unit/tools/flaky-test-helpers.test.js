@@ -295,6 +295,18 @@ describe('runNode', { skip: process.platform !== 'linux' && 'watches /proc, whic
     }
   });
 
+  test('a test\'s own runNode child stays in its process group, so Ctrl-C reaches it; a runNodeSync child gets its own', async () => {
+    // The terminal's Ctrl-C goes to its foreground group. A child moved to a group of its own would miss it, and a test
+    // process cannot pass it on without holding back SIGTERM during runNodeSync. So: same group under runNode, its own
+    // group only under runNodeSync, whose watcher passes the signal on.
+    const pgidOf = "const s = require('node:fs').readFileSync('/proc/self/stat', 'utf8'); console.log(s.slice(s.lastIndexOf(')') + 2).split(' ')[2], process.pid);";
+    const ownPgid = fs.readFileSync('/proc/self/stat', 'utf8').split(') ')[1].split(' ')[2];
+    const direct = (await runNode('-e', [pgidOf])).stdout.trim().split(' ');
+    assert.equal(direct[0], ownPgid, 'a runNode child left the test\'s process group');
+    const [pgid, pid] = runNodeSync('-e', [pgidOf]).stdout.trim().split(' ');
+    assert.equal(pgid, pid, 'a runNodeSync child is not the leader of a group of its own');
+  });
+
   test('a child cannot fake a hang by what it prints', () => {
     // The verdict travels on fd 3, which the child never has: whatever it writes is only output.
     const r = runNodeSync('-e', ['console.error("\\n[spawn-progress] boom"); console.error(JSON.stringify({ hung: "boom" })); process.exit(2)']);

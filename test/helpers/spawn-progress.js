@@ -33,9 +33,10 @@
  *     second forever, so its CPU never stalls and takes minutes to reach the budget;
  *   - an ORPHANED PIPE: the child has exited but its output never closes, because a grandchild it started still holds
  *     stdout. After `stallMs` it is reported as such.
- * A hung child is killed with its whole tree and its process group, so a stuck Chromium does not outlive the test.
- * Known limit: a grandchild that leaves the group (`detached`) and exits its parent before any poll sees it is out of
- * reach of both. It is not killed, but it cannot keep the test waiting: the child's pipes are let go on a hang.
+ * A hung child is killed with its whole tree, and under `runNodeSync` with its process group too, so a stuck Chromium
+ * does not outlive the test. Known limit: a grandchild that the walk never saw (it started and its parent exited
+ * between two polls) is killed only by the group, so it escapes under plain `runNode`, or when it left the group. It is
+ * not killed then, but it cannot keep the test waiting: the child's pipes are let go on a hang.
  *
  * `runNodeSync` is the same watch for a test that runs synchronously (`spawnSync`): it spawns this file as a small
  * watcher process that runs the child under `runNode` and relays its output and exit status.
@@ -134,12 +135,18 @@ function treeCpu(root) {
   return { read, live: () => alive };
 }
 
-/** Whether a child gets a process group of its own, so a hang can kill every process in it with one signal. Windows
- * has no process groups. */
+/** Whether this platform has process groups to put a child in (Windows has none). */
 const OWN_GROUP = process.platform !== 'win32';
+/**
+ * Whether this process gives each child a group of its own, so a hang can kill every process in it with one signal.
+ * Only the watcher `runNodeSync` spawns does. A child in its own group no longer gets the terminal's Ctrl-C, so
+ * something must pass the signal on: the watcher can (its handlers below never wait, and it shares the terminal's
+ * group), but a test process cannot, because a handler there waits out a blocking `runNodeSync`. So a child of
+ * `runNode` called from a test stays in the test's group, and Ctrl-C reaches it directly, as before.
+ */
+let childGroups = false;
 /** The process groups of children still running (a child leaves the set when it exits: after that its pid, and so
- * the group id, may be reused). When this process ends they are killed, since a child in its own group no longer
- * gets the terminal's Ctrl-C. */
+ * the group id, may be reused). The watcher kills them when it exits or is signaled. */
 const liveGroups = new Set();
 function killLiveGroups() {
   for (const pgid of liveGroups) {
@@ -195,11 +202,13 @@ function groupMembers(pgid) {
 function runNode(script, args = [], opts = {}) {
   const { cwd, env = process.env, cpuBudgetMs = 10_000, stallMs = 10_000, stallCpuMs = 0, ceilingMs = 120_000, pollMs = 250, watchProc = HAS_PROC } = opts;
   return new Promise((resolve, reject) => {
-    // Its own process group (`detached`), so a hang kills everything it started that stayed in the group, including a
-    // grandchild the tree walk cannot see: one started after the last poll, or one reparented to init once its parent
-    // exited (the orphaned-pipe case). Chromium, which puppeteer starts in a group of its own, is found by the walk.
-    const child = spawn(process.execPath, [script, ...args], { cwd, env, detached: OWN_GROUP });
-    if (OWN_GROUP && child.pid) {
+    // In the watcher, its own process group (`detached`), so a hang kills everything it started that stayed in the
+    // group, including a grandchild the tree walk cannot see: one started after the last poll, or one reparented to
+    // init once its parent exited (the orphaned-pipe case). Chromium, which puppeteer starts in a group of its own, is
+    // found by the walk. A test's direct child stays in the test's group (see `childGroups`).
+    const group = OWN_GROUP && childGroups;
+    const child = spawn(process.execPath, [script, ...args], { cwd, env, detached: group });
+    if (group && child.pid) {
       armGroupCleanup();
       liveGroups.add(child.pid);
     }
@@ -229,11 +238,11 @@ function runNode(script, args = [], opts = {}) {
       // The group: while the child runs, its pid is in use, so the group id is ours and is killed whole. Once the child
       // has exited (the orphaned-pipe path) its pid may already belong to a new group, so only members that started
       // before the child exited are ours, and each is killed by pid.
-      const members = OWN_GROUP && tree ? groupMembers(child.pid) : [];
+      const members = group && tree ? groupMembers(child.pid) : [];
       const ours = exitedAt === null ? members : members.filter(({ start }) => Number(start) <= exitedAt);
       const seenLive = [...(tree?.live() ?? []), ...ours];
       const procs = [...new Map(seenLive.filter(({ pid, start }) => running(pid, start)).map((p) => [p.pid, p])).values()];
-      if (OWN_GROUP && exitedAt === null) {
+      if (group && exitedAt === null) {
         try { process.kill(-child.pid, 'SIGKILL'); } catch { /* the group is already gone */ }
       }
       liveGroups.delete(child.pid);
@@ -333,6 +342,7 @@ function runNodeSync(script, args = [], opts = {}) {
 // fd 3 whether it hung or a signal ended it. (It reports the signal rather than raising it on itself: SIGUSR1 would
 // open Node's debugger, and an ignored signal would leave the watcher exiting 0.)
 if (require.main === module) {
+  childGroups = true;
   armSignalCleanup();
   // If the test process dies (killed, or its job cancelled), nobody is left to read the verdict: take the child down
   // at once rather than letting it run on to its own ceiling. A dead parent shows as a new ppid (init, or a subreaper).
