@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: in-progress
 summary: 17 of the 18 public libraries move from AGPL-3.0-only to Apache-2.0 before any first publish, on the owner's word; the rights and policy-leakage evidence behind it, and why Lente stays AGPL.
 ---
 

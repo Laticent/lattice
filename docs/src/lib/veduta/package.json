@@ -2,7 +2,7 @@
   "name": "@laticent/veduta",
   "version": "0.1.0",
   "description": "A windowed preview, headless: which units of a long list a view should mount, at what fidelity and in what order, for a stage and a map beside it. Ranked advisory intent, single, multi and picture-in-picture policies, a fidelity ladder, a page-global live budget, and a capacity the host reports. Works with any focus source; cost does not grow with the list.",
-  "license": "AGPL-3.0-only",
+  "license": "Apache-2.0",
   "author": "Sharmarke Aden (Laticent) <sharmarke.aden@gmail.com>",
   "repository": {
     "type": "git",
@@ -31,7 +31,8 @@
     "*.ts",
     "!*.test.ts",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "NOTICE"
   ],
   "publishConfig": {
     "access": "public"
