@@ -1,1 +1,0 @@
-- **Two quick Align picks in deck settings keep both words.** Choosing "Align up and down" and then "Align side to side" in quick succession could write only the second word (`align: right`), because the second pick read the first axis from a screen that had not caught up yet. Each pick now reads the other axis from the deck's latest text.
