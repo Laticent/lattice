@@ -263,8 +263,8 @@ export const SLIDE_JOBS: SlideJob[] = [
 // bigger type and the engine never shrinks it back, so the same slide that fits a laptop
 // is too full for a conference screen: `lint:deck` warns (`capacity-scale`) and whatever does
 // not fit is cut off. The fix is the author's: the same five numbers as two slides.
-// index.astro lints both decks at every venue at BUILD time and prints the engine's own
-// words; test/unit/site/home-venue-demo.test.js pins which venues warn, so a change to the
+// engine-facts.ts lints both decks at every venue at BUILD time and the page prints the engine's
+// own words; engine-facts.test.ts pins which venues warn, so a change to the
 // `stats` budgets fails a test instead of quietly changing what the page claims.
 const VENUE_TILES: [string, string][] = [
 	['$14.6M', 'revenue, up 22% on last year'],

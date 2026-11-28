@@ -575,7 +575,7 @@ export function ProofStrip({ comparisonHref }: { comparisonHref: string }) {
 			<p className="m-0 mb-5 text-[16.5px] leading-[1.6] text-foreground">
 				An AI deck generator asks a model to design each slide, so the same request can come back laid out a different
 				way. Lattice applies the same design rules to every slide: the same text and the same palette give the same
-				design, every time, and no model guesses the layout. What the slide says is still yours to check.
+				design, every time, and the renderer never asks a model to guess the layout. What the slide says is still yours to check.
 			</p>
 			<a
 				className="inline-flex items-center gap-1.5 text-[15px] font-semibold text-primary hover:underline"
@@ -612,7 +612,7 @@ export function QualityLayers({
 		{
 			step: 'Prevents',
 			title: 'The look cannot drift.',
-			body: `Type comes in ${typeSizes} fixed sizes, each with one job, and your theme owns every color. Nobody picks a font size or a shade of blue slide by slide.`,
+			body: `Type comes in ${typeSizes} fixed sizes, each with one job, and every layout takes its colors from your theme. Nobody picks a font size slide by slide.`,
 		},
 		{
 			step: 'Detects',
