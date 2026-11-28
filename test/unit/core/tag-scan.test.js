@@ -92,3 +92,118 @@ describe('scanTags is linear on the markup its regex choked on', () => {
     assert.equal(keys.size, 0);
   });
 });
+
+// literalSpans / firstSpanText replace `/<code>([\s\S]*?)<\/code>/g` and `html.match(/<code>([\s\S]*?)<\/code>/)?.[1].trim()`
+// in heatmap.transform.js and carousel.js (regex PR 3). Same seeded differential fuzz.
+describe('literalSpans and firstSpanText match the lazy span regex', () => {
+  const { literalSpans, firstSpanText } = require('../../../lib/core/literal-spans');
+  const SEED = Number(process.env.FUZZ_SEED || 3045);
+  const PIECES = ['<code>', '</code>', '<code', '</code', 'x', ' ', '\n', '<', '>', '/', 'c', '<cod', 'e>'];
+  const draw = (rand) => {
+    let s = '';
+    const n = Math.floor(rand() * 10);
+    for (let i = 0; i < n; i++) s += PIECES[Math.floor(rand() * PIECES.length)];
+    return s;
+  };
+  const hand = ['', '<code></code>', '<code><code>a</code>', '<code>a</code><code>b</code>', '<code>a', 'a</code><code>b</code>', '<code>\n</code>'];
+
+  test('every span, index and inner text (seeded differential fuzz)', () => {
+    const rand = mulberry32(SEED);
+    const cases = [...hand];
+    for (let i = 0; i < 30000; i++) cases.push(draw(rand));
+    for (const s of cases) {
+      const want = [...s.matchAll(/<code>([\s\S]*?)<\/code>/g)].map((m) => ({ index: m.index, m: [...m] }));
+      const got = literalSpans(s, '<code>', '</code>').map((m) => ({ index: m.index, m: [...m] }));
+      assert.deepEqual(got, want, `seed ${SEED}, input ${JSON.stringify(s)}`);
+      const first = s.match(/<code>([\s\S]*?)<\/code>/);
+      assert.equal(firstSpanText(s, '<code>', '</code>'), first ? first[1].trim() : null, `seed ${SEED}, input ${JSON.stringify(s)}`);
+    }
+  });
+
+  test('many opens with no close run no regex', () => {
+    const s = '<code>'.repeat(100000);
+    const { keys } = assertLinearRegexes(() => {
+      assert.deepEqual(literalSpans(s, '<code>', '</code>'), []);
+      assert.equal(firstSpanText(s, '<code>', '</code>'), null);
+    });
+    assert.equal(keys.size, 0);
+  });
+});
+
+// firstElementMatch replaces `/<h2[^>]*>[\s\S]*?<\/h2>/.exec(html)` in chart-frame.js, split-panels.js, premise.js and
+// the flowchart and state-chart transforms (regex PR 3). Same seeded differential fuzz.
+describe('firstElementMatch matches the first-heading regex', () => {
+  const { firstElementMatch } = require('../../../lib/core/element-scan');
+  const SEED = Number(process.env.FUZZ_SEED || 3045);
+  const PIECES = ['<h2', '<h2>', '</h2>', '</h2', '>', '<', 'h2', ' ', 'x', '\n', '"', '<h20>', '<h3>', '</h3>'];
+  const hand = ['', '<h2>', '<h2></h2>', '<h2 class="a">T</h2>', '<h2<h2>x</h2>', '<h2 x</h2>', '<h2>a</h2><h2>b</h2>', '<h20>x</h2>', '<h2>a'];
+
+  test('the same match and index (seeded differential fuzz)', () => {
+    const rand = mulberry32(SEED);
+    const cases = [...hand];
+    for (let i = 0; i < 30000; i++) {
+      let s = '';
+      const n = Math.floor(rand() * 10);
+      for (let j = 0; j < n; j++) s += PIECES[Math.floor(rand() * PIECES.length)];
+      cases.push(s);
+    }
+    for (const s of cases) {
+      const want = /<h2[^>]*>[\s\S]*?<\/h2>/.exec(s);
+      const got = firstElementMatch(s, '<h2', '</h2>');
+      assert.deepEqual(got && { index: got.index, m: [...got] }, want && { index: want.index, m: [...want] }, `seed ${SEED}, input ${JSON.stringify(s)}`);
+    }
+  });
+
+  test('many `<h2` with no `>` run no regex', () => {
+    const { keys } = assertLinearRegexes(() => assert.equal(firstElementMatch('<h2 '.repeat(100000), '<h2', '</h2>'), null));
+    assert.equal(keys.size, 0);
+  });
+});
+
+// firstSectionOpen and sectionClassMatch replace `/<section\b[^>]*>/` (lib/engine/index.js) and
+// `/<section\b[^>]*\sclass="([^"]*)"/` (inline-run.js, label-set-key.js) (regex PR 3). Same seeded differential fuzz.
+describe('the section open-tag readers match their regexes', () => {
+  const { firstSectionOpen, sectionClassMatch } = require('../../../lib/core/element-scan');
+  const SEED = Number(process.env.FUZZ_SEED || 3045);
+  const shape = (m) => m && { index: m.index, m: [...m] };
+  const PIECES = ['<section', '<section ', '<sections', '<section-', ' class="', 'class="', '"', 'a', ' ', '\n', '>', '<', 'data-class="b"', '\t'];
+  const hand = ['<section class="a">', '<section data-class="x" class="y">', '<section class="a" class="b">', '<section class="a" class="b', '<sections class="x">', '<section x> <section class="y">', '<section class="a>b">', '<section\nclass="a"'];
+
+  test('the same match, captures and index (seeded differential fuzz)', () => {
+    const rand = mulberry32(SEED);
+    const cases = [...hand];
+    for (let i = 0; i < 40000; i++) {
+      let s = '';
+      const n = Math.floor(rand() * 9);
+      for (let j = 0; j < n; j++) s += PIECES[Math.floor(rand() * PIECES.length)];
+      cases.push(s);
+    }
+    for (const s of cases) {
+      assert.deepEqual(shape(firstSectionOpen(s)), shape(s.match(/<section\b[^>]*>/)), `open, seed ${SEED}, input ${JSON.stringify(s)}`);
+      assert.deepEqual(shape(sectionClassMatch(s)), shape(/<section\b[^>]*\sclass="([^"]*)"/.exec(s)), `class, seed ${SEED}, input ${JSON.stringify(s)}`);
+    }
+  });
+
+  test('many `<section` with no `>` run no regex', () => {
+    const s = '<section '.repeat(50000);
+    const { keys } = assertLinearRegexes(() => {
+      assert.equal(firstSectionOpen(s), null);
+      assert.equal(sectionClassMatch(s), null);
+    });
+    assert.equal(keys.size, 0);
+  });
+});
+
+describe('sectionClassMatch is linear on many sections without a class', () => {
+  const { sectionClassMatch } = require('../../../lib/core/element-scan');
+  const { scanWork } = require('../../helpers/work-count');
+  test('the search for `class="` is not repeated from every tag', () => {
+    const per = (n) => {
+      const s = '<section>'.repeat(n);
+      return scanWork(() => assert.equal(sectionClassMatch(s), null)).scanned / s.length;
+    };
+    // Counted, not timed: a search from every `<section>` to the end of the text grew with the number of tags.
+    assert.ok(per(20000) <= 4, `${per(20000)} characters searched per character`);
+    assert.ok(per(20000) <= per(2000) * 1.5, 'the cost per character does not grow with the tag count');
+  });
+});

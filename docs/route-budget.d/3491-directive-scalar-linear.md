@@ -1,0 +1,4 @@
+studio: +220
+playground: +220
+home: +220
+`paginateOn` and `hideOn` (`lib/core/meta-keys.mjs`, which loads at startup) now read a directive's value with `directiveScalar` (`lib/core/directive-scalar.mjs`), a one-pass reader, instead of `.replace(/\s+#.*$/, '')` plus a back-reference unquote. The old `\s+#` retried a run of blanks from every position inside it: a `paginate:` value followed by 200,000 blanks took 41.8 s and now takes 0.01 s. A look-behind regex would be smaller, but recheck cannot judge look-behind, so the render-path guard could not certify it. The reader is the smallest form the guard accepts, so the bytes cannot be given back without the slowdown returning. CI measured +194 / +207 / +194 (`_astro/meta-keys`) on c4d122f3 against `main`; declared with a little room for gzip variation.
