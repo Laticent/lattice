@@ -12,7 +12,7 @@ import { ALIGN_HORIZONTAL, ALIGN_VERTICAL } from './align-catalog';
 import { CARD_SPECTRUM_EDGES } from './card-spectrum-edge-catalog';
 import { FIT } from './fit-catalog';
 import { HEADLINE_ALIGNS } from './headline-align-catalog';
-import { logoFinishOptions } from './logo-finish';
+import { logoWordOptions } from './logo-words';
 import { DEFAULT_STAMP_SHAPE, DEFAULT_TONE, type GlyphAxis, optionGlyph } from './option-glyphs';
 import { SLIDE_CORNERS } from './slide-corners-catalog';
 import { CARD_TAG_AXES, imageCardWords } from './slide-provenance';
@@ -45,10 +45,10 @@ const covered: [GlyphAxis, readonly string[]][] = [
 	['tone', TONE_STYLE_NAMES],
 	['delivery', DELIVERY_NAMES],
 	['venue', VENUES.map((v) => v.value)],
-	['logoPlacement', logoFinishOptions('placement')],
-	['logoColor', logoFinishOptions('color')],
-	['logoSize', logoFinishOptions('size')],
-	['logoScope', logoFinishOptions('scope')],
+	['logoPlacement', logoWordOptions('placement')],
+	['logoColor', logoWordOptions('color')],
+	['logoSize', logoWordOptions('size')],
+	['logoScope', logoWordOptions('scope')],
 	['profile', PROFILE_NAMES],
 	// The debug overlay's four values (StudioShell DEBUG_OPTIONS; `debug:` in deck-settings.js).
 	['debug', ['on-hover', 'on-hover verbose', 'on-always', 'on-always verbose']],

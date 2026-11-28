@@ -487,7 +487,7 @@ A register is a front-matter key. It stamps its value as class words on every sl
 | `agenda:` | `agenda` |  |
 | `chart-finish:` | `chart-finish`, `chart-finish-source` |  |
 | `color-intensity:` | `color-intensity` |  |
-| `logo-finish:` | `logo` |  |
+| `logo:` | `logo` |  |
 | `progress-rail:` | `progress-rail` |  |
 | `theme:` | — | Loads a stylesheet; it stamps no class word. |
 | `size:` | — | Sets the canvas box; the engine reads it, no class word. |

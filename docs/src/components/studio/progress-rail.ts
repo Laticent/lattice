@@ -1,6 +1,6 @@
 // The deck `progress-rail:` register (lib/core/resolve-progress-rail.js) as the Inspector reads it:
 // ONE line, up to one word per axis, written back with the default word left out and the key
-// removed once every axis is default — the `logo-finish:` shape. This MIRRORS the kernel, which the
+// removed once every axis is default — the `logo:` words' shape. This MIRRORS the kernel, which the
 // docs build cannot import (CJS with its own require); progress-rail.test.ts pins every word and its
 // order to the engine's register, so the two cannot drift.
 

@@ -1038,33 +1038,33 @@
    }
   },
   {
-   "name": "logo-finish: bottom-center accent-ink lg",
-   "source": "---\nlogo-finish: bottom-center accent-ink lg\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "logo: lattice bottom-center accent-ink lg",
+   "source": "---\nlogo: lattice bottom-center accent-ink lg\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "logo-finish: title",
-   "source": "---\nlogo-finish: title\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "logo: lattice title",
+   "source": "---\nlogo: lattice title\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "logo-finish: top-left brand",
-   "source": "---\nlogo-finish: top-left brand\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "logo: lattice top-left brand",
+   "source": "---\nlogo: lattice top-left brand\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "logo-finish: (unknown)",
-   "source": "---\nlogo-finish: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "logo: (unknown)",
+   "source": "---\nlogo: lattice not-a-value\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": [
      {
-      "rule": "unknown-logo-finish",
+      "rule": "unknown-logo",
       "severity": "warning",
       "slide": 0
      }

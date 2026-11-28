@@ -230,7 +230,7 @@ describe('frame chrome stays out of flow under a slide finish (real render)', ()
     }
 
     test(`${shape}: deck logo keeps its default berth under a finish`, async () => {
-      // The default berth's contract: the top-right corner, on the frame insets. A `logo-finish`
+      // The default berth's contract: the top-right corner, on the frame insets. A `logo:`
       // placement word would hide the header or footer this deck also exercises, so the deck names
       // none; the placement words are covered by the unit tests and the examples.
       const subject = await chromeBox(page, subjectSlide, 'img.deck-logo');

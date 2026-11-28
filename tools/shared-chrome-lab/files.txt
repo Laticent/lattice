@@ -17,7 +17,7 @@ test/integration/invariants/contrast-probe-gradient.test.js
 test/integration/invariants/finish-ink-matrix.test.js
 test/integration/invariants/footer-band.test.js
 test/integration/invariants/frame-chrome-out-of-flow.test.js
-test/integration/invariants/logo-finish-chrome.test.js
+test/integration/invariants/logo-chrome.test.js
 test/integration/invariants/logo-plate.test.js
 test/integration/invariants/pagination-one-mark.test.js
 test/integration/invariants/plugin-fence-containment.test.js

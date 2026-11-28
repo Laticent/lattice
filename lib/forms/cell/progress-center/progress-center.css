@@ -64,7 +64,7 @@ section.form > .cell-footer > .tile-progress {
  */
 
 /* `center` — the middle of the footer band. NOT where a bottom-center LOGO sits: the brand wins
- * that berth (`logo-finish:`, base.modifiers.css), and the rail falls back to `right` rather than
+ * that berth (`logo:`, base.modifiers.css), and the rail falls back to `right` rather than
  * drawing over the mark. Not under a bottom-right logo either: that logo hides the rail, so a centered
  * grid would split the band around nothing; the `right` band with its logo reserve (stage.css) applies. */
 section.form.progress-rail-center:not(:is(.logo-bottom-center, .logo-bottom-right):has(> img.deck-logo)) > .cell-footer:has(> .tile-progress) {

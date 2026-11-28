@@ -127,9 +127,10 @@ down (`top`, `middle`, `bottom`, `spread`, `fill`) and side to side (`left`,
 are on unless `pagination: false` says otherwise; one slide opts out with the
 `no-pagination` class, and title, divider and closing slides drop theirs on
 their own. `meta:` fills the small status line in the masthead, such as a
-date or a review stage. `logo:` draws your logo, and one line styles it:
-`logo-finish: bottom-center accent-ink lg title` takes up to one word each for
-the placement, the color, the size and the scope, and the editor completes them.
+date or a review stage. `logo:` draws your logo, and the same line styles it:
+`logo: brand.svg bottom-center accent-ink lg title` takes the file, then up to one
+word each for the placement, the color, the size and the scope, in any order, and
+the editor completes them.
 A placement word hides the header, footer or page number in that band, because
 the brand wins; a color word recolors the mark from the theme and follows light
 and dark. Any slide can hide the logo with `<!-- @meta{class=no-logo} -->`. The Studio's

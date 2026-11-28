@@ -34,8 +34,7 @@ CSS desaturates the injected image to a faint grayscale watermark and inverts th
 A build-stage rewriter injects an `img` element with class `deck-logo` as the first child of every selected section — same shape Marp uses for `header` and `footer`. CSS positions it absolutely top-right and applies the filter chain. A real DOM element rather than a `::before` pseudo is what lets the logo compose with `::before`-based chrome like the SVG-mark backgrounds.
 
 ```yaml
-logo: sample:logo-acme-mark.svg
-logo-finish: bottom-center accent   # optional: placement color size scope, one word each
+logo: sample:logo-acme-mark.svg bottom-center accent   # the file, then optional words: placement color size scope
 ```
 
 Build-time only. The directive does not render in the marp-vscode preview pane because the extension does not run the engine's plugins.

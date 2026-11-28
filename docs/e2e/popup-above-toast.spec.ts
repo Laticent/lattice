@@ -83,7 +83,7 @@ test('@mobile @parity @webkit-phone a tap on a picker row under a toast chooses 
 	else await page.mouse.click(x, y);
 	await remove();
 	await expect(page.locator(list)).toBeHidden();
-	await expect.poll(async () => JSON.parse(await persistedSource(page)) as string).toContain('logo-finish: accent');
+	await expect.poll(async () => JSON.parse(await persistedSource(page)) as string).toContain('logo: "lattice accent"');
 });
 
 test('@mobile @webkit-phone an open dropdown menu sits above a toast', async ({ page }) => {

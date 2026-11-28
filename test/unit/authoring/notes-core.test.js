@@ -92,12 +92,12 @@ describe('notes-core: isLatticePragma', () => {
     // #1986 — the five deck-logo registers and the finish override. Hyphenated like
     // `color-mode:`, so the engine cannot read the comment form either, and they shipped as
     // reader-visible "notes" on slides whose author wrote none.
-    'logo-finish: auto',
-    'logo-finish: brand',
-    'logo-finish: BRAND', // the producer lowercases the VALUE
-    'logo-finish: "brand"', // frontMatterScalar strips a wrapping quote pair
-    'logo-finish: bottom-center accent-ink', // one word per axis, on one line
-    'logo-finish: lg title # cover only',
+    'logo: auto',
+    'logo: brand',
+    'logo: BRAND', // the producer lowercases the VALUE
+    'logo: "brand"', // frontMatterScalar strips a wrapping quote pair
+    'logo: bottom-center accent-ink', // one word per axis, on one line
+    'logo: lg title # cover only',
     'finish-override:', // a BLOCK key: the header carries no value
   ]) {
     test(`pragma excluded: "${pragma}"`, () => {
@@ -127,7 +127,7 @@ describe('notes-core: isLatticePragma', () => {
     'tier : full',
     // #1986, the over-strip direction. Every line here shares a KEY with a matcher above and
     // must stay a note purely on its value or its key CASE.
-    'logo-finish: neon', // not in the register's two words
+    'logo: neon', // not in the register's two words
     'logo-on: the second half',
     'logo-on: slides 3 and 7',
     'logo-x: we should move it left',
@@ -189,11 +189,11 @@ describe('notes-core: isLatticePragma', () => {
     }
   });
 
-  test('logo-finish words are pinned to the register, and the matcher takes a whole line of them', () => {
-    const { LOGO_FINISH_REGISTER } = require('../../../lib/core/resolve-logo-finish.js');
-    assert.deepEqual([...core.LOGO_FINISH_WORDS].sort(), [...LOGO_FINISH_REGISTER.NAMES].sort(), 'the matcher\'s word list drifted from the register');
+  test('logo words are pinned to the register, and the matcher takes a whole line of them', () => {
+    const { LOGO_REGISTER } = require('../../../lib/core/resolve-logo.js');
+    assert.deepEqual([...core.LOGO_WORDS].sort(), [...LOGO_REGISTER.NAMES].sort(), 'the matcher\'s word list drifted from the register');
     for (const v of ['brand', 'BRAND', '"brand"', "'brand'", 'auto', 'bottom-center accent-ink lg', 'title, bottom-left', 'top-right # corner']) {
-      assert.equal(core.isLatticePragma(`logo-finish: ${v}`), true, `logo-finish: ${v}`);
+      assert.equal(core.isLatticePragma(`logo: ${v}`), true, `logo: ${v}`);
     }
     // KEY case: the producer does not read it, so neither does this.
     assert.equal(core.isLatticePragma('LOGO-STYLE: brand'), false);
@@ -244,22 +244,24 @@ describe('notes-core: isLatticePragma', () => {
   // builds the notes field. Measured end to end on this deck exported to .pptx — slides
   // carrying only these six get `ppt/notesSlides/*.xml` with no text, and before the matchers
   // existed all six shipped as the slide's note.
-  test('#1986: the six hyphenated registers are not LIFTED as notes, and a real note beside them is', () => {
+  test('#1986: the six front-matter registers are not LIFTED as notes, and a real note beside them is', () => {
     const html = sec(
-      '<!-- logo-finish: brand --><!-- logo-finish: bottom-center lg -->'
+      '<!-- logo: brand --><!-- logo: bottom-center lg -->'
       + '<!-- finish-override: --><h1>Q3</h1>'
     );
     assert.equal(core.notesFromHtml(html), null, 'a slide of nothing but logo/finish registers has no note');
     assert.equal(
-      core.notesFromHtml(sec('<!-- logo-finish: sm --><h1>Q3</h1><!-- @note{Pause here.} -->')),
+      core.notesFromHtml(sec('<!-- logo: sm --><h1>Q3</h1><!-- @note{Pause here.} -->')),
       'Pause here.',
       'the author\'s own note still comes through'
     );
     // The over-strip direction: a register comment is kept by `--strip-notes`, but a prose value is not a register,
     // so it is the author's plain comment and the scrub takes it. It is never a speaker note (four notes N3).
-    assert.equal(core.isPrivateComment(' logo-finish: sm '), false);
-    assert.equal(core.isPrivateComment(' logo-finish: the second half '), true);
-    assert.equal(core.notesFromHtml(sec('<h1>Q3</h1><!-- logo-finish: the second half -->')), null);
+    assert.equal(core.isPrivateComment(' logo: sm '), false);
+    // `logo` has no hyphen, so any `logo: …` comment is directive-shaped (`[A-Za-z_]\w*:`) and the scrub keeps it either way.
+    assert.equal(core.isPrivateComment(' logo: the second half '), false);
+    assert.equal(core.isPrivateComment(' color-mode: we should discuss the palette '), true);
+    assert.equal(core.notesFromHtml(sec('<h1>Q3</h1><!-- logo: the second half -->')), null);
   });
 });
 
@@ -1716,12 +1718,12 @@ describe('notes-core: stripNotesFromSource leaves no line where a note was (#198
     // neither, so both of these were read by the producer AND shipped as the slide's speaker
     // note — the #1350 shape in a form an author plausibly writes.
     for (const v of ['brand # our brand mark', 'BRAND # x', "'brand'", 'bottom-center accent # corner']) {
-      assert.equal(core.isLatticePragma(`logo-finish: ${v}`), true, `logo-finish: ${v}`);
+      assert.equal(core.isLatticePragma(`logo: ${v}`), true, `logo: ${v}`);
     }
     // And what the producer does NOT read stays a note. `#` needs whitespace before it to open
     // a comment, so `brand#nospace` is the whole value; unquoted trailing words likewise.
     for (const v of ['brand extra words', 'brand#nospace', 'neon']) {
-      assert.equal(core.isLatticePragma(`logo-finish: ${v}`), false, `logo-finish: ${v} must stay a note`);
+      assert.equal(core.isLatticePragma(`logo: ${v}`), false, `logo: ${v} must stay a note`);
     }
   });
 

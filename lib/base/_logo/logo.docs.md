@@ -23,27 +23,26 @@
 
 ## Authoring
 
-Two front-matter lines: the file, and one line that styles it.
+One front-matter line: the file, then the words that style it.
 
 ```yaml
 ---
 marp: true
 theme: indaco
-logo: sample:logo-acme-mark.svg      # the file — a path, a URL, or a built-in name
-logo-finish: bottom-center accent-ink lg   # optional — one word per axis, autocompleted
+logo: sample:logo-acme-mark.svg bottom-center accent-ink lg   # the file (a path, a URL, or a built-in name), then optional words
 ---
 ```
 
 The logo shows on every slide whenever `logo:` is set. A slide hides it with `<!-- @meta{class=no-logo} -->`.
 
-`logo-finish:` takes up to one word per axis, in any order (the register is
-`lib/core/resolve-logo-finish.js`; the editor completes each word):
+After the file, `logo:` takes up to one word per axis, in any order, on either side of the file (the register is
+`lib/core/resolve-logo.js`; the editor completes each word). Every word that is not an axis word is the file:
 
 | Axis | Words (default first) | Behavior |
 |---|---|---|
 | placement | `top-right` `top-left` `top-center` `bottom-left` `bottom-center` `bottom-right` | The berth. **Naming one clears the chrome in that band**: a top berth hides the running header and the meta line, `bottom-left` and `bottom-center` hide the footer text, `bottom-right` hides the page number and the progress rail. The brand wins every collision, so there is nothing to de-collide. Writing no placement word keeps today's top-right mark beside the header; writing `top-right` explicitly clears the header too. |
 | color | `auto` `accent` `ink` `muted` `canvas` `inverse` `brand` `accent-ink` `accent-canvas` `ink-canvas` | `auto` is the faint watermark that flips on a dark canvas. A palette role or a closed 50/50 blend paints the mark that color through a per-slide SVG filter (flood the color, keep the mark's own alpha), so the same word reads right in light and dark and under every finish. `brand` keeps the file's own colors with nothing behind them (use it for marks whose colors carry meaning: insignia, crests). A tinted mark is fully opaque. |
-| plate | `no-plate` `plate` | `no-plate` is the default: nothing sits behind the mark, so a logo with a transparent background stays transparent. `plate` shows the file's own colors on a soft surface plate (the theme's `--bg-alt` at 70%, a light blur, a small radius and padding). Because the plate is the logo's own background, it overrides the watermark and tint filters, so it reads the same as `brand plate` on any color word. Turn it on for the deck (`logo-finish: brand plate`) or for one slide (`@meta{class=logo-plate}`), and take it back on one slide with `@meta{class=logo-no-plate}`. |
+| plate | `no-plate` `plate` | `no-plate` is the default: nothing sits behind the mark, so a logo with a transparent background stays transparent. `plate` shows the file's own colors on a soft surface plate (the theme's `--bg-alt` at 70%, a light blur, a small radius and padding). Because the plate is the logo's own background, it overrides the watermark and tint filters, so it reads the same as `brand plate` on any color word. Turn it on for the deck (`logo: <file> brand plate`) or for one slide (`@meta{class=logo-plate}`), and take it back on one slide with `@meta{class=logo-no-plate}`. |
 | size | `md` `sm` `lg` | `md` is the base size, `6.25cqi × 4cqi`; `sm` is 0.75× and `lg` 1.5×. |
 | scope | `all` `title` | `title` shows the mark only on the deck's first slide and any slide using the `title` layout. A surface rendering ONE slide (the Studio's slice preview) must hand the engine that slide's deck position, or its lone section reads as the deck's first; see the note below. |
 
@@ -51,9 +50,10 @@ The words are class tokens on the section, so a slide can also change one axis f
 `<!-- @meta{class=logo-ink} -->` recolors the mark on that slide and leaves the deck's placement and size alone.
 `no-logo` is the one switch most decks need.
 
-**Migrating an old deck.** `logo-style:` (renamed `logo-finish:`, like `finish:` and `chart-finish:`), `logo-on:`,
-`logo-x:`, `logo-y:` and `logo-scale:` are retired and no longer render. `lint:deck --fix` (and the Studio's Fix all) folds them into one `logo-finish:` line and
-deletes them: `logo-style: brand` becomes `logo-finish: brand plate`, `logo-on: title` becomes the `title` word, `logo-scale` becomes `sm` or `lg`, and a free
+**Migrating an old deck.** `logo-finish:` is folded into `logo:`: lint reports it as an error (`key-renamed`), and
+`lint:deck --fix` moves its words onto the `logo:` line after the file, then deletes it. `logo-style:`, `logo-on:`,
+`logo-x:`, `logo-y:` and `logo-scale:` are retired and no longer render. `lint:deck --fix` (and the Studio's Fix all) folds them into the `logo:` line and
+deletes them: `logo-style: brand` becomes the words `brand plate`, `logo-on: title` becomes the `title` word, `logo-scale` becomes `sm` or `lg`, and a free
 `logo-x`/`logo-y` position snaps to the nearest of the six berths (`50` / `82` is `bottom-center`).
 
 **The `title` scope reads firstness from the DECK, not from the document.** A single-slide render
@@ -117,7 +117,7 @@ through `lib/engine`, which runs the engine's pass, so only the runtime is a gen
 mirror and only it can drift. (The emulator used to re-run the engine's pass a second
 time, post-stamp; that call is gone — see below.) A change to `applyDeckLogoToHtml`'s
 selection or tint injection must land in the runtime's `applyCachedDeckLogo` in the same commit
-(HARD RULE #1). Both read the one `logo-finish:` register (`lib/core/resolve-logo-finish.js`).
+(HARD RULE #1). Both read the one `logo:` register (`lib/core/resolve-logo.js`).
 
 **Until 2026-08-16 the engine row of that table was a claim, not a behavior** (#1652).
 `applyDeckLogoToHtml` selected slides by `data-lattice-slide` — an attribute only the

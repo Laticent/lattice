@@ -352,7 +352,7 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
   const deckWithLogo = (body) =>
     `---\nmarp: true\ntheme: indaco\nlogo: ${LOGO_SRC}\n---\n\n${body.trim()}\n`;
   const deckWithBrandLogo = (body) =>
-    `---\nmarp: true\ntheme: indaco\nlogo: ${LOGO_SRC}\nlogo-finish: brand plate\n---\n\n${body.trim()}\n`;
+    `---\nmarp: true\ntheme: indaco\nlogo: ${LOGO_SRC} brand plate\n---\n\n${body.trim()}\n`;
 
   async function corners(cls, key, build = deck) {
     const html = renderAt(build(CORNER(cls)), key, 'author');
@@ -462,7 +462,7 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
     // one, a repositioned one, or none. That is what replaced `--corner-logo-reserve`.
     const ref = await corners('content', 'capsule-logo-none');
     const moved = (body) =>
-      `---\nmarp: true\ntheme: indaco\nlogo: ${LOGO_SRC}\nlogo-finish: bottom-center\n---\n\n${body.trim()}\n`;
+      `---\nmarp: true\ntheme: indaco\nlogo: ${LOGO_SRC} bottom-center\n---\n\n${body.trim()}\n`;
     for (const [cls, key, build] of [
       ['content', 'capsule-logo-plain', deckWithLogo],
       ['content confidential', 'capsule-logo-stamp', deckWithLogo],

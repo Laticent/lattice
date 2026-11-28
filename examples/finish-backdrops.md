@@ -4,8 +4,7 @@ theme: indaco
 finish: atrium
 pagination: true
 header: "Lattice · finishes"
-logo: sample:logo-acme-mark.svg
-logo-finish: bottom-center title
+logo: sample:logo-acme-mark.svg bottom-center title
 ---
 
 <!-- @note{A glyph-mark (monogram / numeral) is ALWAYS author-personalized — it NEVER
@@ -191,7 +190,7 @@ lower-left. Exported verbatim from the Finish Studio.
 
 # The brand mark moves too.
 
-The deck logo is styled on one line, `logo-finish` — a berth, a color, a size, a
+The deck logo is styled on its one line, `logo:` — a berth, a color, a size, a
 scope. This deck seats it bottom-center on the title only; change one word and
 the mark moves, identically in the live preview and the baked PDF.
 

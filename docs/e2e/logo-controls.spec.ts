@@ -2,7 +2,7 @@ import { expect, type Page, test } from '@playwright/test';
 import { motionSettled } from './barriers';
 import { CHROME, gotoStudio, openDeckSettingsAt, openSection, persistedSource, setEditorContent, waitForStudioPaint } from './studio-fixture';
 
-// Studio → Chrome → Logo: Position, Color, Size and Show on all write ONE `logo-finish:` line, and the
+// Studio → Chrome → Logo: Position, Color, Size and Show on all write their words on the ONE `logo:` line, after the file, and the
 // Position row says which chrome the berth hides. The engine side is covered in
 // test/unit/parsing/markdown-it-plugins.test.js; this pins the Inspector's writes.
 
@@ -30,7 +30,7 @@ for (const [label, width, height] of [
 	['tablet', 820, 1180],
 	['mobile', 390, 844],
 ] as const) {
-test(`@crosswidth Logo controls write one logo-finish line at ${label} (${width}px)`, async ({ page }, testInfo) => {
+test(`@crosswidth Logo controls write their words on the logo line at ${label} (${width}px)`, async ({ page }, testInfo) => {
 	// Authored at desktop width, where the editor pane is mounted, then resized to the width under test.
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await gotoStudio(page);
@@ -45,20 +45,20 @@ test(`@crosswidth Logo controls write one logo-finish line at ${label} (${width}
 	const position = page.getByRole('combobox', { name: 'Choose logo position' });
 	await expect(position).toContainText('Top right');
 	await choose(page, 'Choose logo position', 'Bottom center');
-	await expect.poll(() => source()).toContain('logo-finish: bottom-center');
+	await expect.poll(() => source()).toContain('logo: "lattice bottom-center"');
 	await expect(page.getByText('Hides the footer text.')).toBeVisible();
 
 	await choose(page, 'Choose logo color', 'Accent + ink');
-	await expect.poll(() => source()).toContain('logo-finish: "bottom-center accent-ink"');
+	await expect.poll(() => source()).toContain('logo: "lattice bottom-center accent-ink"');
 
 	await choose(page, 'Choose logo size', 'Large');
-	await expect.poll(() => source()).toContain('logo-finish: "bottom-center accent-ink lg"');
+	await expect.poll(() => source()).toContain('logo: "lattice bottom-center accent-ink lg"');
 
-	// Back to defaults: the key goes, so a default deck stays one line shorter.
+	// Back to defaults: the words go and the file stays.
 	await choose(page, 'Choose logo position', 'Auto — Top right', true);
 	await choose(page, 'Choose logo color', 'Auto — Watermark');
 	await choose(page, 'Choose logo size', 'Auto — Medium');
-	await expect.poll(() => source()).not.toContain('logo-finish');
+	await expect.poll(() => source()).toMatch(/^logo: lattice$/m);
 
 	await page.screenshot({ path: testInfo.outputPath(`logo-controls-${label}.png`) });
 });

@@ -1725,13 +1725,12 @@ One canvas is genuinely unanswerable, and one is not:
 
 ```yaml
 ---
-logo: lattice                     # a built-in name, or a path / URL of your own
-logo-finish: bottom-center accent-ink lg   # optional: placement color size scope, one word each
+logo: lattice bottom-center accent-ink lg   # the file (a built-in name, or a path / URL of your own), then optional words
 ---
 ```
 
 The logo shows on every slide while `logo:` is set; `<!-- @meta{class=no-logo} -->` hides it on one slide. The words
-of `logo-finish:` and what each does are in `lib/base/_logo/logo.docs.md` § Authoring. Naming a
+after the file and what each does are in `lib/base/_logo/logo.docs.md` § Authoring. Naming a
 placement hides the header, footer or page number in that band, because the brand wins.
 
 **A name, or a path — and the difference decides where your deck works.**
@@ -1777,10 +1776,10 @@ runtime path, which covers exported HTML viewed in a browser, no-ops in the
 vscode-webview sandbox (fetch can't reach workspace files). Same constraint `class: dark` has — see
 `engineering/gotchas.md`.
 
-**Brand colors.** The `brand` color word (`logo-finish: brand`) puts `logo-brand` on the section.
+**Brand colors.** The `brand` color word (`logo: <file> brand`) puts `logo-brand` on the section.
 The silhouette filter is removed; the logo's original colors render directly, with nothing behind
 them, so a logo with a transparent background stays transparent. Add the `plate` word
-(`logo-finish: plate`, or `@meta{class=logo-plate}` on one slide) for the original colors on a soft `--bg-alt` plate, and
+(`plate` on the `logo:` line, or `@meta{class=logo-plate}` on one slide) for the original colors on a soft `--bg-alt` plate, and
 `@meta{class=logo-no-plate}` to take the deck's plate back on one slide. Use `brand` when the brand's colors carry meaning (government insignia, university crests); reach for
 `auto` or a palette color otherwise.
 

@@ -4,15 +4,14 @@ theme: indaco
 pagination: true
 header: Brand review
 footer: Confidential
-logo: lattice
-logo-finish: bottom-center accent-ink lg
+logo: lattice bottom-center accent-ink lg
 ---
 
 <!-- @meta{layout=title} -->
 
 # One line styles the logo
 
-`logo-finish: bottom-center accent-ink lg` seats it, colors it and sizes it. The footer text yields to a bottom-center logo.
+`logo: lattice bottom-center accent-ink lg` seats it, colors it and sizes it. The footer text yields to a bottom-center logo.
 
 ---
 
@@ -72,5 +71,5 @@ logo-finish: bottom-center accent-ink lg
 ## A plate, when asked for
 
 - `class=logo-brand logo-plate` puts a soft plate behind the mark on this slide
-- The deck line can ask for it everywhere: `logo-finish: plate`
+- The deck line can ask for it everywhere: `logo: lattice plate`
 - `class=logo-no-plate` takes it back on one slide
