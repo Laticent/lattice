@@ -2,8 +2,9 @@
  * Unit: shell completion (lib/cli/complete.js) offers what the CLI accepts, and the real
  * scripts deliver it.
  *
- *   1. DRIFT — every option the three parsers accept (the render command's table in
- *      lib/cli/options.js, `lattice packages`' and `lattice video`'s if-chains) is a Tab
+ *   1. DRIFT — every option the parsers accept (the render command's table in
+ *      lib/cli/options.js, `lattice packages`' and `lattice video`'s if-chains, and the known-flag
+ *      lists of `lattice lint` and `lattice fmt`) is a Tab
  *      candidate, and `parseArgs` carries no flag of its own outside that table. Both checks
  *      have a failing arm, so a green run means the check ran.
  *   2. VALUES — closed-set values, the palettes, plugins and installed package names.
@@ -52,6 +53,11 @@ const PARSE_ARGS = between(read('lattice.js'), 'function parseArgs(argv)', 'retu
 const RENDER = new Set([...O.VALUE_OPTIONS, ...O.SWITCHES, ...O.EARLY_FLAGS].flatMap((r) => r.flags));
 const PACKAGES = literals(between(read('lib/cli/packages.js'), 'function parse(argv)', 'return { flags, pos };'));
 const VIDEO = new Set([...read('lib/export/video-cli.mjs').matchAll(/a === '(--?[A-Za-z][\w-]*)'/g)].map((m) => m[1]));
+// lint and fmt: each parser names its known flags in one list, and both take -h and --help. `--all` is
+// only in the list when a caller passes `discover` (the repo's `npm run lint:deck`); `lattice lint` refuses it.
+const LINT = new Set([...literals(between(read('lib/cli/lint-deck.js'), 'const KNOWN = [', ']')), '-h', '--help']);
+LINT.delete('--all');
+const FMT = new Set([...literals(between(read('lib/authoring/code-format/fmt-cli.mjs'), "if (!['--check'", '.includes(f)')), '-h', '--help']);
 const PACKAGES_PREVS = [['packages'], ...C.PACKAGES_COMMANDS.map(([c]) => ['packages', c])];
 
 describe('drift: PARSEARGS_OWN holds no stale entry', () => {
@@ -75,6 +81,15 @@ describe('drift: Tab offers every option the CLI accepts', () => {
     assert.ok(PACKAGES.size >= 8 && VIDEO.size >= 8, 'the subcommand parsers moved');
     assert.deepEqual(missing(PACKAGES, PACKAGES_PREVS), []);
     assert.deepEqual(missing(VIDEO, [['video']]), []);
+  });
+
+  test('lattice lint and lattice fmt', () => {
+    assert.ok(LINT.size >= 6 && FMT.size >= 5, 'the lint or fmt parser moved');
+    assert.deepEqual(missing(LINT, [['lint']]), []);
+    assert.deepEqual(missing(FMT, [['fmt']]), []);
+    // Failing arm: a render flag is not a lint flag, so Tab under lint must not reach the render table.
+    assert.ok(!offered(['lint'], '--').has('--palette'), 'lint offers render flags');
+    assert.deepEqual(missing(new Set([...FMT, '--not-a-fmt-flag']), [['fmt']]), ['--not-a-fmt-flag']);
   });
 
   test('failing arms: an option Tab does not offer, and a flag parseArgs adds on its own', () => {
@@ -170,6 +185,11 @@ describe('values', () => {
     assert.equal(C.complete(['--image-quality'], '').directive, ':values');
     assert.equal(C.complete(['video'], '').directive, ':files md,html');
     assert.equal(C.complete(['packages', 'add'], '').directive, ':files zip');
+    // lint and fmt take any number of decks, and never an output file or a palette after one.
+    for (const verb of ['lint', 'fmt']) {
+      assert.equal(C.complete([verb], '').directive, ':files md', verb);
+      assert.equal(C.complete([verb, 'a.md', '--strict'], '').directive, ':files md', `${verb} after a deck`);
+    }
   });
 
   test('subcommands and installed package names', () => {
