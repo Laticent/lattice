@@ -54,10 +54,12 @@
  * .github/workflows/agent-pack-eval-nightly.yml, a sanctioned nightly + dispatch workflow.
  * Writes every deck, its PDF, summary.json (one row per deck) and summary.md (the table) to --out.
  *
- * Exit: 0 every deck passed (or a dry run), 1 a deck the model wrote failed its checks, 2 no key, no
- * built kit or a bad option, 3 stopped at the --max-usd cap before the plan finished, 4 the tool
- * crashed, 5 a request got no reply (a dead key, an outage, a timeout). Only 1 is a result rather
- * than a fault: the nightly workflow reads it as green.
+ * Exit: 0 every deck passed (or a dry run); 10 (DECKS_FAILED) the decks ran and a deck the model
+ * wrote failed its checks, the one result that is not a fault, and the only non-zero code the
+ * nightly workflow reads as green. Every other code is a broken run: 2 no key, no built kit or a bad
+ * option; 3 stopped at the --max-usd cap; 4 the tool crashed; 5 a request got no reply (a dead key,
+ * an outage, a timeout); 6 our judge broke (the linter crashed, or no deck rendered); and 1 is
+ * Node's own, an import or startup failure.
  */
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
@@ -495,6 +497,13 @@ export function jobWorstCase(job, price) {
   return usd;
 }
 
+/**
+ * The one exit code that is a result, not a fault: the decks ran and some failed their checks. Only
+ * one line returns it, so no crash, import failure or Node default (all 1) can be mistaken for it;
+ * the nightly workflow reads 10 alone as green.
+ */
+export const DECKS_FAILED = 10;
+
 /** Thrown when the next call could cross --max-usd: the run stops there. */
 export class CapStop extends Error {}
 
@@ -751,7 +760,11 @@ export async function run(opts, deps = {}) {
   // A deck whose request failed got no reply: a dead key, an outage, a timeout. That is a broken
   // run, not a result, so it must not read like a deck the model wrote badly (exit 1).
   if (rows.some((r) => r.problems?.[0]?.startsWith('request failed:'))) return 5;
-  return summary.failed ? 1 : 0;
+  // Our own judge broke, not the model: the linter crashed on a deck, or no judged deck rendered.
+  const judged = rows.filter((r) => !r.capped && r.pass !== null);
+  const has = (r, re) => (r.problems ?? []).some((p) => re.test(p));
+  if (judged.some((r) => has(r, /lint-crashed/)) || (judged.length && judged.every((r) => has(r, /^render failed/)))) return 6;
+  return summary.failed ? DECKS_FAILED : 0;
 }
 
 // Run only as a script: a test imports the module without spending anything.
@@ -781,7 +794,8 @@ if (isMain && process.argv.includes('--nightly-model')) {
 }
 
 if (isMain) {
-  // A crash exits 4, never 1: the workflow reads 1 as "a deck failed", which is a result, not a fault.
+  // A crash exits 4. Anything that is not DECKS_FAILED is red in the workflow, so a crash before these
+  // handlers exist (an import failure, Node's exit 1) is red too.
   process.on('uncaughtException', (e) => {
     console.error(e);
     process.exit(4);

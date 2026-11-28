@@ -220,7 +220,7 @@ test('paired mode runs old then new on the SAME model for each brief and repeat,
     judgeFn,
     now: () => n++,
   });
-  assert.equal(code, 1, 'a failed deck fails the run');
+  assert.equal(code, 10, 'a failed deck is DECKS_FAILED, the result code');
   assert.equal(calls.length, 8);
   assert.deepEqual(new Set(calls.map((c) => c.model)), new Set(['test/cheap']));
   assert.deepEqual(calls.map((c) => c.messages[0].content.startsWith('OLD') ? 'old' : 'new'), ['old', 'new', 'old', 'new', 'old', 'new', 'old', 'new']);
@@ -254,7 +254,7 @@ test('a reply cut off at max_tokens fails as truncated, and its cost still count
   const out = tmpDir(t);
   const d = deps(t, []);
   d.complete = async () => ({ text: deckReply, finish: 'length', tokensIn: 1, tokensOut: 6000, cost: 0.01, costReported: true, latencyMs: 0 });
-  assert.equal(await run(parseArgs(['--arm', 'start', '--model', 'test/cheap', '--limit', '1', '--out', out]), d), 1);
+  assert.equal(await run(parseArgs(['--arm', 'start', '--model', 'test/cheap', '--limit', '1', '--out', out]), d), 10);
   const s = JSON.parse(fs.readFileSync(path.join(out, 'summary.json'), 'utf8'));
   assert.match(s.rows[0].problems[0], /hit max_tokens/);
   assert.equal(s.cost, 0.01);
@@ -362,7 +362,7 @@ test('a reply that reasoned through the whole budget fails as "no deck was writt
     return { text: '', finish: 'length', tokensIn: 100, tokensOut: 6000, reasoningTokens: 6000, cost: 0.001, costReported: true, latencyMs: 0 };
   };
   const code = await run(parseArgs(['--arm', 'start', '--model', 'test/cheap', '--limit', '1', '--reasoning', 'medium', '--out', out]), { ...deps(t, calls), complete: empty });
-  assert.equal(code, 1);
+  assert.equal(code, 10);
   assert.deepEqual(calls[0].reasoning, { effort: 'medium' });
   const summary = JSON.parse(fs.readFileSync(path.join(out, 'summary.json'), 'utf8'));
   assert.equal(summary.reasoning, 'medium');
@@ -406,7 +406,7 @@ test('a reasoning budget goes to a Claude model without a temperature; an effort
   assert.equal(bodies[2].temperature, 0);
 });
 
-test('a request with no reply exits 5, a broken run, never 1, which the nightly reads as a result', async (t) => {
+test('a request with no reply exits 5 and a broken judge 6; only a deck the model wrote badly exits 10', async (t) => {
   const { run, parseArgs } = await load();
   const calls = [];
   const dead = async (req) => {
@@ -419,5 +419,11 @@ test('a request with no reply exits 5, a broken run, never 1, which the nightly 
   assert.equal(code, 5);
   const lintFail = () => ({ slides: 8, layouts: ['a'], errors: 1, warnings: 0, suggestions: 0, problems: ['slide 2: error x'] });
   const code1 = await run(parseArgs(['--arm', 'start', '--model', 'test/cheap', '--limit', '1', '--out', tmpDir(t)]), { ...deps(t, []), judgeFn: lintFail });
-  assert.equal(code1, 1, 'a deck the model wrote badly is the one result that exits 1');
+  assert.equal(code1, 10, 'a deck the model wrote badly is the one result: DECKS_FAILED');
+  const renderBroke = () => ({ slides: 0, layouts: [], errors: 0, warnings: 0, suggestions: 0, problems: ['render failed: Could not find Chrome'] });
+  const code6 = await run(parseArgs(['--arm', 'start', '--model', 'test/cheap', '--limit', '2', '--out', tmpDir(t)]), { ...deps(t, []), judgeFn: renderBroke });
+  assert.equal(code6, 6, 'no deck rendered: our judge broke, a red run');
+  const lintCrash = () => ({ slides: 8, layouts: ['a'], errors: 1, warnings: 0, suggestions: 0, problems: ['slide 0: error lint-crashed'] });
+  const code6b = await run(parseArgs(['--arm', 'start', '--model', 'test/cheap', '--limit', '1', '--out', tmpDir(t)]), { ...deps(t, []), judgeFn: lintCrash });
+  assert.equal(code6b, 6, 'a lint crash is our bug, never a result');
 });

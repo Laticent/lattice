@@ -141,11 +141,12 @@ jobs:
           OLD_REF: ${{ inputs.old_ref }}
           PROBE: ${{ inputs.probe }}
         # A schedule run has no inputs, so every one falls back to the nightly default here.
-        # Red means the run broke, not that a deck failed (owner's D2, 2026-11-28). The tool exits 1
-        # only when a deck the model wrote fails its checks, which pass rates of 5 to 9 in 10 make
-        # nearly every night, so the step reads 1 as green and the deck table lives in the step
-        # summary. A config error (2), a cap stop (3), a crash (4) or a request with no reply (5)
-        # stays red. PIPESTATUS[0] is the tool's own code, not tee's.
+        # Red means the run broke, not that a deck failed (owner's D2, 2026-11-28). The tool exits 10
+        # (DECKS_FAILED) when the decks ran and some failed their checks, which pass rates of 5 to 9
+        # in 10 make nearly every night. The step reads 10 alone as green and leaves the deck table
+        # in the step summary. Every other non-zero code stays red, including Node's own 1. Only one
+        # line in the tool returns 10, so no crash can pass for a result. PIPESTATUS[0] is the
+        # tool's own code, not tee's.
         run: |
           set -uo pipefail
           args=(--out eval-out --arm "${ARM:-retrieval}" --model "${MODEL:-nightly}" --repeat "${REPEAT:-1}"
@@ -154,7 +155,7 @@ jobs:
           if [ "${PROBE:-false}" = 'true' ]; then args+=(--probe); fi
           node tools/agent-pack-eval.mjs "${args[@]}" | tee -a "$GITHUB_STEP_SUMMARY"
           code=${PIPESTATUS[0]}
-          if [ "$code" -eq 1 ]; then
+          if [ "$code" -eq 10 ]; then
             echo "::notice title=Decks failed::at least one deck failed; the table above is the result, and the run itself is sound"
             exit 0
           fi
