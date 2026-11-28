@@ -92,6 +92,10 @@ describe('drift: Tab offers every option the CLI accepts', () => {
     assert.deepEqual(missing(FMT, [['fmt']]), []);
     // Failing arm: a render flag is not a lint flag, so Tab under lint must not reach the render table.
     assert.ok(!offered(['lint'], '--').has('--palette'), 'lint offers render flags');
+    // A switch already typed is not offered again (the render command's rule).
+    assert.ok(offered(['lint'], '--').has('--fix'));
+    assert.ok(!offered(['lint', '--fix'], '--').has('--fix'), 'lint re-offers --fix');
+    assert.ok(!offered(['migrate', 'notes', '--back', 'a.md'], '--').has('--back'), 'migrate re-offers --back');
     assert.deepEqual(missing(new Set([...FMT, '--not-a-fmt-flag']), [['fmt']]), ['--not-a-fmt-flag']);
   });
 
