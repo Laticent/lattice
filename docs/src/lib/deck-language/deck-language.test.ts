@@ -220,6 +220,40 @@ describe('a keystroke, counted', () => {
 		expect(built).toBeGreaterThan(0);
 		expect(built * 20).toBeLessThan(all);
 	});
+
+	// CodeMirror parses a transaction with a 20 ms budget (`Work.Apply`). On a slow machine the deck update can spend
+	// it, and then `takeTree` stops the HTML parse of the edited slide's comment where it stood, so the next parse
+	// (here `ensureSyntaxTree`, in an editor the idle-time worker) starts again from the fragments and calls the deck
+	// parser a second time on text it has already read. That second call is CodeMirror's slicing, and it must cost
+	// the deck nothing: no second update, no slide counted twice, the same final tree. A clock that jumps 1 s per
+	// read spends the budget after the first step every time, so the split no longer waits for a loaded runner.
+	it('a keystroke whose parse runs out of time and finishes in a second slice still updates the deck once', () => {
+		const src = read('test/integration/baseline-decks/gallery.md');
+		const state = EditorState.create({ doc: src, extensions: deckMarkdown() });
+		const m0 = modelOf(ensureSyntaxTree(state, src.length, 5000) as Tree) as DeckModel;
+		const mid = m0.slides[m0.slides.length >> 1];
+		const pos = m0.source.length - m0.text.length + m0.bodyStart + m0.lineStart(mid.fromLine + 1);
+		const before = { ...deckTreeStats };
+		const realNow = Date.now;
+		let clock = realNow();
+		Date.now = () => (clock += 1000);
+		let next: EditorState;
+		try {
+			next = state.update({ changes: { from: pos, insert: 'x' } }).state;
+		} finally {
+			Date.now = realNow;
+		}
+		const tree1 = ensureSyntaxTree(next, next.doc.length, 5000) as Tree;
+		expect(deckTreeStats.updates - before.updates).toBe(1);
+		expect(deckTreeStats.models - before.models).toBe(0);
+		expect(deckTreeStats.slidesBuilt - before.slidesBuilt).toBe(1);
+		expect(deckTreeStats.slidesReused - before.slidesReused).toBe(m0.slides.length - 1);
+		// The split happened: the deck parser ran twice, and the second run found the text it had already read.
+		expect(deckTreeStats.repeats - before.repeats).toBe(1);
+		// And the tree it ends with is the one a parse from nothing builds, HTML inside the comments included.
+		const fresh = EditorState.create({ doc: next.doc.toString(), extensions: deckMarkdown() });
+		expect(dump(tree1)).toEqual(dump(ensureSyntaxTree(fresh, fresh.doc.length, 5000) as Tree));
+	});
 });
 
 describe('in CodeMirror', () => {

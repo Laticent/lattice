@@ -534,3 +534,18 @@ viewport. Nothing opened, 1–2 red in 50 at 4 workers on `webkit-phone`.
 
 **Do instead.** Require the frame's box and the tap point to sit inside the current viewport before
 tapping (#3243).
+
+## A CodeMirror parse that runs out of time finishes in a second slice
+
+**Trap.** CodeMirror parses a transaction with a 20 ms budget (`Work.Apply` in `@codemirror/language`). When the
+budget runs out, `takeTree` keeps the tree it has, cut at the nested parse still running, and the next
+`ensureSyntaxTree` (or the idle-time worker) starts a new parse from the fragments. So a count of parser calls per
+edit is 1 on a fast machine and 2 on a stalled one.
+
+**Example.** `deck-language.test.ts` "a keystroke, counted" expected 1 deck update and got 2: 2 red in 30 on clean
+`main` under 6 CPU burners on 4 cores, and it ejected #3593 from the queue. The keystroke's first slice takes 0.6 ms
+at p50; a stall of 20 ms or more (preemption, a GC pause) splits it.
+
+**Do instead.** Make the second call cost nothing when the text is the one the fragments already read, and count
+that work, not the calls. To hit the split on every run, replace `Date.now` with a clock that jumps 1 s per read
+around `state.update`, and restore it before `ensureSyntaxTree` (#3593's ejection; the fix's PR).
