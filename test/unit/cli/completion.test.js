@@ -58,6 +58,9 @@ const VIDEO = new Set([...read('lib/export/video-cli.mjs').matchAll(/a === '(--?
 const LINT = new Set([...literals(between(read('lib/cli/lint-deck.js'), 'const KNOWN = [', ']')), '-h', '--help']);
 LINT.delete('--all');
 const FMT = new Set([...literals(between(read('lib/authoring/code-format/fmt-cli.mjs'), "if (!['--check'", '.includes(f)')), '-h', '--help']);
+// migrate: each form's parser names its known flags in one list after `!['--check'`; both take -h and --help.
+const migrateFlags = (rel) => new Set([...literals(between(read(rel), "a.startsWith('--') && ![", '.includes(a)')), '-h', '--help']);
+const MIGRATE = { meta: migrateFlags('lib/cli/migrate-meta.mjs'), notes: migrateFlags('lib/cli/migrate-notes.mjs') };
 const PACKAGES_PREVS = [['packages'], ...C.PACKAGES_COMMANDS.map(([c]) => ['packages', c])];
 
 describe('drift: PARSEARGS_OWN holds no stale entry', () => {
@@ -90,6 +93,13 @@ describe('drift: Tab offers every option the CLI accepts', () => {
     // Failing arm: a render flag is not a lint flag, so Tab under lint must not reach the render table.
     assert.ok(!offered(['lint'], '--').has('--palette'), 'lint offers render flags');
     assert.deepEqual(missing(new Set([...FMT, '--not-a-fmt-flag']), [['fmt']]), ['--not-a-fmt-flag']);
+  });
+
+  test('lattice migrate meta and lattice migrate notes', () => {
+    assert.ok(MIGRATE.meta.size >= 4 && MIGRATE.notes.size >= 5, 'a migrate parser moved');
+    for (const form of ['meta', 'notes']) assert.deepEqual(missing(MIGRATE[form], [['migrate', form]]), [], form);
+    // Failing arm: --back is a notes flag only.
+    assert.ok(!offered(['migrate', 'meta'], '--').has('--back'), 'meta offers --back');
   });
 
   test('failing arms: an option Tab does not offer, and a flag parseArgs adds on its own', () => {
@@ -200,6 +210,10 @@ describe('values', () => {
     assert.ok(offered(['packages', 'export'], 'theme/').has('theme/indaco'), 'export also takes shipped packages');
     assert.deepEqual([...offered(['packages', '--type'], '')], require('../../../lib/packages/kinds.js').TYPES);
     assert.deepEqual([...offered(['completion'], '')], ['bash', 'zsh', 'fish', 'powershell']);
+    assert.deepEqual([...offered([], 'mi')], ['migrate']);
+    assert.deepEqual([...offered(['migrate'], '')], ['meta', 'notes']);
+    assert.equal(C.complete(['migrate', 'notes'], '').directive, ':files md');
+    assert.equal(C.complete(['migrate', 'nope'], '').directive, ':values');
   });
 
   test('the protocol: the last word is the current one, or --lattice-cur= carries it', () => {
@@ -280,7 +294,7 @@ for c in "\${COMPREPLY[@]}"; do printf '%s\\n' "$c"; done`;
       const p = t('lattice -p ', ['lattice', '-p', '']);
       assert.ok(p.includes('indaco') && p.includes('cuoio') && p.length >= 30, p.join(' '));
       assert.deepEqual(t('lattice pack', ['lattice', 'pack']), ['packages']);
-      assert.deepEqual(t('lattice ', ['lattice', '']), ['completion', 'deck.md', 'decks', 'fmt', 'lint', 'mcp', 'my deck.md', 'packages', 'sp dir', 'video']);
+      assert.deepEqual(t('lattice ', ['lattice', '']), ['completion', 'deck.md', 'decks', 'fmt', 'lint', 'mcp', 'migrate', 'my deck.md', 'packages', 'sp dir', 'video']);
       assert.deepEqual(t('lattice video ', ['lattice', 'video', '']), ['deck.md', 'decks', 'my deck.md', 'packages', 'sp dir', 'talk.html']);
     });
 
