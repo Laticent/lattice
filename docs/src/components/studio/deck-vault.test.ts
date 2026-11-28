@@ -131,6 +131,27 @@ describe('the backup (storage desk D1)', () => {
 		expect(await text(BACKUP_PATH)).toBe('zip:slice-2');
 		expect(await exists(`${BACKUP_PATH}.tmp`)).toBe(false);
 	});
+	it('stops, and writes no mark, when the backup folder cannot be listed (C5)', async () => {
+		mem.set(BACKED_UP_KEY, '1');
+		seedLegacy();
+		const realList = vault.list.bind(vault);
+		vault.list = (async (p: string, o?: never) => (p === '.lattice/backups' ? Promise.reject(new Error('io')) : realList(p, o))) as never;
+		const r = await moveDecksIntoVault({ pack: pack('today') });
+		vault.list = realList;
+		expect(r.stopped).toBe('backup-failed');
+		expect(mem.has(DECK_BACKUP_KEY)).toBe(false);
+		expect(mem.has(SRC_PREFIX + 'deck-a')).toBe(true);
+	});
+	it('a refresh that keeps failing stops after the attempt cap instead of packing on every start (C5)', async () => {
+		await vault.write(BACKUP_PATH, new Blob(['zip:slice-2']));
+		seedLegacy();
+		const fail = async () => {
+			throw new Error('out of memory');
+		};
+		const stops = [];
+		for (let i = 0; i < 4; i++) stops.push((await moveDecksIntoVault({ pack: fail })).stopped);
+		expect(stops).toEqual(['backup-failed', 'backup-failed', 'backup-failed', 'gave-up']);
+	});
 	it('writes none when the person deleted the slice 2 backup', async () => {
 		mem.set(BACKED_UP_KEY, '1');
 		seedLegacy();
@@ -462,6 +483,21 @@ describe('the move-back (DECK_DIRECTION = local)', () => {
 		expect(JSON.parse(mem.get(INDEX) as string).some((e: { vault?: true }) => e.vault)).toBe(false);
 		reload();
 		expect(loadSource('deck-b')).toBe(deckB);
+	});
+	it('moves back the doc\'s text, not a deck.md that trails it (the inversion review\'s finding 6)', async () => {
+		seedLegacy();
+		await moveDecksIntoVault({ pack: pack('x') });
+		await deckVaultSettled();
+		// A save that wrote its pending file, then could not write deck.md.
+		const realWrite = vault.write.bind(vault);
+		vault.write = (async (p: string, d: never, m: never) => (p.endsWith('.md') ? Promise.reject(new DOMException('full', 'QuotaExceededError')) : realWrite(p, d, m))) as never;
+		await new DeckVault({ vault, slot: 5 }).save('deck-a', deckA, `${deckA}- only in the doc\n`).catch(() => {});
+		vault.write = realWrite;
+		expect(await text(deckPath('deck-a'))).toBe(deckA);
+		mem.set(DECK_DIRECTION_KEY, 'local');
+		reload();
+		await moveDecksOutOfVault();
+		expect(JSON.parse(mem.get(SRC_PREFIX + 'deck-a') as string)).toBe(`${deckA}- only in the doc\n`);
 	});
 	it('leaves a deck in the vault, still readable, when its key cannot be written', async () => {
 		seedLegacy();

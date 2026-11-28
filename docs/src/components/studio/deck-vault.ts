@@ -334,6 +334,22 @@ export class DeckVault {
 		return path;
 	}
 
+	/**
+	 * The deck's full text for the move-back: the doc after catching up on every file, every tab's pending file
+	 * included, under the deck lock. deck.md may trail the doc (a write cut off between the pending file and deck.md),
+	 * so it is never the source here (the inversion review's finding 6). Null when the deck has no doc files.
+	 */
+	async fullText(id: string): Promise<string | null> {
+		const { device, slot, clientID } = await this.me();
+		return this.withDeckLock(id, async () => {
+			const files = await this.vault.list(deckMetaDir(id), { recursive: true }).catch(() => []);
+			if (!files.some((e) => /\.yjsu?$/.test(e.path))) return this.readDeck(id);
+			const open = await this.open(id);
+			await this.catchUp(id, open, this.pendingPath(id, device, slot, clientID));
+			return docText(open.doc);
+		});
+	}
+
 	/** Remove a deck's files: deck.md and everything under its `.lattice/decks/<id>/`. */
 	remove(id: string): Promise<void> {
 		return this.withDeckLock(id, async () => {

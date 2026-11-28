@@ -100,11 +100,16 @@ export function moveDecksIntoVault(deps: DeckMoveDeps = {}): Promise<DeckMoveRep
 		if (dead >= MAX_DEAD_ATTEMPTS) return { ...report, stopped: 'gave-up' };
 		ls.set(ATTEMPT_KEY, String(dead + 1));
 		if (ls.get(DECK_BACKUP_KEY) !== '1') {
-			const have = (await vault.list('.lattice/backups').catch(() => [])).some((e) => e.path === BACKUP_PATH);
+			// A listing that fails says nothing about the backup: stop, rather than read it as "the person deleted it" and
+			// never write one (the checker's C5).
+			const listed = await vault.list('.lattice/backups').catch(() => null);
+			if (!listed) return { ...report, stopped: 'backup-failed' };
+			const have = listed.some((e) => e.path === BACKUP_PATH);
 			const deletedByPerson = !have && ls.get(BACKED_UP_KEY) === '1';
 			if (!deletedByPerson) {
 				if (!(await refreshBackup(vault, deps))) {
-					ls.set(ATTEMPT_KEY, null);
+					// The attempt stays counted, so a refresh that keeps failing (no memory to pack, say) stops after
+					// MAX_DEAD_ATTEMPTS instead of packing the whole workspace on every start (C5).
 					return { ...report, stopped: 'backup-failed' };
 				}
 				report.backup = 'rewritten';
@@ -150,7 +155,7 @@ export function moveDecksOutOfVault(): Promise<DeckMoveBackReport> {
 		if (!dv) return report;
 		for (const { id, text: shelfText } of vaultDecks()) {
 			try {
-				const text = (await dv.readDeck(id)) ?? shelfText;
+				const text = (await dv.fullText(id)) ?? shelfText;
 				// The key is written and read back before a vault file goes, so a tab that dies in between leaves the
 				// deck in both places, and the key wins.
 				if (text === null || !returnDeckToLocal(id, text)) {
