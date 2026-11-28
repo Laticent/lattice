@@ -59,6 +59,7 @@ Tests: `cd docs && npx vitest run src/lib/lastra`. The standalone typecheck (no 
 
 ## License
 
-AGPL-3.0-only. The JPEG decoder in `decode/` and the JPEG encoder (`jpeg.ts`) are based in part on libjpeg-turbo
-and the work of the Independent JPEG Group; their terms ship as `decode/LICENSE.libjpeg-turbo.md` and
-`decode/README.ijg.txt`.
+Apache-2.0. The full text ships as `LICENSE` in the package, and the copyright notice as `NOTICE`. The JPEG
+decoder in `decode/` and the JPEG encoder (`jpeg.ts`) are based in part on libjpeg-turbo and the work of the
+Independent JPEG Group; their terms ship as `decode/LICENSE.libjpeg-turbo.md` and `decode/README.ijg.txt`.
+Which part of Lattice is under which license: [`LICENSING.md`](https://github.com/Laticent/lattice/blob/main/LICENSING.md).

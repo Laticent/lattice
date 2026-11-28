@@ -70,7 +70,7 @@ first; the other 13 were swept for component names, catalog taxonomy and venue t
 | Trama | Mechanism | Graph layout and routing. `pipeline.ts` uses host hook names (`__latticeGraphFlush`, `data-lattice-live-layout`, `__latticeDagre`): plumbing, not policy |
 | Squadra | Mechanism | A lint engine that proves its rules; Lattice's rules live in `lib/authoring/`. `markdown.ts` takes the deck model from the host |
 | Fluido | Mechanism, one judgment call | Pagination decisions over facts the host reads (`types.ts` line 6: Lattice's connector is `lib/core/auto-split.js`). `plan.ts` carries defaults that came from Lattice decisions: a `wide` box never paginates (line 28), one member per page, a 64-page cap. They are generic pagination rules with no Lattice component, theme or venue in them, so Fluido moves to Apache. If the owner reads them as protected policy, Fluido can stay AGPL before this merges |
-| the other 12 | Mechanism | No component, catalog, theme or venue rule. Cadenza's lexicon targets business vocabulary ("the house domain"), a speech default, not design policy |
+| the other 13 | Mechanism | No component, catalog, theme or venue rule. Cadenza's lexicon targets business vocabulary ("the house domain"), a speech default, not design policy |
 
 Cenno is private and stays AGPL-3.0-only, as E2 says.
 

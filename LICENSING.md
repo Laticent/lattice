@@ -65,7 +65,8 @@ for the engine assets Lattice embeds in a deck it renders. Read its §Limits for
 
 ## CC-BY-4.0: the specifications
 
-The specifications in `spec/` and their conformance cases in `spec/conformance/` are licensed
+The specifications in `spec/` and their conformance cases (`spec/conformance/`, and the LTT fixtures in
+`docs/src/lib/ltt/conformance/`, which `spec/LTT-1.0.md` names as its tests) are licensed
 under [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/), as each document's **License**
 line says. A library that implements a specification (for example `@laticent/ltt` for
 `spec/LTT-1.0.md`) is licensed as its own row above says, not as the specification is.

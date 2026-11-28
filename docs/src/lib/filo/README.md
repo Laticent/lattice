@@ -95,3 +95,8 @@ forgets a document and removes it from the stack.
 | A mark survives its steps folding away | Anchors re-based onto the floor on each fold | "a mark older than the window still restores" |
 | One ⌘Z never crosses documents | One history per document id | "keeps one history per document" |
 | An old patch is never applied to text it was not recorded against | `sync` and the gap step | "the next undo records the gap and stops" |
+
+## License
+
+Apache-2.0. The full text ships as `LICENSE` in the package, and the copyright notice as `NOTICE`.
+Which part of Lattice is under which license: [`LICENSING.md`](https://github.com/Laticent/lattice/blob/main/LICENSING.md).

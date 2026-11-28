@@ -114,3 +114,8 @@ The Studio asks for `pip` with a `paged` stage: one preview frame, re-pointed as
 - **With the map open, the neighbors are already live tiles**, so the reader sees what is next without the stage mounting it. The map is off by default, so this reason only holds once a reader opens it.
 
 So `stageUnits` is always the focus. The stage's price (`stage: { cost }`) is charged and then added back to the cap, so in production it binds nothing: it is core API with no caller that proves it, and must be proven or removed before the package is published. A host whose stage is `scrolled` (the Playground's filmstrip) is the `multi` caller, and it is in production.
+
+## License
+
+Apache-2.0. The full text ships as `LICENSE` in the package, and the copyright notice as `NOTICE`.
+Which part of Lattice is under which license: [`LICENSING.md`](https://github.com/Laticent/lattice/blob/main/LICENSING.md).

@@ -34,6 +34,12 @@ test('every library except Cenno and Lente is Apache-2.0, and each one is ready 
   for (const dir of apache) assert.equal(stageLicense(path.join(ROOT, dir)), null, dir);
 });
 
+test('docs/.gitignore ignores the copied LICENSE of exactly the AGPL libraries', () => {
+  // An AGPL library's LICENSE is a pack-time copy of the root text; an Apache one is tracked.
+  const ignored = fs.readFileSync(path.join(ROOT, 'docs', '.gitignore'), 'utf8').split('\n').filter((l) => /^src\/lib\/[^/]+\/LICENSE$/.test(l));
+  assert.deepEqual(ignored.map((l) => `docs/${l.replace(/\/LICENSE$/, '')}`).sort(), STAY_AGPL);
+});
+
 test('the Apache-2.0 text in each library is the canonical file, byte for byte', () => {
   const crypto = require('node:crypto');
   for (const dir of LIBS.filter((d) => read(d).license === 'Apache-2.0')) {

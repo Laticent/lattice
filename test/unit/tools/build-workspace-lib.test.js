@@ -35,8 +35,9 @@ test('a rebuild with nothing to change leaves dist/ in place and stages nothing 
   const before = fs.statSync(path.join(LIB, 'dist')).ino;
   const created = [];
   // Only a staging folder counts. `npm pack` (package-nodenext-types.test.js, possibly running
-  // now) also copies LICENSE into the folder through tools/library-prepack.js, which is not the
-  // builder's write, and the inode check below already covers dist/ itself.
+  // now) also runs tools/library-prepack.js in other library folders (copying the root LICENSE
+  // into an AGPL one), which is not the builder's write, and the inode check below already covers
+  // dist/ itself.
   const watcher = fs.watch(LIB, (_event, name) => {
     if (name?.startsWith('.dist.tmp-')) created.push(name);
   });
