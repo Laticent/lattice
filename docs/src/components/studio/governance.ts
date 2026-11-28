@@ -33,7 +33,7 @@ import { chatsSettled, hydrateAllChats, lastChatClear } from './chat-store';
 import { checkpointsSettled, hydrateCheckpoints, lastCheckpointClear } from './checkpoint-store';
 import { type LocalStorageUse, localStorageUse } from './local-quota';
 import { formatBytes } from './reference-doc';
-import { clearAllDecks, deckContentStats } from './studio-store';
+import { clearAllDecks, deckContentStats, deckVaultSettled } from './studio-store';
 
 // Cache Storage names this SITE owns — kept in sync BY HAND with the PAGES/
 // ASSETS/FONTS names in docs/public/sw.js (its VERSION-derived `lattice-${VERSION}-*`
@@ -164,6 +164,7 @@ export async function clearDecksAndTheirPhotos(): Promise<void> {
 	const histories = import('./studio-filo-persist').then((m) => m.filoStore().clear());
 	// The checkpoint, chat and undo-history clears run in IndexedDB; let them finish before the caller reloads.
 	await checkpointsSettled();
+	await deckVaultSettled();
 	await chatsSettled();
 	await histories;
 	try {
@@ -249,6 +250,7 @@ export async function clearEverything(): Promise<ClearEverythingResult> {
 	// The undo histories too (Filo §6.4); their result counts toward "decks" below.
 	const historiesCleared = import('./studio-filo-persist').then((m) => m.filoStore().clear());
 	await checkpointsSettled();
+	await deckVaultSettled();
 	await chatsSettled();
 	// Crash records carry deck titles, page URLs, the user agent and error stacks
 	// — "your data" by any reading, so the sweep has to reach them or the promise

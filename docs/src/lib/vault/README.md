@@ -76,6 +76,13 @@ move. It is what `write`'s `baseRevision` option is checked against.
 **`.lattice/backups/` never syncs.** The move into the vault keeps its one workspace backup there (slice 2).
 It holds a copy of every deck and photo, so sync (slice 6) must leave that folder on the device.
 
+**Decks (slice 3).** Each deck is `Decks/<id>.md` (the readable copy) plus `.lattice/decks/<id>/`: `base-<sha256>.yjs`,
+`updates/<device>-<seq>.yjsu` (at most one a minute per tab), `pending/<device>-<slot>.yjsu` and `head.json` (the
+stamp). **`pending/` never syncs**: it is one tab's edits since its last update file, rewritten on every save, and
+it becomes an update file when the slot's next holder opens. Layout and save order: `deck-vault.ts`; the Yjs rules:
+`deck-doc.ts`; as built: `engineering/decisions/2026-11-28-vault-slice-3-as-built.md`. A deck's file is rewritten in
+place on every save, so a file-backed read of `Decks/*.md` must be read at once, never held.
+
 **A file-backed read dies with its file**, which today means a delete (a photo is never rewritten in place).
 Sync's remote overwrites (slice 6) reopen the question of a read grace window.
 

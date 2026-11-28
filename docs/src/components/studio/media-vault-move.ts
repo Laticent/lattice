@@ -42,7 +42,7 @@ export const MAX_DEAD_ATTEMPTS = 3;
 const ATTEMPT_KEY = 'lattice-media-move-attempt';
 /** Set once this device has written the move's backup, so deleting the backup never makes a later run (a photo
  *  that keeps failing to move, say) pack the whole workspace again on every start. */
-const BACKED_UP_KEY = 'lattice-media-move-backed-up';
+export const BACKED_UP_KEY = 'lattice-media-move-backed-up';
 const ls = {
 	get: (k: string) => {
 		try {

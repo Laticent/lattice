@@ -314,7 +314,9 @@ export function slideCountLabel(rendered: number): string {
  *  follow-up 11). Absent = none, which is the default for every deck, including one you wrote:
  *  authorship is not provable (a paste, an AI edit or a restored backup can add a web image),
  *  so the choice is per deck AND per origin, and a new origin asks again. */
-export type IndexEntry = { id: string; title: string; builtin: boolean; derived?: string; restored?: boolean; webOrigins?: string[] };
+/** `vault`: the deck's text lives in the storage vault (vault slice 3), not in `SRC_PREFIX + id`. The index is the
+ *  pre-paint deck list, a cache the vault rebuilds (design §8); the flag tells a sync read that the text exists. */
+export type IndexEntry = { id: string; title: string; builtin: boolean; derived?: string; restored?: boolean; webOrigins?: string[]; vault?: true };
 
 // One-time flag: have we offered the welcome deck to a pre-existing user whose
 // saved index predates it? Set once the migration runs, so a user who then
@@ -347,7 +349,10 @@ function migrateWelcome(saved: IndexEntry[]): IndexEntry[] {
 	}
 }
 function saveIndex(index: IndexEntry[]): void {
+	// A deck saved into the vault before its index entry existed (a restore writes the text first) gets its mark now.
+	for (const e of index) if (unmarked.has(e.id) && !e.vault) e.vault = true;
 	write(INDEX_LS, index);
+	for (const e of index) unmarked.delete(e.id);
 }
 
 /** Edited source for a deck, or null if it has never been edited. */
@@ -366,7 +371,10 @@ export function loadSource(id: string): string | null {
 	// CHANGE, so nothing flows back out through `onChange`. The editor showed clean text over a
 	// deck that still rendered its front matter as a slide.
 	const raw = read<string>(SRC_PREFIX + id);
-	return raw == null ? raw : normalizeSourceText(raw);
+	if (raw != null) return normalizeSourceText(raw);
+	// A deck in the vault: its text is on the shelf once loaded (the boot deck from its cache, the rest when the
+	// shelf hydrates). Null before that, and `saveSource` refuses such a deck until then (`deckLoaded`).
+	return shelfText(id);
 }
 /**
  * Persist a deck's edited source. False when the browser refused the write — a full localStorage,
@@ -374,7 +382,10 @@ export function loadSource(id: string): string | null {
  * full quota lost the author's edits without a word
  * (engineering/decisions/2026-11-11-studio-storage-pointer-records.md §3).
  */
-export function saveSource(id: string, source: string): boolean {
+export function saveSource(id: string, source: string, opts: { fromShell?: boolean } = {}): boolean {
+	// Into the vault: a deck already there, or a new one once this tab knows it has a vault. A deck still in its
+	// localStorage key stays there until the move takes it (deck-vault-move.ts).
+	if (!hasLegacySource(id) && (isVaultDeck(id) || shelfTakesNewDecks())) return saveToShelf(id, source, opts.fromShell === true);
 	const raw = JSON.stringify(source);
 	const error = writeOrError(SRC_PREFIX + id, raw);
 	if (error === null) {
@@ -382,14 +393,17 @@ export function saveSource(id: string, source: string): boolean {
 		recordListTitles({ [id]: [raw.length, listTitleOf(normalizeSourceText(source))] });
 		return true;
 	}
+	reportSourceWriteError(id, error);
+	return false;
+}
+function reportSourceWriteError(deckId: string, error: unknown): void {
 	for (const fn of sourceWriteErrorListeners) {
 		try {
-			fn({ deckId: id, error });
+			fn({ deckId, error });
 		} catch {
 			/* one listener's failure must not hide the next one */
 		}
 	}
-	return false;
 }
 export type SourceWriteError = { deckId: string; error: unknown };
 const sourceWriteErrorListeners = new Set<(e: SourceWriteError) => void>();
@@ -410,11 +424,247 @@ export function saveSourceSum(id: string, hash: number | null): void {
 function dropSource(id: string): void {
 	remove(FILO_SUM_PREFIX + id);
 	recordListTitles({ [id]: undefined });
+	dropFromShelf(id);
 	try {
 		localStorage.removeItem(SRC_PREFIX + id);
 	} catch {
 		/* non-fatal */
 	}
+}
+
+// ── The deck shelf: decks in the storage vault (vault slice 3) ─────────────────────────────────────────────
+// engineering/decisions/2026-11-28-vault-slice-3-as-built.md. A deck's text lives in the vault (`Decks/<id>.md`
+// plus its Yjs files, deck-vault.ts) once the move has taken it in. Every reader here stays SYNCHRONOUS, so the
+// shelf holds each vault deck's text in memory: the boot deck from `BOOT_SRC_LS` before the first paint, the
+// rest when `decksReady()` has read the vault. localStorage keeps only caches the vault rebuilds (design §8).
+// Only the synchronous half is here; the vault side (hydration, the write queue, the move's hand-overs) is
+// deck-shelf-io.ts, loaded on first use, so the Studio's eager bundle stays inside its ceiling.
+//
+// THE GUARD (the storage desk's must-fix): a vault deck the shelf has not loaded yet reads as null, and
+// `saveSource` REFUSES it, before anything is queued. A save that fires before hydration therefore never reaches
+// the vault and can never write a short or canonical text over the real deck.
+
+/** The boot deck's text, `{ id, text, base }`, for studio.astro's pre-paint shell and the first slide. A cache. */
+export const BOOT_SRC_LS = 'lattice-studio-boot-src';
+/** Past this the boot deck is not cached, and its text waits for the vault (storage desk D3). */
+export const BOOT_CACHE_MAX = 512 * 1024;
+/**
+ * WHICH WAY DECKS GO: the undo path for vault slice 3, the same shape as slice 2's `MEDIA_DIRECTION`. `'vault'` as
+ * shipped. `'local'` saves decks in localStorage again and, at boot, moves every vault deck back into its
+ * `SRC_PREFIX` key (deck-vault-move.ts). Undoing the slice is two releases: one with `'local'`, then the revert,
+ * which keeps the vault reader for one more release. `lattice-deck-storage: local` turns it on for one browser.
+ */
+export const DECK_DIRECTION: 'vault' | 'local' = 'vault';
+export const DECK_DIRECTION_KEY = 'lattice-deck-storage';
+export function deckDirection(): 'vault' | 'local' {
+	try {
+		if (localStorage.getItem(DECK_DIRECTION_KEY) === 'local') return 'local';
+	} catch {
+		/* no localStorage: the shipped direction */
+	}
+	return DECK_DIRECTION;
+}
+
+/** `text`: what `loadSource` hands out. `base`: the text the open deck's editor derives from; a save from the shell
+ *  merges against it, so another tab's edit the editor has not taken yet is kept, not deleted. */
+type ShelfEntry = { text: string; base: string };
+const shelf = new Map<string, ShelfEntry>();
+/** The text this tab last knew the vault to hold, per deck: what the boot cache says its text was based on. */
+const vaultText = new Map<string, string>();
+/** FNV-1a over UTF-16 units: a cheap, synchronous fingerprint for the boot cache's base. Not a security hash. */
+function fnv(text: string): string {
+	let h = 0x811c9dc5;
+	for (let i = 0; i < text.length; i++) {
+		h ^= text.charCodeAt(i);
+		h = Math.imul(h, 0x01000193);
+	}
+	return `${text.length}:${(h >>> 0).toString(36)}`;
+}
+/** Whether this tab has a vault: unknown until `decksReady()`. New decks go to localStorage until it is known. */
+let shelfVault: 'unknown' | 'yes' | 'no' = 'unknown';
+let vaultIdsRaw: string | null | undefined;
+let vaultIdsMemo = new Set<string>();
+/** The ids the index marks as vault decks, parsed once per change of the index. */
+function vaultIds(): Set<string> {
+	let raw: string | null = null;
+	try {
+		raw = localStorage.getItem(INDEX_LS);
+	} catch {
+		/* unavailable */
+	}
+	if (raw !== vaultIdsRaw) {
+		vaultIdsRaw = raw;
+		let parsed: unknown = [];
+		try {
+			parsed = raw ? JSON.parse(raw) : [];
+		} catch {
+			/* a corrupt index marks nothing */
+		}
+		vaultIdsMemo = new Set(Array.isArray(parsed) ? (parsed as IndexEntry[]).filter((e) => e?.vault).map((e) => e.id) : []);
+	}
+	return vaultIdsMemo;
+}
+/** Vault decks whose index entry did not exist yet when they were saved: marked by the next `saveIndex`. */
+const unmarked = new Set<string>();
+const isVaultDeck = (id: string) => vaultIds().has(id) || unmarked.has(id);
+function hasLegacySource(id: string): boolean {
+	try {
+		return localStorage.getItem(SRC_PREFIX + id) !== null;
+	} catch {
+		return false;
+	}
+}
+const shelfTakesNewDecks = () => shelfVault === 'yes' && deckDirection() === 'vault';
+let bootSeeded = false;
+/** Put the boot cache on the shelf, once. Before the vault is read, it is the only text the shelf has. */
+function seedBoot(): void {
+	if (bootSeeded) return;
+	bootSeeded = true;
+	const c = read<{ id?: unknown; text?: unknown }>(BOOT_SRC_LS);
+	if (c && typeof c.id === 'string' && typeof c.text === 'string' && isVaultDeck(c.id) && !shelf.has(c.id)) {
+		const text = normalizeSourceText(c.text);
+		shelf.set(c.id, { text, base: text });
+	}
+}
+function shelfText(id: string): string | null {
+	if (!isVaultDeck(id)) return null;
+	seedBoot();
+	return shelf.get(id)?.text ?? null;
+}
+/** False only for a vault deck whose text this tab has not read yet: `saveSource` refuses it, `loadSource` is null. */
+export function deckLoaded(id: string): boolean {
+	if (hasLegacySource(id) || !isVaultDeck(id)) return true;
+	seedBoot();
+	return shelf.has(id);
+}
+/** `base`: the vault text the cached text came from. At the next boot a cache newer than the vault with that base
+ *  is a save the tab could not finish, saved again; any other difference is another tab's newer save. */
+function writeBootCache(id: string): void {
+	const text = isVaultDeck(id) ? shelf.get(id)?.text : undefined;
+	const was = vaultText.get(id);
+	const raw = text == null ? null : JSON.stringify({ id, text, ...(was != null ? { base: fnv(was) } : {}) });
+	// Too big, or refused: no cache at all, never a stale one.
+	if (raw === null || raw.length > BOOT_CACHE_MAX || writeOrError(BOOT_SRC_LS, raw) !== null) remove(BOOT_SRC_LS);
+}
+function markVault(id: string, on: boolean): void {
+	const index = loadIndex();
+	const e = index.find((x) => x.id === id);
+	if (!e) {
+		if (on) unmarked.add(id);
+		else unmarked.delete(id);
+		return;
+	}
+	if (!!e.vault === on) return;
+	if (on) e.vault = true;
+	else delete e.vault;
+	saveIndex(index);
+}
+function shelfChars(): number {
+	let n = 0;
+	for (const [id, e] of shelf) if (!hasLegacySource(id)) n += e.text.length;
+	return n;
+}
+
+export type DeckMerged = { deckId: string; from: string; text: string };
+const mergedListeners = new Set<(e: DeckMerged) => void>();
+/** Another tab changed the open deck: `text` is the merged result, `from` the text this tab's editor derives from.
+ *  The shell takes it as one undo step when its editor still shows `from` (and calls `acceptDeckText`). */
+export function onDeckMerged(fn: (e: DeckMerged) => void): () => void {
+	mergedListeners.add(fn);
+	return () => mergedListeners.delete(fn);
+}
+export function acceptDeckText(id: string, text: string): void {
+	const e = shelf.get(id);
+	if (e && e.text === text) e.base = text;
+}
+
+// The vault side, on first use.
+type ShelfIo = typeof import('./deck-shelf-io');
+let ioMod: ShelfIo | null = null;
+const io = (): Promise<ShelfIo> =>
+	import('./deck-shelf-io').then((m) => {
+		ioMod = m;
+		return m;
+	});
+/** Work handed to the vault side that has not reached its queue yet (the module may still be loading). */
+const handing = new Set<Promise<unknown>>();
+function toIo(fn: (m: ShelfIo) => unknown): void {
+	const p = io().then(fn);
+	handing.add(p);
+	void p.catch(() => {}).then(() => handing.delete(p));
+}
+/** Internals the vault side (deck-shelf-io.ts) works on. Not for anything else. */
+export const shelfInternals = {
+	shelf, vaultText, fnv, mergedListeners, unmarked, BOOT_SRC_LS, seedBoot,
+	isVaultDeck, hasLegacySource, markVault, writeBootCache, vaultIds,
+	loadIndex: () => loadIndex(), saveIndex: (i: IndexEntry[]) => saveIndex(i), read, remove, writeOrError,
+	recordListTitles: (e: Record<string, ListTitle | undefined>) => recordListTitles(e), listTitleOf: (s: string) => listTitleOf(s),
+	reportSourceWriteError: (id: string, e: unknown) => reportSourceWriteError(id, e), loadActiveDeck: () => loadActiveDeck(),
+	setVault: (v: 'yes' | 'no') => {
+		shelfVault = v;
+	},
+};
+
+function saveToShelf(id: string, source: string, fromShell: boolean): boolean {
+	seedBoot();
+	const entry = shelf.get(id);
+	const isNew = !isVaultDeck(id);
+	if (!entry && !isNew) {
+		// The guard: this tab has not read this deck's text from the vault, so whatever the caller holds is not based
+		// on it. Refused before anything is queued, so it never reaches the vault.
+		console.warn('lattice: refused a save of a deck not loaded yet', id);
+		return false;
+	}
+	const base = entry ? (fromShell ? entry.base : entry.text) : '';
+	shelf.set(id, { text: source, base: fromShell || !entry ? source : entry.base });
+	if (isNew) markVault(id, true);
+	if (loadActiveDeck()?.deckId === id) writeBootCache(id);
+	recordListTitles({ [id]: [JSON.stringify(source).length, listTitleOf(normalizeSourceText(source))] });
+	toIo((m) => m.queueSave(id, base, source));
+	return true;
+}
+function dropFromShelf(id: string): void {
+	const had = shelf.delete(id);
+	vaultText.delete(id);
+	if (read<{ id?: string }>(BOOT_SRC_LS)?.id === id) remove(BOOT_SRC_LS);
+	if (had || shelfVault === 'yes') toIo((m) => m.removeDeck(id));
+}
+function clearShelf(): void {
+	const ids = [...new Set([...shelf.keys(), ...vaultIds()])];
+	shelf.clear();
+	vaultText.clear();
+	remove(BOOT_SRC_LS);
+	toIo((m) => m.clearDecks(ids));
+}
+
+let readyP: Promise<void> | null = null;
+/** Read every vault deck onto the shelf and rebuild the caches from the vault (deck-shelf-io.ts `hydrate`). Starts
+ *  once per tab; the shell calls it after the first paint. */
+export function decksReady(): Promise<void> {
+	readyP ??= io()
+		.then((m) => m.hydrate())
+		.catch((err) => {
+			readyP = null;
+			throw err;
+		});
+	return readyP;
+}
+/** Resolves when every queued deck write and delete has landed (or failed and been reported). */
+export async function deckVaultSettled(): Promise<void> {
+	while (handing.size) await Promise.all([...handing].map((p) => p.catch(() => {})));
+	if (ioMod) await ioMod.settled();
+}
+/** Tests only: drop every in-memory piece of the shelf, as a reload would. */
+export function resetShelfForTests(): void {
+	shelf.clear();
+	vaultText.clear();
+	unmarked.clear();
+	shelfVault = 'unknown';
+	bootSeeded = false;
+	vaultIdsRaw = undefined;
+	readyP = null;
+	handing.clear();
+	ioMod?.reset();
 }
 
 // The canonical (unedited) source for a deck. Built-ins come from DECKS; a
@@ -492,10 +742,16 @@ function recordListTitles(entries: Record<string, ListTitle | undefined>): void 
 /** The stored source's serialized length, or null when the deck has none. */
 function storedLength(id: string): number | null {
 	try {
-		return localStorage.getItem(SRC_PREFIX + id)?.length ?? null;
+		const legacy = localStorage.getItem(SRC_PREFIX + id);
+		if (legacy != null) return legacy.length;
 	} catch {
 		return null;
 	}
+	// A vault deck: the length its text serializes to. Before the shelf has it, the mirror's own record stands (it
+	// was written from the vault's text); -1 when the mirror has none either, so the list names it from the index.
+	if (!isVaultDeck(id)) return null;
+	const text = shelfText(id);
+	return text != null ? JSON.stringify(text).length : (readListTitles()[id]?.[0] ?? -1);
 }
 
 /**
@@ -575,7 +831,9 @@ export function loadActiveDeck(): ActiveDeck | null {
 /** `col`: the caret's column on `line`, raw (a Source caret, `line` is its Markdown) or plain (a Compose caret). */
 export function saveActiveDeck(deckId: string, slideIndex: number, line?: string, col?: { col: number; raw?: string } | null): void {
 	const c = line && col && col.col > 0 ? { col: Math.floor(col.col), ...(col.raw !== undefined ? { colRaw: true } : {}) } : {};
+	const was = read<Partial<ActiveDeck>>(ACTIVE_LS)?.deckId;
 	write(ACTIVE_LS, { deckId, slideIndex: Math.max(0, slideIndex | 0), ...(line ? { line: line.slice(0, 500) } : {}), ...c });
+	if (was !== deckId) writeBootCache(deckId);
 }
 /** Forget the last-active pointer if it names `deckId` (a deck being deleted) — so it
  *  can never dangle at a deck that no longer exists, which would make the app boot the
@@ -721,7 +979,7 @@ export function deckContentStats(): { count: number; bytes: number } {
 	}
 	// Checkpoints and chats moved to IndexedDB, so the localStorage scan above no longer sees them.
 	// Chats count only once loaded (`hydrateAllChats`); a thread still in localStorage is in the scan.
-	bytes += checkpointBytes() + chatChars();
+	bytes += checkpointBytes() + chatChars() + shelfChars();
 	return { count, bytes };
 }
 
@@ -776,6 +1034,8 @@ export function clearAllDecks(): void {
 	void clearChats();
 	// Every deck's undo history (Filo, IndexedDB) is cleared by the caller, governance.ts, which
 	// awaits it: this module stays free of the history store, which only the Studio loads.
+	// Decks in the vault: their files go asynchronously; callers await `deckVaultSettled()`.
+	clearShelf();
 	remove(INDEX_LS);
 	remove(LIST_TITLES_LS); // deck titles: deck content, cleared with it
 	remove(ACTIVE_LS); // the boot pointer is deck CONTENT state — clear it with the rest

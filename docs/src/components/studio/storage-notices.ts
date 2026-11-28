@@ -2,12 +2,13 @@
 // needed to paint). Two things:
 //   · a chat thread that could not be stored or read (chat-store.ts), each kind once a minute at
 //     most. chat-store holds a failure raised before this module subscribes, so none is lost;
-//   · once a session, about 15 s after boot, a warning when localStorage (where deck text lives)
-//     is past 80% of its allowance (local-quota.ts). A refused deck save is reported when it
+//   · once a session, about 15 s after boot, a warning when localStorage (where deck text lived until
+//     the vault took it, slice 3) is past 80% of its allowance, while any deck is still there (local-quota.ts). A refused deck save is reported when it
 //     happens, which is too late to help.
 
 import { notifySticky } from '@/lib/notify';
 import { onChatStoreError, scheduleChatMigration } from './chat-store';
+import { legacyDecks } from './deck-shelf-io';
 import { describeLocalUse, localStorageUse } from './local-quota';
 
 /** Start both; returns the cleanup. */
@@ -45,6 +46,9 @@ export function startStorageNotices(): () => void {
 		if (cancelled) return;
 		const use = localStorageUse();
 		if (!use.warn) return;
+		// Once decks are in the storage vault (vault slice 3), localStorage holds only caches and settings, and a full
+		// one no longer stops a deck saving: warn only while a deck still lives there.
+		if (!legacyDecks().length) return;
 		notifySticky(`Deck storage in this browser is ${Math.round(use.fraction * 100)}% full.`, {
 			description: `${describeLocalUse(use)}. When it fills, deck edits stop saving. Download a backup and delete decks you no longer need in Workspace → Privacy & Data.`,
 			label: 'OK',

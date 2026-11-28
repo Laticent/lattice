@@ -1,0 +1,329 @@
+// @vitest-environment node
+// Vault slice 3: deck text in the storage vault. The shelf's guard, the move and its backup, the move-back, a
+// stale tab's save, and a full disk. Driven against a memory vault pinned as the Studio's vault, and
+// `fake-indexeddb` for the photo the backup must still hold.
+import 'fake-indexeddb/auto';
+import JSZip from 'jszip';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { openMemoryVault, type VaultHandle } from '@/lib/vault';
+import { DeckVault, deckPath } from './deck-vault';
+import { DECK_BACKUP_KEY, moveDecksIntoVault, moveDecksOutOfVault } from './deck-vault-move';
+import { LIBRARY_SCOPE, type NewMedia, saveMedia } from './media-store';
+import { pinStudioVault } from './media-vault';
+import { BACKED_UP_KEY, BACKUP_PATH } from './media-vault-move';
+import { BOOT_SRC_LS, DECK_DIRECTION_KEY, deckLoaded, decksReady, deckVaultSettled, loadSource, onSourceWriteError, resetShelfForTests, SRC_PREFIX, saveActiveDeck, saveSource } from './studio-store';
+
+// A whole Storage (studio-store walks keys), installed once.
+const mem = new Map<string, string>();
+(globalThis as { localStorage?: Storage }).localStorage = {
+	getItem: (k) => mem.get(k) ?? null,
+	setItem: (k, v) => void mem.set(k, String(v)),
+	removeItem: (k) => void mem.delete(k),
+	clear: () => mem.clear(),
+	key: (i) => [...mem.keys()][i] ?? null,
+	get length() {
+		return mem.size;
+	},
+} as Storage;
+
+const INDEX = 'lattice-studio-deck-index';
+const deckA = '---\ntheme: cuoio\n---\n# Alpha\n\n- one\n- two\n';
+const deckB = '# Beta\n\n- three\n';
+let vault: VaultHandle;
+const text = async (path: string) => (await vault.read(path)).text();
+const exists = async (path: string) => (await vault.list(path.slice(0, path.lastIndexOf('/')))).some((e) => e.path === path);
+
+/** The pre-slice-3 shape: an index and one JSON-encoded key per edited deck. */
+function seedLegacy() {
+	mem.set(INDEX, JSON.stringify([{ id: 'deck-a', title: 'Alpha', builtin: false }, { id: 'deck-b', title: 'Beta', builtin: false }]));
+	mem.set(SRC_PREFIX + 'deck-a', JSON.stringify(deckA));
+	mem.set(SRC_PREFIX + 'deck-b', JSON.stringify(deckB));
+}
+const pack = (label: string) => async () => new Blob([`zip:${label}`]);
+/** What a reload does to this tab: the in-memory shelf goes, localStorage and the vault stay. */
+function reload() {
+	resetShelfForTests();
+}
+
+beforeEach(async () => {
+	mem.clear();
+	vault = await openMemoryVault();
+	pinStudioVault(vault as never); // a memory vault stands in for the browser's
+	reload();
+});
+afterEach(async () => {
+	await deckVaultSettled();
+	pinStudioVault(undefined);
+});
+
+describe('the move', () => {
+	it('moves every deck in, reads each back, drops its key, and marks the index', async () => {
+		seedLegacy();
+		const r = await moveDecksIntoVault({ pack: pack('today') });
+		expect(r).toMatchObject({ moved: 2, failed: 0 });
+		expect(await text(deckPath('deck-a'))).toBe(deckA);
+		expect(await text(deckPath('deck-b'))).toBe(deckB);
+		expect(mem.has(SRC_PREFIX + 'deck-a')).toBe(false);
+		// (the index also gains the built-in welcome deck, migrateWelcome, which has no text of its own)
+		expect(JSON.parse(mem.get(INDEX) as string).filter((e: { id: string; vault?: true }) => e.id.startsWith('deck-') && e.vault).length).toBe(2);
+		const files = (await vault.list('.lattice/decks/deck-a', { recursive: true })).map((e) => e.path);
+		expect(files.some((p) => /base-[0-9a-f]{64}\.yjs$/.test(p)), files.join(' ')).toBe(true);
+		expect(files).toContain('.lattice/decks/deck-a/head.json');
+		expect(loadSource('deck-a')).toBe(deckA);
+		// A second run finds nothing to move and writes nothing.
+		const before = (await vault.list('', { recursive: true })).length;
+		expect(await moveDecksIntoVault({ pack: pack('again') })).toMatchObject({ moved: 0 });
+		expect((await vault.list('', { recursive: true })).length).toBe(before);
+	});
+	it('leaves a deck in its key when it is saved to during the move', async () => {
+		seedLegacy();
+		const p = moveDecksIntoVault({ pack: async () => {
+			mem.set(SRC_PREFIX + 'deck-b', JSON.stringify(`${deckB}- typed during the move\n`));
+			return new Blob(['zip']);
+		} });
+		const r = await p;
+		// deck-b was changed before it was read, so it moved with the new text; change it after the copy instead:
+		expect(r.moved).toBe(2);
+		seedLegacy();
+		mem.set(INDEX, JSON.stringify([{ id: 'deck-c', title: 'C', builtin: false }]));
+		mem.set(SRC_PREFIX + 'deck-c', JSON.stringify('# C\n'));
+		const dv = new DeckVault({ vault, slot: 9 });
+		const orig = dv.moveIn.bind(dv);
+		// Simulate a save landing between the copy and the swap.
+		const back = await orig('deck-c', '# C\n');
+		mem.set(SRC_PREFIX + 'deck-c', JSON.stringify('# C typed\n'));
+		const { takeDeckIntoVault } = await import('./deck-shelf-io');
+		expect(takeDeckIntoVault('deck-c', JSON.stringify('# C\n'), back as string)).toBe(false);
+		expect(mem.get(SRC_PREFIX + 'deck-c')).toBe(JSON.stringify('# C typed\n'));
+		expect(loadSource('deck-c')).toBe('# C typed\n'); // the key still wins
+	});
+});
+
+describe('the backup (storage desk D1)', () => {
+	it("rewrites slice 2's one backup in place, through a checked temp file", async () => {
+		await vault.write(BACKUP_PATH, new Blob(['zip:slice-2']));
+		mem.set(BACKED_UP_KEY, '1');
+		seedLegacy();
+		expect(await moveDecksIntoVault({ pack: pack('today') })).toMatchObject({ backup: 'rewritten', moved: 2 });
+		expect(await text(BACKUP_PATH)).toBe('zip:today');
+		expect(await exists(`${BACKUP_PATH}.tmp`)).toBe(false);
+		expect((await vault.list('.lattice/backups')).length).toBe(1); // still ONE backup
+		expect(mem.get(DECK_BACKUP_KEY)).toBe('1');
+	});
+	it('keeps the old zip and moves nothing when the rewrite fails', async () => {
+		await vault.write(BACKUP_PATH, new Blob(['zip:slice-2']));
+		mem.set(BACKED_UP_KEY, '1');
+		seedLegacy();
+		const r = await moveDecksIntoVault({ pack: async () => { throw new Error('out of memory'); } });
+		expect(r.stopped).toBe('backup-failed');
+		expect(await text(BACKUP_PATH)).toBe('zip:slice-2');
+		expect(mem.has(SRC_PREFIX + 'deck-a')).toBe(true);
+		expect(mem.has(DECK_BACKUP_KEY)).toBe(false);
+	});
+	it('keeps the old zip when the vault stores the new one wrong, and the move stops', async () => {
+		await vault.write(BACKUP_PATH, new Blob(['zip:slice-2']));
+		seedLegacy();
+		const realRead = vault.read.bind(vault);
+		vault.read = async (p: string) => (p.endsWith('.tmp') ? new Blob(['torn']) : realRead(p));
+		const r = await moveDecksIntoVault({ pack: pack('today') });
+		vault.read = realRead;
+		expect(r.stopped).toBe('backup-failed');
+		expect(await text(BACKUP_PATH)).toBe('zip:slice-2');
+		expect(await exists(`${BACKUP_PATH}.tmp`)).toBe(false);
+	});
+	it('writes none when the person deleted the slice 2 backup', async () => {
+		mem.set(BACKED_UP_KEY, '1');
+		seedLegacy();
+		expect(await moveDecksIntoVault({ pack: pack('today') })).toMatchObject({ backup: 'kept', moved: 2 });
+		expect(await exists(BACKUP_PATH)).toBe(false);
+	});
+	it('the rewritten zip still holds a photo slice 2 moved into the vault', async () => {
+		const b = Uint8Array.from({ length: 512 }, (_, i) => (i * 7) & 255);
+		const media: NewMedia = { kind: 'image', name: 'hero', scope: LIBRARY_SCOPE, blob: new Blob([b], { type: 'image/png' }), mime: 'image/png', bytes: b.length, width: 4, height: 4, sourceName: 'hero.png', original: true };
+		const saved = await saveMedia(media, 1);
+		expect((await vault.list('Library/Images')).length).toBe(1); // slice 2's shape: the bytes are in the vault
+		await vault.write(BACKUP_PATH, new Blob(['zip:slice-2']));
+		mem.set(BACKED_UP_KEY, '1');
+		seedLegacy();
+		expect(await moveDecksIntoVault()).toMatchObject({ backup: 'rewritten', moved: 2 }); // the real packWorkspace
+		const zip = await JZ(await vault.read(BACKUP_PATH));
+		const names = Object.keys(zip.files);
+		const photo = names.find((n) => n === `media/${saved.name}.png`);
+		expect(photo, names.join(' ')).toBeTruthy();
+		expect(new Uint8Array(await zip.file(photo as string)!.async('uint8array'))).toEqual(b);
+		// And the decks as they were just before the move.
+		const all = await Promise.all(names.filter((n) => n.endsWith('.md')).map((n) => zip.file(n)!.async('string')));
+		expect(all.some((t) => t.includes('# Alpha'))).toBe(true);
+	});
+});
+const JZ = async (b: Blob) => JSZip.loadAsync(await b.arrayBuffer());
+
+describe('the guard: a save before the shelf has the deck (storage desk must-fix)', () => {
+	it('is refused and never shrinks the stored deck', async () => {
+		seedLegacy();
+		await moveDecksIntoVault({ pack: pack('x') });
+		await deckVaultSettled();
+		reload(); // a new tab: no boot cache for deck-a, the shelf has not read the vault
+		mem.delete(BOOT_SRC_LS);
+		expect(deckLoaded('deck-a')).toBe(false);
+		expect(loadSource('deck-a')).toBeNull();
+		// What an autosave of a canonical or empty editor would send.
+		expect(saveSource('deck-a', '# Untitled deck\n')).toBe(false);
+		await deckVaultSettled();
+		expect(await text(deckPath('deck-a'))).toBe(deckA);
+		await decksReady();
+		expect(deckLoaded('deck-a')).toBe(true);
+		expect(loadSource('deck-a')).toBe(deckA);
+		expect(saveSource('deck-a', `${deckA}- three\n`)).toBe(true);
+		await deckVaultSettled();
+		expect(await text(deckPath('deck-a'))).toBe(`${deckA}- three\n`);
+	});
+	it('the boot deck is loaded from its cache before the vault is read', async () => {
+		seedLegacy();
+		saveActiveDeck('deck-a', 0);
+		await moveDecksIntoVault({ pack: pack('x') });
+		expect(JSON.parse(mem.get(BOOT_SRC_LS) as string)).toMatchObject({ id: 'deck-a', text: deckA });
+		reload();
+		expect(deckLoaded('deck-a')).toBe(true);
+		expect(loadSource('deck-a')).toBe(deckA);
+		expect(deckLoaded('deck-b')).toBe(false);
+	});
+});
+
+describe('the boot cache after a cut-off save', () => {
+	it('saves the cached text again when the vault still holds its base', async () => {
+		seedLegacy();
+		saveActiveDeck('deck-a', 0);
+		await moveDecksIntoVault({ pack: pack('x') });
+		await decksReady();
+		// The vault write never runs: the tab closes first.
+		const realWrite = vault.write.bind(vault);
+		vault.write = () => new Promise(() => {});
+		saveSource('deck-a', `${deckA}- typed, then closed\n`, { fromShell: true });
+		const cached = mem.get(BOOT_SRC_LS) as string;
+		vault.write = realWrite;
+		reload();
+		mem.set(BOOT_SRC_LS, cached);
+		await decksReady();
+		await deckVaultSettled();
+		expect(await text(deckPath('deck-a'))).toBe(`${deckA}- typed, then closed\n`);
+		expect(loadSource('deck-a')).toBe(`${deckA}- typed, then closed\n`);
+	});
+	it("lets the vault win when another tab saved after the cache's base", async () => {
+		seedLegacy();
+		saveActiveDeck('deck-a', 0);
+		await moveDecksIntoVault({ pack: pack('x') });
+		await deckVaultSettled();
+		const stale = mem.get(BOOT_SRC_LS) as string;
+		await new DeckVault({ vault, slot: 7 }).save('deck-a', deckA, `${deckA}- from another tab\n`);
+		reload();
+		mem.set(BOOT_SRC_LS, stale);
+		await decksReady();
+		expect(loadSource('deck-a')).toBe(`${deckA}- from another tab\n`);
+	});
+});
+
+describe('saving', () => {
+	it('a new deck goes to the vault once the tab knows it has one, and reads back after a reload', async () => {
+		mem.set(INDEX, JSON.stringify([{ id: 'n1', title: 'N', builtin: false }]));
+		await decksReady();
+		expect(saveSource('n1', '# New\n')).toBe(true);
+		await deckVaultSettled();
+		expect(mem.has(SRC_PREFIX + 'n1')).toBe(false);
+		reload();
+		await decksReady();
+		expect(loadSource('n1')).toBe('# New\n');
+	});
+	it('a stale tab’s save keeps the other tab’s newer text (three-way, finding 3)', async () => {
+		const a = new DeckVault({ vault, slot: 0 });
+		const b = new DeckVault({ vault, slot: 1 });
+		await a.save('d', '', 'one\ntwo\nthree');
+		await a.save('d', 'one\ntwo\nthree', 'one\ntwo\nthree\nfrom A');
+		// Tab B still has the text from before A's second save.
+		const { merged } = await b.save('d', 'one\ntwo\nthree', 'from B\none\ntwo\nthree');
+		expect(merged).toBe('from B\none\ntwo\nthree\nfrom A');
+		expect(await text(deckPath('d'))).toBe(merged);
+		// Each tab writes only its own pending file.
+		const pending = (await vault.list('.lattice/decks/d/pending')).map((e) => e.path);
+		expect(pending.length).toBe(2);
+	});
+	it('an update file a minute at most; the pending file carries the edits in between, and a new tab in the slot adopts it', async () => {
+		let t = 0;
+		const a = new DeckVault({ vault, slot: 3, now: () => t });
+		await a.save('d', '', 'x');
+		t = 30_000;
+		await a.save('d', 'x', 'x\ny');
+		expect(await vault.list('.lattice/decks/d/updates').catch(() => [])).toEqual([]);
+		t = 61_000;
+		await a.save('d', 'x\ny', 'x\ny\nz');
+		expect((await vault.list('.lattice/decks/d/updates')).length).toBe(1);
+		await a.save('d', 'x\ny\nz', 'x\ny\nz\nw'); // only in the pending file now
+		// The tab closes; the next tab to take slot 3 turns its pending file into an update file and reads it all.
+		const next = new DeckVault({ vault, slot: 3, now: () => t });
+		const { merged } = await next.save('d', 'x\ny\nz\nw', 'x\ny\nz\nw');
+		expect(merged).toBe('x\ny\nz\nw');
+		expect((await vault.list('.lattice/decks/d/updates')).length).toBe(2);
+		expect((await vault.list('.lattice/decks/d/pending').catch(() => [])).length).toBe(0);
+	});
+	it('a deck.md edited outside Lattice is adopted on open, not lost and not doubled', async () => {
+		const a = new DeckVault({ vault, slot: 0 });
+		await a.save('d', '', 'a\nb\nc');
+		await vault.write(deckPath('d'), 'a\nB\nc'); // a hand edit, say
+		const fresh = new DeckVault({ vault, slot: 1 });
+		const { merged } = await fresh.save('d', 'a\nB\nc', 'a\nB\nc\nd');
+		expect(merged).toBe('a\nB\nc\nd');
+	});
+	it('a full disk reaches the notice, and the next save that lands carries the edits the failed one held', async () => {
+		seedLegacy();
+		await moveDecksIntoVault({ pack: pack('x') });
+		await deckVaultSettled();
+		const heard: string[] = [];
+		const stop = onSourceWriteError(({ error }) => heard.push((error as Error).name));
+		const realWrite = vault.write.bind(vault);
+		vault.write = async () => {
+			throw new DOMException('the disk is full', 'QuotaExceededError');
+		};
+		expect(saveSource('deck-a', `${deckA}- lost?\n`)).toBe(true);
+		await deckVaultSettled();
+		expect(heard).toEqual(['QuotaExceededError']);
+		vault.write = realWrite;
+		expect(saveSource('deck-a', `${deckA}- lost?\n- and more\n`)).toBe(true);
+		await deckVaultSettled();
+		expect(await text(deckPath('deck-a'))).toBe(`${deckA}- lost?\n- and more\n`);
+		stop();
+	});
+});
+
+describe('the move-back (DECK_DIRECTION = local)', () => {
+	it('puts every deck back in its key, read back, then removes its vault files', async () => {
+		seedLegacy();
+		await moveDecksIntoVault({ pack: pack('x') });
+		await deckVaultSettled();
+		mem.set(DECK_DIRECTION_KEY, 'local');
+		reload();
+		const r = await moveDecksOutOfVault();
+		expect(r).toEqual({ movedBack: 2, left: 0 });
+		expect(JSON.parse(mem.get(SRC_PREFIX + 'deck-a') as string)).toBe(deckA);
+		expect(await vault.list('Decks')).toEqual([]);
+		expect(await vault.list('.lattice/decks', { recursive: true })).toEqual([]);
+		expect(JSON.parse(mem.get(INDEX) as string).some((e: { vault?: true }) => e.vault)).toBe(false);
+		reload();
+		expect(loadSource('deck-b')).toBe(deckB);
+	});
+	it('leaves a deck in the vault, still readable, when its key cannot be written', async () => {
+		seedLegacy();
+		await moveDecksIntoVault({ pack: pack('x') });
+		await deckVaultSettled();
+		reload();
+		const realSet = localStorage.setItem;
+		localStorage.setItem = (k: string, v: string) => {
+			if (k.startsWith(SRC_PREFIX)) throw new DOMException('full', 'QuotaExceededError');
+			mem.set(k, v);
+		};
+		const r = await moveDecksOutOfVault();
+		localStorage.setItem = realSet;
+		expect(r).toEqual({ movedBack: 0, left: 2 });
+		expect(await text(deckPath('deck-a'))).toBe(deckA);
+		expect(loadSource('deck-a')).toBe(deckA);
+	});
+});

@@ -33,7 +33,7 @@ import { LIBRARY_SCOPE } from './media-store';
 import { blobToDataUrl, dataUrlToBlob, MAX_DOC_BYTES } from './reference-doc';
 import { listRefDocs, MAX_DECK_REF_BYTES, type RefDocRecord, refDocBlob, saveRefDoc } from './reference-doc-store';
 import { listStoredScenes, putUnreadableScene, type StudioScene, saveStudioScene, type UnreadableScene, unreadableSceneShelf } from './scene-library';
-import { exportStudioState, type ImportSummary, importStudioState, loadSource, mapCheckpointSources, requestSourceFlush, resolvedSources, type StudioExport, saveSource, titleFromSource } from './studio-store';
+import { decksReady, deckVaultSettled, exportStudioState, type ImportSummary, importStudioState, loadSource, mapCheckpointSources, onSourceWriteError, requestSourceFlush, resolvedSources, type StudioExport, saveSource, titleFromSource } from './studio-store';
 import { listStudioThemes, saveStudioTheme } from './theme-library';
 import { MAX_MEDIA_RESTORE_BYTES, MAX_MEDIA_ROWS, packMedia, renameAssetRefs, restoreMedia } from './workspace-media';
 import { declaredInflatedBytes, jsonGuard, MAX_INFLATED_BYTES, MAX_ZIP_BYTES, MAX_ZIP_ENTRIES, readBudget, readBytesBudget } from './zip-limits';
@@ -111,6 +111,9 @@ export async function packWorkspace(now: number, report?: PackReport): Promise<B
 	// or a backup taken mid-keystroke misses the newest edits (and a JUST-edited
 	// built-in would have no stored source at all and drop out entirely).
 	requestSourceFlush();
+	// Decks in the storage vault are on the shelf only once it has read them (vault slice 3): before that a vault
+	// deck reads as null and would drop out of the backup.
+	await decksReady();
 	// Checkpoints and chats load from IndexedDB after boot; a backup taken first must still carry them.
 	await hydrateCheckpoints();
 	await hydrateAllChats();
@@ -534,6 +537,11 @@ export async function restoreWorkspace(file: Blob, now: number): Promise<Restore
 	// Restore merges checkpoints and chats only where this browser has none, so it must see the stored ones first.
 	await hydrateCheckpoints();
 	await hydrateAllChats();
+	await decksReady(); // a restore merges into vault decks, so the shelf must hold them first (vault slice 3)
+	// A vault deck's write lands after `saveSource` returns, so a refusal (a full disk) arrives later: hear it, and
+	// name the deck in the summary like a refusal the write reported at once.
+	const vaultRefused = new Set<string>();
+	const stopHearing = onSourceWriteError(({ deckId }) => vaultRefused.add(deckId));
 	const decks = importStudioState(state, now);
 	const summary: RestoreSummary = { ...decks, themes: 0, components: 0, finishes: 0, scenes: 0, unreadableScenes: 0, refdocs: 0, media: 0, mediaRenamed: 0, refused: [...decks.refused, ...refused] };
 
@@ -646,6 +654,12 @@ export async function restoreWorkspace(file: Blob, now: number): Promise<Restore
 	// Checkpoint and chat writes are asynchronous (IndexedDB), and the caller reloads the page after a
 	// restore: wait for them to land, or a large restore could be cut off by that reload.
 	await checkpointsSettled();
+	await deckVaultSettled();
+	stopHearing();
+	for (const id of vaultRefused) {
+		const title = state.index?.find((e) => e.id === id)?.title ?? Object.entries(decks.copies ?? {}).find(([, c]) => c === id)?.[0] ?? id;
+		summary.refused.push({ name: `deck ${String(title).slice(0, 60)}`, why: "this browser's storage would not take it" });
+	}
 	await chatsSettled();
 	return summary;
 }
