@@ -63,6 +63,7 @@ import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } fr
 import { createRequire } from 'node:module';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { buildBaseTree } from './lib/base-tree.mjs';
 import { affectedGoldens, DEFAULT_RENDER_CAP, renderRelevantChanges } from './lib/golden-affected.mjs';
 import { prBaseRef } from './lib/golden-base.mjs';
 import { failFractionForDeck, failFractionForGallery, galleryDecks, renderDeck, renderGallery, THEMES } from './lib/golden-render.mjs';
@@ -208,35 +209,7 @@ const RENDER_CAP = Number(process.env.GOLDEN_DIFF_RENDER_CAP || DEFAULT_RENDER_C
 
 let baseTree = null; // { root } once built, or { error } if it could not be
 function baseTreeFor(base) {
-  if (baseTree) return baseTree;
-  const root = join(OUT, 'base-tree');
-  try {
-    rmSync(root, { recursive: true, force: true });
-    mkdirSync(root, { recursive: true });
-    // An export of the base tree WITHOUT its PDFs, not a worktree. The render reads none
-    // of them, so writing a second copy of every PDF to disk (151 MB of the tree's 237 MB)
-    // buys nothing, and in CI's blobless clone a worktree would also fetch every PDF that
-    // differs between base and head. Nothing the render runs calls git, so plain files
-    // are enough.
-    const tar = join(OUT, 'base-tree.tar');
-    execFileSync('git', ['archive', '--format=tar', '-o', tar, base, '--', '.', ':(exclude)*.pdf'], { cwd: ROOT, stdio: 'ignore' });
-    execFileSync('tar', ['-xf', tar, '-C', root]);
-    rmSync(tar, { force: true });
-    // The base tree reuses this checkout's node_modules: rendering needs the base's own
-    // lib/ and dist/, not its own dependency install. Dependency changes are themselves
-    // a "shared" change, and their effect shows up in the head render.
-    execFileSync('ln', ['-s', join(ROOT, 'node_modules'), join(root, 'node_modules')]);
-    try {
-      execFileSync(process.execPath, ['tools/build.js', '--only-uncommitted'], { cwd: root, stdio: 'ignore' });
-    } catch {
-      // A step unrelated to rendering can fail under a symlinked node_modules (the agent
-      // kit checks its bundler banners). What rendering needs is checked below.
-    }
-    if (!existsSync(join(root, 'dist', 'lattice.css'))) throw new Error('base build produced no dist/lattice.css');
-    baseTree = { root };
-  } catch (err) {
-    baseTree = { error: err.message };
-  }
+  baseTree ??= buildBaseTree({ repoRoot: ROOT, ref: base, dir: join(OUT, 'base-tree') });
   return baseTree;
 }
 

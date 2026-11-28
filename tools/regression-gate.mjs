@@ -17,10 +17,13 @@
 // tolerance. It NEVER byte-compares PDFs. Two renders on ONE machine ARE now
 // byte-identical (lib/core/pdf-timestamps.js pinned the clock, the only thing
 // that was churning), but a golden blessed on a DIFFERENT machine is not: Skia
-// rasterizes through CPU-dispatched code paths. Pixels, compared with a
-// tolerance, are what survives that — the §7.1
-// spike proved cross-session pixel determinism once fonts are self-hosted
-// (assets/fonts/*.woff2, emitted into every PDF by the emulator).
+// rasterizes the PDF's photo layer through CPU-dispatched code paths. The tolerance
+// absorbs most of that, NOT all of it. The §7.1 spike's 0 px was same-machine-class.
+// Measured 2026-11-27, a sandbox drifted 0.10–0.30% of a page from runner-blessed deck
+// goldens with no source change. Every content stream and font matched; only the raster
+// photo XObjects differed. Chrome 157 (CI's pinned build) and 158 wrote byte-identical
+// PDFs, so the browser version was not the cause. Hence the host line every run prints,
+// and `--control` (below), which tells that band from a source change on this machine.
 //
 // GREEN = the committed golden still matches a fresh render (the author blessed
 // correctly). RED = unblessed drift — CSS/source changed but a deck's committed
@@ -55,6 +58,14 @@
 //   node tools/regression-gate.mjs --jobs auto          # one worker per core (default 1)
 //   node tools/regression-gate.mjs --promote            # check, and keep the fresh render of
 //                                                       # every golden that drifted (the nightly bless)
+//   node tools/regression-gate.mjs --only examples/x --control
+//                                                       # re-render each drift at the commit its golden was
+//                                                       # rendered from, HERE: "cross-machine band" (passes
+//                                                       # only for a nightly bless with unchanged deps;
+//                                                       # refused under stale render builds or LATTICE_*),
+//                                                       # "source drift" or "unavailable" (fail). ~50 s per
+//                                                       # commit tree + two renders per drift, one at a time
+//                                                       # (it ignores --jobs); tools/lib/regress-control.mjs
 //
 // `--jobs N` runs each gallery or deck golden in its own child process, N at a time. Each
 // render launches its own browser, so the units are independent; measured 2026-11-08 in the
@@ -65,10 +76,13 @@
 // .scratch/regression/.
 
 import { execFileSync, spawn } from 'node:child_process';
-import { existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { dirname, join, relative } from 'node:path';
+import { cpus } from 'node:os';
+import { dirname, isAbsolute, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { buildBaseTree } from './lib/base-tree.mjs';
+import { lastBlessRenderedFrom } from './lib/golden-bless-verdict.mjs';
 import {
   FAIL_FRACTION,
   FAIL_FRACTION_MERMAID,
@@ -83,10 +97,12 @@ import {
   THEMES,
 } from './lib/golden-render.mjs';
 import { deckGoldenPdfs } from './lib/golden-set.mjs';
+import { controlLine, controlPasses, controlVerdict, groupByBlessCommit, hostLine, renderBuildSteps, renderEnvOverrides, resolveSource, staleSteps } from './lib/regress-control.mjs';
 
 const require = createRequire(import.meta.url);
 const { pixelDiff, montageTriptych, pngsToPdf } = require('./pixel-check.js');
 const { defaultJobs, pool } = require('./lib/pool.js');
+const { detectChromeExecutable } = require('../lib/core/chrome-exec.js');
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(ROOT, '.scratch', 'regression');
@@ -484,6 +500,129 @@ function printRow(r) {
   process.stdout.write(`${r.fail && !r.blessed ? '✗' : '✓'} ${r.name.padEnd(20)} ${parts.join('  ')}\n`);
 }
 
+// ── Host + control (--control) ────────────────────────────────────────────────
+// The Chrome the renders launch (the resolver lib/core/chrome-exec.js gives the emulator) and
+// the CPU. A drift number depends on both, so every run says which it had.
+function hostInfo() {
+  let chrome = '';
+  try {
+    const bin = detectChromeExecutable();
+    if (bin) chrome = execFileSync(bin, ['--version'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 5000 }).trim();
+  } catch { /* reported as unknown */ }
+  const list = cpus();
+  return { chrome, cpu: list[0]?.model?.trim() || '', cores: list.length };
+}
+
+// The git facts the control's source lookup needs (tools/lib/regress-control.mjs resolveSource).
+function git(args) {
+  return execFileSync('git', args, { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+}
+function sourceContext() {
+  let isShallow = false;
+  let cutoffs = new Set();
+  try {
+    isShallow = git(['rev-parse', '--is-shallow-repository']) === 'true';
+  } catch {
+    // An old git without the flag: the cut-off file below still says so.
+  }
+  try {
+    const file = git(['rev-parse', '--git-path', 'shallow']);
+    const path = isAbsolute(file) ? file : join(ROOT, file);
+    if (existsSync(path)) {
+      isShallow = true;
+      cutoffs = new Set(readFileSync(path, 'utf8').split('\n').filter(Boolean));
+    }
+  } catch {
+    // resolveSource fails closed on a shallow clone with no readable cut-off list.
+  }
+  // The render inputs the control tree cannot carry: the installed packages, read through the
+  // lockfile. Workspace packages are carried: the tree links and builds its own (ownWorkspaces).
+  const renderInputs = ['package.json', 'package-lock.json'];
+  const blessFrom = (subject) => lastBlessRenderedFrom([{ sha: '', subject }]);
+  return { git, cutoffs, isShallow, renderInputs, blessFrom };
+}
+
+// Render one drifting golden here at HEAD and in its source commit's tree, and compare the two.
+function controlOne(treeRoot, item) {
+  const renderAt = (root) => (item.theme === 'golden'
+    ? renderDeck(root, join(root, item.md))
+    : renderGallery(root, join(root, item.md), item.theme));
+  // Floor 0: both renders run on this machine, where an unchanged source renders identically, so
+  // any pixel past FUZZ is a change. The gate's own floor would let a small source change hide
+  // under it (the second review of #3589, finding 3).
+  const cleanup = [];
+  try {
+    const head = renderAt(ROOT);
+    cleanup.push(...head.cleanup);
+    const base = renderAt(treeRoot);
+    cleanup.push(...base.cleanup);
+    const diff = pixelDiff(base.outPdf, head.outPdf, `regr-control-${item.golden.replace(/[^a-z0-9]+/gi, '_')}`, { fuzz: FUZZ });
+    try { rmSync(diff.tmpDir, { recursive: true, force: true }); } catch { /* ignore */ }
+    return controlVerdict(diff.perPage, 0);
+  } catch (err) {
+    return { verdict: 'unavailable', error: `render failed: ${String(err.message || err).split('\n')[0]}` };
+  } finally {
+    for (const p of cleanup) { try { rmSync(p, { force: true }); } catch { /* ignore */ } }
+  }
+}
+
+// Why the control cannot run at all here, or ''. Every render build is `--check`ed in this checkout,
+// about 20 s for all of them; nothing is rebuilt, so the drift above and the control's HEAD render
+// see the same files.
+function controlRefusal() {
+  const env = renderEnvOverrides(process.env);
+  if (env.length) return `render settings in the environment (${env.join(', ')}) would reach both renders alike; unset them and run again`;
+  const steps = renderBuildSteps(readdirSync(join(ROOT, 'tools')));
+  const stale = staleSteps(steps, (step) => execFileSync(process.execPath, [join('tools', step), '--check'], { cwd: ROOT, stdio: 'ignore' }));
+  if (stale.length) return `this checkout's render builds are stale or missing (${stale.join(', ')}); run \`npm run build\` and try again`;
+  return '';
+}
+
+// The tree's own render builds, made explicitly and then checked: buildBaseTree's general build
+// swallows a failed step, and a render bundle missing on BOTH sides would make both renders fall
+// back alike (the PDF writer, for one, falls back to Chrome's print) and read as "machine".
+function treeWithRenderBuilds(tree) {
+  if (tree.error) return tree;
+  const steps = renderBuildSteps(readdirSync(join(tree.root, 'tools')));
+  const run = (args) => (step) => execFileSync(process.execPath, [join('tools', step), ...args], { cwd: tree.root, stdio: 'ignore' });
+  const failed = staleSteps(steps, run([]));
+  const stale = failed.length ? failed : staleSteps(steps, run(['--check']));
+  return stale.length ? { error: `the source commit's render builds failed or are incomplete (${stale.join(', ')})` } : tree;
+}
+
+// Attach a control verdict to every drifting mood in the report. One tree per bless commit.
+function runControl(report) {
+  const items = [];
+  for (const r of report) {
+    for (const [theme, tr] of Object.entries(r.themes)) {
+      if (tr.status === 'DRIFT') items.push({ row: r, theme, tr, md: r.deck, golden: tr.golden });
+    }
+  }
+  // Two things this checkout's render carries that the control's tree does not, and that the
+  // control would therefore read as "machine": render settings in the environment, and stale
+  // gitignored builds (the HEAD render loads this checkout's dist/ and docs/src/lib/*/dist, while
+  // the tree builds its own fresh). Either one makes every control unavailable.
+  const refusal = controlRefusal();
+  if (refusal) {
+    for (const item of items) item.tr.control = { sha: '', nightly: false, depsChanged: false, verdict: 'unavailable', error: refusal };
+    return items;
+  }
+  const ctx = sourceContext();
+  for (const [key, list] of groupByBlessCommit(items, (g) => JSON.stringify(resolveSource(g, ctx)))) {
+    const src = JSON.parse(key);
+    const dir = join(OUT, `control-${src.sha ? src.sha.slice(0, 12) : 'none'}`);
+    const tree = src.error ? { error: src.error } : treeWithRenderBuilds(buildBaseTree({ repoRoot: ROOT, ref: src.sha, dir, ownWorkspaces: true }));
+    for (const item of list) {
+      const c = tree.error ? { verdict: 'unavailable', error: tree.error } : controlOne(tree.root, item);
+      // An old tree runs on this checkout's node_modules, so a package it imports may be gone.
+      if (c.verdict === 'unavailable' && src.depsChanged) c.error += `; dependencies changed since ${src.sha.slice(0, 8)}, so its tree may import a package this checkout no longer has`;
+      item.tr.control = { sha: src.sha || '', nightly: Boolean(src.nightly), depsChanged: Boolean(src.depsChanged), ...c };
+    }
+    rmSync(dir, { recursive: true, force: true });
+  }
+  return items;
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 async function main() {
   const args = process.argv.slice(2);
@@ -497,6 +636,13 @@ async function main() {
   // --unit: run as one worker of a parallel parent (below). It leaves OUT and report.json alone,
   // because the parent owns them and sibling workers write into OUT at the same time.
   const unit = args.includes('--unit');
+  // --control: re-render each drifting golden at the commit that blessed it, on this machine, and
+  // say whether the drift is the cross-machine band or a source change (tools/lib/regress-control.mjs).
+  const control = args.includes('--control');
+  if (control && (promote || blessMode)) {
+    process.stderr.write('error: --control is a check; it does not combine with --promote or --bless\n');
+    return 2;
+  }
   const jobsIdx = args.indexOf('--jobs');
   const jobsArg = jobsIdx >= 0 ? args[jobsIdx + 1] : '1';
   const jobs = jobsArg === 'auto' ? defaultJobs() : Number(jobsArg);
@@ -592,6 +738,8 @@ async function main() {
 
   if (!unit) rmSync(OUT, { recursive: true, force: true });
   mkdirSync(OUT, { recursive: true });
+  const host = unit ? null : hostInfo();
+  if (host && !json) process.stdout.write(`${hostLine(host)}\n\n`);
 
   // One unit per gallery NAME (a bucket and a component can share one: `code`, `math`, …, and
   // `--only` runs both) and one per deck golden. With --jobs above 1, each unit is a child
@@ -611,26 +759,49 @@ async function main() {
   // A BLESSED golden is not a failure — the drift was resolved by this very run, so
   // reporting it red (and telling the reader to "re-bless") would be a lie about what
   // just happened, and would give `--bless` a non-zero exit on success.
-  const anyFail = report.some((r) => r.fail && !r.blessed);
+  let anyFail = report.some((r) => r.fail && !r.blessed);
   if (unit) {
     process.stdout.write(`${JSON.stringify({ report })}\n`);
     return anyFail ? 1 : 0;
   }
 
+  // With --control, a drift the control shows to be the cross-machine band is not a failure.
+  // Everything else still is: source drift, a control that could not run, a missing golden.
+  let controlled = [];
+  if (control && anyFail) {
+    if (!json) process.stdout.write('\ncontrol: re-rendering each drift at the commit its golden was rendered from, on this machine…\n');
+    controlled = runControl(report);
+    for (const r of report) {
+      if (!r.fail || r.blessed) continue;
+      r.fail = Object.values(r.themes).some((t) => t.status !== 'ok' && !controlPasses(t.control));
+    }
+    anyFail = report.some((r) => r.fail && !r.blessed);
+  }
   writeFileSync(join(OUT, 'report.json'), JSON.stringify(report, null, 2));
   if (json) {
-    process.stdout.write(JSON.stringify({ ok: !anyFail, fuzz: FUZZ, failFraction: FAIL_FRACTION, failFractionMermaid: FAIL_FRACTION_MERMAID, report }, null, 2) + '\n');
+    process.stdout.write(JSON.stringify({ ok: !anyFail, host, fuzz: FUZZ, failFraction: FAIL_FRACTION, failFractionMermaid: FAIL_FRACTION_MERMAID, report }, null, 2) + '\n');
   } else {
     const failed = report.filter((r) => r.fail && !r.blessed);
     const blessed = report.filter((r) => r.blessed);
     const parts = [];
     if (decks.length) parts.push(`${decks.length} galleries × ${THEMES.length} moods`);
     if (goldens.length) parts.push(`${goldens.length} deck goldens`);
+    for (const item of controlled) {
+      process.stdout.write(`${item.row.name}${item.theme === 'golden' ? '' : ` (${item.theme})`}\n${controlLine(item.tr.control)}\n`);
+    }
     process.stdout.write(`\n${parts.join(' + ')}. `);
     if (blessed.length) process.stdout.write(`${blessed.length} re-blessed (the nightly bless commits PDFs; a PR does not). `);
-    process.stdout.write(anyFail ? `${failed.length} DRIFTED: ${failed.map((r) => r.name).join(', ')}\n` : 'all match committed goldens.\n');
+    const band = controlled.filter((i) => controlPasses(i.tr.control)).length;
+    if (band) process.stdout.write(`${band} drift(s) are the cross-machine band (same render as their bless commit here). `);
+    process.stdout.write(anyFail ? `${failed.length} DRIFTED: ${failed.map((r) => r.name).join(', ')}\n` : band ? 'No source drift.\n' : 'all match committed goldens.\n');
     if (anyFail) {
       process.stdout.write(`Artifacts: ${relative(ROOT, OUT)}/. Re-bless with: node tools/regression-gate.mjs --bless [--only <name>]\n`);
+      if (!control) {
+        process.stdout.write(
+          'A drift here is not yet evidence of a regression: the goldens were blessed on another machine. ' +
+            'Add --control to re-render each one at the commit that blessed it, here, and get a verdict.\n',
+        );
+      }
     }
   }
   return anyFail ? 1 : 0;

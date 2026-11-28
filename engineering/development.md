@@ -327,6 +327,62 @@ WCAG AA — which is deterministic and machine-independent. It runs in the
 `engine-parity` pixel gate was retired with marp in P4 — the owned engine is
 canonical. `npm run regress` survives as a LOCAL golden spot-check.)
 
+**A `regress` drift on a clean checkout is not a regression until `--control` says so.**
+The nightly blesses the goldens on a GitHub runner. A sandbox render differs from them
+by about 0.1–0.3% of a page with no source change, because the PDF's photo layer is
+Skia raster and Skia rasterizes through CPU-dispatched code. It is not the Chrome
+version: measured 2026-11-27, Chrome 157 (CI's pinned build) and 158 wrote
+byte-identical PDFs here. `regress` prints the host's Chrome and CPU on every run.
+`--control` re-renders each drifting golden at the commit its nightly bless rendered
+from (the sha in the bless commit's subject), on this machine, and compares the two
+fresh renders with floor 0: any pixel past the anti-aliasing fuzz counts. Same machine, so
+an unchanged source renders identically (measured on three real controls, decks and
+galleries: no pixel past the fuzz). The verdicts:
+
+- **Cross-machine band**: the two renders match. The run passes, but only when a nightly
+  bless wrote the golden and `package.json` / `package-lock.json` are unchanged since its
+  source, compared with the working tree.
+- **Source drift**: the render path changed since that bless. On `main` the nightly will
+  bless it; on a branch, look at it.
+- **Unavailable**: never a pass. It means one of these:
+  - a render setting is in the environment: any `LATTICE_*` variable but `LATTICE_ACTOR`
+    (lattice.js reads about a dozen, from `LATTICE_PDF_*` to `LATTICE_MERMAID_SINGLE`), or
+    `NODE_TEST_CONTEXT`, which `node --test` sets;
+  - a gitignored build this checkout's render loads is stale or missing: run `npm run build`.
+    The check runs `--check` on every one, about 20 s: the Segno grammar, the 19 workspace
+    libraries (`docs/src/lib/*/dist`), `dist/lattice.css` and the default bundle, the dagre
+    and callout-placer bundles, and the PDF writer (`dist/lattice-pdf-compose-min.js`);
+  - the golden has local changes, or was never committed;
+  - the clone is shallow and lacks the source commit, or its cut-off list cannot be read
+    (run `git fetch --unshallow --filter=blob:none`);
+  - git failed;
+  - the old tree would not build, its own render builds failed or came out incomplete, or it
+    would not render.
+
+What the control tree carries and what it borrows. It is the source commit's files plus a
+`node_modules` folder of its own (`buildBaseTree({ ownWorkspaces: true })`, in
+`tools/lib/base-tree.mjs`), laid out as `tools/render-identity.mjs` lays out its reference tree:
+
+- Each `@laticent/*` workspace links to the tree's own copy, under the name the tree's
+  package.json gives it (`tools/lib/workspace-links.js`).
+- Every third-party package, and `docs/node_modules`, links to this checkout's install.
+- The gate then builds the tree's render builds one by one and `--check`s them.
+
+So:
+
+- A workspace change since the source shows up as source drift, like any other source.
+- An old tree finds its own packages, even ones a later rename removed.
+- A dependency change cannot show, so a "band" verdict then does not pass.
+- A golden that no nightly bless wrote (a hand bless, a revert of a bless) has a guessed
+  source, so its "band" does not pass either.
+- One gap remains: an installed `node_modules` that differs from the committed lockfile (a
+  local `npm install`, a stale install after a pull). Run `npm ci` before trusting a "band".
+
+Cost: about 50 s to build each distinct commit's tree (shared with `golden-diff`,
+`tools/lib/base-tree.mjs`), plus two renders per drifting golden, one at a time. So point
+it at a few goldens with `--only examples/<name>`, not the whole corpus. To find which
+merged PR moved a golden, use `tools/golden-bisect.mjs`.
+
 Each test file wraps its body in `describe('<file-basename>', () => {…})`
 so TAP output groups by file. Source of truth: `package.json` scripts
 plus the directory layout.
