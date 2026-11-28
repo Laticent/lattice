@@ -34,10 +34,10 @@ const slides = (settings) => [
   '<section class="divider"><h1>Part two</h1></section>',
   '<section class="content"><h1>Later</h1><p>p</p></section>',
 ].join('');
-// Every settings block also says `progress-rail: on`: seven slides in two sections is below the
+// Every settings block also says `progress-track: on`: seven slides in two sections is below the
 // rail's default floor (progress.transform.js `railWanted`), and these tests are about how a deck's
 // settings reach the slides, not about the floor. Deck-level, as an author writes it.
-const block = (yaml) => `<script type="application/lattice-settings">\nprogress-rail: on\n${yaml}\n</script>`;
+const block = (yaml) => `<script type="application/lattice-settings">\nprogress-track: on\n${yaml}\n</script>`;
 
 // The window's timers are a virtual clock (test/helpers/runtime-boot.js), so no sleep decides whether a pass has run
 // (HARD RULE #32). A Marp render boots until the runtime's queue runs dry (`settle`). The VS Code preview never runs dry:
@@ -86,7 +86,7 @@ test('a host that re-renders with a CHANGED settings block is followed (Marp for
 });
 
 test('VS Code preview: a class typed at the TOP lands once saved, and leaves again once saved', { skip }, async () => {
-  let saved = '---\nmarp: true\ntheme: indaco\nprogress-rail: on\nclass: no-progress\n---\n# T\n';
+  let saved = '---\nmarp: true\ntheme: indaco\nprogress-track: on\nclass: no-progress\n---\n# T\n';
   const fetchImpl = async () => ({ ok: true, text: async () => saved });
   // The two things VS Code's Markdown preview writes that the runtime keys on.
   const head = '<base href="https://file+.vscode-resource.vscode-cdn.net/ws/deck.md">'
@@ -96,7 +96,7 @@ test('VS Code preview: a class typed at the TOP lands once saved, and leaves aga
   assert.deepEqual(rails(w), ['Plain:-', 'Own class:-', 'Opted back in:rail', 'Later:-'],
     'the saved top class reaches the slides Marp\'s `_class` rule would have skipped');
   // Saved WITHOUT the line. VS Code does not re-render on a save, so the watcher has to see it.
-  saved = '---\nmarp: true\ntheme: indaco\nprogress-rail: on\n---\n# T\n';
+  saved = '---\nmarp: true\ntheme: indaco\nprogress-track: on\n---\n# T\n';
   await w.clock.advance(1400);
   assert.deepEqual(rails(w), ['Plain:rail', 'Own class:rail', 'Opted back in:rail', 'Later:rail']);
   // Only the runtime's OWN token is taken back: the slide's class list is otherwise intact.
@@ -109,7 +109,7 @@ test('VS Code preview: a class typed at the TOP lands once saved, and leaves aga
 // token as the slide's own `_class`. The runtime must then never take the author's token back.
 // (Found by the maker-checker pass: the provenance records outlived the patch.)
 test('VS Code preview: a token the slide wrote itself survives the deck dropping the same token', { skip }, async () => {
-  let saved = '---\nmarp: true\nprogress-rail: on\nclass: no-progress\n---\n# T\n';
+  let saved = '---\nmarp: true\nprogress-track: on\nclass: no-progress\n---\n# T\n';
   const fetchImpl = async () => ({ ok: true, text: async () => saved });
   const head = '<base href="https://file+.vscode-resource.vscode-cdn.net/ws/deck.md">'
     + '<meta id="vscode-markdown-preview-data" data-settings="{}">';
@@ -125,7 +125,7 @@ test('VS Code preview: a token the slide wrote itself survives the deck dropping
   w.document.querySelector('section').insertAdjacentHTML('afterbegin', block('split: rule'));
   await w.clock.advance(500);
   // Then removes `class:` from the top and saves.
-  saved = '---\nmarp: true\nprogress-rail: on\n---\n# T\n';
+  saved = '---\nmarp: true\nprogress-track: on\n---\n# T\n';
   await w.clock.advance(1500);
   assert.ok(plain.classList.contains('no-progress'), 'the slide\'s own token is kept');
   assert.equal(plain.querySelector('.tile-progress'), null, 'and the slide still opts out of the rail');

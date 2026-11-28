@@ -113,7 +113,7 @@ specify them, and `split:` and `preset:` have none.
 | `preset:` | `classic` · `editorial` · `brand` · `minimal` | A named look that sets several registers at once, and MAY also recommend `theme:`, `color-mode:`, `mode:`, `chart-finish:`, `color-intensity:` and `backdrop:`. A register the deck sets itself wins over the preset's, and a color-axis token in a deck-wide `class:` (such as `dark`, `light` or `print`), or a `-dark` theme, keeps its color mode over a recommended one. | `unknown-preset` |
 | `split:` | `headings` · `rule` | How the deck divides into slides: at headings as well as `---` (§2.2), or at `---` only. | `unknown-split` |
 | `stamp-shape:` | `tab` `notch` `bracket` `seal` `pill` `ribbon` `flag` `underline` `dot` `mark` `veil` `bar` `pin` | The shape of a slide's marker. | `unknown-stamp-shape` |
-| `tone:` | `rail` · `edge` · `glow` | The marker's tone. | `unknown-tone` |
+| `tone:` | `stripe` · `edge` · `glow` | The marker's tone. | `unknown-tone` |
 | `spectrum:` | up to one word per axis: style (`rainbow` `solid` `duo` `mono` `off`), edge (`top` `left` `right` `bottom`), weight (`regular` `hairline` `band`) | The stripe on the slide edge: its gradient, the edge it sits on, and how thick it is. `off` drops the stripe; the accents in the content keep their style. | `unknown-spectrum` |
 | `card-spectrum:` | up to one word per axis: style (`off` `rainbow` `solid` `duo` `mono`), edge (`left` `top` `right` `bottom`), weight (`regular` `hairline` `band`) | The stripe on each card, with its own style: no key follows another. An edge or weight with no style means `rainbow`. | `unknown-card-spectrum` |
 | `trim-spectrum:` | `quiet` · `rainbow` · `solid` · `duo` · `mono` | The style of the structural accents: table rails, code strips, rules. | `unknown-trim-spectrum` |
@@ -146,7 +146,7 @@ specify them, and `split:` and `preset:` have none.
 |---|---|---|---|
 | `logo:` | a path or URL | The deck's logo on every slide. | — |
 | `logo-finish:` | up to one word per axis: a placement (`top-right` `top-left` `top-center` `bottom-left` `bottom-center` `bottom-right`), a color (`auto` `accent` `ink` `muted` `canvas` `inverse` `brand` `accent-ink` `accent-canvas` `ink-canvas`), a plate (`no-plate` `plate`), a size (`md` `sm` `lg`), a scope (`all` `title`) | How the logo looks and where it sits. A placement word hides the header, footer or page number in that band. | `unknown-logo-finish` |
-| `progress-rail:` | up to one word per axis: a placement (`right` `center` `edge`), a style (`dots` `bar`), a show (`on` `off`) | Where the section rail sits and how it looks. By default it draws in a deck of 3+ sections and 15+ slides; `on` lowers that to 2 sections, `off` hides it. | `unknown-progress-rail` |
+| `progress-track:` | up to one word per axis: a placement (`right` `center` `edge`), a style (`dots` `bar`), a show (`on` `off`) | Where the section rail sits and how it looks. By default it draws in a deck of 3+ sections and 15+ slides; `on` lowers that to 2 sections, `off` hides it. | `unknown-progress-track` |
 | `agenda:` | up to one word per axis: a style (`ledger` `circles` `checks`), a pages (`pages` `no-pages`) | How every agenda that names no style of its own looks, and whether an agenda filled from the dividers shows each section's page number. An agenda the author wrote keeps its own list and page numbers. | `unknown-agenda` |
 | `plugins:` | a list of plugin names | The plugins the deck needs loaded. It only adds: a renderer that loads more by default still does. | `unknown-plugin` |
 

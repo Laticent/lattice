@@ -2,7 +2,7 @@
  * Unit: the `tone:` register resolver (lib/core/resolve-tone-style.js).
  *
  * Pure mapping from the deck front-matter `tone:` value (the tone-marker SHAPE —
- * rail / edge / glow) to the `tone-<style>` class token the three render paths append
+ * stripe / edge / glow) to the `tone-<style>` class token the three render paths append
  * to every section. Orthogonal to the SEMANTIC tone (`tone-pass`/`tone-warn`/…, which
  * sets the color): this sets the shape. All three tone styles are box-shadow-shaped, so
  * they never collide with the state `::before` or the pagination `::after`.
@@ -23,7 +23,7 @@ const {
 
 describe('resolve-tone-style', () => {
   test('toneStyleClass maps each known name to its class token', () => {
-    assert.equal(toneStyleClass('rail'), 'tone-rail');
+    assert.equal(toneStyleClass('stripe'), 'tone-stripe');
     assert.equal(toneStyleClass('edge'), 'tone-edge');
     assert.equal(toneStyleClass('glow'), 'tone-glow');
   });
@@ -31,7 +31,7 @@ describe('resolve-tone-style', () => {
   test('omitted / unrecognized resolve to no class', () => {
     assert.equal(toneStyleClass(''), '');
     assert.equal(toneStyleClass('   '), '');
-    assert.equal(toneStyleClass('raill'), '', 'typo → no class (deck-lint flags it)');
+    assert.equal(toneStyleClass('stripee'), '', 'typo → no class (deck-lint flags it)');
     assert.equal(toneStyleClass(undefined), '');
     assert.equal(toneStyleClass(null), '');
   });
@@ -42,9 +42,9 @@ describe('resolve-tone-style', () => {
   });
 
   test('isKnownToneStyle recognizes the register names only', () => {
-    assert.ok(isKnownToneStyle('rail'));
+    assert.ok(isKnownToneStyle('stripe'));
     assert.ok(isKnownToneStyle('glow'));
-    assert.ok(!isKnownToneStyle('raill'));
+    assert.ok(!isKnownToneStyle('stripee'));
     // The SEMANTIC tone words are NOT tone styles — the two axes are orthogonal.
     assert.ok(!isKnownToneStyle('pass'));
     assert.ok(!isKnownToneStyle(''));
@@ -52,8 +52,8 @@ describe('resolve-tone-style', () => {
   });
 
   test('TONE_STYLE_NAMES / TONE_STYLE_TOKENS list exactly the three shapes', () => {
-    assert.deepEqual([...TONE_STYLE_NAMES], ['rail', 'edge', 'glow']);
-    assert.deepEqual([...TONE_STYLE_TOKENS], ['tone-rail', 'tone-edge', 'tone-glow']);
+    assert.deepEqual([...TONE_STYLE_NAMES], ['stripe', 'edge', 'glow']);
+    assert.deepEqual([...TONE_STYLE_TOKENS], ['tone-stripe', 'tone-edge', 'tone-glow']);
   });
 
   test('readFrontMatterToneStyle extracts the value from the front-matter block only', () => {
@@ -64,7 +64,7 @@ describe('resolve-tone-style', () => {
 
   test('readFrontMatterToneStyle accepts quotes and returns null when absent', () => {
     assert.equal(readFrontMatterToneStyle('---\ntone: "glow"\n---\n'), 'glow');
-    assert.equal(readFrontMatterToneStyle("---\ntone: 'rail'\n---\n"), 'rail');
+    assert.equal(readFrontMatterToneStyle("---\ntone: 'stripe'\n---\n"), 'stripe');
     assert.equal(readFrontMatterToneStyle('---\ntheme: carta\n---\n'), null);
     assert.equal(readFrontMatterToneStyle(''), null);
   });

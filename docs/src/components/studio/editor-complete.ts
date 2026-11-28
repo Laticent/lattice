@@ -10,7 +10,7 @@ import { AGENDA_AXIS_ORDER, agendaWords } from './agenda';
 import { ALIGN_HORIZONTAL, ALIGN_VERTICAL } from './align-catalog';
 import { BACKDROP_MASKS, BACKDROP_STRENGTHS, CARD_TAG_AXES, IMAGE_CARD_AXIS_ORDER, imageCardWords } from './deck-axes';
 import { LOGO_FINISH_AXIS_ORDER, logoFinishWords } from './logo-finish';
-import { PROGRESS_RAIL_AXIS_ORDER, progressRailWords } from './progress-rail';
+import { PROGRESS_TRACK_AXIS_ORDER, progressTrackWords } from './progress-track';
 import { SPECTRUM_KEY_AXES } from './spectrum-keys';
 import { STUDIO_LANGUAGES } from './studio-language';
 
@@ -77,7 +77,7 @@ const REGISTER_AXES: Record<string, readonly (readonly string[])[]> = {
 	'card-tag': Object.values(CARD_TAG_AXES),
 	'image-card': IMAGE_CARD_AXIS_ORDER.map(imageCardWords),
 	'logo-finish': LOGO_FINISH_AXIS_ORDER.map(logoFinishWords),
-	'progress-rail': PROGRESS_RAIL_AXIS_ORDER.map(progressRailWords),
+	'progress-track': PROGRESS_TRACK_AXIS_ORDER.map(progressTrackWords),
 	agenda: AGENDA_AXIS_ORDER.map(agendaWords),
 	'chart-finish': CHART_FINISH_AXES,
 	align: [ALIGN_VERTICAL.map((e) => e.name), ALIGN_HORIZONTAL.map((e) => e.name)],

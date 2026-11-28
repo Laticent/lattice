@@ -32,7 +32,7 @@ import {
 	toneStyleProvenance,
 } from './slide-provenance';
 
-const TONE_STYLES = ['tone-rail', 'tone-edge', 'tone-glow'];
+const TONE_STYLES = ['tone-stripe', 'tone-edge', 'tone-glow'];
 
 const deck = (fm: string, body: string) => `---\n${fm}\n---\n\n${body}`;
 

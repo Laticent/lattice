@@ -1391,7 +1391,7 @@ basis.
 Apply a semantic tone to the slide's accent strip. Used to signal
 overall slide status (e.g. `tone-pass` for an "all green" KPI slide,
 `tone-fail` for an alert slide). The tone token sets the **color**; the
-**shape** it paints in (rail / edge / glow) comes from the deck-wide `tone:`
+**shape** it paints in (stripe / edge / glow) comes from the deck-wide `tone:`
 register or a per-slide `tone-<style>` token — see *The `stamp-shape:` / `tone:`
 front-matter registers* in [`base.registers.docs.md`](base.registers.docs.md).
 

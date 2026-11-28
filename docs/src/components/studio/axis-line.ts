@@ -1,4 +1,4 @@
-// One AXIS-REGISTER line as the Inspector reads and writes it (`logo-finish:`, `progress-rail:`):
+// One AXIS-REGISTER line as the Inspector reads and writes it (`logo-finish:`, `progress-track:`):
 // up to one word per axis, in any order, the first recognized word on each axis winning — the way
 // lib/core/register-factory.js reads it. Shared so each register's Studio mirror is its word table
 // and labels only; the parse and write live once (HARD RULE #15).

@@ -19,9 +19,9 @@ const deckHtml = (sections) => sections.join('');
 // nothing), so a fixture about docking or suppression appends this to clear the floor without
 // changing which section its own slides sit in.
 const ENDER = sec('divider no-progress', '<h2>End</h2>');
-// `progress-rail: on`, deck-wide: lowers the floor to two sections and any length, so a fixture about
+// `progress-track: on`, deck-wide: lowers the floor to two sections and any length, so a fixture about
 // docking, suppression or idempotence stays small. The floors themselves are pinned on their own below.
-const ON = 'progress-rail-on';
+const ON = 'progress-track-on';
 /** A plain content slide, `n` times. */
 const filler = (n, cls = 'content form') => Array.from({ length: n }, () => sec(cls));
 const formRails = (d) => [...d.querySelectorAll('section.form .tile-progress')];
@@ -78,7 +78,7 @@ describe('progress Tile — when the rail is drawn (railWanted)', () => {
   const none = () => false;
   const forced = (t) => t === ON;
 
-  test('the floors are three sections and fifteen slides; `progress-rail: on` lowers them to two and any length', () => {
+  test('the floors are three sections and fifteen slides; `progress-track: on` lowers them to two and any length', () => {
     assert.equal(MIN_SECTIONS, 3);
     assert.equal(MIN_SLIDES, 15);
     assert.equal(MIN_SECTIONS_FORCED, 2);
@@ -111,7 +111,7 @@ describe('progress Tile — when the rail is drawn (railWanted)', () => {
     const out = progress.applyToHtml(deckHtml(nine));
     assert.match(out, /class="tile-progress bar-auto"/);
     assert.match(out, /class="divider-marker bar-auto"/);
-    const dots = progress.applyToHtml(deckHtml(nine).replaceAll(ON, `${ON} progress-rail-dots`));
+    const dots = progress.applyToHtml(deckHtml(nine).replaceAll(ON, `${ON} progress-track-dots`));
     assert.doesNotMatch(dots, /bar-auto/);
   });
 });

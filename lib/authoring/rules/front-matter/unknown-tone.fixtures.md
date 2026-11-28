@@ -9,7 +9,7 @@ A typo close to one name is fixed to it.
 ```md bad typo
 ---
 title: Q3
-tone: ⟦raill⟧
+tone: ⟦stripee⟧
 ---
 
 # A slide
@@ -18,7 +18,7 @@ tone: ⟦raill⟧
 ```md fixed typo
 ---
 title: Q3
-tone: rail
+tone: stripe
 ---
 
 # A slide
@@ -28,8 +28,8 @@ A repeated key is read as its last line, as the engine reads it.
 
 ```md bad last-wins
 ---
-tone: rail
-tone: ⟦raill⟧
+tone: stripe
+tone: ⟦stripee⟧
 ---
 
 # A slide
@@ -37,8 +37,8 @@ tone: ⟦raill⟧
 
 ```md fixed last-wins
 ---
-tone: rail
-tone: rail
+tone: stripe
+tone: stripe
 ---
 
 # A slide
@@ -49,7 +49,7 @@ With no column-0 line, the first indented one stands in.
 ```md bad nested
 ---
 pptx:
-  tone: ⟦raill⟧
+  tone: ⟦stripee⟧
 ---
 
 # A slide
@@ -58,7 +58,28 @@ pptx:
 ```md fixed nested
 ---
 pptx:
-  tone: rail
+  tone: stripe
+---
+
+# A slide
+```
+
+The old `rail` is a `key-renamed` error at column 0, which reports it there. Indented, where that rule does not look, it
+stays this rule's warning, so it is never quiet.
+
+```md bad nested-rail
+---
+pptx:
+  tone: ⟦rail⟧
+---
+
+# A slide
+```
+
+```md fixed nested-rail
+---
+pptx:
+  tone: stripe
 ---
 
 # A slide
@@ -68,7 +89,7 @@ The value is read as the register reads it: quotes and a trailing comment are no
 
 ```md bad quoted
 ---
-tone: "⟦raill⟧"  # the deck's register
+tone: "⟦stripee⟧"  # the deck's register
 ---
 
 # A slide
@@ -76,7 +97,7 @@ tone: "⟦raill⟧"  # the deck's register
 
 ```md fixed quoted
 ---
-tone: "rail"  # the deck's register
+tone: "stripe"  # the deck's register
 ---
 
 # A slide
@@ -86,7 +107,7 @@ A known name, in any case, is quiet.
 
 ```md good
 ---
-tone: RAIL
+tone: STRIPE
 ---
 
 # A slide
@@ -107,7 +128,7 @@ A block scalar's body is the author's text, not keys, so a line in it is never r
 ```md good block-scalar
 ---
 style: |
-  tone: raill
+  tone: stripee
 ---
 
 # A slide

@@ -315,7 +315,7 @@ test('a directive the engine honors but blankCode hides makes the derivation REF
 //
 // Reproduced by a red-team pass: slides 2 and 3 both reported section 1 of 2 where the deck says
 // 2 of 2, with `positionIsTrustworthy` true — so nothing fell back and the preview painted the
-// wrong progress-rail dot and the wrong watermark glyph. Pre-existing (the old `chunks[i]` walk had
+// wrong progress-track dot and the wrong watermark glyph. Pre-existing (the old `chunks[i]` walk had
 // it too) and untripped by any committed deck, which is exactly why it needs a test.
 test('a code span that becomes a thematic break when blanked cannot shift the section index', () => {
   const deck = [

@@ -843,7 +843,7 @@ mechanism behind "this slide looks completely different." Every Cell holds a Til
 **Frames do not nest inside content cells** (§1 — considered and rejected; see the
 decision note). The masthead's `lede · bay` is a fixed band split. On a migrated
 frame the footer is a real `.cell-footer` band (the frame's third cell) holding the
-running footer text (left), the section progress rail, and the page number (right),
+running footer text (left), the section progress track, and the page number (right),
 the three marks **vertically centered** with each other. The band **mirrors the running
 `<header>`**: same edge berth (`left`/`right: var(--frame-inset-x)`) at the inset that
 mirrors the header's top (`bottom: var(--frame-inset-y)`), so header↔footer are
@@ -971,7 +971,7 @@ sit unclassified):
   claim was "drives its own `> h2` title grid" — a heading-placement preference, not the
   "this slide has no room for chrome" the rest of the list rests on. All eight variants
   moved onto the shared frame and none lost anything; what they gained was `meta:`, the
-  progress rail and the watermark tile, none of which a chrome-exempt section can render.
+  progress track and the watermark tile, none of which a chrome-exempt section can render.
   `compare-code` shares the WORDING of that claim and not the substance, and the
   difference is worth checking before anyone migrates it on this precedent:
   `compare-code.styles.css` builds a real four-row explicit grid and places its `> h2`

@@ -197,7 +197,7 @@ The shape a tone draws in.
 
 Acts on: the slide. Pick one.
 
-- `tone-rail` · `tone-edge` · `tone-glow`
+- `tone-stripe` · `tone-edge` · `tone-glow`
 
 ### Align — `align`
 
@@ -324,15 +324,15 @@ Acts on: the slide.
 - one of `logo-md` · `logo-sm` · `logo-lg`
 - one of `logo-all` · `logo-title`
 
-### Section rail — `progress-rail`
+### Section rail — `progress-track`
 
 The section rail's position and style, for one slide.
 
 Acts on: the slide.
 
-- one of `progress-rail-right` · `progress-rail-center` · `progress-rail-edge`
-- one of `progress-rail-dots` · `progress-rail-bar`
-- one of `progress-rail-on` · `progress-rail-off`
+- one of `progress-track-right` · `progress-track-center` · `progress-track-edge`
+- one of `progress-track-dots` · `progress-track-bar`
+- one of `progress-track-on` · `progress-track-off`
 
 ### Agenda — `agenda`
 
@@ -488,7 +488,7 @@ A register is a front-matter key. It stamps its value as class words on every sl
 | `chart-finish:` | `chart-finish`, `chart-finish-source` |  |
 | `color-intensity:` | `color-intensity` |  |
 | `logo-finish:` | `logo` |  |
-| `progress-rail:` | `progress-rail` |  |
+| `progress-track:` | `progress-track` |  |
 | `theme:` | — | Loads a stylesheet; it stamps no class word. |
 | `size:` | — | Sets the canvas box; the engine reads it, no class word. |
 | `split:` | — | Tells a `divider` how to split; the divider reads it, no class word on other slides. |

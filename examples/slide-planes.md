@@ -44,7 +44,7 @@ The pinstripes here are canvas. The ghost numeral above them is atmosphere.
 ## Chrome frames the slide. Marks stamp it. Alarms interrupt it.
 
 - Chrome
-  - Header, footer, page number, logo, progress rail — the frame.
+  - Header, footer, page number, logo, progress track — the frame.
 - Marks
   - What is stamped onto a delivered slide.
 - Alarms

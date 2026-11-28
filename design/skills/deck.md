@@ -57,7 +57,7 @@ three of them directly:
   `theme.md` skills.
 
 You pick the component (`<!-- @meta{layout=name} -->`); the engine supplies the chrome
-(masthead band, stage, footer, progress rail) automatically. Your eyebrow and
+(masthead band, stage, footer, progress track) automatically. Your eyebrow and
 title "hoist" into the masthead; your body lands in the stage. You rarely think
 about Form directly — the component already selected it.
 

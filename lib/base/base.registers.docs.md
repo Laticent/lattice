@@ -471,7 +471,7 @@ spectrum brand bar** itself (the top border) with the tone color — the same mo
 
 | `tone:` value | Shape |
 |---|---|
-| `rail` | A left edge rail. **The default.** |
+| `stripe` | A left edge stripe. **The default.** |
 | `edge` | Recolors the top spectrum bar with the tone color (needs a semantic tone; a no-op where the spectrum is absent, e.g. a dark/divider slide). |
 | `glow` | A full inset ring. |
 
@@ -1682,15 +1682,15 @@ card text, but cannot reach inside a chart's SVG geometry — wedges, bars,
 and lines keep their own marks. Hand-drawn chart *marks* are a deferred
 follow-up.
 
-## The section rail — `progress-rail:`
+## The section rail — `progress-track:`
 
 The section rail is the small row of marks that says which section of the deck a slide is in:
-one mark per `divider`, the current one lit. `progress-rail:` places and styles it on ONE line, up
-to one word per axis — the `logo-finish:` shape (`lib/core/resolve-progress-rail.js`), completed word
+one mark per `divider`, the current one lit. `progress-track:` places and styles it on ONE line, up
+to one word per axis — the `logo-finish:` shape (`lib/core/resolve-progress-track.js`), completed word
 by word in the Studio editor and set from the Deck Inspector (**Chrome → Section rail**).
 
 ```yaml
-progress-rail: edge bar
+progress-track: edge bar
 ```
 
 | Axis | Words (default first) | What it does |
@@ -1700,9 +1700,9 @@ progress-rail: edge bar
 | show | `on` · `off` | `off` hides the rail, the divider markers and the agenda legend. `on` draws them in a deck below the default floor (see below). |
 
 Per slide, a word on one axis replaces the deck's word on that axis only:
-`<!-- @meta{class=progress-rail-edge} -->` moves one slide's rail and `progress-rail-on` brings it back on a
+`<!-- @meta{class=progress-track-edge} -->` moves one slide's rail and `progress-track-on` brings it back on a
 deck that said `off`. The older switch still works beside the key: `no-progress` hides one slide's
-rail, `with-progress` shows it over `no-progress`, `silent` and `progress-rail: off`, and a deck-wide
+rail, `with-progress` shows it over `no-progress`, `silent` and `progress-track: off`, and a deck-wide
 `class: no-progress` reads as off in the Inspector.
 
 **When it draws, and where** (`lib/forms/tile/progress/progress.transform.js`; the reasoning is
@@ -1710,7 +1710,7 @@ rail, `with-progress` shows it over `no-progress`, `silent` and `progress-rail: 
 
 - **Only in a deck with 3 or more sections and 15 or more slides**, by default. Two sections is
   "first half, second half", which the page number already says, and a short deck is held in the head.
-  `progress-rail: on` lowers the floor to two sections and any length. One section never draws.
+  `progress-track: on` lowers the floor to two sections and any length. One section never draws.
 - **Only on content slides inside a section.** Title, closing, topic, full-bleed layouts and the
   slides before the first divider carry no rail.
 - **Each divider draws its own marker instead**: the section's place in figures (`2/4`) and the same
@@ -1745,7 +1745,7 @@ is larger and the band narrower, so even a short one is cut (`Acme Holdings · Q
 ## The agenda — `agenda:`
 
 `agenda:` sets how the deck's agendas look, and whether an agenda the engine fills from the dividers shows
-page numbers. One line, up to one word per axis, the `progress-rail:` shape (`lib/core/resolve-agenda.js`),
+page numbers. One line, up to one word per axis, the `progress-track:` shape (`lib/core/resolve-agenda.js`),
 completed word by word in the Studio editor and set from the Deck Inspector (**Look → Agenda**).
 
 ```yaml

@@ -30,8 +30,8 @@ const RAW_BASE = `
   <section class="cards-grid"><h2>Composes.</h2><ul><li>a<ul><li>x</li></ul></li></ul></section>
   <section class="divider"><p><code>Section 02</code></p><h2>The Bay</h2></section>
   <section class="closing silent"><h1>End.</h1></section>`;
-const RAW = RAW_BASE.replaceAll('class="', 'class="progress-rail-on ');
-// TWO sections and `progress-rail-on` (a deck's `progress-rail: on`, which Marpit would propagate as a
+const RAW = RAW_BASE.replaceAll('class="', 'class="progress-track-on ');
+// TWO sections and `progress-track-on` (a deck's `progress-track: on`, which Marpit would propagate as a
 // class): a short deck draws no rail by default (progress.transform.js `railWanted`), and this test is
 // about the wiring, not the floor.
 

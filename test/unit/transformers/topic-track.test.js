@@ -559,7 +559,7 @@ test('topic-track: a topic with no eyebrow names its section; an authored eyebro
   assert.doesNotMatch(tt.applyToHtml(sec('topic', '<h2>Alone</h2>')), /data-derived/);
   // One section is not a scale, and the rail's off switches reach the eyebrow too.
   assert.doesNotMatch(tt.applyToHtml(sec('divider', '<h2>Only</h2>') + sec('topic', '<h2>T</h2>')), /data-derived/);
-  assert.doesNotMatch(tt.applyToHtml(html.replaceAll('class="topic', 'class="progress-rail-off topic')), /data-derived/);
+  assert.doesNotMatch(tt.applyToHtml(html.replaceAll('class="topic', 'class="progress-track-off topic')), /data-derived/);
   assert.doesNotMatch(tt.applyToHtml(html.replaceAll('class="topic', 'class="no-progress topic')), /data-derived/);
   // A virtual filmstrip (the Playground) keeps the engine's eyebrow and never recounts its window.
   const v = new JSDOM(`<body><div class="lattice" data-lv>${html}</div></body>`).window.document;

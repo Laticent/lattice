@@ -68,7 +68,7 @@ type LintVocab = {
 	finishNames?: string[];
 	/** Stamp SHAPE vocabulary — the curated boardroom subset + the wider range. */
 	stampShapes?: { boardroom: string[]; range: string[] };
-	/** Tone SHAPE vocabulary — the `tone-<style>` tokens (rail / edge / glow). */
+	/** Tone SHAPE vocabulary — the `tone-<style>` tokens (stripe / edge / glow). */
 	toneStyles?: string[];
 } | null;
 
@@ -1095,7 +1095,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 											<GroupHead label="Tone" desc="Colors the slide by review status — pass, warn, or fail." />
 											<ChipRow ariaLabel="Tone" value={cur(toneAxis)} onChange={(v) => groupSet(toneAxis, v)} options={toneAxis.map((t) => ({ label: cap(t.replace('tone-', '')), value: t, tone: TONE_SWATCH[t] }))} />
 											{toneStyleTokens.length > 0 && (
-												<Row label="Shape" hint={toneStyle.state === 'inherited' ? 'from deck' : undefined} desc="A rail, a full edge, or a glow." help={<>How the tone shows on the slide. The deck sets the default in Deck settings ▸ Accent.</>}>
+												<Row label="Shape" hint={toneStyle.state === 'inherited' ? 'from deck' : undefined} desc="A stripe, a full edge, or a glow." help={<>How the tone shows on the slide. The deck sets the default in Deck settings ▸ Accent.</>}>
 													<Picker ariaLabel="Tone style" value={toneStyleValue} onChange={onToneStyle} groups={toneStyleGroups} />
 												</Row>
 											)}

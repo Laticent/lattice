@@ -1,6 +1,6 @@
 // The deck `agenda:` register (lib/core/resolve-agenda.js) as the Inspector reads it: ONE line, up to one
 // word per axis, written back with the default word left out and the key removed once every axis is
-// default — the `progress-rail:` shape. This MIRRORS the kernel, which the docs build cannot import (CJS
+// default — the `progress-track:` shape. This MIRRORS the kernel, which the docs build cannot import (CJS
 // with its own require); agenda.test.ts pins every word and its order to the engine's register.
 
 import { axisLineValue, parseAxisLine } from './axis-line';

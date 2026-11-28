@@ -114,12 +114,12 @@ section.divider.light p:has(> code:only-child):not(:where([data-prose])) { max-w
  * a section rail at all: the count in figures (`2/4`) and the same row of marks as the footer rail,
  * drawn larger, with this section lit. It is what teaches the rail — every later footer rail is a
  * miniature of it — so it shares the rail's mark geometry and inks (progress.css, scaled by `--_mk`)
- * and its style (`progress-rail: bar`). It is frame content, not a chrome Cell: a divider is a
+ * and its style (`progress-track: bar`). It is frame content, not a chrome Cell: a divider is a
  * sovereign Frame and hosts none (design/forms.md §6).
  *
  * WHERE THE RAIL WILL BE (the owner's call, 2026-11-08, engineering/decisions/2026-11-08-anchor-chrome.md).
  * The marker sits exactly where the deck's footer rail sits on the slides after it: bottom-right by
- * default, bottom-center under `progress-rail: center`, upright on the right edge under `edge`. So the
+ * default, bottom-center under `progress-track: center`, upright on the right edge under `edge`. So the
  * divider teaches what the marks mean AND where to look for them. It used to be the first row of the
  * centered block, above the name, on every placement: one mark in three places.
  *

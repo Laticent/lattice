@@ -1,7 +1,7 @@
 ---
 theme: indaco
 pagination: true
-progress-rail: on
+progress-track: on
 ---
 
 <!-- @meta{layout=split-panel, class=proof} -->

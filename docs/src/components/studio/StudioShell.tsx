@@ -151,7 +151,7 @@ import type { Fix } from './photo-verdict';
 import { deleteStudioPlugin, listStudioPlugins, type StudioPluginRecord } from './plugin-library';
 import { PreviewPool } from './preview-pool';
 import { PREVIEW_CHROME, PREVIEW_RECT_KEY, STUDIO_SPLIT_KEY, STUDIO_SPLIT_PANEL_IDS } from './preview-rect';
-import { type ProgressRailAxis, parseProgressRail, progressRailLabel, progressRailOptions, progressRailValue } from './progress-rail';
+import { type ProgressTrackAxis, parseProgressTrack, progressTrackLabel, progressTrackOptions, progressTrackValue } from './progress-track';
 import { ReshapePicker } from './ReshapePicker';
 import { type ComponentEntry, SlidePicker } from './SlidePicker';
 import { SlideRail } from './SlideRail';
@@ -2742,18 +2742,18 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// is the common case: the field then shows its placeholder (the heading-derived name) so
 	// the control reads as "this is what the deck is called, blank follows the cover".
 	const deckNameOverride = (getFrontMatter(source, 'title') ?? '').trim() ? (getFrontMatter(source, 'title') ?? '') : '';
-	// The section rail is ONE front-matter line, `progress-rail:` (lib/core/resolve-progress-rail.js):
-	// placement, style and show. `off` stamps the register's own `progress-rail-off`; a deck that still
+	// The section rail is ONE front-matter line, `progress-track:` (lib/core/resolve-progress-track.js):
+	// placement, style and show. `off` stamps the register's own `progress-track-off`; a deck that still
 	// says `class: no-progress` (how this toggle used to write it) reads as OFF too, and
 	// the toggle clears that old spelling whichever way it is flipped.
-	const railWords = parseProgressRail(getFrontMatter(source, 'progress-rail') || '');
+	const railWords = parseProgressTrack(getFrontMatter(source, 'progress-track') || '');
 	const deckRail = railWords.show !== 'off' && !(getFrontMatter(source, 'class') || '').split(/\s+/).includes('no-progress');
 	// Read the CURRENT source inside the write, not the render's copy: two quick picks must both land.
-	const writeRail = (s: string, patch: Partial<Record<ProgressRailAxis, string | undefined>>) => {
-		const next = { ...parseProgressRail(getFrontMatter(s, 'progress-rail') || ''), ...patch };
-		return writeFrontMatterLine(s, 'progress-rail', progressRailValue(next) || null);
+	const writeRail = (s: string, patch: Partial<Record<ProgressTrackAxis, string | undefined>>) => {
+		const next = { ...parseProgressTrack(getFrontMatter(s, 'progress-track') || ''), ...patch };
+		return writeFrontMatterLine(s, 'progress-track', progressTrackValue(next) || null);
 	};
-	const setRailWord = (axis: ProgressRailAxis, v: string) =>
+	const setRailWord = (axis: ProgressTrackAxis, v: string) =>
 		settingsWrite('Section rail', (s) => writeRail(s, { [axis]: v === AUTO_VALUE ? undefined : v }));
 	// The DECK's own color mode — a deck-wide `class: dark` / `class: light` pin (the
 	// same `dark`/`light` canvas tokens the per-slide `_class:` uses). 'auto' = no pin,
@@ -3299,7 +3299,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// aliases, losslessly, through the settings funnel (Undo toast + reactivity).
 	const terms = React.useMemo(() => termEntries(fm), [fm]);
 	const setTerms = (entries: [string, TermEntry][]) => settingsWrite('Terms', (s) => setFrontMatterTerms(s, entries, ['acronyms', 'lexicon']));
-	// Rail OFF → `progress-rail: … off`; ON → drop the word. Either way the legacy `class: no-progress`
+	// Rail OFF → `progress-track: … off`; ON → drop the word. Either way the legacy `class: no-progress`
 	// goes, so the deck says it in one place (non-destructive to any other author classes).
 	const toggleDeckRail = () => settingsWrite(deckRail ? 'Section rail off' : 'Section rail on', (s) => writeRail(removeClassTokens(s, 'no-progress'), { show: deckRail ? 'off' : undefined }));
 
@@ -7033,25 +7033,25 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				<TextRow label="Header" desc="The line along the top. Blank hides it." find="running title chrome" help={<>A deck title or client name, repeated on every slide. Any slide can hide it on its own with <code>_class: no-header</code>.</>} value={headerText} placeholder={`e.g. ${deckTitle}`} onCommit={setHeaderText} />
 				<TextRow label="Footer" desc="The line along the bottom. Blank hides it." find="running confidential chrome" help={<>A confidentiality or source line, repeated on every slide. Any slide can hide it on its own with <code>_class: no-footer</code>.</>} value={footerText} placeholder="e.g. Confidential" onCommit={setFooterText} />
 				{pageNumbersField}
-				<Field label="Section rail" desc="Where you are, one mark per section." find="progress no-progress progress-rail" help={<>One mark per section, the current one lit; dividers show it larger. Drawn on its own from three sections and fifteen slides.</>}><Toggle label="Section rail" on={deckRail} onClick={toggleDeckRail} /></Field>
+				<Field label="Section rail" desc="Where you are, one mark per section." find="progress no-progress progress-track" help={<>One mark per section, the current one lit; dividers show it larger. Drawn on its own from three sections and fifteen slides.</>}><Toggle label="Section rail" on={deckRail} onClick={toggleDeckRail} /></Field>
 				{deckRail && (
 					// A SCOPE for the same reason as the logo's: `Position` and `Style` do not say "rail".
-					<SettingsScope label="Section rail" keywords="progress dots bar progress-rail" className="mt-1 space-y-0.5 border-l-2 border-border pl-2.5">
+					<SettingsScope label="Section rail" keywords="progress dots bar progress-track" className="mt-1 space-y-0.5 border-l-2 border-border pl-2.5">
 						{(['placement', 'style'] as const).map((axis) => {
 							const meta = {
-								placement: { label: 'Position', desc: railWords.placement === 'center' ? 'A long footer line shortens.' : railWords.placement === 'edge' ? 'Upright, mid-height.' : 'Beside the page number.', help: <>One slide can move its own with <code>_class: progress-rail-edge</code>.</> },
+								placement: { label: 'Position', desc: railWords.placement === 'center' ? 'A long footer line shortens.' : railWords.placement === 'edge' ? 'Upright, mid-height.' : 'Beside the page number.', help: <>One slide can move its own with <code>_class: progress-track-edge</code>.</> },
 								style: { label: 'Style', desc: railWords.style === 'bar' ? 'One segment per section.' : 'One dot per section.', help: <>The current section is lit in either.</> },
 							}[axis];
 							return (
 								<Field key={axis} label={meta.label} desc={meta.desc} help={meta.help}>
 									<CatalogSelect
 										ariaLabel={`Choose section rail ${axis === 'placement' ? 'position' : 'style'}`}
-										value={railWords[axis] && progressRailOptions(axis).includes(railWords[axis] as string) ? (railWords[axis] as string) : AUTO_VALUE}
+										value={railWords[axis] && progressTrackOptions(axis).includes(railWords[axis] as string) ? (railWords[axis] as string) : AUTO_VALUE}
 										onValueChange={(v) => setRailWord(axis, v)}
 										className="w-full"
 										groups={withAutoHead(
-											[{ options: progressRailOptions(axis).map((w) => ({ value: w, label: progressRailLabel(w) })) }],
-											{ label: axis === 'placement' ? progressRailLabel('right') : progressRailLabel('dots') },
+											[{ options: progressTrackOptions(axis).map((w) => ({ value: w, label: progressTrackLabel(w) })) }],
+											{ label: axis === 'placement' ? progressTrackLabel('right') : progressTrackLabel('dots') },
 										)}
 									/>
 								</Field>
