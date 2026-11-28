@@ -14,7 +14,9 @@
 //   - INLINE, in Markdown: `` `key:` `` in backticks.
 //   - BARE, in plain text (a Studio tool's `chat` description, the llms.txt source): `key:` as a word.
 // The retired set is read from `DECK_SETTINGS`, so the next rename that retires a key turns its own leftover guidance
-// red here with no edit to this file.
+// red here with no edit to this file. RETIRED_COMMENTS adds the slide directive comments the @meta cut (#3563)
+// retired, `<!-- _class: … -->` first: on its own line in a deck fence it counts as a settings line, and inline
+// (`` `<!-- _class: x -->` ``, `` `_class:` ``) it needs a cue like any key.
 //
 // Guidance may NAME a retired key to say what replaced it. An inline or bare mention passes when its paragraph (a run
 // of non-blank lines; each list item and table row is its own; a sentence in plain text) says so in words
@@ -59,21 +61,39 @@ const SANCTIONED = {
     why: "`form:` here is a component manifest's Frame field, not the retired deck key",
     keys: { form: 1 },
   },
-  'design/design-system.md': {
-    why: "`form:` here is a component manifest's Frame field, not the retired deck key",
-    keys: { form: 1 },
-  },
   'docs/src/content/docs/spec/lfm.md': {
-    why: 'generated from ratified spec/LFM-1.0.md, whose Appendix A deck is read in every environment, Marp included; a change goes through the spec process (§7)',
-    keys: { paginate: 1 },
+    why: 'generated from ratified spec/LFM-1.0.md, whose Appendix A deck is read in every environment, Marp included. TEMPORARY for `_class`: #3554 regenerates this page with @meta examples; the stale-entry check removes the `_class` count when it lands',
+    keys: { paginate: 2, _class: 5 },
+  },
+  'lib/base/base.registers.docs.md': {
+    why: 'the raw-Marp section: Marpit itself reads `_class:`, and a deck exported to Marp must list the register token in it',
+    keys: { _class: 4 },
+  },
+  'design/design-system.md': {
+    why: "`form:` here is a component manifest's Frame field, not the retired deck key; `_class` is the Marp kit's own comment form, where the VS Code completion works",
+    keys: { form: 1, _class: 1 },
+  },
+  'design/skills/import.md': {
+    why: 'a check-list item that says no Marp directive comment (`<!-- _class: … -->`) is left in an imported deck',
+    keys: { _class: 1 },
+  },
+  // TEMPORARY, reported to desk:agent-native on 2026-11-28: each still teaches `_class` as current, in a file this PR
+  // does not own. The stale-entry check fails once the file is fixed, so the entry goes with the fix.
+  'docs/src/content/docs/guides/authoring.md': {
+    why: "TEMPORARY: :147 says to add a claim to the slide's `_class:`; reported to desk:agent-native",
+    keys: { _class: 1 },
+  },
+  'design/design-system.gallery.md': {
+    why: 'TEMPORARY: :105 and :107 show layout names in the `<!-- _class: … -->` form; reported to desk:agent-native',
+    keys: { _class: 2 },
   },
   'docs/src/content/docs/reference/cli.md': {
     why: "the `lattice migrate notes` table lists the old forms it rewrites; the row's left column is the input",
-    keys: { say: 1 },
+    keys: { say: 2 },
   },
   'docs/src/content/docs/spec/diagnostics.md': {
-    why: "the diagnostics table names what each rule reports: `stray-overflow-marker`'s retired key, and `say:` as an unknown `terms:` field",
-    keys: { 'overflow-marker': 1, say: 1 },
+    why: "the diagnostics table names what each rule reports: `stray-overflow-marker`'s retired key, and `say:` as an unknown `terms:` field. TEMPORARY for `_class`: the `meta-class-overridden` row (:440) still lists a `_class:` comment as a way to set a slide's class; reported to desk:agent-native",
+    keys: { 'overflow-marker': 1, say: 1, _class: 1 },
   },
 };
 
@@ -81,13 +101,22 @@ const SANCTIONED = {
 // "before" or "old" on its own appears in plenty of current instructions, and a cue that broad excused
 // `` `guards: loose` is the default `` (lib/base/base.docs.md) because "before #2308" sat in the same paragraph.
 const RETIREMENT_CUE =
-  /\b(?:retired|retirement|renamed|was called|replaced|no longer|legacy|migrat\w*|rewrites?|deprecated|(?:the|an?) old(?:er)? (?:name|names|key|keys|form|forms|spelling|one|note|syntax|classes)|old names|LFM 1\.x|reaches nothing)\b|\b(?:the|an?) old `[^`]+` (?:key|keys|class|classes|name|form|spelling)\b|\b(?:was|formerly) `|→|`[^`]+`[ \t]*(?:becomes|is now|instead of)[ \t]+`/i;
+  /\b(?:retired|retirement|renamed|was called|replaced|no longer|legacy|migrat\w*|rewrites?|deprecated|(?:the|an?) old(?:er)? (?:name|names|key|keys|form|forms|spelling|one|note|syntax|classes)|old names|LFM 1\.x|reaches nothing|(?:is|are) not read)\b|\b(?:the|an?) old `[^`]+` (?:key|keys|class|classes|name|form|spelling)\b|\b(?:was|formerly) `|→|`[^`]+`[ \t]*(?:becomes|is now|instead of)[ \t]+`/i;
 
 const RETIRED = DECK_SETTINGS.filter((r) => r.kind === 'retired').map((r) => r.key);
-const ALT = RETIRED.map((k) => k.replace(/[.*+?^${}()|[\]\\-]/g, '\\$&')).join('|');
+// Slide directive comments the engine no longer reads. DECK_SETTINGS lists front-matter keys only, so these are named
+// here: the @meta cut (#3563) made `<!-- @meta{…} -->` the one way a slide picks its layout, and `<!-- _class: x -->`
+// reaches nothing (lint: `legacy-directive-comment`).
+const RETIRED_COMMENTS = ['_class'];
+const esc = (k) => k.replace(/[.*+?^${}()|[\]\\-]/g, '\\$&');
+const ALT = RETIRED.map(esc).join('|');
+const ALL = [...RETIRED, ...RETIRED_COMMENTS].map(esc).join('|');
 const FM_LINE = new RegExp(`^[ \\t]*(${ALT})[ \\t]*:`);
-const INLINE = new RegExp(`\`(${ALT})[ \\t]*:`, 'g');
-const BARE = new RegExp(`(?<![\\w-])(${ALT})[ \\t]*:`, 'g');
+// A directive comment on its own line inside a deck fence: something an author copies.
+const COMMENT_LINE = new RegExp(`^[ \\t]*<!--[ \\t]*(${RETIRED_COMMENTS.map(esc).join('|')})[ \\t]*:`);
+// Inline: `key:` or `<!-- key: … -->` in a code span.
+const INLINE = new RegExp(`\`(?:<!--[ \\t]*)?(${ALL})[ \\t]*:`, 'g');
+const BARE = new RegExp(`(?<![\\w-])(${ALL})[ \\t]*:`, 'g');
 const FENCE = /^[ \t]*(`{3,}|~{3,})/;
 // A fence whose body is settings or a deck: a bare `key:` line in one is something an author copies.
 const SETTINGS_FENCE = /^[ \t]*(?:`{3,}|~{3,})[ \t]*(?:yaml|yml|md|markdown|lfm)?[ \t]*$/i;
@@ -132,7 +161,7 @@ function retiredKeys(text) {
       return;
     }
     if (inDeck && !FENCE.test(line) && line.startsWith(fenceIndent) && /^[^ \t]/.test(line.slice(fenceIndent.length))) {
-      const m = FM_LINE.exec(line);
+      const m = FM_LINE.exec(line) || COMMENT_LINE.exec(line);
       if (m) out.push({ line: i + 1, key: m[1], shape: 'front-matter' });
     }
     if (!cued.has(unit[i])) for (const m of line.matchAll(INLINE)) out.push({ line: i + 1, key: m[1], shape: 'inline' });
@@ -235,6 +264,10 @@ test('a mention its paragraph marks as history passes; a front-matter block neve
   assert.deepEqual(retiredKeys('`paginate: true` becomes `pagination: true`.\n'), []);
   // "The old `marks:` key" names the key between "old" and its noun.
   assert.deepEqual(retiredKeys('The old `paginate:` key, which split in two.\n'), []);
+  // A retired directive comment: in a deck fence it is a settings line; inline it needs a cue.
+  assert.deepEqual(retiredKeys('```markdown\n<!-- _class: title -->\n\n# A\n```\n'), [{ line: 2, key: '_class', shape: 'front-matter' }]);
+  assert.equal(retiredKeys('Put `<!-- _class: kpi -->` at the top of the slide.\n').length, 1);
+  assert.deepEqual(retiredKeys('The old `<!-- _class: kpi -->` comments are not read at all.\n'), []);
   // A common word is not a cue: "before" here is an instruction, not history.
   assert.equal(retiredKeys('Set `paginate: true` before the first slide.\n').length, 1);
   // A cue next to a block does not excuse the block.
