@@ -19,6 +19,7 @@ on:
     types: [synchronize]
 
 permissions:
+  contents: write # disablePullRequestAutoMerge refuses GITHUB_TOKEN without it (run 46144617042)
   pull-requests: write # turn auto-merge off
 
 concurrency:
