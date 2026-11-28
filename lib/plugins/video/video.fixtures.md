@@ -11,7 +11,7 @@ bullet is an assertion about that render:
 ## a record on its own line draws a poster figure
 
 ```markdown
-<!-- _class: video -->
+<!-- @meta{layout=video} -->
 
 ## Watch the tour
 
@@ -28,7 +28,7 @@ bullet is an assertion about that render:
 ## a Vimeo address draws a Vimeo poster
 
 ```markdown
-<!-- _class: video -->
+<!-- @meta{layout=video} -->
 
 ## Watch the film
 
@@ -43,7 +43,7 @@ bullet is an assertion about that render:
 ## a TikTok address keeps the author's own link
 
 ```markdown
-<!-- _class: video -->
+<!-- @meta{layout=video} -->
 
 ## Watch the clip
 
@@ -58,7 +58,7 @@ bullet is an assertion about that render:
 ## an Instagram reel draws an Instagram poster
 
 ```markdown
-<!-- _class: video -->
+<!-- @meta{layout=video} -->
 
 ## Watch the reel
 
@@ -73,7 +73,7 @@ bullet is an assertion about that render:
 ## every YouTube spelling resolves to one watch address
 
 ```markdown
-<!-- _class: video -->
+<!-- @meta{layout=video} -->
 
 ## Watch the short
 
@@ -87,7 +87,7 @@ bullet is an assertion about that render:
 ## a provider's name in a fragment wears no badge
 
 ```markdown
-<!-- _class: video -->
+<!-- @meta{layout=video} -->
 
 `@video{"https://evil.example/#instagram.com/reel/X"}`
 ```
@@ -100,7 +100,7 @@ bullet is an assertion about that render:
 ## the qr word adds a code that carries the same address
 
 ```markdown
-<!-- _class: video companion qr -->
+<!-- @meta{layout=video, class=companion qr} -->
 
 ## Scan to watch
 
@@ -114,7 +114,7 @@ bullet is an assertion about that render:
 ## a record inside a sentence stays code
 
 ```markdown
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## Notes
 
@@ -128,7 +128,7 @@ See `@video{"https://youtu.be/dQw4w9WgXcQ"}` for the clip.
 ## an address that is not a known video host draws nothing
 
 ```markdown
-<!-- _class: video -->
+<!-- @meta{layout=video} -->
 
 `@video{"https://attacker.example/?d=secret"}`
 ```
@@ -151,7 +151,7 @@ Nothing here.
 ## the short form `>{…}` draws the same figure
 
 ```markdown
-<!-- _class: video -->
+<!-- @meta{layout=video} -->
 
 ## Watch the tour
 
@@ -166,7 +166,7 @@ Nothing here.
 ## a record on any slide draws the full poster figure
 
 ```markdown
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## A clip among the words
 

@@ -1,7 +1,7 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ChatTraceDialog, snippet } from './ChatTraceDialog';
+import { ChatTraceDialog, inputTotals, roundLedger, snippet } from './ChatTraceDialog';
 import type { ChatTrace, ChatUsage } from './studio-store';
 
 afterEach(cleanup);
@@ -93,5 +93,29 @@ describe('Show work', () => {
 		const t: ChatTrace = { ...trace, rounds: [{ reasoning: '---', calls: [], cost: 0, prompt: 0, completion: 0 }] };
 		render(<ChatTraceDialog trace={t} open onOpenChange={() => {}} />);
 		expect(screen.getByText('Thinking').parentElement?.textContent).toBe('Thinking');
+	});
+});
+
+describe('the per-call ledger (#3533 S01/S02)', () => {
+	const call = { calls: [], cost: 0.0123, prompt: 9100, completion: 300 };
+	it('shows the cached share, "cache unknown" when none was reported, and nothing on a trace saved before it was kept', () => {
+		expect(roundLedger({ ...call, cached: 7000 })).toBe('$0.012 · 9.1K in (7.0K cached) · 300 out');
+		expect(roundLedger({ ...call, cached: null })).toBe('$0.012 · 9.1K in (cache unknown) · 300 out');
+		expect(roundLedger(call)).toBe('$0.012 · 9.1K in · 300 out');
+	});
+	it('marks a stopped call as an estimate', () => {
+		expect(roundLedger({ ...call, cached: null, estimated: true })).toBe('≈ $0.012 · ≈ 9.1K in (cache unknown) · 300 out');
+	});
+	it('keeps cumulative input apart from the largest single call', () => {
+		expect(inputTotals([{ ...call, prompt: 9000 }, { ...call, prompt: 12000 }, { ...call, prompt: 11000 }])).toBe('32K input over 3 calls, 12K at most in one');
+	});
+	it('renders the ledger and an estimated total in Show work', () => {
+		const trace: ChatTrace = { sent: { primer: 100, deck: 50, history: 0, tools: 30, docs: 0, photos: 0 }, rounds: [{ ...call, cached: 7000 }, { ...call, cached: null, estimated: true }] };
+		const usage = { cost: 0.0246, prompt: 9100, completion: 600, cached: null, reasoning: 0, rounds: 2, window: null, model: 'm', estimated: true } as ChatUsage;
+		render(<ChatTraceDialog open onOpenChange={() => {}} trace={trace} usage={usage} />);
+		expect(screen.getAllByTestId('trace-round-ledger').map((e) => e.textContent)).toEqual(['$0.012 · 9.1K in (7.0K cached) · 300 out', '≈ $0.012 · ≈ 9.1K in (cache unknown) · 300 out']);
+		expect(screen.getByText(/stopped, estimated/)).toBeTruthy();
+		expect(screen.getByTestId('trace-total').textContent).toContain('≈ $0.025');
+		expect(screen.getByTestId('trace-total').textContent).toContain('18K input over 2 calls, 9.1K at most in one');
 	});
 });

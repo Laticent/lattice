@@ -33,7 +33,7 @@ const { CLIP_CELL_SELECTOR, IGNORED_CLIP_SELECTOR, probeSectionOverflow } = requ
 const SIXTY = 'A sixty character title that should hold on three lines ok';
 const SEVENTY_FOUR = 'A seventy-four character cover title, sized for the back of the hall now';
 const deck = (cls, level, heading) => `---\nmarp: true\ntheme: indaco\nfooter: "Lattice · cover fit"\nlogo: sample:logo-acme-mark.svg\n---\n\n`
-  + `<!-- _class: ${cls} -->\n\n${level} ${heading}\n\n\`Eyebrow\`\n\nA one-line subtitle under it.\n`;
+  + `<!-- @meta{class=${cls}} -->\n\n${level} ${heading}\n\n\`Eyebrow\`\n\nA one-line subtitle under it.\n`;
 
 describe('stage and poster covers keep out of the chrome bands, or report overflow', () => {
   const chrome = resolveChrome();

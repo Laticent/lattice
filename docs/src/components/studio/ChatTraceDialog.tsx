@@ -111,9 +111,12 @@ function TraceBody({ trace, usage, renderMarkdown }: { trace: ChatTrace; usage?:
 						// biome-ignore lint/suspicious/noArrayIndexKey: a saved trace is append-only — index is stable identity.
 						<div key={i} className="flex flex-col gap-1.5 rounded-lg border border-border p-2.5 text-[12px]">
 							<div className="flex items-baseline justify-between gap-2 text-muted-foreground">
-								<span className="font-semibold text-foreground">Call {i + 1}</span>
-								<span className="tabular-nums">
-									${num(r.cost).toFixed(num(r.cost) < 0.1 ? 3 : 2)} · {fmtTok(num(r.prompt))} in · {fmtTok(num(r.completion))} out
+								<span className="font-semibold text-foreground">
+									Call {i + 1}
+									{r.estimated && <span className="font-normal text-muted-foreground"> · stopped, estimated</span>}
+								</span>
+								<span className="tabular-nums" data-testid="trace-round-ledger">
+									{roundLedger(r)}
 								</span>
 							</div>
 							{r.reasoning && (
@@ -138,13 +141,34 @@ function TraceBody({ trace, usage, renderMarkdown }: { trace: ChatTrace; usage?:
 					))}
 				</section>
 				{usage && (
-					<p className={cn('text-[11px] text-muted-foreground')}>
-						Total ${num(usage.cost).toFixed(num(usage.cost) < 0.1 ? 3 : 2)}
+					<p className={cn('text-[11px] text-muted-foreground')} data-testid="trace-total">
+						Total {rounds.some((r) => r.estimated) ? '≈ ' : ''}
+						{usd(num(usage.cost))}
 						{num(usage.reasoning) ? ` · ${fmtTok(num(usage.reasoning))} thinking tokens` : ''}
+						{rounds.length > 1 ? ` · ${inputTotals(rounds)}` : ''}
 					</p>
 				)}
 		</>
 	);
+}
+
+const usd = (n: number) => `$${n.toFixed(n < 0.1 ? 3 : 2)}`;
+
+/** One call's line in the ledger: cost, input (with its cached share, or "cache unknown" when the provider sent none), output.
+ *  A stopped call's figures are our estimate and read as such (#3533 S01). A trace saved before `cached` was kept shows no
+ *  cache figure at all rather than a made-up one. */
+export function roundLedger(r: ChatTrace['rounds'][number]): string {
+	const approx = r.estimated ? '≈ ' : '';
+	const cache = r.cached === undefined ? '' : r.cached === null ? ' (cache unknown)' : ` (${fmtTok(num(r.cached))} cached)`;
+	return `${approx}${usd(num(r.cost))} · ${approx}${fmtTok(num(r.prompt))} in${cache} · ${fmtTok(num(r.completion))} out`;
+}
+
+/** Cumulative input across the calls (what was billed) against the largest single call (how full the window got), kept apart
+ *  because the first grows with every round and the second does not (#3533 S01). */
+export function inputTotals(rounds: ChatTrace['rounds']): string {
+	const total = rounds.reduce((n, r) => n + num(r.prompt), 0);
+	const peak = rounds.reduce((n, r) => Math.max(n, num(r.prompt)), 0);
+	return `${fmtTok(total)} input over ${rounds.length} calls, ${fmtTok(peak)} at most in one`;
 }
 
 /** The first line of a thought with its markdown marks removed, for the one-line summary above the full text. Only list markers and

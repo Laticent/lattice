@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { arrowTarget, fenceAround, lastArrowEnd } from './context-sources.js';
+import { arrowTarget, DIRECTIVE_OPTIONS, fenceAround, lastArrowEnd } from './context-sources.js';
 
 // The flowchart source reads a row's arrows with one pass over its words (context-sources.js `lastArrowEnd`): a row
 // is untrusted text read on the main thread (HARD RULE #22), and the regex it replaced backtracked exponentially.
@@ -49,5 +49,14 @@ describe('fenceAround (CommonMark fences)', () => {
 	});
 	it('a line indented four spaces is not a fence', () => {
 		expect(fenceAround(lines('    ```\n\n'), 2)).toBeNull();
+	});
+});
+
+describe('after `<!-- `, the editor offers the record and the notes only (the cut)', () => {
+	it('offers `@meta{` and no old directive name or pane key', () => {
+		const labels = DIRECTIVE_OPTIONS.map((o) => o.label);
+		expect(labels).toContain('@meta{');
+		expect(labels.filter((l) => l.startsWith('_') || l === 'pane' || l === 'panes')).toEqual([]);
+		expect(labels.every((l) => l.startsWith('@'))).toBe(true);
 	});
 });

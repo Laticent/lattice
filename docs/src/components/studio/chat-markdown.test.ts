@@ -51,7 +51,7 @@ describe('code segments (never HTML — the Copy button + highlighter own them)'
 		expect(codes(segs)[0].code).toBe('```chart\npie\n```');
 	});
 	it('drops the four-backtick lattice-edit protocol block (it becomes a diff card)', () => {
-		const segs = renderMessageSegments('Proposed:\n````lattice-edit slide=3\n<!-- _class: cards -->\n## H\n````\nReview below.');
+		const segs = renderMessageSegments('Proposed:\n````lattice-edit slide=3\n<!-- @meta{class=cards} -->\n## H\n````\nReview below.');
 		expect(codes(segs)).toHaveLength(0);
 		expect(html(segs)).toContain('Proposed');
 		expect(html(segs)).toContain('Review below');
@@ -74,7 +74,7 @@ describe('streaming clamp (no flicker on incomplete constructs)', () => {
 		expect(clampStreaming('~~~md\n```\ninner')).toBe('');
 	});
 	it('holds an unterminated four-backtick lattice-edit block mid-stream', () => {
-		const buf = 'Here:\n````lattice-edit slide=1\n<!-- _class: title -->';
+		const buf = 'Here:\n````lattice-edit slide=1\n<!-- @meta{layout=title} -->';
 		expect(clampStreaming(buf)).toBe('Here:');
 		expect(codes(renderMessageSegmentsStreaming(buf))).toHaveLength(0);
 	});

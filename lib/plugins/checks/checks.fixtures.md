@@ -98,7 +98,7 @@ Status `@check{yes, label=Residency, lg}` and `@check{no, sm}` today.
 ## a verdict-grid criterion is a check in a pill
 
 ```markdown
-<!-- _class: verdict-grid -->
+<!-- @meta{layout=verdict-grid} -->
 
 ## Paths
 
@@ -116,7 +116,7 @@ Status `@check{yes, label=Residency, lg}` and `@check{no, sm}` today.
 ## a pricing feature is a check in a row
 
 ```markdown
-<!-- _class: pricing -->
+<!-- @meta{layout=pricing} -->
 
 ## Plans
 

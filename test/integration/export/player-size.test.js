@@ -30,7 +30,7 @@ Body text in the deck's own faces, with **bold** and \`code\`.
 
 ---
 
-<!-- _class: content bleed -->
+<!-- @meta{class=content bleed} -->
 
 ![](sample:photo-wide.jpg)
 
@@ -38,7 +38,7 @@ Body text in the deck's own faces, with **bold** and \`code\`.
 
 ---
 
-<!-- _class: image mirror -->
+<!-- @meta{class=image mirror} -->
 
 ![](sample:photo-wide.jpg)
 

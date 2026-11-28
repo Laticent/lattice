@@ -14,7 +14,7 @@ const CASES: [string, boolean][] = [
 	['---', false],
 	['# A', false],
 	['W', false],
-	['<!-- _class: title -->', false],
+	['<!-- @meta{layout=title} -->', false],
 	['---\ntheme: cuoio\n---\n# A', false],
 	['\n\n---\n\n', false],
 	['# A\n\n---\n\n# B', false],

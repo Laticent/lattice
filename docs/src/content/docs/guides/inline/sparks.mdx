@@ -5,7 +5,7 @@ description: A chart the size of a word — put numbers in `~{…}` inside inlin
 
 import CraftLab from '../../../../components/craft/CraftLab.astro';
 
-export const LAB_TABLE = `<!-- _class: table -->
+export const LAB_TABLE = `<!-- @meta{layout=table} -->
 
 ## In a table, every row's trend reads at a glance.
 
@@ -16,7 +16,7 @@ export const LAB_TABLE = `<!-- _class: table -->
 | Asia Pacific | $1.9M | \`~{0.8 0.9 1.1 1.2 1.4 1.5 1.7 1.9, end}\` | \`~{1.9/1.6, bullet}\` |
 `;
 
-export const LAB_TYPES = `<!-- _class: list-tabular -->
+export const LAB_TYPES = `<!-- @meta{layout=list-tabular} -->
 
 ## Seven types, one grammar.
 
@@ -32,7 +32,7 @@ export const LAB_FRAMES = `---
 spark: etch
 ---
 
-<!-- _class: list-tabular -->
+<!-- @meta{layout=list-tabular} -->
 
 ## The deck says etch; one spark says otherwise.
 
@@ -42,7 +42,7 @@ spark: etch
    - \`~{31 28 33 30 38 35 41 44, c4, pigment, rounded}\` \`~{31 28 33 30 38 35 41 44, c4, bare, end}\`
 `;
 
-export const LAB_LOOKS = `<!-- _class: list-tabular -->
+export const LAB_LOOKS = `<!-- @meta{layout=list-tabular} -->
 
 ## One color, three ways to spend it.
 
@@ -135,7 +135,7 @@ one can be set for one spark, one slide or the whole deck:
 | Corners | `square` · `rounded` (the theme's small radius) | `square` |
 
 - **One spark:** the word as a modifier, `` `~{1 3 2, bare}` ``.
-- **One slide:** the word as a class, `<!-- _class: table spark-bare -->`.
+- **One slide:** the word as a class, `<!-- @meta{layout=table, class=spark-bare} -->`.
 - **The whole deck:** the `spark:` line in front matter, `spark: etch rounded`.
 
 The most specific wins, one setting at a time: the spark, then the slide, then the

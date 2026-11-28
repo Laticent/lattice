@@ -43,7 +43,7 @@ of them require memorizing the spec.
 A slide picks its Lattice component with a one-line comment:
 
 ```markdown
-<!-- _class: split-compare -->
+<!-- @meta{layout=split-compare} -->
 ```
 
 Because it is an HTML comment, it is **invisible everywhere else** — GitHub

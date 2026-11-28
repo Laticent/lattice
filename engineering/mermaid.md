@@ -7,7 +7,7 @@ the same thing and so does the engine. That is the whole authoring surface — t
 engine owns the render on both paths, and neither one is Marp's built-in Mermaid:
 
 ````markdown
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 ## How signals move from input to decision.
 

@@ -331,7 +331,7 @@ test('the first diagram a preview gains does not paint its source @gecko @webkit
 	const preview = livePreview(page);
 	const frameCount = () => preview.locator('.lattice').first().evaluate(() => (window as unknown as { __srcFrames: number }).__srcFrames);
 	// The caret ends on the last (prose) slide, so the diagram slide has never been shown when the test opens it.
-	await setEditorContent(page, '---\ntheme: lattice\npalette: indaco\n---\n\n# Prose\n\nNo diagram yet.\n\n---\n\n<!-- _class: diagram -->\n\n## Signals move from input to decision.\n\n```mermaid\nflowchart LR\n  A[Input] --> B[Process]\n  B --> C{Decision}\n  C -->|yes| D[Ship]\n```\n\n---\n\n# Last\n\nThe caret ends here.\n');
+	await setEditorContent(page, '---\ntheme: lattice\npalette: indaco\n---\n\n# Prose\n\nNo diagram yet.\n\n---\n\n<!-- @meta{layout=diagram} -->\n\n## Signals move from input to decision.\n\n```mermaid\nflowchart LR\n  A[Input] --> B[Process]\n  B --> C{Decision}\n  C -->|yes| D[Ship]\n```\n\n---\n\n# Last\n\nThe caret ends here.\n');
 	await expect(preview.locator('.lattice').first()).toBeAttached({ timeout: 60_000 });
 	await expect(preview.locator('section').first()).toContainText('The caret ends here', { timeout: 60_000 });
 	const before = await frameCount();

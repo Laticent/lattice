@@ -1,5 +1,5 @@
 /**
- * The `cover:` register — the surface of the front and back cover (lib/core/resolve-cover.js).
+ * The `cover-layout:` register (named `cover:` until 2026-11-27) — the surface of the front and back cover (lib/core/resolve-cover-layout.js).
  *
  *   1. the kernel maps `light` to `cover-light`, stamps nothing for the default `inverse`, and
  *      drops what it does not know;
@@ -20,14 +20,14 @@ const { JSDOM } = require('jsdom');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const latticeEngine = require(path.join(ROOT, 'lib/engine'));
-const { COVER_REGISTER, COVER_COMPOSITION_CLASSES, coverClasses, coverDeckTokens, coverClassesFromFrontMatter } = require(path.join(ROOT, 'lib/core/resolve-cover.js'));
+const { COVER_REGISTER, COVER_COMPOSITION_CLASSES, coverClasses, coverDeckTokens, coverClassesFromFrontMatter } = require(path.join(ROOT, 'lib/core/resolve-cover-layout.js'));
 const { lintText } = require(path.join(ROOT, 'lib/authoring/lint.js'));
 const { isSurfaceRegisterToken } = require(path.join(ROOT, 'lib/core/surface-registers.js'));
 
-const TITLE = (cls = '') => `<!-- _class: title ${cls} -->\n\n# A deck.\n\n\`Eyebrow\`\n\nA subtitle.`;
+const TITLE = (cls = '') => `<!-- @meta{class=title ${cls}} -->\n\n# A deck.\n\n\`Eyebrow\`\n\nA subtitle.`;
 const CONTENT = '## A content slide.\n\nWords.';
-const CLOSING = (cls = '') => `<!-- _class: closing ${cls} -->\n\n## Thank you.\n\nA closing line.`;
-const DIVIDER = '<!-- _class: divider -->\n\n## Part two.';
+const CLOSING = (cls = '') => `<!-- @meta{class=closing ${cls}} -->\n\n## Thank you.\n\nA closing line.`;
+const DIVIDER = '<!-- @meta{layout=divider} -->\n\n## Part two.';
 const deck = (fm, slides) => ['---', 'theme: indaco', ...fm, '---', '', slides.join('\n\n---\n\n')].join('\n');
 const classesOf = (fm, slides) => {
   const doc = new JSDOM(latticeEngine.createEngine().render(deck(fm, slides)).html).window.document;
@@ -40,7 +40,7 @@ test('kernel: `light` stamps cover-light; `inverse`, unknown and absent stamp no
   assert.deepEqual(coverClasses('inverse'), [], 'the default is the absence of a token, so old decks stay byte-identical');
   assert.deepEqual(coverClasses('pale'), []);
   assert.deepEqual(coverClassesFromFrontMatter('theme: indaco'), []);
-  assert.deepEqual(coverClassesFromFrontMatter('cover: light'), ['cover-light']);
+  assert.deepEqual(coverClassesFromFrontMatter('cover-layout: light'), ['cover-light']);
   assert.deepEqual(COVER_REGISTER.TOKENS.slice(0, 2), ['cover-inverse', 'cover-light']);
 });
 
@@ -79,15 +79,15 @@ test('manifests: title and closing declare exactly the seven compositions as var
   }
 });
 
-test('engine: `cover: light poster` stamps both words on title and closing, and cover-plain opts one out', () => {
-  const [t, c, e] = classesOf(['cover: light poster'], [TITLE(), CONTENT, CLOSING('cover-plain')]);
+test('engine: `cover-layout: light poster` stamps both words on title and closing, and cover-plain opts one out', () => {
+  const [t, c, e] = classesOf(['cover-layout: light poster'], [TITLE(), CONTENT, CLOSING('cover-plain')]);
   assert.ok(t.includes('cover-light') && t.includes('cover-poster'), t.join(' '));
   assert.ok(!c.some((x) => x.startsWith('cover-')), c.join(' '));
   assert.ok(e.includes('cover-light') && e.includes('cover-plain') && !e.includes('cover-poster'), e.join(' '));
 });
 
 test('lint: a composition word is known on the register and as a slide class', () => {
-  const unknown = (v) => lintText(deck([`cover: ${v}`], [TITLE()])).filter((f) => f.rule === 'unknown-cover');
+  const unknown = (v) => lintText(deck([`cover-layout: ${v}`], [TITLE()])).filter((f) => f.rule === 'unknown-cover-layout');
   assert.equal(unknown('light column').length, 0);
   assert.equal(unknown('collumn').length, 1);
   const unknownClass = (cls) => lintText(deck([], [TITLE(cls)])).filter((f) => f.rule === 'unknown-class' && f.message?.includes(cls));
@@ -126,17 +126,17 @@ test('kernel: deck classes ride title and closing only, and never an axis the sl
 });
 
 test('engine: stamps cover-light on title and closing only, and nothing without the key', () => {
-  const [t, c, d, e] = classesOf(['cover: light'], [TITLE(), CONTENT, DIVIDER, CLOSING()]);
+  const [t, c, d, e] = classesOf(['cover-layout: light'], [TITLE(), CONTENT, DIVIDER, CLOSING()]);
   assert.ok(t.includes('cover-light'), t.join(' '));
   assert.ok(!c.includes('cover-light'), c.join(' '));
   assert.ok(!d.includes('cover-light'), d.join(' '));
   assert.ok(e.includes('cover-light'), e.join(' '));
   for (const s of classesOf([], [TITLE(), CLOSING()])) assert.ok(!s.some((x) => x.startsWith('cover-')), s.join(' '));
-  for (const s of classesOf(['cover: inverse'], [TITLE(), CLOSING()])) assert.ok(!s.some((x) => x.startsWith('cover-')), s.join(' '));
+  for (const s of classesOf(['cover-layout: inverse'], [TITLE(), CLOSING()])) assert.ok(!s.some((x) => x.startsWith('cover-')), s.join(' '));
 });
 
-test('engine: a slide\'s cover-inverse keeps its panel in a `cover: light` deck', () => {
-  const [t, e] = classesOf(['cover: light'], [TITLE(), CLOSING('cover-inverse')]);
+test('engine: a slide\'s cover-inverse keeps its panel in a `cover-layout: light` deck', () => {
+  const [t, e] = classesOf(['cover-layout: light'], [TITLE(), CLOSING('cover-inverse')]);
   assert.ok(t.includes('cover-light'), t.join(' '));
   assert.ok(e.includes('cover-inverse') && !e.includes('cover-light'), e.join(' '));
 });
@@ -178,7 +178,7 @@ test('runtime: stamps title and closing only from a baked block, and honors cove
     + '<section class="content"><h2>Two</h2></section>'
     + '<section class="closing cover-inverse"><h2>Three</h2></section>'
     + '<section class="closing"><h2>Four</h2></section>';
-  const doc = await renderRuntimeBaked(deck(['cover: light'], ['## x']), markup,
+  const doc = await renderRuntimeBaked(deck(['cover-layout: light'], ['## x']), markup,
     (d) => d.querySelector('section.title')?.classList.contains('cover-light'));
   const [a, b, c, e] = [...doc.querySelectorAll('section')].map((s) => s.className.split(/\s+/));
   assert.ok(a.includes('cover-light'), a.join(' '));
@@ -190,11 +190,11 @@ test('runtime: stamps title and closing only from a baked block, and honors cove
 /* ── lint ────────────────────────────────────────────────────────────────────────────── */
 
 test('lint: an unknown word warns; a known one and the key itself do not', () => {
-  const rules = (v) => lintText(deck([`cover: ${v}`], [TITLE()])).filter((f) => f.rule === 'unknown-cover');
+  const rules = (v) => lintText(deck([`cover-layout: ${v}`], [TITLE()])).filter((f) => f.rule === 'unknown-cover-layout');
   assert.equal(rules('light').length, 0);
   assert.equal(rules('inverse').length, 0);
   assert.equal(rules('pale').length, 1);
-  assert.equal(lintText(deck(['cover: light'], [TITLE()])).filter((f) => f.rule === 'unknown-key').length, 0);
+  assert.equal(lintText(deck(['cover-layout: light'], [TITLE()])).filter((f) => f.rule === 'unknown-key').length, 0);
   const unknownClass = (cls) => lintText(deck([], [TITLE(cls)])).filter((f) => f.rule === 'unknown-class' && f.message?.includes(cls));
   assert.equal(unknownClass('cover-light').length, 0, 'the per-slide class is in the vocabulary');
   assert.equal(unknownClass('cover-inverse').length, 0, 'and so is the opt-out');

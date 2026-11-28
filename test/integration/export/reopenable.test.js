@@ -175,8 +175,8 @@ describe('--reopenable (CLI)', () => {
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(path.join(dir, 'probe-box.manifest.json'), JSON.stringify({ name: 'probe-box', type: 'component', format: 1 }));
     fs.writeFileSync(path.join(dir, 'probe-box.styles.css'), 'section.probe-box { outline: 7px solid var(--accent); }');
-    fs.writeFileSync(path.join(dir, 'probe-box.gallery.md'), '<!-- _class: probe-box -->\n\n## probe-box\n');
-    const deck = '<!-- _class: probe-box -->\n\n## Boxed\n';
+    fs.writeFileSync(path.join(dir, 'probe-box.gallery.md'), '<!-- @meta{class=probe-box} -->\n\n## probe-box\n');
+    const deck = '<!-- @meta{class=probe-box} -->\n\n## Boxed\n';
     const { bytes } = exportDeck(path.join(tmp(), 'deck.pdf'), ['-q'], { LATTICE_HOME: home }, deck);
     const { source, paths } = await readLattice(await pdfPayload(bytes));
     assert.equal(source, deck);

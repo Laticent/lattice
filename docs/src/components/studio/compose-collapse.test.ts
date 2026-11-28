@@ -12,7 +12,7 @@ import { collapseKey, collapsePlugin, structuralGuard } from './ComposeView';
 // it, so a collapsed slide popped open on every move/insert/delete. The plugin now re-establishes
 // collapse by NODE IDENTITY on a `slideOp` transaction. These tests lock that in.
 
-const THREE = ['<!-- _class: content -->\n\n# One\n\nbody one', '<!-- _class: content -->\n\n# Two\n\nbody two', '<!-- _class: content -->\n\n# Three\n\nbody three'].join('\n\n---\n\n');
+const THREE = ['<!-- @meta{layout=content} -->\n\n# One\n\nbody one', '<!-- @meta{layout=content} -->\n\n# Two\n\nbody two', '<!-- @meta{layout=content} -->\n\n# Three\n\nbody three'].join('\n\n---\n\n');
 
 function make() {
 	return EditorState.create({ doc: deckToDoc(THREE), plugins: [collapsePlugin()] });
@@ -107,7 +107,7 @@ describe('folding a slide next to a folded one (the neighbor-match bug)', () => 
 describe('a rejected edit leaves the doc unchanged though tr.docChanged is true (Finding 1)', () => {
 	it('typing into a locked slide is filtered — same doc, but the tr reports docChanged', () => {
 		// A table and inline math no longer lock (both modeled); a block of HTML inside a list item still does.
-		const src = '<!-- _class: content -->\n\n# Locked\n\n- area\n  <div>x</div>';
+		const src = '<!-- @meta{layout=content} -->\n\n# Locked\n\n- area\n  <div>x</div>';
 		const state = EditorState.create({ doc: deckToDoc(src), plugins: [structuralGuard()] });
 		expect(state.doc.child(0).attrs.locked).toBe(true);
 		// caret inside the locked slide, then type a character

@@ -11,9 +11,9 @@ import { InsertControls } from './InsertControls';
 
 const kernels = createRequire(import.meta.url)('../../../../lib/authoring/inline-editors.js') as InlineKernels;
 
-const CONTENT = ['<!-- _class: content -->', '', '## Team', '', 'Lead of the project.', '', '```text', 'code', '```'].join('\n');
-const TITLE = ['<!-- _class: title -->', '', '# Hello', '', 'A subtitle line.'].join('\n');
-const LOCKED = ['<!-- _class: content -->', '', '## L', '', 'Has ~~strike~~ in it.'].join('\n');
+const CONTENT = ['<!-- @meta{layout=content} -->', '', '## Team', '', 'Lead of the project.', '', '```text', 'code', '```'].join('\n');
+const TITLE = ['<!-- @meta{layout=title} -->', '', '# Hello', '', 'A subtitle line.'].join('\n');
+const LOCKED = ['<!-- @meta{layout=content} -->', '', '## L', '', 'Has ~~strike~~ in it.'].join('\n');
 
 function mount(source: string) {
 	const plugin = inlineObjectsPlugin({ getKernels: () => kernels, getDeckLiteral: () => false, onOpenChange: () => {} });

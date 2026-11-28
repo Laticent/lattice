@@ -11,7 +11,7 @@ import { slideCount } from './galleries.mjs';
 // matter. The count must be right for both — the old formula assumed front
 // matter and undercounted every front-matter-less deck by two.
 
-const slides = (n: number) => Array.from({ length: n }, (_, i) => `<!-- _class: x -->\n\n# Slide ${i + 1}`);
+const slides = (n: number) => Array.from({ length: n }, (_, i) => `<!-- @meta{class=x} -->\n\n# Slide ${i + 1}`);
 
 function frontMatterDeck(n: number) {
   const fm = ['---', 'marp: true', 'theme: indaco', '---'].join('\n');
@@ -39,7 +39,7 @@ describe('slideCount', () => {
   it('matches the real diagram bucket gallery shape (22 slides, no front matter)', () => {
     // The authored diagram tour opens with a galleryAuthored comment + title
     // `_class`, no front matter, and runs 22 slides.
-    const title = '<!-- galleryAuthored: x -->\n<!-- _class: title silent -->\n\n# Diagrams';
+    const title = '<!-- galleryAuthored: x -->\n<!-- @meta{layout=title, class=silent} -->\n\n# Diagrams';
     const deck = [title, ...slides(21)].join('\n\n---\n\n');
     expect(slideCount(deck)).toBe(22);
   });
@@ -54,7 +54,7 @@ import { deckTitle } from './galleries.mjs';
 describe('deckTitle', () => {
   it('prefers front-matter title, then the first heading, then the slug', () => {
     expect(deckTitle('---\nmarp: true\ntitle: "Avatars"\n---\n\n# Other', 'x')).toBe('Avatars');
-    expect(deckTitle('---\nmarp: true\n---\n\n<!-- _class: title -->\n\n# Hijabs, **caps**', 'x')).toBe('Hijabs, caps');
+    expect(deckTitle('---\nmarp: true\n---\n\n<!-- @meta{layout=title} -->\n\n# Hijabs, **caps**', 'x')).toBe('Hijabs, caps');
     expect(deckTitle('no heading here', 'my-deck')).toBe('my-deck');
   });
 });

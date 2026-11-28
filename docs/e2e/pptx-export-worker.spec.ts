@@ -15,7 +15,7 @@ test.describe.configure({ timeout: 240_000 });
 
 const DECK = Array.from(
 	{ length: 4 },
-	(_, i) => `<!-- _class: big-number -->\n\n\`Slide ${i + 1}\`\n\n- ${(i + 1) * 7}\n  - of four, each visually distinct so a transposed slide is visible.`,
+	(_, i) => `<!-- @meta{layout=big-number} -->\n\n\`Slide ${i + 1}\`\n\n- ${(i + 1) * 7}\n  - of four, each visually distinct so a transposed slide is visible.`,
 ).join('\n\n---\n\n');
 
 /** Every `ppt/media/*` entry of a zip, as `name:size:crc`, read from the central directory. */

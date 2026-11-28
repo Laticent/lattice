@@ -566,7 +566,7 @@ section:is(.title, .closing)::before,
 section.divider:not(.light)::before {
   color-scheme: dark;
 }
-/* The light cover (`cover: light`, lib/core/resolve-cover.js) paints the light canvas, so its pseudo
+/* The light cover (`cover-layout: light`, lib/core/resolve-cover-layout.js) paints the light canvas, so its pseudo
    takes the light scheme, as divider.light's does by its exclusion above. Without it the spectrum bar
    and a state stamp on a light cover drew their dark-canvas arms on white (found by the checker:
    `title spectrum cover-light`, indaco, about 4.6:1 where the light arms give 7.1 to 10:1). Added as

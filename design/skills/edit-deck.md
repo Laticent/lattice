@@ -31,7 +31,7 @@ findings, use `fix-findings.md`.
 - **The argument reads top to bottom.** Read only the `##` headings in order:
   they should be the deck's case, one claim per slide, ending in one ask.
 - **Structure stays valid.** Front matter untouched unless asked, one `---`
-  between every slide, every slide still has its `<!-- _class: … -->` line.
+  between every slide, every slide still has its `<!-- @meta{…} -->` line.
 - **Lint stays clean.** `npm run lint:deck -- <file>` reports no new error or
   warning on any slide you touched.
 
@@ -60,12 +60,12 @@ rewrites bodies.
 **How the engine finds slide boundaries.** The default divider is
 `split: headings`: within each `---`-separated section, the first `#` or `##`
 opens the slide and every later `#` or `##` starts a new one. An eyebrow and
-`<!-- _class -->` line written above a heading travel with that heading. So:
+`<!-- @meta{…} -->` line written above a heading travel with that heading. So:
 
 - A slide with **no `##` heading** (a `big-number`, a heading-less `image`)
   needs a `---` on **both** sides, or it fuses with its neighbor.
 - **Merging** two slides means removing one heading, not just a `---`.
-- **Splitting** a slide means adding a second `<!-- _class -->` + `##` (and a
+- **Splitting** a slide means adding a second `<!-- @meta{…} -->` + `##` (and a
   `---`), not just a `---`.
 
 Writing a `---` between every slide makes all three cases explicit, and the
@@ -90,7 +90,7 @@ deck already uses it, and don't strip `---` lines from a deck that has them.
   "Move slide right", "Duplicate slide" and "Delete slide". ⌘Z / Ctrl+Z undoes
   from anywhere.
 - **From the Studio chat**: `read_slides` reads exact Markdown; `edit_slides`
-  stages `replace` (the whole slide, `<!-- _class -->` line to last line),
+  stages `replace` (the whole slide, `<!-- @meta{…} -->` line to last line),
   `insert` (after slide N; 0 means before the first) and `delete`. In the
   default Review mode the author sees one diff card for the turn and applies it
   or not; in Auto mode a clean edit applies at once and History restores it,
@@ -113,7 +113,7 @@ deck already uses it, and don't strip `---` lines from a deck that has them.
    scope. Everything else is read-only.
 
 4. **Make the change.**
-   - **Reorder**: move whole slides, `<!-- _class -->` line through the last
+   - **Reorder**: move whole slides, `<!-- @meta{…} -->` line through the last
      line, with their speaker notes. Re-read the headings in the new order.
    - **Split**: each half gets its own component, its own claim-heading and
      its own `---`. Count each half against its component's `capacity` in
@@ -144,12 +144,12 @@ deck already uses it, and don't strip `---` lines from a deck that has them.
 ## The contract / skeleton
 
 The slide unit you move, split or merge is everything from one
-`<!-- _class -->` line to the next `---`:
+`<!-- @meta{…} -->` line to the next `---`:
 
 ```markdown
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## Monday mornings still undo most of the gain.
 
@@ -165,7 +165,7 @@ A heading-less slide keeps a `---` on both sides:
 ```markdown
 ---
 
-<!-- _class: big-number -->
+<!-- @meta{layout=big-number} -->
 
 `Median wait, Q3`
 
@@ -186,7 +186,7 @@ pagination: true
 header: "Northwind Clinics · Ops review"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Northwind Clinics
 
@@ -196,7 +196,7 @@ Wait times fell by a third, and one staffing call decides whether that holds.
 
 ---
 
-<!-- _class: big-number -->
+<!-- @meta{layout=big-number} -->
 
 `Median wait, Q3`
 
@@ -205,7 +205,7 @@ Wait times fell by a third, and one staffing call decides whether that holds.
 
 ---
 
-<!-- _class: cards-grid three -->
+<!-- @meta{layout=cards-grid, class=three} -->
 
 ## Three changes cut the wait, and none of them cost headcount.
 
@@ -218,7 +218,7 @@ Wait times fell by a third, and one staffing call decides whether that holds.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## Monday mornings still undo most of the gain.
 
@@ -228,7 +228,7 @@ Walk-ins double on Mondays, and the shared rota cannot cover all six clinics at 
 
 ---
 
-<!-- _class: split-compare -->
+<!-- @meta{layout=split-compare} -->
 
 `Decision required`
 
@@ -247,7 +247,7 @@ The rota holds every day but Monday, and winter adds a fifth more walk-ins.
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 ## Approve two nurses and keep the wait under twenty minutes.
 
@@ -295,7 +295,7 @@ The rota holds every day but Monday, and winter adds a fifth more walk-ins.
 
 - [ ] Every changed line traces to the ask; untouched slides are byte-identical.
 - [ ] Front matter unchanged unless the ask named it.
-- [ ] Every slide still starts with its `<!-- _class: … -->` line; every
+- [ ] Every slide still starts with its `<!-- @meta{…} -->` line; every
       heading-less slide has a `---` on both sides.
 - [ ] Read the `##` headings alone, in order: they make the case and end on
       one ask.
@@ -314,7 +314,7 @@ The rota holds every day but Monday, and winter adds a fifth more walk-ins.
 2. **Deleting a `---` to "merge"** while both headings stay. Under
    `split: headings` the two `##` still make two slides. Remove a heading.
 3. **Splitting without a new heading.** A bare `---` in the middle of a slide
-   gives the second half no claim and no component. Add `<!-- _class -->` + `##`.
+   gives the second half no claim and no component. Add `<!-- @meta{…} -->` + `##`.
 4. **Moving a slide without its notes or its eyebrow.** Move the whole unit.
 5. **Changing the component during a line edit.** If the words no longer fit
    the component, say so and offer the swap; that is a restyle or a split.

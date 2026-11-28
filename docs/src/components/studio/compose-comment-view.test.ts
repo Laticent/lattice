@@ -18,7 +18,7 @@ import { CommentView, commentOpenKey, commentRunPlugin, structuralGuard } from '
 // calls it directly.
 
 const DECK = [
-	'<!-- _class: content -->',
+	'<!-- @meta{layout=content} -->',
 	'',
 	'## Heading',
 	'',
@@ -128,7 +128,7 @@ describe('the run behaves as ONE control', () => {
 	});
 
 	it('keeps separate runs independent — one open pill per run at most', () => {
-		mount(['<!-- _class: content -->', '', '## H', '', '<!-- one -->', '', 'middle', '', '<!-- two -->'].join('\n'));
+		mount(['<!-- @meta{layout=content} -->', '', '## H', '', '<!-- one -->', '', 'middle', '', '<!-- two -->'].join('\n'));
 		expect(pills()).toHaveLength(2);
 		// Both are `first` AND `last`: two runs of one, not one run of two.
 		expect(pills().every((p) => p.classList.contains('cs-comment-first') && p.classList.contains('cs-comment-last'))).toBe(true);
@@ -188,7 +188,7 @@ describe('removal is a deliberate second act', () => {
 		const text = v.state.doc.textContent;
 		expect(text).toContain('First paragraph.');
 		expect(text).toContain('Second paragraph.');
-		expect(v.state.doc.child(0).attrs.directives).toEqual(['<!-- _class: content -->']);
+		expect(v.state.doc.child(0).attrs.directives).toEqual(['<!-- @meta{layout=content} -->']);
 	});
 
 	it('closes the panel after removing, rather than stranding it on a dead position', () => {
@@ -230,7 +230,7 @@ describe('removal is a deliberate second act', () => {
 describe('a locked slide says so instead of doing nothing', () => {
 	// Reachable by accident: a note containing `~~` or `$math$` locks its OWN slide, so
 	// `<!-- TODO: kill the ~~old~~ wording -->` makes the slide read-only with no visible cause.
-	const LOCKED = ['<!-- _class: content -->', '', '## H', '', 'body ~~struck~~ text', '', '<!-- a note -->'].join('\n');
+	const LOCKED = ['<!-- @meta{layout=content} -->', '', '## H', '', 'body ~~struck~~ text', '', '<!-- a note -->'].join('\n');
 
 	it('the slide really is locked', () => {
 		const v = mount(LOCKED);
@@ -266,7 +266,7 @@ describe('a locked slide says so instead of doing nothing', () => {
 // clicked, and then showed no panel, no channel class and no Remove — visibly present, doing
 // nothing, and unremovable from Compose.
 describe('a comment nested in a blockquote is a first-class pill', () => {
-	const NESTED = ['<!-- _class: content -->', '', '## H', '', '> quoted', '>', '> <!-- inner note -->', '', 'after'].join('\n');
+	const NESTED = ['<!-- @meta{layout=content} -->', '', '## H', '', '> quoted', '>', '> <!-- inner note -->', '', 'after'].join('\n');
 
 	it('models the nested comment at all', () => {
 		const v = mount(NESTED);
@@ -298,17 +298,17 @@ describe('a comment nested in a blockquote is a first-class pill', () => {
 	// replacement slide came back without its `_class`. The lift is now exactly one level, and only
 	// into a container that is not the slide.
 	it('removes a comment that is the slide’s ONLY block, without eating the slide', () => {
-		const v = mount(['<!-- _class: quote -->', '', '<!-- lonely -->'].join('\n'));
+		const v = mount(['<!-- @meta{layout=quote} -->', '', '<!-- lonely -->'].join('\n'));
 		const before = v.state.doc.childCount;
 		pills()[0].click();
 		(document.querySelector('.cs-comment-remove') as HTMLButtonElement).click();
 		expect(commentCount(v)).toBe(0);
 		expect(v.state.doc.childCount).toBe(before);
-		expect(v.state.doc.child(0).attrs.directives).toEqual(['<!-- _class: quote -->']);
+		expect(v.state.doc.child(0).attrs.directives).toEqual(['<!-- @meta{layout=quote} -->']);
 	});
 
 	it('and keeps every OTHER slide when the lone-comment slide is not the only one', () => {
-		const v = mount(['<!-- _class: content -->', '', '## First', '', '---', '', '<!-- lonely -->'].join('\n'));
+		const v = mount(['<!-- @meta{layout=content} -->', '', '## First', '', '---', '', '<!-- lonely -->'].join('\n'));
 		const before = v.state.doc.childCount;
 		pills()[0].click();
 		(document.querySelector('.cs-comment-remove') as HTMLButtonElement).click();
@@ -321,7 +321,7 @@ describe('a comment nested in a blockquote is a first-class pill', () => {
 		// A plain `tr.delete` left the blockquote behind (ProseMirror fills it with an empty
 		// paragraph), so the author got a bare `> ` line they never wrote. Newly reachable in this
 		// design, because a nested comment had no Remove control before it.
-		const v = mount(['<!-- _class: content -->', '', '## H', '', '> <!-- lonely -->', '', 'after'].join('\n'));
+		const v = mount(['<!-- @meta{layout=content} -->', '', '## H', '', '> <!-- lonely -->', '', 'after'].join('\n'));
 		pills()[0].click();
 		(document.querySelector('.cs-comment-remove') as HTMLButtonElement).click();
 		expect(commentCount(v)).toBe(0);
@@ -334,7 +334,7 @@ describe('a comment nested in a blockquote is a first-class pill', () => {
 	});
 
 	it('but a blockquote with real content survives the removal', () => {
-		const v = mount(['<!-- _class: content -->', '', '> quoted', '>', '> <!-- inner -->'].join('\n'));
+		const v = mount(['<!-- @meta{layout=content} -->', '', '> quoted', '>', '> <!-- inner -->'].join('\n'));
 		pills()[0].click();
 		(document.querySelector('.cs-comment-remove') as HTMLButtonElement).click();
 		expect(commentCount(v)).toBe(0);
@@ -342,7 +342,7 @@ describe('a comment nested in a blockquote is a first-class pill', () => {
 	});
 
 	it('does not merge a nested run with a comment outside the blockquote', () => {
-		mount(['<!-- _class: content -->', '', '> quoted', '>', '> <!-- inner -->', '', '<!-- outer -->'].join('\n'));
+		mount(['<!-- @meta{layout=content} -->', '', '> quoted', '>', '> <!-- inner -->', '', '<!-- outer -->'].join('\n'));
 		expect(pills()).toHaveLength(2);
 		// Two runs of one, not one run of two — different parents.
 		expect(pills().every((p) => p.classList.contains('cs-comment-first') && p.classList.contains('cs-comment-last'))).toBe(true);
@@ -352,7 +352,7 @@ describe('a comment nested in a blockquote is a first-class pill', () => {
 describe('the panel lays the note out for reading', () => {
 	// The field is for EDITING, so it keeps the author's line breaks: joining wrapped lines there wrote the join back on the first edit.
 	it('keeps WRAPPED lines and blank-line paragraphs, without the hanging indent', () => {
-		mount(['<!-- _class: content -->', '', '## H', '', '<!-- one wrapped', '     line here.', '', '     And a second paragraph. -->'].join('\n'));
+		mount(['<!-- @meta{layout=content} -->', '', '## H', '', '<!-- one wrapped', '     line here.', '', '     And a second paragraph. -->'].join('\n'));
 		pills()[0].click();
 		expect((panels()[0].querySelector('.cs-comment-body') as HTMLTextAreaElement).value).toBe('one wrapped\nline here.\n\nAnd a second paragraph.');
 	});
@@ -361,13 +361,13 @@ describe('the panel lays the note out for reading', () => {
 	// minimum indent read a FALSE baseline, because `commentBody` trims and the first line arrived
 	// at zero. A flat list written under its opener then rendered as if it were nested.
 	it('does not INVENT nesting in a flat list written under the opener', () => {
-		mount(['<!-- _class: content -->', '', '## H', '', '<!--', '  - a', '  - b', '-->'].join('\n'));
+		mount(['<!-- @meta{layout=content} -->', '', '## H', '', '<!--', '  - a', '  - b', '-->'].join('\n'));
 		pills()[0].click();
 		expect(panels()[0].querySelector('.cs-comment-body')?.textContent).toBe('- a\n- b');
 	});
 
 	it('and strips a deep hanging indent rather than showing it', () => {
-		mount(['<!-- _class: content -->', '', '## H', '', '<!-- TODO:', '     - call finance', '     - redo the chart -->'].join('\n'));
+		mount(['<!-- @meta{layout=content} -->', '', '## H', '', '<!-- TODO:', '     - call finance', '     - redo the chart -->'].join('\n'));
 		pills()[0].click();
 		expect(panels()[0].querySelector('.cs-comment-body')?.textContent).toBe('TODO:\n- call finance\n- redo the chart');
 	});
@@ -375,7 +375,7 @@ describe('the panel lays the note out for reading', () => {
 	it('keeps a NESTED list’s shape, not just its breaks', () => {
 		// Trimming every line flattened the nesting: `- a` / `  - b` / `    - c` all came out flush.
 		// Strip the COMMON indent, keep the relative one.
-		mount(['<!-- _class: content -->', '', '## H', '', '<!-- plan:', '- a', '  - b', '    - c -->'].join('\n'));
+		mount(['<!-- @meta{layout=content} -->', '', '## H', '', '<!-- plan:', '- a', '  - b', '    - c -->'].join('\n'));
 		pills()[0].click();
 		expect(panels()[0].querySelector('.cs-comment-body')?.textContent).toBe('plan:\n- a\n  - b\n    - c');
 	});
@@ -383,7 +383,7 @@ describe('the panel lays the note out for reading', () => {
 	it('keeps the line breaks of a LIST-shaped note', () => {
 		// Joining these turned a checklist into one run-on line, and the multi-line note is exactly
 		// the shape this feature exists to surface.
-		mount(['<!-- _class: content -->', '', '## H', '', '<!-- TODO before Monday:', '- call finance', '- redo the chart', '- send to Dana -->'].join('\n'));
+		mount(['<!-- @meta{layout=content} -->', '', '## H', '', '<!-- TODO before Monday:', '- call finance', '- redo the chart', '- send to Dana -->'].join('\n'));
 		pills()[0].click();
 		expect(panels()[0].querySelector('.cs-comment-body')?.textContent).toBe('TODO before Monday:\n- call finance\n- redo the chart\n- send to Dana');
 	});
@@ -412,7 +412,7 @@ describe('the row announces itself as the tab bar it is', () => {
 	// later, because the id embedded a document position while `render()` only re-runs when the
 	// node or its decorations change, not when the node merely shifts.
 	it('keeps aria-controls resolvable after an edit MOVES the comment', () => {
-		const v = mount(['<!-- _class: content -->', '', 'lead paragraph', '', '<!-- a note -->'].join('\n'));
+		const v = mount(['<!-- @meta{layout=content} -->', '', 'lead paragraph', '', '<!-- a note -->'].join('\n'));
 		pills()[0].click();
 		expect(document.getElementById(pills()[0].getAttribute('aria-controls') as string)).not.toBeNull();
 		// Type into the paragraph above, shifting every position after it.

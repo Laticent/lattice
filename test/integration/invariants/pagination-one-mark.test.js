@@ -75,24 +75,24 @@ pagination: true
 footer: "Footer Text"
 ---
 
-<!-- _class: title with-pagination -->
+<!-- @meta{class=title with-pagination} -->
 # Title frame
 \`ONE MARK\`
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{class=content} -->
 ## Chrome-hosting frame
 A plain Form slide takes the root frame, which holds the number in its footer Cell.
 
 ---
 
-<!-- _class: divider with-pagination -->
+<!-- @meta{class=divider with-pagination} -->
 ## Divider frame
 
 ---
 
-<!-- _class: premise -->
+<!-- @meta{class=premise} -->
 ## Premise frame
 
 - The question this slide exists to put
@@ -100,7 +100,7 @@ A plain Form slide takes the root frame, which holds the number in its footer Ce
 
 ---
 
-<!-- _class: split-panel -->
+<!-- @meta{class=split-panel} -->
 ## Split-panel frame
 
 - Left panel
@@ -110,13 +110,13 @@ A plain Form slide takes the root frame, which holds the number in its footer Ce
 
 ---
 
-<!-- _class: closing with-pagination -->
+<!-- @meta{class=closing with-pagination} -->
 # Closing frame
 \`END\`
 
 ---
 
-<!-- _class: split-compare -->
+<!-- @meta{class=split-compare} -->
 
 \`Decision required\`
 
@@ -131,13 +131,13 @@ One sentence of context.
 
 ---
 
-<!-- _class: image -->
+<!-- @meta{class=image} -->
 
 ![A lake](sample:photo-wide.jpg)
 
 ---
 
-<!-- _class: scene -->
+<!-- @meta{class=scene} -->
 
 ## Scene frame
 
@@ -147,7 +147,7 @@ What the exhibit shows, in one line.
 
 ---
 
-<!-- _class: compare-code -->
+<!-- @meta{class=compare-code} -->
 
 ## Compare-code frame
 

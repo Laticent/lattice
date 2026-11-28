@@ -140,7 +140,7 @@ for (const kind of Object.keys(READERS)) {
 
 describe('chart redraw: the check before trust refuses a list that is not the author\'s', () => {
   const exported = (md, cls) => {
-    const doc = new JSDOM(engine.render(`---\ntheme: indaco\n---\n\n<!-- _class: ${cls} -->\n\n## T\n\n${md}`, {}).html).window.document;
+    const doc = new JSDOM(engine.render(`---\ntheme: indaco\n---\n\n<!-- @meta{class=${cls}} -->\n\n## T\n\n${md}`, {}).html).window.document;
     return doc.querySelector('section.chart-frame .chart-body');
   };
   const rec = () => ({ orientation: undefined, aspect: undefined, checked: new Map() });
@@ -207,7 +207,7 @@ describe('chart redraw: the check before trust accepts a portrait export under a
   // and the runtime redraws from the bare list, which has no header, so its check must draw in the box the export
   // stamped (`data-form-box`, chart-redraw.js `verified`), or every such chart would keep its export on a phone.
   test('a 4:5 tower with a source line passes its own check', () => {
-    const md = '---\ntheme: indaco\nsize: portrait\n---\n\n<!-- _class: tower -->\n\n## The programme\n\n'
+    const md = '---\ntheme: indaco\nsize: portrait\n---\n\n<!-- @meta{layout=tower} -->\n\n## The programme\n\n'
       + '- Layer 3 `$200M xs $160M`\n  - Acme Re `30%`\n  - Globex Re `25%`\n  - Helios Re `20%`\n'
       + '- Layer 2 `$70M xs $90M`\n  - Acme Re `40%`\n  - Vantage Re `35%`\n  - Umbra Re `25%`\n'
       + '- Layer 1 `$40M xs $50M`\n  - Globex Re `60%`\n  - Meridian Re `40%`\n\nSource: broker placement slip.\n';

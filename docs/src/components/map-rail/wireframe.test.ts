@@ -3,7 +3,7 @@ import { MAX_BLOCKS, wireOf } from './wireframe';
 
 describe('wireOf', () => {
 	it('reads the title, the component class and the body shape', () => {
-		const w = wireOf('<!-- _class: bar -->\n\n`Eyebrow`\n\n## One **index** took the query under budget.\n\nMilliseconds per query.\n\n- Before `840`\n- After `190`\n');
+		const w = wireOf('<!-- @meta{layout=bar} -->\n\n`Eyebrow`\n\n## One **index** took the query under budget.\n\nMilliseconds per query.\n\n- Before `840`\n- After `190`\n');
 		expect(w.title).toBe('One index took the query under budget.');
 		expect(w.kind).toBe('bar');
 		expect(w.blocks).toEqual(['text', 'list']);

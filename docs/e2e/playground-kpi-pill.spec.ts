@@ -30,7 +30,7 @@ theme: ${theme}
 color-mode: ${mode}
 ---
 
-<!-- _class: kpi attention -->
+<!-- @meta{class=kpi attention} -->
 
 ## attention flags the tile that misses.
 

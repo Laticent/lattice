@@ -626,6 +626,48 @@ export async function gotoStudio(page: Page, { query = '' }: { query?: string } 
 			w.__latticeDeliveredCaret = snap();
 		});
 	});
+	// A Library photo's bytes, wherever they are stored: in its Workbench row (a Blob, or an ArrayBuffer where the
+	// engine refuses a Blob), or, since vault slice 2, in the storage vault the row names (`vault`), read through the
+	// vault's own index from OPFS or from `lattice-vault-blobs`. Specs that check the STORED bytes (EXIF stripped,
+	// the orientation baked in) call `window.__latticeRowBlob(row)` inside `page.evaluate`, so none of them has to
+	// know the layout (2026-11-27-vault-slice-2-as-built.md). It opens `lattice-vault` only for a row that names a
+	// vault file, so it never creates that database before the vault does.
+	await page.addInitScript(() => {
+		const open = (name: string) =>
+			new Promise<IDBDatabase>((res, rej) => {
+				const r = indexedDB.open(name);
+				r.onsuccess = () => res(r.result);
+				r.onerror = () => rej(r.error);
+			});
+		const get = <T>(db: IDBDatabase, store: string, key: IDBValidKey) =>
+			new Promise<T>((res, rej) => {
+				const q = db.transaction(store).objectStore(store).get(key);
+				q.onsuccess = () => res(q.result as T);
+				q.onerror = () => rej(q.error);
+			});
+		(window as unknown as { __latticeRowBlob: (row: { blob?: Blob; data?: ArrayBuffer; vault?: string; mime?: string }) => Promise<Blob> }).__latticeRowBlob = async (row) => {
+			if (row.blob) return row.blob;
+			if (row.data) return new Blob([row.data], { type: row.mime });
+			if (!row.vault) throw new Error('e2e: the row holds no bytes and names no vault file');
+			const index = await open('lattice-vault');
+			const rec = await get<{ sha256: string; deleted?: boolean } | undefined>(index, 'entries', row.vault);
+			const backing = await get<string | undefined>(index, 'meta', 'blobBacking');
+			index.close();
+			if (!rec || rec.deleted) throw new Error(`e2e: the vault has no file at ${row.vault}`);
+			let bytes: Blob;
+			if (backing === 'indexeddb') {
+				const blobs = await open('lattice-vault-blobs');
+				const r = await get<{ blob?: Blob; data?: ArrayBuffer }>(blobs, 'blobs', rec.sha256);
+				blobs.close();
+				bytes = r.blob ?? new Blob([r.data as ArrayBuffer]);
+			} else {
+				const top = await navigator.storage.getDirectory();
+				const shard = await (await (await top.getDirectoryHandle('lattice-vault')).getDirectoryHandle('blobs')).getDirectoryHandle(rec.sha256.slice(0, 2));
+				bytes = await (await shard.getFileHandle(rec.sha256)).getFile();
+			}
+			return new Blob([bytes], { type: row.mime });
+		};
+	});
 	await page.goto(`/studio/${query}`, { waitUntil: 'domcontentloaded' });
 	await waitForStudioPaint(page);
 }

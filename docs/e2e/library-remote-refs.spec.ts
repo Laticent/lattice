@@ -35,7 +35,7 @@ test('a remote reference in a gallery or in motion art never leaves the Studio',
 	zip.file('probe-beacon/probe-beacon.styles.css', 'section.probe-beacon { display: grid; }');
 	zip.file(
 		'probe-beacon/probe-beacon.gallery.md',
-		`<!-- _class: probe-beacon -->\n\n## Hi\n\n<img src="https://${BEACON}/img.png">\n\n![x](https://${BEACON}/md.png)\n\n<div style="background:url(https://${BEACON}/css.png)"></div>\n`,
+		`<!-- @meta{class=probe-beacon} -->\n\n## Hi\n\n<img src="https://${BEACON}/img.png">\n\n![x](https://${BEACON}/md.png)\n\n<div style="background:url(https://${BEACON}/css.png)"></div>\n`,
 	);
 	const spec = { source: 'svg', duration: 4000, hero: 1, asset: 'route.svg', elements: [{ id: 'p', pathRef: 'p1', motion: [{ verb: 'draw', span: 1 }] }] };
 	const art =

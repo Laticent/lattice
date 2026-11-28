@@ -59,12 +59,17 @@ describe('Fix all through the Squadra driver', () => {
 
   test('the meta migration runs after every line fix, so a fix meant for an old comment lands first', () => {
     // A retired `paginate` comment is deleted by its own line fix; migrated first, it would become a record field
-    // that no fix removes. And a typo'd class is fixed before the migration types it as `layout`.
+    // that no fix removes. Since the cut (record note §15, slice E) an old comment sets nothing, so the rules that read
+    // a slide's class (the typo'd `kpu`, the cards rule) see it only once the migration has made it a record: their
+    // fixes land after the migration, on the record.
     const src = `${FM}<!-- _class: kpu -->\n<!-- _paginate: true -->\n\n# 42%\n\n---\n\n<!-- _class: cards-grid -->\n\n## H\n\n- **A.** one\n`;
     const res = core.fixAllDetailed(src, vocab);
-    assert.equal(res.applied.at(-1).rule, 'legacy-directive-comment', 'the migration is the last fix applied');
-    assert.equal(res.applied.filter((a) => a.rule === 'legacy-directive-comment').length, 1, 'one migration converts the deck');
-    assert.match(res.text, /<!-- @meta\{layout=kpi\} -->/);
+    const rules = res.applied.map((a) => a.rule);
+    assert.ok(rules.indexOf('pagination-comment-retired') < rules.indexOf('legacy-directive-comment'), 'the retired comment goes before the migration');
+    assert.equal(rules.filter((r) => r === 'legacy-directive-comment').length, 1, 'one migration converts the deck');
+    assert.ok(rules.indexOf('unknown-class') > rules.indexOf('legacy-directive-comment'), 'the typo is fixed on the record');
+    // The migration cannot type an unknown word, so it writes `class=kpu`; the typo fix keeps that key.
+    assert.match(res.text, /<!-- @meta\{class=kpi\} -->/);
     assert.doesNotMatch(res.text, /paginate/);
     assert.match(res.text, /<!-- @meta\{layout=cards-grid\} -->\n\n## H\n\n- A\n {2}- one/);
   });
@@ -158,7 +163,7 @@ describe('Fix all through the Squadra driver', () => {
 describe('after the bridge checker (2026-10-29)', () => {
   test('fixes the live line when an identical fenced copy sits ABOVE it, for the card and split rules', () => {
     for (const cls of ['cards-grid', 'split-panel']) {
-      const src = `${FM}<!-- _class: ${cls} -->\n\n## H\n\n\`\`\`md\n- **Live.** body\n\`\`\`\n\n- **Live.** body\n`;
+      const src = `${FM}<!-- @meta{class=${cls}} -->\n\n## H\n\n\`\`\`md\n- **Live.** body\n\`\`\`\n\n- **Live.** body\n`;
       const res = core.fixAllDetailed(src, vocab);
       assert.match(res.text, /```md\n- \*\*Live\.\*\* body\n```/, `${cls}: the fenced copy is untouched`);
       assert.match(res.text, /^- Live\n {2}- body$/m, `${cls}: the live line is fixed`);

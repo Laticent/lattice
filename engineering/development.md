@@ -277,7 +277,15 @@ of on every keystroke. Nothing in `lib/` requires it, so HARD RULE #1 holds: Mar
 Four more devDependencies are aliases of older marp-core releases (`marp-core-4.0.1` … `marp-core-4.4.0`), each with its marpit
 pinned by `overrides`: the pairs Marp for VS Code 3.x bundles, whose own CSS differs (`VSCODE_CORES`; the decision note's
 "Every Marp for VS Code in the range"). Bump them only together with that table; `test/unit/tools/marp-vscode-cores.test.js`
-fails on a mismatch.
+fails on a mismatch. The same `overrides` give the root marp-core and every alias the repo's own katex (`"katex": "$katex"`):
+marp-core 4.x asks for katex 0.16 or 0.17, which `npm audit` flags (GHSA-238p-pmpm-9mq7), and the build only packs CSS with
+it. The test checks that each alias runs the root's katex, and its rule-for-rule snapshot of what each modeled Marp writes
+ahead of a theme proves the swap changes nothing the build packs (the four `dist/lattice-vscode*` files were byte-identical
+across it, 2026-11-23). marp-core stays on 4.4.0, the release Marp for VS Code 3.6.1 and marp-cli 4.5.1 run; 5.x was only a
+pre-release (npm's `next` tag) on that date. One consequence to know: marp-core 4.x ships its own KaTeX stylesheet with
+KaTeX 0.16/0.17's class names, so math rendered through these marp-cores with `math: 'katex'` would come out mis-styled
+against 0.18's markup. Nothing in the repo does that: the build calls `renderStyle` only, the parity test renders with
+marp-core's default MathJax, and real Marp renders run the separate `test/fixtures/marp-cli` install.
 
 **The regex census runs a pinned recheck, in its own folder, and the gate does not need it.**
 `checkRegexCensus` (`tools/check-ownership.js`, via `build:check`) holds every regex literal in
@@ -441,6 +449,14 @@ branches / ~77% functions. Statement number is low because
 `lattice.js` and `lattice-runtime.js` are exercised by
 integration tests, not unit tests.
 
+**c8's glob and minimatch are pinned by `overrides`.** c8 (11 and 12 alike) reaches them through
+test-exclude 8, which asks for glob ^13 and minimatch ^10, versions `npm audit` flags
+(GHSA-3g3m-2fjr-6pw4, GHSA-g3hv-75wg-m249). The fix `npm audit` suggests is a downgrade to c8 9.
+So `package.json` `overrides.test-exclude` pins glob 14.0.6 and minimatch 11.0.9 instead. test-exclude
+calls only `glob`, `glob.sync` and `minimatch`, which both majors export, and it matched the same 642
+files under both trees; a full unit coverage run gave identical totals (2026-11-23). Drop the entry
+once a c8 release takes a fixed test-exclude, and bump the exact pins by hand until then.
+
 ## CI
 
 `.github/workflows/ci.yml` is path-gated and browser-lean. A top-level
@@ -566,20 +582,24 @@ say what the new measured duration is — don't delete the line.
 The per-PR CI is Linux only, so anything that depends on the operating system has no real-surface evidence there (HARD RULE #23). A
 **platform suite** is a check that runs on a GitHub-hosted macOS or Windows runner (free on this public repo), chosen by the work.
 One suite runs on Linux: `android-chrome-chooser` boots an Android emulator on `ubuntu-24.04`, the image that exposes KVM, and
-drives Chrome on it through adb (`docs/scripts/android/`). Like the iOS suites it is off pull requests: it runs nightly and on
-dispatch (about 6 Linux minutes a run, free here). `tools/check-ownership.js` admits `ubuntu-24.04` only for a suite whose `run`
+drives Chrome on it through adb (`docs/scripts/android/`). Like every suite it runs on dispatch only
+(about 6 Linux minutes a run, free here). `tools/check-ownership.js` admits `ubuntu-24.04` only for a suite whose `run`
 is under `docs/scripts/android/`; a Linux check that needs no emulator belongs in `ci.yml`. A failure before its probe runs (no
 AVD, no boot, no Chrome) writes the `no-session` mark, so triage reads it as infra and the nightly re-runs it once before alerting.
 The registry is `.github/platform-suites.json`, the workflow is `.github/workflows/platform-suites.yml`, and the selection rule is
 `tools/platform-suites-plan.js`. **Report-only**: the check is not required, and a red suite shows red.
 
-- **When it runs:** nightly, every suite; a manual dispatch (`gh workflow run platform-suites.yml -f suites=export-confine`, or
-  empty for all); a pull request, the suites whose `paths` match its diff (and all of them if the registry, planner or workflow changed),
-  **except a suite marked `"on_pull_request": false`, which never runs on a pull request.** The iOS Simulator suites carry it
-  (2026-10-29, `decisions/2026-10-29-ci-job-tiers.md`): 30-minute macOS jobs, often red on the simulator, gating nothing. Their
-  `paths` still say when a change reaches them, and `npm run evidence` prints the dispatch to run before the merge.
+- **When it runs: on dispatch only, since 2026-11-27.** The owner took the suites off the merge path and paused the nightly
+  (the iOS Simulator and Windows suites were too flaky to run unattended), so `platform-suites.yml` has no `pull_request` and no
+  `schedule` trigger; its header says how to undo that. Dispatch with `gh workflow run platform-suites.yml -f suites=export-confine`,
+  or empty for all. A suite is **never a card-grade requirement**: `npm run evidence` lists the suites a diff reaches as an
+  `optional` row, and without a green dispatched run a claim about a real macOS, Windows or iOS device stays UNVERIFIED (#23).
+  The planner's pull-request rule is kept for that row and for the undo: a PR selects the suites whose `paths` match its diff
+  (and all of them if the registry, planner or workflow changed), except a suite marked `"on_pull_request": false`. The iOS
+  Simulator suites carry it (2026-10-29, `decisions/2026-10-29-ci-job-tiers.md`): 30-minute macOS jobs, often red on the
+  simulator, gating nothing.
 - **Add one:** an entry in the registry with `name`, `os`, `paths`, `run`, a `why` that names the OS-dependent behavior Linux cannot
-  show, and `on_pull_request: false` if it should run only nightly and on dispatch; then `npm run build:check` (`checkPlatformSuites`
+  show, and `on_pull_request: false` if it should stay off pull requests if their trigger is ever re-added; then `npm run build:check` (`checkPlatformSuites`
   rejects a malformed entry, a `run` naming a deleted file, and an iOS Simulator suite that says `on_pull_request: true`).
   An iOS Simulator suite, one whose `run` calls `docs/scripts/ios-safari/run.sh`, is off pull requests by its command,
   with or without the flag, so a new one cannot land on PRs by forgetting it.
@@ -767,7 +787,7 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   `PROBE=font-cache node docs/scripts/ios-safari/probe.selftest.mjs`, with the server running, does the same on
   Playwright WebKit with a persistent profile: an ephemeral WebKit context keeps no disk cache across preview documents.
   It seeds on the same blank page first, as `run.mjs` does.
-  `ios-safari-chat-storage-ipad` and `ios-safari-chat-storage-iphone` run it with `PROBE=chat-storage` (#3138), nightly and on dispatch only (`on_pull_request: false`):
+  `ios-safari-chat-storage-ipad` and `ios-safari-chat-storage-iphone` run it with `PROBE=chat-storage` (#3138), on dispatch only (`on_pull_request: false`; every suite is dispatch-only since 2026-11-27):
   `chat-storage-probe.js` plants two chat threads the way a build before #3138 saved them (`lattice-studio-chat-<deckId>`,
   one on the open deck, one on a deck never opened), `run.mjs` reloads the page for real, and the probe then waits up to a
   minute for the idle migration to empty localStorage of them and checks both arrive whole in IndexedDB
@@ -1291,10 +1311,11 @@ copy that leaks markup or still links an HTML page that has a copy.
 
 **The agent pack lives at `/agents/`.** `docs/scripts/sync-portal.mjs` copies `dist/agent-kit/`
 (built by `tools/build-agent-kit.mjs`) there verbatim, and `/llms.txt` sends agents to
-`/agents/start.md` first. The same tree is mirrored to the `dist-kits` branch, so edit the kit's
-generator, never the copies. The kit build fails on a link that leaves the kit and on Marp wording
-outside `render/lattice-export-to-marp.md`; `tools/agent-pack-eval.mjs` (nightly) has a model write
-decks from `start.md` alone. Why: `engineering/decisions/2026-11-17-agent-pack.md`.
+`/agents/start.md` first, then `/agents/layouts.md`. The same tree is mirrored to the `dist-kits` branch, so edit the kit's
+generator, never the copies. The kit build fails on a link that leaves the kit, on Marp wording
+outside `render/lattice-export-to-marp.md`, and on a `start.md` over 990 o200k tokens
+(`START_TOKEN_MAX`: the owner's 1,500 on Claude's count, at the measured 1.51× ratio); `tools/agent-pack-eval.mjs`
+(nightly) has a model write decks from `start.md` alone. Why: `engineering/decisions/2026-11-17-agent-pack.md`.
 The link-preview card is `docs/public/og/lattice.png`, drawn by `node tools/make-og-card.js`
 (committed, like the PWA icons; re-run it after changing the lockup, the promise or the showcase
 slides it uses).

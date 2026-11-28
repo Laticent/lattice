@@ -985,7 +985,7 @@ describe('cartesian — money and decimal marks as a global client writes them',
         waterfall: `- Plan \`${a}\`\n- Cat \`+${b}\`\n- Actual \`${c}\` \`total\``,
       };
       for (const [cls, body] of Object.entries(bodies)) {
-        const { html } = engine.render(`<!-- _class: ${cls} -->\n\n## T\n\n${body}\n`);
+        const { html } = engine.render(`<!-- @meta{class=${cls}} -->\n\n## T\n\n${body}\n`);
         assert.match(html, /<svg/, `${cls} ${a}: no chart drawn`);
         const ticks = [...html.matchAll(/class="cart-tick"[^>]*>([\s\S]*?)<\/text>/g)].map((m) => m[1]);
         assert.ok(ticks.length > 0, `${cls} ${a}: no ticks`);

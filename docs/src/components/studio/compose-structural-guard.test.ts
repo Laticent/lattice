@@ -14,7 +14,7 @@ import { structuralGuard } from './ComposeView';
 // document and assert on the APPLIED state — `state.apply()` returns the unchanged state
 // when a filter rejects, which is exactly what the author saw as "nothing happened".
 
-const THREE = ['<!-- _class: content -->\n\n# One\n\nbody one', '<!-- _class: content -->\n\n# Two\n\nbody two', '<!-- _class: content -->\n\n# Three\n\nbody three'].join('\n\n---\n\n');
+const THREE = ['<!-- @meta{layout=content} -->\n\n# One\n\nbody one', '<!-- @meta{layout=content} -->\n\n# Two\n\nbody two', '<!-- @meta{layout=content} -->\n\n# Three\n\nbody three'].join('\n\n---\n\n');
 
 const make = (source = THREE) => EditorState.create({ doc: deckToDoc(source), plugins: [structuralGuard()] });
 

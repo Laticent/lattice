@@ -18,6 +18,12 @@ your lane first") and §The raise loop, `engineering/development.md` §Platform 
 (`grep -rln -iE 'ios|safari|windows' engineering/gotchas/`). Tag this session `desk:devices`
 and `ui:pinned`.
 
+**Since 2026-11-27 the platform suites are dispatch-only** (owner: off the merge path,
+nightly paused). No PR run or nightly starts them, so there is no nightly red to read, and
+a suite is never a card-grade requirement. A device claim stays UNVERIFIED (#23) until a
+dispatched suite goes green or the owner checks it on the device. `.github/workflows/platform-suites.yml`'s
+header says how to turn the triggers back on; that is the owner's call, not this desk's.
+
 **The question this desk owns:** what have we only seen in a simulator, an emulator or a
 harness? HARD RULE #23 says a claim names its surface. This desk keeps the list of claims
 whose surface was never reached.
@@ -40,9 +46,9 @@ whose surface was never reached.
    one line, what to do on the device, and what a pass looks like. Record the owner's answer
    in the follow-up (through a session you start) and tell the backlog desk, which retires it.
 5. **Write back** (through a session you start, counted in the budget). A claim settled on a surface becomes evidence in its follow-up or PR; a
-   new platform trap becomes a gotcha entry; a red suite goes to the flake desk.
+   new platform trap becomes a gotcha entry; a red test in a suite goes to the flake desk; a suite red that is not a test goes to the deps + nightly desk.
 6. **Report** to the command center: open UNVERIFIED claims by surface, runner minutes used,
-   the owner's device list if any, and `budget: N/10 today`, with its `meter:` ledger.
+   the owner's device list if any, and `budget: N/10 today`, with its `meter:` ledger, which also rides on every gate message to the command center (a card announcement, a 🧱 line).
 
 ## Lane
 

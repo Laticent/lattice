@@ -6,7 +6,7 @@ import { expect, test } from './studio-fixture';
 // drawn from the check's own slot (lib/plugins/checks/checks.inline.js SPEC), and a pick writes only what it changed.
 // engineering/decisions/2026-10-18-checks.md §18.
 
-const DECK = ['<!-- _class: content -->', '', '## Vendor review', '', 'Residency is `@check{pass, label=Residency}` today.', '', 'Closing words.'].join('\n');
+const DECK = ['<!-- @meta{layout=content} -->', '', '## Vendor review', '', 'Residency is `@check{pass, label=Residency}` today.', '', 'Closing words.'].join('\n');
 
 const panel = (page: Page) => page.locator('[data-slot="popover-content"], [data-slot="sheet-content"]').last();
 

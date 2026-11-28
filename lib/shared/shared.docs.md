@@ -28,7 +28,7 @@ preserved so headers and footers never collide with content. Reach for
 section by 1-2 lines.
 
 ```markdown
-<!-- _class: cards-grid compact -->
+<!-- @meta{layout=cards-grid, class=compact} -->
 ```
 
 <!-- `loose` (the inverse of compact) was retired 2026-07-03: 0 real uses, and
@@ -42,7 +42,7 @@ canvas, where the spectrum stripe is suppressed, `accent.dark` restores
 a solid accent stripe so the visual signal still reads.
 
 ```markdown
-<!-- _class: closing accent -->
+<!-- @meta{layout=closing, class=accent} -->
 ```
 
 ---

@@ -77,10 +77,10 @@ export { dateline as default };
 ```
 
 A slide belongs to your component when its class list names it, as in
-`<!-- _class: dateline -->`. One component draws each slide, and the order is
+`<!-- @meta{layout=dateline} -->`. One component draws each slide, and the order is
 fixed, not the order of the classes: first the shipped components that draw
 with code, such as `bar`, then installed packages in name order. So
-`<!-- _class: bar dateline -->` is a bar chart. On the command line, Lattice
+`<!-- @meta{layout=bar, class=dateline} -->` is a bar chart. On the command line, Lattice
 prints a warning that names the component that drew the slide instead.
 
 The function must return a string that holds **exactly one `<section>`**. It
@@ -293,7 +293,7 @@ section.dateline .dateline-date { color: var(--cat-1-mark); }
 `dateline.gallery.md`:
 
 ```md
-<!-- _class: dateline -->
+<!-- @meta{layout=dateline} -->
 
 ## Plan
 
@@ -328,7 +328,7 @@ npx lattice deck.md deck.pdf
 ```
 
 ```md
-<!-- _class: dateline -->
+<!-- @meta{layout=dateline} -->
 
 ## Launch plan
 

@@ -22,7 +22,7 @@ theme: indaco
 
 ---
 
-<!-- _class: funnel -->
+<!-- @meta{class=funnel} -->
 
 ## Most signals die early.
 

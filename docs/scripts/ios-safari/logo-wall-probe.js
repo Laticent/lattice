@@ -29,13 +29,13 @@
 // biome-ignore lint/correctness/noUnusedVariables: a global for WebDriver's execute-script and Playwright's addScriptTag
 async function latticeLogoWallProbe() {
 	const DECK = [
-		'<!-- _class: title silent -->',
+		'<!-- @meta{class=title silent} -->',
 		'',
 		'# Logo wall probe',
 		'',
 		'---',
 		'',
-		'<!-- _class: logo-wall -->',
+		'<!-- @meta{class=logo-wall} -->',
 		'',
 		'## Four shapes, one weight.',
 		'',

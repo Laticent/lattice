@@ -17,7 +17,7 @@ marp: true
 theme: indaco
 ---
 
-<!-- _class: collage -->
+<!-- @meta{class=collage} -->
 
 ## Four photos, packed.
 
@@ -28,7 +28,7 @@ theme: indaco
 
 ---
 
-<!-- _class: logo-wall -->
+<!-- @meta{class=logo-wall} -->
 
 ## Four shapes, one weight.
 

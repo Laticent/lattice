@@ -65,6 +65,7 @@
 				recovery: async () => (await ready).recovery,
 				writePaths: async () => ({ ...(await ready).writePaths }),
 				probe: async () => (await ready).probeWritePath(),
+				backing: async () => (await ready).blobBacking,
 				settled: async () => (await ready).settled(),
 			};
 		</script>

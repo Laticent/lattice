@@ -26,7 +26,8 @@ function withoutClassFields(comment) {
   const parts = t.startsWith('<!--') && t.endsWith('-->') ? recordParts(t.slice(4, -3).trim()) : null;
   if (!parts) return '';
   const kept = parts.items.filter((it) => {
-    const d = readRecord(`{${it.text}}`)?.d || {};
+    // Each field read as a record of its own; since the cut a bare `{…}` is no record, so it carries the `@meta` lead.
+    const d = readRecord(`@meta{${it.text}}`)?.d || {};
     return !(Object.keys(d).length === 1 && d.class !== undefined);
   });
   return kept.length ? `<!-- ${parts.lead}{${kept.map((it) => it.text).join(', ')}} -->` : '';

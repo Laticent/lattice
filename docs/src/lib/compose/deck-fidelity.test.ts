@@ -173,7 +173,7 @@ describe('the checker’s cases (2026-11-11)', () => {
 	});
 
 	it('a slide that cannot be spliced around its directive keeps no blank lines the directive left behind', () => {
-		const src = '# T\n\n```md\n<!-- _class: kpi -->\n```\n\n<!-- _class: kpi -->\n\nbody\n';
+		const src = '# T\n\n```md\n<!-- @meta{layout=kpi} -->\n```\n\n<!-- @meta{layout=kpi} -->\n\nbody\n';
 		const doc = deckToDoc(src);
 		let pos = -1;
 		doc.descendants((n, p) => {
@@ -218,14 +218,14 @@ describe('the checker’s cases (2026-11-11)', () => {
 
 	it('a slide that falls back to its directive-free spelling still reads as the edit', () => {
 		// The trailing spaces of an indented code block's last line sit in the gap after it; collapsing that gap must not drop them.
-		const src = '<!-- _class: kpi -->\n\n# T\n\n    code   \n\n\n\nbody\n';
+		const src = '<!-- @meta{layout=kpi} -->\n\n# T\n\n    code   \n\n\n\nbody\n';
 		const doc = deckToDoc(src);
 		let pos = -1;
 		doc.descendants((n, p) => {
 			if (pos < 0 && n.isText && n.text === 'body') pos = p;
 			return pos < 0;
 		});
-		const edited = EditorState.create({ doc }).tr.setNodeAttribute(0, 'directives', ['<!-- _class: big-number -->']).insertText('X', pos).doc;
+		const edited = EditorState.create({ doc }).tr.setNodeAttribute(0, 'directives', ['<!-- @meta{layout=big-number} -->']).insertText('X', pos).doc;
 		const out = emitDeck(edited, initBaseline(doc));
 		expect(docToDeck(deckToDoc(out))).toBe(docToDeck(edited));
 	});

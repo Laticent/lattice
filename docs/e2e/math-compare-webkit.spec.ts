@@ -90,7 +90,7 @@ theme: indaco
 pagination: true
 ---
 
-<!-- _class: math compare -->
+<!-- @meta{class=math compare} -->
 
 \`Estimators · asymptotics\`
 
@@ -110,7 +110,7 @@ Weights an overidentified moment system. Efficient when $W$ is the inverse of th
 
 ---
 
-<!-- _class: math compare -->
+<!-- @meta{class=math compare} -->
 
 \`Three-up · norms\`
 

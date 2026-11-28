@@ -19,12 +19,12 @@ const DECK = [
 	'',
 	'## EMEA carried the quarter.',
 	'',
-	'<!-- panes: 35/65 -->',
-	'<!-- pane: list -->',
+	'<!-- @meta{panes=35/65} -->',
+	'<!-- @meta{pane=list} -->',
 	'',
 	'- EMEA closed three late deals',
 	'',
-	'<!-- pane: table -->',
+	'<!-- @meta{pane=table} -->',
 	'',
 	'| Region | Q3 |',
 	'|---|---|',
@@ -81,7 +81,7 @@ test('Present shows both panes of a split slide, in order, forward and back', as
 test('a one-slide deck whose slide splits still steps to its second page', async ({ page }) => {
 	// The arrows counted slides, so on a deck of one they were both disabled and the second pane
 	// could not be reached at all. They count pages now.
-	const one = ['---', 'theme: indaco', 'size: 9:16', '---', '', '## EMEA carried the quarter.', '', '<!-- panes: 35/65 -->', '<!-- pane: list -->', '', '- EMEA closed three late deals', '', '<!-- pane: table -->', '', '| Region | Q3 |', '|---|---|', '| EMEA | 5.3 |', ''].join('\n');
+	const one = ['---', 'theme: indaco', 'size: 9:16', '---', '', '## EMEA carried the quarter.', '', '<!-- @meta{panes=35/65} -->', '<!-- @meta{pane=list} -->', '', '- EMEA closed three late deals', '', '<!-- @meta{pane=table} -->', '', '| Region | Q3 |', '|---|---|', '| EMEA | 5.3 |', ''].join('\n');
 	await gotoStudio(page);
 	await setEditorContent(page, one);
 	await expect.poll(() => railButtons(page).count(), { timeout: 30_000 }).toBe(1);

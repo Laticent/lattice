@@ -29,7 +29,7 @@ pagination: true
 size: square
 ---
 
-<!-- _class: table -->
+<!-- @meta{class=table} -->
 
 \`Riding it\`
 

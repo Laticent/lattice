@@ -80,6 +80,7 @@ const { execFileSync } = require('child_process');
 const { bakeSplits, bakeHidden, stripPaneMarkers } = require('../lib/core/bake-splits');
 const { liftImageBgImages } = require('../lib/core/bg-image-lift');
 const { recordsToComments } = require('../lib/core/meta-door.mjs');
+const { withoutLegacySettings } = require('../lib/core/without-legacy-settings.mjs');
 const { notesToMarp } = require('../lib/authoring/notes-core.js');
 const { withMarpDirectivesOnly } = require('../lib/export/marp-directives.js');
 const { sampleName } = require('../lib/core/remote-ref');
@@ -452,7 +453,8 @@ function main(argv) {
   // The passes run in the shared order (lib/export/marp-directives.mjs `MARP_PASSES`), each on the one before.
   // A record field that cannot reach Marp whole (a value holding `-->`) stops the export: never a silent truncation (§7).
   const recordReport = [];
-  const compiled = recordsToComments(src, recordReport);
+  // An old setting comment sets nothing in Lattice since the cut, so it reaches Marp as nothing either.
+  const compiled = recordsToComments(withoutLegacySettings(src), recordReport);
   const unsafe = recordReport.filter((d) => d.code === 'meta-comment-unsafe');
   if (unsafe.length) die(unsafe.map((d) => `${deckPath}:${d.line}: ${d.message}`).join('\n'));
   for (const d of recordReport) console.warn(`  ⚠ ${deckPath}:${d.line}: ${d.message}`);
@@ -461,8 +463,10 @@ function main(argv) {
   // (engineering/decisions/2026-11-20-four-notes.md N5).
   const noted = notesToMarp(compiled);
   const imaged = withImageRecordsAsMarp(noted, admission.off);
-  const agendaFilled = fillAutoAgenda(imaged);
-  const glossed = appendAutoGlossary(agendaFilled);
+  // Both run on the deck in Marp's comments: the agenda reads Marp's `_class:`, and the glossary slide is written
+  // in Marp's comment like every other (the cut, record note §15 slice E).
+  const agendaFilled = fillAutoAgenda(imaged, { marp: true });
+  const glossed = appendAutoGlossary(agendaFilled, { marp: true });
   const glossedFm = glossed.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n/);
   const deckDir = path.dirname(path.resolve(deckPath));
   const copied = new Map(); // one dedupe map across body + front-matter refs

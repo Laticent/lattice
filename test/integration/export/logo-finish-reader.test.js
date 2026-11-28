@@ -22,8 +22,8 @@ test('the reader article carries no tint svg and names no logo word as a slide l
   const out = path.join(dir, 'deck.html');
   fs.writeFileSync(md, [
     '---', 'marp: true', 'theme: indaco', 'logo: lattice', 'logo-finish: top-left accent', '---', '',
-    '<!-- _class: title -->', '', '# Cover', '', '---', '', '## A plain slide', '',
-    'Some words.', '', '---', '', '<!-- _class: no-logo -->', '', '## No mark here', '', 'More words.', '',
+    '<!-- @meta{layout=title} -->', '', '# Cover', '', '---', '', '## A plain slide', '',
+    'Some words.', '', '---', '', '<!-- @meta{class=no-logo} -->', '', '## No mark here', '', 'More words.', '',
   ].join('\n'));
   const r = spawnSync(process.execPath, [path.join(ROOT, 'lattice.js'), md, out, '--player'], { encoding: 'utf8', timeout: 300000 });
   assert.equal(r.status, 0, r.stderr);

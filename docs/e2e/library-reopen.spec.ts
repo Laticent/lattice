@@ -45,7 +45,7 @@ async function retype(page: Parameters<typeof gotoStudio>[0], label: string, tex
  */
 async function nameComponent(page: Parameters<typeof gotoStudio>[0], name: string) {
 	await page.getByRole('textbox', { name: 'Component name' }).fill(name);
-	await retype(page, 'Component skeleton', `<!-- _class: ${name} -->\n\n## Probe headline\n\nA supporting line.`);
+	await retype(page, 'Component skeleton', `<!-- @meta{class=${name}} -->\n\n## Probe headline\n\nA supporting line.`);
 	// Palette-blind and scoped — the two things `gateCss` actually checks (HARD RULE #3).
 	await retype(page, 'Component CSS', `section.${name} { display: grid; place-content: center; }\nsection.${name} h2 { color: var(--accent); }`);
 }

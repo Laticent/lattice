@@ -249,7 +249,7 @@ describe('export-formats', () => {
     ).join('\n');
     fs.writeFileSync(
       src,
-      `<!-- _class: content -->\n\n## A slide that cannot possibly fit\n\n${wall}\n\n<script src="lattice-runtime.js"></script>\n`,
+      `<!-- @meta{layout=content} -->\n\n## A slide that cannot possibly fit\n\n${wall}\n\n<script src="lattice-runtime.js"></script>\n`,
     );
 
     const out = path.join(dir, 'overflow.pdf');
@@ -277,7 +277,7 @@ describe('export-formats', () => {
     const wall = Array.from({ length: 40 }, (_, i) =>
       `- Point ${i + 1}: a deliberately long line of body copy engineered to push this slide's content well past the bottom of the frame so the overflow watcher fires.`,
     ).join('\n');
-    fs.writeFileSync(src, `<!-- _class: content -->\n\n## A slide that cannot possibly fit\n\n${wall}\n`);
+    fs.writeFileSync(src, `<!-- @meta{layout=content} -->\n\n## A slide that cannot possibly fit\n\n${wall}\n`);
 
     const render = (level) => {
       const out = path.join(dir, `${level}.pdf`);
@@ -333,7 +333,7 @@ describe('export-formats', () => {
     const wall = Array.from({ length: 40 }, (_, i) =>
       `- Point ${i + 1}: a deliberately long line of body copy engineered to push this slide's content well past the bottom of the frame so the overflow watcher fires.`,
     ).join('\n');
-    fs.writeFileSync(src, `<!-- _class: content -->\n\n## A slide that cannot possibly fit\n\n${wall}\n`);
+    fs.writeFileSync(src, `<!-- @meta{layout=content} -->\n\n## A slide that cannot possibly fit\n\n${wall}\n`);
 
     const play = (level) => {
       const out = path.join(dir, `${level}.pdf`);
@@ -390,12 +390,12 @@ describe('export-formats', () => {
     const src = path.join(dir, 'deck.md');
     fs.writeFileSync(src, [
       '---', 'pagination: true', '---', '',
-      '<!-- _class: image -->', '',
+      '<!-- @meta{layout=image} -->', '',
       '![A photo](photo.svg)', '',
       '# SVG background', '',
       `<!-- @note{${NOTE_MARKER}} -->`, '',
       '---', '',
-      '<!-- _class: content -->', '',
+      '<!-- @meta{layout=content} -->', '',
       '## Inline SVG image', '',
       `${SOURCE_MARKER}`, '',
       '![sample](photo.svg)', '',
@@ -446,7 +446,7 @@ describe('export-formats', () => {
     fs.writeFileSync(src, [
       '---', 'marp: true', 'theme: indaco', 'finish: atrium', 'backdrop: clear', '---', '',
       '# Baked finish one', '', 'Body text stays vector.', '', '---', '',
-      '<!-- _class: no-finish -->', '', '# Opted out', '', '---', '',
+      '<!-- @meta{class=no-finish} -->', '', '# Opted out', '', '---', '',
       '# Baked finish two', '',
     ].join('\n'));
     return src;
@@ -525,7 +525,7 @@ describe('export-formats', () => {
   test('card borders are drawn as vectors, not left in the photo to blur on a big screen', { timeout: TIMEOUT }, () => {
     const dir = tmpDir();
     const src = path.join(dir, 'cards.md');
-    fs.writeFileSync(src, '---\ntheme: cuoio\ncolor-mode: dark\n---\n\n<!-- _class: stats -->\n\n## Four cards\n\n1. $14.2M\n   - revenue\n2. 118%\n   - retention\n3. 3.1%\n   - churn\n4. 41\n   - logos\n');
+    fs.writeFileSync(src, '---\ntheme: cuoio\ncolor-mode: dark\n---\n\n<!-- @meta{layout=stats} -->\n\n## Four cards\n\n1. $14.2M\n   - revenue\n2. 118%\n   - retention\n3. 3.1%\n   - churn\n4. 41\n   - logos\n');
     const out = path.join(dir, 'cards.pdf'), rep = path.join(dir, 'report.json');
     const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_PDF_REPORT: rep }, timeout: TIMEOUT });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
@@ -1090,11 +1090,11 @@ describe('export-formats', () => {
     const src = path.join(dir, 'robust.md');
     fs.writeFileSync(src, [
       '---', 'html: true', 'pagination: false', '---', '',
-      '<!-- _class: content -->', '',
+      '<!-- @meta{layout=content} -->', '',
       '## Intrinsic pin', '',
       '![red](small-red.svg)', '',
       '---', '',
-      '<!-- _class: content -->', '',
+      '<!-- @meta{layout=content} -->', '',
       '## Scrim and bad URL', '',
       `<div style="width:200px;height:150px;background-image:linear-gradient(rgba(0,0,255,0.5),rgba(0,0,255,0.5)),url('small-red.svg')"></div>`, '',
       `<div style="width:10px;height:10px;background-image:url('http://[bad/x.svg')"></div>`, '',

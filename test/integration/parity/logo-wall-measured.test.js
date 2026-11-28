@@ -38,7 +38,7 @@ theme: indaco
 size: square
 ---
 
-<!-- _class: logo-wall -->
+<!-- @meta{class=logo-wall} -->
 
 ## Four short captions.
 
@@ -46,7 +46,7 @@ ${wall(4, 'A')}
 
 ---
 
-<!-- _class: logo-wall -->
+<!-- @meta{class=logo-wall} -->
 
 ## One wide pill inside.
 
@@ -54,7 +54,7 @@ ${wall(4, (i) => (i === 1 ? 'Enterprise' : 'A'))}
 
 ---
 
-<!-- _class: logo-wall -->
+<!-- @meta{class=logo-wall} -->
 
 ## Eight long pills.
 

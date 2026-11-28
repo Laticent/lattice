@@ -25,9 +25,9 @@ const { componentPackage } = await import('./package-zip');
 it('a faculty edit of an imported code package keeps its transform and its facts declaration, and exports them', async () => {
 	const transform = 'function t(s){return s.html}export{t as default};';
 	const manifest = { name: 'tally', type: 'component', format: 1, facts: 1 };
-	const first = await saveStudioComponent({ name: 'tally', css: 'section.tally{}', skeleton: '<!-- _class: tally -->', pkg: { manifest, files: { 'transform.js': transform } } });
+	const first = await saveStudioComponent({ name: 'tally', css: 'section.tally{}', skeleton: '<!-- @meta{class=tally} -->', pkg: { manifest, files: { 'transform.js': transform } } });
 	// The faculty's save: an id, the edited CSS, and no package carry.
-	const edited = await saveStudioComponent({ id: first.id, name: 'tally', css: 'section.tally{color:red}', skeleton: '<!-- _class: tally -->', meta: {} });
+	const edited = await saveStudioComponent({ id: first.id, name: 'tally', css: 'section.tally{color:red}', skeleton: '<!-- @meta{class=tally} -->', meta: {} });
 	expect(edited.pkg?.files?.['transform.js']).toBe(transform);
 	expect(edited.pkg?.manifest?.facts).toBe(1);
 	const exported = JSON.parse(componentPackage(edited).files['tally.manifest.json'] as string);

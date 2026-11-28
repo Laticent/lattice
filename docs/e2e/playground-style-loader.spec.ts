@@ -36,7 +36,7 @@ Another plain slide.
 const WITH_FUNNEL = `${PLAIN}
 ---
 
-<!-- _class: funnel -->
+<!-- @meta{class=funnel} -->
 
 ## Most signals die long before they change a decision.
 

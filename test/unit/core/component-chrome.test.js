@@ -36,7 +36,7 @@ test('with-header on the slide wins, and a content slide is untouched', () => {
 });
 
 test('the engine renders the header on a divider and hides it on a title, with the footer on both', () => {
-  const md = '---\nheader: Deck\nfooter: Confidential\n---\n\n<!-- _class: title -->\n\n# T\n\n---\n\n<!-- _class: divider numbered -->\n\n## D\n';
+  const md = '---\nheader: Deck\nfooter: Confidential\n---\n\n<!-- @meta{layout=title} -->\n\n# T\n\n---\n\n<!-- @meta{layout=divider, class=numbered} -->\n\n## D\n';
   const html = createEngine().render(md, 'lattice').html;
   const sections = html.split(/<section\b/).slice(1);
   assert.match(sections[0], /^[^>]*class="[^"]*\bno-header\b/);
@@ -46,10 +46,12 @@ test('the engine renders the header on a divider and hides it on a title, with t
 
 test('Export to Marp writes `_header: \'\'` where the component drops the header, and nowhere else', () => {
   const { withMarpScope } = require('../../../lib/core/marp-bundle-scope.js');
-  const deck = '---\nheader: Deck\n---\n\n<!-- _class: title -->\n\n# T\n\n---\n\n<!-- _class: title with-header -->\n\n# T2\n\n---\n\n## C\n';
-  const out = withMarpScope(deck);
+  const deck = '---\nheader: Deck\n---\n\n<!-- @meta{layout=title} -->\n\n# T\n\n---\n\n<!-- @meta{layout=title, class=with-header} -->\n\n# T2\n\n---\n\n## C\n';
+  // The bundle scope runs on the deck in Marp's comments: both producers write the records back first.
+  const { recordsToComments } = require('../../../lib/core/meta-door.mjs');
+  const out = withMarpScope(recordsToComments(deck));
   assert.equal((out.match(/<!-- _header: '' -->/g) || []).length, 1);
-  assert.ok(out.indexOf("<!-- _header: '' -->") < out.indexOf('# T\n'));
+  assert.ok(out.indexOf("<!-- _header: '' -->") > -1 && out.indexOf("<!-- _header: '' -->") < out.indexOf('# T\n'));
   // A deck with no header has nothing to drop.
-  assert.doesNotMatch(withMarpScope('---\nfooter: x\n---\n\n<!-- _class: title -->\n\n# T\n'), /_header/);
+  assert.doesNotMatch(withMarpScope(recordsToComments('---\nfooter: x\n---\n\n<!-- @meta{layout=title} -->\n\n# T\n')), /_header/);
 });

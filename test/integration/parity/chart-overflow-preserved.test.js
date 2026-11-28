@@ -46,7 +46,7 @@ function formDeck(sample) {
 }
 
 // A fitting SVG chart (self-scaling): a small pie with four slices.
-const FITTING_SVG = `<!-- _class: piechart donut -->
+const FITTING_SVG = `<!-- @meta{layout=piechart, class=donut} -->
 
 \`Revenue\`
 
@@ -58,7 +58,7 @@ const FITTING_SVG = `<!-- _class: piechart donut -->
 `;
 
 // A fitting list chart: three progress bars.
-const FITTING_LIST = `<!-- _class: progress -->
+const FITTING_LIST = `<!-- @meta{layout=progress} -->
 
 ## Delivery progress by workstream.
 
@@ -73,7 +73,7 @@ const OVER_ROWS = Array.from(
   { length: 40 },
   (_v, i) => `- Workstream ${i + 1} with a fairly long descriptive label \`${(i * 7) % 100}%\` \`on-track\``,
 ).join('\n');
-const OVER_TALL_LIST = `<!-- _class: progress -->
+const OVER_TALL_LIST = `<!-- @meta{layout=progress} -->
 
 ## An overstuffed progress chart with far too many rows.
 
@@ -86,7 +86,7 @@ ${OVER_ROWS}
 // A fitting state-chart: four states WITH a caption — the exact shape that regressed after
 // .viz-frame (the then-pinned node column couldn't shrink into the caption-compressed stage
 // and clipped the caption). It must self-scale to fit and NOT report overflow.
-const FITTING_STATE = `<!-- _class: state-chart -->
+const FITTING_STATE = `<!-- @meta{layout=state-chart} -->
 
 \`Lifecycle\`
 
@@ -111,7 +111,7 @@ const OVER_STATES = Array.from(
   { length: 14 },
   (_v, i) => `- State ${i + 1} with a reasonably long descriptive name\n  - -> State ${i < 13 ? i + 2 : 1} with a reasonably long descriptive name`,
 ).join('\n');
-const OVER_TALL_STATE = `<!-- _class: state-chart -->
+const OVER_TALL_STATE = `<!-- @meta{layout=state-chart} -->
 
 ## A dense ten-state machine with long labels.
 
@@ -134,7 +134,7 @@ const OVER_INLINE_STATES = Array.from(
   { length: 7 },
   (_v, i) => `- Inline state ${i + 1} with a reasonably long name\n  - -advance-> Inline state ${i < 6 ? i + 2 : 1} with a reasonably long name`,
 ).join('\n');
-const OVER_TALL_INLINE = `<!-- _class: state-chart inline -->
+const OVER_TALL_INLINE = `<!-- @meta{layout=state-chart, class=inline} -->
 
 ## A seven-state inline machine.
 
@@ -151,7 +151,7 @@ const DENSE_INLINE_STATES = Array.from(
   { length: 24 },
   (_v, i) => `- State ${i + 1} with a reasonably long descriptive name\n  - -advance-> State ${i < 23 ? i + 2 : 1} with a reasonably long descriptive name`,
 ).join('\n');
-const ILLEGIBLE_INLINE = `<!-- _class: state-chart inline -->
+const ILLEGIBLE_INLINE = `<!-- @meta{layout=state-chart, class=inline} -->
 
 ## A 24-state inline machine.
 

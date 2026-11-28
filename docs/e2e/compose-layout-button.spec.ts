@@ -9,11 +9,11 @@ const COMPOSE = 'Compose — rich editor';
 
 const DECK = [
 	'---', 'marp: true', 'theme: indaco', '---', '',
-	'<!-- _class: big-number -->', '', '`The whole idea`', '', '- 0', '  - boxes to drag: you write Markdown, the engine designs the slide.', '',
+	'<!-- @meta{layout=big-number} -->', '', '`The whole idea`', '', '- 0', '  - boxes to drag: you write Markdown, the engine designs the slide.', '',
 	'---', '',
-	'<!-- _class: cards-grid three -->', '', '## Three ways in.', '', '- Write', '  - Plain Markdown in any editor.', '- Compose', '  - Point and click in the Studio.', '- Ask', '  - Describe the slide to the assistant.', '',
+	'<!-- @meta{layout=cards-grid, class=three} -->', '', '## Three ways in.', '', '- Write', '  - Plain Markdown in any editor.', '- Compose', '  - Point and click in the Studio.', '- Ask', '  - Describe the slide to the assistant.', '',
 	'---', '',
-	'<!-- _class: stats -->', '', '## By the numbers.', '', '1. 80', '   - components', '2. 12', '   - themes', '',
+	'<!-- @meta{layout=stats} -->', '', '## By the numbers.', '', '1. 80', '   - components', '2. 12', '   - themes', '',
 ].join('\n');
 
 /** The persisted deck source, JSON-decoded (see compose-fenced-code.spec.ts). */
@@ -79,7 +79,7 @@ test('@crosswidth @webkit-phone @webkit-tablet @gecko a look applies at once, th
 	await expect(pillButton(page)).toBeFocused();
 	// Undo gives the slide back exactly as the author wrote it, old comment included.
 	await page.locator('[data-sonner-toast]').getByRole('button', { name: 'Undo' }).click();
-	await expect.poll(() => deckSource(page)).toContain('<!-- _class: cards-grid three -->');
+	await expect.poll(() => deckSource(page)).toContain('<!-- @meta{layout=cards-grid, class=three} -->');
 });
 
 test('@crosswidth @webkit-phone @webkit-tablet @gecko a layout that reads the text keeps it; one that cannot asks before replacing it', async ({ page }) => {
@@ -111,7 +111,7 @@ test('@crosswidth @webkit-phone @webkit-tablet @gecko a layout that reads the te
 	await expect(menu(page)).toBeHidden();
 	// One Undo takes back the whole visit, however many picks it held.
 	await page.locator('[data-sonner-toast]').getByRole('button', { name: 'Undo' }).click();
-	await expect.poll(() => deckSource(page)).toContain('<!-- _class: stats -->\n\n## By the numbers.\n\n1. 80\n   - components');
+	await expect.poll(() => deckSource(page)).toContain('<!-- @meta{layout=stats} -->\n\n## By the numbers.\n\n1. 80\n   - components');
 });
 
 test('@crosswidth @webkit-phone @gecko focusing a slide or opening its menu moves nothing on the page', async ({ page }) => {

@@ -65,7 +65,7 @@ async function keyprobeZip(): Promise<Buffer> {
 	const zip = new JSZip();
 	zip.file('keyprobe/keyprobe.manifest.json', JSON.stringify({ name: 'keyprobe', type: 'component', format: 1, facts: 1 }));
 	zip.file('keyprobe/keyprobe.styles.css', 'section.keyprobe .keyprobe-report { color: var(--accent); }\n');
-	zip.file('keyprobe/keyprobe.gallery.md', '<!-- _class: keyprobe -->\n\n## Probe\n');
+	zip.file('keyprobe/keyprobe.gallery.md', '<!-- @meta{class=keyprobe} -->\n\n## Probe\n');
 	zip.file('keyprobe/keyprobe.transform.js', TRANSFORM);
 	return zip.generateAsync({ type: 'nodebuffer' });
 }
@@ -100,7 +100,7 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 		await page.locator('[data-testid="library-import-input"]').setInputFiles({ name: 'keyprobe.zip', mimeType: 'application/zip', buffer: await keyprobeZip() });
 		await expect(page.locator('[data-sonner-toast]').first()).toContainText('1 component(s)');
 		await page.keyboard.press('Escape');
-		await setEditorContent(page, '<!-- _class: keyprobe -->\n\n## Probe\n');
+		await setEditorContent(page, '<!-- @meta{class=keyprobe} -->\n\n## Probe\n');
 		const notice = page.locator('[data-slot="code-packages"]');
 		await expect(notice).toHaveAttribute('data-state', 'unapproved', { timeout: 30_000 });
 		await notice.getByRole('button', { name: 'Approve the code of keyprobe' }).click();

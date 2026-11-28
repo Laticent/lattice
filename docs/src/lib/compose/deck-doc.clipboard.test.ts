@@ -53,17 +53,17 @@ function parseElement(el: HTMLElement) {
 /** The provenance token this session stamps — read back off our OWN serialized output,
  *  because it is deliberately not exported (nothing should be able to ask for it). */
 function ownOrigin(): string {
-	const doc = deckToDoc('<!-- _class: title -->\n\n# Hi');
+	const doc = deckToDoc('<!-- @meta{layout=title} -->\n\n# Hi');
 	const host = document.createElement('div');
 	host.appendChild(DOMSerializer.fromSchema(deckSchema).serializeFragment(doc.content));
 	return host.querySelector('section.cs-slide')?.getAttribute('data-lattice-origin') ?? '';
 }
 
-const BEACON = '<!-- _backgroundImage: url(https://evil.example/beacon.png) -->';
+const BEACON = '<!-- @meta{background-image="url(https://evil.example/beacon.png)"} -->';
 // A directive carrying newlines: `composeSlideChunk` joins directives with `\n` and
 // prepends them, so a newline here forges a slide boundary and smuggles a raw `<style>`
 // element into the deck source — which the export writes out verbatim.
-const FORGERY = '<!-- _class: x -->\n\n---\n\n<!-- _class: title -->\n\n# FORGED\n\n<style>body{background:url(https://evil.example/b.png)}</style>';
+const FORGERY = '<!-- @meta{class=x} -->\n\n---\n\n<!-- @meta{layout=title} -->\n\n# FORGED\n\n<style>body{background:url(https://evil.example/b.png)}</style>';
 
 describe('the data-directives clipboard bridge rejects foreign input', () => {
 	it('drops directives from HTML that carries no provenance token', () => {
@@ -82,8 +82,8 @@ describe('the data-directives clipboard bridge rejects foreign input', () => {
 		// Defense in depth: this is the case where the token leaks, or a future change
 		// relaxes provenance. A directive is a SINGLE-LINE `<!-- _name: … -->` comment; one
 		// carrying a newline could forge `---` boundaries or open a front-matter fence.
-		const doc = parseSlideSection({ 'data-lattice-origin': ownOrigin(), 'data-directives': JSON.stringify(['<!-- _class: title -->', FORGERY]) });
-		expect(doc.child(0).attrs.directives).toEqual(['<!-- _class: title -->']); // the legal one survives
+		const doc = parseSlideSection({ 'data-lattice-origin': ownOrigin(), 'data-directives': JSON.stringify(['<!-- @meta{layout=title} -->', FORGERY]) });
+		expect(doc.child(0).attrs.directives).toEqual(['<!-- @meta{layout=title} -->']); // the legal one survives
 		const src = docToDeck(doc);
 		expect(src).not.toContain('FORGED');
 		expect(src).not.toContain('<style>');
@@ -92,13 +92,13 @@ describe('the data-directives clipboard bridge rejects foreign input', () => {
 
 	it('KEEPS the directives on a slide copied from this same session', () => {
 		// The bridge has to still do its job, or the `_class` wipe comes back.
-		const doc = deckToDoc('<!-- _class: title -->\n\n# Hi\n\n---\n\n<!-- _class: big-number -->\n\n- 42\n  - things');
+		const doc = deckToDoc('<!-- @meta{layout=title} -->\n\n# Hi\n\n---\n\n<!-- @meta{layout=big-number} -->\n\n- 42\n  - things');
 		const div = document.createElement('div');
 		div.appendChild(DOMSerializer.fromSchema(deckSchema).serializeFragment(doc.content));
 		const round = parseElement(div);
 		expect(round.childCount).toBe(2);
-		expect(round.child(0).attrs.directives).toEqual(['<!-- _class: title -->']);
-		expect(round.child(1).attrs.directives).toEqual(['<!-- _class: big-number -->']);
+		expect(round.child(0).attrs.directives).toEqual(['<!-- @meta{layout=title} -->']);
+		expect(round.child(1).attrs.directives).toEqual(['<!-- @meta{layout=big-number} -->']);
 	});
 
 	it('KEEPS a slide\'s @meta record through copy and paste, and still drops a record that could forge structure', () => {
@@ -110,7 +110,7 @@ describe('the data-directives clipboard bridge rejects foreign input', () => {
 		expect(round.child(0).attrs.directives).toEqual(['<!-- @meta{layout=title} -->']);
 		expect(round.child(1).attrs.directives).toEqual(['<!-- @meta{layout=big-number, footer="Q3, review"} -->']);
 		// The shape gate: a newline, or a comment that closes early, is dropped even with a genuine token.
-		const bad = ['<!-- @meta{layout=kpi}\n---\n<style>x</style> -->', '<!-- @meta{footer=x} --><style>x</style><!-- {a=b} -->', '<!-- @meta{footer="a -- b"} -->'];
+		const bad = ['<!-- @meta{layout=kpi}\n---\n<style>x</style> -->', '<!-- @meta{footer=x} --><style>x</style><!-- @meta{a=b} -->', '<!-- @meta{footer="a -- b"} -->'];
 		const parsed = parseSlideSection({ 'data-lattice-origin': ownOrigin(), 'data-directives': JSON.stringify(['<!-- @meta{layout=kpi} -->', ...bad]) });
 		expect(parsed.child(0).attrs.directives).toEqual(['<!-- @meta{layout=kpi} -->']);
 		// And provenance still comes first: a foreign record is dropped.

@@ -49,7 +49,7 @@ const drainMicrotasks = async () => {
 	for (let i = 0; i < 50; i++) await Promise.resolve();
 };
 
-const DECK = '# One\n\n---\n\n<!-- _class: kpi -->\n\n# Two\n';
+const DECK = '# One\n\n---\n\n<!-- @meta{layout=kpi} -->\n\n# Two\n';
 const viewOf = (el: Element | null) => (el as unknown as { cmTile: { root: { view: { state: { doc: { toString(): string } } } } } }).cmTile.root.view;
 
 describe('Editor and its known component names', () => {
@@ -74,7 +74,7 @@ describe('Editor and its known component names', () => {
 		const lintVocab = { names: ['kpi', 'title'], modifiers: [], mapRegions: {}, finishNames: [], splitNames: [], capacity: {} };
 		const counts: Array<{ total: number; fixable: number } | null> = [];
 		const onLintCounts = (c: { total: number; fixable: number } | null) => counts.push(c);
-		const deck = '<!-- _class: kpix -->\n\n# One\n';
+		const deck = '<!-- @meta{class=kpix} -->\n\n# One\n';
 		const { container, rerender } = render(<Editor value={deck} onChange={() => {}} knownComponents={['kpi', 'title']} lintVocab={lintVocab} onLintCounts={onLintCounts} />);
 		// Let the first pass start: it now waits on the first slide, which records the wait.
 		await act(() => vi.waitFor(() => expect(slide.waited, 'the first lint pass started').toBe(true), { timeout: 10_000 }));

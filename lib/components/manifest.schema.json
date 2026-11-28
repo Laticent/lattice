@@ -21,7 +21,7 @@
     "name": {
       "type": "string",
       "pattern": "^[a-z][a-z0-9-]*$",
-      "description": "The `_class` directive value (kebab-case)."
+      "description": "The layout name a slide's record names (`<!-- @meta{layout=<name>} -->`), kebab-case."
     },
     "label": {
       "type": "string",
@@ -76,7 +76,7 @@
     },
     "galleryAuthored": {
       "type": "boolean",
-      "description": "When true, the build-component-docs.js generator skips writing <name>.gallery.md (the file is hand-authored). Use this for components where variation lives in slide CONTENT, not in modifier classes — e.g. `diagram` (every Mermaid diagram type is the same _class) or future `code`/`math` if their galleries need a richer showcase than the manifest's variantDocs can express. <name>.docs.md is still generated from the manifest. The integration test continues to assert light/dark page-count parity for the PDFs but no longer derives the expected count from the manifest formula."
+      "description": "When true, the build-component-docs.js generator skips writing <name>.gallery.md (the file is hand-authored). Use this for components where variation lives in slide CONTENT, not in modifier classes — e.g. `diagram` (every Mermaid diagram type is the same layout) or future `code`/`math` if their galleries need a richer showcase than the manifest's variantDocs can express. <name>.docs.md is still generated from the manifest. The integration test continues to assert light/dark page-count parity for the PDFs but no longer derives the expected count from the manifest formula."
     },
     "form": {
       "enum": [
@@ -244,6 +244,18 @@
       "additionalProperties": false,
       "description": "How this component hosts the UNIVERSAL CODA — the trailing editorial beats (a `> …` key insight, a below-note) an author may add to almost any slide. The coda kernel (lib/core/coda.js) harvests them into one `.cell-coda` cell BEFORE any structural transform runs, so a component that rebuilds its body can no longer swallow or drop them (engineering/decisions/2026-08-24-universal-coda-cell.md). Both keys are optional and both default to the common case, so a component that neither claims a trailing element nor uses a non-column outer structure declares NOTHING and still gets both beats — that default is the point of the field.",
       "properties": {
+        "variants": {
+          "type": "object",
+          "description": "Per-VARIANT overrides of this block, keyed by variant token. A variant that changes what the layout's own anatomy is (split-panel `pullquote` seats the first blockquote as its quotation and the line after it as the cite) declares the difference here, and a slide carrying that token reads the merged block. Only `claims` and `anatomy` may differ; `dock` is the section's structure and does not vary by variant.",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "claims": { "type": "array", "items": { "enum": ["blockquote", "trailing-paragraph"] } },
+              "anatomy": { "type": "array", "items": { "enum": ["blockquote", "trailing-paragraph"] } }
+            }
+          }
+        },
         "dock": {
           "enum": [
             "column",
@@ -254,7 +266,7 @@
         },
         "readsInsightLabel": {
           "type": "boolean",
-          "description": "TRUE when this layout renders the `--insight-label` seam on a surface of its OWN, even though it claims the blockquote. Exactly one layout does: split-compare paints the verdict tag from that token (default 'RECOMMENDATION'), because a recommendation IS a Key Insight variant rather than a split-compare special. It matters to the deck LINT and nowhere else: the `insight-*` modifiers govern the label seam, not the block, so `<!-- _class: split-compare insight-verdict -->` renames a real surface and must not be reported inert. Omit for every layout that reads the seam only through the coda panel."
+          "description": "TRUE when this layout renders the `--insight-label` seam on a surface of its OWN, even though it claims the blockquote. Exactly one layout does: split-compare paints the verdict tag from that token (default 'RECOMMENDATION'), because a recommendation IS a Key Insight variant rather than a split-compare special. It matters to the deck LINT and nowhere else: the `insight-*` modifiers govern the label seam, not the block, so `<!-- @meta{layout=split-compare, class=insight-verdict} -->` renames a real surface and must not be reported inert. Omit for every layout that reads the seam only through the coda panel."
         },
         "claims": {
           "type": "array",
@@ -265,7 +277,22 @@
               "trailing-paragraph"
             ]
           },
-          "description": "Trailing elements this component keeps out of the coda, for one of two reasons. USED: the layout renders that element as part of its own anatomy. NO ROOM: the layout is a POSTER whose body fills the stage by construction (contact, wifi — the QR card measures 527px in a 524px stage), so there is no band position that does not crush it; measured, not assumed. Either way the published contract then says so, which is the point — before this field, a claim of the first kind was a CSS `:not()` chain and a claim of the second kind was not expressible at all, so the manifest advertised a Key Insight, the transform dropped the node, and the author got silence. `blockquote` = the layout renders `> …` as something else (quote's quotation, math's display equation, a legal layout's framed source, split-panel's pull-quote), so it gets no Key Insight panel. `trailing-paragraph` = the layout claims its final `<p>` (a chart's caption via liftChartCaption, an attribution, a legend, a framing line), so it gets no below-note. OMIT for the opt-out default: a layout nobody excluded takes both beats, which keeps a new or third-party component working without touching any list. This REPLACES the two hand-maintained exclusion lists — KEY_INSIGHT_EXCLUDED (mirrored out of a CSS `:not()` chain by a parsing test) and below-note's EXCLUDED (a SUBSTRING matcher, so `compare-code` inherited `code`'s exclusion). Between them they published the wrong answer for 8 of 61 components, silently, because nothing tied either list to what actually rendered."
+          "description": "Trailing elements this component keeps out of the coda ENTIRELY, for one of two reasons. USED: the layout renders that element as part of its own anatomy. NO ROOM: the layout is a POSTER whose body fills the stage by construction (contact, wifi — the QR card measures 527px in a 524px stage), so there is no band position that does not crush it; measured, not assumed. Either way the published contract then says so, which is the point — before this field, a claim of the first kind was a CSS `:not()` chain and a claim of the second kind was not expressible at all, so the manifest advertised a Key Insight, the transform dropped the node, and the author got silence. `blockquote` = the layout renders `> …` as something else (quote's quotation, math's display equation, a legal layout's framed source), so it gets no Key Insight panel. (split-panel's pull-quote is per variant: `variants.pullquote.anatomy`.) `trailing-paragraph` = the layout claims its final `<p>` (a chart's caption via liftChartCaption, an attribution, a legend, a framing line), so it gets no below-note. OMIT for the opt-out default: a layout nobody excluded takes both beats, which keeps a new or third-party component working without touching any list. This REPLACES the two hand-maintained exclusion lists — KEY_INSIGHT_EXCLUDED (mirrored out of a CSS `:not()` chain by a parsing test) and below-note's EXCLUDED (a SUBSTRING matcher, so `compare-code` inherited `code`'s exclusion). Between them they published the wrong answer for 8 of 61 components, silently, because nothing tied either list to what actually rendered."
+        },
+        "caption": {
+          "type": "boolean",
+          "description": "TRUE when the coda's paragraph beat (a below-note or an annotation) renders as this layout's FIGURE CAPTION, inside the figure, instead of in the band under the slide. The beat is still harvested and still published in `authoring.blocks`; the layout's transform hands it back to its caption (lib/transformers/chart-frame.js `noteToCaption`). A pane of such a layout keeps the paragraph as its own caption (lib/core/panes.js `paneClaims`). Set on every chart kind (engineering/decisions/2026-11-20-coda-and-marp-parity.md, settled 2)."
+        },
+        "anatomy": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "blockquote",
+              "trailing-paragraph"
+            ]
+          },
+          "description": "Elements the layout uses for its own anatomy that come FIRST, so a later one of the same kind is still a coda beat. `blockquote` = the layout's FIRST top-level blockquote is its own (citation-card's cited text; split-panel `pullquote` through `variants`); a LATER trailing blockquote is the Key Insight. A layout that draws EVERY blockquote itself (redline, policy-recommendation, split-compare) claims it instead. `trailing-paragraph` = the first paragraph after the layout's structure is its own (quote's attribution); a SECOND paragraph after it is the below-note. Unlike `claims`, the beat still renders, so the published contract still lists it. Do not list a kind here and in `claims` — `claims` withholds the beat whatever comes after (engineering/decisions/2026-11-20-coda-and-marp-parity.md)."
         }
       }
     },
@@ -583,7 +610,7 @@
     },
     "variantKinds": {
       "type": "object",
-      "description": "What kind each variant is, for the ones that are not a plain class the CSS reacts to (the default kind, which needs no entry). `source`: the variant comes from how the author writes the Markdown, not from the class \u2014 cards-grid's `numbered` is a `1.` list \u2014 so writing it in `_class` does nothing; `means` says what to write instead. `requires`: the class acts only alongside one of the listed variants (`list numbered` needs `takeaway`). `lint:deck` warns on both misuses (`variant-inert`). Keys must be variants this manifest declares.",
+      "description": "What kind each variant is, for the ones that are not a plain class the CSS reacts to (the default kind, which needs no entry). `source`: the variant comes from how the author writes the Markdown, not from the class \u2014 cards-grid's `numbered` is a `1.` list \u2014 so writing it in `class=` does nothing; `means` says what to write instead. `requires`: the class acts only alongside one of the listed variants (`list numbered` needs `takeaway`). `lint:deck` warns on both misuses (`variant-inert`). Keys must be variants this manifest declares.",
       "propertyNames": { "pattern": "^[a-z][a-z0-9-]*$" },
       "additionalProperties": {
         "oneOf": [
@@ -722,7 +749,7 @@
     "skeleton": {
       "type": "string",
       "minLength": 1,
-      "description": "Markdown emitted by the scaffolder. Must include the `_class` directive."
+      "description": "Markdown emitted by the scaffolder. Must include the slide record that names the layout (`<!-- @meta{layout=<name>} -->`)."
     },
     "docs": {
       "type": "string",
@@ -855,12 +882,12 @@
     "sample": {
       "type": "string",
       "minLength": 1,
-      "description": "Full slide markdown (including the `_class` directive line, with no modifier) for the default-appearance slide of <name>.gallery.md. The skeleton field is the placeholder template for the scaffolder; sample is real prose that demonstrates the component."
+      "description": "Full slide markdown (including the `<!-- @meta{layout=<name>} -->` record line, with no modifier) for the default-appearance slide of <name>.gallery.md. The skeleton field is the placeholder template for the scaffolder; sample is real prose that demonstrates the component."
     },
     "venueProbe": {
       "type": "string",
       "minLength": 1,
-      "description": "Full slide markdown (with the `_class` directive line) for the LONGEST realistic content this component promises to hold at every venue and canvas family. `check:venue-conformance` renders it beside `sample` and fails the component if anything clips. Declare it for a component whose `venueCapacity` is `none`: with no count budget, this is the only statement of how much it holds."
+      "description": "Full slide markdown (with the `<!-- @meta{layout=<name>} -->` record line) for the LONGEST realistic content this component promises to hold at every venue and canvas family. `check:venue-conformance` renders it beside `sample` and fails the component if anything clips. Declare it for a component whose `venueCapacity` is `none`: with no count budget, this is the only statement of how much it holds."
     },
     "stressDoc": {
       "type": "object",
@@ -910,7 +937,7 @@
           "sample": {
             "type": "string",
             "minLength": 1,
-            "description": "Full slide markdown (including the `_class` directive line) demonstrating this variant in context."
+            "description": "Full slide markdown (including the `<!-- @meta{layout=<name>, class=<variant>} -->` record line) demonstrating this variant in context."
           }
         }
       }
@@ -990,6 +1017,15 @@
       ],
       "description": "Optional content-capacity contract: how many elements the layout holds along the axis it is built on, so the author/agent picks by content SHAPE and the linter can warn before an overflow. `soft`/`hard` are element counts on `axis` (a focusAxes member): past `soft` the layout begins to crowd (soft warning); past `hard` it overflows / loses legibility (overflow warning). Advisory only — never blocks. Counted approximately at authoring time (lib/authoring/lint-core.js `countPrimaryCollection`) and exactly at render time (lib/core/collections.js). See engineering/decisions/2026-06-17-content-capacity-contract.md.",
       "properties": {
+        "withClaim": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "The budget on a slide that carries a claim (its own `claim-quiet` / `claim-hero`, or the deck's `claim:`), which gives the content more of the frame without shrinking type: `quiet` about 24px more stage at 1280x720, `hero` about 113px. Each is the declared budget PLUS the elements that claim measured to add (`tools/calibrate-capacity.js --variant claim-…`), so the editorial margin is kept. Lint judges a claim slide by it and names the claim as the fix for a bare slide it would hold (engineering/decisions/2026-11-20-coda-and-marp-parity.md §9).",
+          "properties": {
+            "quiet": { "type": "object", "additionalProperties": false, "properties": { "soft": { "type": "integer", "minimum": 1 }, "hard": { "type": "integer", "minimum": 1 } } },
+            "hero": { "type": "object", "additionalProperties": false, "properties": { "soft": { "type": "integer", "minimum": 1 }, "hard": { "type": "integer", "minimum": 1 } } }
+          }
+        },
         "withCompact": {
           "type": "object",
           "additionalProperties": false,
@@ -1202,7 +1238,7 @@
     "align": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Where this component's content sits UP AND DOWN when it is handed more height than it needs: the default for the `align:` register (engineering/decisions/2026-11-06-unified-align.md). The engine resolves it — `lib/core/resolve-align.js`, baked into `lib/core/align-catalog.generated.js` because the runtime bundle cannot fs-load manifests — stamps the word as `data-align` on the section, and base.tokens.css turns it into `--align-v`, which the component stylesheet reads (`align-content` or `justify-content: var(--align-v)`). Declaring it is half the opt-in: a unit test fails a component that declares a default its CSS never reads. Omit this field and the component reads the stage's `align-*` classes instead. The deck's `align:` key and a per-slide `_class: align-*` both override everything here.",
+      "description": "Where this component's content sits UP AND DOWN when it is handed more height than it needs: the default for the `align:` register (engineering/decisions/2026-11-06-unified-align.md). The engine resolves it — `lib/core/resolve-align.js`, baked into `lib/core/align-catalog.generated.js` because the runtime bundle cannot fs-load manifests — stamps the word as `data-align` on the section, and base.tokens.css turns it into `--align-v`, which the component stylesheet reads (`align-content` or `justify-content: var(--align-v)`). Declaring it is half the opt-in: a unit test fails a component that declares a default its CSS never reads. Omit this field and the component reads the stage's `align-*` classes instead. The deck's `align:` key and a per-slide `@meta{class=align-*}` both override everything here.",
       "required": [
         "default"
       ],

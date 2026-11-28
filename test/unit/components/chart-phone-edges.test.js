@@ -48,10 +48,10 @@ function span(run, fs, w = textWidth(run.text.replace(/&amp;/g, '&'), fs)) {
 
 describe('a row name is never wider than its column on a phone page', () => {
   const cases = [
-    ['heatmap', '<!-- _class: heatmap -->\n\n## Margin by region.\n\n|  | Q1 | Q2 |\n| --- | --: | --: |\n| AMER | 61 | 63 |\n| EMEA | 58 | 55 |\n| APAC | 49 | 54 |', ['AMER', 'EMEA', 'APAC']],
-    ['heatmap, a long month', '<!-- _class: heatmap -->\n\n## Retention.\n\n|  | M0 | M1 |\n| --- | --: | --: |\n| January 2026 | 100 | 62 |\n| September 2026 | 100 | 71 |', ['September']],
-    ['bar row', '<!-- _class: bar row -->\n\n## Support load.\n\n- Billing `412`\n- Onboarding `388`\n- Data sync `146`\n- Admin `64`', ['Onboarding']],
-    ['stacked-bar row', '<!-- _class: stacked-bar row -->\n\n## Online overtook Wholesale.\n\n- Q1 FY24\n  - Retail `12`\n  - Online `5`\n- Q4 FY24\n  - Retail `14`\n  - Online `9`', ['FY24']],
+    ['heatmap', '<!-- @meta{layout=heatmap} -->\n\n## Margin by region.\n\n|  | Q1 | Q2 |\n| --- | --: | --: |\n| AMER | 61 | 63 |\n| EMEA | 58 | 55 |\n| APAC | 49 | 54 |', ['AMER', 'EMEA', 'APAC']],
+    ['heatmap, a long month', '<!-- @meta{layout=heatmap} -->\n\n## Retention.\n\n|  | M0 | M1 |\n| --- | --: | --: |\n| January 2026 | 100 | 62 |\n| September 2026 | 100 | 71 |', ['September']],
+    ['bar row', '<!-- @meta{layout=bar, class=row} -->\n\n## Support load.\n\n- Billing `412`\n- Onboarding `388`\n- Data sync `146`\n- Admin `64`', ['Onboarding']],
+    ['stacked-bar row', '<!-- @meta{layout=stacked-bar, class=row} -->\n\n## Online overtook Wholesale.\n\n- Q1 FY24\n  - Retail `12`\n  - Online `5`\n- Q4 FY24\n  - Retail `14`\n  - Online `9`', ['FY24']],
   ];
   for (const [name, body, words] of cases) {
     for (const size of SIZES) {
@@ -69,7 +69,7 @@ describe('a row name is never wider than its column on a phone page', () => {
 });
 
 describe('the ep-curve keeps its end return periods on the canvas', () => {
-  const body = '<!-- _class: ep-curve -->\n\n## A 1-in-250 year costs $560M.\n\n- `{10, $120M}`\n- `{25, $190M}`\n- `{50, $300M}`\n- `{100, $410M}`\n- `{250, $560M}`';
+  const body = '<!-- @meta{layout=ep-curve} -->\n\n## A 1-in-250 year costs $560M.\n\n- `{10, $120M}`\n- `{25, $190M}`\n- `{50, $300M}`\n- `{100, $410M}`\n- `{250, $560M}`';
   for (const size of SIZES) {
     test(`at ${size}`, () => {
       const d = drawing(size, body);
@@ -85,7 +85,7 @@ describe('the ep-curve keeps its end return periods on the canvas', () => {
 });
 
 describe('a radar sector name clears every axis name', () => {
-  const body = '<!-- _class: radar quadrant -->\n\n## Where we stand.\n\n- Ours\n  - People\n    - Hiring `4`\n    - Retention `3`\n    - Bench depth `2`\n'
+  const body = '<!-- @meta{layout=radar, class=quadrant} -->\n\n## Where we stand.\n\n- Ours\n  - People\n    - Hiring `4`\n    - Retention `3`\n    - Bench depth `2`\n'
     + '  - Process\n    - Cadence `5`\n    - Rigor `4`\n  - Technology\n    - Platform `4`\n    - Tooling `3`\n    - Automation `2`\n'
     + '  - Risk\n    - Compliance `3`\n    - Resilience `4`';
   // The vertical extent a single line paints from its anchor, by its dominant baseline.
@@ -127,8 +127,8 @@ describe('a row name too long for any column keeps the old column, not a narrowe
     for (const size of ['story', 'mobile']) {
       test(`${kind} at ${size}: a 29-letter compound is not newly cut`, () => {
         const body = kind === 'bar row'
-          ? `<!-- _class: ${kind} -->\n\n## Load.\n\n- Telekommunikationsunternehmen \`412\`\n- Beta \`300\`\n- Gamma \`120\``
-          : `<!-- _class: ${kind} -->\n\n## Load.\n\n- Telekommunikationsunternehmen\n  - A \`4\`\n  - B \`3\`\n- Beta\n  - A \`2\`\n  - B \`5\``;
+          ? `<!-- @meta{class=${kind}} -->\n\n## Load.\n\n- Telekommunikationsunternehmen \`412\`\n- Beta \`300\`\n- Gamma \`120\``
+          : `<!-- @meta{class=${kind}} -->\n\n## Load.\n\n- Telekommunikationsunternehmen\n  - A \`4\`\n  - B \`3\`\n- Beta\n  - A \`2\`\n  - B \`5\``;
         const html = engine.render(deck(size, body)).html;
         assert.doesNotMatch(html, /data-label-drops="[^"]*truncate:Telekommunikationsunternehmen/, 'the name is not reported cut');
       });
@@ -187,12 +187,12 @@ describe('a radar sector name never moves off the drawing', () => {
   // there; moved off it, it ran 2.6 units past the left edge when the move was bounded by the axis names' wrap boxes,
   // or tested at the width `upperAdvance` bills instead of the width it paints. (Many dense radars clip a name that
   // never moved, on main too: followups.d/3431-p2-radar-sector-names-overrun.md.)
-  const case82 = '<!-- _class: radar quadrant -->\n\n## Capability\n\n- Ours\n  - People\n    - Data quality `3`\n    - Partner network `3`\n'
+  const case82 = '<!-- @meta{layout=radar, class=quadrant} -->\n\n## Capability\n\n- Ours\n  - People\n    - Data quality `3`\n    - Partner network `3`\n'
     + '    - Rigor `2`\n    - Bench depth `3`\n  - Process\n    - Time to market `3`\n    - Compliance `4`\n    - Unit economics `2`\n'
     + '    - Onboarding `5`\n  - Technology\n    - Automation `3`\n    - Platform `3`\n    - Cadence `2`\n    - Security posture `1`\n'
     + '  - Risk\n    - Retention `3`\n    - Resilience `5`\n  - Go to market\n    - Brand `1`\n    - Customer satisfaction `5`';
   // Case 13: the first version of the fix moved PROCESS to x 267.8-328.1 on a 320-wide story canvas.
-  const case13 = '<!-- _class: radar quadrant -->\n\n## Capability\n\n- Ours\n  - People\n    - Retention `2`\n    - Tooling `4`\n'
+  const case13 = '<!-- @meta{layout=radar, class=quadrant} -->\n\n## Capability\n\n- Ours\n  - People\n    - Retention `2`\n    - Tooling `4`\n'
     + '    - Onboarding `1`\n    - Cadence `1`\n  - Process\n    - Platform `3`\n    - Brand `2`\n    - Unit economics `5`\n  - Technology\n'
     + '    - Time to market `4`\n    - Customer satisfaction `5`\n    - Resilience `4`\n    - Bench depth `4`\n  - Risk\n'
     + '    - Security posture `1`\n    - Hiring `2`\n  - Go to market\n    - Data quality `1`\n    - Compliance `2`\n    - Partner network `1`';

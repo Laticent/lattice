@@ -24,7 +24,7 @@ function engineRequests(page: Page): string[] {
 async function chartLoadsItsOwnKernel(page: Page) {
 	const requests = engineRequests(page);
 	await gotoStudio(page);
-	await typeDeck(page, '<!-- _class: bar -->\n\n## Revenue by region\n\n- North `10`\n- South `20`\n- West `14`\n');
+	await typeDeck(page, '<!-- @meta{layout=bar} -->\n\n## Revenue by region\n\n- North `10`\n- South `20`\n- West `14`\n');
 	await expect(live(page).locator('section.chart-frame svg').first()).toBeVisible({ timeout: 20_000 });
 	expect(requests).toContain('esm/engine.js');
 	expect(requests).toContain('esm/chart-bar.js');
@@ -97,7 +97,7 @@ test('a chart kernel that will not load says so, rather than drawing the chart a
 	// What a tab that outlived a deploy sees: the old hash directory is gone at the origin.
 	await page.route('**/esm/chart-funnel.js', (route) => route.fulfill({ status: 404, body: 'gone' }));
 	await gotoStudio(page);
-	await setEditorContent(page, '<!-- _class: funnel -->\n\n## Pipeline\n\n- Leads `400`\n- Qualified `120`\n- Won `30`\n');
+	await setEditorContent(page, '<!-- @meta{layout=funnel} -->\n\n## Pipeline\n\n- Leads `400`\n- Qualified `120`\n- Won `30`\n');
 	await expect(page.getByText(/couldn't load part of the app/i).first()).toBeVisible({ timeout: 20_000 });
 	await expect(live(page).locator('section.funnel:not(.chart-frame) ul')).toHaveCount(0);
 });
@@ -105,7 +105,7 @@ test('a chart kernel that will not load says so, rather than drawing the chart a
 // The callout layer's lane and markers are their own chunk (engineering/decisions/2026-10-20-callout-placement.md
 // §10): a chart with no callout never fetches them, one that writes a callout fetches them before it draws, and a
 // chunk that will not load says so instead of drawing the chart without its notes.
-const BAR_DECK = '<!-- _class: bar -->\n\n## Revenue by region\n\n- North `10`\n- South `20`\n- West `14`\n';
+const BAR_DECK = '<!-- @meta{layout=bar} -->\n\n## Revenue by region\n\n- North `10`\n- South `20`\n- West `14`\n';
 const CALLOUT = '\n`@callout{[{South led, for=South}]}`\n';
 
 test('@smoke @webkit-tablet @webkit-phone @gecko a chart with no callout does not fetch the callout layer, and one with a callout does and draws it', async ({ page }) => {

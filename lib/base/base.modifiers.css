@@ -1288,8 +1288,8 @@ section.color-inherited {
  * `.print` DOES win, and must: it remaps the surface to the ink-on-white band, so the
  * panel genuinely stops being dark (measured: `title print` renders 21:1 on white).
  * `divider.light` is the bright variant — it REPLACES the canvas with `--bg`, so it keeps
- * the light scheme it declares beside that background. `cover-light` (the `cover: light`
- * register, lib/core/resolve-cover.js) does the same for title and closing, so it is carved out
+ * the light scheme it declares beside that background. `cover-light` (the `cover-layout: light`
+ * register, lib/core/resolve-cover-layout.js) does the same for title and closing, so it is carved out
  * here too — inside the `:not()` that already held `.print`, which keeps the selector at the
  * (0,2,1) it always had. The light cover's own block follows the chrome rule below. */
 section:is(.title, .closing):not(.print, .cover-light),
@@ -1333,9 +1333,9 @@ section:where(.title:not(.cover-light), .closing:not(.cover-light), .divider:not
   --marp-slide-pagination-color: var(--on-inverse-muted, var(--text-muted));
 }
 
-/* ── THE LIGHT COVER (`cover: light` → `cover-light`, title and closing only) ────────────────
+/* ── THE LIGHT COVER (`cover-layout: light` → `cover-light`, title and closing only) ────────────────
  * The front and back cover on the deck's own light canvas instead of the inverse panel. The
- * register is lib/core/resolve-cover.js, which also says why this is a register of its own and not
+ * register is lib/core/resolve-cover-layout.js, which also says why this is a register of its own and not
  * the `light` mood token.
  *
  * ONE RULE, BECAUSE THE PANEL'S INKS ARE TOKENS. Every dark-cover ink on these two layouts is
@@ -1711,12 +1711,13 @@ section .below-note.is-annotation > p::before {
 /* ── TIER 2 · the CSS-only fallback ── */
 
 section:is(
+  .split-compare, .split-panel, .stats,
   .actors, .agenda, .authority-chain, .big-number, .cards-grid, .cards-stack, .checklist,
   .citation-card, .code, .collage, .columns, .compare-code, .compare-prose, .table, .content, .cycle,
-  .decision, .diagram, .glossary, .inventory, .kpi, .list, .list-steps,
+  .decision, .glossary, .inventory, .kpi, .list, .list-steps,
   .list-tabular, .logo-wall, .matrix-2x2, .obligation-matrix, .policy-recommendation,
   .premise, .pricing, .q-and-a, .redline, .regulatory-update, .rows, .scene, .statute-stack,
-  .team-profile, .verdict-grid, .video
+  .team-profile, .verdict-grid
 ):not(.no-note):not(:has(.below-note)) > :is(ul, ol, blockquote, table, pre, div) + p {
   /* Space above the hairline rule (was margin-top) + below it (padding-top) are
    * BOTH folded into padding-top so the spacing lives inside the note's own box —
@@ -1732,12 +1733,13 @@ section:is(
 }
 
 section:is(
+  .split-compare, .split-panel, .stats,
   .actors, .agenda, .authority-chain, .big-number, .cards-grid, .cards-stack, .checklist,
   .citation-card, .code, .collage, .columns, .compare-code, .compare-prose, .table, .content, .cycle,
-  .decision, .diagram, .glossary, .inventory, .kpi, .list, .list-steps,
+  .decision, .glossary, .inventory, .kpi, .list, .list-steps,
   .list-tabular, .logo-wall, .matrix-2x2, .obligation-matrix, .policy-recommendation,
   .premise, .pricing, .q-and-a, .redline, .regulatory-update, .rows, .scene, .statute-stack,
-  .team-profile, .verdict-grid, .video
+  .team-profile, .verdict-grid
 ):not(.no-note):not(:has(.below-note)) > :is(ul, ol, blockquote, table, pre, div) + p::before {
   content:''; position:absolute; top:var(--sp-sm); left:0; right:0; height:1px;
   background:linear-gradient(to right, var(--accent), transparent);
@@ -1767,12 +1769,13 @@ section:is(
 /* The annotation register on the same fallback: dotted rule instead of the
  * gradient hairline, label size, and the drawn spark. */
 section:is(
+  .split-compare, .split-panel, .stats,
   .actors, .agenda, .authority-chain, .big-number, .cards-grid, .cards-stack, .checklist,
   .citation-card, .code, .collage, .columns, .compare-code, .compare-prose, .table, .content, .cycle,
-  .decision, .diagram, .glossary, .inventory, .kpi, .list, .list-steps,
+  .decision, .glossary, .inventory, .kpi, .list, .list-steps,
   .list-tabular, .logo-wall, .matrix-2x2, .obligation-matrix, .policy-recommendation,
   .premise, .pricing, .q-and-a, .redline, .regulatory-update, .rows, .scene, .statute-stack,
-  .team-profile, .verdict-grid, .video
+  .team-profile, .verdict-grid
 ):not(.no-note):not(:has(.below-note)) > :is(ul, ol, blockquote, table, pre, div) + p:has(> em:only-child) {
   font-size:var(--fs-meta);
   color:var(--text-secondary);
@@ -1782,12 +1785,13 @@ section:is(
 }
 
 section:is(
+  .split-compare, .split-panel, .stats,
   .actors, .agenda, .authority-chain, .big-number, .cards-grid, .cards-stack, .checklist,
   .citation-card, .code, .collage, .columns, .compare-code, .compare-prose, .table, .content, .cycle,
-  .decision, .diagram, .glossary, .inventory, .kpi, .list, .list-steps,
+  .decision, .glossary, .inventory, .kpi, .list, .list-steps,
   .list-tabular, .logo-wall, .matrix-2x2, .obligation-matrix, .policy-recommendation,
   .premise, .pricing, .q-and-a, .redline, .regulatory-update, .rows, .scene, .statute-stack,
-  .team-profile, .verdict-grid, .video
+  .team-profile, .verdict-grid
 ):not(.no-note):not(:has(.below-note)) > :is(ul, ol, blockquote, table, pre, div) + p:has(> em:only-child)::before {
   content:'';
   position:static;
@@ -4122,7 +4126,12 @@ section.form.lat-split-native.lat-split-native > .cell-stage > .lat-split-note:n
    frame seats BESIDE the stage, so every `> .cell-stage >` arm here stopped matching:
    measured on the split-envelope demo, the checklist and cards-grid notes rendered at
    46.98px instead of --fs-body-compact's 39.96px. */
-section.form.lat-split-native.lat-split-native > .cell-coda.lat-split-note > p {
+section.form.lat-split-native.lat-split-native > .cell-coda.lat-split-note > p,
+/* The coda-beat arm. A layout whose coda takes the paragraph beat (stats, since
+   2026-11-20) wraps the raw `p.lat-split-note` in the coda's own `.below-note`, so the
+   note arrives as `.cell-coda > .below-note > p.lat-split-note` and no arm above meets it:
+   the stats note on the split-envelope fixture rendered at 21.4px instead of 17.9px. */
+section.form.lat-split-native.lat-split-native > .cell-coda > .below-note > p.lat-split-note {
   font-size: var(--fs-body-compact);
 }
 /* Rule 2 — a WRAPPED note, any layout, the common non-em-only case. */

@@ -126,13 +126,13 @@ describe('stripNotesCut', () => {
 	it('scrubs a plain comment as well as a speaker note, classified from the source', async () => {
 		// No render lifts a body to match any more: the comment says what it is. A plain comment is the author's own and
 		// goes with the speaker note; the public notes and the directive stay.
-		const src = '<!-- _class: lead -->\n\n# Title\n\n<!-- @note{Pause here.} -->\n\n<!-- remember the Q3 number -->\n\n<!-- @say{The title.} -->\n';
+		const src = '<!-- @meta{class=lead} -->\n\n# Title\n\n<!-- @note{Pause here.} -->\n\n<!-- remember the Q3 number -->\n\n<!-- @say{The title.} -->\n';
 		const cut = await stripNotesCut(src, notesCore, await authoredOf(src), sectionsOf, render);
 
 		expect(cut.source).not.toContain('Pause here.');
 		expect(cut.source).not.toContain('remember the Q3 number');
 		expect(cut.source).toContain('<!-- @say{The title.} -->');
-		expect(cut.source).toContain('<!-- _class: lead -->');
+		expect(cut.source).toContain('<!-- @meta{class=lead} -->');
 	});
 
 	it('reads the candidate cuts from the kernel, in the kernel order', async () => {

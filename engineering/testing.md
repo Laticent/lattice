@@ -87,8 +87,8 @@ produce the slides we expect, with the page count we expect.
   `@smoke` subset on `desktop`; the full suite runs in the Studio E2E nightly.
 - **Platform suites** (`.github/workflows/platform-suites.yml`, registry
   `.github/platform-suites.json`): real `macos-26` and `windows-2025` runners, and the iOS Simulator
-  on macOS for the `ios-safari-*` suites. A pull request runs the suites whose paths it touches; the
-  iOS suites run only by dispatch or on schedule.
+  on macOS for the `ios-safari-*` suites. Dispatch-only since 2026-11-27 (owner decision; the workflow
+  header says how to undo it): no pull request or nightly runs them, and a suite never sets a card's grade.
 - **Nightlies** (`.github/workflows/*-nightly.yml`): the full e2e suite, integration, fit,
   overflow, perf and WebKit baselines, each filing a rolling issue on failure.
 
@@ -218,6 +218,18 @@ to green, raise its timeout, or file it as a follow-up.
 
 If steps 1–4 find no cause after you have reproduced the failure under load, `test.fixme` it with the three-part `// disabled:` note
 (what you tried, the evidence, when to re-enable). Deleting a red test is not a fix.
+
+**A Chrome launch that times out** ("Timed out after 30000 ms while waiting for the WS endpoint URL")
+leaves no trace of its own: puppeteer says only that Chrome never printed its endpoint. Launch through
+`launchOrExplain(puppeteer, opts)` from `test/helpers/chrome.js`, which appends the machine's state at the
+failure: the wait, load, free memory, live Chrome processes, temp-dir space, the kernel's pressure-stall
+share for CPU, I/O and memory, and the cgroup's process count against its limit. Two thirds of the way
+through the wait it also snapshots the test's own child processes with their kernel state, so a stuck
+Chrome reads as `chrome:D(…)` (waiting on disk), `chrome:R` (starved of CPU) or `chrome:S(<function>)`
+(asleep in that kernel function). It never retries and adds no timeout (#33). To reproduce a launch outside a test, `tools/shared-chrome-lab/launch-probe.mjs` loops
+launches across workers and reports every slow one.
+`calco-chips.test.js` uses the helper because its one timeout could not be reproduced in 4,469 timed
+launches (PR #3577).
 
 ## The evidence a test owes
 

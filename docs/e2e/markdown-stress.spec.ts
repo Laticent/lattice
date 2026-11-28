@@ -648,17 +648,17 @@ test('CodeMirror folds CRLF and a lone CR at the same door', async ({ page }) =>
 // finding 11 warns about, and it is better written down here than rediscovered.
 test('@smoke the rail names the component the engine actually renders', async ({ page }) => {
 	const CASES: Array<[what: string, source: string, rail: string, painted: string]> = [
-		['the plain shape', '<!-- _class: kpi -->\n\n# One\n', 'kpi', 'kpi'],
+		['the plain shape', '<!-- @meta{layout=kpi} -->\n\n# One\n', 'kpi', 'kpi'],
 		// One stray character after the close. The engine stops seeing a directive; so must the rail.
-		['one character after the close', '<!-- _class: kpi -->.\n\n# One\n', 'content', 'content'],
-		['words after the close', '<!-- _class: kpi --> trailing\n\n# One\n', 'content', 'content'],
-		['prose before the open', 'text <!-- _class: kpi -->\n\n# One\n', 'content', 'content'],
+		['one character after the close', '<!-- @meta{layout=kpi} -->.\n\n# One\n', 'content', 'content'],
+		['words after the close', '<!-- @meta{layout=kpi} --> trailing\n\n# One\n', 'content', 'content'],
+		['prose before the open', 'text <!-- @meta{layout=kpi} -->\n\n# One\n', 'content', 'content'],
 		// A deck that documents Lattice quotes a directive. That is a code sample, not an assignment.
-		['a directive quoted in a fence', '```md\n<!-- _class: kpi -->\n```\n\n# One\n', 'content', 'content'],
+		['a directive quoted in a fence', '```md\n<!-- @meta{layout=kpi} -->\n```\n\n# One\n', 'content', 'content'],
 		// Two directives on ONE slide — what deleting a `---` to merge two slides leaves
 		// behind. The engine applies the LAST; the rail used to name the first, so it went on
 		// naming the slide that had just been absorbed.
-		['two directives on one slide', '<!-- _class: big-number -->\n\n- 0\n  - x\n\n<!-- _class: quote -->\n\ntext here\n', 'quote', 'quote'],
+		['two directives on one slide', '<!-- @meta{layout=big-number} -->\n\n- 0\n  - x\n\n<!-- @meta{layout=quote} -->\n\ntext here\n', 'quote', 'quote'],
 	];
 	for (const [what, source, rail, painted] of CASES) {
 		await setDeck(page, source);
@@ -740,13 +740,12 @@ test('a Compose edit is on the one history: ⌘Z in Markdown undoes it', async (
 // lands has to be the one the underline promised, which is the same `suggestFor` agreement
 // `Fix all` is gated on below.
 test('the inline Quick fix applies the repair its underline promised', async ({ page }) => {
-	await setDeck(page, '<!-- _class: kpii -->\n\n# One\n');
+	await setDeck(page, '<!-- @meta{class=kpii} -->\n\n# One\n');
 	const marker = page.locator('.cm-lint-marker').first();
 	await marker.waitFor();
-	// The marker carries two findings: `unknown-class` (this test's) and `legacy-directive-comment`, whose own action
-	// reads "Quick fix". Under load the marker can appear on a pass that holds only the legacy finding, and a lint popup
-	// keeps the findings it opened with. So take the action from the finding this test is about, never `.first()`, and
-	// hover again until the popup shows it: waiting on the finding, not on a duration (HARD RULE #32).
+	// Take the action from the finding this test is about (`unknown-class`), never `.first()`: a lint popup keeps the
+	// findings it opened with, so hover again until the popup shows it, waiting on the finding, not on a duration
+	// (HARD RULE #32).
 	const action = page.locator('.cm-tooltip-lint .cm-diagnostic', { hasText: 'unknown-class' }).locator('.cm-diagnosticAction');
 	// Move away and wait for an open popup to close first: it covers the marker, and a hover that lands on it keeps it open.
 	// Away means the editor's far corner, not the page's: the gutter popup closes on a mouse move it sees inside the
@@ -763,8 +762,34 @@ test('the inline Quick fix applies the repair its underline promised', async ({ 
 	await action.click();
 	await expect
 		.poll(() => editorDoc(page), { message: 'the Quick fix did not repair the directive' })
-		.toContain('<!-- _class: kpi -->');
+		// The typo fix keeps the author's field: `class=kpii` becomes `class=kpi`.
+		.toContain('<!-- @meta{class=kpi} -->');
 	expect(await editorDoc(page), 'the typo must be gone, not merely joined by the fix').not.toContain('kpii');
+});
+
+// Since the cut (record note §15, slice E) an old setting comment sets nothing, and its finding's own Quick fix is the
+// whole-deck migration: one click writes the record `lattice migrate meta` writes. Written OLD on purpose.
+test('the Quick fix on an old setting comment migrates it to a record', async ({ page }) => {
+	await setDeck(page, '<!-- _class: kpi -->\n\n# One\n\n---\n\n<!-- _class: quote -->\n\ntext here\n');
+	const marker = page.locator('.cm-lint-marker').first();
+	await marker.waitFor();
+	const action = page.locator('.cm-tooltip-lint .cm-diagnostic', { hasText: 'legacy-directive-comment' }).locator('.cm-diagnosticAction');
+	const editor = page.locator('.cm-editor').first();
+	await expect(async () => {
+		const box = await editor.boundingBox();
+		if (box) await page.mouse.move(box.x + box.width - 4, box.y + box.height - 4);
+		await expect(page.locator('.cm-tooltip-lint')).toHaveCount(0, { timeout: 2_000 });
+		await marker.hover({ timeout: 2_000 });
+		await expect(action).toBeVisible({ timeout: 2_000 });
+	}).toPass({ timeout: 30_000 });
+	await action.click();
+	await expect
+		.poll(() => editorDoc(page), { message: 'the Quick fix did not migrate the old comment' })
+		.toContain('<!-- @meta{layout=kpi} -->');
+	const doc = await editorDoc(page);
+	// The whole deck, not only the line clicked: the second slide's old comment is a record too.
+	expect(doc).toContain('<!-- @meta{layout=quote} -->');
+	expect(doc).not.toMatch(/<!-- _class:/);
 });
 
 // ── "Fix all issues" is offered exactly when something can be fixed ─────────
@@ -781,7 +806,7 @@ test('Fix all is offered exactly when something can be fixed, and then it fixes 
 	const fixAll = page.getByRole('button', { name: 'Fix all issues' }).first();
 
 	// A finding with a machine fix and NO unknown component: offered, and it lands.
-	await setDeck(page, '<!-- _class: cards-grid -->\n\n# Cards\n\n- **Alpha.** the body text\n');
+	await setDeck(page, '<!-- @meta{layout=cards-grid} -->\n\n# Cards\n\n- **Alpha.** the body text\n');
 	await expect.poll(() => fixAll.isEnabled(), { message: 'a fixable finding must offer Fix all' }).toBe(true);
 	await fixAll.click();
 	await expect.poll(() => editorDoc(page)).toContain('- Alpha\n  - the body text');
@@ -796,11 +821,11 @@ test('Fix all is offered exactly when something can be fixed, and then it fixes 
 
 	// A near typo IS fixable, and the batch fixes it — the same suggestion the inline
 	// Quick fix promises (`Fix: use “kpi”`).
-	await setDeck(page, '<!-- _class: kpii -->\n\n# One\n');
+	await setDeck(page, '<!-- @meta{class=kpii} -->\n\n# One\n');
 	await expect.poll(() => fixAll.isEnabled()).toBe(true);
 	await fixAll.click();
-	// Fix all fixes the typo, then (last) writes the old comment as a record, typing `kpi` as the layout.
-	await expect.poll(() => editorDoc(page)).toContain('<!-- @meta{layout=kpi} -->');
+	// Fix all fixes the typo in the record and keeps the author's field: `class=kpii` becomes `class=kpi`.
+	await expect.poll(() => editorDoc(page)).toContain('<!-- @meta{class=kpi} -->');
 });
 
 // ── The walk itself ─────────────────────────────────────────────────────────
@@ -835,7 +860,7 @@ test('a randomized walk over the markdown-pane ops holds the structural invarian
 		'hello\r\nworld\r\n',
 		`${BOM}---\ntheme: cuoio\n---\n\n# Pasted deck\n`,
 		`${'x'.repeat(900)}\n`,
-		'\n\n---\n\n<!-- _class: statement -->\n\n# Pasted slide\n',
+		'\n\n---\n\n<!-- @meta{class=statement} -->\n\n# Pasted slide\n',
 		'| a | b |\n|---|---|\n| 1 | 2 |\n',
 		'~~struck~~ and $e^{i\\pi}$\n',
 		'<div>block html</div>\n',
@@ -860,8 +885,8 @@ test('a randomized walk over the markdown-pane ops holds the structural invarian
 				'`c`',
 				'---',
 				'éè 🎉',
-				'<!-- _class: zzznope -->',
-				'<!-- _class: kpii -->',
+				'<!-- @meta{class=zzznope} -->',
+				'<!-- @meta{class=kpii} -->',
 			]);
 			await caretIntoLine(page, line);
 			await page.keyboard.type(text);
@@ -1040,7 +1065,7 @@ test('a randomized walk over the markdown-pane ops holds the structural invarian
 // store and not the other would have gone unnoticed.
 test('the deck source survives a reload byte for byte', async ({ page }) => {
 	test.setTimeout(120_000); // two first paints
-	const DECK = '---\ntheme: indaco\n---\n\n<!-- _class: kpi -->\n\n# One\n\n- 42\n  - answers\n\n---\n\n# Two\n\n| a | b |\n|---|---|\n| 1 | 2 |\n';
+	const DECK = '---\ntheme: indaco\n---\n\n<!-- @meta{layout=kpi} -->\n\n# One\n\n- 42\n  - answers\n\n---\n\n# Two\n\n| a | b |\n|---|---|\n| 1 | 2 |\n';
 	await setDeck(page, DECK);
 	await expect.poll(() => persistedDeck(page)).toBe(DECK);
 	await expect(railButtons(page)).toHaveCount(2);

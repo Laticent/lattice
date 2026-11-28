@@ -17,7 +17,7 @@ const HOSTILE = 'Q "x" & y > z';
 const render = (body) => new JSDOM(engine.render(`---\nmarp: true\n---\n\n${body}`, 'indaco', { preview: true }).html).window.document;
 
 test('line: a series name with a quote is one attribute, read back verbatim', () => {
-	const d = render(`<!-- _class: line -->\n\n## L.\n\n- Q1\n  - A "x" & y \`4\`\n- Q2\n  - A "x" & y \`5\``);
+	const d = render(`<!-- @meta{layout=line} -->\n\n## L.\n\n- Q1\n  - A "x" & y \`4\`\n- Q2\n  - A "x" & y \`5\``);
 	const labels = [...d.querySelectorAll('.line-path[data-label]')].map((e) => e.getAttribute('data-label'));
 	assert.deepEqual(labels, ['A "x" & y']);
 	// Had the quote closed the attribute, `x"` would have leaked in as an attribute of its own.
@@ -26,13 +26,13 @@ test('line: a series name with a quote is one attribute, read back verbatim', ()
 });
 
 test('journey: stage and step labels decode once and escape once', () => {
-	const d = render(`<!-- _class: journey -->\n\n## J.\n\n- S & "q"\n  - T & "q" \`{who=a, mood=3}\``);
+	const d = render(`<!-- @meta{layout=journey} -->\n\n## J.\n\n- S & "q"\n  - T & "q" \`{who=a, mood=3}\``);
 	assert.equal(d.querySelector('.journey-stage').getAttribute('data-label'), 'S & "q"');
 	assert.equal(d.querySelector('.journey-task').getAttribute('data-label'), 'T & "q"');
 });
 
 test('roadmap horizons: a bet with a quote, an ampersand and a bracket stays text', () => {
-	const d = render(`<!-- _class: roadmap horizons -->\n\n## R.\n\n| W | H1 \`Now\` |\n| --- | --- |\n| A | [x] ${HOSTILE} |`);
+	const d = render(`<!-- @meta{layout=roadmap, class=horizons} -->\n\n## R.\n\n| W | H1 \`Now\` |\n| --- | --- |\n| A | [x] ${HOSTILE} |`);
 	const li = d.querySelector('.horizon-rows li[data-label]');
 	assert.equal(li.getAttribute('data-label'), HOSTILE);
 });

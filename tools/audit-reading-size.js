@@ -98,7 +98,7 @@ function probeDeck(m) {
   for (const v of variants) {
     for (const venue of VENUES) {
       const cls = [m.name, ...s.tokens, ...(v ? v.split(/\s+/) : []), VENUE_CLASS[venue]].filter(Boolean).join(' ');
-      slides.push(`<!-- _class: ${cls} -->\n\n${s.body}\n`);
+      slides.push(`<!-- @meta{class="${cls}"} -->\n\n${s.body}\n`);
       roster.push({ variant: v, venue });
     }
   }

@@ -56,7 +56,7 @@ function tone(ms, lead = LEAD, rate = 24000) {
 }
 const clip = (audio) => ({ audio, clip: `sha256:${createHash('sha256').update(audio).digest('hex')}`, leadMs: LEAD });
 
-const SOURCE = '---\ntheme: indaco\n---\n\n<!-- _class: title -->\n\n# Quarterly review\n\n---\n\n## Revenue grew\n\n- Up nine percent\n\n---\n\n<!-- _class: divider -->\n\n## Outlook\n\n---\n\n## Next quarter\n\n- Hold the margin\n';
+const SOURCE = '---\ntheme: indaco\n---\n\n<!-- @meta{layout=title} -->\n\n# Quarterly review\n\n---\n\n## Revenue grew\n\n- Up nine percent\n\n---\n\n<!-- @meta{layout=divider} -->\n\n## Outlook\n\n---\n\n## Next quarter\n\n- Hold the margin\n';
 let tmp;
 let docHtml;
 let browser;

@@ -208,7 +208,7 @@ function deckFor(slides, placement) {
     ...EXTRA_FRONT_MATTER,
     '---',
   ].join('\n');
-  return `${fm}\n\n${slides.map((s) => `<!-- _class: ${s.cls}${EXTRA_CLASSES && !s.probe ? ` ${EXTRA_CLASSES}` : ''} -->\n\n${s.body}\n`).join('\n---\n\n')}`;
+  return `${fm}\n\n${slides.map((s) => `<!-- @meta{class="${s.cls}${EXTRA_CLASSES && !s.probe ? ` ${EXTRA_CLASSES}` : ''}"} -->\n\n${s.body}\n`).join('\n---\n\n')}`;
 }
 
 // ── the measurement, run inside the page ───────────────────────────────────────────────────

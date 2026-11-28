@@ -156,7 +156,7 @@ test('@crosswidth at the editor pane’s minimum width the edit bar fits its box
 
 test('@crosswidth Reshape picked from More opens, and stays open, at the pane’s minimum width', async ({ page }) => {
 	test.skip(isPhone(page), 'the phone has no edit bar');
-	await open(page, 'source', DECK.replace('## Pilot results', '<!-- _class: cards-grid -->\n\n## Pilot results'));
+	await open(page, 'source', DECK.replace('## Pilot results', '<!-- @meta{layout=cards-grid} -->\n\n## Pilot results'));
 	await page.locator('.cm-line', { hasText: 'The pilot ran six weeks' }).click();
 	const row = page.locator('#studio-pane-editor [data-slot="edit-bar"]');
 	await page.evaluate(() => {

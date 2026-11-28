@@ -90,7 +90,7 @@ export function presentDeckSource(n = PRESENT_PHOTOS, deckSize = '', title = PRE
 	// first sentence would be all the probe ever measured (the check then could not see a clipped second line).
 	const note = (what) => (say ? `\n\n<!-- @say{${what}, and the caption that carries this sentence should keep every one of its wrapped lines whole and inside the slide, on a phone turned sideways as much as on one held upright.} -->` : '');
 	const slides = [`---\ntitle: ${title}\n${size}---\n\n# ${title}.\n\nEighteen phone photos, presented.${note('This is the title slide of the landscape probe')}`];
-	for (let i = 1; i <= n; i++) slides.push(`<!-- _class: content bleed -->\n\n## Photo ${i}.\n\n![Probe photo ${i}](asset:probe-photo-${i})${note(`This is photo ${i}`)}`);
+	for (let i = 1; i <= n; i++) slides.push(`<!-- @meta{class=content bleed} -->\n\n## Photo ${i}.\n\n![Probe photo ${i}](asset:probe-photo-${i})${note(`This is photo ${i}`)}`);
 	return slides.join('\n\n---\n\n');
 }
 

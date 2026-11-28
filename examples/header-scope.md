@@ -44,7 +44,7 @@ Front matter sets the header and footer for every slide. A slide comment sets it
 
 # An underscore footer, as before
 
-- `<!-- _footer: … -->` still sets this slide only.
+- `<!-- @meta{footer=…} -->` sets this slide only.
 - The plain spelling now means the same thing.
 
 ---
@@ -53,7 +53,7 @@ Front matter sets the header and footer for every slide. A slide comment sets it
 
 # Dropping the deck's chrome on one slide
 
-- `_class: no-header no-pagination` hides the header and page number here.
+- `class=no-header no-pagination` hides the header and page number here.
 - The footer stays, because only those two are named.
 
 ---

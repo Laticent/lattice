@@ -24,7 +24,7 @@ Use when a decision frames a binary choice and the recommendation must be unambi
 | `heading` | a `## ` heading | yes | Decision framing in the dark left panel. |
 | `context` | a paragraph | no | One-sentence context paragraph under the heading. |
 | `options` | a list | yes | Exactly two top-level items. First is the alternative; second is the preferred option. |
-| `verdict` | a `>` blockquote | no | The recommendation — one short sentence in a blockquote: the first top-level one, so a quote inside a raw `<div>`, a table or an option stays where it is, and a quote nested in the verdict stays in the verdict. The card tag defaults to RECOMMENDATION; an insight-* modifier on the slide _class (e.g. insight-verdict) renames it via the shared --insight-label seam. See lib/base/base.docs.md § Renaming the eyebrow. |
+| `verdict` | a `>` blockquote | no | The recommendation — one short sentence in a blockquote: the first top-level one, so a quote inside a raw `<div>`, a table or an option stays where it is, and a quote nested in the verdict stays in the verdict. The card tag defaults to RECOMMENDATION; an insight-* modifier in the slide's class (e.g. insight-verdict) renames it via the shared --insight-label seam. See lib/base/base.docs.md § Renaming the eyebrow. |
 | `points` | a list nested 1 level under an item | no | Each option's points, one line per row. Rows stay parallel across the options. |
 
 ### Common mistakes
@@ -32,7 +32,7 @@ Use when a decision frames a binary choice and the recommendation must be unambi
 - **Trying to rename the "RECOMMENDATION" tag by editing the blockquote text.** The tag text comes from the `--insight-label` CSS variable, set by an `insight-*` modifier class on the slide (e.g. `insight-verdict`) — not from anything inside the blockquote; editing the blockquote only changes the recommendation sentence, not its tag.
 - **Leaving the frame label unwrapped in backticks.** The frame label is reassembled to the top of the dark panel regardless of its source position — placement doesn't matter. It must be backtick-wrapped, though: unwrapped plain text is instead captured as the intro paragraph, not the frame label.
 - **Writing a second context paragraph, or a note under the options, and expecting it in the dark panel.** The dark panel takes the frame label, the heading and ONE context paragraph. Any other block (a second paragraph, a note, a table, a second blockquote) renders in the options zone, after the two cards and before the verdict, in source order; when the slide splits into pages, it follows the verdict on the closing page. Fold the extra context into the one paragraph, or keep it as a note under the options on purpose.
-- **Setting a long deck-level `header:` or `footer:` on a deck that uses this layout.** The running header and footer stay on the dark rail they start on. Each holds one line; past that it ends in an ellipsis and the export reports it as a chrome cut (author-only, no reader pill). Measured at 16:9 the rail holds about 37 characters of header and 39 of footer. Shorten it, or set a shorter one on these slides with `<!-- @meta{header="…"} -->` / `<!-- @meta{footer="…"} -->`.
+- **Setting a long deck-level `header:` or `footer:` on a deck that uses this layout.** The running header and footer stay on the dark rail they start on. Each holds one line; past that it ends in an ellipsis and the export reports it as a chrome cut (author-only, no reader pill). Measured at 16:9 the rail holds about 37 characters of header and 39 of footer; `panel-narrow` scales the rail and its chrome to about 30 and 31, `panel-wide` to about 49 and 50. Shorten it, or set a shorter one on these slides with `<!-- @meta{header="…"} -->` / `<!-- @meta{footer="…"} -->`.
 - **Expecting a split-compare slide to drop the deck's `finish:`, or to show it on one side only.** The finish covers both sides. The options side has no fill, so the slide's finish shows under the cards, as on any other slide, and the rail is finished like an anchor slide: its solid dark field with the finish mixed for it, in screen and PDF alike. `backdrop: clear` clears behind the content on both sides and leaves the finish in their margins. The finish's corner mark is left off, since a split slide has no frame margin for it. `no-finish` keeps both sides plain.
 
 ## When to use
@@ -81,6 +81,52 @@ One-sentence context paragraph explaining the stakes.
 │  └────────────┘  └──────────────────┘   │
 │  footer                           1/19  │
 └─────────────────────────────────────────┘
+```
+
+## Variants (component-specific)
+
+### `panel-narrow` — panel-narrow
+
+Narrows the dark frame to 0.8 of its width; the option grid takes the room.
+
+```markdown
+<!-- @meta{layout=split-compare, class=panel-narrow} -->
+
+`Decision Required`
+
+## A narrow frame gives the options room.
+
+Use it when each option carries three rows.
+
+- Alternative option
+  - First fact about the alternative
+  - Second fact about the alternative
+- Preferred option
+  - First fact about the preferred path
+  - Second fact about the preferred path
+
+> The recommendation in one decisive sentence.
+```
+
+### `panel-wide` — panel-wide
+
+Widens the dark frame to 1.3 of its width; for a question that carries the argument.
+
+```markdown
+<!-- @meta{layout=split-compare, class=panel-wide} -->
+
+`Decision Required`
+
+## A wide frame puts the question first.
+
+Use it when the framing is the argument and each option is short.
+
+- Alternative option
+  - One fact
+- Preferred option
+  - One fact
+
+> The recommendation in one decisive sentence.
 ```
 
 ## Universal modifiers

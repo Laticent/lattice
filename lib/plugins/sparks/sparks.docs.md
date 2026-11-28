@@ -19,7 +19,7 @@ deck rendered with the plugin disabled, shows the span as plain code.
 |---|---|
 | You write | `~{data, words…}` or `@spark{data, words…}` in inline code |
 | Front matter | `spark:` — the deck's frame, look and corners |
-| Per slide | `_class: spark-<word>` |
+| Per slide | `<!-- @meta{class=spark-<word>} -->` |
 | Kernel | `sparks.inline.js` (read, draw, diagnose, edit) |
 | Design | `engineering/decisions/2026-09-28-inline-sparks.md` |
 | Demo | `examples/inline-sparks.md` |
@@ -111,7 +111,7 @@ the whole deck:
 | Corners | `square` · `rounded` (the theme's small radius) | `square` |
 
 - **One spark:** the word in the spark, `` `~{1 3 2, bare}` `` or `` `~{1 3 2, etch, rounded}` ``.
-- **One slide:** the word as a class with `spark-` in front, `<!-- _class: table spark-bare -->`.
+- **One slide:** the word as a class with `spark-` in front, `<!-- @meta{layout=table, class=spark-bare} -->`.
 - **The deck:** the `spark:` front-matter register, `spark: bare` or `spark: etch rounded`
   ([`base.registers.docs.md`](../../base/base.registers.docs.md) § `spark:`).
 

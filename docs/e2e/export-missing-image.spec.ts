@@ -15,8 +15,8 @@ test.describe.configure({ timeout: 240_000 });
 
 const BROKEN = '/this-image-does-not-exist-4f2a.png';
 const DECK = [
-	`<!-- _class: big-number -->\n\n\`Intact\`\n\n- 1\n  - This slide has nothing to fetch.`,
-	`<!-- _class: content -->\n\n# The slide with a broken path\n\n![A logo that cannot be fetched](${BROKEN})\n\nThe copy around it still renders.`,
+	`<!-- @meta{layout=big-number} -->\n\n\`Intact\`\n\n- 1\n  - This slide has nothing to fetch.`,
+	`<!-- @meta{layout=content} -->\n\n# The slide with a broken path\n\n![A logo that cannot be fetched](${BROKEN})\n\nThe copy around it still renders.`,
 ].join('\n\n---\n\n');
 
 test('a deck with an unreachable image still exports, and the toast says what is missing', async ({ page }) => {
@@ -74,8 +74,8 @@ for (const tags of ['', ' @webkit-tablet @gecko']) test(`the export never names 
 	});
 	await gotoStudio(page);
 	await setEditorContent(page, [
-		`<!-- _class: content web-bg-probe -->\n\n# A web background\n\nThe deck has not allowed this site.`,
-		`<!-- _class: content -->\n\n# The slide with a broken path\n\n![A logo that cannot be fetched](${BROKEN})\n\nThe copy around it still renders.`,
+		`<!-- @meta{layout=content, class=web-bg-probe} -->\n\n# A web background\n\nThe deck has not allowed this site.`,
+		`<!-- @meta{layout=content} -->\n\n# The slide with a broken path\n\n![A logo that cannot be fetched](${BROKEN})\n\nThe copy around it still renders.`,
 	].join('\n\n---\n\n'));
 	await expect(railButtons(page)).toHaveCount(2);
 
@@ -113,7 +113,7 @@ const WEB_PROPS_THEME = [
 	`section.web-props svg path { marker-start: url(${T}/marker.svg#m); mask: url(${T}/mask.svg#k); }`,
 ].join('\n');
 const WEB_PROPS_SLIDE = [
-	'<!-- _class: content web-props -->',
+	'<!-- @meta{layout=content, class=web-props} -->',
 	'# Every property that can fetch a picture',
 	'The first paragraph carries a mask border.',
 	`<svg width="200" height="80" viewBox="0 0 200 80"><filter id="wp-fe"><feImage href="${T}/feimage.png"/></filter><rect width="90" height="60" filter="url(#wp-fe)"/><path d="M110 10L190 70" stroke="currentColor"/></svg>`,

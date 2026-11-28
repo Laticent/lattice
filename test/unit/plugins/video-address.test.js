@@ -12,7 +12,7 @@ const { lintText, buildVocab } = require('../../../lib/authoring/lint.js');
 
 const render = (md) => engine.createEngine().render(md, 'indaco').html;
 const SPAN = '@video{"https://www.youtube.com/watch?v=dQw4w9WgXcQ", title="Tour"}';
-const deck = (body, cls = 'video') => `---\ntheme: indaco\n---\n\n<!-- _class: ${cls} -->\n\n## Slide\n\n${body}\n`;
+const deck = (body, cls = 'video') => `---\ntheme: indaco\n---\n\n<!-- @meta{class=${cls}} -->\n\n## Slide\n\n${body}\n`;
 
 describe('where the address is read', () => {
   test('the markdown-it pass draws a lone span as the figure, from the span\'s own text', () => {
@@ -200,7 +200,7 @@ describe('a record off a `video` slide (the any-slide figure, 2026-11-10)', () =
   const REC = '`@video{"https://youtu.be/dQw4w9WgXcQ", title="Tour"}`';
 
   test('draws the full poster figure on the shared layer, and lint says nothing about the slide class', () => {
-    const md = `---\ntheme: indaco\n---\n\n<!-- _class: content -->\n\n## Tour\n\n${REC}\n`;
+    const md = `---\ntheme: indaco\n---\n\n<!-- @meta{layout=content} -->\n\n## Tour\n\n${REC}\n`;
     const html = require('../../../lib/engine').render(md).html;
     assert.match(html, /<figure class="video-embed lat-media" data-lattice-media="video" data-size="md" data-show="title"/);
     assert.match(html, /<span class="lat-media-frame"><a class="video-poster lat-media-pic/);
@@ -214,16 +214,16 @@ describe('video-extra-record', () => {
   const REC = (n) => `\`@video{"https://youtu.be/dQw4w9WgXcQ", title="Clip ${n}"}\``;
 
   test('a second record on a video slide is a warning, and only the second', () => {
-    const f = lint(`---\ntheme: indaco\n---\n\n<!-- _class: video companion -->\n\n## Two\n\n${REC(1)}\n\n${REC(2)}\n`).filter((x) => x.rule === 'video-extra-record');
+    const f = lint(`---\ntheme: indaco\n---\n\n<!-- @meta{layout=video, class=companion} -->\n\n## Two\n\n${REC(1)}\n\n${REC(2)}\n`).filter((x) => x.rule === 'video-extra-record');
     assert.equal(f.length, 1);
     assert.match(f[0].line, /Clip 2/);
     assert.match(f[0].fix, /slide of its own/);
   });
 
   test('one record per slide, across slides, and a record shown in a fence are quiet', () => {
-    const two = `---\ntheme: indaco\n---\n\n<!-- _class: video -->\n\n## A\n\n${REC(1)}\n\n---\n\n<!-- _class: video -->\n\n## B\n\n${REC(2)}\n`;
+    const two = `---\ntheme: indaco\n---\n\n<!-- @meta{layout=video} -->\n\n## A\n\n${REC(1)}\n\n---\n\n<!-- @meta{layout=video} -->\n\n## B\n\n${REC(2)}\n`;
     assert.ok(!lint(two).some((x) => x.rule === 'video-extra-record'));
-    const fenced = `---\ntheme: indaco\n---\n\n<!-- _class: video -->\n\n## A\n\n${REC(1)}\n\n\`\`\`markdown\n${REC(2)}\n\`\`\`\n`;
+    const fenced = `---\ntheme: indaco\n---\n\n<!-- @meta{layout=video} -->\n\n## A\n\n${REC(1)}\n\n\`\`\`markdown\n${REC(2)}\n\`\`\`\n`;
     assert.ok(!lint(fenced).some((x) => x.rule === 'video-extra-record'));
   });
 });
@@ -233,7 +233,7 @@ describe('the video placement rules say what the engine does', () => {
   const REC_WEB = '`@video{"https://youtu.be/dQw4w9WgXcQ", title="Clip", poster="https://img.example/p.jpg"}`';
   const lint = (md) => lintText(md, buildVocab()).findings || lintText(md, buildVocab());
   const figures = (md) => (render(md).match(/<figure class="video-embed lat-media"/g) || []).length;
-  const wrap = (cls, body) => `---\ntheme: indaco\n---\n\n<!-- _class: ${cls} -->\n\n## T\n\n${body}\n`;
+  const wrap = (cls, body) => `---\ntheme: indaco\n---\n\n<!-- @meta{class=${cls}} -->\n\n## T\n\n${body}\n`;
 
   // Each case: where the record sits, and whether the engine draws a figure from it. The wrong-slide rule must fire exactly when it does.
   const CASES = [

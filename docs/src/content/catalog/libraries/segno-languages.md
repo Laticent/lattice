@@ -96,7 +96,7 @@ Line numbers count from the first line after the front matter, as markdown-it's 
 Lattice configures one parser the way it configures markdown-it, with the plugin block rules (math's `$$`, the code plugin's `@code{…}` record), in `lib/core/deck-model.mjs`. Everything that reads a deck's structure reads it from there:
 
 - **Slide breaks.** The linter, the Studio and the Playground split a deck into slides with `lib/core/slide-boundaries.mjs`, which asks the deck model.
-- **Directives.** The linter reads every comment directive from the model's comment blocks (`lib/core/meta-scan.mjs`), so a `<!-- _class: … -->` inside a code fence is never read as a setting.
+- **Directives.** The linter reads every comment directive from the model's comment blocks (`lib/core/meta-scan.mjs`), so a `<!-- @meta{…} -->` record inside a code fence is never read as a setting.
 - **The Studio's outline.** The slide index behind the Studio and Playground editors holds one model and updates it with `updateDeckModel` on each edit (`docs/src/lib/deck-outline/deck-outline.ts`).
 - **Fix all.** Lattice's deck language for Squadra builds its tree from the same model (`lib/authoring/squadra/lattice-deck.js`).
 

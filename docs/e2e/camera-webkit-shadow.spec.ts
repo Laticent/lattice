@@ -13,7 +13,7 @@ import { expect, gotoStudio, persistedSource, shareExport, test, typeDeck } from
 // copy runs on Chromium and Firefox, the `@webkit-tablet` copy on WebKit, the engine the fix is for.
 test.describe.configure({ timeout: 300_000 });
 
-const DECK = `---\ntheme: indaco\ncolor-mode: light\n---\n\n<!-- _class: image -->\n\n## A lifted card\n\nThe card casts the layout's offset shadow.\n\n![A lake at dawn](sample:photo-wide.jpg)\n`;
+const DECK = `---\ntheme: indaco\ncolor-mode: light\n---\n\n<!-- @meta{layout=image} -->\n\n## A lifted card\n\nThe card casts the layout's offset shadow.\n\n![A lake at dawn](sample:photo-wide.jpg)\n`;
 
 /**
  * On the exported slide, where the card's shadow starts along its bottom band, as a share of the card's width (0 at the

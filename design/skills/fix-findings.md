@@ -92,7 +92,7 @@ allows 95. The `wall-of-text` message names whichever budget tripped.
    ```text
    ⚠ deck.md · slide 2 · capacity-overflow [cards-grid]
        'cards-grid' fits about 4 items; this slide has 6. Landscape slides don't split, so the extra ones may be cut off.
-       at: <!-- _class: cards-grid -->
+       at: <!-- @meta{layout=cards-grid} -->
        fix: Switch to list-tabular, or split across slides.
    ```
 3. **Apply the machine fixes.** `npm run lint:deck -- --fix deck.md` (or "Fix
@@ -116,9 +116,10 @@ allows 95. The `wall-of-text` message names whichever budget tripped.
 | `statement-ol-bold` | error | `**bold**` inside a numbered statement item | Remove the bold; the layout already weights it. |
 | `capacity-overflow` | warning | more items than the component holds | The `fix:` line's escalation target, or split. |
 | `capacity-scale` | warning | too much for the `venue:` / `scale-*` size | Split, or pick the venue that matches the room. |
-| `unknown-class` | warning | a `_class:` token the engine doesn't know | Check the spelling; renamed classes name the new one. |
+| `unknown-class` | warning | a `layout=` or `class=` word the engine doesn't know | Check the spelling; renamed classes name the new one. |
 | `unknown-finish` / `unknown-mode` / `unknown-theme` / `unknown-key` | warning | a front-matter value or key the deck ignores | Use a value the message lists, or delete the line. |
-| `pagination-comment-retired` | warning | `<!-- paginate: … -->` does nothing | `no-pagination` on the slide's `_class:`. |
+| `pagination-comment-retired` | warning | `<!-- paginate: … -->` does nothing | `no-pagination` in the slide's `@meta{class=…}`. |
+| `legacy-directive-comment` / `meta-opener-bare` | error | an old settings comment (`<!-- _class: x -->`, `<!-- footer: Q3 -->`, `<!-- _pane: bar -->`, `<!-- stress-slide -->`) or a bare `<!-- {…} -->` record; the engine no longer reads either | `--fix` (or `lattice migrate meta deck.md`) rewrites the whole deck as `<!-- @meta{…} -->` records. |
 | `web-image` | warning | a picture loaded from another site | Save it beside the deck; link by relative path. |
 | `typed-shape-glyph` | warning | a typed `✓` `→` `●` doing a drawing's job | `[x]` for a check, a word ("to", "then") for an arrow, a `-` list for a bullet (HARD RULE #29). |
 | `code-line-clipped` | info | a code line wider than its pane; the tail is cut | Wrap the line, or give the code its own slide. |
@@ -151,7 +152,7 @@ pagination: true
 header: "Field service · Q3 update"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Field Service Update
 
@@ -161,7 +162,7 @@ Eight fixes are live, and routing alone gives each technician forty minutes a da
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 ## Overview
 
@@ -198,7 +199,7 @@ pagination: true
 header: "Field service · Q3 update"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Field Service Update
 
@@ -208,7 +209,7 @@ Eight fixes are live, and routing alone gives each technician forty minutes a da
 
 ---
 
-<!-- _class: cards-grid three -->
+<!-- @meta{layout=cards-grid, class=three} -->
 
 ## Three fixes put technicians in front of customers sooner.
 
@@ -223,7 +224,7 @@ Eight fixes are live, and routing alone gives each technician forty minutes a da
 
 ---
 
-<!-- _class: list-tabular -->
+<!-- @meta{layout=list-tabular} -->
 
 ## Five smaller fixes close the gaps around each visit.
 
@@ -240,7 +241,7 @@ Eight fixes are live, and routing alone gives each technician forty minutes a da
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 ## Fund winter routing and keep the forty minutes.
 

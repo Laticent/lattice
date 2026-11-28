@@ -17,6 +17,9 @@ the Lattice Timing Track (LTT):
   reader refuses. A **draft** for the owner's sign-off; its cases are in `conformance/theme/`.
 - `LATTICE-FILE-1.0.md` — the `.lattice` project file. A **draft** for the owner's sign-off; its
   cases are in `conformance/lattice-file/`.
+- `SEGNO-1.0.md` — Segno notation, the curly-brace syntax pills, sparks, icons and `@meta` records
+  are written in: its grammar, its tree, its refusals and its versioning rule. A **draft** for the
+  owner's sign-off; its cases are in `conformance/segno/`.
 - `LPM.md` — the Lattice Plugin Model, a **draft** (0.x) until Mermaid and the chart family run on
   it. Not projected into the docs site while it is a draft.
 
