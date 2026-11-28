@@ -1,9 +1,19 @@
 ---
-status: blocked
-summary: ESCALATION, not a decision — the licensing call is the owner's. Verified by rendering (marp-cli 4.5.0, which is what the `^4.3.1` range resolves to): `marp --html` inlines ~852 KB of engine CSS into the output file, while `marp --pdf` carries no engine source at all. So the output exception's reach matters on exactly one route. The gap is NOT where the on-deck note placed it — §Limits (a) excludes assets "distributed other than inside a rendered deck", and a `marp --html` file IS a rendered deck, so (a) does not bite; the exclusion comes from the Grant's "as embedded by Lattice itself", §Limits' opening "Lattice's own export pipeline", and §Limits (c), since Marpit REWRITES every selector on the way in. marp-cli did the embedding, so the literal text does not reach the very workflow the kit ships to enable. Scope is wider than the kit — the Export-to-Marp bundle's documented `npm run html` has the identical gap. Two options (extend the grant / narrow the reassurance), recommendation is to extend, and NOTICE.md is narrowed to what is factually true today WITHOUT touching the grant. Also logs a separate and more clear-cut finding, tracked as #1354 and deliberately not fixed here: the Export-to-Marp bundle ships mermaid (MIT), the KaTeX faces (MIT) and five OFL font families with no LICENSE, no NOTICE and no license texts at all — the exact defect the kit was fixed for in #1325.
+status: shipped
+summary: DECIDED 2026-11-28 — the owner chose option A and extended the exception to Marp renders (LICENSE-EXCEPTIONS 1.2, #3598). Originally an ESCALATION — the licensing call is the owner's. Verified by rendering (marp-cli 4.5.0, which is what the `^4.3.1` range resolves to): `marp --html` inlines ~852 KB of engine CSS into the output file, while `marp --pdf` carries no engine source at all. So the output exception's reach matters on exactly one route. The gap is NOT where the on-deck note placed it — §Limits (a) excludes assets "distributed other than inside a rendered deck", and a `marp --html` file IS a rendered deck, so (a) does not bite; the exclusion comes from the Grant's "as embedded by Lattice itself", §Limits' opening "Lattice's own export pipeline", and §Limits (c), since Marpit REWRITES every selector on the way in. marp-cli did the embedding, so the literal text does not reach the very workflow the kit ships to enable. Scope is wider than the kit — the Export-to-Marp bundle's documented `npm run html` has the identical gap. Two options (extend the grant / narrow the reassurance), recommendation is to extend, and NOTICE.md is narrowed to what is factually true today WITHOUT touching the grant. Also logs a separate and more clear-cut finding, tracked as #1354 and deliberately not fixed here: the Export-to-Marp bundle ships mermaid (MIT), the KaTeX faces (MIT) and five OFL font families with no LICENSE, no NOTICE and no license texts at all — the exact defect the kit was fixed for in #1325.
 ---
 
 # The output exception does not reach a Marp render — escalation
+
+> **Decided 2026-11-28: option A.** The owner typed "We should extent the exception to Marp
+> too" (Initiative desk session, 00:50 UTC). PR #3598 drafts `LICENSE-EXCEPTIONS` **version
+> 1.2**: a new "Marp renders" paragraph covers engine assets Lattice ships for rendering with
+> a Marp Tool (the Marp kit and the Export-to-Marp bundle), once a Marp Tool embeds them into
+> a rendered deck. "Marp Tool" is a closed list: Marp CLI, Marp Core, Marpit and Marp for
+> VS Code as the Marp project publishes them. §Limits (a), (b) and (c) still exclude the
+> loose folder, extract-and-reuse and modified assets. The kit's `NOTICE.md` now states the
+> grant. A grant is one-way, so counsel reads the draft before merge, and the owner approves
+> the exact words. The text below is the escalation as written.
 
 **This is an escalation, not a decision.** The question is what Lattice's license
 should grant. That is the copyright holder's call, not an engineering one, and

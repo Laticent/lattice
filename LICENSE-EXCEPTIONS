@@ -1,4 +1,4 @@
-LATTICE OUTPUT EXCEPTION, version 1.1
+LATTICE OUTPUT EXCEPTION, version 1.2
 Copyright (c) 2025-2026 Sharmarke Aden, doing business as Laticent
 
 This is an additional permission under section 7 of the GNU Affero
@@ -8,7 +8,10 @@ copyright holder of Lattice to every recipient of Lattice.
 Background. When Lattice renders a deck, its export pipeline embeds
 engine assets into the exported artifact: the engine and theme CSS in
 exported HTML decks, and the preview/runtime JavaScript inlined into
-fluid HTML exports. Without this exception, conveying such a deck (for
+fluid HTML exports. Lattice also ships engine assets for rendering a
+deck with Marp: the Marp kit and the Export-to-Marp bundle. When a
+Marp Tool renders a deck to HTML, it embeds those assets into the
+rendered deck. Without this exception, conveying such a deck (for
 example, posting it on a web server) could be read as conveying a
 covered work, imposing AGPL conditions on the deck's author.
 
@@ -20,15 +23,27 @@ without the AGPL-3.0 applying to the rendered deck as a whole and
 without any obligation to offer Corresponding Source for those
 embedded assets.
 
+Marp renders. The same permission covers engine assets that Lattice
+ships for rendering a deck with a Marp Tool, in the form Lattice
+ships them, once a Marp Tool has embedded them into a rendered deck.
+For this purpose, the embedding a Marp Tool performs, including the
+rewriting of CSS selectors to scope them to the deck, counts as the
+mechanical embedding of the export pipeline. "Marp Tool" means Marp
+CLI, Marp Core, Marpit or Marp for VS Code, as published by the Marp
+project (https://github.com/marp-team). No other tool is a Marp Tool
+for this exception, even one that embeds the same files the same way.
+
 Limits. This exception applies only to engine assets that Lattice's
-own export pipeline embeds into a rendered deck. It does not extend
+own export pipeline embeds into a rendered deck, or that a Marp Tool
+embeds as the "Marp renders" paragraph describes. It does not extend
 to: (a) the Lattice engine itself or any of its source or object form
-distributed other than inside a rendered deck; (b) the embedded assets
+distributed other than inside a rendered deck, including the Marp kit
+and the Export-to-Marp bundle themselves; (b) the embedded assets
 extracted or separated from a rendered deck for reuse; or (c) any
 modified version of the engine or of the embedded assets beyond the
-mechanical embedding the export pipeline performs. The content of your
-deck — your text, images, and data — was never covered by the AGPL in
-the first place and needs no exception.
+mechanical embedding the export pipeline or a Marp Tool performs. The
+content of your deck — your text, images, and data — was never
+covered by the AGPL in the first place and needs no exception.
 
 If you convey a rendered deck, you may (but need not) retain this
 notice in it. Removing this exception from a copy of Lattice is
