@@ -12,8 +12,8 @@ const COMPOSE = 'Compose — rich editor';
 
 const DECK = [
 	'---', 'marp: true', 'theme: indaco', '---', '',
-	'<!-- _class: columns ratio-60-40 -->', '', '## Services outgrew licenses.', '',
-	'<!-- _pane: bar -->', '### Revenue by line', '', '- Licenses `42`', '- Services `47`', '',
+	'<!-- @meta{layout=columns, class=ratio-60-40} -->', '', '## Services outgrew licenses.', '',
+	'<!-- @meta{pane=bar} -->', '### Revenue by line', '', '- Licenses `42`', '- Services `47`', '',
 	'### What changed', '', '- Services crossed licenses', '- Training folded in', '',
 	'> The mix shift is structural.', '',
 ].join('\n');
@@ -80,5 +80,5 @@ test('@crosswidth a pick that keeps the text only names the component, and a tit
 	await page.keyboard.type(' this year');
 	await expect.poll(() => deckSource(page)).toContain('### What changed this year');
 	const src = await deckSource(page);
-	expect(src.indexOf('<!-- _pane: bar -->')).toBeGreaterThan(src.indexOf('## Services outgrew'));
+	expect(src.indexOf('<!-- @meta{pane=bar} -->')).toBeGreaterThan(src.indexOf('## Services outgrew'));
 });

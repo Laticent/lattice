@@ -61,9 +61,9 @@ theme: indaco
 finish: strata
 ---
 
-${[...SLIDES.map(([cls, body]) => `<!-- _class: ${cls} -->\n\n${body}`),
-  ...SLIDES.map(([cls, body]) => `<!-- _class: ${cls} backdrop-clear -->\n\n${body}`),
-  `<!-- _class: split-panel no-finish -->\n\n${BODY}`].join('\n\n---\n\n')}
+${[...SLIDES.map(([cls, body]) => `<!-- @meta{class=${cls}} -->\n\n${body}`),
+  ...SLIDES.map(([cls, body]) => `<!-- @meta{class=${cls} backdrop-clear} -->\n\n${body}`),
+  `<!-- @meta{layout=split-panel, class=no-finish} -->\n\n${BODY}`].join('\n\n---\n\n')}
 `;
 
 describe('split finish pane (real render)', () => {
@@ -166,7 +166,7 @@ describe('split finish pane (real render)', () => {
     const { execFileSync } = require('node:child_process');
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'split-clear-pdf-'));
     const md = path.join(dir, 'clear.md');
-    fs.writeFileSync(md, `---\nmarp: true\ntheme: carbone\nfinish: halo\n---\n\n<!-- _class: split-panel backdrop-clear -->\n\n${BODY}\n\n---\n\n<!-- _class: split-compare backdrop-clear -->\n\n${COMPARE}\n`);
+    fs.writeFileSync(md, `---\nmarp: true\ntheme: carbone\nfinish: halo\n---\n\n<!-- @meta{layout=split-panel, class=backdrop-clear} -->\n\n${BODY}\n\n---\n\n<!-- @meta{layout=split-compare, class=backdrop-clear} -->\n\n${COMPARE}\n`);
     const out = execFileSync(process.execPath, [path.join(__dirname, '../../../lattice.js'), md, path.join(dir, 'clear.pdf')], { encoding: 'utf8', env: { ...process.env, CHROME_PATH: resolveChrome() || '' } });
     const covered = out.split('\n').filter((l) => /slide \d+:.*\b\d+ covered\b/.test(l));
     assert.deepEqual(covered, [], `words were pushed into the photo as covered:\n${covered.join('\n')}`);

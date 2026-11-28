@@ -25,6 +25,7 @@ Use for relational or topological visuals — flowcharts, sequence diagrams, sta
 ### Common mistakes
 
 - **Eyebrow written as plain or bold text instead of inline code.** The `subtitle` slot (an eyebrow caption despite its name) matches a `p > code` paragraph — wrap it in backticks; plain or bold text doesn't map to the slot and just renders as an unstyled stray line.
+- **Expecting the paragraph after the diagram to sit under the slide as a note.** It is the figure's caption, drawn under the diagram (`coda.caption`); a `> …` key insight stays the slide's panel. Keep the caption to one line.
 
 ## When to use
 

@@ -12,7 +12,7 @@ marp: true
 theme: indaco${frontMatter}
 ---
 
-<!-- _class: heatmap -->
+<!-- @meta{class=heatmap} -->
 
 ## Retention by cohort
 

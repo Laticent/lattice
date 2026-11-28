@@ -2144,6 +2144,27 @@ describe('core: carousel — a native slice stamps the member it carries', () =>
   });
 });
 
+describe('core: carousel — a coda docked INSIDE a zone still closes the run', () => {
+  // split-compare docks its coda after the verdict, inside `.compare-right` (lib/core/split-panels.js), and
+  // split-panel at the foot of `.panel-right`. The strategies read trailing beats at the section's TOP level, so a
+  // nested cell reached no page at portrait (checker, 2026-11-20). carouselize lifts it first (`liftNestedCoda`).
+  const cell = '<div class="cell-coda" data-dock="row"><div class="below-note"><p>NESTED NOTE</p></div></div>';
+  const verdictClose = scSection.inner.indexOf('</div>', scSection.inner.indexOf('<div class="verdict">'));
+  const inner = scSection.inner.slice(0, verdictClose + 6) + cell + scSection.inner.slice(verdictClose + 6);
+  const parts = carouselize(scSection.openTag, inner, { strategy: 'compare-options', axis: 'item', perPage: 1 }, 16 / 9, 'split-compare');
+
+  test('the fixture really nests the cell inside .compare-right', () => {
+    const right = inner.indexOf('<div class="compare-right"');
+    assert.ok(right >= 0 && inner.indexOf('NESTED NOTE') > right);
+  });
+  test('the note reaches the closing page, once, after the verdict', () => {
+    const run = (parts || []).join('');
+    assert.equal(run.split('NESTED NOTE').length - 1, 1, 'printed exactly once');
+    const closing = parts[parts.length - 1];
+    assert.match(closing, /NESTED NOTE/);
+  });
+});
+
 describe('core: carousel — compare-options reads the verdict from its slot', () => {
   // `applyCompare` puts an author block no slot claims inside `.compare-right`, after `.options`
   // and before `.verdict`. Reading "the first blockquote in the zone" then promoted a second quote
@@ -2231,7 +2252,7 @@ describe('core: carousel — feature-cover with ledePage', () => {
 // (`atSeam`). Rendered through the real engine, so the panel markup is the one it emits.
 describe('core: carousel — feature-cover splits split-panel qr at its seam', () => {
   const { createEngine } = require('../../../lib/engine');
-  const src = "---\ntheme: indaco\n---\n\n<!-- _class: split-panel qr -->\n\n`Split-panel qr`\n\n## The payload bullet becomes a code on the panel.\n\nA bare URL auto-resolves; the caption line labels the scan.\n\n- https://example.com/docs\n- Scan for this layout's docs\n";
+  const src = "---\ntheme: indaco\n---\n\n<!-- @meta{class=split-panel qr} -->\n\n`Split-panel qr`\n\n## The payload bullet becomes a code on the panel.\n\nA bare URL auto-resolves; the caption line labels the scan.\n\n- https://example.com/docs\n- Scan for this layout's docs\n";
   const { html } = createEngine().render(src, 'indaco');
   const [qr] = splitSections(html).filter((p) => p.type === 'section');
   const text = (h) => h.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();

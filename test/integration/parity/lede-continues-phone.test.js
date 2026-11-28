@@ -31,7 +31,7 @@ color-mode: dark
 size: square
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{class=title silent} -->
 
 \`Categorical tokens · the third ink tier\`
 
@@ -43,7 +43,7 @@ Rendered in atelier rather than indaco, deliberately: indaco is one of the palet
 
 ---
 
-<!-- _class: topic fact -->
+<!-- @meta{class=topic fact} -->
 
 \`Section 02 · Topic\`
 
@@ -55,7 +55,7 @@ A topic slide paints an inverse panel in every mode, and had never been named in
 
 ---
 
-<!-- _class: split-panel capstone cat-3 -->
+<!-- @meta{class=split-panel capstone cat-3} -->
 
 \`Instagram · the antagonist\`
 
@@ -72,7 +72,7 @@ Scale is a quantity, and quantities have a price you can pay. The thing you cann
 
 ---
 
-<!-- _class: split-panel capstone cat-3 -->
+<!-- @meta{class=split-panel capstone cat-3} -->
 
 \`Instagram · the antagonist, marked up\`
 

@@ -26,22 +26,22 @@ describe('read-along-core bundle exposes the shared narration kernel', () => {
 	});
 
 	it('narrateFunnel speaks the computed conversion %', () => {
-		const out = narrateFunnel('<!-- _class: funnel -->\n\n## Stages.\n\n- A `100`\n- B `50`');
+		const out = narrateFunnel('<!-- @meta{layout=funnel} -->\n\n## Stages.\n\n- A `100`\n- B `50`');
 		expect(out).toContain('fifty percent');
 	});
 
 	it('narrateJourneyWeighted speaks each task volume share', () => {
-		const md = ['<!-- _class: journey weighted -->', '', '## X.', '', '- Stage', '  - A `{who=me, mood=3, volume=9}`', '  - B `{who=me, mood=3, volume=1}`'].join('\n');
+		const md = ['<!-- @meta{layout=journey, class=weighted} -->', '', '## X.', '', '- Stage', '  - A `{who=me, mood=3, volume=9}`', '  - B `{who=me, mood=3, volume=1}`'].join('\n');
 		expect(narrateJourneyWeighted(md)).toContain('ninety percent');
 	});
 
 	it('narrateRadar speaks the auto-fit scale', () => {
-		const md = ['<!-- _class: radar -->', '', '## X.', '', '- Lattice', '  - Performance `9`'].join('\n');
+		const md = ['<!-- @meta{layout=radar} -->', '', '## X.', '', '- Lattice', '  - Performance `9`'].join('\n');
 		expect(narrateRadar(md)).toContain('scale of zero to ten');
 	});
 
 	it('narrateQuadrant speaks the auto-fit axis ranges', () => {
-		const md = ['<!-- _class: quadrant -->', '', '## X.', '', '- Group', '  - Item `{3, 70}`'].join('\n');
+		const md = ['<!-- @meta{layout=quadrant} -->', '', '## X.', '', '- Group', '  - Item `{3, 70}`'].join('\n');
 		expect(narrateQuadrant(md)).toContain('The vertical axis runs zero to one hundred');
 	});
 
@@ -51,36 +51,36 @@ describe('read-along-core bundle exposes the shared narration kernel', () => {
 		// also runs on EVERY machine, where the inference sentence spoke only when the
 		// author had left the roles untagged — the rarer case, and not one any shipped
 		// sample hits.
-		const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '- Draft', '  - -submit-> Done', '- Done'].join('\n');
+		const md = ['<!-- @meta{layout=state-chart} -->', '', '## Flow.', '', '- Draft', '  - -submit-> Done', '- Done'].join('\n');
 		const out = narrateStateChart(md);
 		expect(out).toContain('A two-state machine from Draft to Done');
 		expect(out).not.toContain('This flow starts at');
 	});
 
 	it('narrateDiagram speaks a flowchart, sequence, class, and pie diagram, bails on not-yet-supported types', () => {
-		const flow = ['<!-- _class: diagram -->', '', '## Flow.', '', '```mermaid', 'flowchart LR', '  A[Start] --> B[End]', '```'].join('\n');
+		const flow = ['<!-- @meta{layout=diagram} -->', '', '## Flow.', '', '```mermaid', 'flowchart LR', '  A[Start] --> B[End]', '```'].join('\n');
 		expect(narrateDiagram(flow)).toContain('Start leads to End.');
-		const seq = ['<!-- _class: diagram -->', '', '## Seq.', '', '```mermaid', 'sequenceDiagram', '  A->>B: score', '```'].join('\n');
+		const seq = ['<!-- @meta{layout=diagram} -->', '', '## Seq.', '', '```mermaid', 'sequenceDiagram', '  A->>B: score', '```'].join('\n');
 		expect(narrateDiagram(seq)).toContain('A sends to B: score.');
 		// slice #2: the typed-relationship diagrams speak the Mermaid-defined verb (the §2 asymmetry)
-		const cls = ['<!-- _class: diagram -->', '', '## Class.', '', '```mermaid', 'classDiagram', '  Animal <|-- Dog', '```'].join('\n');
+		const cls = ['<!-- @meta{layout=diagram} -->', '', '## Class.', '', '```mermaid', 'classDiagram', '  Animal <|-- Dog', '```'].join('\n');
 		expect(narrateDiagram(cls)).toContain('Dog inherits from Animal.');
-		const pie = ['<!-- _class: diagram -->', '', '## Pie.', '', '```mermaid', 'pie', '  "A" : 40', '  "B" : 60', '```'].join('\n');
+		const pie = ['<!-- @meta{layout=diagram} -->', '', '## Pie.', '', '```mermaid', 'pie', '  "A" : 40', '  "B" : 60', '```'].join('\n');
 		expect(narrateDiagram(pie)).toContain('B, sixty percent.');
 		// §17 hardening reaches the shipped bundle: a zero-value slice renders (not the old `<= 0` bail),
 		// and an accTitle statement is skipped instead of dropping the whole diagram to heading-only.
-		const zeroPie = ['<!-- _class: diagram -->', '', '## Pie.', '', '```mermaid', 'pie', '  accTitle: Shares', '  "A" : 0', '  "B" : 50', '```'].join('\n');
+		const zeroPie = ['<!-- @meta{layout=diagram} -->', '', '## Pie.', '', '```mermaid', 'pie', '  accTitle: Shares', '  "A" : 0', '  "B" : 50', '```'].join('\n');
 		expect(narrateDiagram(zeroPie)).toContain('A, zero percent.');
-		const radar = ['<!-- _class: diagram -->', '', '## Radar.', '', '```mermaid', 'radar-beta', '  axis a["Speed"], b["Power"]', '  curve c["Car"]{3, 7}', '```'].join('\n');
+		const radar = ['<!-- @meta{layout=diagram} -->', '', '## Radar.', '', '```mermaid', 'radar-beta', '  axis a["Speed"], b["Power"]', '  curve c["Car"]{3, 7}', '```'].join('\n');
 		expect(narrateDiagram(radar)).toContain('Car: Speed, three; Power, seven.');
-		const xy = ['<!-- _class: diagram -->', '', '## XY.', '', '```mermaid', 'xychart-beta', '  x-axis [jan, feb]', '  bar [5, 6]', '```'].join('\n');
+		const xy = ['<!-- @meta{layout=diagram} -->', '', '## XY.', '', '```mermaid', 'xychart-beta', '  x-axis [jan, feb]', '  bar [5, 6]', '```'].join('\n');
 		expect(narrateDiagram(xy)).toContain('The bar series: jan, five; feb, six.');
-		const mind = ['<!-- _class: diagram -->', '', '## Mind.', '', '```mermaid', 'mindmap', '  root', '```'].join('\n');
+		const mind = ['<!-- @meta{layout=diagram} -->', '', '## Mind.', '', '```mermaid', 'mindmap', '  root', '```'].join('\n');
 		expect(narrateDiagram(mind)).toBeNull();
 	});
 
 	it('narrateChart dispatches to the first matching narrator', () => {
-		expect(narrateChart('<!-- _class: funnel -->\n\n## Stages.\n\n- A `100`\n- B `50`')).toContain('fifty percent');
-		expect(narrateChart('<!-- _class: kpi -->\n\n## Revenue\n\nWe grew.')).toBeNull();
+		expect(narrateChart('<!-- @meta{layout=funnel} -->\n\n## Stages.\n\n- A `100`\n- B `50`')).toContain('fifty percent');
+		expect(narrateChart('<!-- @meta{layout=kpi} -->\n\n## Revenue\n\nWe grew.')).toBeNull();
 	});
 });

@@ -20,7 +20,7 @@ const NEEDS = paneNeedsFrom(grammar.components, Object.fromEntries(catalog.compo
 const SKELETON = Object.fromEntries(grammar.components.map((c: { name: string; skeleton: string }) => [c.name, c.skeleton]));
 
 const SLIDE = [
-	'<!-- _class: columns -->',
+	'<!-- @meta{layout=columns} -->',
 	'',
 	'## The slide\'s point, in one line.',
 	'',
@@ -114,7 +114,7 @@ describe('where the needs map comes from', () => {
 
 describe('what the second review found a pick could lose', () => {
 	it('a pane whose component owns its ### never "keeps its text" under one that does not', () => {
-		const src = '<!-- _class: columns -->\n\n## T\n\n<!-- _pane: team-profile -->\n\n### Ann\n\nCEO\n\n### Bob\n\nCTO\n\n<!-- _pane: list -->\n\n- c';
+		const src = '<!-- @meta{layout=columns} -->\n\n## T\n\n<!-- @meta{pane=team-profile} -->\n\n### Ann\n\nCEO\n\n### Bob\n\nCTO\n\n<!-- @meta{pane=list} -->\n\n- c';
 		const outcome = fitOf(src, 0);
 		expect(outcome('content')).toBe('fresh');
 		expect(outcome('team-profile')).toBe('fresh'); // its own name is the current tile, labeled apart
@@ -128,9 +128,9 @@ describe('what the second review found a pick could lose', () => {
 		// left the attribution behind put it after the starter, where the engine moved it to the slide
 		// as a note: the third review's catch, against a fix the second review had asked for.
 		for (const index of [0, 1]) {
-			const quote = '<!-- _pane: quote -->\n\n> The best way.\n\n— Ann, CEO';
+			const quote = '<!-- @meta{pane=quote} -->\n\n> The best way.\n\n— Ann, CEO';
 			const other = '### Other\n\n- x';
-			const src = `<!-- _class: columns -->\n\n## T\n\n${index === 0 ? `${quote}\n\n${other}` : `${other}\n\n${quote}`}`;
+			const src = `<!-- @meta{layout=columns} -->\n\n## T\n\n${index === 0 ? `${quote}\n\n${other}` : `${other}\n\n${quote}`}`;
 			const state = stateOf(src);
 			const tr = applyPaneChoice(state, 0, index, { cls: 'list', starter: '- One' });
 			const out = emitDeck(state.apply(tr as NonNullable<typeof tr>).doc, initBaseline(state.doc));
@@ -140,7 +140,7 @@ describe('what the second review found a pick could lose', () => {
 		}
 	});
 	it('a speaker note inside the replaced body survives the starter', () => {
-		const src = '<!-- _class: columns -->\n\n## T\n\n### A\n\npara one\n\n<!-- speaker note -->\n\npara two\n\n### B\n\n- b';
+		const src = '<!-- @meta{layout=columns} -->\n\n## T\n\n### A\n\npara one\n\n<!-- speaker note -->\n\npara two\n\n### B\n\n- b';
 		const state = stateOf(src);
 		const tr = applyPaneChoice(state, 0, 0, { cls: 'bar', starter: '- One `1`' });
 		const out = emitDeck(state.apply(tr as NonNullable<typeof tr>).doc, initBaseline(state.doc));
@@ -148,9 +148,9 @@ describe('what the second review found a pick could lose', () => {
 		expect(out).not.toContain('para one');
 	});
 	it('the current component picked again keeps its look', () => {
-		const state = stateOf(SLIDE.replace('### First pane', '<!-- _pane: cards-grid compact -->\n### First pane'));
+		const state = stateOf(SLIDE.replace('### First pane', '<!-- @meta{pane=cards-grid compact} -->\n### First pane'));
 		const tr = applyPaneChoice(state, 0, 0, { cls: 'cards-grid', starter: '- x' });
-		expect(emitDeck(state.apply(tr as NonNullable<typeof tr>).doc, initBaseline(state.doc))).toContain('<!-- _pane: cards-grid compact -->');
+		expect(emitDeck(state.apply(tr as NonNullable<typeof tr>).doc, initBaseline(state.doc))).toContain('<!-- @meta{pane=cards-grid compact} -->');
 	});
 	it('with no needs map a pick never replaces text', () => {
 		const slide = deckToDoc(SLIDE).child(0);
@@ -164,7 +164,7 @@ describe('a starter becomes a pane body', () => {
 		expect(paneStarter(SKELETON.bar, false)).toBe('- First `120`\n- Second `86`\n- Third `54`\n- Fourth `31`');
 		expect(paneStarter(SKELETON['team-profile'], false)).not.toMatch(/Your account team|## /);
 		expect(paneStarter(SKELETON.quote, true)).toMatch(/^> The quoted sentence/);
-		expect(paneStarter('<!-- _class: x -->\n\n## H\n\n- a\n\n> Insight', false)).toBe('- a');
+		expect(paneStarter('<!-- @meta{class=x} -->\n\n## H\n\n- a\n\n> Insight', false)).toBe('- a');
 	});
 	it('a starter Compose could not edit is not offered (it would lock the slide read-only)', () => {
 		expect(starterEditable(SKELETON.checklist)).toBe(true); // its state markers round-trip
@@ -203,7 +203,7 @@ describe('picking a component', () => {
 		expect(out).toContain('<!-- @meta{pane=cards-grid compact} -->\n\n### First pane\n\n- A point');
 	});
 	it('the pick passes the marker guard, which refuses a stray delete', () => {
-		const state = stateOf(SLIDE.replace('### First pane', '<!-- _pane: list -->\n### First pane'));
+		const state = stateOf(SLIDE.replace('### First pane', '<!-- @meta{pane=list} -->\n### First pane'));
 		const tr = applyPaneChoice(state, 0, 0, { cls: 'checklist', starter: null });
 		expect(state.applyTransaction(tr as NonNullable<typeof tr>).state.doc.eq(state.doc)).toBe(false);
 	});
@@ -217,7 +217,7 @@ describe('a refused edit says why', () => {
 		const state = EditorState.create({ doc: deckToDoc(src), plugins: [history(), paneMarkerGuard((r) => reasons.push(r))] });
 		return { state, reasons };
 	};
-	const MARKED = SLIDE.replace('### First pane', '<!-- _pane: list -->\n### First pane').replace('### Second pane', '<!-- _pane: list -->\n### Second pane');
+	const MARKED = SLIDE.replace('### First pane', '<!-- @meta{pane=list} -->\n### First pane').replace('### Second pane', '<!-- @meta{pane=list} -->\n### Second pane');
 	// The guard reports a refusal in a microtask it queues while the transaction is applied; one queued after it runs after it (first in, first out).
 	const flush = () => new Promise<void>((r) => queueMicrotask(r));
 	it('deleting a hidden marker is refused, once, with the marker reason', async () => {
@@ -225,7 +225,7 @@ describe('a refused edit says why', () => {
 		let at = -1;
 		let size = 0;
 		state.doc.child(0).forEach((node, offset) => {
-			if (at >= 0 || node.type.name !== 'comment' || !/_pane/.test(String(node.attrs.text))) return;
+			if (at >= 0 || node.type.name !== 'comment' || !/pane=/.test(String(node.attrs.text))) return;
 			at = 1 + offset; // the slide's content starts one past the doc's
 			size = node.nodeSize;
 		});
@@ -235,7 +235,7 @@ describe('a refused edit says why', () => {
 		expect(reasons).toEqual([PANE_REFUSAL.marker]);
 	});
 	it('a new ### that would fold the next pane is refused with the heading reason', async () => {
-		const { state, reasons } = guarded(MARKED.replace('- A point\n- Another point\n\n<!-- _pane: list -->\n### Second', 'Some text.\n\n<!-- _pane: list -->\n### Second'));
+		const { state, reasons } = guarded(MARKED.replace('- A point\n- Another point\n\n<!-- @meta{pane=list} -->\n### Second', 'Some text.\n\n<!-- @meta{pane=list} -->\n### Second'));
 		let at = -1;
 		state.doc.descendants((node, p) => {
 			if (at < 0 && node.type.name === 'paragraph' && node.textContent === 'Some text.') at = p;

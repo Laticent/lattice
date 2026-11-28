@@ -13,7 +13,7 @@ import { currentCellMarker, currentColumnAlign, insertStarterTable, setCellMarke
 // These are the behaviors the round-trip fixtures don't exercise — the adversarial trio flagged
 // them as uncovered.
 
-const TABLE = '<!-- _class: table -->\n\n## T\n\n| A | B |\n| --- | --- |\n| 1 | 2 |';
+const TABLE = '<!-- @meta{layout=table} -->\n\n## T\n\n| A | B |\n| --- | --- |\n| 1 | 2 |';
 
 function harness(src: string) {
 	let state = EditorState.create({ doc: deckToDoc(src), schema: deckSchema });
@@ -93,7 +93,7 @@ describe('table chrome commands', () => {
 	});
 
 	it('Tab OUTSIDE a table returns false (falls through to list-item sink)', () => {
-		const t = harness('<!-- _class: content -->\n\n- one\n- two');
+		const t = harness('<!-- @meta{layout=content} -->\n\n- one\n- two');
 		t.caret('two');
 		expect(tabToNextCellOrAddRow(t.state, t.view.dispatch, t.view)).toBe(false);
 	});
@@ -125,7 +125,7 @@ describe('table chrome commands', () => {
 	});
 
 	it('setCellMarker replaces an existing marker (not stack it) and clears with null', () => {
-		const t = harness('<!-- _class: obligation-matrix -->\n\n## M\n\n| R | A |\n| --- | :---: |\n| GDPR | [x] |');
+		const t = harness('<!-- @meta{layout=obligation-matrix} -->\n\n## M\n\n| R | A |\n| --- | :---: |\n| GDPR | [x] |');
 		t.caret('[x]');
 		setCellMarker('[-]')(t.state, t.view.dispatch); // x → -
 		expect(t.src()).toContain('| [-] |');
@@ -136,7 +136,7 @@ describe('table chrome commands', () => {
 	});
 
 	it('insertStarterTable drops a 2×2 grid (header + one body row) at the caret block', () => {
-		const t = harness('<!-- _class: content -->\n\n# Head\n\nsome prose');
+		const t = harness('<!-- @meta{layout=content} -->\n\n# Head\n\nsome prose');
 		t.caret('some prose');
 		expect(insertStarterTable(t.state, t.view.dispatch)).toBe(true);
 		expect(t.count('table')).toBe(1);
@@ -149,7 +149,7 @@ describe('table chrome commands', () => {
 	it('setCellMarker inserts an UNMARKED marker under bold (never a bolded/escaped `**[x] …**`)', () => {
 		// Red-team #2: insertText would inherit inclusive marks, bolding+escaping the marker so the
 		// engine never renders it. The marker must be plain text at the literal cell start.
-		const t = harness('<!-- _class: obligation-matrix -->\n\n## M\n\n| R | A |\n| --- | :---: |\n| **GDPR** | x |');
+		const t = harness('<!-- @meta{layout=obligation-matrix} -->\n\n## M\n\n| R | A |\n| --- | :---: |\n| **GDPR** | x |');
 		t.caret('GDPR'); // caret inside the bolded cell text
 		setCellMarker('[x]')(t.state, t.view.dispatch);
 		expect(t.src()).toContain('[x] **GDPR**'); // marker plain + outside the bold, not `**[x] GDPR**`
@@ -160,7 +160,7 @@ describe('table chrome commands', () => {
 	it('setCellMarker leaves a leading inline image intact (no textContent-vs-position corruption)', () => {
 		// Red-team #1: measuring an existing marker off `textContent` (which skips the image atom) and
 		// using that char count as a document position would delete the image. Guard on the leading text.
-		const t = harness('<!-- _class: obligation-matrix -->\n\n## M\n\n| R | A |\n| --- | :---: |\n| GDPR | ![a](u.png) x |');
+		const t = harness('<!-- @meta{layout=obligation-matrix} -->\n\n## M\n\n| R | A |\n| --- | :---: |\n| GDPR | ![a](u.png) x |');
 		t.caret('x'); // the cell leads with an image, then text
 		setCellMarker('[x]')(t.state, t.view.dispatch);
 		expect(t.src()).toContain('u.png'); // the image survives
@@ -170,7 +170,7 @@ describe('table chrome commands', () => {
 	it('insertStarterTable replaces an EMPTY paragraph in place (no stray blank block)', () => {
 		// Build a slide with an empty trailing paragraph directly (markdown collapses blank lines).
 		const s = deckSchema;
-		const slide = s.nodes.slide.create({ directives: ['<!-- _class: content -->'] }, [s.nodes.heading.create({ level: 1 }, s.text('Head')), s.nodes.paragraph.create()]);
+		const slide = s.nodes.slide.create({ directives: ['<!-- @meta{layout=content} -->'] }, [s.nodes.heading.create({ level: 1 }, s.text('Head')), s.nodes.paragraph.create()]);
 		let state = EditorState.create({ doc: s.nodes.doc.create(null, [slide]), schema: s });
 		const emptyPos = state.doc.child(0).child(0).nodeSize + 2; // inside the empty paragraph
 		state = state.apply(state.tr.setSelection(TextSelection.near(state.doc.resolve(emptyPos))));

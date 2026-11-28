@@ -41,7 +41,7 @@ async function measure(browser, m, family, register) {
     for (const n of LADDER) {
       const body = fillSlot(m.name, sp.body, n);
       const cls = [m.name, ...sp.tokens, ...(register ? [register] : []), VENUE_CLASS[venue]].join(' ');
-      slides.push(`<!-- _class: ${cls} -->\n\n${body}\n`);
+      slides.push(`<!-- @meta{class="${cls}"} -->\n\n${body}\n`);
       keys.push([venue, n]);
     }
   }

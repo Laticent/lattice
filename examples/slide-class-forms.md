@@ -7,7 +7,7 @@ split: headings
 header: "Lattice · Slide class forms"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 `Lattice · Fix deck`
 
@@ -17,7 +17,7 @@ A Mermaid SVG bakes its colors before the page exists. Every diagram here proves
 
 ---
 
-<!-- _class: divider light -->
+<!-- @meta{layout=divider, class=light} -->
 
 ## What this deck shows.
 
@@ -25,8 +25,8 @@ A Mermaid SVG bakes its colors to literal hex before the page exists; the chip u
 
 ---
 
-<!-- _class: diagram -->
-<!-- _footer: "Control · the deck default, no directive in force yet" -->
+<!-- @meta{layout=diagram, footer="Control · the deck default, no class in force yet"} -->
+
 
 `No color token named`
 
@@ -45,14 +45,14 @@ flowchart LR
 
 ---
 
-<!-- class: diagram dark -->
-<!-- _footer: "Form 1 · the GLOBAL class directive" -->
+<!-- @meta{layout=diagram, class=dark, carry} -->
+<!-- @meta{footer="Form 1 · a carried class"} -->
 
-`class: diagram dark`
+`layout=diagram, class=dark, carry`
 
-## A global directive applies from its own slide.
+## A carried class applies from its own slide.
 
-Marp has two class forms. The spot form, prefixed with an underscore, governs one slide; the bare form on this slide is a running global that applies from here to the end of the deck. Only the spot form used to be read, so a deck that switched canvas mid-way baked every later diagram for the canvas it had left.
+A slide's record sets its class in two ways. A plain record governs one slide; a record that says `carry`, as this one does, runs from here to the end of the deck. Only the one-slide form used to be read, so a deck that switched canvas mid-way baked every later diagram for the canvas it had left.
 
 ```mermaid
 flowchart LR
@@ -67,33 +67,33 @@ flowchart LR
 
 ---
 
-<!-- _footer: "Form 2 · the global carries, with nothing declared here" -->
+<!-- @meta{footer="Form 2 · the carry runs on, with no class set here"} -->
 
-## And it carries forward to a slide that declares nothing.
+## And it carries forward to a slide that sets no class.
 
-This slide has no class directive of its own. It is dark because the global two slides back is still in force — which is exactly what makes it a *global*, and exactly the case a per-slide reader gets wrong.
+This slide's record sets no class. It is dark because the carried class one slide back is still in force: exactly what `carry` means, and exactly the case a per-slide reader gets wrong.
 
 ```mermaid
 flowchart LR
-  A["Global in force"] --> B{"Own class here?"}
-  B -->|no| C["Inherit the global"]
-  B -->|yes| D["Spot value replaces it"]
+  A["Carried class in force"] --> B{"Own class here?"}
+  B -->|no| C["Inherit the carried class"]
+  B -->|yes| D["This slide's class replaces it"]
   C --> E["This slide"]
   D --> F["Next slide inherits again"]
 ```
 
 ---
 
-<!-- _class: diagram dark -->
-<!-- _footer: "Form 3 · a directive quoted as prose is prose" -->
+<!-- @meta{layout=diagram, class=dark, footer="Form 3 · a record quoted as prose is prose"} -->
+
 
 `Quoted, not applied`
 
 ## A deck that documents its own syntax keeps its own layout.
 
-- `<!-- _class: kpi -->` is how the docs name a layout, not a layout change.
+- `<!-- @meta{layout=kpi} -->` is how the docs name a layout, not a layout change.
 
-A raw text scan cannot tell a quoted directive from a real one, and the last directive on a slide wins — so a slide explaining the API re-classed itself. Directives now come from the token stream, where inline code is inline code.
+A raw text scan cannot tell a quoted record from a real one, and the last one on a slide wins, so a slide explaining the API re-classed itself. Settings now come from the token stream, where inline code is inline code.
 
 ```mermaid
 flowchart LR
@@ -105,13 +105,13 @@ flowchart LR
   B --> C
   B --> D
   B --> E["html_block"]
-  E --> F["Read as a directive"]
+  E --> F["Read as a record"]
 ```
 
 ---
 
-<!-- _class: diagram dark -->
-<!-- _footer: "Form 4 · an equation is opaque, and starts no slide" -->
+<!-- @meta{layout=diagram, class=dark, footer="Form 4 · an equation is opaque, and starts no slide"} -->
+
 
 `$$ … $$`
 
@@ -139,11 +139,11 @@ flowchart LR
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 
 - `engineering/mermaid.md` §5.3.1 — the source-side reconstruction, and why it keeps drifting
 - `lib/core/boundary-parser.js` — one engine-configured parser for every off-render boundary caller
-- `lib/core/comment-directive.js` — one `<!-- key: value -->` grammar, shared with the render pipeline
+- `lib/core/meta-door.mjs` — one `<!-- @meta{…} -->` reader, shared with the render pipeline
 - `test/unit/core/slide-class-span-parity.test.js` — the whole committed corpus, rendered and compared

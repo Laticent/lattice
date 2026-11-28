@@ -53,7 +53,7 @@
     "data": true
   },
   "stage": "canvas",
-  "coda": { "claims": ["trailing-paragraph"] },
+  "coda": { "claims": [], "caption": true },
   "bucket": "chart",
   "tags": [
     "metric",

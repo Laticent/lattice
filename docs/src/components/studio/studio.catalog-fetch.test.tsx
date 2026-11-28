@@ -37,7 +37,7 @@ const entry = (name: string) => ({
 	description: '',
 	summary: '',
 	slots: [],
-	skeleton: `<!-- _class: ${name} -->\n\n# Title`,
+	skeleton: `<!-- @meta{class=${name}} -->\n\n# Title`,
 	variants: [],
 	effectiveVariants: [],
 	familyModifiers: [],

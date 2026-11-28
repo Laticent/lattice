@@ -12,7 +12,7 @@ header: "Lattice · insight-labels"
 `Base · Insight label`
 
 The Key Insight panel and the split-compare verdict share one label seam.
-Default wording stays; an `insight-*` modifier on the slide `_class` swaps
+Default wording stays; an `insight-*` modifier in the slide's `class=` swaps
 the word to a curated boardroom heading.
 
 ---

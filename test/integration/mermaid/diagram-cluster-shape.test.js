@@ -41,7 +41,7 @@ theme: indaco
 color-mode: dark
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{class=diagram} -->
 
 ## Nested subgraphs
 
@@ -57,7 +57,7 @@ flowchart LR
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{class=diagram} -->
 
 ## Kanban keeps its own shape
 

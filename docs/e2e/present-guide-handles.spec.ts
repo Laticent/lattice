@@ -32,7 +32,7 @@ marp: true
 delivery: expressive
 ---
 
-<!-- _class: team-profile -->
+<!-- @meta{class=team-profile} -->
 
 ## The people on this program.
 

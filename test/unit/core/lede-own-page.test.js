@@ -50,7 +50,7 @@ test('CAROUSEL: carouselize gives the lede its page when the recipe says ledePag
   // A real premise slide, rendered by the engine and split by its own manifest recipe (cover-paginate).
   const { render } = require('../../../lib/engine');
   const { loadAll } = require('../../../lib/components');
-  const md = '---\nmarp: true\nsize: square\n---\n\n<!-- _class: premise -->\n\n## A heading that makes a claim.\n\n'
+  const md = '---\nmarp: true\nsize: square\n---\n\n<!-- @meta{class=premise} -->\n\n## A heading that makes a claim.\n\n'
     + 'A lede paragraph that the cover carries for the run.\n\n- First point\n  - Body one.\n- Second point\n  - Body two.\n- Third point\n  - Body three.\n';
   const m = render(md).html.match(/(<section[^>]*class="premise[^>]*>)([\s\S]*?)<\/section>/);
   const recipe = loadAll().find((x) => x.name === 'premise').split;

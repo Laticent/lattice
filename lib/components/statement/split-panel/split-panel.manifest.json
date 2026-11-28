@@ -31,7 +31,13 @@
   },
   "function": "statement",
   "form": "panel",
-  "coda": { "dock": "row", "claims": ["blockquote", "trailing-paragraph"] },
+  "coda": {
+    "dock": "row",
+    "claims": [],
+    "variants": {
+      "pullquote": { "anatomy": ["blockquote", "trailing-paragraph"] }
+    }
+  },
   "substance": "structure",
   "density": {
     "axis": "item",
@@ -100,7 +106,9 @@
     "cat-5",
     "cat-6",
     "cat-7",
-    "cat-8"
+    "cat-8",
+    "panel-narrow",
+    "panel-wide"
   ],
   "variantAxes": [
     {
@@ -126,6 +134,14 @@
         "cat-6",
         "cat-7",
         "cat-8"
+      ]
+    },
+    {
+      "label": "Width",
+      "exclusive": true,
+      "members": [
+        "panel-narrow",
+        "panel-wide"
       ]
     }
   ],
@@ -296,6 +312,16 @@
       "label": "cat-8",
       "summary": "Override: pins this slide to the theme's categorical slot #8 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order.",
       "sample": "<!-- @meta{layout=split-panel, class=cat-8} -->\n\n`Stage 8 of 8`\n\n## Sustain it without you in the loop.\n\n- Write down what only you know\n  - If it lives in your head, it isn't sustained yet.\n- Hand off the decision, not just the task\n  - Ownership transfers when someone else can say no.\n"
+    },
+    "panel-narrow": {
+      "label": "panel-narrow",
+      "summary": "Narrows the panel to 0.8 of the variant's width; the supporting column takes the room.",
+      "sample": "<!-- @meta{layout=split-panel, class=panel-narrow} -->\n\n`split-panel panel-narrow`\n\n## A narrower panel gives the support more room.\n\nThe panel still carries the claim; the column carries the detail.\n\n- Four points fit\n  - The supporting column widens as the panel narrows.\n- The claim stays short\n  - A narrow panel wraps a long heading early.\n"
+    },
+    "panel-wide": {
+      "label": "panel-wide",
+      "summary": "Widens the panel to 1.3 of the variant's width (at most 62%); for a claim that is the argument.",
+      "sample": "<!-- @meta{layout=split-panel, class=panel-wide} -->\n\n`split-panel panel-wide`\n\n## A wider panel lets the claim breathe.\n\nUse it when the heading is the argument and the support is brief.\n\n- Two points at most\n  - The supporting column narrows as the panel widens.\n"
     }
   },
   "commonMistakes": [
@@ -321,7 +347,7 @@
     },
     {
       "mistake": "Setting a long deck-level `header:` or `footer:` on a deck that uses this layout.",
-      "fix": "The running header and footer stay on the field they start on — the panel, or the supporting zone under `mirror`. Each holds one line; past that it ends in an ellipsis and the export reports it as a chrome cut (author-only, no reader pill). Measured at 16:9, the default panel holds about 46 characters of header and 49 of footer; `steps` about 37 and 39, `pullquote` about 61 and 65, and `mirror`'s supporting zone about 63 and 67. Shorten it, or set a shorter one on these slides with `<!-- @meta{header=\"…\"} -->` / `<!-- @meta{footer=\"…\"} -->`. On a portrait deck the panels stack: the header takes the top field's ink and the footer the bottom field's, so each stays legible whichever field it lands on. The portrait footer spans the page and still holds one line: about 48 characters at the `portrait` size, and fewer on a page split into a run, where it stops before the k-of-N pills (about 41 beside a three-page rail)."
+      "fix": "The running header and footer stay on the field they start on — the panel, or the supporting zone under `mirror`. Each holds one line; past that it ends in an ellipsis and the export reports it as a chrome cut (author-only, no reader pill). Measured at 16:9, the default panel holds about 46 characters of header and 49 of footer; `steps` about 37 and 39, `pullquote` about 61 and 65, and `mirror`'s supporting zone about 63 and 67. The width modifiers scale the panel, and its chrome with it: `panel-narrow` holds about 39 of each (a 54-character confidentiality line loses its date), `panel-wide` about 63 and 64. Shorten it, or set a shorter one on these slides with `<!-- @meta{header=\"…\"} -->` / `<!-- @meta{footer=\"…\"} -->`. On a portrait deck the panels stack: the header takes the top field's ink and the footer the bottom field's, so each stays legible whichever field it lands on. The portrait footer spans the page and still holds one line: about 48 characters at the `portrait` size, and fewer on a page split into a run, where it stops before the k-of-N pills (about 41 beside a three-page rail)."
     },
     {
       "mistake": "Expecting a split-panel slide to drop the deck's `finish:`, or to show it on one side only.",

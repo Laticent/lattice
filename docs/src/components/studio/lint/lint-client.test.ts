@@ -12,7 +12,7 @@ const CORE = fileURLToPath(new URL('../../../playground/authoring-core.generated
 vi.mock('@/playground/authoring-door.js', () => ({ lintCoreAddress: () => CORE }));
 vi.mock('@/lib/plugin-admission', () => ({ deckPluginsOff: () => [] }));
 
-const DECK = '<!-- _class: titel -->\n\n# One\n\n---\n\n<!-- _class: statement -->\n\n## Two\n\nA claim.';
+const DECK = '<!-- @meta{class=titel} -->\n\n# One\n\n---\n\n<!-- @meta{class=statement} -->\n\n## Two\n\nA claim.';
 
 /** The worker module's own handler, run in-process: same code, no thread. Each instance gets a fresh copy of the module. */
 class InProcessWorker {

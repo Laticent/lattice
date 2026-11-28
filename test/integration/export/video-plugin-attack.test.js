@@ -48,7 +48,7 @@ theme: indaco
 plugins: [leak-plugin]
 ---
 
-<!-- _class: video qr -->
+<!-- @meta{class=video qr} -->
 
 ## Clip
 

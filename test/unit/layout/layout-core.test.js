@@ -26,7 +26,7 @@ const GOOD = {
   substance: 'structure',
   tags: ['panel', 'ledger', 'rail'],
   description: 'A prose panel with a ledger rail.',
-  skeleton: '<!-- _class: split-ledger -->\n\n## Title\n\n- a\n- b',
+  skeleton: '<!-- @meta{layout=split-ledger} -->\n\n## Title\n\n- a\n- b',
 };
 const GOOD_CSS = 'section.split-ledger { display: grid; gap: var(--sp-md); }\nsection.split-ledger li { color: var(--text-body); }';
 
@@ -185,10 +185,15 @@ describe('gate — manifest', () => {
 });
 
 describe('gate — skeleton + aggregate', () => {
-  test('skeletonInvokes detects the _class directive', () => {
-    assert.equal(skeletonInvokes('<!-- _class: foo bar -->', 'foo'), true);
-    assert.equal(skeletonInvokes('<!-- _class: foobar -->', 'foo'), false);
+  test('skeletonInvokes detects the slide record', () => {
+    assert.equal(skeletonInvokes('<!-- @meta{layout=foo, class=bar} -->', 'foo'), true);
+    assert.equal(skeletonInvokes('<!-- @meta{class="foo bar"} -->', 'foo'), true);
+    assert.equal(skeletonInvokes('<!-- @meta{layout=foobar} -->', 'foo'), false);
     assert.equal(skeletonInvokes('## no directive', 'foo'), false);
+  });
+  test('skeletonInvokes rejects the old `_class` comment: since the cut it sets nothing (meta-record.md §15)', () => {
+    assert.equal(skeletonInvokes('<!-- _class: foo bar -->', 'foo'), false);
+    assert.equal(skeletonInvokes('<!-- _class: foo -->', 'foo'), false);
   });
   test('gateCss ok on clean CSS', () => {
     assert.equal(gateCss(GOOD_CSS, 'split-ledger').ok, true);

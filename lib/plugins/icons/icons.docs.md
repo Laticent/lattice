@@ -86,7 +86,7 @@ icon: bare etch
 ```
 
 The `icon:` register styles every icon on the deck, one word per axis (frame, look, corners, draw).
-A slide overrides it with its own class (`<!-- _class: icon-framed -->`), on that axis only, and
+A slide overrides it with its own class (`<!-- @meta{class=icon-framed} -->`), on that axis only, and
 an icon's own word wins over both (frame, look and corners only). It is separate from `spark:`, so a
 deck can frame its sparks and leave its icons bare.
 
@@ -97,7 +97,7 @@ icon: svg
 ```
 
 An icon draws as a glyph of **Lattice Icons**, our own font of the curated icons, unless the deck says
-`icon: svg` (or a slide says `<!-- _class: icon-svg -->`). Both look the same on the slide: every glyph
+`icon: svg` (or a slide says `<!-- @meta{class=icon-svg} -->`). Both look the same on the slide: every glyph
 lands within a third of a pixel of its drawing, and color, tile, look, corners and size all come from
 the same rules. What `font` adds is in the exports:
 

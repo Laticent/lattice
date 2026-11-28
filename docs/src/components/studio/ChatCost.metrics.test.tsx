@@ -40,4 +40,12 @@ describe('chat metrics helpers', () => {
 		expect(lastUsage([])).toBeNull();
 		expect(lastUsage(undefined)).toBeNull();
 	});
+
+	it('keeps an unknown cache figure unknown: null stays null, a saved 0 stays 0 (#3533 S02)', () => {
+		const at = (cached: unknown) => lastUsage([{ role: 'assistant', content: 'a', usage: { cost: 0, prompt: 100, completion: 1, cached, reasoning: 0, rounds: 1, window: null, model: 'm' } } as never]);
+		expect(at(null)?.cached).toBeNull();
+		expect(at(undefined)?.cached).toBeNull();
+		expect(at(0)?.cached).toBe(0);
+		expect(at(40)?.cached).toBe(40);
+	});
 });

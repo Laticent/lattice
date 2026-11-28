@@ -39,7 +39,7 @@ function agrees(source: string) {
 
 const SHAPES: Record<string, string> = {
 	'a plain image': '# T\n\n![](asset:hero)\n',
-	'a background image': '<!-- _class: image -->\n\n## T\n\n![bg](asset:hero)\n',
+	'a background image': '<!-- @meta{layout=image} -->\n\n## T\n\n![bg](asset:hero)\n',
 	'an image with a title': '![alt](asset:hero "A title")\n',
 	'a reference-style image': '![alt][r]\n\n[r]: asset:hero\n',
 
@@ -80,8 +80,8 @@ const SHAPES: Record<string, string> = {
 	'a bare mention in prose follows the rename': 'Write asset:hero to use it.\n\n![](asset:hero)\n',
 	'a bare mention in a list item and a heading': '# About asset:hero\n\n- say asset:hero here\n- ![](asset:hero)\n',
 	// references the engine draws that are not an image destination
-	'a video record\'s poster word': '<!-- _class: video -->\n\n`@video{"https://youtu.be/dQw4w9WgXcQ", poster="asset:hero"}`\n\n![](asset:hero)\n',
-	'a per-slide background directive': '<!-- _backgroundImage: url(asset:hero) -->\n\n![](asset:hero)\n',
+	'a video record\'s poster word': '<!-- @meta{layout=video} -->\n\n`@video{"https://youtu.be/dQw4w9WgXcQ", poster="asset:hero"}`\n\n![](asset:hero)\n',
+	'a per-slide background directive': '<!-- @meta{background-image="url(asset:hero)"} -->\n\n![](asset:hero)\n',
 	'an inline img tag in a paragraph': 'Text <img src="asset:hero"> more\n',
 	'a definition destination on the next line': '![r][r]\n\n[r]:\n  asset:hero\n',
 	'a destination on the line after the bracket': '![](\nasset:hero)\n',

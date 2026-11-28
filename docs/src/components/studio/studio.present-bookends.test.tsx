@@ -20,7 +20,7 @@ vi.mock('./narration-projection', () => ({ projectDeckScript: () => new Promise(
 
 const options = { themeBase: '', runtimeUrl: '', engineUrl: '' };
 const FM = '---\ngreeting: "{greeting}, everyone."\nclosing: "Thank you, and goodbye."\n---\n';
-const silent = '<!-- _class: title -->';
+const silent = '<!-- @meta{layout=title} -->';
 const spoken = (heading: string, line: string) => `# ${heading}\n\n<!-- @say{${line}} -->`;
 
 let hours: ReturnType<typeof vi.spyOn>;

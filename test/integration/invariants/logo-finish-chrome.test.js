@@ -27,10 +27,10 @@ const deck = (fm, body) => `---\nmarp: true\ntheme: indaco\nheader: "Running hea
 const SCOPED = (placement) => deck(
   `logo: sample:logo-acme-mark.svg\nlogo-finish: ${placement} title\nfinish: atrium`,
   slides(
-    '<!-- _class: title with-header -->\n\n# Cover',
+    '<!-- @meta{layout=title, class=with-header} -->\n\n# Cover',
     '## Plain slide\n\nBody copy.',
-    '<!-- _class: no-logo title with-header -->\n\n# Cover without a mark',
-    '<!-- _class: divider -->\n\n## Divider\n\nSubtitle.',
+    '<!-- @meta{class=no-logo title with-header} -->\n\n# Cover without a mark',
+    '<!-- @meta{layout=divider} -->\n\n## Divider\n\nSubtitle.',
   ),
 );
 

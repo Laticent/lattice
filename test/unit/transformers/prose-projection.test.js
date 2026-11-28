@@ -949,7 +949,7 @@ test('stats: the label-first KPI reorder holds on a REAL engine render, not just
 	// structure `speakStats` reorders, so a renderer change that broke it would fail
 	// a test. It is also the contract the live Studio Present path now shares (both
 	// surfaces run this same projection on the rendered DOM).
-	const [t] = renderSpeech('<!-- _class: stats -->\n\n## Quarter\n\n1. $2.4B\n   - Total revenue\n2. 4.2×\n   - Signal recall\n');
+	const [t] = renderSpeech('<!-- @meta{layout=stats} -->\n\n## Quarter\n\n1. $2.4B\n   - Total revenue\n2. 4.2×\n   - Signal recall\n');
 	assert.match(t, /Total revenue: \$2\.4B/, 'metric name fronted, value focal');
 	assert.doesNotMatch(t, /\$2\.4B\. Total revenue/, 'never value-before-label');
 });
@@ -959,21 +959,21 @@ test('split-compare: each column\'s <strong> header labels its bullets (not drop
 	// <strong> is not a block the generic walker selects, so the header was silently dropped
 	// and the bullets read unattributed. It must read "header: bullets".
 	const [t] = renderSpeech(
-		'<!-- _class: split-compare -->\n\n## Old vs new.\n\n- Slide editors\n  - You place every box by hand\n- Lattice\n  - You write the content\n',
+		'<!-- @meta{layout=split-compare} -->\n\n## Old vs new.\n\n- Slide editors\n  - You place every box by hand\n- Lattice\n  - You write the content\n',
 	);
 	assert.match(t, /Slide editors: You place every box by hand/);
 	assert.match(t, /Lattice: You write the content/);
 });
 
 test('checklist: completion register — [x]→done, [ ]→to do, [-]→partial', () => {
-	const [t] = renderSpeech('<!-- _class: checklist -->\n\n## Gate\n\n- [x] Encryption at rest\n- [ ] SOC 2 audit\n- [-] DR drills\n');
+	const [t] = renderSpeech('<!-- @meta{layout=checklist} -->\n\n## Gate\n\n- [x] Encryption at rest\n- [ ] SOC 2 audit\n- [-] DR drills\n');
 	assert.match(t, /Encryption at rest: done\./);
 	assert.match(t, /SOC 2 audit: to do\./);
 	assert.match(t, /DR drills: partial\./);
 });
 
 test('verdict-grid: verdict register — [x]→yes, [!]→no, [-]→partial, [?]→unknown, [ ]→not assessed', () => {
-	const [t] = renderSpeech('<!-- _class: verdict-grid -->\n\n## Options\n\n- Path A\n  - [x] Speed\n  - [!] Cost\n  - [-] Adoption\n  - [?] Support\n  - [ ] Pricing\n');
+	const [t] = renderSpeech('<!-- @meta{layout=verdict-grid} -->\n\n## Options\n\n- Path A\n  - [x] Speed\n  - [!] Cost\n  - [-] Adoption\n  - [?] Support\n  - [ ] Pricing\n');
 	assert.match(t, /Speed: yes/);
 	assert.match(t, /Cost: no/);
 	assert.match(t, /Adoption: partial/);
@@ -982,7 +982,7 @@ test('verdict-grid: verdict register — [x]→yes, [!]→no, [-]→partial, [?]
 });
 
 test('pricing: each marker speaks its answer in the pricing register', () => {
-	const [t] = renderSpeech('<!-- _class: pricing -->\n\n## Plans\n\n- Starter `$0`\n  - [x] Workspace\n  - [ ] Audit log\n  - [/] SSO\n  - [!] Export\n  - For one team.\n');
+	const [t] = renderSpeech('<!-- @meta{layout=pricing} -->\n\n## Plans\n\n- Starter `$0`\n  - [x] Workspace\n  - [ ] Audit log\n  - [/] SSO\n  - [!] Export\n  - For one team.\n');
 	assert.match(t, /Workspace: included/);
 	assert.match(t, /Audit log: coming/);
 	assert.match(t, /SSO: not included/);
@@ -990,14 +990,14 @@ test('pricing: each marker speaks its answer in the pricing register', () => {
 });
 
 test('obligation-matrix: obligation register — [x]→applies, [/]→EXEMPT, [ ]→undetermined, header-bound', () => {
-	const [t] = renderSpeech('<!-- _class: obligation-matrix -->\n\n## Duties\n\n| Regime | Delete | Portability |\n| --- | --- | --- |\n| GDPR | [x] | [/] |\n| CCPA | [-] | [ ] |\n');
+	const [t] = renderSpeech('<!-- @meta{layout=obligation-matrix} -->\n\n## Duties\n\n| Regime | Delete | Portability |\n| --- | --- | --- |\n| GDPR | [x] | [/] |\n| CCPA | [-] | [ ] |\n');
 	assert.match(t, /GDPR — Delete: applies; Portability: exempt\./);
 	assert.match(t, /CCPA — Delete: partial; Portability: undetermined\./);
 	assert.doesNotMatch(t, /pending|: yes|: no/, 'exempt is never narrated as "pending"/"no"');
 });
 
 test('obligation-matrix HEAT: same marker meanings as default (only recolored)', () => {
-	const [t] = renderSpeech('<!-- _class: obligation-matrix heat -->\n\n## Exposure\n\n| Regime | Delete |\n| --- | --- |\n| GDPR | [x] |\n| CCPA | [/] |\n');
+	const [t] = renderSpeech('<!-- @meta{layout=obligation-matrix, class=heat} -->\n\n## Exposure\n\n| Regime | Delete |\n| --- | --- |\n| GDPR | [x] |\n| CCPA | [/] |\n');
 	assert.match(t, /GDPR — Delete: applies\./);
 	assert.match(t, /CCPA — Delete: exempt\./);
 });
@@ -1005,7 +1005,7 @@ test('obligation-matrix HEAT: same marker meanings as default (only recolored)',
 test('state-cells: a plain table speaks the universal words, not silence', () => {
 	// `state-cells` is a modifier any table can carry, so no component map covers it.
 	// The marker is stripped from the cell, so without a map every cell read as nothing.
-	const [t] = renderSpeech('<!-- _class: table state-cells -->\n\n## Vendors\n\n| Criterion | North | South |\n| --- | --- | --- |\n| Audit | [x] | [!] |\n| SSO | [?] | [/] |\n| Price | [-] | [ ] |\n');
+	const [t] = renderSpeech('<!-- @meta{layout=table, class=state-cells} -->\n\n## Vendors\n\n| Criterion | North | South |\n| --- | --- | --- |\n| Audit | [x] | [!] |\n| SSO | [?] | [/] |\n| Price | [-] | [ ] |\n');
 	assert.match(t, /Audit — North: yes; South: no\./);
 	assert.match(t, /SSO — North: unknown; South: does not apply\./);
 	assert.match(t, /Price — North: partly; South: open\./);
@@ -1017,12 +1017,12 @@ test('state-cells: a plain table speaks the universal words, not silence', () =>
 // "yesResidency": the check's aria-label ran into the label, and the layout's words were lost.
 // These run the real engine, so the composition and the narration are pinned together.
 test('a composed check narrates as the item\'s answer, in each layout\'s words', () => {
-	const grid = renderSpeech('<!-- _class: verdict-grid -->\n\n## Paths\n\n- Path A\n  - [x] Residency\n  - [-] Speed\n  - [!] Audit, EU\n  - [?] Cost\n  - [ ] Calibration\n  - [/] Adoption\n  - Body text.\n- Path B\n  - [x] Residency\n  - Body.\n')[0];
+	const grid = renderSpeech('<!-- @meta{layout=verdict-grid} -->\n\n## Paths\n\n- Path A\n  - [x] Residency\n  - [-] Speed\n  - [!] Audit, EU\n  - [?] Cost\n  - [ ] Calibration\n  - [/] Adoption\n  - Body text.\n- Path B\n  - [x] Residency\n  - Body.\n')[0];
 	assert.match(grid, /Path A: Residency: yes, Speed: partial, Audit, EU: no, Cost: unknown, Calibration: not assessed, Adoption: not applicable, and Body text\./);
-	const plans = renderSpeech('<!-- _class: pricing -->\n\n## Plans\n\n- Starter `$0`\n  - [x] Workspace\n  - [/] SSO\n  - For one team.\n')[0];
+	const plans = renderSpeech('<!-- @meta{layout=pricing} -->\n\n## Plans\n\n- Starter `$0`\n  - [x] Workspace\n  - [/] SSO\n  - For one team.\n')[0];
 	assert.match(plans, /Workspace: included/);
 	assert.match(plans, /SSO: not included/);
-	const cells = renderSpeech('<!-- _class: obligation-matrix pills -->\n\n## Duties\n\n| Regime | Notice | Consent |\n| --- | --- | --- |\n| GDPR | [x] | [-] |\n| CCPA | [/] | [?] |\n')[0];
+	const cells = renderSpeech('<!-- @meta{layout=obligation-matrix, class=pills} -->\n\n## Duties\n\n| Regime | Notice | Consent |\n| --- | --- | --- |\n| GDPR | [x] | [-] |\n| CCPA | [/] | [?] |\n')[0];
 	assert.match(cells, /GDPR — Notice: applies; Consent: partial\./);
 	assert.match(cells, /CCPA — Notice: exempt; Consent: unclear\./);
 	// The key says each word once: "Applies", not "Applies: applies" (the same on main before this).
@@ -1037,15 +1037,15 @@ test('a composed check narrates as the item\'s answer, in each layout\'s words',
 // skips text, so an inline `[!]` after words was read as the whole criterion's answer and moved:
 // "Encryption at rest, yes in transit: no" for a slide that draws no such verdict.
 test('an inline check after words is spoken where it stands, never as the item\'s answer', () => {
-	const [grid] = renderSpeech('<!-- _class: verdict-grid -->\n\n## V\n\n- Acme\n  - [x] Residency\n  - Encryption `[!]` at rest, `[x]` in transit\n  - Body.\n');
+	const [grid] = renderSpeech('<!-- @meta{layout=verdict-grid} -->\n\n## V\n\n- Acme\n  - [x] Residency\n  - Encryption `[!]` at rest, `[x]` in transit\n  - Body.\n');
 	assert.match(grid, /Encryption no at rest, yes in transit/);
 	assert.doesNotMatch(grid, /in transit: no/);
-	const [plans] = renderSpeech('<!-- _class: pricing -->\n\n## P\n\n- Team\n  - Support: `[x]` email only\n  - [x] SSO\n');
+	const [plans] = renderSpeech('<!-- @meta{layout=pricing} -->\n\n## P\n\n- Team\n  - Support: `[x]` email only\n  - [x] SSO\n');
 	assert.match(plans, /Support: yes email only/);
-	const [table] = renderSpeech('<!-- _class: table state-cells -->\n\n## T\n\n| Control | Status |\n| --- | --- |\n| SOC 2 | evidence `[!]` rejected |\n');
+	const [table] = renderSpeech('<!-- @meta{layout=table, class=state-cells} -->\n\n## T\n\n| Control | Status |\n| --- | --- |\n| SOC 2 | evidence `[!]` rejected |\n');
 	assert.match(table, /evidence no rejected/);
 	// A pill written mid-sentence is the same: `@check{…, label=…}` after words answers its phrase.
-	const [pill] = renderSpeech('<!-- _class: verdict-grid -->\n\n## V\n\n- Acme\n  - Audit `@check{fail, label=EU}` pending\n  - Body.\n');
+	const [pill] = renderSpeech('<!-- @meta{layout=verdict-grid} -->\n\n## V\n\n- Acme\n  - Audit `@check{fail, label=EU}` pending\n  - Body.\n');
 	assert.doesNotMatch(pill, /pending: no/);
 });
 
@@ -1059,7 +1059,7 @@ test('state-cells words equal the kernel\'s universal labels', async () => {
 	// prose-projection imports no kernel (it ships as a standalone bundle), so this pin is
 	// what keeps its copy of the words from drifting from lib/core/checks-registry.js.
 	const { MARKER_LABELS, stateClassesFor } = require('../../../lib/core/checks-registry.js');
-	const [t] = renderSpeech('<!-- _class: table state-cells -->\n\n## K\n\n| A | B |\n| --- | --- |\n'
+	const [t] = renderSpeech('<!-- @meta{layout=table, class=state-cells} -->\n\n## K\n\n| A | B |\n| --- | --- |\n'
 		+ Object.keys(MARKER_LABELS).map((m) => `| r${stateClassesFor(m).sem} | [${m}] |`).join('\n') + '\n');
 	for (const [m, word] of Object.entries(MARKER_LABELS)) {
 		assert.match(t, new RegExp(`r${stateClassesFor(m).sem} — B: ${word}\\.`));
@@ -1067,7 +1067,7 @@ test('state-cells words equal the kernel\'s universal labels', async () => {
 });
 
 test('an inline state mark is spoken by its label, and does not tag its list item', () => {
-	const [t] = renderSpeech('<!-- _class: checklist -->\n\n## Launch\n\n- [x] Pen test `[!]` failed twice first\n- Load test `[?]` pending\n');
+	const [t] = renderSpeech('<!-- @meta{layout=checklist} -->\n\n## Launch\n\n- [x] Pen test `[!]` failed twice first\n- Load test `[?]` pending\n');
 	assert.match(t, /Pen test no failed twice first: done/);
 	// The second item carries no leading marker: its inline `[?]` must not make the whole
 	// item "unknown", only speak where it stands.
@@ -1291,7 +1291,7 @@ test('team-profile: the card\'s spans are separated, not concatenated', () => {
 	// `.person-name` / `.person-role` / `.person-note` are adjacent SPANS with no
 	// whitespace between them — they are spaced by flex, not by markup. textContent
 	// therefore ran them together: "Ada OkaforExecutive SponsorClears blockers".
-	const [t] = renderSpeech('<!-- _class: team-profile -->\n\n## Team\n\n- Ada Okafor\n  - ![](a.svg)\n  - `Executive Sponsor`\n  - Clears blockers above the program.\n');
+	const [t] = renderSpeech('<!-- @meta{layout=team-profile} -->\n\n## Team\n\n- Ada Okafor\n  - ![](a.svg)\n  - `Executive Sponsor`\n  - Clears blockers above the program.\n');
 	assert.match(t, /Ada Okafor, Executive Sponsor: Clears blockers above the program\./);
 	assert.doesNotMatch(t, /OkaforExecutive|SponsorClears/, 'no two spans may run together');
 });
@@ -1301,7 +1301,7 @@ test('team-profile: the aria-hidden monogram is never spoken', () => {
 	// `aria-hidden="true"` because the name is read beside it. `textContent` does not
 	// honor aria-hidden, so the roster used to narrate "AOAda Okafor…". The speaker
 	// reads the three named spans directly, which skips the monogram structurally.
-	const [t] = renderSpeech('<!-- _class: team-profile -->\n\n## Team\n\n- Ada Okafor\n  - `Executive Sponsor`\n- Marcus Vale\n  - `Program Director`\n');
+	const [t] = renderSpeech('<!-- @meta{layout=team-profile} -->\n\n## Team\n\n- Ada Okafor\n  - `Executive Sponsor`\n- Marcus Vale\n  - `Program Director`\n');
 	assert.doesNotMatch(t, /\bAO\b|\bMV\b/, 'initials are decoration, not narration');
 	assert.match(t, /Ada Okafor, Executive Sponsor\./);
 });
@@ -1350,7 +1350,7 @@ test('team-profile sides: each roster keeps its own label', () => {
 	// Two rosters under two `###` labels. Querying the rosters alone would drop the
 	// labels and read six people as one undifferentiated list, so blocks are walked
 	// in document order.
-	const [t] = renderSpeech('<!-- _class: team-profile sides -->\n\n## Two teams\n\n### Your team\n\n- Ada Okafor\n  - `VP Operations`\n\n### Our team\n\n- Marcus Vale\n  - `Account Director`\n');
+	const [t] = renderSpeech('<!-- @meta{layout=team-profile, class=sides} -->\n\n## Two teams\n\n### Your team\n\n- Ada Okafor\n  - `VP Operations`\n\n### Our team\n\n- Marcus Vale\n  - `Account Director`\n');
 	assert.match(t, /Your team\.[\s\S]*Ada Okafor, VP Operations\./);
 	assert.match(t, /Our team\.[\s\S]*Marcus Vale, Account Director\./);
 	assert.ok(t.indexOf('Your team') < t.indexOf('Our team'), 'labels keep document order');
@@ -1363,7 +1363,7 @@ test('team-profile: a person with no role or no note reads without an empty clau
 	// `main` as well as here. A checker flagged an earlier version of this comment
 	// for claiming `bench` "drops the note", which is true of the stylesheet and
 	// false of the speaker.
-	const [t] = renderSpeech('<!-- _class: team-profile bench -->\n\n## Bench\n\n- Ada Okafor\n  - `Executive Sponsor`\n- Marcus Vale\n');
+	const [t] = renderSpeech('<!-- @meta{layout=team-profile, class=bench} -->\n\n## Bench\n\n- Ada Okafor\n  - `Executive Sponsor`\n- Marcus Vale\n');
 	assert.match(t, /Ada Okafor, Executive Sponsor\./);
 	assert.match(t, /Marcus Vale\./);
 	assert.doesNotMatch(t, /:\s*\.|,\s*\./, 'no empty clause, no dangling separator');
@@ -1381,13 +1381,13 @@ test('team-profile: EVERY note line is spoken, not just the first', () => {
 	// names that shape — and reading only the first silently dropped an authored
 	// line. That is worse than the concatenation it replaced: ugly but complete
 	// became quiet and lossy, against a deck `lint:deck` calls clean.
-	const [t] = renderSpeech('<!-- _class: team-profile -->\n\n## The team\n\n- Ada Okafor\n  - Executive Sponsor\n  - Clears blockers above the program.\n');
+	const [t] = renderSpeech('<!-- @meta{layout=team-profile} -->\n\n## The team\n\n- Ada Okafor\n  - Executive Sponsor\n  - Clears blockers above the program.\n');
 	assert.match(t, /Executive Sponsor/);
 	assert.match(t, /Clears blockers above the program/, 'the second note line must survive');
 });
 
 test('team-profile: Read·Article renders people, not the raw span run', () => {
-	const { html } = engine.render('<!-- _class: team-profile -->\n\n## The team\n\n- Ada Okafor\n  - `Executive Sponsor`\n  - Clears blockers.\n', 'indaco', {});
+	const { html } = engine.render('<!-- @meta{layout=team-profile} -->\n\n## The team\n\n- Ada Okafor\n  - `Executive Sponsor`\n  - Clears blockers.\n', 'indaco', {});
 	const dom = new JSDOM(`<body>${html}</body>`);
 	const { articleHtml } = project([...dom.window.document.querySelectorAll('section[data-class]')]);
 	assert.match(articleHtml, /<strong>Ada Okafor<\/strong>/, 'the name leads the entry');
@@ -1399,7 +1399,7 @@ test('team-profile: a roster behind a wrapper still gets the people treatment', 
 	// Walking only `stage.children` returned null whenever anything sat between the
 	// stage and the roster — a second component class puts a wrapper there — and the
 	// `|| speakGeneric` fallback then re-ran the very bug this speaker fixes.
-	const [t] = renderSpeech('<!-- _class: team-profile image -->\n\n## Team\n\n- Ada Okafor\n  - `Sponsor`\n  - Owns it.\n');
+	const [t] = renderSpeech('<!-- @meta{layout=team-profile, class=image} -->\n\n## Team\n\n- Ada Okafor\n  - `Sponsor`\n  - Owns it.\n');
 	assert.doesNotMatch(t, /OkaforSponsor/, 'the fallback must not re-introduce the concatenation');
 	assert.match(t, /Ada Okafor, Sponsor: Owns it\./);
 });
@@ -1407,7 +1407,7 @@ test('team-profile: a roster behind a wrapper still gets the people treatment', 
 test('team-profile: a mid-stage blockquote is not swallowed by the roster walk', () => {
 	// `speakGeneric` speaks blockquote/table; an earlier version of this speaker
 	// listed only rosters, h3, h4 and p, so a quote between two rosters vanished.
-	const [t] = renderSpeech('<!-- _class: team-profile -->\n\n## Team\n\n- Ada Okafor\n  - `Sponsor`\n\n> A quoted line in the middle.\n\n- Marcus Vale\n  - `Director`\n');
+	const [t] = renderSpeech('<!-- @meta{layout=team-profile} -->\n\n## Team\n\n- Ada Okafor\n  - `Sponsor`\n\n> A quoted line in the middle.\n\n- Marcus Vale\n  - `Director`\n');
 	assert.match(t, /A quoted line in the middle/);
 	assert.match(t, /Ada Okafor, Sponsor\./);
 	assert.match(t, /Marcus Vale, Director\./);
@@ -1424,14 +1424,14 @@ test('team-profile: a mid-stage blockquote is not swallowed by the roster walk',
 
 test('team-profile: a <dl> beside a roster keeps its term/definition reading', () => {
 	// Was "NetworkACME-GuestRoom4B." in a shipped caption sidecar.
-	const [t] = renderSpeech('<!-- _class: team-profile -->\n\n## T\n\n- Ada Okafor\n  - `Sponsor`\n\n<dl><dt>Network</dt><dd>ACME-Guest</dd><dt>Room</dt><dd>4B</dd></dl>\n');
+	const [t] = renderSpeech('<!-- @meta{layout=team-profile} -->\n\n## T\n\n- Ada Okafor\n  - `Sponsor`\n\n<dl><dt>Network</dt><dd>ACME-Guest</dd><dt>Room</dt><dd>4B</dd></dl>\n');
 	assert.match(t, /Network: ACME-Guest\./);
 	assert.match(t, /Room: 4B\./);
 	assert.doesNotMatch(t, /NetworkACME|GuestRoom/, 'the concatenation bug must not return on another element');
 });
 
 test('team-profile: a plain <ul> beside a roster is not swallowed', () => {
-	const [t] = renderSpeech('<!-- _class: team-profile -->\n\n## T\n\n- Ada Okafor\n  - `Sponsor`\n\n<div class="x"><ul><li>MUST SURVIVE</li></ul></div>\n');
+	const [t] = renderSpeech('<!-- @meta{layout=team-profile} -->\n\n## T\n\n- Ada Okafor\n  - `Sponsor`\n\n<div class="x"><ul><li>MUST SURVIVE</li></ul></div>\n');
 	assert.match(t, /MUST SURVIVE/);
 });
 
@@ -1440,7 +1440,7 @@ test('team-profile: a ul.team-roster carrying no person flows on as an ordinary 
 	// the projection untouched. Treating it as a roster emitted nothing AND suppressed
 	// the fallback, so its content vanished — but only when another block on the slide
 	// had already produced output, which is the worst way for it to fail.
-	const [t] = renderSpeech('<!-- _class: team-profile -->\n\n## T\n\nAn intro paragraph.\n\n<ul class="team-roster"><li>MUST SURVIVE</li></ul>\n');
+	const [t] = renderSpeech('<!-- @meta{layout=team-profile} -->\n\n## T\n\nAn intro paragraph.\n\n<ul class="team-roster"><li>MUST SURVIVE</li></ul>\n');
 	assert.match(t, /An intro paragraph\./);
 	assert.match(t, /MUST SURVIVE/);
 });
@@ -1449,7 +1449,7 @@ test('team-profile: body blocks keep the sentence seam, not a paragraph beat', (
 	// Joining blocks with "\n\n" reversed 2026-07-14-paragraph-level-pauses.md, whose
 	// fix was "beat only lead->body, not every block": a paragraph seam widens to
 	// PARAGRAPH_PAUSE_MS, and a `sides` slide gained four of them.
-	const [t] = renderSpeech('<!-- _class: team-profile sides -->\n\n## T\n\n### Your team\n\n- Ada Okafor\n  - `VP Ops`\n\n### Our team\n\n- Marcus Vale\n  - `Director`\n');
+	const [t] = renderSpeech('<!-- @meta{layout=team-profile, class=sides} -->\n\n## T\n\n### Your team\n\n- Ada Okafor\n  - `VP Ops`\n\n### Our team\n\n- Marcus Vale\n  - `Director`\n');
 	const [lead, ...body] = t.split('\n\n');
 	assert.match(lead, /^T\./, 'the lead is its own paragraph');
 	assert.equal(body.length, 1, `body must be ONE block, got ${body.length}: ${JSON.stringify(t)}`);
@@ -1459,7 +1459,7 @@ test('team-profile: body blocks keep the sentence seam, not a paragraph beat', (
 test('team-profile: Read·Article keeps the portrait', () => {
 	// The component's first line is "a roster of named people, each under a portrait";
 	// an earlier version read only the three text spans and dropped every headshot.
-	const { html } = engine.render('<!-- _class: team-profile -->\n\n## T\n\n- Ada Okafor\n  - ![](ada.svg)\n  - `Sponsor`\n', 'indaco', {});
+	const { html } = engine.render('<!-- @meta{layout=team-profile} -->\n\n## T\n\n- Ada Okafor\n  - ![](ada.svg)\n  - `Sponsor`\n', 'indaco', {});
 	const dom = new JSDOM(`<body>${html}</body>`);
 	const { articleHtml } = project([...dom.window.document.querySelectorAll('section[data-class]')]);
 	assert.match(articleHtml, /<img class="person-photo"[^>]*src="ada\.svg"/, 'the portrait rides into the article');
@@ -1471,7 +1471,7 @@ test('team-profile: a mixed roster keeps its non-person items on both surfaces',
 	// but then handed `make` only the people — so every plain <li> beside them was
 	// dropped with the <ul> it lived in. That is the same content-loss the roster-with-
 	// no-person case above pins, with its boundary moved rather than closed.
-	const md = '<!-- _class: team-profile -->\n\n## T\n\n<ul class="team-roster"><li class="person"><span class="person-text"><span class="person-name">Ada</span></span></li><li>PLAIN ITEM</li></ul>\n';
+	const md = '<!-- @meta{layout=team-profile} -->\n\n## T\n\n<ul class="team-roster"><li class="person"><span class="person-text"><span class="person-name">Ada</span></span></li><li>PLAIN ITEM</li></ul>\n';
 	const [t] = renderSpeech(md);
 	assert.match(t, /Ada/);
 	assert.match(t, /PLAIN ITEM/, 'a non-person item is read, not discarded');
@@ -1488,7 +1488,7 @@ test('team-profile: a roster row wraps its words, so nested note markup lays out
 	// the CSS to direct children brought its markers back but left it in that position;
 	// the wrapper is what makes the row exactly two items. Driving the real exported player
 	// is what separated those two halves, so this pins the emitted SHAPE, not the styling.
-	const md = '<!-- _class: team-profile -->\n\n## T\n\n- Ada Okafor\n  - `Sponsor`\n  - Owns three things:\n    - staffing\n    - budget\n';
+	const md = '<!-- @meta{layout=team-profile} -->\n\n## T\n\n- Ada Okafor\n  - `Sponsor`\n  - Owns three things:\n    - staffing\n    - budget\n';
 	const { html } = engine.render(md, 'indaco', {});
 	const dom = new JSDOM(`<body>${html}</body>`);
 	const { articleHtml } = project([...dom.window.document.querySelectorAll('section[data-class]')]);
@@ -1508,7 +1508,7 @@ test('team-profile: EVERY roster row gets the wrapper, non-person rows included'
 	// gutters, measured as "PLAIN  bold  and  ital  text". The person rows were wrapped
 	// first and the non-person ones were not, which is exactly the asymmetry a reviewer
 	// asked about — one shape for every row in the list is the answer.
-	const md = '<!-- _class: team-profile -->\n\n## T\n\n<ul class="team-roster"><li class="person"><span class="person-text"><span class="person-name">Ada</span></span></li><li id="keep">PLAIN <strong>bold</strong> text</li></ul>\n';
+	const md = '<!-- @meta{layout=team-profile} -->\n\n## T\n\n<ul class="team-roster"><li class="person"><span class="person-text"><span class="person-name">Ada</span></span></li><li id="keep">PLAIN <strong>bold</strong> text</li></ul>\n';
 	const { html } = engine.render(md, 'indaco', {});
 	const dom = new JSDOM(`<body>${html}</body>`);
 	const { articleHtml } = project([...dom.window.document.querySelectorAll('section[data-class]')]);
@@ -1531,7 +1531,7 @@ test('team-profile: an image-only name still ships into Read·Article', () => {
 	// inside a `<strong>`. Gating the whole name on that dropped an author's
 	// `- ![Acme](logo.svg)` lead outright — the generic path had kept it. The image now
 	// rides unwrapped: ugly is a design call, absent is a content loss.
-	const md = '<!-- _class: team-profile -->\n\n## T\n\n- ![Acme Logo](logo.svg)\n  - `Sponsor`\n';
+	const md = '<!-- @meta{layout=team-profile} -->\n\n## T\n\n- ![Acme Logo](logo.svg)\n  - `Sponsor`\n';
 	const { html } = engine.render(md, 'indaco', {});
 	const dom = new JSDOM(`<body>${html}</body>`);
 	const { articleHtml } = project([...dom.window.document.querySelectorAll('section[data-class]')]);
@@ -1544,13 +1544,13 @@ test('team-profile: a roster that composes to nothing degrades to the generic re
 	// empty, and the caller re-ran the generic walker on the ORIGINAL stage — bringing
 	// back both defects this path exists to fix. Leaving the roster in place means the
 	// clone degrades to exactly what generic would have produced anyway.
-	const md = '<!-- _class: team-profile -->\n\n## T\n\n<ul class="team-roster"><li class="person"><span class="person-figure person-figure--monogram" aria-hidden="true"><span class="person-initials">XX</span></span></li></ul>\n';
+	const md = '<!-- @meta{layout=team-profile} -->\n\n## T\n\n<ul class="team-roster"><li class="person"><span class="person-figure person-figure--monogram" aria-hidden="true"><span class="person-initials">XX</span></span></li></ul>\n';
 	const [t] = renderSpeech(md);
 	assert.doesNotMatch(t, /XX/, 'the aria-hidden monogram must not leak back in via the fallback');
 });
 
 test('team-profile: a <pre> block survives into Read·Article', () => {
-	const { html } = engine.render('<!-- _class: team-profile -->\n\n## T\n\n- Ada Okafor\n  - `Sponsor`\n\n```\nrun the thing\n```\n', 'indaco', {});
+	const { html } = engine.render('<!-- @meta{layout=team-profile} -->\n\n## T\n\n- Ada Okafor\n  - `Sponsor`\n\n```\nrun the thing\n```\n', 'indaco', {});
 	const dom = new JSDOM(`<body>${html}</body>`);
 	const { articleHtml } = project([...dom.window.document.querySelectorAll('section[data-class]')]);
 	assert.match(articleHtml, /<pre[^>]*>[\s\S]*run the thing/);
@@ -1572,7 +1572,7 @@ test('a code block in the article is reachable from the keyboard', () => {
 
 test('team-profile: neither projection mutates the DOM it is handed', () => {
 	// The live Studio Present path re-projects the same nodes on every slide change.
-	const { html } = engine.render('<!-- _class: team-profile -->\n\n## T\n\n- Ada Okafor\n  - `Sponsor`\n  - Owns it.\n', 'indaco', {});
+	const { html } = engine.render('<!-- @meta{layout=team-profile} -->\n\n## T\n\n- Ada Okafor\n  - `Sponsor`\n  - Owns it.\n', 'indaco', {});
 	const dom = new JSDOM(`<body>${html}</body>`);
 	const secs = [...dom.window.document.querySelectorAll('section[data-class]')];
 	const before = dom.window.document.body.innerHTML;
@@ -1645,9 +1645,9 @@ async function renderedSections(md) {
 }
 
 for (const [name, md, eyebrow, heading] of [
-	['wifi (.qr-head)', '<!-- _class: wifi -->\n\n`Offsite · Room Wi-Fi`\n\n## The war room has its own network.\n\n- Offsite-Guest `ssid`\n- boardroom2026 `password`\n', 'Offsite · Room Wi-Fi', 'The war room has its own network.'],
-	['video (.video-head)', '<!-- _class: video -->\n\n`Product tour`\n\n## Watch the tour.\n\n`@video{"https://www.youtube.com/watch?v=aqz-KE-bpKQ"}`\n', 'Product tour', 'Watch the tour.'],
-	['video companion (.video-lead)', '<!-- _class: video companion -->\n\n`Product tour`\n\n## Watch the product tour.\n\nOne screen, one story.\n\n`@video{"https://www.youtube.com/watch?v=aqz-KE-bpKQ"}`\n', 'Product tour', 'Watch the product tour.'],
+	['wifi (.qr-head)', '<!-- @meta{layout=wifi} -->\n\n`Offsite · Room Wi-Fi`\n\n## The war room has its own network.\n\n- Offsite-Guest `ssid`\n- boardroom2026 `password`\n', 'Offsite · Room Wi-Fi', 'The war room has its own network.'],
+	['video (.video-head)', '<!-- @meta{layout=video} -->\n\n`Product tour`\n\n## Watch the tour.\n\n`@video{"https://www.youtube.com/watch?v=aqz-KE-bpKQ"}`\n', 'Product tour', 'Watch the tour.'],
+	['video companion (.video-lead)', '<!-- @meta{layout=video, class=companion} -->\n\n`Product tour`\n\n## Watch the product tour.\n\nOne screen, one story.\n\n`@video{"https://www.youtube.com/watch?v=aqz-KE-bpKQ"}`\n', 'Product tour', 'Watch the product tour.'],
 ]) {
 	test(`eyebrow in a card head: ${name} projects the eyebrow as the kicker`, async () => {
 		const secs = await renderedSections(md);
@@ -1662,7 +1662,7 @@ for (const [name, md, eyebrow, heading] of [
 // children, so narration spoke the heading and nothing else (followup 2727-p3). It now speaks the
 // network and the security, and never the password, which is a secret on the slide, not in audio.
 test('wifi card narration speaks the network name and never the password', async () => {
-	const secs = await renderedSections('<!-- _class: wifi -->\n\n## Join the room.\n\n- Acme-Guest `ssid`\n- hunter2-secret `password`\n- WPA2 `security`\n');
+	const secs = await renderedSections('<!-- @meta{layout=wifi} -->\n\n## Join the room.\n\n- Acme-Guest `ssid`\n- hunter2-secret `password`\n- WPA2 `security`\n');
 	const [{ text }] = script(secs);
 	assert.match(text, /Network: Acme-Guest\./);
 	assert.match(text, /Security: WPA2\./);
@@ -1674,8 +1674,8 @@ test('wifi card narration speaks the network name and never the password', async
 // sentence that narration still read (followup 2329-p3). Both card shapes carry it: `.video-lead`
 // in `companion`, a paragraph beside `.video-head` by default. Rendered through the real engine.
 for (const [name, md] of [
-	['video companion (.video-lead)', '<!-- _class: video companion -->\n\n`Product tour`\n\n## Watch the product tour.\n\nOne screen, one story.\n\n`@video{"https://www.youtube.com/watch?v=aqz-KE-bpKQ"}`\n'],
-	['video (.video-head)', '<!-- _class: video -->\n\n`Product tour`\n\n## Watch the product tour.\n\nOne screen, one story.\n\n`@video{"https://www.youtube.com/watch?v=aqz-KE-bpKQ"}`\n'],
+	['video companion (.video-lead)', '<!-- @meta{layout=video, class=companion} -->\n\n`Product tour`\n\n## Watch the product tour.\n\nOne screen, one story.\n\n`@video{"https://www.youtube.com/watch?v=aqz-KE-bpKQ"}`\n'],
+	['video (.video-head)', '<!-- @meta{layout=video} -->\n\n`Product tour`\n\n## Watch the product tour.\n\nOne screen, one story.\n\n`@video{"https://www.youtube.com/watch?v=aqz-KE-bpKQ"}`\n'],
 ]) {
 	test(`video lead paragraph: ${name} projects it once, after the heading and before the poster`, async () => {
 		const { articleHtml } = project(await renderedSections(md));
@@ -1698,13 +1698,13 @@ for (const [name, md] of [
 for (const [name, md, eyebrow] of [
 	['subtitle only', '## Heading here.\n\n`A subtitle`\n\n- one\n- two\n', null],
 	['eyebrow and subtitle', '`Kicker`\n\n## Heading here.\n\n`A subtitle`\n\nBody para.\n', 'Kicker'],
-	['stats layout', '<!-- _class: stats -->\n\n## Heading here.\n\n`A subtitle`\n\n1. **73%**\n   - faster\n', null],
+	['stats layout', '<!-- @meta{layout=stats} -->\n\n## Heading here.\n\n`A subtitle`\n\n1. **73%**\n   - faster\n', null],
 	// A chart's plain-text line under the heading becomes `.chart-subtitle`, hoisted into the lede.
-	['chart subtitle (radar)', '<!-- _class: radar -->\n\n`Scale · 0–10`\n\n## Heading here.\n\nA subtitle\n\n- Meridian\n  - Speed `9`\n  - Price `7`\n  - Support `8`\n', 'Scale · 0–10'],
+	['chart subtitle (radar)', '<!-- @meta{layout=radar} -->\n\n`Scale · 0–10`\n\n## Heading here.\n\nA subtitle\n\n- Meridian\n  - Speed `9`\n  - Price `7`\n  - Support `8`\n', 'Scale · 0–10'],
 	// followup 2366-p4: the matrix-grid slide of examples/read-article-chart-paints.md, whose
 	// subtitle #2366's screenshots showed as an all-caps kicker. #2358 had already fixed it; the
 	// screenshots predate the rebase. Pinned on the exact shape that was reported.
-	['chart subtitle (matrix-grid)', '<!-- _class: matrix-grid -->\n\n## Heading here.\n\nA subtitle\n\n`[Wider reach, Deeper cognition]`\n\n| Verb | Self | Team |\n| --- | :-: | :-: |\n| Create | [ ] | [x] Senior |\n', null],
+	['chart subtitle (matrix-grid)', '<!-- @meta{layout=matrix-grid} -->\n\n## Heading here.\n\nA subtitle\n\n`[Wider reach, Deeper cognition]`\n\n| Verb | Self | Team |\n| --- | :-: | :-: |\n| Create | [ ] | [x] Senior |\n', null],
 ]) {
 	test(`subtitle: ${name} projects after the heading, never as the kicker`, async () => {
 		const secs = await renderedSections(md);
@@ -1730,7 +1730,7 @@ test('subtitle equal to the eyebrow is projected and read once', async () => {
 // narration read all of it (followup 2350-p2). The rule for every MEDIA component: prose in slide
 // order, the visual re-hosted as a figure where it stood. Rendered through the real engine.
 test('image: the lead paragraph projects once, after the heading and before the figure; the eyebrow is the kicker', async () => {
-	const secs = await renderedSections('<!-- _class: image -->\n\n`Offsite`\n\n## Pic\n\nA lead paragraph here.\n\n![alt](https://example.com/a.png)\n\nTrailing words.\n');
+	const secs = await renderedSections('<!-- @meta{layout=image} -->\n\n`Offsite`\n\n## Pic\n\nA lead paragraph here.\n\n![alt](https://example.com/a.png)\n\nTrailing words.\n');
 	const { articleHtml } = project(secs);
 	assert.ok(articleHtml.startsWith('<p class="lp-kicker">Offsite</p>\n<h2 id="lp-sec-0">Pic</h2>\n<p>A lead paragraph here.</p>\n<figure'), articleHtml);
 	assert.ok(articleHtml.indexOf('</figure>') < articleHtml.indexOf('<p>Trailing words.</p>'), 'prose after the picture stays after it');
@@ -1740,7 +1740,7 @@ test('image: the lead paragraph projects once, after the heading and before the 
 });
 
 test("chart: the slide's own caption is the figure caption, not a repeat of the heading", async () => {
-	const md = '<!-- _class: bullet -->\n\n## Two of five KPIs cleared the plan line.\n\n- New ARR `4.2M` `5.0M`\n- Expansion ARR `3.6M` `3.0M`\n\n*Actual against target inside a qualitative band.*\n';
+	const md = '<!-- @meta{layout=bullet} -->\n\n## Two of five KPIs cleared the plan line.\n\n- New ARR `4.2M` `5.0M`\n- Expansion ARR `3.6M` `3.0M`\n\n*Actual against target inside a qualitative band.*\n';
 	const { articleHtml } = project(await renderedSections(md));
 	assert.match(articleHtml, /<figcaption>Actual against target inside a qualitative band\.<\/figcaption><\/figure>/, articleHtml);
 	assert.equal(articleHtml.split('Actual against target').length - 1, 1, 'the caption is projected once');
@@ -1748,7 +1748,7 @@ test("chart: the slide's own caption is the figure caption, not a repeat of the 
 });
 
 test('math: the variable legend and a second equation reach the article', async () => {
-	const md = '<!-- _class: math -->\n\n## The closed-form estimator.\n\n$$ \\hat\\beta = (X^\\top X)^{-1} X^\\top y $$\n\n- $X$ — design matrix\n- $y$ — response vector\n\n$$ e = y - X\\hat\\beta $$\n';
+	const md = '<!-- @meta{layout=math} -->\n\n## The closed-form estimator.\n\n$$ \\hat\\beta = (X^\\top X)^{-1} X^\\top y $$\n\n- $X$ — design matrix\n- $y$ — response vector\n\n$$ e = y - X\\hat\\beta $$\n';
 	const { articleHtml } = project(await renderedSections(md));
 	assert.equal((articleHtml.match(/class="katex-display"/g) || []).length, 2, 'both display equations are projected');
 	assert.ok(articleHtml.includes('— design matrix'), articleHtml);
@@ -1783,7 +1783,7 @@ test("math: an inline equation's glyph svg does not displace the display equatio
 // under `section.video` — re-hosted as a breakout figure it read as a bare link left of the column
 // with the heading repeated under it (followup 2350-p3). It projects as an in-column link card.
 test('video: a placeholder poster projects as an in-column link card, not a breakout figure', async () => {
-	const { articleHtml } = project(await renderedSections('<!-- _class: video -->\n\n## Watch the tour.\n\n`@video{"https://www.youtube.com/watch?v=aqz-KE-bpKQ"}`\n'));
+	const { articleHtml } = project(await renderedSections('<!-- @meta{layout=video} -->\n\n## Watch the tour.\n\n`@video{"https://www.youtube.com/watch?v=aqz-KE-bpKQ"}`\n'));
 	assert.match(articleHtml, /<figure class="lp-video"><a class="lp-video-link" href="https:\/\/www\.youtube\.com\/watch\?v=aqz-KE-bpKQ" target="_blank" rel="noreferrer noopener"><span class="lp-video-play" aria-hidden="true"><\/span><span class="lp-video-label">Watch on YouTube<\/span><\/a><\/figure>/, articleHtml);
 	assert.doesNotMatch(articleHtml, /lp-figure/, 'no breakout figure');
 	assert.equal(articleHtml.split('Watch the tour.').length - 1, 1, 'the heading is not repeated as a caption');
@@ -1792,7 +1792,7 @@ test('video: a placeholder poster projects as an in-column link card, not a brea
 // The poster is a CSS background on a tile, never an `<img>`: the player's CSP (`img-src data:`)
 // blocks a remote poster, and a blocked `<img>` painted a broken-image icon in the card.
 test("video: a poster becomes the card's thumbnail tile and the author's caption its figcaption", async () => {
-	const md = '<!-- _class: video -->\n\n## Watch the tour.\n\n`@video{"https://www.youtube.com/watch?v=aqz-KE-bpKQ", title="Two minutes, no sound needed.", poster="https://example.com/poster.jpg"}`\n';
+	const md = '<!-- @meta{layout=video} -->\n\n## Watch the tour.\n\n`@video{"https://www.youtube.com/watch?v=aqz-KE-bpKQ", title="Two minutes, no sound needed.", poster="https://example.com/poster.jpg"}`\n';
 	const { articleHtml } = project(await renderedSections(md));
 	assert.match(articleHtml, /<a class="lp-video-link"[^>]*><span class="lp-video-thumb" style="background-image:url\('https:\/\/example\.com\/poster\.jpg'\)" aria-hidden="true"><span class="lp-video-play" aria-hidden="true"><\/span><\/span>/, articleHtml);
 	assert.doesNotMatch(articleHtml, /<img/, 'no <img> for the poster');
@@ -1840,7 +1840,7 @@ test('video card: an embedded data:image poster keeps its thumbnail; other data:
 // the media walk never ran for them and the `.chart-caption` under the chart was dropped while
 // narration read it. The placeholder now carries it as prose. Rendered through the real engine.
 test("state-chart: the chart's caption follows the placeholder, once", async () => {
-	const md = '<!-- _class: state-chart -->\n\n## Every contract moves through three states.\n\n- Draft `start`\n  - -submit-> Signed\n- Signed\n  - -go-> Live\n- Live `end`\n\n*Rejected drafts return to the account owner.*\n';
+	const md = '<!-- @meta{layout=state-chart} -->\n\n## Every contract moves through three states.\n\n- Draft `start`\n  - -submit-> Signed\n- Signed\n  - -go-> Live\n- Live `end`\n\n*Rejected drafts return to the account owner.*\n';
 	const { articleHtml } = project(await renderedSections(md));
 	const cap = '<p>Rejected drafts return to the account owner.</p>';
 	assert.equal(articleHtml.split(cap).length - 1, 1, articleHtml);
@@ -1857,8 +1857,8 @@ test('a panes slide: the chart pane re-hosts as a chart-frame figure, the list p
 	const { sectionsOf } = require('../../../lib/diagnostics/slice-equivalence-core.mjs');
 	const src = [
 		'---', 'theme: indaco', '---', '',
-		'## Revenue by region.', '', '<!-- panes: 55/45 -->', '<!-- pane: bar -->', '',
-		'- EMEA `42`', '- APAC `28`', '', '<!-- pane: list -->', '', '- Americas leads', '- APAC is flat', '',
+		'## Revenue by region.', '', '<!-- @meta{panes=55/45} -->', '<!-- @meta{pane=bar} -->', '',
+		'- EMEA `42`', '- APAC `28`', '', '<!-- @meta{pane=list} -->', '', '- Americas leads', '- APAC is flat', '',
 		'> The mix shift is structural.', '',
 	].join('\n');
 	const html = sectionsOf(engine.render(src, '').html).join('');
@@ -1880,7 +1880,7 @@ test('a panes slide keeps DOM order: an intro the host keeps above the panes sta
 	const engine = require('../../../lib/engine');
 	const { sectionsOf } = require('../../../lib/diagnostics/slice-equivalence-core.mjs');
 	const src = ['---', 'theme: indaco', '---', '', '## Lede order.', '', 'This intro paragraph comes before the panes.', '',
-		'<!-- pane: list -->', '', '- alpha item', '', '<!-- pane: bar -->', '', '- A `3`', '- B `5`', ''].join('\n');
+		'<!-- @meta{pane=list} -->', '', '- alpha item', '', '<!-- @meta{pane=bar} -->', '', '- A `3`', '- B `5`', ''].join('\n');
 	const { articleHtml } = project(sections(sectionsOf(engine.render(src, '').html).join('')));
 	const at = (s) => articleHtml.indexOf(s);
 	assert.ok(at('This intro paragraph') > -1 && at('alpha item') > -1 && at('<figure') > -1);
@@ -1980,7 +1980,7 @@ test('coda: both beats project in slide order, each its own block', async () => 
 // A layout with no `.cell-stage` is walked section-wide, so its body walk reaches the coda and
 // prints it where it sits (#2442's `withCoda` then skips it). Once, not twice.
 test('coda: a stage-less layout (premise) projects its coda once', async () => {
-	const secs = await renderedSections('<!-- _class: premise -->\n\n## The premise.\n\nWe sell to operators.\n\n> Operators buy outcomes.\n');
+	const secs = await renderedSections('<!-- @meta{layout=premise} -->\n\n## The premise.\n\nWe sell to operators.\n\n> Operators buy outcomes.\n');
 	const { articleHtml } = project(secs);
 	assert.equal(articleHtml.split('Operators buy outcomes.').length - 1, 1, articleHtml);
 });
@@ -1988,7 +1988,7 @@ test('coda: a stage-less layout (premise) projects its coda once', async () => {
 // A layout that CLAIMS its trailing block keeps it in its own anatomy; the coda cell never sees it,
 // so the body walk prints it once where the layout put it.
 test('coda: a claimed trailing paragraph (closing) stays in the body, once', async () => {
-	const secs = await renderedSections('<!-- _class: closing -->\n\n# Thank you.\n\n- ada@example.com\n\nQuestions welcome.\n');
+	const secs = await renderedSections('<!-- @meta{layout=closing} -->\n\n# Thank you.\n\n- ada@example.com\n\nQuestions welcome.\n');
 	const { articleHtml } = project(secs);
 	assert.equal(articleHtml.split('Questions welcome.').length - 1, 1, articleHtml);
 	assert.doesNotMatch(articleHtml, /lp-note/);
@@ -2035,7 +2035,7 @@ test('coda: a panes slide prints its key insight once, after the panes', () => {
 	const engine = require('../../../lib/engine');
 	const { sectionsOf } = require('../../../lib/diagnostics/slice-equivalence-core.mjs');
 	const src = ['---', 'theme: indaco', '---', '', '## Two views.', '',
-		'<!-- pane: list -->', '', '- alpha item', '', '<!-- pane: list -->', '', '- beta item', '', '> The pane insight.', ''].join('\n');
+		'<!-- @meta{pane=list} -->', '', '- alpha item', '', '<!-- @meta{pane=list} -->', '', '- beta item', '', '> The pane insight.', ''].join('\n');
 	const { articleHtml } = project(sections(sectionsOf(engine.render(src, '').html).join('')));
 	assert.equal(articleHtml.split('The pane insight.').length - 1, 1, articleHtml);
 	assert.ok(articleHtml.indexOf('beta item') < articleHtml.indexOf('The pane insight.'), 'the insight follows the panes');
@@ -2044,10 +2044,10 @@ test('coda: a panes slide prints its key insight once, after the panes', () => {
 // A chart's later lead paragraphs (`.chart-lead`, followups.d 2376-p2) reach the article ahead of
 // the figure, on a media chart (the prose walk) and on a flow chart (re-hosted body alone).
 for (const [name, md] of [
-	['bar (media)', '<!-- _class: bar -->\n\n## Mix\n\nFirst line.\n\nSecond line.\n\n- Licenses `42`\n- Services `47`\n'],
-	['progress (flow)', '<!-- _class: progress -->\n\n## Readiness\n\nFirst line.\n\nSecond line.\n\n- Intake `92%` `on-track`\n- Scoring `68%` `at-risk`\n'],
-	['word-cloud (spatial)', '<!-- _class: word-cloud -->\n\n## Themes\n\nFirst line.\n\nSecond line.\n\n- Pricing `9`\n- Support `6`\n- Speed `4`\n'],
-	['journey (placeholder)', '<!-- _class: journey -->\n\n## Onboarding\n\nFirst line.\n\nSecond line.\n\n- Evaluate\n  - Book demo `{who=prospect, mood=4}`\n- Trial\n  - Trial signup `{who=prospect, mood=3}`\n'],
+	['bar (media)', '<!-- @meta{layout=bar} -->\n\n## Mix\n\nFirst line.\n\nSecond line.\n\n- Licenses `42`\n- Services `47`\n'],
+	['progress (flow)', '<!-- @meta{layout=progress} -->\n\n## Readiness\n\nFirst line.\n\nSecond line.\n\n- Intake `92%` `on-track`\n- Scoring `68%` `at-risk`\n'],
+	['word-cloud (spatial)', '<!-- @meta{layout=word-cloud} -->\n\n## Themes\n\nFirst line.\n\nSecond line.\n\n- Pricing `9`\n- Support `6`\n- Speed `4`\n'],
+	['journey (placeholder)', '<!-- @meta{layout=journey} -->\n\n## Onboarding\n\nFirst line.\n\nSecond line.\n\n- Evaluate\n  - Book demo `{who=prospect, mood=4}`\n- Trial\n  - Trial signup `{who=prospect, mood=3}`\n'],
 ]) {
 	test(`chart lead: ${name} projects its second paragraph once, before the figure`, async () => {
 		const { articleHtml } = project(await renderedSections(md));
@@ -2067,7 +2067,7 @@ for (const [name, cls, data] of [
 	['journey (placeholder)', 'journey', '- Evaluate\n  - Book demo `{who=prospect, mood=4}`\n- Trial\n  - Trial signup `{who=prospect, mood=3}`\n'],
 ]) {
 	test(`chart lead block: ${name} projects its code block and quote once, before the figure`, async () => {
-		const md = `<!-- _class: ${cls} -->\n\n## Head\n\nFirst line.\n\n\`\`\`js\nCODELB = 1\n\`\`\`\n\n> QUOTELB here.\n\n${data}`;
+		const md = `<!-- @meta{class=${cls}} -->\n\n## Head\n\nFirst line.\n\n\`\`\`js\nCODELB = 1\n\`\`\`\n\n> QUOTELB here.\n\n${data}`;
 		const { articleHtml } = project(await renderedSections(md));
 		for (const t of ['CODELB', 'QUOTELB']) {
 			assert.equal(articleHtml.split(t).length - 1, 1, `${t}: ${articleHtml}`);
@@ -2082,7 +2082,7 @@ for (const [name, cls, data] of [
 // because a below-note must be the slide's last block, and `projectStats` / `speakStats` took only
 // the blocks BEFORE the list — so the article and the voice dropped a source line the slide shows.
 test('stats: a paragraph after the stat list reaches the article and narration once, after the stats', async () => {
-	const md = '<!-- _class: stats -->\n\n## Quarter\n\nThe lead line.\n\n1. **$2.4B**\n   - Total revenue\n2. **4.2×**\n   - Signal recall\n\n*Source: CRM export, 30 September.*\n\n> Revenue up.\n';
+	const md = '<!-- @meta{layout=stats} -->\n\n## Quarter\n\nThe lead line.\n\n1. **$2.4B**\n   - Total revenue\n2. **4.2×**\n   - Signal recall\n\n*Source: CRM export, 30 September.*\n\n> Revenue up.\n';
 	const secs = await renderedSections(md);
 	const { articleHtml } = project(secs);
 	assert.equal(articleHtml.split('Source: CRM export').length - 1, 1, articleHtml);
@@ -2098,7 +2098,7 @@ test('stats: a paragraph after the stat list reaches the article and narration o
 // followups.d/2348: an author's label set renames an answer on the slide (the key, and each
 // obligation-matrix `pills` cell), so the voice says the renamed word too, on the engine path.
 test('obligation-matrix: a label set renames the spoken answer as it renames the key', () => {
-	const md = '<!-- _class: obligation-matrix pills -->\n\n## Duties\n\n`[{[x], In force}, {[/], Not subject}]`\n\n| Regime | Notice | Consent |\n| --- | --- | --- |\n| GDPR | [x] | [-] |\n| CCPA | [/] | [x] |\n';
+	const md = '<!-- @meta{layout=obligation-matrix, class=pills} -->\n\n## Duties\n\n`[{[x], In force}, {[/], Not subject}]`\n\n| Regime | Notice | Consent |\n| --- | --- | --- |\n| GDPR | [x] | [-] |\n| CCPA | [/] | [x] |\n';
 	const [t] = renderSpeech(md);
 	assert.match(t, /GDPR — Notice: in force; Consent: partial\./);
 	assert.match(t, /CCPA — Notice: not subject; Consent: in force\./);
@@ -2211,16 +2211,16 @@ test('a plugin placeholder: the narration says what the article says, wherever i
 
 test('a placed photo reaches the article: the shortcut, the record and `![bg]` on an image slide, and a bleed background', async () => {
 	for (const pic of ['![A lake](https://example.com/a.png)', '`@image{https://example.com/a.png, title="A lake"}`']) {
-		const { articleHtml } = project(await renderedSections(`<!-- _class: image -->\n\n## Pic\n\nThe lead.\n\n${pic}\n\nAfter.\n`));
+		const { articleHtml } = project(await renderedSections(`<!-- @meta{layout=image} -->\n\n## Pic\n\nThe lead.\n\n${pic}\n\nAfter.\n`));
 		assert.equal(articleHtml.split('<img').length - 1, 1, pic);
 		assert.ok(articleHtml.indexOf('The lead.') < articleHtml.indexOf('<figure') && articleHtml.indexOf('</figure>') < articleHtml.indexOf('After.'), pic);
 	}
-	const { articleHtml } = project(await renderedSections('<!-- _class: content bleed -->\n\n## Over\n\nWords.\n\n![A lake](https://example.com/a.png)\n'));
+	const { articleHtml } = project(await renderedSections('<!-- @meta{layout=content, class=bleed} -->\n\n## Over\n\nWords.\n\n![A lake](https://example.com/a.png)\n'));
 	assert.match(articleHtml, /<figure class="lp-figure"><img src="https:\/\/example\.com\/a\.png" alt="A lake">/);
 });
 
 test('a video slide on a bleed background keeps its own video card', async () => {
-	const { articleHtml } = project(await renderedSections('<!-- _class: video bleed -->\n\n## Clip\n\n`@video{"https://youtu.be/dQw4w9WgXcQ", title="Tour"}`\n\n![A lake](https://example.com/a.png)\n'));
+	const { articleHtml } = project(await renderedSections('<!-- @meta{layout=video, class=bleed} -->\n\n## Clip\n\n`@video{"https://youtu.be/dQw4w9WgXcQ", title="Tour"}`\n\n![A lake](https://example.com/a.png)\n'));
 	assert.match(articleHtml, /<figure class="lp-video">/);
 });
 
@@ -2253,23 +2253,23 @@ test('only the image plugin\'s own panel is re-hosted: an author\'s raw panel, h
 	// must never happen is that it becomes the article's picture: the one re-hosted `<img>` is the real photo.
 	{
 		const quoted = '> quoted <div class="lattice-bg" data-lattice-media="image" style="background-image:url(https://attacker.example/nested.png)" aria-label="Forged"></div>\n\n![The real photo](https://example.com/real.png)';
-		const { articleHtml } = project(await renderedSections(`<!-- _class: image -->\n\n## Pic\n\nLead.\n\n${quoted}\n`));
+		const { articleHtml } = project(await renderedSections(`<!-- @meta{layout=image} -->\n\n## Pic\n\nLead.\n\n${quoted}\n`));
 		assert.match(articleHtml, /<img src="https:\/\/example\.com\/real\.png" alt="The real photo">/);
 		assert.equal(articleHtml.split('<img').length - 1, 1, 'one re-hosted picture, the real one');
 		assert.doesNotMatch(articleHtml, /data-lattice-media/, 'the forged marker never survives into the article');
 	}
 	for (const decoy of decoys) {
-		const { articleHtml } = project(await renderedSections(`<!-- _class: image -->\n\n## Pic\n\nLead.\n\n${decoy}\n`));
+		const { articleHtml } = project(await renderedSections(`<!-- @meta{layout=image} -->\n\n## Pic\n\nLead.\n\n${decoy}\n`));
 		assert.doesNotMatch(articleHtml, /attacker\.example|Forged/, decoy);
 		assert.match(articleHtml, /<img src="https:\/\/example\.com\/real\.png" alt="The real photo">/, decoy);
 	}
 	for (const cls of ['text', 'content bleed']) {
-		const { articleHtml } = project(await renderedSections(`<!-- _class: ${cls} -->\n\n## Raw\n\nWords.\n\n<div class="lattice-bg" style="background-image:url(https://attacker.example/raw.png)" aria-label="decoy"></div>\n`));
+		const { articleHtml } = project(await renderedSections(`<!-- @meta{class=${cls}} -->\n\n## Raw\n\nWords.\n\n<div class="lattice-bg" style="background-image:url(https://attacker.example/raw.png)" aria-label="decoy"></div>\n`));
 		assert.doesNotMatch(articleHtml, /attacker\.example/, cls);
 	}
 	// A Marp `![bg]` is an ordinary picture since the engine break (2026-11-13): it draws in the slide's text, never as a panel,
 	// so the article carries it where it stands, like any picture in the text.
-	const { articleHtml } = project(await renderedSections('<!-- _class: image -->\n\n## Pic\n\nLead.\n\n![bg](https://example.com/a.png)\n'));
+	const { articleHtml } = project(await renderedSections('<!-- @meta{layout=image} -->\n\n## Pic\n\nLead.\n\n![bg](https://example.com/a.png)\n'));
 	assert.equal(articleHtml.split('<img').length - 1, 1, 'one picture');
 	assert.match(articleHtml, /<img src="https:\/\/example\.com\/a\.png" alt="bg"/);
 });

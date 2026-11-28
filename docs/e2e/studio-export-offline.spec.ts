@@ -29,7 +29,7 @@ const DECK = [
 	'---', 'theme: indaco', '---', '',
 	'# Offline export', '',
 	`The runtime draws ${B}npm run build${B} in the theme's code face.`, '',
-	'---', '', '<!-- _class: diagram -->', '', '## The flow', '',
+	'---', '', '<!-- @meta{layout=diagram} -->', '', '## The flow', '',
 	`${F}mermaid`, 'flowchart LR', '  A[Draft] --> B[Review] --> C[Ship]', F, '',
 	'---', '', '## Code', '',
 	`${F}js`, 'const total = items.reduce((a, b) => a + b, 0);', F, '',

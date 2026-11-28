@@ -35,44 +35,44 @@ describe('review-core: isLabelHeading', () => {
 
 describe('review-core: reviewText', () => {
   test('flags a label title on a content slide', () => {
-    const f = reviewText(`${FM}<!-- _class: content -->\n\n## Results\n\nbody\n`, { bucketOf });
+    const f = reviewText(`${FM}<!-- @meta{layout=content} -->\n\n## Results\n\nbody\n`, { bucketOf });
     assert.ok(ruleOf(f, 'label-title'));
   });
 
   test('does NOT flag a declarative takeaway title', () => {
-    const f = reviewText(`${FM}<!-- _class: content -->\n\n## Revenue grew 18%, led by APAC\n\nbody\n`, { bucketOf });
+    const f = reviewText(`${FM}<!-- @meta{layout=content} -->\n\n## Revenue grew 18%, led by APAC\n\nbody\n`, { bucketOf });
     assert.equal(ruleOf(f, 'label-title'), undefined);
   });
 
   test('flags a data slide with no takeaway headline', () => {
-    const f = reviewText(`${FM}<!-- _class: kpi -->\n\n## Metrics\n\n1. 18%\n`, { bucketOf });
+    const f = reviewText(`${FM}<!-- @meta{layout=kpi} -->\n\n## Metrics\n\n1. 18%\n`, { bucketOf });
     assert.ok(ruleOf(f, 'chart-no-takeaway'));
   });
 
   test('flags wall-of-text', () => {
-    const big = `${FM}<!-- _class: content -->\n\n## A real takeaway here\n\n${'word '.repeat(90)}\n`;
+    const big = `${FM}<!-- @meta{layout=content} -->\n\n## A real takeaway here\n\n${'word '.repeat(90)}\n`;
     assert.ok(ruleOf(reviewText(big, { bucketOf }), 'wall-of-text'));
   });
 
   test('flags no-ask on a non-trivial deck without a decision/recommendation', () => {
-    const deck = `${FM}<!-- _class: content -->\n\n## Point one matters\n\nx\n\n---\n\n<!-- _class: content -->\n\n## Point two also\n\nx\n\n---\n\n<!-- _class: content -->\n\n## Point three here\n\nx\n\n---\n\n<!-- _class: content -->\n\n## Point four too\n\nx\n`;
+    const deck = `${FM}<!-- @meta{layout=content} -->\n\n## Point one matters\n\nx\n\n---\n\n<!-- @meta{layout=content} -->\n\n## Point two also\n\nx\n\n---\n\n<!-- @meta{layout=content} -->\n\n## Point three here\n\nx\n\n---\n\n<!-- @meta{layout=content} -->\n\n## Point four too\n\nx\n`;
     assert.ok(ruleOf(reviewText(deck, { bucketOf }), 'no-ask'));
   });
 
   test('no-ask is silent when a decision slide is present', () => {
-    const deck = `${FM}<!-- _class: content -->\n\n## A\n\nx\n\n---\n\n<!-- _class: content -->\n\n## B\n\nx\n\n---\n\n<!-- _class: content -->\n\n## C\n\nx\n\n---\n\n<!-- _class: decision -->\n\n## We recommend X\n\nx\n`;
+    const deck = `${FM}<!-- @meta{layout=content} -->\n\n## A\n\nx\n\n---\n\n<!-- @meta{layout=content} -->\n\n## B\n\nx\n\n---\n\n<!-- @meta{layout=content} -->\n\n## C\n\nx\n\n---\n\n<!-- @meta{layout=decision} -->\n\n## We recommend X\n\nx\n`;
     assert.equal(ruleOf(reviewText(deck, { bucketOf }), 'no-ask'), undefined);
   });
 
   test('length-vs-time fires only with a talk length set', () => {
-    const deck = `${FM}<!-- _class: content -->\n\n## A B C\n\nx\n\n---\n\n<!-- _class: content -->\n\n## D E F\n\nx\n`;
+    const deck = `${FM}<!-- @meta{layout=content} -->\n\n## A B C\n\nx\n\n---\n\n<!-- @meta{layout=content} -->\n\n## D E F\n\nx\n`;
     assert.equal(ruleOf(reviewText(deck, { bucketOf }), 'length-vs-time'), undefined);
     assert.ok(ruleOf(reviewText(deck, { bucketOf, talkMinutes: 1 }), 'length-vs-time'));
   });
 });
 
 describe('scorecard: scoreDeck — the Craft / Style split', () => {
-  const clean = `${FM}<!-- _class: title silent -->\n\n# Q3 board review\n\nthe ask\n\n---\n\n<!-- _class: kpi -->\n\n## Revenue grew 18%, led by APAC\n\n1. 18%\n   - growth\n\n---\n\n<!-- _class: decision -->\n\n## We recommend funding APAC\n\n- option\n  - body\n\n---\n\n<!-- _class: closing -->\n\n## Fund APAC\n`;
+  const clean = `${FM}<!-- @meta{layout=title, class=silent} -->\n\n# Q3 board review\n\nthe ask\n\n---\n\n<!-- @meta{layout=kpi} -->\n\n## Revenue grew 18%, led by APAC\n\n1. 18%\n   - growth\n\n---\n\n<!-- @meta{layout=decision} -->\n\n## We recommend funding APAC\n\n- option\n  - body\n\n---\n\n<!-- @meta{layout=closing} -->\n\n## Fund APAC\n`;
   const card = (src, lint = []) => scoreDeck({ source: src, lintFindings: lint, reviewFindings: reviewText(src, { bucketOf }) });
   const cat = (c, key) => c.categories.find((x) => x.key === key);
 
@@ -108,23 +108,23 @@ describe('scorecard: scoreDeck — the Craft / Style split', () => {
   });
 
   test('a missing title drops Structure', () => {
-    assert.ok(cat(card(`${FM}<!-- _class: content -->\n\n## A takeaway\n\nx\n`), 'structure').score < 100);
+    assert.ok(cat(card(`${FM}<!-- @meta{layout=content} -->\n\n## A takeaway\n\nx\n`), 'structure').score < 100);
   });
 
   test('label titles drop Writing craft', () => {
-    const labels = `${FM}<!-- _class: title silent -->\n\n# T\n\n---\n\n<!-- _class: content -->\n\n## Overview\n\nx\n`;
+    const labels = `${FM}<!-- @meta{layout=title, class=silent} -->\n\n# T\n\n---\n\n<!-- @meta{layout=content} -->\n\n## Overview\n\nx\n`;
     assert.ok(cat(card(labels), 'craftProse').score < 100);
   });
 
   test('Data is N/A (not a free A) on a deck with no data slides', () => {
-    const noData = `${FM}<!-- _class: title silent -->\n\n# T\n\n---\n\n<!-- _class: content -->\n\n## A takeaway\n\nbody\n`;
+    const noData = `${FM}<!-- @meta{layout=title, class=silent} -->\n\n# T\n\n---\n\n<!-- @meta{layout=content} -->\n\n## A takeaway\n\nbody\n`;
     const d = cat(card(noData), 'data');
     assert.equal(d.na, true);
     assert.equal(d.score, null);
   });
 
   test('Data IS scored when the deck has a data slide', () => {
-    const withData = `${FM}<!-- _class: kpi -->\n\n## Metrics\n\n1. 18%\n`;
+    const withData = `${FM}<!-- @meta{layout=kpi} -->\n\n## Metrics\n\n1. 18%\n`;
     assert.equal(cat(card(withData), 'data').na, undefined);
   });
 
@@ -136,12 +136,12 @@ describe('scorecard: scoreDeck — the Craft / Style split', () => {
   test('the density penalty is CAPPED and cannot floor a category (the saturation bug)', () => {
     // Every content slide a wall of text. Under the old uncapped `-= walls * 12`
     // this floored Clarity to 0 and dragged a defect-free deck to a C+.
-    let deck = `${FM_BOARD}<!-- _class: title -->\n\n# A real deck title\n\nA framing line.\n`;
+    let deck = `${FM_BOARD}<!-- @meta{layout=title} -->\n\n# A real deck title\n\nA framing line.\n`;
     // Headings deliberately VARIED — an identical opening would trip `monotone-openings`,
     // a real craft defect, and the point of this test is that density alone touches Craft
     // not at all. (It caught exactly that in an earlier draft of this test.)
     const openers = ['Latency', 'Cost', 'Retries', 'Throughput', 'Errors', 'Memory', 'Cache'];
-    for (let i = 0; i < 14; i++) deck += `\n---\n\n<!-- _class: content -->\n\n## ${openers[i % openers.length]} ${i} moved after the change\n\n${'word '.repeat(120)}\n`;
+    for (let i = 0; i < 14; i++) deck += `\n---\n\n<!-- @meta{layout=content} -->\n\n## ${openers[i % openers.length]} ${i} moved after the change\n\n${'word '.repeat(120)}\n`;
     const c = card(deck);
     assert.ok(cat(c, 'brevity').score > 0, 'brevity must never floor to 0');
     // Craft must be INVARIANT to density. Compare against the byte-identical deck with
@@ -152,9 +152,9 @@ describe('scorecard: scoreDeck — the Craft / Style split', () => {
   });
 
   test('CRAFT is profile-blind: the same deck scores the same craft under every profile', () => {
-    let body = `<!-- _class: title -->\n\n# A real deck title\n\nA framing line.\n`;
+    let body = `<!-- @meta{layout=title} -->\n\n# A real deck title\n\nA framing line.\n`;
     const heads = ['Latency fell', 'Cost held flat', 'Retries dropped', 'Throughput rose', 'Errors cleared', 'Memory settled'];
-    for (let i = 0; i < 6; i++) body += `\n---\n\n<!-- _class: content -->\n\n## ${heads[i]} after the change\n\n${'word '.repeat(90)}\n`;
+    for (let i = 0; i < 6; i++) body += `\n---\n\n<!-- @meta{layout=content} -->\n\n## ${heads[i]} after the change\n\n${'word '.repeat(90)}\n`;
     const scores = Object.keys(PROFILES).map((k) => card(`---\nmarp: true\nprofile: ${k}\n---\n\n${body}`));
     const craft = new Set(scores.map((c) => c.craft.score));
     assert.equal(craft.size, 1, `craft moved across profiles: ${[...craft].join(', ')}`);
@@ -163,7 +163,7 @@ describe('scorecard: scoreDeck — the Craft / Style split', () => {
   });
 
   test('a profile is a different bar, never a lower one — teaching still fails real craft defects', () => {
-    const stubs = `---\nmarp: true\nprofile: teaching\n---\n\n<!-- _class: content -->\n\n## Overview\n\n---\n\n<!-- _class: content -->\n\n## Overview\n`;
+    const stubs = `---\nmarp: true\nprofile: teaching\n---\n\n<!-- @meta{layout=content} -->\n\n## Overview\n\n---\n\n<!-- @meta{layout=content} -->\n\n## Overview\n`;
     const c = card(stubs);
     assert.ok(c.craft.score < 90, `expected craft to catch stubs+duplicates under teaching, got ${c.craft.score}`);
   });
@@ -183,8 +183,8 @@ describe('scorecard: scoreDeck — the Craft / Style split', () => {
   // scorecard's, so if the two resolved different genres the two would disagree here.
   test('review-core and scorecard cannot disagree about the profile', () => {
     const long = (p) => {
-      let d = `---\nmarp: true\n${p ? `profile: ${p}\n` : ''}---\n\n<!-- _class: title -->\n\n# A deck\n\nA framing line.\n`;
-      for (let i = 0; i < 11; i++) d += `\n---\n\n<!-- _class: content -->\n\n## Point ${i} stands alone\n\nbody\n`;
+      let d = `---\nmarp: true\n${p ? `profile: ${p}\n` : ''}---\n\n<!-- @meta{layout=title} -->\n\n# A deck\n\nA framing line.\n`;
+      for (let i = 0; i < 11; i++) d += `\n---\n\n<!-- @meta{layout=content} -->\n\n## Point ${i} stands alone\n\nbody\n`;
       return d;
     };
     // The rule ALWAYS fires and always deducts; the profile scales how hard. It used to
@@ -218,9 +218,9 @@ describe('scorecard: scoreDeck — the Craft / Style split', () => {
   // nothing verifies and that change no render, no export and no gate.
   test('no profile may render a Style category constant', () => {
     const withAsk = (p, ask) => {
-      let d = `---\nmarp: true\nprofile: ${p}\n---\n\n<!-- _class: title -->\n\n# Lesson one\n\nA framing line.\n`;
-      for (let i = 0; i < 11; i++) d += `\n---\n\n<!-- _class: content -->\n\n## Step ${i} builds on the last\n\nbody here\n`;
-      if (ask) d += '\n---\n\n<!-- _class: decision -->\n\n## Approve the pilot by Friday\n\nthe ask\n';
+      let d = `---\nmarp: true\nprofile: ${p}\n---\n\n<!-- @meta{layout=title} -->\n\n# Lesson one\n\nA framing line.\n`;
+      for (let i = 0; i < 11; i++) d += `\n---\n\n<!-- @meta{layout=content} -->\n\n## Step ${i} builds on the last\n\nbody here\n`;
+      if (ask) d += '\n---\n\n<!-- @meta{layout=decision} -->\n\n## Approve the pilot by Friday\n\nthe ask\n';
       return d;
     };
     for (const p of Object.keys(PROFILES)) {
@@ -234,8 +234,8 @@ describe('scorecard: scoreDeck — the Craft / Style split', () => {
   });
 
   test('the genre rules stay VISIBLE as advice, and still deduct — less', () => {
-    let deck = `---\nmarp: true\nprofile: teaching\n---\n\n<!-- _class: title -->\n\n# Lesson one\n\nA framing line.\n`;
-    for (let i = 0; i < 11; i++) deck += `\n---\n\n<!-- _class: content -->\n\n## Step ${i} builds on the last\n\nbody\n`;
+    let deck = `---\nmarp: true\nprofile: teaching\n---\n\n<!-- @meta{layout=title} -->\n\n# Lesson one\n\nA framing line.\n`;
+    for (let i = 0; i < 11; i++) deck += `\n---\n\n<!-- @meta{layout=content} -->\n\n## Step ${i} builds on the last\n\nbody\n`;
     const findings = reviewText(deck, { bucketOf });
     assert.ok(findings.some((f) => f.rule === 'no-ask'), 'no-ask must still be surfaced');
     assert.ok(findings.some((f) => f.rule === 'agenda-missing'), 'agenda-missing must still be surfaced');
@@ -264,31 +264,31 @@ describe('scorecard: every penalty term actually deducts', () => {
   const slides = (...body) => FM_G + body.join('\n---\n\n');
 
   const CASES = [
-    ['wall-of-text', 'brevity', slides(`<!-- _class: content -->\n\n## A real takeaway lands\n\n${'word '.repeat(120)}\n`)],
-    ['long-heading', 'brevity', slides(`<!-- _class: content -->\n\n## ${'word '.repeat(20)}\n\nbody\n`)],
-    ['density-overflow', 'brevity', slides(`<!-- _class: cards-grid -->\n\n## A real takeaway lands\n\n- ${'item '.repeat(14)}\n`)],
-    ['verbose-eyebrow', 'brevity', slides(`<!-- _class: content -->\n\n\`${'eyebrow '.repeat(14)}\`\n\n## A real takeaway lands\n\nbody\n`)],
-    ['label-title', 'craftProse', slides('<!-- _class: content -->\n\n## Overview\n\nbody\n')],
-    ['image-no-alt', 'craftProse', slides('<!-- _class: content -->\n\n## A real takeaway lands\n\n![](x.png)\n')],
-    ['possessive-stacking', 'craftProse', slides("<!-- _class: content -->\n\n## A real takeaway lands\n\nThe system's policy's enforcement is slow.\n")],
-    ['duplicate-heading', 'structure', slides('<!-- _class: content -->\n\n## Results here\n\nx\n', '<!-- _class: content -->\n\n## Results here\n\ny\n')],
-    ['title-incomplete', 'structure', slides('<!-- _class: title -->\n\n# Title\n')],
-    ['metric-no-referent', 'data', slides('<!-- _class: big-number -->\n\n# 4.2M\n\nrevenue\n')],
-    ['chart-no-takeaway', 'data', slides('<!-- _class: kpi -->\n\n## Metrics\n\n1. 18%\n')],
+    ['wall-of-text', 'brevity', slides(`<!-- @meta{layout=content} -->\n\n## A real takeaway lands\n\n${'word '.repeat(120)}\n`)],
+    ['long-heading', 'brevity', slides(`<!-- @meta{layout=content} -->\n\n## ${'word '.repeat(20)}\n\nbody\n`)],
+    ['density-overflow', 'brevity', slides(`<!-- @meta{layout=cards-grid} -->\n\n## A real takeaway lands\n\n- ${'item '.repeat(14)}\n`)],
+    ['verbose-eyebrow', 'brevity', slides(`<!-- @meta{layout=content} -->\n\n\`${'eyebrow '.repeat(14)}\`\n\n## A real takeaway lands\n\nbody\n`)],
+    ['label-title', 'craftProse', slides('<!-- @meta{layout=content} -->\n\n## Overview\n\nbody\n')],
+    ['image-no-alt', 'craftProse', slides('<!-- @meta{layout=content} -->\n\n## A real takeaway lands\n\n![](x.png)\n')],
+    ['possessive-stacking', 'craftProse', slides("<!-- @meta{layout=content} -->\n\n## A real takeaway lands\n\nThe system's policy's enforcement is slow.\n")],
+    ['duplicate-heading', 'structure', slides('<!-- @meta{layout=content} -->\n\n## Results here\n\nx\n', '<!-- @meta{layout=content} -->\n\n## Results here\n\ny\n')],
+    ['title-incomplete', 'structure', slides('<!-- @meta{layout=title} -->\n\n# Title\n')],
+    ['metric-no-referent', 'data', slides('<!-- @meta{layout=big-number} -->\n\n# 4.2M\n\nrevenue\n')],
+    ['chart-no-takeaway', 'data', slides('<!-- @meta{layout=kpi} -->\n\n## Metrics\n\n1. 18%\n')],
     // The three below were MISSING, and a mutation pass proved it: deleting the
     // `stub-slide`, `monotone-openings` or `density-crowd` term left the FULL suite green.
     // `density-crowd` is the sharpest — it fires on 43% of the corpus and the changelog
     // announces it as newly counting, the same shape as the `verbose` family that a
     // previous pass caught being announced without being read.
-    ['stub-slide', 'structure', slides('<!-- _class: content -->\n\n## A real takeaway lands\n', '<!-- _class: content -->\n\n## Another point entirely\n\nbody\n')],
+    ['stub-slide', 'structure', slides('<!-- @meta{layout=content} -->\n\n## A real takeaway lands\n', '<!-- @meta{layout=content} -->\n\n## Another point entirely\n\nbody\n')],
     ['monotone-openings', 'craftProse', slides(
-      '<!-- _class: content -->\n\n## How we grew revenue\n\nbody\n',
-      '<!-- _class: content -->\n\n## How we cut latency\n\nbody\n',
-      '<!-- _class: content -->\n\n## How we hired faster\n\nbody\n',
+      '<!-- @meta{layout=content} -->\n\n## How we grew revenue\n\nbody\n',
+      '<!-- @meta{layout=content} -->\n\n## How we cut latency\n\nbody\n',
+      '<!-- @meta{layout=content} -->\n\n## How we hired faster\n\nbody\n',
     )],
     // 7 words in the worst element: past the soft 6, inside the hard 8 — `density-crowd`.
     // (Past 8 it becomes `density-overflow`, which the row above already covers.)
-    ['density-crowd', 'brevity', slides('<!-- _class: cards-grid -->\n\n## A real takeaway lands\n\n- one two three four five six seven\n')],
+    ['density-crowd', 'brevity', slides('<!-- @meta{layout=cards-grid} -->\n\n## A real takeaway lands\n\n- one two three four five six seven\n')],
   ];
 
   // DIFFERENTIAL, not `< 100`. Scoring the same deck twice — once with every finding,
@@ -307,8 +307,8 @@ describe('scorecard: every penalty term actually deducts', () => {
   }
 
   test('no-ask and agenda-missing each deduct from framing', () => {
-    let deck = `${FM_G}<!-- _class: title -->\n\n# A deck\n\nA framing line.\n`;
-    for (let i = 0; i < 11; i++) deck += `\n---\n\n<!-- _class: content -->\n\n## Point ${i} stands alone\n\nbody\n`;
+    let deck = `${FM_G}<!-- @meta{layout=title} -->\n\n# A deck\n\nA framing line.\n`;
+    for (let i = 0; i < 11; i++) deck += `\n---\n\n<!-- @meta{layout=content} -->\n\n## Point ${i} stands alone\n\nbody\n`;
     const findings = reviewText(deck, { bucketOf });
     assert.ok(findings.some((f) => f.rule === 'no-ask'));
     assert.ok(findings.some((f) => f.rule === 'agenda-missing'));
@@ -317,7 +317,7 @@ describe('scorecard: every penalty term actually deducts', () => {
   });
 
   test('lint errors AND warnings each deduct from contract', () => {
-    const clean = `${FM_G}<!-- _class: title -->\n\n# A deck\n\nA framing line.\n`;
+    const clean = `${FM_G}<!-- @meta{layout=title} -->\n\n# A deck\n\nA framing line.\n`;
     const errs = card(clean, [{ rule: 'x', severity: 'error' }]);
     const warns = card(clean, [{ rule: 'x', severity: 'warning' }]);
     assert.ok(cat(errs, 'contract').score < 100, 'an error must deduct');
@@ -345,7 +345,7 @@ describe('scorecard: every penalty term actually deducts', () => {
   // uncapped linear shape §2.1 exists to condemn. Ordinal assertions cannot see magnitude
   // and cannot see saturation, so this pins both.
   test('contract discriminates across draft states — it is not a corpus constant', () => {
-    const clean = `${FM_G}<!-- _class: title -->\n\n# A deck\n\nA framing line.\n`;
+    const clean = `${FM_G}<!-- @meta{layout=title} -->\n\n# A deck\n\nA framing line.\n`;
     const at = (e, w) => cat(card(clean, [
       ...Array.from({ length: e }, () => ({ rule: 'e', severity: 'error' })),
       ...Array.from({ length: w }, () => ({ rule: 'w', severity: 'warning' })),
@@ -391,8 +391,8 @@ describe('scorecard: every penalty term actually deducts', () => {
   // that genuinely overrun their prose budget, however many of them there are.
   test('no pile of cosmetic nits can outrank a deck of walls of text', () => {
     const build = (body) => {
-      let d = `${FM_G}<!-- _class: title -->\n\n# A deck\n\nA framing line.\n`;
-      for (let i = 0; i < 12; i++) d += `\n---\n\n<!-- _class: content -->\n\n${body(i)}`;
+      let d = `${FM_G}<!-- @meta{layout=title} -->\n\n# A deck\n\nA framing line.\n`;
+      for (let i = 0; i < 12; i++) d += `\n---\n\n<!-- @meta{layout=content} -->\n\n${body(i)}`;
       return d;
     };
     const nits = build((i) => `\`${'eyebrow '.repeat(14)}\`\n\n## ${'word '.repeat(16)}${i}\n\n- ${'item '.repeat(12)}\n\n${'word '.repeat(30)}\n`);
@@ -406,12 +406,12 @@ describe('scorecard: every penalty term actually deducts', () => {
   // cannot reach them — and a mutation pass proved the `-15` could be deleted with the
   // whole suite green. Asserted by shape instead: same deck, closing slide present vs absent.
   test('the fixed structure penalties deduct — no title, and no closing', () => {
-    const body = ['<!-- _class: content -->\n\n## Revenue held at plan\n\nbody here\n',
-      '<!-- _class: content -->\n\n## Latency came down\n\nbody here\n',
-      '<!-- _class: content -->\n\n## Hiring caught up\n\nbody here\n'];
+    const body = ['<!-- @meta{layout=content} -->\n\n## Revenue held at plan\n\nbody here\n',
+      '<!-- @meta{layout=content} -->\n\n## Latency came down\n\nbody here\n',
+      '<!-- @meta{layout=content} -->\n\n## Hiring caught up\n\nbody here\n'];
     const deck = (parts) => FM_G + parts.join('\n---\n\n');
-    const TITLE = '<!-- _class: title -->\n\n# A deck\n\nA framing line.\n';
-    const CLOSE = '<!-- _class: closing -->\n\n## Approve by Friday\n\nthe ask\n';
+    const TITLE = '<!-- @meta{layout=title} -->\n\n# A deck\n\nA framing line.\n';
+    const CLOSE = '<!-- @meta{layout=closing} -->\n\n## Approve by Friday\n\nthe ask\n';
     const withClose = cat(card(deck([TITLE, ...body, CLOSE])), 'structure').score;
     const noClose = cat(card(deck([TITLE, ...body])), 'structure').score;
     assert.ok(noClose < withClose, `a missing closing slide must deduct (${withClose} -> ${noClose})`);
@@ -434,8 +434,8 @@ describe('scorecard: every penalty term actually deducts', () => {
     // old ceilings were 25 (no title) + 15 (no closing) + 34 (stubs) + 26 (duplicates) =
     // exactly 100. A stub-only fixture tops out around 26 and would certify a clamping
     // scorer as safe — which the first version of this test did.
-    const worst = (n) => many(n, () => '<!-- _class: content -->\n\n## Results here\n');
-    const labelsOnly = (n) => many(n, () => '<!-- _class: content -->\n\n## Overview\n\nbody\n');
+    const worst = (n) => many(n, () => '<!-- @meta{layout=content} -->\n\n## Results here\n');
+    const labelsOnly = (n) => many(n, () => '<!-- @meta{layout=content} -->\n\n## Overview\n\nbody\n');
     for (const n of [50, 200, 800]) {
       const c = card(worst(n));
       const st = cat(c, 'structure').score;
@@ -463,7 +463,7 @@ describe('scorecard: every penalty term actually deducts', () => {
   // long it runs — which is correct, it is one cadence — so the fixture below uses two
   // separate cadences to produce two.
   test('monotone-openings scales with the number of distinct droning openings', () => {
-    const slide = (h) => `<!-- _class: content -->\n\n## ${h}\n\nsome body text here\n`;
+    const slide = (h) => `<!-- @meta{layout=content} -->\n\n## ${h}\n\nsome body text here\n`;
     const cadence = (stem, tags) => tags.map((t) => slide(`${stem} ${t}`));
     const one = cadence('How we', ['grew revenue', 'cut latency', 'hired faster']);
     const two = cadence('Why we', ['chose Postgres', 'left the cloud', 'froze hiring']);
@@ -487,7 +487,7 @@ describe('scorecard: every penalty term actually deducts', () => {
 
   // The summary is rendered directly above the findings list; it must not contradict it.
   test('a half never reports "no issues found" while a category deducted', () => {
-    const src = slides(`<!-- _class: content -->\n\n## ${'word '.repeat(20)}\n\nbody\n`);
+    const src = slides(`<!-- @meta{layout=content} -->\n\n## ${'word '.repeat(20)}\n\nbody\n`);
     const c = card(src);
     for (const half of ['craft', 'style']) {
       const deducted = c.categories.some((x) => x.half === half && !x.na && x.score < 100);
@@ -542,8 +542,8 @@ describe('deck-profiles: declared-only resolution', () => {
     const cat = (c, key) => c.categories.find((x) => x.key === key);
     const FM_G = '---\nmarp: true\nprofile: general\n---\n\n';
     const walls = (() => {
-      let d = '<!-- _class: title -->\n\n# A deck\n\nA framing line.\n';
-      for (let i = 0; i < 12; i++) d += `\n---\n\n<!-- _class: content -->\n\n## Point ${i} lands\n\n${'word '.repeat(220)}\n`;
+      let d = '<!-- @meta{layout=title} -->\n\n# A deck\n\nA framing line.\n';
+      for (let i = 0; i < 12; i++) d += `\n---\n\n<!-- @meta{layout=content} -->\n\n## Point ${i} lands\n\n${'word '.repeat(220)}\n`;
       return d;
     })();
     const fm = (name) => `---\nmarp: true\nprofile: ${name}\n---\n\n${walls}`;
@@ -566,7 +566,7 @@ describe('deck-profiles: declared-only resolution', () => {
   test('a prototype name is rejected as a profile OVERRIDE too', () => {
     // Deliberately declares NOTHING, so a resolved override would show as origin 'override'
     // and an ignored one falls through to 'default' — the two are distinguishable here.
-    const src = '---\nmarp: true\n---\n\n<!-- _class: title -->\n\n# A deck\n\nA framing line.\n';
+    const src = '---\nmarp: true\n---\n\n<!-- @meta{layout=title} -->\n\n# A deck\n\nA framing line.\n';
     assert.equal(resolveProfile({ source: src }).origin, 'default', 'the fixture must declare no profile');
     for (const name of ['__proto__', 'constructor', 'valueOf']) {
       const r = resolveProfile({ source: src, override: name });
@@ -623,7 +623,7 @@ describe('deck-profiles: declared-only resolution', () => {
     test('preserves the body byte-for-byte, with a BOM and with CRLF', () => {
       for (const bom of ['', '\ufeff']) {
         for (const eol of ['\n', '\r\n']) {
-          const body = `<!-- _class: title -->${eol}${eol}# Title${eol}${eol}Body text${eol}`;
+          const body = `<!-- @meta{layout=title} -->${eol}${eol}# Title${eol}${eol}Body text${eol}`;
           const src = `${bom}---${eol}marp: true${eol}---${eol}${eol}${body}`;
           const out = withProfile(src, 'teaching');
           const tag = `bom=${bom ? 'Y' : 'N'} eol=${JSON.stringify(eol)}`;
@@ -647,7 +647,7 @@ describe('deck-profiles: declared-only resolution', () => {
     // into the deck as a spurious extra slide.
     test('handles degenerate front matter without mangling the deck', () => {
       for (const inner of ['', '-', '--', '---', '# not a key']) {
-        const body = '<!-- _class: title -->\n\n# Deck\n';
+        const body = '<!-- @meta{layout=title} -->\n\n# Deck\n';
         const out = withProfile(`---\n${inner}\n---\n\n${body}`, 'teaching');
         assert.equal(declaredProfile(out), 'teaching', `inner=${JSON.stringify(inner)}: must read back cleanly`);
         assert.equal(resolveProfile({ source: out }).declaredInvalid, null, `inner=${JSON.stringify(inner)}: must not write a declaration it then calls invalid`);
@@ -679,7 +679,7 @@ describe('deck-profiles: declared-only resolution', () => {
     });
 
     test('round-trips every real profile, and the scorer agrees', () => {
-      const src = '---\nmarp: true\n---\n\n<!-- _class: title -->\n\n# A deck\n\nA framing line.\n';
+      const src = '---\nmarp: true\n---\n\n<!-- @meta{layout=title} -->\n\n# A deck\n\nA framing line.\n';
       for (const key of Object.keys(PROFILES)) {
         assert.equal(round(src, key), key);
         assert.equal(resolveProfile({ source: withProfile(src, key) }).origin, 'declared');
@@ -731,7 +731,7 @@ describe('deck-profiles: declared-only resolution', () => {
   test('there is no inference — a genre is never guessed from component vocabulary', () => {
     const profiles = require('../../../lib/authoring/deck-profiles');
     assert.equal(profiles.inferProfile, undefined, 'inference must stay removed');
-    const quoteAndMetric = `${FM}<!-- _class: quote -->\n\n## A voice\n\n> x\n\n---\n\n<!-- _class: kpi -->\n\n## It grew\n\n1. 9%\n`;
+    const quoteAndMetric = `${FM}<!-- @meta{layout=quote} -->\n\n## A voice\n\n> x\n\n---\n\n<!-- @meta{layout=kpi} -->\n\n## It grew\n\n1. 9%\n`;
     assert.equal(resolveProfile({ source: quoteAndMetric }).key, 'general');
   });
 
@@ -757,49 +757,49 @@ describe('deck-profiles: declared-only resolution', () => {
 // property worth noticing: if a future edit loosens `general`, these start failing.
 describe('review-core: editorial + structural heuristics', () => {
   test('flags an over-long heading', () => {
-    const f = reviewText(`${FM}<!-- _class: content -->\n\n## ${'word '.repeat(16)}\n\nbody\n`, { bucketOf });
+    const f = reviewText(`${FM}<!-- @meta{layout=content} -->\n\n## ${'word '.repeat(16)}\n\nbody\n`, { bucketOf });
     assert.ok(ruleOf(f, 'long-heading'));
   });
 
   test('flags a stub slide (heading, no body) but spares anchors', () => {
-    assert.ok(ruleOf(reviewText(`${FM}<!-- _class: content -->\n\n## A real takeaway\n`, { bucketOf }), 'stub-slide'));
-    assert.equal(ruleOf(reviewText(`${FM}<!-- _class: closing -->\n\n## Thanks\n`, { bucketOf }), 'stub-slide'), undefined);
+    assert.ok(ruleOf(reviewText(`${FM}<!-- @meta{layout=content} -->\n\n## A real takeaway\n`, { bucketOf }), 'stub-slide'));
+    assert.equal(ruleOf(reviewText(`${FM}<!-- @meta{layout=closing} -->\n\n## Thanks\n`, { bucketOf }), 'stub-slide'), undefined);
   });
 
   test('flags a hero number with no referent, spares one with a comparison', () => {
-    assert.ok(ruleOf(reviewText(`${FM}<!-- _class: big-number -->\n\n# 4.2M\n\nrevenue\n`, { bucketOf }), 'metric-no-referent'));
-    assert.equal(ruleOf(reviewText(`${FM}<!-- _class: big-number -->\n\n# 4.2M\n\nup from 3.1M\n`, { bucketOf }), 'metric-no-referent'), undefined);
+    assert.ok(ruleOf(reviewText(`${FM}<!-- @meta{layout=big-number} -->\n\n# 4.2M\n\nrevenue\n`, { bucketOf }), 'metric-no-referent'));
+    assert.equal(ruleOf(reviewText(`${FM}<!-- @meta{layout=big-number} -->\n\n# 4.2M\n\nup from 3.1M\n`, { bucketOf }), 'metric-no-referent'), undefined);
   });
 
   test('flags an image with empty alt text', () => {
-    assert.ok(ruleOf(reviewText(`${FM}<!-- _class: content -->\n\n## Pic\n\n![](x.png)\n`, { bucketOf }), 'image-no-alt'));
+    assert.ok(ruleOf(reviewText(`${FM}<!-- @meta{layout=content} -->\n\n## Pic\n\n![](x.png)\n`, { bucketOf }), 'image-no-alt'));
   });
 
   test('flags stacked possessives (editorial speak-first)', () => {
-    const f = reviewText(`${FM}<!-- _class: content -->\n\n## A takeaway\n\nThe system's policy's enforcement is slow.\n`, { bucketOf });
+    const f = reviewText(`${FM}<!-- @meta{layout=content} -->\n\n## A takeaway\n\nThe system's policy's enforcement is slow.\n`, { bucketOf });
     assert.ok(ruleOf(f, 'possessive-stacking'));
   });
 
   test('flags duplicate headings across slides', () => {
-    const dup = `${FM}<!-- _class: content -->\n\n## Results\n\nx\n\n---\n\n<!-- _class: content -->\n\n## Results\n\ny\n`;
+    const dup = `${FM}<!-- @meta{layout=content} -->\n\n## Results\n\nx\n\n---\n\n<!-- @meta{layout=content} -->\n\n## Results\n\ny\n`;
     assert.ok(ruleOf(reviewText(dup, { bucketOf }), 'duplicate-heading'));
   });
 
   test('flags monotone heading cadence (3+ same opening)', () => {
     const mono = `${FM}` + ['How we win', 'How we scale', 'How we ship']
-      .map((h) => `<!-- _class: content -->\n\n## ${h}\n\nx\n`).join('\n---\n\n');
+      .map((h) => `<!-- @meta{layout=content} -->\n\n## ${h}\n\nx\n`).join('\n---\n\n');
     assert.ok(ruleOf(reviewText(mono, { bucketOf }), 'monotone-openings'));
   });
 
   test('flags a long deck with no agenda', () => {
-    const long = `${FM}` + Array.from({ length: 11 }, (_, i) => `<!-- _class: content -->\n\n## Point ${i} stands alone\n\nbody\n`).join('\n---\n\n');
+    const long = `${FM}` + Array.from({ length: 11 }, (_, i) => `<!-- @meta{layout=content} -->\n\n## Point ${i} stands alone\n\nbody\n`).join('\n---\n\n');
     assert.ok(ruleOf(reviewText(long, { bucketOf }), 'agenda-missing'));
   });
 
   test('flags a placeholder or subtitle-less title, spares a complete one', () => {
-    assert.ok(ruleOf(reviewText(`${FM}<!-- _class: title -->\n\n# Title\n`, { bucketOf }), 'title-incomplete')); // placeholder
-    assert.ok(ruleOf(reviewText(`${FM}<!-- _class: title -->\n\n# Our real title\n`, { bucketOf }), 'title-incomplete')); // no subtitle
-    assert.equal(ruleOf(reviewText(`${FM}<!-- _class: title -->\n\n\`eyebrow\`\n\n# Our real title\n\nA framing subtitle line.\n`, { bucketOf }), 'title-incomplete'), undefined);
+    assert.ok(ruleOf(reviewText(`${FM}<!-- @meta{layout=title} -->\n\n# Title\n`, { bucketOf }), 'title-incomplete')); // placeholder
+    assert.ok(ruleOf(reviewText(`${FM}<!-- @meta{layout=title} -->\n\n# Our real title\n`, { bucketOf }), 'title-incomplete')); // no subtitle
+    assert.equal(ruleOf(reviewText(`${FM}<!-- @meta{layout=title} -->\n\n\`eyebrow\`\n\n# Our real title\n\nA framing subtitle line.\n`, { bucketOf }), 'title-incomplete'), undefined);
   });
 });
 
@@ -811,28 +811,28 @@ describe('review-core: prose-density budgets (2026-06-30)', () => {
 
   test('flags a per-element body over the density ceiling', () => {
     const body = `word `.repeat(30);
-    const deck = `${FM}<!-- _class: cards-grid -->\n\n## A tidy title.\n\n- Alpha\n  - ${body}\n- Beta\n  - short\n`;
+    const deck = `${FM}<!-- @meta{layout=cards-grid} -->\n\n## A tidy title.\n\n- Alpha\n  - ${body}\n- Beta\n  - short\n`;
     const f = reviewText(deck, { bucketOf, densityOf });
     assert.ok(ruleOf(f, 'density-overflow'));
   });
 
   test('flags a crowded (soft) element without overflowing', () => {
     const body = `word `.repeat(18); // > soft 15, ≤ hard 24
-    const deck = `${FM}<!-- _class: cards-grid -->\n\n## A tidy title.\n\n- Alpha\n  - ${body}\n`;
+    const deck = `${FM}<!-- @meta{layout=cards-grid} -->\n\n## A tidy title.\n\n- Alpha\n  - ${body}\n`;
     const f = reviewText(deck, { bucketOf, densityOf });
     assert.ok(ruleOf(f, 'density-crowd'));
     assert.equal(ruleOf(f, 'density-overflow'), undefined);
   });
 
   test('stays silent when elements are within budget', () => {
-    const deck = `${FM}<!-- _class: cards-grid -->\n\n## A tidy title.\n\n- Alpha\n  - a short clause body\n- Beta\n  - another short body\n`;
+    const deck = `${FM}<!-- @meta{layout=cards-grid} -->\n\n## A tidy title.\n\n- Alpha\n  - a short clause body\n- Beta\n  - another short body\n`;
     const f = reviewText(deck, { bucketOf, densityOf });
     assert.equal(ruleOf(f, 'density-crowd'), undefined);
     assert.equal(ruleOf(f, 'density-overflow'), undefined);
   });
 
   test('costs nothing for a component with no density block', () => {
-    const deck = `${FM}<!-- _class: content -->\n\n## Title.\n\n- ${'word '.repeat(40)}\n`;
+    const deck = `${FM}<!-- @meta{layout=content} -->\n\n## Title.\n\n- ${'word '.repeat(40)}\n`;
     const f = reviewText(deck, { bucketOf, densityOf });
     assert.equal(ruleOf(f, 'density-overflow'), undefined);
   });
@@ -840,14 +840,14 @@ describe('review-core: prose-density budgets (2026-06-30)', () => {
   test('flags an over-budget eyebrow and key-insight (universal chrome)', () => {
     const eyebrow = '`' + 'word '.repeat(10).trim() + '`';
     const ki = `> ${'word '.repeat(30).trim()}`;
-    const deck = `${FM}<!-- _class: content -->\n\n${eyebrow}\n\n## A tidy title.\n\n${ki}\n`;
+    const deck = `${FM}<!-- @meta{layout=content} -->\n\n${eyebrow}\n\n## A tidy title.\n\n${ki}\n`;
     const f = reviewText(deck, { bucketOf });
     assert.ok(ruleOf(f, 'verbose-eyebrow'));
     assert.ok(ruleOf(f, 'verbose-key-insight'));
   });
 
   test('long-heading still owns the slide title (no double-fire with verbose-title)', () => {
-    const f = reviewText(`${FM_BOARD}<!-- _class: content -->\n\n## ${'word '.repeat(16)}\n\nbody\n`, { bucketOf });
+    const f = reviewText(`${FM_BOARD}<!-- @meta{layout=content} -->\n\n## ${'word '.repeat(16)}\n\nbody\n`, { bucketOf });
     assert.ok(ruleOf(f, 'long-heading'));
     assert.equal(ruleOf(f, 'verbose-title'), undefined);
   });
@@ -920,7 +920,7 @@ describe('review-core — defects found by running the shipped checker', () => {
 	test('a density finding names the element that is over budget', () => {
 		const deck =
 			FM +
-			'<!-- _class: cards-stack -->\n\n' +
+			'<!-- @meta{layout=cards-stack} -->\n\n' +
 			'## Migration carries more risk than the status quo.\n\n' +
 			'- Lift and shift\n' +
 			'  - This option moves every service as it stands today without rewriting anything ' +
@@ -943,7 +943,7 @@ describe('review-core — defects found by running the shipped checker', () => {
 	test('an overflow finding names its element too', () => {
 		const deck =
 			FM +
-			'<!-- _class: cards-stack -->\n\n## A claim.\n\n' +
+			'<!-- @meta{layout=cards-stack} -->\n\n## A claim.\n\n' +
 			'- The card that overflows\n  - ' +
 			'one two three four five six seven eight nine ten eleven twelve thirteen fourteen\n' +
 			'- Short\n  - Fine.\n';
@@ -958,7 +958,7 @@ describe('review-core — defects found by running the shipped checker', () => {
 	test('the density fix reads as a sentence', () => {
 		const deck =
 			FM +
-			'<!-- _class: cards-stack -->\n\n## A claim.\n\n- Card\n  - ' +
+			'<!-- @meta{layout=cards-stack} -->\n\n## A claim.\n\n- Card\n  - ' +
 			'one two three four five six seven eight nine ten eleven twelve\n';
 		const [finding] = reviewText(deck, {
 			bucketOf: () => 'inventory',

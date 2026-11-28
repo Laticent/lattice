@@ -41,7 +41,7 @@ const WORDS = ['Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo', 'Foxtrot'];
 function deck(dark) {
 	const slides = [];
 	STYLES.forEach((style, i) => {
-		const slide = (cls, body) => slides.push([`<!-- _class: ${[cls, style].filter(Boolean).join(' ')} -->`, '', ...body].join('\n'));
+		const slide = (cls, body) => slides.push([`<!-- @meta{class=${[cls, style].filter(Boolean).join(' ')}} -->`, '', ...body].join('\n'));
 		const row = `| One | ${ANSWERS.map(([m]) => `[${m}]`).join(' | ')} |`;
 		const table = ['| Rule | A | B | C | D | E | F |', '| --- | :-: | :-: | :-: | :-: | :-: | :-: |', row];
 		slide('checklist', [`## Rows ${i}`, '', ...ANSWERS.map(([m], k) => `- [${m}] ${WORDS[k]}Row${i}`)]);

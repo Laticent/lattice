@@ -298,7 +298,7 @@ describe('core: relationship — refusals and reading', () => {
 
   test('the engine\'s own verdict-grid and pricing output carries its criteria', () => {
     for (const cls of ['verdict-grid', 'pricing']) {
-      const { html } = render(`<!-- _class: ${cls} -->\n\n## T\n\n- Build\n  - [x] Residency\n  - [/] Self-serve\n  - Body.\n`);
+      const { html } = render(`<!-- @meta{class=${cls}} -->\n\n## T\n\n- Build\n  - [x] Residency\n  - [/] Self-serve\n  - Body.\n`);
       const first = /<li>[\s\S]*<\/li>/.exec(html.slice(html.indexOf('<ul')))[0];
       assert.deepEqual(criteriaOf(first), ['Residency', 'Self-serve'], cls);
     }

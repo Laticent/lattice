@@ -36,7 +36,7 @@ describe('PluginsSettings', () => {
 	});
 
 	it('says why: listed in the deck, and needed by a slide class', () => {
-		harness('---\nplugins: [math]\n---\n\n<!-- _class: diagram -->\n# Flow\n');
+		harness('---\nplugins: [math]\n---\n\n<!-- @meta{layout=diagram} -->\n# Flow\n');
 		expect(document.querySelector('[data-plugin-row="math"]')?.textContent).toContain('Listed in this deck');
 		expect(document.querySelector('[data-plugin-row="mermaid"]')?.textContent).toContain('Needed by diagram slides');
 		expect(screen.getByRole('checkbox', { name: /List Math in this deck/ }).getAttribute('aria-checked')).toBe('true');

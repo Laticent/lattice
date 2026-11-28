@@ -24,8 +24,8 @@ describe('export: a photo in a plain pane is fitted, not cropped', () => {
 	const TIMEOUT = 240000;
 	const SHAPES = ['wide', 'tall', 'pano', 'square'];
 	const RATIOS = ['ratio-25-75', 'ratio-50-50', 'ratio-75-25'];
-	const slide = (shape, ratio) => `<!-- _class: columns ${ratio} -->\n\n## ${shape} ${ratio}\n\n<!-- _pane: content -->\n\n![](sample:photo-${shape}.jpg)\n\n<!-- _pane: content -->\n\n- Beside text\n- A second point\n`;
-	const DECK = `---\ntheme: indaco\n---\n\n${RATIOS.flatMap((r) => SHAPES.map((s) => slide(s, r))).join('\n---\n\n')}\n---\n\n<!-- _class: columns ratio-50-50 -->\n\n## headed pane\n\n<!-- _pane: content -->\n### A title\n\n![](sample:photo-tall.jpg)\n\n<!-- _pane: content -->\n\n- Beside text\n---\n\n<!-- _class: columns ratio-50-50 -->\n\n## same line\n\n<!-- _pane: content -->\n\nRevenue from ![](sample:logo-acme.svg) grew forty percent in the opening quarter.\n\n<!-- _pane: content -->\n\n- Beside text\n\n---\n\n<!-- _class: columns ratio-50-50 -->\n\n## image pane\n\n<!-- _pane: image -->\n![](sample:photo-tall.jpg)\n\n<!-- _pane: list -->\n### What changes\n\n- The hall opens in May\n`;
+	const slide = (shape, ratio) => `<!-- @meta{class=columns ${ratio}} -->\n\n## ${shape} ${ratio}\n\n<!-- @meta{pane=content} -->\n\n![](sample:photo-${shape}.jpg)\n\n<!-- @meta{pane=content} -->\n\n- Beside text\n- A second point\n`;
+	const DECK = `---\ntheme: indaco\n---\n\n${RATIOS.flatMap((r) => SHAPES.map((s) => slide(s, r))).join('\n---\n\n')}\n---\n\n<!-- @meta{layout=columns, class=ratio-50-50} -->\n\n## headed pane\n\n<!-- @meta{pane=content} -->\n### A title\n\n![](sample:photo-tall.jpg)\n\n<!-- @meta{pane=content} -->\n\n- Beside text\n---\n\n<!-- @meta{layout=columns, class=ratio-50-50} -->\n\n## same line\n\n<!-- @meta{pane=content} -->\n\nRevenue from ![](sample:logo-acme.svg) grew forty percent in the opening quarter.\n\n<!-- @meta{pane=content} -->\n\n- Beside text\n\n---\n\n<!-- @meta{layout=columns, class=ratio-50-50} -->\n\n## image pane\n\n<!-- @meta{pane=image} -->\n![](sample:photo-tall.jpg)\n\n<!-- @meta{pane=list} -->\n### What changes\n\n- The hall opens in May\n`;
 
 	let dir;
 	let browser;

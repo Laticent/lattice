@@ -31,7 +31,7 @@ theme: indaco
 size: square
 ${venue ? `venue: ${venue}\n` : ''}---
 
-<!-- _class: code -->
+<!-- @meta{class=code} -->
 
 ## A filled panel needs more air beneath a filled panel than prose does.
 
@@ -59,7 +59,7 @@ theme: indaco
 size: portrait
 ---
 
-<!-- _class: code -->
+<!-- @meta{class=code} -->
 
 ## One long line.
 

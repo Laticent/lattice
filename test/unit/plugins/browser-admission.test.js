@@ -94,7 +94,7 @@ describe('the engine marks a fence whose plugin the deck did not load', () => {
     const { default: api } = await import('../../../lib/playground/index.js');
     const fm = '---\ntheme: indaco\n---\n';
     const slide2 = '# Two\n\n```mermaid\ngraph LR; A-->B\n```\n';
-    const deck = `${fm}<!-- _class: diagram -->\n\n# One\n\n\`\`\`mermaid\ngraph LR; C-->D\n\`\`\`\n\n---\n\n${slide2}`;
+    const deck = `${fm}<!-- @meta{layout=diagram} -->\n\n# One\n\n\`\`\`mermaid\ngraph LR; C-->D\n\`\`\`\n\n---\n\n${slide2}`;
     try {
       assert.equal(api.pluginAdmission(deck), null, 'nothing to pass on the shipped default set');
       api.setPluginDefaults([]);

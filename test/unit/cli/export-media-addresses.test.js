@@ -34,7 +34,7 @@ test('a relative prose image resolves against the deck folder, not the output fo
 
 test('the photo a bleed or an image slide places is its .lattice-bg panel, the sample resolved', () => {
   for (const cls of ['content bleed', 'image']) {
-    const { html } = exportHtml(`<!-- _class: ${cls} -->\n\n# T\n\n![Pano](sample:photo-pano.jpg)\n`);
+    const { html } = exportHtml(`<!-- @meta{class=${cls}} -->\n\n# T\n\n![Pano](sample:photo-pano.jpg)\n`);
     assert.match(html, /<div class="lattice-bg[^>]*background-image:url\([^)]*photo-pano\.jpg/, cls);
   }
 });

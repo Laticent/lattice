@@ -492,7 +492,7 @@ function withoutClass(line) {
   const parts = t.startsWith('<!--') && t.endsWith('-->') ? recordParts(t.slice(4, -3).trim()) : null;
   if (!parts) return null;
   const kept = parts.items.filter((it) => {
-    const d = readRecord(`{${it.text}}`)?.d || {};
+    const d = readRecord(`@meta{${it.text}}`)?.d || {};
     return !(Object.keys(d).length === 1 && d.class !== undefined);
   });
   return kept.length ? `<!-- ${parts.lead}{${kept.map((it) => it.text).join(', ')}} -->` : null;

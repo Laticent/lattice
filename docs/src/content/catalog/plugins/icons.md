@@ -36,7 +36,7 @@ examples:
     label: Three looks
     caption: The same icon as a solid tile, an outline, or a pale tint.
     sample: |
-      <!-- _class: table table-fill -->
+      <!-- @meta{layout=table, class=table-fill} -->
 
       ## One icon, three looks.
 
@@ -58,7 +58,7 @@ examples:
     label: On a chart
     caption: A flowchart node takes an icon beside its name.
     sample: |
-      <!-- _class: flowchart lr -->
+      <!-- @meta{layout=flowchart, class=lr} -->
 
       ## Uploads reach the warehouse in under a minute.
 

@@ -22,7 +22,7 @@ import { parseDeckMotion } from './anima-host-sel';
 //
 // PLAY IS THE SOLE SWITCH: style/speed tokens are parameters, `no-motion` is the opt-out.
 
-const deck = (fm: string, cls = 'funnel') => `---\nmarp: true\ntheme: indaco\n${fm}---\n\n<!-- _class: ${cls} -->\n\n## F\n\n- A \`1\`\n`;
+const deck = (fm: string, cls = 'funnel') => `---\nmarp: true\ntheme: indaco\n${fm}---\n\n<!-- @meta{class=${cls}} -->\n\n## F\n\n- A \`1\`\n`;
 const rendered = (cls: string) => `<section class="${cls} form chart-frame"><svg><polygon data-anima-role="bar"/></svg></section>`;
 
 describe('deck-level Play agrees with parseDeckMotion', () => {

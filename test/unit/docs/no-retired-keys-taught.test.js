@@ -55,10 +55,6 @@ const SANCTIONED = {
     why: "`form:` is mostly a component manifest's Frame field, the subject of the doc; two mentions (:5, :780) say the deck key is gone",
     keys: { form: 6 },
   },
-  'design/design-principles.md': {
-    why: 'names the `paginate:` slide comment as ignored, with the lint pointing at what to write instead',
-    keys: { paginate: 1 },
-  },
   'design/concepts.md': {
     why: "`form:` here is a component manifest's Frame field, not the retired deck key",
     keys: { form: 1 },

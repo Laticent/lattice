@@ -9,7 +9,7 @@ const assert = require('node:assert/strict');
 const { createEngine } = require('../../../lib/engine');
 const { tlHeight, tlScale } = require('../../../lib/plugins/chart-family/kinds/timeline-list/timeline-list.transform');
 
-const render = (size, body) => String(createEngine().render(`---\ntheme: indaco\nsize: ${size}\n---\n\n<!-- _class: timeline-list -->\n\n## The plan.\n\n${body}`).html);
+const render = (size, body) => String(createEngine().render(`---\ntheme: indaco\nsize: ${size}\n---\n\n<!-- @meta{layout=timeline-list} -->\n\n## The plan.\n\n${body}`).html);
 const spine = (html) => (/<div class="timeline-spine"[^>]*>/.exec(html) || [''])[0];
 
 // gallery-jargon.md's slide, as the estimate reads it, and its spine's height measured in Chromium at each phone shape.

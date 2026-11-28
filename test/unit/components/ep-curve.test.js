@@ -25,7 +25,7 @@ function parity(md) {
   const refs = narrateChartScript(md).refs.filter((x) => x.id && 'mark' in x.id).map((x) => `${x.id.mark}:${x.label}`);
   return { marks, refs, html };
 }
-const deck = (cls, body) => `---\nmarp: true\n---\n\n<!-- _class: ${cls} -->\n\n${body}\n`;
+const deck = (cls, body) => `---\nmarp: true\n---\n\n<!-- @meta{class=${cls}} -->\n\n${body}\n`;
 const { findEpCurveIssues } = require('../../../lib/authoring/lint-core');
 
 const pt = (p) => `<li><code>${p}</code></li>`;
@@ -106,7 +106,7 @@ describe('ep-curve kernel', () => {
 });
 
 describe('ep-curve narration', () => {
-  const slide = ['<!-- _class: ep-curve -->', '', '## A 1-in-100 year costs $410M.', '',
+  const slide = ['<!-- @meta{layout=ep-curve} -->', '', '## A 1-in-100 year costs $410M.', '',
     '- OEP', '  - `{100, $410M}`', '  - `{10, $120M}`', '- AEP', '  - `{10, $150M}`', ''].join('\n');
 
   test('each curve by name and span, then point by point in return-period order', () => {

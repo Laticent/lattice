@@ -15,7 +15,7 @@ theme: indaco
 
 ---
 
-<!-- _class: bar -->
+<!-- @meta{class=bar} -->
 
 ## Bars
 

@@ -32,7 +32,7 @@ examples:
     label: A framed figure
     caption: On an ordinary slide the picture sits among the words. The mat frames it and the title shows beneath.
     sample: |
-      <!-- _class: content -->
+      <!-- @meta{layout=content} -->
 
       ## The lake at dawn, before the first boat.
 
@@ -41,7 +41,7 @@ examples:
     label: The photo panel
     caption: On an `image` slide the record becomes the layout's own photo, here with a nimbus finish.
     sample: |
-      <!-- _class: image -->
+      <!-- @meta{layout=image} -->
 
       ## The record becomes the layout's photo.
 
@@ -52,7 +52,7 @@ examples:
     label: The slide's background
     caption: A `bleed` slide makes the picture its background, with a scrim so the heading stays readable.
     sample: |
-      <!-- _class: content dark bleed -->
+      <!-- @meta{layout=content, class=dark bleed} -->
 
       ## Or the slide's own background.
 
@@ -61,7 +61,7 @@ examples:
     label: A tone in the deck's colors
     caption: Duotone recolors the picture in the theme's own ink, inside a single keyline.
     sample: |
-      <!-- _class: content -->
+      <!-- @meta{layout=content} -->
 
       ## One hairline, and the picture in the accent.
 
@@ -88,7 +88,7 @@ A picture on a slide carries three things: where it comes from, what it shows, a
 Put the record on a line of its own, with a blank line above and below it:
 
 ```markdown
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## The lake at dawn.
 

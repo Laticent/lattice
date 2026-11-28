@@ -3,7 +3,7 @@
 The six answers a criterion can have, drawn as a disc:
 
 ```markdown
-<!-- _class: verdict-grid -->
+<!-- @meta{layout=verdict-grid} -->
 
 - Build in-house
   - [x] Certified

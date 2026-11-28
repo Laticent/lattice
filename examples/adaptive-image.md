@@ -106,4 +106,4 @@ The resolver protects an author who doesn't think about it. Name a composition a
 
 ## One markdown. Five compositions. Both orientations.
 
-`<!-- _class: image -->` + a photo. The layout does the rest.
+`<!-- @meta{layout=image} -->` + a photo. The layout does the rest.

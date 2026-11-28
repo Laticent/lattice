@@ -205,7 +205,7 @@ test("Present's slide overview keeps the authoring signal — those are the auth
 	test.setTimeout(120_000);
 	await gotoStudio(page);
 
-	const overflowing = `---\ntheme: cuoio\n---\n\n<!-- _class: content -->\n\n## Fits\n\n- short\n\n---\n\n<!-- _class: content -->\n\n## Overflows\n\n${Array.from(
+	const overflowing = `---\ntheme: cuoio\n---\n\n<!-- @meta{layout=content} -->\n\n## Fits\n\n- short\n\n---\n\n<!-- @meta{layout=content} -->\n\n## Overflows\n\n${Array.from(
 		{ length: 60 },
 		(_, i) => `- Line ${i} — ${'lorem ipsum dolor sit amet consectetur adipiscing elit '.repeat(3)}`,
 	).join('\n')}\n`;

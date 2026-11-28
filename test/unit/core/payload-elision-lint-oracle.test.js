@@ -41,15 +41,15 @@ function inMode(m, fn) {
 // The three the head-to-head found, each a rule that measures text holding a payload.
 const MEASURED = {
 	'code-line-clipped on a fenced photo line': `# A\n\n\`\`\`\n![bg](data:image/png;base64,${LONG})\n\`\`\`\n`,
-	'tag-budget on a tag holding an escaped img': `<!-- _class: decision -->\n\n## T\n\n- One &lt;img src=data:image/png;base64,${LONG}&gt;\n  - body\n- Two\n  - body\n`,
-	'hub-spoke-crowded on a spoke holding an escaped img': `<!-- _class: hub-spoke -->\n\n## Hub\n\n- Center\n  - Spoke &lt;img src=data:image/png;base64,${LONG}&gt;\n  - Two\n`,
+	'tag-budget on a tag holding an escaped img': `<!-- @meta{layout=decision} -->\n\n## T\n\n- One &lt;img src=data:image/png;base64,${LONG}&gt;\n  - body\n- Two\n  - body\n`,
+	'hub-spoke-crowded on a spoke holding an escaped img': `<!-- @meta{layout=hub-spoke} -->\n\n## Hub\n\n- Center\n  - Spoke &lt;img src=data:image/png;base64,${LONG}&gt;\n  - Two\n`,
 };
 
 // Every form a deck carries a picture in, appended to each example deck. The first two are photos on a line of their
 // own, which the narrow rule cuts: one on an image slide, one under a list on a plain slide, where the rules that
 // measure a slide's text run. The narrow rule leaves the rest whole.
 const FORMS = [
-	`<!-- _class: image -->\n\n## Photo\n\n![bg](data:image/png;base64,${LONG})`,
+	`<!-- @meta{layout=image} -->\n\n## Photo\n\n![bg](data:image/png;base64,${LONG})`,
 	`## Words\n\n- A point the slide makes\n- Another point\n\n![p](data:image/jpeg;base64,${LONG})`,
 	`## Inline\n\nAn inline ![a](data:image/jpeg;base64,${LONG}) in prose.`,
 	`## Tag\n\n<img src="data:image/png;base64,${LONG}" alt="x">`,

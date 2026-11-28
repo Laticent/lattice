@@ -27,11 +27,11 @@ import {
 } from './playground-controller';
 
 const CATALOG: Catalog = {
-	'big-number': { skeleton: '', sample: '<!-- _class: big-number -->\n\n- 1\n', variants: [] },
+	'big-number': { skeleton: '', sample: '<!-- @meta{layout=big-number} -->\n\n- 1\n', variants: [] },
 	kpi: {
 		skeleton: '',
-		sample: '<!-- _class: kpi -->\n\n1. 4\n',
-		variants: [{ key: 'spotlight', label: 'spotlight', caption: '', sample: '<!-- _class: kpi spotlight -->\n' }],
+		sample: '<!-- @meta{layout=kpi} -->\n\n1. 4\n',
+		variants: [{ key: 'spotlight', label: 'spotlight', caption: '', sample: '<!-- @meta{layout=kpi, class=spotlight} -->\n' }],
 	},
 };
 
@@ -55,7 +55,7 @@ describe('fingerprint / isPristine (invariant I3)', () => {
 		// The fleet-wide trap the fingerprint model exists to avoid: the catalog
 		// sample is rewritten in a deploy, but the user's untouched draft still
 		// hashes to what was inserted — it must NOT read as dirty.
-		const oldSample = '<!-- _class: kpi -->\n\nold bytes\n';
+		const oldSample = '<!-- @meta{layout=kpi} -->\n\nold bytes\n';
 		const h = fingerprint(oldSample);
 		const newCatalogSample = CATALOG.kpi.sample;
 		expect(oldSample).not.toBe(newCatalogSample);
@@ -121,7 +121,7 @@ describe('resolveStartupView — the mode precedence rule (invariant I2)', () =>
 
 describe('classTokenLine — the variant-sync discriminator', () => {
 	test('extracts and normalizes the first class token line', () => {
-		expect(classTokenLine('<!-- _class:  kpi   spotlight -->\n\nbody')).toBe('kpi spotlight');
+		expect(classTokenLine('<!-- @meta{layout=kpi, class=spotlight} -->\n\nbody')).toBe('kpi spotlight');
 	});
 
 	test('a slide record reads as the comment it replaces (`@meta{layout=kpi, class=spotlight}`)', () => {
@@ -134,9 +134,9 @@ describe('classTokenLine — the variant-sync discriminator', () => {
 	});
 
 	test('body edits do not change the discriminator; class edits do', () => {
-		const a = '<!-- _class: kpi spotlight -->\n\nfirst body';
-		const b = '<!-- _class: kpi spotlight -->\n\nsecond body, totally different';
-		const c = '<!-- _class: kpi -->\n\nfirst body';
+		const a = '<!-- @meta{layout=kpi, class=spotlight} -->\n\nfirst body';
+		const b = '<!-- @meta{layout=kpi, class=spotlight} -->\n\nsecond body, totally different';
+		const c = '<!-- @meta{layout=kpi} -->\n\nfirst body';
 		expect(classTokenLine(a)).toBe(classTokenLine(b));
 		expect(classTokenLine(a)).not.toBe(classTokenLine(c));
 	});
@@ -144,7 +144,7 @@ describe('classTokenLine — the variant-sync discriminator', () => {
 
 describe('detectComponent still anchors the draft state', () => {
 	test('detects component + variant from the first class line', () => {
-		expect(detectComponent(CATALOG, '<!-- _class: kpi spotlight -->')).toEqual({ name: 'kpi', variant: 'spotlight' });
+		expect(detectComponent(CATALOG, '<!-- @meta{layout=kpi, class=spotlight} -->')).toEqual({ name: 'kpi', variant: 'spotlight' });
 	});
 
 	test('returns null for a draft with no recognized component (the clear case)', () => {
@@ -247,7 +247,7 @@ describe('walk helpers', () => {
 	});
 
 	test('slideTranscript extracts readable copy, drops directives and syntax', () => {
-		const md = '<!-- _class: kpi -->\n<!-- _footer: "x" -->\n\n## Heading here\n\n1. **42%** metric\n   - detail line\n\n| a | b |\n| --- | --- |\n| c1 | c2 |\n';
+		const md = '<!-- @meta{layout=kpi} -->\n<!-- @meta{footer=x} -->\n\n## Heading here\n\n1. **42%** metric\n   - detail line\n\n| a | b |\n| --- | --- |\n| c1 | c2 |\n';
 		const t = slideTranscript(md);
 		expect(t).toContain('Heading here');
 		expect(t).toContain('42% metric');

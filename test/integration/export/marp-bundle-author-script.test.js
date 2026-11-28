@@ -289,14 +289,18 @@ describe('Export-to-Marp math runs nothing and loads nothing — real marp-cli, 
   const arms = {};
 
   // A `header:` / `footer:` directive is rendered as inline Markdown too, math included, so the
-  // payload also rides in the front matter and in a comment directive (the red team's find).
+  // payload also rides in the front matter and in a comment directive (the red team's find). It is
+  // written twice since the cut: as a record, which Lattice reads and Export to Marp writes back as
+  // Marp's `_header:` (the bundle arms), and as Marp's own comment, which the RAW arm's marp-cli reads
+  // and Lattice blanks (slice E). Each arm sees the payload once.
   const mathDeck = (port) => String.raw`---
 marp: true
 theme: indaco
 footer: '$a\style{background:url(http://127.0.0.1:${port}/beacon-footer)}{b}$'
 ---
 
-<!-- _header: "$x\style{animation:lattice-math-probe 1ms"/onanimationstart="top.__hit_header=1}{y}$" -->
+<!-- @meta{header="$x\\style{animation:lattice-math-probe 1ms\"/onanimationstart=\"top.__hit_header=1}{y}$"} -->
+<!-- _header: $x\style{animation:lattice-math-probe 1ms"/onanimationstart="top.__hit_header=1}{y}$ -->
 
 # Math probe
 

@@ -267,8 +267,8 @@ function measure(comp, family, wordsPer, share) {
       ? { slide: `${has('eyebrow') ? '`Calibration · eyebrow`\n\n' : ''}## ${headingOfLines(HEADING_LINES)}\n\n${body(n)}${callout}` }
       : PANE
       ? { slide: `## Calibration step — ${n} element${n === 1 ? '' : 's'}.\n\n`
-          + `<!-- panes: ${PANE === 'stack' ? 'stack ' : ''}${share}/${100 - share} -->\n\n`
-          + `<!-- pane: ${comp} -->\n\n${body(n)}\n\n<!-- pane: content -->\n\nOne short line.\n` }
+          + `<!-- @meta{panes="${PANE === 'stack' ? 'stack ' : ''}${share}/${100 - share}"} -->\n\n`
+          + `<!-- @meta{pane=${comp}} -->\n\n${body(n)}\n\n<!-- @meta{pane=content} -->\n\nOne short line.\n` }
       : { label: `${n} element${n === 1 ? '' : 's'}`, body: body(n) + callout }),
   });
   const { overflowed, underFloor, labelsDropped, overprint } = renderProbe(deck, `${comp}-${family}${SCALE ? `-${SCALE}` : ''}${PANE ? `-pane-${PANE}` : ''}${VARIANT ? `-${VARIANT.replace(/\s+/g, '-')}` : ''}${INSIGHT ? '-insight' : ''}${HEADING_LINES ? `-h${HEADING_LINES}` : ''}`, { countBox: true });

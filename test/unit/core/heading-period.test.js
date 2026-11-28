@@ -32,8 +32,8 @@ test('the engine honors a deck-wide class: no-period, and one slide\'s with-peri
   // spelling the docs teach stripped nothing.
   const html = createEngine().render([
     '---', 'theme: indaco', 'class: no-period', '---', '',
-    '<!-- _class: content -->', '', '## Stripped.', '', '### Sub *head.*', '',
-    '---', '', '<!-- _class: content with-period -->', '', '## Added',
+    '<!-- @meta{layout=content} -->', '', '## Stripped.', '', '### Sub *head.*', '',
+    '---', '', '<!-- @meta{layout=content, class=with-period} -->', '', '## Added',
   ].join('\n')).html;
   const heads = [...new JSDOM(html).window.document.querySelectorAll('h2, h3')].map((h) => h.textContent);
   assert.deepEqual(heads, ['Stripped', 'Sub head', 'Added.']);

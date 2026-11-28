@@ -33,7 +33,7 @@ pagination: true
 size: portrait
 ---
 
-<!-- _class: code -->
+<!-- @meta{class=code} -->
 
 \`code · stays at 13.5pt\`
 
@@ -50,7 +50,7 @@ const code = venueScale * FS_BODY_COMPACT;    // 13.5pt at laptop
 
 ---
 
-<!-- _class: code -->
+<!-- @meta{class=code} -->
 
 \`One map overrides any baked layer\`
 

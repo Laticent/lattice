@@ -27,7 +27,7 @@ import { ComposeView } from './ComposeView';
 // and runs ONLY the resize observers watching the pill, with no editor update at all. Before the fix nothing watched
 // it, so the reserve stayed unset.
 
-const DECK = ['<!-- _class: title -->\n\n# One\n\n`EYEBROW`\n\nbody one', '<!-- _class: content -->\n\n# Two\n\nbody two'].join('\n\n---\n\n');
+const DECK = ['<!-- @meta{layout=title} -->\n\n# One\n\n`EYEBROW`\n\nbody one', '<!-- @meta{layout=content} -->\n\n# Two\n\nbody two'].join('\n\n---\n\n');
 
 type Watch = { cb: ResizeObserverCallback; targets: Set<Element>; self: ResizeObserver };
 let watches: Watch[] = [];

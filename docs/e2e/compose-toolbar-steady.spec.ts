@@ -99,7 +99,7 @@ async function settledTop(page: Page, selector: string): Promise<number> {
 
 // A slide whose blocks offer no style (lists, a table) holds row two of a narrow toolbar empty. The checker found
 // row two collapsing there, so the first tap on a slide and every move into the table pushed the content down.
-const PLAIN = ['<!-- _class: content -->', '', '- alpha item', '- beta item', '', '| A | B |', '|---|---|', '| one | two |', '', '- gamma item', ''].join('\n');
+const PLAIN = ['<!-- @meta{layout=content} -->', '', '- alpha item', '- beta item', '', '| A | B |', '|---|---|', '| one | two |', '', '- gamma item', ''].join('\n');
 
 test('@crosswidth @webkit-phone the page holds still on a slide\'s first tap and as the caret enters a table', async ({ page }) => {
 	await composeDeck(page, PLAIN, 'gamma item');

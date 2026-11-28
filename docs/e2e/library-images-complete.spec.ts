@@ -63,7 +63,7 @@ test('@smoke typing an image reference offers the Library photos, shared and thi
 
 test('@smoke on a collage slide a list item offers whole photo lines, with the alt text selected @crosswidth @webkit-tablet @gecko', async ({ page }) => {
 	await withPhotos(page);
-	await setEditorContent(page, '<!-- _class: collage -->\n\n## Site walk\n\n');
+	await setEditorContent(page, '<!-- @meta{layout=collage} -->\n\n## Site walk\n\n');
 	await watchMenuOpen(page);
 	await typeInEditor(page, '- te');
 	const menu = page.locator('.cm-tooltip-autocomplete');

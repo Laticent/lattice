@@ -18,7 +18,7 @@ figure; that component declares `"plugins": { "requires": ["math"] }`, not the o
 ## Authoring
 
 ```markdown
-<!-- _class: math -->
+<!-- @meta{layout=math} -->
 
 ## The energy-mass equivalence.
 

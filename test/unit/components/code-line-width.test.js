@@ -31,7 +31,7 @@ const vocab = {
 const deck = (body, size) =>
   `---\nmarp: true\ntheme: indaco\n${size ? `size: ${size}\n` : ''}---\n\n${body}`;
 const codeSlide = (token, lines, size) =>
-  deck(`<!-- _class: ${token} -->\n\n\`\`\`js\n${lines.join('\n')}\n\`\`\`\n`, size);
+  deck(`<!-- @meta{class=${token}} -->\n\n\`\`\`js\n${lines.join('\n')}\n\`\`\`\n`, size);
 const clipFinding = (src) => core.lintTextWith(src, vocab).find((f) => f.rule === 'code-line-clipped');
 // The measured table, read through the rule's own lookup: a 16:9 deck (the default) is 1280x720.
 const HD = '1280x720';
@@ -106,7 +106,7 @@ describe('code-line-clipped — when it fires', () => {
 
   test('a stress specimen is silent — the marker means "I know"', () => {
     const src = deck(
-      `<!-- _class: compare-code -->\n<!-- stress-slide -->\n\n\`\`\`js\n${'x'.repeat(WIDE + 40)}\n\`\`\`\n`,
+      `<!-- @meta{layout=compare-code} -->\n<!-- @meta{stress-slide} -->\n\n\`\`\`js\n${'x'.repeat(WIDE + 40)}\n\`\`\`\n`,
     );
     assert.equal(clipFinding(src), undefined);
   });
@@ -162,7 +162,7 @@ describe('code-line-clipped — the box decides', () => {
   });
 
   test('says nothing about slides with no code', () => {
-    assert.equal(clipFinding(deck('<!-- _class: code -->\n\nNo fenced block here.\n')), undefined);
+    assert.equal(clipFinding(deck('<!-- @meta{layout=code} -->\n\nNo fenced block here.\n')), undefined);
   });
 });
 
@@ -222,7 +222,7 @@ describe('code-line-clipped — a plain slide, and the record', () => {
     assert.equal(clipFinding(plain(long, 'code: wrap\n')), undefined);
     assert.ok(clipFinding(plain(`\`@code{numbers}\`\n${long}`, 'code: numbers\n')), 'a record without wrap still clips');
     assert.ok(clipFinding(codeSlide('code', ['x'.repeat(cols('pane') + 1)])), 'guard: code clips unwrapped');
-    assert.equal(clipFinding(deck(`<!-- _class: code -->\n\n\`@code{wrap}\`\n${fence(['x'.repeat(200)])}`)), undefined);
+    assert.equal(clipFinding(deck(`<!-- @meta{layout=code} -->\n\n\`@code{wrap}\`\n${fence(['x'.repeat(200)])}`)), undefined);
     // A record written under a sentence continues it, so it configures nothing (the render's reading).
     assert.ok(clipFinding(plain(`Some words.\n\`@code{wrap}\`\n${long}`)));
   });
@@ -260,17 +260,17 @@ describe('code-line-clipped — measuring the line as it RENDERS, not as it read
   });
 
   test('`~~~` fences are code too', () => {
-    const src = deck(`<!-- _class: compare-code -->\n\n~~~js\n${'x'.repeat(300)}\n~~~\n`);
+    const src = deck(`<!-- @meta{layout=compare-code} -->\n\n~~~js\n${'x'.repeat(300)}\n~~~\n`);
     assert.ok(clipFinding(src), 'markdown-it renders ~~~ as a fenced block; a 300-column line clips');
   });
 
   test('an unclosed fence still measures — markdown-it closes it at EOF', () => {
-    assert.ok(clipFinding(deck(`<!-- _class: compare-code -->\n\n\`\`\`js\n${'x'.repeat(300)}\n`)));
+    assert.ok(clipFinding(deck(`<!-- @meta{layout=compare-code} -->\n\n\`\`\`js\n${'x'.repeat(300)}\n`)));
   });
 
   test("an indented fence is measured after its indent, which markdown-it strips", () => {
     // A block nested in a list item renders 4 columns narrower than it reads.
-    const src = deck(`<!-- _class: compare-code -->\n\n- item\n\n    \`\`\`js\n    ${'x'.repeat(WIDE)}\n    \`\`\`\n`);
+    const src = deck(`<!-- @meta{layout=compare-code} -->\n\n- item\n\n    \`\`\`js\n    ${'x'.repeat(WIDE)}\n    \`\`\`\n`);
     assert.equal(clipFinding(src), undefined, 'the indent is not part of the rendered line');
   });
 
@@ -320,7 +320,7 @@ describe('code-line-clipped — every class that moves the pane is measured, not
     // so more fits. Dividing by the venue's factors would call a line that renders whole cut off.
     const both = cols('pane', ['venue-conference', 'scale-l']);
     assert.ok(both > cols('pane', ['venue-conference']));
-    const src = `---\nmarp: true\ntheme: indaco\nvenue: conference\n---\n\n<!-- _class: scale-l -->\n\n# T\n\n\`\`\`js\n${'x'.repeat(both)}\n\`\`\`\n`;
+    const src = `---\nmarp: true\ntheme: indaco\nvenue: conference\n---\n\n<!-- @meta{class=scale-l} -->\n\n# T\n\n\`\`\`js\n${'x'.repeat(both)}\n\`\`\`\n`;
     assert.equal(clipFinding(src), undefined);
   });
 

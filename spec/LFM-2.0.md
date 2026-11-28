@@ -12,18 +12,52 @@ tests: spec/conformance/lfm/ tools/lfm-conformance.js
 
 LFM 2.0 is a **Major** version (LFM 1.1 §7): it changes what a 1.x deck means. This draft is
 written as changes against [LFM 1.1](./LFM-1.1.md). **Every section not listed here reads as in
-1.1.** Further 2.0 changes (the slide-metadata record that replaces directive comments,
-`engineering/decisions/2026-10-17-meta-record.md` §9 step 7) land here as they are decided.
+1.1.** Further 2.0 changes land here as they are decided. The slide-metadata record (§2.1, which replaces 1.1's
+directive comments) is the second.
 
 ## What changes from 1.1
 
 | § | In 1.1 | In 2.0 |
 |---|---|---|
+| 2.1, 2.4 | A slide's settings are Marpit directive comments (`<!-- _class: split-compare -->`, `<!-- _lens: brief -->`), and a bare `<!-- {…} -->` record. | A slide's settings are ONE record, `<!-- @meta{layout=split-compare, lens=brief} -->`. A directive comment and a bare record set nothing. |
 | 3.5 | Any comment that is neither a directive nor a tooling pragma is the slide's speaker note (Marp's semantics). | A slide has four notes, each a named comment. A plain comment is not a note. |
 
 A 1.x deck whose plain comments were speaker notes renders the same slides under 2.0, but its
 notes are gone. `lattice migrate notes` rewrites a 1.x deck as a 2.0 deck, and `lattice migrate notes --back`
 rewrites a 2.0 deck as a 1.x deck.
+
+A 1.x deck's directive comments set nothing under 2.0: each slide renders its default component, and the L2 linter
+reports each comment (§2.1). `lattice migrate meta` rewrites a 1.x deck's settings as records, and the migrated deck
+renders what the 1.x deck rendered. A 2.0 source file is not a Marp deck as written; Export to Marp writes Marp's own
+comments.
+
+---
+
+## 2.1 The slide record
+
+*Replaces 1.1 §2.1 (the `_class` directive) and the comment form of §2.4 (the `_lens` tag).*
+
+A slide's settings are one **record**: an HTML comment, on its own line at the top level of the slide (not in a list
+item, a blockquote or another HTML block), whose body starts `@meta{`:
+
+```markdown
+<!-- @meta{layout=split-compare, class=dark, footer="Q3 review", lens="brief -evidence"} -->
+```
+
+- `layout` names one component (§4) and `class` the modifier tokens after it; the slide's class is the two joined,
+  as 1.1's `_class` value was. The other fields are the slide's other settings, named as the front-matter keys are
+  (`footer`, `header`, `background-image`, `focus-steps`, `pane`, `lens`, …).
+- A record sets its own slide. `carry` makes it run on to every later slide, as 1.1's directive without `_` did.
+- `lens` is the slide's reader-lens tag, with 1.1 §2.4's value. Two records that set one field on a slide resolve as
+  any repeated field does: the last one wins, and the L2 linter reports the repeat.
+- **Not read:** a directive comment (`<!-- _class: … -->`, `<!-- footer: … -->`, `<!-- _lens: … -->`, a bare flag
+  such as `<!-- hide -->`), a pane marker in comment form (`<!-- _pane: … -->`), the bare marker `<!-- stress-slide -->`
+  and the bare record `<!-- {…} -->`. A conformant L1 renderer MUST NOT apply any of them, and a conformant L2 linter
+  MUST report each one as an error with the record that replaces it.
+- **Degrades to:** nothing visible (HTML comment). **L0-clean.**
+
+The grammar of a record is `engineering/decisions/2026-10-17-meta-record.md` §4; the conformance cases are the
+`-record` twins in `spec/conformance/lfm/`, and the 1.x cases they replace are marked `until: LFM-2.0`.
 
 ---
 

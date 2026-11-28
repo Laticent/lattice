@@ -48,11 +48,7 @@
       }
     ]
   },
-  "coda": {
-    "claims": [
-      "trailing-paragraph"
-    ]
-  },
+  "coda": { "claims": [], "caption": true },
   "tags": [
     "metric",
     "okr",

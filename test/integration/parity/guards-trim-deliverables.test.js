@@ -105,13 +105,13 @@ pagination: true
 fit: trim
 ---
 
-<!-- _class: title -->
+<!-- @meta{class=title} -->
 
 # Break test
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{class=content} -->
 
 ## A paragraph joined with explicit breaks.
 

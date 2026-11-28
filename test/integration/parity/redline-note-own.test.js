@@ -29,7 +29,7 @@ theme: indaco
 size: square
 ---
 
-<!-- _class: redline three-col -->
+<!-- @meta{class=redline three-col} -->
 
 ## three-col sets old, new, and why side by side.
 

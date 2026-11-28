@@ -69,6 +69,20 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { classEntries } from '../lib/core/class-entries.mjs';
+import { metaClass } from '../lib/core/meta-comment.mjs';
+import { NOTE_NAMES } from '../lib/core/meta-keys.mjs';
+
+/**
+ * The slide record with a placeholder layout, `<!-- @meta{layout=NAME} -->`, written by the
+ * engine's own record writer so a renamed field flows through. `metaClass` types a word as a
+ * layout only when it is a real one, so it writes a real layout and the name is swapped after.
+ */
+const LAYOUT_RECORD = (() => {
+  const real = metaClass('title');
+  const out = real.replace(/\btitle\b/, 'NAME');
+  if (out === real || /\btitle\b/.test(out)) throw new Error(`build-agent-kit: cannot write the placeholder record from ${real}.`);
+  return out;
+})();
 
 const require = createRequire(import.meta.url);
 const { readSkills: readSkillIndex } = require('./skill-index.js');
@@ -528,7 +542,7 @@ function reviewBundle() {
         '',
         '// The catalog lives beside this file in the kit. Without it neither half',
         '// can do its job: the reviewer loses per-element word budgets, and the',
-        '// linter loses the component names it checks `_class` against.',
+        '// linter loses the component names it checks a layout against.',
         'function catalogLookups() {',
         '  try {',
         "    const here = dirname(fileURLToPath(import.meta.url));",
@@ -567,7 +581,7 @@ function reviewBundle() {
         '}',
         '',
         '// The two halves answer different questions and a deck needs both. The',
-        '// LINTER asks whether the deck is even valid — an invented `_class` is the',
+        '// LINTER asks whether the deck is even valid — an invented layout is the',
         '// single most likely mistake a model makes here, and the reviewer cannot',
         '// see it. The REVIEWER asks whether the deck is any good. Shipping only the',
         '// second told a reader "the floor is met" over a deck that would not render.',
@@ -899,7 +913,7 @@ function reviewReadme(files) {
     '',
     'It runs TWO passes and merges them, because they answer different questions.',
     '',
-    '**The linter asks whether the deck is valid.** An invented `_class`, a card written',
+    '**The linter asks whether the deck is valid.** An invented layout, a card written',
     'as one inline line when the layout needs nested bullets, a front-matter key that does',
     'not exist. Reported as `error` / `warning` and listed first — these are the ones that',
     'stop a deck rendering the way you meant, and an invented component name is the single',
@@ -1019,11 +1033,11 @@ function modifiersDoc() {
     '# Universal modifiers',
     '',
     'The core class tokens no layout has to declare. Nearly every layout honors them (the poster',
-    'layouts `contact`, `wifi`, `gift-card` and `video` do not render several). Compose them on',
-    'the same comment, space-separated, after the layout name:',
+    'layouts `contact`, `wifi`, `gift-card` and `video` do not render several). Compose them in',
+    'the record\'s `class` field, space-separated:',
     '',
     '```',
-    '<!-- _class: cards-grid dark tone-warn insight-the-ask -->',
+    '<!-- @meta{layout=cards-grid, class=dark tone-warn insight-the-ask} -->',
     '```',
     '',
     `This page lists the ${total} core tokens, in ${Object.keys(UNIVERSAL_GROUPS).length} groups; a layout never has to declare them.`,
@@ -1572,18 +1586,42 @@ function PROFILE_NAMES() {
  * lint-core's ledger/split and statement layouts as code lists, limited to `only` when given:
  * the solo text names just its 19, the full-catalog texts name every one.
  */
+/**
+ * A layout whose list contract (lib/core/list-contract.js) reads ONE level: a nested body is dropped
+ * (`list-depth-unsupported`). Where lint also forbids `- **Title.** body` there (`agenda`, a
+ * LEDGER_LAYOUTS member), the rows are one plain line. Eval run 46032981944 nested a body under
+ * each `agenda` row.
+ */
+function isOneLevel(name) {
+  const { listContractFor } = require(path.join(ROOT, 'lib', 'core', 'list-contract.js'));
+  const c = listContractFor([name]);
+  return !!c && c.depths === 1 && c.lists !== 'prose';
+}
 function listShapes(only) {
   const ls = require(path.join(ROOT, 'lib', 'core', 'list-shapes.js'));
   const solo = { has: (n) => !only || only.includes(n) };
   const fmt = (names) => names.map((n) => `\`${n}\``).join(', ');
-  const ledger = [...ls.LEDGER_LAYOUTS, ...ls.SPLIT_SLOT_LAYOUTS].filter((n) => solo.has(n));
+  // The layouts whose rows MUST carry a nested body: the two sets lint-core's `split-bodyless-item`
+  // and number-slot rules hold to it. Not LEDGER_LAYOUTS, which is the inline-bold set
+  // (`card-style-inline-title`): it holds `agenda`, which reads ONE list level, so until
+  // 2026-11-27 this sentence told every model to nest a body under each agenda row and lint then
+  // warned on each (`list-depth-unsupported`; agent-pack eval run 46032981944).
+  const ledger = [...ls.SPLIT_SLOT_LAYOUTS, ...ls.NUMBER_SLOT_LAYOUTS].filter((n) => solo.has(n));
   // A rule about a layout the reader cannot use is noise: it drops while no statement layout is solo.
-  return { ledger: fmt(ledger), statement: fmt(ls.STATEMENT_OL_LAYOUTS.filter((n) => solo.has(n))) };
+  // The layouts where `- **Title.** body` on one line is a lint ERROR (`card-style-inline-title`
+  // checks CARD_STYLE_LAYOUTS and LEDGER_LAYOUTS), less `agenda`, whose rows take no body at all.
+  // Named, not "card layouts": list-steps, list-tabular and timeline-list are ledgers, not cards,
+  // and a model told only about cards wrote inline bold on them.
+  const inlineBoldError = [...ls.CARD_STYLE_LAYOUTS, ...ls.LEDGER_LAYOUTS];
+  const nested = inlineBoldError.filter((n) => !isOneLevel(n) && solo.has(n));
+  // The one-level layouts lint also holds to no inline bold: their rows are one plain line each.
+  const plain = inlineBoldError.filter((n) => isOneLevel(n) && solo.has(n));
+  return { ledger: fmt(ledger), nested: fmt(nested), plain: fmt(plain), statement: fmt(ls.STATEMENT_OL_LAYOUTS.filter((n) => solo.has(n))) };
 }
 const essentials = (only) => [
-  'Every slide starts with `<!-- _class: NAME -->` and NAME is a real layout.',
+  'Every slide starts with `<!-- @meta{layout=NAME} -->` and NAME is a real layout.',
   'Slides are separated by a line containing only `---`, with a blank line each side.',
-  'Card layouts nest: `- Title` on one line, then `  - body` indented two spaces. Never `- **Title.** body`.',
+  `Rows on ${listShapes(only).nested} nest the body under the title, never \`- **Title.** body\`${listShapes(only).plain ? `; ${listShapes(only).plain} rows are one plain line` : ''}.`,
   'Under a numbered `1.` row, indent the nested line **three** spaces, not two.',
   // Name the layouts: "a ledger row" and "a statement layout" meant nothing to a small model
   // (the stand-in eval, 2026-11-19). The sets are lint-core's own, from lib/core/list-shapes.js.
@@ -1638,7 +1676,7 @@ function instructionsSolo(cat) {
     ...fenced(FRONT_MATTER.join('\n')),
     '',
     'Separate every slide with a line containing only `---`.',
-    'Start every slide with one `<!-- _class: NAME -->` line.',
+    'Start every slide with one `<!-- @meta{layout=NAME} -->` line.',
     `Pick every NAME from the ${SOLO_LAYOUTS.length} below. Use only those names.`,
     '',
     '## Shape of a deck',
@@ -1671,7 +1709,7 @@ function instructionsSolo(cat) {
       [
         ...FRONT_MATTER,
         '',
-        '<!-- _class: title silent -->',
+        '<!-- @meta{layout=title, class=silent} -->',
         '',
         '# Move billing to the new platform in March',
         '',
@@ -1681,7 +1719,7 @@ function instructionsSolo(cat) {
         '',
         '---',
         '',
-        '<!-- _class: big-number -->',
+        '<!-- @meta{layout=big-number} -->',
         '',
         '`Cost of the status quo`',
         '',
@@ -1690,7 +1728,7 @@ function instructionsSolo(cat) {
         '',
         '---',
         '',
-        '<!-- _class: cards-grid -->',
+        '<!-- @meta{layout=cards-grid} -->',
         '',
         '## Three failures repeat every quarter.',
         '',
@@ -1703,7 +1741,7 @@ function instructionsSolo(cat) {
         '',
         '---',
         '',
-        '<!-- _class: closing silent -->',
+        '<!-- @meta{layout=closing, class=silent} -->',
         '',
         '## Approve the March window and the $1.4M migration budget.',
         '',
@@ -1726,9 +1764,8 @@ function instructionsSolo(cat) {
     '**The skeletons are shapes to fill, not text to copy.** Replace every placeholder',
     'with real content. Never ship the example words.',
     '',
-    'On the `title` and `closing` slides, `<!-- _class: title silent -->` is a shorter way',
-    'to write the `_header` / `_footer` lines and `no-pagination`. Either form works; pick one',
-    'and keep it.',
+    'On the `title` and `closing` slides, `class=silent` in the record is a shorter way to',
+    'write `header=""`, `footer=""` and `no-pagination`. Either form works; pick one and keep it.',
     '',
     '## The rules',
     '',
@@ -1738,7 +1775,7 @@ function instructionsSolo(cat) {
     '## Check before you finish',
     '',
     '- Slide 1 uses `title`; the last slide uses `closing`.',
-    '- Every slide starts with `<!-- _class: NAME -->` and NAME is one of the list.',
+    '- Every slide starts with `<!-- @meta{layout=NAME} -->` and NAME is one of the list.',
     '- Every card title has its body on the next line, indented.',
     '- Every `##` heading is a sentence that states a point.',
     '',
@@ -1760,13 +1797,13 @@ function instructionsStandard() {
     'FILE SHAPE — every deck opens with exactly this, then the slides:',
     ...fenced(FRONT_MATTER.join('\n')),
     'Slides are separated by a line containing only `---`.',
-    'Every slide opens with `<!-- _class: NAME -->` where NAME is one layout.',
+    'Every slide opens with `<!-- @meta{layout=NAME} -->` where NAME is one layout.',
     'A three-slide deck, whole, so the shape is unambiguous:',
     ...fenced(
       [
         ...FRONT_MATTER,
         '',
-        '<!-- _class: title silent -->',
+        '<!-- @meta{layout=title, class=silent} -->',
         '',
         '# Move billing to the new platform in March',
         '',
@@ -1776,7 +1813,7 @@ function instructionsStandard() {
         '',
         '---',
         '',
-        '<!-- _class: content -->',
+        '<!-- @meta{layout=content} -->',
         '',
         '## Manual reconciliation costs us $4.1M a year.',
         '',
@@ -1785,7 +1822,7 @@ function instructionsStandard() {
         '',
         '---',
         '',
-        '<!-- _class: closing silent -->',
+        '<!-- @meta{layout=closing, class=silent} -->',
         '',
         '## Approve the March window and the $1.4M migration budget.',
         '',
@@ -2671,7 +2708,7 @@ function uploadBundles(components, files, examples, layoutCount) {
       '## The file',
       '',
       'A deck is one Markdown file. It opens with front matter, then slides separated by a',
-      'line containing only `---`, and every slide opens with `<!-- _class: NAME -->`.',
+      'line containing only `---`, and every slide opens with `<!-- @meta{layout=NAME} -->`.',
       '',
       ...fenced(FRONT_MATTER.join('\n')),
       '',
@@ -2735,7 +2772,7 @@ function uploadBundles(components, files, examples, layoutCount) {
     name: 'lattice-9-modifiers.md',
     blurb: 'The class tokens that compose onto any layout — mood, decoration, typography, chrome.',
     body: [
-      ...header('Modifiers', 'Cross-cutting tokens you add beside a layout name on the same `_class` comment.', []),
+      ...header('Modifiers', 'Cross-cutting tokens you add beside a layout name in the record `class` field.', []),
       demote(txt(`${AUTHORING}/modifiers.md`).replace(/^# .*\n/, ''), 1),
       '',
     ].join('\n'),
@@ -2784,7 +2821,7 @@ function repoFiles(paste, layoutCount) {
     '# Authoring Lattice decks',
     '',
     'A Lattice deck is one Markdown file that renders to boardroom-quality slides.',
-    'Each slide opens with `<!-- _class: NAME -->` picking one layout, and slides are',
+    'Each slide opens with `<!-- @meta{layout=NAME} -->` picking one layout, and slides are',
     'separated by a line containing only `---`.',
     '',
     paste.trimEnd(),
@@ -2977,17 +3014,17 @@ function rootReadme(files, layoutCount, components) {
     '# Lattice for AI',
     '',
     '**Lattice turns plain Markdown into boardroom-quality slides.** One layout per slide,',
-    'chosen with `<!-- _class: NAME -->`; slides separated by a line containing only `---`.',
+    'chosen with `<!-- @meta{layout=NAME} -->`; slides separated by a line containing only `---`.',
     '',
     'This kit teaches any model to write them, and `npx @laticent/lattice deck.md deck.pdf`',
     'renders the result. Nothing vendor-specific.',
     '',
     '## An agent that can read files: start here',
     '',
-    `Read [\`start.md\`](./start.md) (${fmtTok(bytesOf(files, 'start.md'))} tokens). It is everything needed to write a good`,
-    'deck: the file shape, what a good deck is, the rules, all the layouts, the skeletons of',
-    'the common ones, and how to check and render. Then open `components/<name>.md` for each',
-    'layout you use.',
+    `Read [\`start.md\`](./start.md) (${o200kTokens(files.get('start.md').toString('utf8')).toLocaleString('en-US')} tokens). It is the short contract: the file shape, what a`,
+    'good deck is, the rules, the common layouts, the modifiers, and how to check and render.',
+    `[\`layouts.md\`](./layouts.md) (${o200kTokens(files.get('layouts.md').toString('utf8')).toLocaleString('en-US')} tokens) has every layout, part and skeleton. Then open`,
+    '`components/<name>.md` for each layout you use.',
     '',
     '## Setting the kit up in a product',
     '',
@@ -3031,7 +3068,8 @@ function rootReadme(files, layoutCount, components) {
     '',
     '| Reading… | ~tokens |',
     '|---|---|',
-    `| \`start.md\` — the whole contract, all ${layoutCount} layouts | **${fmtTok(bytesOf(files, 'start.md'))}** |`,
+    `| \`start.md\` — the short contract, ${SOLO_LAYOUTS.length} common layouts (exact o200k count) | **${o200kTokens(files.get('start.md').toString('utf8')).toLocaleString('en-US')}** |`,
+    `| \`layouts.md\` — all ${layoutCount} layouts, every part and skeleton (exact o200k count) | ${o200kTokens(files.get('layouts.md').toString('utf8')).toLocaleString('en-US')} |`,
     `| \`${PASTE}/lattice-instructions-solo.md\` — 19 layouts, self-contained, for a small model | ${fmtTok(bytesOf(files, `${PASTE}/lattice-instructions-solo.md`))} |`,
     `| the authoring path: canon → rules → picker | **${fmtTok(canonB + rulesB + pickB)}** once |`,
     `| …then one \`${COMPONENTS}/<name>.md\` per layout you use | + ${fmtTok(compMedian)} each |`,
@@ -3062,19 +3100,14 @@ function rootReadme(files, layoutCount, components) {
 }
 
 /**
- * start.md — the one file an agent reads first (2026-11-17-agent-pack.md §4.1).
- *
- * Everything needed to write a good deck, in one fetch: the file shape, the deck canon,
- * the rules, the modifiers, every layout in one line, and the skeletons of the common
- * ones. A reader of this file alone can write a full deck; `components/<name>.md` raises
- * one slide from good to excellent (capacity, variants, the mistakes the reviewer flags).
- *
- * NOTHING HERE IS WRITTEN TWICE. Each section is a file the kit already builds or a field
- * of `components.json`, so `start.md` cannot disagree with the rest of the kit. The
- * budget is START_MAX; the build fails past it.
+ * layouts.md — the full reference behind start.md: the rules in detail, the parts any slide
+ * can carry, the registers, every layout in one line, the modifiers, the inline notation and
+ * the skeletons of the common layouts. It was start.md's body until the owner set start.md's
+ * budget in tokens (2026-11-27); every gate that guarded that body now guards this file
+ * (test/unit/tools/agent-kit-structure.test.js). Each section is a file the kit already builds
+ * or a field of components.json, so it cannot disagree with the rest of the kit.
  */
-const START_MAX = 48000;
-/** Chart skeletons start.md adds after the solo layouts: the commonest two, a part of a whole and a ranking. */
+/** Chart skeletons layouts.md adds after the solo layouts: the commonest two, a part of a whole and a ranking. */
 const START_CHART_SKELETONS = ['bar', 'piechart'];
 
 function firstSentence(text, max = 110) {
@@ -3116,10 +3149,10 @@ const BUCKET_ORDER = [
   ['layout', 'Two components on one slide'],
 ];
 
-function startDoc(files, cat) {
+function layoutsDoc(files, cat) {
   const strip = (rel) => {
     const raw = files.get(rel);
-    if (!raw) throw new Error(`build-agent-kit: start.md needs ${rel}, which is not built yet.`);
+    if (!raw) throw new Error(`build-agent-kit: layouts.md needs ${rel}, which is not built yet.`);
     // start.md sits at the kit root, so a relative link in a section copied from a subfolder
     // (authoring/modifiers.md's `../reference/components.json`) is re-based to the root.
     const dir = path.posix.dirname(rel);
@@ -3134,7 +3167,6 @@ function startDoc(files, cat) {
       .replace(/\n---\n+(Source|_Generated)[\s\S]*$/, '\n')
       .trim();
   };
-  const { DECK_CANON } = require(path.join(ROOT, 'lib', 'authoring', 'deck-canon.js'));
   const comps = [...cat.values()];
   const layoutRows = [];
   for (const [bucket, label] of BUCKET_ORDER) {
@@ -3153,7 +3185,7 @@ function startDoc(files, cat) {
   }
   const listed = new Set(BUCKET_ORDER.map(([b]) => b));
   const stray = comps.filter((c) => !listed.has(c.bucket)).map((c) => c.name);
-  if (stray.length) throw new Error(`build-agent-kit: start.md has no bucket heading for ${stray.join(', ')}. Add the bucket to BUCKET_ORDER.`);
+  if (stray.length) throw new Error(`build-agent-kit: layouts.md has no bucket heading for ${stray.join(', ')}. Add the bucket to BUCKET_ORDER.`);
 
   // Plus two charts: the solo list has none, and a data deck needs one. Without these a
   // model guessed a nested-list shape for a pie (the stand-in eval, 2026-11-19).
@@ -3166,36 +3198,16 @@ function startDoc(files, cat) {
     pluginRows.push(`- [\`${name}\`](./${rel}): ${lead}`);
     if (example) pluginRows.push(`  Example${cls ? ` (on a \`${cls}\` slide)` : ''}: ${example.includes('`') ? `\`\` ${example} \`\`` : `\`${example}\``}`);
   }
-  if (!pluginRows.length) throw new Error('build-agent-kit: start.md found no plugins/*.md; pluginDocs() must run before startDoc().');
+  if (!pluginRows.length) throw new Error('build-agent-kit: layouts.md found no plugins/*.md; pluginDocs() must run before layoutsDoc().');
   return [
-    '# Write a Lattice deck',
+    `# Every Lattice layout, part and skeleton (engine ${ENGINE_VERSION})`,
     '',
-    'Lattice turns one Markdown file into a boardroom-ready deck: PDF, PowerPoint, images or',
-    'a web player. Each slide picks a layout with `<!-- _class: NAME -->`, and a palette',
-    'colors the whole deck. This file is everything you need to write a good one. Read it',
-    'top to bottom once.',
+    `Read [\`start.md\`](./start.md) first: it is the short contract. This file is the full`,
+    'reference behind it: the rules in detail, the parts any slide can carry, every layout',
+    'in one line, the modifiers, the inline notation and the skeletons of the common layouts.',
+    'For one layout in depth, open its own file (each name below links to it).',
     '',
-    'Then, for each layout you use, open its file (each name below links to it): it gives',
-    'how much the layout holds, its variants, and the mistakes reviewers flag. That is the',
-    'difference between a deck that renders and one worth showing.',
-    '',
-    '## 1. The file',
-    '',
-    ...fenced(FRONT_MATTER.join('\n'), 'markdown'),
-    '',
-    '- `theme:` picks the palette. `indaco` is the default; `cuoio`, `onyx`, `carta`, `laguna`',
-    '  and more ship with Lattice. Add `color-mode: dark` for the dark version.',
-    '- `pagination: true` numbers the slides.',
-    '- Separate slides with a line containing only `---`, with a blank line on each side.',
-    '- Start every slide with one `<!-- _class: NAME -->` line. Use only names from section 5.',
-    '',
-    '## 2. What a good deck is',
-    '',
-    'This is the canon the Lattice Studio sends its own model on every turn.',
-    '',
-    DECK_CANON.trim(),
-    '',
-    '## 3. Rules for every slide',
+    '## 1. Rules for every slide',
     '',
     strip(`${AUTHORING}/rules.md`)
       .replace(/^These are the half[\s\S]*?\n\n/, '')
@@ -3225,10 +3237,10 @@ function startDoc(files, cat) {
     `- A \`timeline-list\` status pill is one of ${chartStatus().length} words: ${chartStatus().map((w) => `\`${w}\``).join(' ')}.`,
     '  Any other word draws in the info color.',
     '',
-    '## 4. Parts any slide can carry',
+    '## 2. Parts any slide can carry',
     '',
     'These work on almost every layout with no class: write the Markdown shape and the slide',
-    'draws it. A layout line in section 5 says when it does not take a key insight or a',
+    'draws it. A layout line in section 3 says when it does not take a key insight or a',
     'below-note. Each name links to the full rule and examples.',
     '',
     ...uni.parts,
@@ -3240,18 +3252,18 @@ function startDoc(files, cat) {
     // §2's canon names `profile: teaching` and a model had no way to learn its key.
     `- \`profile:\` (\`${PROFILE_NAMES().join('` · `')}\`): the genre the checker judges the deck against; \`teaching\` allows denser slides`,
     '',
-    `## 5. All ${comps.length} layouts`,
+    `## 3. All ${comps.length} layouts`,
     '',
     'Pick by what the slide has to do. Each line gives the layout\'s job and how much it holds;',
     'past the maximum, split the slide or pick a roomier layout. If nothing fits, use',
     '`content` for prose or `list` for bullets. Never invent a name.',
     '',
     ...layoutRows,
-    '## 6. Modifiers',
+    '## 4. Modifiers',
     '',
     strip(`${AUTHORING}/modifiers.md`).replace(/^## /gm, '### '),
     '',
-    '## 7. Inline notation',
+    '## 5. Inline notation',
     '',
     'Plugins add small drawn things you write in inline code: pills, icons, word-sized charts,',
     'check marks, portraits, pictures. **The backticks are part of the notation**: `` `{On plan}` ``',
@@ -3264,44 +3276,217 @@ function startDoc(files, cat) {
     '',
     ...pluginRows,
     '',
-    `## 8. Skeletons for the ${SOLO_LAYOUTS.length} most-used layouts and ${START_CHART_SKELETONS.length} charts`,
+    `## 6. Skeletons for the ${SOLO_LAYOUTS.length} most-used layouts and ${START_CHART_SKELETONS.length} charts`,
     '',
     'Copy the shape exactly: heading levels, bullet nesting and the order of lines all',
     'matter. Every other layout\'s skeleton is in its own file.',
     '',
     ...skeletons,
-    '## 9. Check and render',
+  ].join('\n');
+}
+
+/**
+ * start.md — the one file an agent reads first, at most START_TOKEN_MAX o200k tokens.
+ *
+ * The owner set the entry point's budget at 1,500 TOKENS on 2026-11-27 (desk session
+ * session_015KSkL4AtPNjvKkBShG56Nu), replacing the 48,000-character budget of
+ * 2026-11-17-agent-pack.md §4.1: "48K characters means nothing in the agentic world."
+ * Everything start.md used to carry in full (the layout table, the skeletons, the parts,
+ * the registers, the notation) is now layouts.md, one link away.
+ *
+ * NOTHING HERE IS WRITTEN BY HAND THAT THE ENGINE ALREADY KNOWS. The front-matter keys come
+ * from DECK_SETTINGS (a renamed key flows through; a retired one fails the build), each
+ * slide record is written by lib/core/meta-comment.mjs `metaClass`, the note names are
+ * lib/core/meta-keys.mjs `NOTE_NAMES`, the skeletons and the layout lines come from
+ * components.json, the canon is DECK_CANON_SHORT, the rules are `essentials()`, and the
+ * modifier groups are UNIVERSAL_GROUPS. What stays in words is each item's one-line job.
+ */
+const START_TOKEN_MAX = 990;
+/**
+ * Why 990 and not 1,500. The gate counts offline with o200k_base (OpenAI's tokenizer, the one
+ * this repo ships); the build makes no network call. Claude is the main reader, and Claude 5's
+ * own counter (Anthropic's free count_tokens endpoint, 2026-11-27) read this file at 1.51 to
+ * 1.54 times its o200k count: 1,956 for the 1,273-token draft, 1,457 for the 983-token file.
+ * Gemini 3.x read 1.06 to 1.07 times. So 990 o200k is about 1,495 Claude tokens, the owner's
+ * 1,500. The ratio is this file's, measured; re-count start.md on Claude's and Gemini's
+ * counters in the per-release check (2026-11-17-agent-pack.md §4.9), and move this number if
+ * the ratio moves.
+ */
+const START_MARGIN_NOTE = 'o200k ≤ 990 keeps Claude 5 ≤ 1,500 at the measured 1.51× ratio (Gemini ≈ 1.07×)';
+/** The layouts whose real skeletons make start.md's example deck: open, one body slide, close. */
+const START_DECK = ['title', 'list', 'closing'];
+/** The bookends in START_DECK, which carry `silent` as the canon says. */
+const START_BOOKENDS = ['title', 'closing'];
+/** The modifier groups start.md names, one example each; every group is one link away. `silent`, the chrome switch a deck needs most, is in start.md's example deck. */
+const START_MODIFIER_GROUPS = ['mood', 'tone', 'insight'];
+
+/** The engine version the kit describes: packages/lattice/package.json, the published package. */
+const ENGINE_VERSION = require(path.join(ROOT, 'packages', 'lattice', 'package.json')).version;
+
+/** A deck front-matter key from DECK_SETTINGS, refusing one that is missing or retired. */
+function liveSetting(key) {
+  const { DECK_SETTINGS } = require(path.join(ROOT, 'lib', 'core', 'deck-settings.js'));
+  const row = DECK_SETTINGS.find((r) => r.key === key);
+  if (!row || row.kind === 'retired') throw new Error(`build-agent-kit: start.md teaches \`${key}:\`, which DECK_SETTINGS ${row ? 'marks retired' : 'does not list'}.`);
+  return row;
+}
+
+/** The front-matter block every deck opens with, each key read from DECK_SETTINGS. */
+function frontMatterLines() {
+  const theme = liveSetting('theme');
+  const pages = liveSetting('pagination');
+  return ['---', `${theme.key}: ${theme.default}`, `${pages.key}: true`, '---'];
+}
+
+/** o200k_base token count, the tokenizer check-ownership.js's router gate uses; loaded lazily. */
+function o200kTokens(text) {
+  const { encode } = require('gpt-tokenizer/encoding/o200k_base');
+  return encode(text).length;
+}
+
+/** The four notes, named from NOTE_NAMES in the order the docs teach them, with each one's job. */
+function noteLine() {
+  const JOB = { note: 'speaker note', say: 'words to speak', alt: 'alt text', handout: 'handout' };
+  const missing = NOTE_NAMES.filter((n) => !JOB[n]);
+  if (missing.length) throw new Error(`build-agent-kit: start.md has no job for the note ${missing.join(', ')}. Add it to noteLine().`);
+  return NOTE_NAMES.map((n) => `\`<!-- @${n}{…} -->\` ${JOB[n]}`).join(', ');
+}
+
+/**
+ * Where a slide's content goes when it is not a heading, generated from two engine sources.
+ *
+ * 1. Every layout start.md lists whose slot contract (lib/authoring/slot-contract.generated.js, packed
+ *    from each manifest's `slots`) has NO heading slot. There a model's instinct, to put the main
+ *    content in a heading, empties the slot the layout draws. The eval of 2026-11-27 met it twice:
+ *    run 46026988831 wrote `big-number`'s number as `# 3.8 days` (`slot-contract`,
+ *    `big-number-hero-heading`). Each is named with the form its required slot takes, using the first
+ *    line of that form in its own skeleton.
+ * 2. lib/core/list-shapes.js `NUMBER_SLOT_LAYOUTS`, whose rows lead with the number. Run 46023640639
+ *    wrote a `kpi` row as `- Customer satisfaction: 91%` with a sentence under it, and the export
+ *    clipped it. The example is the first such layout's own first row.
+ *
+ * A new headingless layout in start.md's list enrolls itself; a slot form this cannot show fails the
+ * build rather than going unnamed.
+ */
+const SLOT_FORM_LINE = { l: /^(?:-|1\.) .+$/m, q: /^> .+$/m };
+function slotShapeRule(cat) {
+  const { unpackContract } = require(path.join(ROOT, 'lib', 'authoring', 'slot-contract.js'));
+  const contract = unpackContract(require(path.join(ROOT, 'lib', 'authoring', 'slot-contract.generated.js')));
+  const headingless = SOLO_LAYOUTS.filter((n) => {
+    const slots = contract[n]?.slots;
+    if (!slots) throw new Error(`build-agent-kit: no slot contract for \`${n}\`.`);
+    return !Object.values(slots).some((code) => code.split(',').some((alt) => alt.startsWith('h')));
+  });
+  const shown = headingless.map((n) => {
+    const required = Object.values(contract[n].slots).find((code) => code.endsWith('!'));
+    const form = required?.[0];
+    const line = SLOT_FORM_LINE[form] && String(cat.get(n)?.skeleton || '').match(SLOT_FORM_LINE[form]);
+    if (!line) throw new Error(`build-agent-kit: start.md cannot show \`${n}\`'s required slot (${required}); add its form to SLOT_FORM_LINE.`);
+    const text = line[0].length > 24 ? `${line[0].slice(0, 2)}…` : line[0];
+    return `\`${n}\` is \`${text}\``;
+  });
+  const { NUMBER_SLOT_LAYOUTS } = require(path.join(ROOT, 'lib', 'core', 'list-shapes.js'));
+  const row = String(cat.get(NUMBER_SLOT_LAYOUTS[0])?.skeleton || '').match(/^1\. (.+)\n {3}- (.+)$/m);
+  if (!row) throw new Error(`build-agent-kit: the ${NUMBER_SLOT_LAYOUTS[0]} skeleton no longer opens its rows with \`1. <number>\` and a nested label.`);
+  return `- Content is never a heading: ${shown.join(', ')}; ${NUMBER_SLOT_LAYOUTS.map((n) => `\`${n}\``).join(' and ')} rows are \`1. ${row[1]}\` then \`   - ${row[2]}\` (three spaces under a \`1.\`).`;
+}
+
+/**
+ * start.md's rules: the essentials, with the bodied-row rule folded into the nest rule as one
+ * sentence. Both name layouts, and as two lines they cost tokens start.md cannot spare.
+ */
+function startRules(rules) {
+  const nest = rules.findIndex((r) => /^Rows on .* nest the body/.test(r));
+  const bodied = rules.findIndex((r) => /^A row on .* always has a body/.test(r));
+  if (nest < 0 || bodied < 0) throw new Error('build-agent-kit: start.md folds the bodied-row rule into the nest rule, and one of them is gone.');
+  // The number-row example (slotShapeRule) already shows NUMBER_SLOT_LAYOUTS rows with a body.
+  const { NUMBER_SLOT_LAYOUTS } = require(path.join(ROOT, 'lib', 'core', 'list-shapes.js'));
+  const on = [...rules[bodied].match(/^A row on (.*) always has a body/)[1].matchAll(/`([a-z0-9-]+)`/g)].map((m) => m[1]).filter((n) => !NUMBER_SLOT_LAYOUTS.includes(n));
+  const merged = `${rules[nest].replace(/\.$/, '')}${on.length ? `; a row on ${on.map((n) => `\`${n}\``).join(', ')} always has a body` : ''}.`;
+  return rules.map((r, i) => (i === nest ? merged : r)).filter((_, i) => i !== bodied);
+}
+
+function startDoc(cat) {
+  const { DECK_CANON_SHORT } = require(path.join(ROOT, 'lib', 'authoring', 'deck-canon.js'));
+  const { UNIVERSAL_GROUPS } = require(path.join(ROOT, 'lib', 'components', 'index.js'));
+  const { COLOR_MODE_NAMES } = require(path.join(ROOT, 'lib', 'core', 'resolve-color-mode.js'));
+  const theme = liveSetting('theme');
+  const mode = liveSetting('color-mode');
+  const dark = COLOR_MODE_NAMES.includes('dark') ? 'dark' : COLOR_MODE_NAMES.at(-1);
+  // The canon says both bookends carry `silent`, so start.md's deck writes it on their records
+  // (the manifests' skeletons leave it to the author). Each record must be the skeleton's first line.
+  const withSilent = (n) => {
+    const skel = skeletonFor(cat, n);
+    const [first, ...rest] = skel.split('\n');
+    if (first !== metaClass(n)) throw new Error(`build-agent-kit: the ${n} skeleton does not open with ${metaClass(n)}.`);
+    return [metaClass(`${n} silent`), ...rest].join('\n');
+  };
+  const deck = `${frontMatterLines().join('\n')}\n\n${START_DECK.map((n) => (START_BOOKENDS.includes(n) ? withSilent(n) : skeletonFor(cat, n))).join('\n\n---\n\n')}`;
+  // The short canon, less its RIGHT COMPONENT bullet: section 4 is that bullet, as a list.
+  // The short canon, less two bullets: RIGHT COMPONENT (section 4 is that bullet, as a list) and
+  // CARD-style (section 3's nest rule says it, naming the layouts lint holds to it).
+  const canonAll = DECK_CANON_SHORT.split('\n').slice(1);
+  const canonDrops = [/^• RIGHT COMPONENT/, /^• CARD-style/];
+  for (const re of canonDrops) {
+    if (canonAll.filter((l) => re.test(l)).length !== 1) throw new Error(`build-agent-kit: start.md drops the canon bullet matching ${re}, which no longer matches exactly one line.`);
+  }
+  const canon = canonAll.filter((l) => !canonDrops.some((re) => re.test(l))).map((l) => l.replace(/^• /, '- '));
+  // Section 1 already says each slide opens with a record, and the canon how cards nest and
+  // how the title slide reads; a rule that says it again is tokens start.md cannot spare.
+  // Each drop must match exactly one essential.
+  // `slotShapeRule` restates the three-space indent with an example, and the linter reports an
+  // unclosed comment as an error (`unterminated-comment`), so neither needs its own line here.
+  const canonSays = [/^Every slide starts with/, /^The title slide is/, /^Under a numbered `1\.` row/, /^Every `<!-- -->` comment is closed/];
+  // Scoped to the layouts start.md lists, as the solo text is: a rule about a layout the reader
+  // cannot pick from here is tokens spent on nothing.
+  const rules = essentials(SOLO_LAYOUTS);
+  for (const re of canonSays) {
+    if (rules.filter((r) => re.test(r)).length !== 1) throw new Error(`build-agent-kit: start.md drops the essential matching ${re}, which no longer matches exactly one.`);
+  }
+  const groups = START_MODIFIER_GROUPS.map((g) => {
+    if (!UNIVERSAL_GROUPS[g]) throw new Error(`build-agent-kit: start.md names modifier group \`${g}\`, which UNIVERSAL_GROUPS does not have.`);
+    return `\`${UNIVERSAL_GROUPS[g][0]}\` (${g})`;
+  });
+  const layouts = SOLO_LAYOUTS.map((n) => {
+    if (!cat.has(n)) throw new Error(`build-agent-kit: start.md lists \`${n}\`, which is not in the catalog.`);
+    return `- ${n}: ${SOLO_INTENT[n].replace(/ \(.*\)$/, '')}`;
+  });
+  return [
+    `# Write a Lattice deck (engine ${ENGINE_VERSION})`,
     '',
-    ...fenced(
-      [
-        'node review/check.mjs deck.md               # from the kit root: code, not a model',
-        'npx @laticent/lattice deck.md deck.pdf      # or .pptx, .png, .html',
-      ].join('\n'),
-      'sh',
-    ),
+    `All ${cat.size} layouts: [layouts.md](./layouts.md).`,
     '',
-    'Reading this on lattice.style rather than from the kit? Fetch the checker and the catalog',
-    'it reads, side by side as in the kit; without the catalog it skips the word budgets:',
+    '## 1. The file',
     '',
-    ...fenced(CHECKER_FETCH, 'sh'),
+    ...fenced(deck, 'markdown'),
     '',
-    'No command line? Open the file in the Lattice Studio at <https://lattice.style/studio>',
-    `and export from there. More in [\`${RENDER}/lattice-render-a-deck.md\`](./${RENDER}/lattice-render-a-deck.md).`,
+    `\`${theme.key}:\` picks the palette; \`${mode.key}: ${dark}\` goes dark. Each slide opens with one \`${LAYOUT_RECORD}\`.`,
     '',
-    '## 10. When you need more',
+    '## 2. What a good deck is',
     '',
-    '| To… | Read |',
-    '|---|---|',
-    `| Every universal part, with examples | [\`${AUTHORING}/universal.md\`](./${AUTHORING}/universal.md) |`,
-    `| Every front-matter setting | [\`${AUTHORING}/registers.md\`](./${AUTHORING}/registers.md) |`,
-    `| See a whole deck | [\`${EXAMPLES}/lattice-example-starter.md\`](./${EXAMPLES}/lattice-example-starter.md) |`,
-    `| Edit or restructure an existing deck | [\`${SKILLS}/edit-deck.md\`](./${SKILLS}/edit-deck.md) |`,
-    `| Change how a deck looks, not what it says | [\`${SKILLS}/restyle-deck.md\`](./${SKILLS}/restyle-deck.md) |`,
-    `| Turn numbers into the right chart | [\`${SKILLS}/chart-from-data.md\`](./${SKILLS}/chart-from-data.md) |`,
-    `| Write speaker notes | [\`${SKILLS}/speaker-notes.md\`](./${SKILLS}/speaker-notes.md) |`,
-    `| Fix what the checker reported | [\`${SKILLS}/fix-findings.md\`](./${SKILLS}/fix-findings.md) |`,
-    `| Every other task: a diagram, math, import, a theme | [\`${SKILLS}/README.md\`](./${SKILLS}/README.md) |`,
-    `| Hand the deck to someone who uses Marp | [\`${RENDER}/lattice-export-to-marp.md\`](./${RENDER}/lattice-export-to-marp.md) |`,
+    ...canon,
+    '',
+    '## 3. Rules',
+    '',
+    ...startRules(rules.filter((r) => !canonSays.some((re) => re.test(r)))).map((r) => `- ${r}`),
+    slotShapeRule(cat),
+    `- Notes, never shown: ${noteLine()}.`,
+    '',
+    `## 4. The ${SOLO_LAYOUTS.length} common layouts`,
+    '',
+    ...layouts,
+    '',
+    `Skeletons: components/NAME.md. Nothing fits? \`content\` or \`list\`; never invent a name.`,
+    '',
+    '## 5. Modifiers',
+    '',
+    `As \`${metaClass('cards-grid dark')}\`: ${groups.join(', ')}; more in [authoring/modifiers.md](./${AUTHORING}/modifiers.md).`,
+    '',
+    '## 6. Check, render, read more',
+    '',
+    ...fenced(['node review/check.mjs deck.md', 'npx @laticent/lattice deck.md deck.pdf'].join('\n'), 'sh'),
+    '',
+    `Web or no shell: [render](./${RENDER}/lattice-render-a-deck.md). More: [full canon](./${AUTHORING}/deck-canon.md).`,
     '',
   ].join('\n');
 }
@@ -3474,9 +3659,11 @@ async function buildKit() {
   // render/ and examples/ — the two ends of the pipeline the kit was missing.
   files.set(`${RENDER}/lattice-render-a-deck.md`, Buffer.from(renderDoc(), 'utf8'));
   files.set(`${RENDER}/lattice-export-to-marp.md`, Buffer.from(exportToMarpDoc(), 'utf8'));
-  const start = startDoc(files, cat);
-  if (start.length > START_MAX) {
-    throw new Error(`build-agent-kit: start.md is ${start.length} characters; its budget is ${START_MAX} (2026-11-17-agent-pack.md §4.1). Cut, do not raise.`);
+  files.set('layouts.md', Buffer.from(layoutsDoc(files, cat), 'utf8'));
+  const start = startDoc(cat);
+  const startTokens = o200kTokens(start);
+  if (startTokens > START_TOKEN_MAX) {
+    throw new Error(`build-agent-kit: start.md is ${startTokens} o200k tokens; its budget is ${START_TOKEN_MAX} (${START_MARGIN_NOTE}). Cut, do not raise: the owner set 1,500 tokens on 2026-11-27.`);
   }
   files.set('start.md', Buffer.from(start, 'utf8'));
   files.set(`${EXAMPLES}/lattice-example-starter.md`, Buffer.from(starterDeck(), 'utf8'));

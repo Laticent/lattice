@@ -36,7 +36,7 @@ test('a deck edit survives a reload', async ({ page }) => {
 	const n = await slideCount(page);
 
 	// A leading `---` makes this a NEW slide (the splitter separates on `---`).
-	await appendToEditor(page, '\n\n---\n\n<!-- _class: statement -->\n\n# PERSISTMARKER\n');
+	await appendToEditor(page, '\n\n---\n\n<!-- @meta{class=statement} -->\n\n# PERSISTMARKER\n');
 	await expect.poll(() => persistedSource(page)).toContain('PERSISTMARKER');
 	await expect(railButtons(page)).toHaveCount(n + 1);
 
