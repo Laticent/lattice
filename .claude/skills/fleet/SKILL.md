@@ -55,7 +55,9 @@ command center). If it is missing, or bound to an archived command center, creat
 reads notifications, tells a session when its PR lands, nudges an idle session that has work left,
 and archives every session that passes the auto-archive checks in `engineering/workflow.md`
 §Desks, "Auto-archive". It never merges and never asks the owner anything while they are away.
-When a session reports it is done, the command center asks it at once, while its cache is warm,
+For check 4(b), read the `git (archive check 4b)` block under the session's 📋 standup on its
+PR; it counts only while the session's `updated_at` is no later than that comment. With no
+current block, when a session reports it is done, ask it at once, while its cache is warm,
 for `git status -sb`, `git stash list`, `git worktree list`,
 `git log --oneline --branches --not --remotes` and `git log --oneline HEAD --not --remotes`. It
 never wakes a session idle past an hour to ask. A session it cannot clear goes on the owner's
