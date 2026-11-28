@@ -1345,7 +1345,7 @@ unchanged. Five names are added: `Frontmatter`, `FrontmatterMark` and `Frontmatt
 definition produces no token, so its `LinkReference` node is written from the definition the detail parse records,
 inside the quote or list item that holds it.
 
-**The inline parser.** `deckInlineOptions()` (lib/core/deck-inline.mjs) configures S2 as the engine's markdown-it:
+**The inline parser.** `deckInlineOptions()` (docs/src/lib/deck-language/deck-inline.mjs) configures S2 as the engine's markdown-it:
 `html`, `~~`, and every plugin inline rule at its manifest's anchor and triggers. The token adapter reads its
 configuration off a markdown-it instance; an editor has none to read. `model-tokens.test.js` holds the two parsers to
 the same tapes on every committed deck.

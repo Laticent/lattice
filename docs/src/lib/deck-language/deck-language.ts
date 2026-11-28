@@ -30,7 +30,6 @@ import { Language, LanguageSupport } from '@codemirror/language';
 import { COL_SHIFT, F_CLOSED, KIND, STRIDE, T_AUX, T_FLAGS, T_KIND, T_L0, T_L1, T_NEST } from '@laticent/segno-languages/markdown';
 import { type Input, NodeProp, NodeSet, NodeType, Parser, type PartialParse, parseMixed, Tree, type TreeFragment } from '@lezer/common';
 import { styleTags, tags as t } from '@lezer/highlight';
-import { deckInlineOptions as deckInlineOptionsJs } from '../../../../lib/core/deck-inline.mjs';
 import { deckModel as deckModelJs, updateDeckModel as updateDeckModelJs } from '../../../../lib/core/deck-model.mjs';
 // THE INLINE PASS COMES FROM ITS SOURCE MODULES, not from the package entry the block pass is read through. The entry is
 // one module (`dist/index.mjs`) and a bundler keeps a module in one chunk, the eager one the outline needs, so an inline
@@ -66,6 +65,7 @@ import {
 	SPECIAL_ENTITY,
 } from '../segno-markdown/inline';
 import { type InlineLeaf, inlineSlide, leafToBody, referencesOf, slideDetail } from '../segno-markdown/model-inline';
+import { deckInlineOptions as deckInlineOptionsJs } from './deck-inline.mjs';
 
 const buildModel = deckModelJs as (source: string) => DeckModel;
 const updateModel = updateDeckModelJs as (prev: DeckModel, next: string) => DeckModel;

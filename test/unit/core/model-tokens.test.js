@@ -86,7 +86,7 @@ const DECKS = execSync("git ls-files 'examples/*.md' 'examples/**/*.md' '*.galle
 const md = engineLike();
 
 test('the editors’ inline parser (deckInlineOptions) reads every committed deck as the adapter’s, read off the engine’s markdown-it, does', () => {
-	const { deckInlineOptions } = require('../../../lib/core/deck-inline.mjs');
+	const { deckInlineOptions } = require('../../../docs/src/lib/deck-language/deck-inline.mjs');
 	const { deckModel: editorModel } = require('../../../lib/core/deck-model.mjs');
 	const { InlineParser: Parser, inlineSlide } = require('@laticent/segno-languages/markdown');
 	const ours = new Parser(deckInlineOptions());

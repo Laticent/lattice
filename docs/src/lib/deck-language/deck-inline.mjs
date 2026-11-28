@@ -1,20 +1,21 @@
 /**
- * lib/core/deck-inline.mjs
+ * docs/src/lib/deck-language/deck-inline.mjs
  *
  * THE EDITORS' INLINE PARSER (Segno deck pipeline P4b): S2 configured as the engine's markdown-it, for a reader with no
  * markdown-it instance to read its configuration off (the token adapter, model-tokens.mjs, has one). Its own module, not
  * part of deck-model.mjs, because the deck model is on the Studio's and the home page's eager path (the outline reads
- * it) and the inline pass is about 9 KB gzipped that path does not need: only the source editor's tree reads this
- * (docs/src/lib/deck-language/), and that is a lazy chunk.
+ * it) and the inline pass is about 9 KB gzipped that path does not need. Only the source editor's tree reads this, so it
+ * sits beside it (the structure gate keeps a one-consumer file with its user).
  *
  * IT RETURNS OPTIONS, NOT A PARSER. The package resolves to one module (`dist/index.mjs`), and a bundler keeps a module
  * in one chunk, so any `InlineParser` imported from it lands in the eager chunk that holds the block pass: measured on
  * #3599, +10,189 B gzipped on the Studio's and the home page's eager JavaScript. The caller builds the parser with its
  * own copy of the class (the source editor imports the inline pass's source modules, which only its chunk carries).
  */
-import { PLUGIN_GRAMMAR } from '../plugins/grammar.generated.mjs';
-import { boundaryRulesGeneration, boundaryParser as md } from './boundary-parser.mjs';
-import { linkOk } from './deck-model.mjs';
+
+import { boundaryRulesGeneration, boundaryParser as md } from '../../../../lib/core/boundary-parser.mjs';
+import { linkOk } from '../../../../lib/core/deck-model.mjs';
+import { PLUGIN_GRAMMAR } from '../../../../lib/plugins/grammar.generated.mjs';
 
 /**
  * Whether `&name;` is a named entity to markdown-it's entity rule, which is stricter than `unescapeAll` (that one also
