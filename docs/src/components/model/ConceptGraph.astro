@@ -68,14 +68,18 @@ import ConceptLattice from './ConceptLattice.astro';
     padding: 8px 13px; border-radius: 11px; background: var(--bg); border: 1.5px solid var(--border);
     box-shadow: 0 14px 34px -20px color-mix(in srgb, var(--text-heading) 50%, transparent); }
   .cg-graph :global(.cg-gnode b) { font: 700 14px/1.1 var(--sl-font-system, serif); color: var(--text-heading); }
-  .cg-graph :global(.cg-gnode span) { font: 600 8.5px/1 var(--sl-font-system-mono, monospace); color: var(--text-muted); text-transform: uppercase; letter-spacing: .07em; }
+  .cg-graph :global(.cg-gnode span) { font: 600 11px/1 var(--sl-font-system-mono, monospace); color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; }
   .cg-graph :global(.cg-gnode.axis b) { color: var(--text-body); }
   .cg-graph :global(.cg-gnode.form) { border-color: var(--accent); border-width: 2.5px; background: var(--accent-soft);
     box-shadow: 0 18px 40px -18px color-mix(in srgb, var(--accent) 55%, transparent); }
   .cg-graph :global(.cg-gnode.form b) { color: var(--accent); }
+  /* --text-muted on --accent-soft is under 4.5:1 on 17 of 36 palette x mode pairs; --text-body clears all 36. */
+  .cg-graph :global(.cg-gnode.form span) { color: var(--text-body); }
   .cg-graph :global(.cg-gnode.join) { background: var(--accent); border-color: var(--accent); }
   .cg-graph :global(.cg-gnode.join b) { color: var(--on-accent); }
-  .cg-graph :global(.cg-gnode.join span) { color: color-mix(in srgb, var(--on-accent) 75%, transparent); }
+  /* Full --on-accent, not a 75% mix: the mix fell under 4.5:1 on 14 of 36 palette x mode pairs
+     (cuoio light 4.40:1). The bold title above carries the hierarchy by weight and size. */
+  .cg-graph :global(.cg-gnode.join span) { color: var(--on-accent); }
   .cg-graph :global(.cg-gnode.noun) { border-style: dashed; }
 
   .cg-graph :global(.cg-gedge) { position: absolute; top: 0; left: 0; height: 2px; transform-origin: 0 50%; border-radius: 2px;
