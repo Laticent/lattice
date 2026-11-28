@@ -106,16 +106,26 @@ jobs:
         run: npm run build
       # Paired mode: check the old ref out beside this one, build it with its own dependencies,
       # and keep only its start.md. The judge (lint:deck, the render) stays this checkout's.
+      # actions/checkout's `ref` reads a short sha as a branch name and fails (run 46107299456),
+      # so the old tree takes full history and git resolves the ref: a branch, a tag, or a sha of
+      # any length.
       - uses: actions/checkout@v4
         if: ${{ inputs.old_ref != '' }}
         with:
-          ref: ${{ inputs.old_ref }}
           path: old-tree
+          fetch-depth: 0
           persist-credentials: false
       - name: Build the old start.md
         if: ${{ inputs.old_ref != '' }}
+        env:
+          OLD_REF: ${{ inputs.old_ref }}
         run: |
           set -euo pipefail
+          sha=$(git -C old-tree rev-parse --verify --quiet --end-of-options "${OLD_REF}^{commit}" ||
+                git -C old-tree rev-parse --verify --quiet --end-of-options "origin/${OLD_REF}^{commit}") ||
+            { echo "::error::old_ref '${OLD_REF}' is not a commit, branch or tag in this repository"; exit 1; }
+          git -C old-tree checkout --quiet --detach "$sha"
+          echo "old start.md from $(git -C old-tree rev-parse HEAD)" | tee -a "$GITHUB_STEP_SUMMARY"
           (cd old-tree && npm ci && npm run build)
           cp old-tree/dist/agent-kit/start.md "$RUNNER_TEMP/old-start.md"
       - name: Run the eval
