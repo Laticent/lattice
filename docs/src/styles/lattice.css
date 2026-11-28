@@ -95,58 +95,58 @@ h1#_top {
  * Starlight's <Card> cycles the icon tile through FIXED categorical hues
  * (--sl-color-purple/orange/green/red/blue) by card position — palette-blind
  * and not contrast-curated per mode, so they clash on the ink-only (onyx,
- * concrete) and warm themes. Keep the distinct-per-card look the rainbow gave,
- * but source it from the theme's 12-slot categorical contract
- * (2026-07-15-categorical-token-contract.md): the slot's MARK, the tier built
- * to stand off the canvas (3:1 on every palette), is the glyph and the rim.
- * The ground is a 6% OKLab wash of that mark over the canvas, NOT the slot's
- * `-fill`: the contract never pairs a mark ON its fill, and measured it falls
- * to 1.51:1 there on the a11y palettes. At 6% every slot holds 3:1 (worst
- * 3.06, concrete light), and tools/check-shadcn-bridge-contrast.js gates it
- * with the same mix. Unlayered → beats Starlight's @layer starlight.components
- * nth-child rules. */
+ * concrete) and warm themes. Each tile is instead the theme's own category
+ * chip, from the 12-slot categorical contract
+ * (2026-07-15-categorical-token-contract.md): the slot's FILL as the ground, the
+ * contract's `--cat-on-fill` as the glyph (AA on every fill, worst 4.88), and the
+ * slot's MARK as the rim, which holds 3:1 against the canvas where a pale light
+ * fill alone would not (a fill can sit at 1.06:1 to --bg). On a dark face the
+ * hue lives in the fill and the mark is pale, so a mark-colored glyph went
+ * white on every tile; the chip keeps each card's hue in both faces. Gated in
+ * tools/check-shadcn-bridge-contrast.js. Unlayered → beats Starlight's
+ * @layer starlight.components nth-child rules. */
 .sl-markdown-content .card .icon {
-	color: var(--lx-cat-mark, var(--accent));
+	color: var(--cat-on-fill, var(--text-heading));
 	border-color: var(--lx-cat-mark, var(--accent));
-	background-color: color-mix(in oklab, var(--bg), var(--lx-cat-mark, var(--accent)) 6%);
+	background-color: var(--lx-cat-fill, var(--accent-soft));
 }
-.sl-markdown-content .card:nth-child(12n + 1) .icon { --lx-cat-mark: var(--cat-1-mark); }
-.sl-markdown-content .card:nth-child(12n + 2) .icon { --lx-cat-mark: var(--cat-2-mark); }
-.sl-markdown-content .card:nth-child(12n + 3) .icon { --lx-cat-mark: var(--cat-3-mark); }
-.sl-markdown-content .card:nth-child(12n + 4) .icon { --lx-cat-mark: var(--cat-4-mark); }
-.sl-markdown-content .card:nth-child(12n + 5) .icon { --lx-cat-mark: var(--cat-5-mark); }
-.sl-markdown-content .card:nth-child(12n + 6) .icon { --lx-cat-mark: var(--cat-6-mark); }
-.sl-markdown-content .card:nth-child(12n + 7) .icon { --lx-cat-mark: var(--cat-7-mark); }
-.sl-markdown-content .card:nth-child(12n + 8) .icon { --lx-cat-mark: var(--cat-8-mark); }
-.sl-markdown-content .card:nth-child(12n + 9) .icon { --lx-cat-mark: var(--cat-9-mark); }
-.sl-markdown-content .card:nth-child(12n + 10) .icon { --lx-cat-mark: var(--cat-10-mark); }
-.sl-markdown-content .card:nth-child(12n + 11) .icon { --lx-cat-mark: var(--cat-11-mark); }
-.sl-markdown-content .card:nth-child(12n + 12) .icon { --lx-cat-mark: var(--cat-12-mark); }
+.sl-markdown-content .card:nth-child(12n + 1) .icon { --lx-cat-fill: var(--cat-1-fill); --lx-cat-mark: var(--cat-1-mark); }
+.sl-markdown-content .card:nth-child(12n + 2) .icon { --lx-cat-fill: var(--cat-2-fill); --lx-cat-mark: var(--cat-2-mark); }
+.sl-markdown-content .card:nth-child(12n + 3) .icon { --lx-cat-fill: var(--cat-3-fill); --lx-cat-mark: var(--cat-3-mark); }
+.sl-markdown-content .card:nth-child(12n + 4) .icon { --lx-cat-fill: var(--cat-4-fill); --lx-cat-mark: var(--cat-4-mark); }
+.sl-markdown-content .card:nth-child(12n + 5) .icon { --lx-cat-fill: var(--cat-5-fill); --lx-cat-mark: var(--cat-5-mark); }
+.sl-markdown-content .card:nth-child(12n + 6) .icon { --lx-cat-fill: var(--cat-6-fill); --lx-cat-mark: var(--cat-6-mark); }
+.sl-markdown-content .card:nth-child(12n + 7) .icon { --lx-cat-fill: var(--cat-7-fill); --lx-cat-mark: var(--cat-7-mark); }
+.sl-markdown-content .card:nth-child(12n + 8) .icon { --lx-cat-fill: var(--cat-8-fill); --lx-cat-mark: var(--cat-8-mark); }
+.sl-markdown-content .card:nth-child(12n + 9) .icon { --lx-cat-fill: var(--cat-9-fill); --lx-cat-mark: var(--cat-9-mark); }
+.sl-markdown-content .card:nth-child(12n + 10) .icon { --lx-cat-fill: var(--cat-10-fill); --lx-cat-mark: var(--cat-10-mark); }
+.sl-markdown-content .card:nth-child(12n + 11) .icon { --lx-cat-fill: var(--cat-11-fill); --lx-cat-mark: var(--cat-11-mark); }
+.sl-markdown-content .card:nth-child(12n + 12) .icon { --lx-cat-fill: var(--cat-12-fill); --lx-cat-mark: var(--cat-12-mark); }
 
 /* ── Asides — the theme's status colors, not Starlight's fixed hues ────────
  * Starlight paints its asides (note / caution / danger, and diff marks) from its
  * own fixed blue, orange, red and green. Each is a status the theme already
  * curates per palette and per mode (2026-10-24-status-is-one-system.md): the
  * `-high` step is the ink that reads on the canvas, the base step the mark (the
- * aside's rule and icon), the `-low` step the aside's ground: a 4% OKLab wash
- * of the mark. 4%, not a bolder tint, because the title is the status INK on
- * that ground and must hold AA: at 12% it fell below 4.5:1 on 12 palette-modes,
- * at 5% concrete light's blocked sits exactly on 4.50; 4% holds 4.54 at worst
- * (tools/check-shadcn-bridge-contrast.js, ASIDE_MIX). Purple (tip) has no
- * status meaning, so it takes the accent. */
+ * aside's rule and icon), and the `-low` step, the aside's ground, is the
+ * palette's own card surface, `--bg-alt`: every status ink is gated AA on it
+ * (tools/check-shadcn-bridge-contrast.js), and it stands the aside off the page
+ * in every palette, which a faint status wash could not do and still hold AA
+ * for the title (12% fell below 4.5:1 on 12 palette-modes; 4% held it but barely
+ * showed). Purple (tip) has no status meaning, so it takes the accent. */
 :root {
 	--sl-color-blue-high: var(--info);
 	--sl-color-blue: var(--info-mark);
-	--sl-color-blue-low: color-mix(in oklab, var(--bg), var(--info-mark) 4%);
+	--sl-color-blue-low: var(--bg-alt);
 	--sl-color-orange-high: var(--warn);
 	--sl-color-orange: var(--warn-mark);
-	--sl-color-orange-low: color-mix(in oklab, var(--bg), var(--warn-mark) 4%);
+	--sl-color-orange-low: var(--bg-alt);
 	--sl-color-red-high: var(--fail);
 	--sl-color-red: var(--fail-mark);
-	--sl-color-red-low: color-mix(in oklab, var(--bg), var(--fail-mark) 4%);
+	--sl-color-red-low: var(--bg-alt);
 	--sl-color-green-high: var(--pass);
 	--sl-color-green: var(--pass-mark);
-	--sl-color-green-low: color-mix(in oklab, var(--bg), var(--pass-mark) 4%);
+	--sl-color-green-low: var(--bg-alt);
 	--sl-color-purple-high: var(--accent);
 	--sl-color-purple: var(--accent);
 	--sl-color-purple-low: var(--accent-soft);

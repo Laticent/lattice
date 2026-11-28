@@ -54,21 +54,30 @@ list last grew, and none of it reached the site. Three consequences, all measure
    `--fail-mark` under `--fail-on-mark` (pill). The derived `-fill` tier is retired: its five
    readers (the Architect stop button, two verdict-chip overlays, the chrome badge) now draw the
    theme's own pill, which follows the mode as a deck's does. A rating dot is a status mark, its words the status
-   ink, its filled chip the mark under its on-mark. Card icon tiles take `--cat-N-mark` across all
-   12 slots; aside hues map to the status family.
+   ink, its filled chip the mark under its on-mark. Card icon tiles are each slot's category chip
+   across all 12 slots; aside hues map to the status family, on `--bg-alt`.
 4. **The gate scores what ships.** `tools/check-shadcn-bridge-contrast.js` now asserts the
    destructive mapping and scores every new pairing on all 36 palette-modes (the tip aside
-   included). It failed on the first aside tint below, before it shipped.
+   included). It failed on the first aside wash, before it shipped.
 
-## Two numbers the gate chose
+## Two grounds the renders chose
 
-- **Card tile ground: a 6% OKLab wash of the mark, not `--cat-N-fill`.** The contract never pairs
-  a mark on its own fill; measured, it falls to 1.51:1 there on the a11y palettes. A 6% wash holds
-  3:1 on every slot (worst 3.06, concrete light). `main`'s `chart-catN` tiles, a 14% sRGB wash,
-  fell to 2.91 (onyx dark, slot 4), so this also lifts every tile over 3:1.
-- **Aside ground: a 4% wash.** The aside title is the status ink on that ground. At 12% it fell
-  below 4.5:1 on 12 palette-modes (worst 4.0, concrete light); at 5% concrete light's blocked sits
-  exactly on 4.50; 4% holds 4.54.
+Both were first drawn as washes the gate could score, then changed after looking at the real pages
+(the PR's before/after renders: cuoio, indaco, concrete and a11y-deuteranopia, both faces):
+
+- **Card icon tile: the theme's category chip.** The first cut drew the glyph and rim in
+  `--cat-N-mark` over a 6% wash. On a dark face the themes put the hue in `-fill` and make the mark
+  pale (indaco slot 1: fill `#006398`, mark `#D4DFE8`), so every tile glyph went white and the cards
+  lost the per-card color `main` had. The tile is now the contract's own pairing: the slot's fill as
+  the ground, `--cat-on-fill` as the glyph (AA on every fill, worst 4.88, concrete dark), and the
+  mark as the rim, which holds 3:1 against the canvas where a pale light fill alone can sit at 1.06:1
+  (atelier slot 11). The contract never pairs a mark on its own fill (1.51:1 on the a11y palettes).
+  `main`'s `chart-catN` tiles, a 14% sRGB wash, fell to 2.91 (onyx dark, slot 4).
+- **Aside ground: `--bg-alt`.** The aside title is the status ink, so a status wash had to stay
+  faint to hold AA: at 12% it fell below 4.5:1 on 12 palette-modes (worst 4.0, concrete light), and
+  at 4% it held AA (4.54) but barely set the aside off the page. The palette's card surface does
+  both, and every status ink is gated AA on it. Before this change every aside was Starlight's
+  lavender or navy on every palette, and on a11y-deuteranopia dark its body text was dark on navy.
 
 ## Typography: faces yes, sizes no
 

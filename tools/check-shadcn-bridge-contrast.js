@@ -4,16 +4,14 @@
  * Contrast gate for the shadcn ↔ Lattice token bridge.
  *
  * The bridge (docs/src/styles/tailwind.css) maps shadcn's semantic color
- * tokens onto the Lattice palette tokens. Three of those mappings are DERIVED,
- * not direct aliases, so they need validating per palette/mode forever (not
- * "reviewed once"):
+ * tokens onto the Lattice palette tokens. One mapping is DERIVED, not a direct
+ * alias, so it needs validating per palette/mode forever (not "reviewed once"):
  *   • shadcn `--accent` (hover/active surface) = mix(bg-alt → accent, 14% oklab)
- *   • the docs Card icon tile = a 6% oklab wash of the slot's `--cat-N-mark` over `--bg`
- *   • the docs aside tint = a 4% oklab wash of the status mark over `--bg`
  * Plus every theme pairing the site chrome PAINTS, scored where the site paints it:
  * primary button text, card body, muted caption, destructive (= the theme's `--fail`
  * ink and its `--fail-mark` / `--fail-on-mark` pill), the five status kinds as ink,
- * dot and pill, the text tiers, and the categorical marks.
+ * dot and pill, the asides and tip on their grounds, the text tiers, and the docs
+ * Card icon tile (the category chip: on-fill glyph on the fill, mark rim).
  *
  * This reads the SAME generated token file the site themes from
  * (docs/src/styles/lattice-tokens.generated.css) and the bridge's own
@@ -78,9 +76,6 @@ function checkDestructiveMapping(css) {
 	return bad;
 }
 
-// The washes the docs skin mixes (docs/src/styles/lattice.css). Must match it.
-const CARD_TILE_MIX = 0.06;
-const ASIDE_MIX = 0.04;
 const AA_GRAPHIC = 3.0; // WCAG 1.4.11: a dot, a rim, an icon glyph
 const STATUS = ['pass', 'warn', 'fail', 'info', 'mute'];
 
@@ -117,20 +112,20 @@ function main() {
 				[`${s} pill (${s}-on-mark/${s}-mark)`, t(`--${s}-on-mark`), t(`--${s}-mark`), AA, false],
 				[`${s} dot (${s}-mark/bg)`, t(`--${s}-mark`), t('--bg'), AA_GRAPHIC, false],
 			]),
-			// Starlight asides: the title in the status ink, on the 4% wash of its mark.
-			...['pass', 'warn', 'fail', 'info'].map((s) => [
-				`${s} aside title (${s}/aside tint)`, t(`--${s}`), mix(t('--bg'), t(`--${s}-mark`), ASIDE_MIX), AA, false,
-			]),
+			// Starlight asides sit on --bg-alt with the title in the status ink: the `ink on card` rows above.
 			// The tip aside takes the accent (it has no status meaning): its title is --accent on --accent-soft.
 			['tip aside title (accent/accent-soft)', t('--accent'), t('--accent-soft'), AA, false],
 			['text-secondary on canvas', t('--text-secondary'), t('--bg'), AA, false],
 			['text-secondary on card', t('--text-secondary'), t('--bg-alt'), AA, false],
 			['text-label on canvas', t('--text-label'), t('--bg'), AA, false],
 			['text-label on card', t('--text-label'), t('--bg-alt'), AA, false],
-			...Array.from({ length: 12 }, (_, i) => {
-				const mk = t(`--cat-${i + 1}-mark`);
-				return [`card tile glyph (cat-${i + 1}-mark/6% wash)`, mk, mix(t('--bg'), mk, CARD_TILE_MIX), AA_GRAPHIC, false];
-			}),
+			// Docs Card icon tiles: the category chip (lattice.css) — glyph --cat-on-fill on the fill, rim the mark.
+			...Array.from({ length: 12 }, (_, i) => [
+				`card tile glyph (cat-on-fill/cat-${i + 1}-fill)`, t('--cat-on-fill'), t(`--cat-${i + 1}-fill`), AA_GRAPHIC, false,
+			]),
+			...Array.from({ length: 12 }, (_, i) => [
+				`card tile rim (cat-${i + 1}-mark/bg)`, t(`--cat-${i + 1}-mark`), t('--bg'), AA_GRAPHIC, false,
+			]),
 			['card body (body/bg-alt)', t('--text-body'), t('--bg-alt'), AA, false],
 			['muted caption (muted/bg-alt)', t('--text-muted'), t('--bg-alt'), AA_SECONDARY, true],
 			// MEASURED, DELIBERATELY NOT A PAIR. Five call sites once put `text-primary`
