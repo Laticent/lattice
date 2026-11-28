@@ -1201,15 +1201,15 @@ readers that ship.
 | File: symbol | Reads | Callers | #22 | Bytes |
 |---|---|---|---|---|
 | export/player-core.mjs: the comment, string and `url()` mask (×2), `noComments`, the `@font-face` walk, the `url()` list | minifying, `url()` rewriting and the font faces of the player's CSS | 3 | no | yes |
-| export/player-prune.js: `@font-face` blocks (×3) | the font faces the player keeps | 5 | no | yes |
-| export/player-fonts.js: `FACE`, `DATA_URI` | the embedded woff2 faces | 3 | no | yes |
+| export/player-prune.js: `@font-face` blocks (×3) (**moved in P5b:** onto lib/export/css-at-rules.js; six player exports byte-identical, test/unit/export/player-prune-fonts-differential.test.js) | the font faces the player keeps | 5 | no | yes |
+| export/player-fonts.js: `FACE`, `DATA_URI` (**moved in P5b:** onto lib/export/css-at-rules.js, the one face reader the font code shares; six player exports byte-identical, test/unit/export/player-fonts-differential.test.js) | the embedded woff2 faces | 3 | no | yes |
 | export/player-assets.mjs, player-images.mjs: data-URL `url()` | inlined data URLs | 1, 2 | no | yes |
-| export/katex-inline.js: `woff2Src`, the `@font-face` split | KaTeX's font faces | 3 | no | yes |
-| export/marp-bundle.js: `FONT_URL`, the emoji `@font-face` drop | font paths; one face removed | 6 | no | yes (Marp export) |
-| export/marp-vscode-stub.js, marp-bundle-math.js `STYLE_VALUE` | theme imports; a math style value | 3, 2 | no | yes |
-| export/pdf-asset-reader.js | a local sheet's `@font-face` blocks | 2 | no | yes (PDF) |
-| export/cli-deck-sheet.js: `THEME_IMPORT_RE`, the naive `COMMENT_RE` | whether a palette already imports a theme (the measured bypass above) | 2 | no | yes |
-| export/author-css.js: the naive `COMMENT_RE`, the depth walk | the author's CSS, re-wrapped (a #22 re-wrap site) | 3 | re-wrap | yes |
+| export/katex-inline.js: `woff2Src`, the `@font-face` split (**moved in P5b:** `woff2Srcs` and `faceRules` read tokens; byte-identical on KaTeX's sheet, test/unit/export/katex-inline-differential.test.js) | KaTeX's font faces | 3 | no | yes |
+| export/marp-bundle.js: `FONT_URL`, the emoji `@font-face` drop (**moved in P5b:** `fontAssetsFor` reads `cssUrls`, `withoutEmojiFont` reads lib/export/css-at-rules.js; both answer the same on dist/lattice.css, test/unit/export/marp-bundle-fonts-differential.test.js) | font paths; one face removed | 6 | no | yes (Marp export) |
+| export/marp-vscode-stub.js (**moved in P5b:** `stubOf` reads `cssTokens` and `cssImports`; every shipped sheet stubs the same, test/unit/export/marp-vscode-stub-differential.test.js), marp-bundle-math.js `STYLE_VALUE` (**kept, reviewed in P5b:** an anchored allowlist, not a reader; it refuses quotes, backslashes and `url(`, so its `;` split is exact on every value it accepts, and a token rewrite would move a #22 allowlist for no accuracy) | theme imports; a math style value | 3, 2 | no | yes |
+| export/pdf-asset-reader.js (**moved in P5b:** `fontFaceBlocks` reads lib/export/css-at-rules.js; every shipped sheet reads the same, test/unit/export/pdf-font-faces-differential.test.js) | a local sheet's `@font-face` blocks | 2 | no | yes (PDF) |
+| export/cli-deck-sheet.js: `THEME_IMPORT_RE`, the naive `COMMENT_RE` (**moved in P5b:** `importsTheme` reads `cssImports`; test/unit/export/cli-theme-import-differential.test.js) | whether a palette already imports a theme (the measured bypass above) | 2 | no | yes |
+| export/author-css.js: the naive `COMMENT_RE`, the depth walk (**moved in P5b:** `stripCssComments` and `rootTokenCopy` read tokens; a comment between two tokens becomes one space, so `</`, a comment and `style>` never join into a closing tag; every shipped sheet and deck reads the same, test/unit/export/author-css-differential.test.js) | the author's CSS, re-wrapped (a #22 re-wrap site) | 3 | re-wrap | yes |
 | export/inline-url-media.mjs, html-player.js `BACKGROUND_IMAGE_STRING`, deck-assets.js | web `url()` refs; file `url()`; `asset:` refs | 3, 4, 3 | no | yes |
 | fonts/face-css.js: `AT_KEYWORD`, `HOP`, `URL_RE` | `@font-face` rules and their `src` URLs | 4 | no | yes |
 
