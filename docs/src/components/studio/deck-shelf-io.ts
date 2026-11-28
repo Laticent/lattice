@@ -4,7 +4,7 @@
 
 import type { DeckVault } from './deck-vault';
 import { DECKS } from './decks';
-import { shelfInternals as S, SRC_PREFIX, titleFromSource } from './studio-store';
+import { decksReady, shelfInternals as S, SRC_PREFIX, titleFromSource } from './studio-store';
 
 let engineP: Promise<DeckVault | null> | null = null;
 /** This tab's one deck engine (null with no vault). The move uses it too, so the tab holds one Web Lock slot. */
@@ -26,6 +26,7 @@ const chains = new Map<string, Promise<void>>();
  *  so the failed save's edits ride with it instead of reading as already stored. */
 const failedBase = new Map<string, string>();
 let stopWatch: (() => void) | null = null;
+let pagehideOn = false;
 
 function queue(id: string, op: (dv: DeckVault) => Promise<void>): Promise<void> {
 	const p = (chains.get(id) ?? Promise.resolve()).then(async () => {
@@ -51,8 +52,11 @@ export function reset(): void {
 	stopWatch = null;
 }
 
-export function queueSave(id: string, base: string, source: string): void {
+export function queueSave(id: string, base: string, source: string, fromHydrate = false): void {
 	queue(id, async (dv) => {
+		// A save waits for the shelf to read the vault, so a save the last session could not finish (the boot cache's
+		// text) is known first and this one diffs from the vault's text (the red team's finding 2).
+		if (!fromHydrate) await decksReady().catch(() => {});
 		const from = failedBase.get(id) ?? base;
 		try {
 			const { merged } = await dv.save(id, from, source);
@@ -122,7 +126,8 @@ export async function hydrate(): Promise<void> {
 	}
 	// A mark with no file: the deck was deleted in another tab, or never written. An unreadable file keeps its mark.
 	for (const e of index) {
-		if (e.vault && !texts.has(e.id) && !unreadable.includes(e.id) && !S.unmarked.has(e.id)) {
+		// Not one saved while the vault was being read (it has a shelf entry or a write in flight): its file is coming.
+		if (e.vault && !texts.has(e.id) && !unreadable.includes(e.id) && !S.unmarked.has(e.id) && !S.shelf.has(e.id) && !chains.has(e.id)) {
 			delete e.vault;
 			changed = true;
 		}
@@ -133,11 +138,16 @@ export async function hydrate(): Promise<void> {
 		if (S.hasLegacySource(id)) continue;
 		const mine = S.shelf.get(id)?.text;
 		if (cache?.id === id && mine != null && mine !== text && cache.base === S.fnv(text)) {
-			// The boot deck's last save never reached the vault (a reload cut it off): save it again, from its base.
+			// The boot deck's last save never reached the vault (a reload cut it off): save it again from the vault's text,
+			// and make any save typed since diff from there too, so the cut-off lines are not read as deleted.
 			S.vaultText.set(id, text);
-			queueSave(id, text, mine);
+			failedBase.set(id, text);
+			queueSave(id, text, mine, true);
 			continue;
 		}
+		// A save in flight read the vault before it landed: its result carries the merge, so the editor is not rolled
+		// back to the text read here (the red team's finding 3).
+		if (chains.has(id)) continue;
 		heardDeck(id, text);
 	}
 	const active = S.loadActiveDeck()?.deckId;
@@ -147,11 +157,14 @@ export async function hydrate(): Promise<void> {
 		void dv
 			.readDeck(id)
 			.then((t) => {
-				if (t !== null && S.isVaultDeck(id)) heardDeck(id, t);
+				if (t !== null && S.isVaultDeck(id) && !S.hasLegacySource(id)) heardDeck(id, t);
 			})
 			.catch(() => {});
 	});
-	if (typeof addEventListener === 'function') addEventListener('pagehide', () => void dv.promoteAll().catch(() => {}));
+	if (!pagehideOn && typeof addEventListener === 'function') {
+		pagehideOn = true;
+		addEventListener('pagehide', () => void shelfEngine().then((e) => e?.promoteAll()).catch(() => {}));
+	}
 }
 
 // For the move (deck-vault-move.ts).

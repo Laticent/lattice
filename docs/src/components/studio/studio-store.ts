@@ -542,7 +542,11 @@ export function deckLoaded(id: string): boolean {
 function writeBootCache(id: string): void {
 	const text = isVaultDeck(id) ? shelf.get(id)?.text : undefined;
 	const was = vaultText.get(id);
-	const raw = text == null ? null : JSON.stringify({ id, text, ...(was != null ? { base: fnv(was) } : {}) });
+	// Before the vault is read the base is unknown: keep the one the cache already names, so a save typed before
+	// hydration does not erase the record that the cached text is a save the vault never got.
+	const prev = read<{ id?: string; base?: string }>(BOOT_SRC_LS);
+	const base = was != null ? fnv(was) : prev?.id === id ? prev.base : undefined;
+	const raw = text == null ? null : JSON.stringify({ id, text, ...(base ? { base } : {}) });
 	// Too big, or refused: no cache at all, never a stale one.
 	if (raw === null || raw.length > BOOT_CACHE_MAX || writeOrError(BOOT_SRC_LS, raw) !== null) remove(BOOT_SRC_LS);
 }

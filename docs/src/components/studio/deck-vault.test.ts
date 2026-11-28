@@ -11,7 +11,7 @@ import { DECK_BACKUP_KEY, moveDecksIntoVault, moveDecksOutOfVault } from './deck
 import { LIBRARY_SCOPE, type NewMedia, saveMedia } from './media-store';
 import { pinStudioVault } from './media-vault';
 import { BACKED_UP_KEY, BACKUP_PATH } from './media-vault-move';
-import { BOOT_SRC_LS, DECK_DIRECTION_KEY, deckLoaded, decksReady, deckVaultSettled, loadSource, onSourceWriteError, resetShelfForTests, SRC_PREFIX, saveActiveDeck, saveSource } from './studio-store';
+import { BOOT_SRC_LS, DECK_DIRECTION_KEY, deckLoaded, decksReady, deckVaultSettled, loadSource, onDeckMerged, onSourceWriteError, resetShelfForTests, SRC_PREFIX, saveActiveDeck, saveSource } from './studio-store';
 
 // A whole Storage (studio-store walks keys), installed once.
 const mem = new Map<string, string>();
@@ -231,9 +231,13 @@ describe('the boot cache after a cut-off save', () => {
 		await decksReady();
 		// The vault write never runs: the tab closes first.
 		const realWrite = vault.write.bind(vault);
-		vault.write = () => new Promise(() => {});
+		let cut = true;
+		vault.write = ((p: string, d: never, m: never) => (cut ? new Promise(() => {}) : realWrite(p, d, m))) as never;
 		saveSource('deck-a', `${deckA}- typed, then closed\n`, { fromShell: true });
 		const cached = mem.get(BOOT_SRC_LS) as string;
+		await new Promise((r) => setTimeout(r, 20)); // the queued write reaches the hung vault: the tab closes on it
+		cut = false;
+		expect(await text(deckPath('deck-a'))).toBe(deckA); // really cut off (the red team found it was not)
 		vault.write = realWrite;
 		reload();
 		mem.set(BOOT_SRC_LS, cached);
@@ -241,6 +245,29 @@ describe('the boot cache after a cut-off save', () => {
 		await deckVaultSettled();
 		expect(await text(deckPath('deck-a'))).toBe(`${deckA}- typed, then closed\n`);
 		expect(loadSource('deck-a')).toBe(`${deckA}- typed, then closed\n`);
+	});
+	it('keeps the cut-off edit when the person types before the vault is read (the red team\'s finding 2)', async () => {
+		seedLegacy();
+		saveActiveDeck('deck-a', 0);
+		await moveDecksIntoVault({ pack: pack('x') });
+		await decksReady();
+		await deckVaultSettled();
+		const realWrite = vault.write.bind(vault);
+		let cut = true;
+		vault.write = ((p: string, d: never, m: never) => (cut ? new Promise(() => {}) : realWrite(p, d, m))) as never;
+		saveSource('deck-a', `${deckA}- typed, then closed\n`, { fromShell: true });
+		const cached = mem.get(BOOT_SRC_LS) as string;
+		await new Promise((r) => setTimeout(r, 20));
+		cut = false;
+		vault.write = realWrite;
+		reload();
+		mem.set(BOOT_SRC_LS, cached);
+		const shown = loadSource('deck-a') as string;
+		expect(shown).toBe(`${deckA}- typed, then closed\n`);
+		saveSource('deck-a', `${shown}- and more\n`, { fromShell: true }); // before decksReady
+		await decksReady();
+		await deckVaultSettled();
+		expect(await text(deckPath('deck-a'))).toBe(`${deckA}- typed, then closed\n- and more\n`);
 	});
 	it("lets the vault win when another tab saved after the cache's base", async () => {
 		seedLegacy();
@@ -253,6 +280,43 @@ describe('the boot cache after a cut-off save', () => {
 		mem.set(BOOT_SRC_LS, stale);
 		await decksReady();
 		expect(loadSource('deck-a')).toBe(`${deckA}- from another tab\n`);
+	});
+});
+
+describe('hydration races (the red team\'s findings 3 and 4)', () => {
+	it('does not roll the editor back over a save typed right after the first paint', async () => {
+		seedLegacy();
+		saveActiveDeck('deck-a', 0);
+		await moveDecksIntoVault({ pack: pack('x') });
+		await deckVaultSettled();
+		reload();
+		const heard: string[] = [];
+		const stop = onDeckMerged((e) => heard.push(e.text));
+		const typed = `${deckA}- typed right after paint\n`;
+		saveSource('deck-a', typed, { fromShell: true });
+		await decksReady();
+		await deckVaultSettled();
+		stop();
+		expect(heard.every((t) => t.includes('typed right after paint'))).toBe(true);
+		expect(loadSource('deck-a')).toBe(typed);
+		expect(await text(deckPath('deck-a'))).toBe(typed);
+	});
+	it('keeps the vault mark of a deck saved while the vault is being read', async () => {
+		mem.set(INDEX, JSON.stringify([{ id: 'deck-n', title: 'N', builtin: false }]));
+		const realList = vault.list.bind(vault);
+		let fired = false;
+		vault.list = (async (p: string, o?: never) => {
+			if (p === 'Decks' && !fired) {
+				fired = true;
+				saveSource('deck-n', '# N real text\n');
+			}
+			return realList(p, o);
+		}) as never;
+		await decksReady();
+		await deckVaultSettled();
+		vault.list = realList;
+		expect(JSON.parse(mem.get(INDEX) as string).find((e: { id: string }) => e.id === 'deck-n')?.vault).toBe(true);
+		expect(loadSource('deck-n')).toBe('# N real text\n');
 	});
 });
 
