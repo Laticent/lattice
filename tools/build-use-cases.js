@@ -250,8 +250,17 @@ export const VALIDATORS = Object.freeze({
 ${all.map((m) => `\t${m.id},`).join('\n')}
 });
 
+/** Frozen all the way down: an importer that changed a schema would change which nulls every later call drops. */
+const deepFreeze = (o) => {
+	if (o && typeof o === 'object' && !Object.isFrozen(o)) {
+		for (const v of Object.values(o)) deepFreeze(v);
+		Object.freeze(o);
+	}
+	return o;
+};
+
 /** Each validator's schema, by id: what the dispatcher reads to drop a null left in an optional field. */
-export const SCHEMAS = Object.freeze({
+export const SCHEMAS = deepFreeze({
 ${all.map((m) => `\t${m.id}: ${m.id}_schema,`).join('\n')}
 });
 `;

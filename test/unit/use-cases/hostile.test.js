@@ -204,3 +204,42 @@ test('dropping nulls never mutates the arguments and keeps a __proto__ field an 
 	assert.equal(args.a, null, 'the input is untouched');
 });
 
+test('a null the schema allows by any keyword is kept: anyOf, enum, const, or no type at all', () => {
+	const props = {
+		any: { anyOf: [{ type: 'string' }, { type: 'null' }] },
+		inEnum: { enum: ['x', null] },
+		isConst: { const: null },
+		untyped: {},
+		plain: { type: 'string' },
+	};
+	const out = dropNullOptionals({ any: null, inEnum: null, isConst: null, untyped: null, plain: null }, { type: 'object', properties: props });
+	assert.deepEqual(out, { any: null, inEnum: null, isConst: null, untyped: null });
+});
+
+test('the generated schemas are frozen all the way down', () => {
+	const { SCHEMAS } = require(path.join(__dirname, '../../../lib/use-cases/validators.generated.mjs'));
+	assert.ok(Object.isFrozen(SCHEMAS));
+	assert.ok(Object.isFrozen(SCHEMAS.find_text));
+	assert.ok(Object.isFrozen(SCHEMAS.find_text.properties));
+	assert.ok(Object.isFrozen(SCHEMAS.edit_slides.properties.edits.items.properties.slide));
+});
+
+test('a host with its own validators and no schemas gets no null dropping, never the generated schemas', async () => {
+	const seen = [];
+	const own = {
+		id: 'test',
+		catalog: { read_slides: { tier: 'read', hosts: ['test'], deckEdit: false } },
+		allowed: () => true,
+		handlers: {
+			read_slides: (a) => {
+				seen.push(a);
+				return 'ran';
+			},
+		},
+		deckEdit: { begin() {}, refuse() {}, check: (t) => t },
+		validators: { read_slides: () => true },
+	};
+	await dispatch(own, 'read_slides', '{"from":1,"to":null}');
+	assert.deepEqual(seen, [{ from: 1, to: null }]);
+});
+

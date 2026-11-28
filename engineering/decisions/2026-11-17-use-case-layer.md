@@ -501,8 +501,8 @@ trusts what reaches it. Where a schema was wrong about what a tool should accept
   these): `chart_from_data`'s row and part `value` take a string or a number, and `set_front_matter`'s `value`
   takes a string, number, boolean or null. Their handlers always accepted both; a model sending 42 or `true`
   was right, and refusing it would have cost a round for nothing.
-- **What the schema says, the model must send.** A required field (`summary` on the editing tools, `from` on
-  `read_slides`), a list where one is asked for (`view_asset`'s `names`), a boolean or an integer, a value in
+- **What the schema says, the model must send.** A required field (`summary` on `edit_slides`, `replace_text`,
+  `set_terms` and `set_front_matter`; `from` on `read_slides`), a list where one is asked for (`view_asset`'s `names`), a boolean or an integer, a value in
   range: each is refused, by name, where a handler used to guess. A handler's private leniency is now dead code
   for the validated shapes, and goes when the tool gets its kernel.
 - **The schemas are still open and unbounded** (`additionalProperties` unset, no `maxLength`), so an unknown

@@ -8,4 +8,4 @@ The Studio chat checks every tool call's arguments against the tool's schema bef
 - A refused call names the field and the reason ("/edits/0/slide must be integer"), so the model can fix that one field; arguments that are not JSON are answered as before.
 - A null in an optional field counts as left out, for every tool.
 - A chart value may be a number, and a front-matter value a number or a boolean, as the tools always accepted.
-- What a schema requires is now required: a missing summary on an editing tool, a missing `from` on read_slides, a single name where view_asset asks for a list, a string where a boolean or an integer belongs, or a value out of range is refused, by name, instead of guessed at.
+- What a schema requires is now required: a missing summary on edit_slides, replace_text, set_terms or set_front_matter, a missing `from` on read_slides, a single name where view_asset asks for a list, a string where a boolean or an integer belongs, or a value out of range is refused, by name, instead of guessed at.
