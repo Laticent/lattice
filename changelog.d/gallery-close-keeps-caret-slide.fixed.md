@@ -1,0 +1,1 @@
+- **Closing the add-slide gallery puts the caret back on the slide it came from.** Open the gallery from a slide in Compose, close it without inserting, and the caret now returns to where it was. On a busy computer it could land at the start of the first slide instead. Other sheets that hand focus back to an editor do the same.

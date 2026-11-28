@@ -51,6 +51,39 @@ export function focusLauncher(launcher: HTMLElement | null): boolean {
   return document.activeElement === launcher
 }
 
+/**
+ * The caret inside `el` when a sheet opens over it, so the close can give it back: a copy of the page's selection when
+ * `el` is editable text (`contenteditable`) and holds it, else null. An input or a textarea keeps its own selection and
+ * needs none.
+ *
+ * WHY. A sheet that takes focus (the gallery's search field) takes the page's selection with it, so refocusing an
+ * editor on close finds no caret inside. The browser then puts one at the start of the text, and ProseMirror puts its
+ * own back only when that reset arrives within 200 ms of the focus event (prosemirror-view `DOMObserver.flush`). On a
+ * loaded machine it arrives later and the author's caret jumps to the first slide (compose-stress.spec.ts, closing
+ * the add-slide gallery, red under a 4-worker desktop run).
+ */
+export function caretWithin(el: HTMLElement | null): Range | null {
+  if (!el || !el.isContentEditable) return null
+  const sel = typeof getSelection === "function" ? getSelection() : null
+  if (!sel || sel.rangeCount === 0) return null
+  const range = sel.getRangeAt(0)
+  return el.contains(range.startContainer) && el.contains(range.endContainer) ? range.cloneRange() : null
+}
+
+/**
+ * Give focus back to `el`, with the caret `caretWithin` took when the sheet opened, in the same task. The
+ * `selectionchange` that follows then reads the author's caret, not the browser's reset, however late it is handled. A
+ * caret whose text is gone from `el` (an edit made while the sheet was open) is left to the browser and the editor.
+ */
+export function returnFocus(el: HTMLElement, caret: Range | null): void {
+  el.focus({ preventScroll: true })
+  if (!caret || document.activeElement !== el || !el.contains(caret.startContainer) || !el.contains(caret.endContainer)) return
+  const sel = getSelection()
+  if (!sel) return
+  sel.removeAllRanges()
+  sel.addRange(caret)
+}
+
 /** For tests: forget the last input. */
 export function resetLastInput(): void {
   viaKeyboard = false
