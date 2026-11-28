@@ -9,14 +9,14 @@ import { expect, gotoStudio, railButtons, setEditorContent, test, toastText } fr
 test.describe.configure({ timeout: 120_000 });
 
 const DECK = [
-	'<!-- _class: title -->\n\n# Pipeline review\n\n`Q3`',
+	'<!-- @meta{class=title} -->\n\n# Pipeline review\n\n`Q3`',
 	[
 		'`Pipeline review · Q3`',
 		'## EMEA carried the quarter while APAC held flat.',
-		'<!-- panes: 35/65 -->',
-		'<!-- pane: list -->',
+		'<!-- @meta{panes=35/65} -->',
+		'<!-- @meta{pane=list} -->',
 		'- EMEA closed three late deals\n- APAC renewals slipped',
-		'<!-- pane: table -->',
+		'<!-- @meta{pane=table} -->',
 		'| Region | Q2 | Q3 |\n|---|---|---|\n| EMEA | 4.1 | 5.3 |\n| APAC | 2.8 | 2.8 |',
 		'<!-- @note{A real presenter note stays.} -->',
 	].join('\n\n'),

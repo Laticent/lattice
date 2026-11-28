@@ -20,7 +20,7 @@ const { IMAGE_CARD_REGISTER, imageCardClasses, imageCardDeckTokens } = require(p
 const { TOKENS: IMAGE_CARD_TOKENS, parse: parseImageCard, read: readImageCard, tokenAxis: imageCardTokenAxis } = IMAGE_CARD_REGISTER;
 const { lintText } = require(path.join(ROOT, 'lib/authoring/lint.js'));
 
-const IMAGE = (cls = '') => `<!-- _class: image spotlight ${cls} -->\n\n## A photo.\n\nWords.\n\n![bg](sample:photo-wide.svg)`;
+const IMAGE = (cls = '') => `<!-- @meta{class=image spotlight ${cls}} -->\n\n## A photo.\n\nWords.\n\n![bg](sample:photo-wide.svg)`;
 const deck = (fm, slides) => ['---', 'theme: indaco', ...fm, '---', '', slides.join('\n\n---\n\n')].join('\n');
 const classesOf = (fm, slides) => {
   const doc = new JSDOM(latticeEngine.createEngine().render(deck(fm, slides)).html).window.document;
@@ -95,7 +95,7 @@ test('kernel: deck classes ride image slides only, and never an axis the slide f
 });
 
 test('engine: stamps the classes on image slides only, and nothing without the key', () => {
-  const slides = [IMAGE(), '<!-- _class: content tint-corner at-bl -->\n\n## Prose.\n\nWords.'];
+  const slides = [IMAGE(), '<!-- @meta{layout=content, class=tint-corner at-bl} -->\n\n## Prose.\n\nWords.'];
   const [img, prose] = classesOf(['image-card: top-right sheer compact'], slides);
   for (const c of ['image-card-top-right', 'image-card-sheer', 'image-card-compact']) assert.ok(img.includes(c), img.join(' '));
   assert.ok(!img.includes('compact') && !img.includes('at-tr'), `the deck's words stamp the card's own classes only: ${img.join(' ')}`);
@@ -154,7 +154,7 @@ test('lint: an unknown word and a doubled axis warn; a clean value does not', ()
 });
 
 test('lint: two tints on one slide are not an image-card placement conflict', () => {
-  const found = lintText(deck([], ['<!-- _class: content tint-corner at-tl tint-edge at-bottom -->\n\n## Prose.\n\nWords.']))
+  const found = lintText(deck([], ['<!-- @meta{layout=content, class=tint-corner at-tl tint-edge at-bottom} -->\n\n## Prose.\n\nWords.']))
     .filter((f) => f.rule === 'conflicting-variants' || f.rule === 'image-card-renamed');
   assert.deepEqual(found, []);
 });
@@ -169,7 +169,11 @@ test('lint: two card placements on one image slide conflict, now that the card h
 const { applyAllFixes } = require(path.join(ROOT, 'lib/authoring/lint-core.js'));
 const { buildVocab } = require(path.join(ROOT, 'lib/authoring/lint.js'));
 const renamed = (src) => lintText(src).filter((f) => f.rule === 'image-card-renamed');
-const SLIDE = (cls) => `<!-- _class: ${cls} -->\n\n## A photo.\n\nWords.\n\n![bg](sample:photo-wide.svg)`;
+// A slide's record, spelled as the migration writes it: the layout word, then its classes.
+const SLIDE = (cls) => {
+  const [layout, ...rest] = cls.split(' ');
+  return `<!-- @meta{layout=${layout}${rest.length ? `, class=${rest.join(' ')}` : ''}} -->\n\n## A photo.\n\nWords.\n\n![bg](sample:photo-wide.svg)`;
+};
 
 test('lint image-card-renamed: every old card class is an error that names its new class', () => {
   const pairs = [
@@ -187,7 +191,8 @@ test('lint image-card-renamed: every old card class is an error that names its n
     assert.equal(f.length, 1, from);
     assert.equal(f[0].severity, 'error', from);
     assert.ok(f[0].message.includes(`'${to}'`), `${from}: ${f[0].message}`);
-    assert.ok(f[0].replaceLine.includes(` ${to} `), from);
+    // The new class is a whole word of the record: a space before it, and a space or the record's `}` after.
+    assert.match(f[0].replaceLine, new RegExp(` ${to}[ }]`), from);
     assert.equal(lintText(deck([], [SLIDE(`image spotlight ${from}`)])).filter((x) => x.rule === 'unknown-class').length, 0, `${from} is reported once, not twice`);
   }
 });
@@ -237,7 +242,7 @@ test('lint image-card-renamed: --fix rewrites a whole old slide, and the result 
   const vocab = buildVocab();
   const before = deck(['image-card: top-right soft'], [
     SLIDE('image spotlight at-bottom band card-o65 ink-light card-sm compact'),
-    '<!-- _class: content tint-corner at-tl -->\n\n## Prose.\n\nWords.',
+    '<!-- @meta{layout=content, class=tint-corner at-tl} -->\n\n## Prose.\n\nWords.',
     SLIDE('image statement at-tr card-clear'),
   ]);
   const after = applyAllFixes(before, vocab);

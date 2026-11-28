@@ -88,8 +88,8 @@ async function storedMedia(page: Page): Promise<Stored[]> {
 		});
 		const out: Stored[] = [];
 		for (const a of rows.filter((x) => x.kind === 'image')) {
-			// A row holds its bytes as a Blob, or as an ArrayBuffer where the engine refuses to store a Blob.
-			const buf = a.blob ? new Uint8Array(await (a.blob as Blob).arrayBuffer()) : new Uint8Array(a.data as ArrayBuffer);
+			// The stored bytes, wherever they live (studio-fixture `__latticeRowBlob`).
+			const buf = new Uint8Array(await (await (window as unknown as { __latticeRowBlob: (row: unknown) => Promise<Blob> }).__latticeRowBlob(a)).arrayBuffer());
 			// "Exif\0\0" anywhere in the first 64 KB — an APP1 segment sits at the very start.
 			const head = new TextDecoder('latin1').decode(buf.subarray(0, 65536));
 			out.push({ name: a.name as string, scope: a.scope as string, width: a.width as number, height: a.height as number, bytes: a.bytes as number, original: a.original as boolean, mime: a.mime as string, hasExif: head.includes('Exif\u0000\u0000') });
@@ -161,8 +161,8 @@ for (const vw of WIDTHS) {
 				const r = db.transaction('assets').objectStore('assets').index('kind').getAll('image');
 				r.onsuccess = () => res(r.result[0]);
 			});
-			// Stored as a Blob, or as an ArrayBuffer where the engine refuses to store a Blob.
-			const bmp = await createImageBitmap(rec.blob ?? new Blob([rec.data as ArrayBuffer], { type: rec.mime }), { imageOrientation: 'none' });
+			// The stored bytes, wherever they live (studio-fixture `__latticeRowBlob`).
+			const bmp = await createImageBitmap(await (window as unknown as { __latticeRowBlob: (row: unknown) => Promise<Blob> }).__latticeRowBlob(rec), { imageOrientation: 'none' });
 			const c = document.createElement('canvas');
 			c.width = bmp.width;
 			c.height = bmp.height;
@@ -328,7 +328,7 @@ test('@smoke a PNG with an eXIf GPS chunk and a GIF with comment and XMP blocks 
 		});
 		const out: Record<string, { mime: string; marked: boolean; decodes: boolean; original: boolean; bytes: number; shown: number[] }> = {};
 		for (const row of rows) {
-			const blob = row.blob ?? new Blob([row.data as ArrayBuffer], { type: row.mime });
+			const blob = await (window as unknown as { __latticeRowBlob: (row: unknown) => Promise<Blob> }).__latticeRowBlob(row);
 			const bytes = new Uint8Array(await blob.arrayBuffer());
 			let decodes = true;
 			let shown: number[] = [];

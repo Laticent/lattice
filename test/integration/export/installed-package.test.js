@@ -94,7 +94,7 @@ describe('export: an installed @laticent/lattice renders with only what it decla
       // the CLI runs the deck linter to check it, which loads every component manifest. The
       // bundled loader once walked `dist/` for them, read `dist/styles/manifest.json` as one and
       // threw (followup 2779-p3); a deck of plain classes never reached that code.
-      '<!-- _class: columns ratio-50-50 -->\n\n## Two panes\n\n<!-- _pane: content -->\n\n- Left pane\n\n<!-- _pane: content -->\n\n- Right pane',
+      '<!-- @meta{layout=columns, class=ratio-50-50} -->\n\n## Two panes\n\n<!-- @meta{pane=content} -->\n\n- Left pane\n\n<!-- @meta{pane=content} -->\n\n- Right pane',
     ].join('\n\n---\n\n'));
   });
 

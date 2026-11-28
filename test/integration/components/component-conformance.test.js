@@ -110,7 +110,7 @@ describe('component conformance, render tier (report-only)', () => {
 
     test('fits: a 24-stop agenda overflows; the shipped sample does not', async () => {
       const stops = Array.from({ length: 24 }, (_, i) => `- Stop ${i + 1}\n  - A line of detail for stop ${i + 1}.`).join('\n');
-      const bad = await open(deckFromSample(`<!-- _class: agenda -->\n\n## Agenda\n\n${stops}\n`), 'agenda-24');
+      const bad = await open(deckFromSample(`<!-- @meta{layout=agenda} -->\n\n## Agenda\n\n${stops}\n`), 'agenda-24');
       const good = await open(deckFromSample(manifest('agenda').sample), 'agenda-sample');
       try {
         assert.equal((await probeOverflow(bad)).some((s) => s.over), true, 'the 24-stop agenda should overflow');

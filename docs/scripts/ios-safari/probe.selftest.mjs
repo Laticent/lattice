@@ -6,6 +6,7 @@
  *
  *   node scripts/ios-safari/probe.selftest.mjs
  *   PROBE=undo node scripts/ios-safari/probe.selftest.mjs   # the undo probe: edit, WebKit undo command, reload
+ *   PROBE=media-vault node scripts/ios-safari/probe.selftest.mjs    # the Studio's photo move and move-back across two reloads
  *   PROBE=chat-storage node scripts/ios-safari/probe.selftest.mjs   # chats move to IndexedDB across a reload; the allowance
  *   PROBE=font-cache node scripts/ios-safari/probe.selftest.mjs   # the font cache probe, against font-cache-server.mjs
  *   PROBE=codec-support node scripts/ios-safari/probe.selftest.mjs   # the narration codec probe, in Chromium, WebKit and Firefox
@@ -17,6 +18,8 @@
  *   PROBE=player-charts node scripts/ios-safari/probe.selftest.mjs   # chart cards in an exported player, opened and closed by taps
  *   PROBE=logo-wall node scripts/ios-safari/probe.selftest.mjs   # a logo wall's first paint: never the unpacked grid
  *   PROBE=playground-scroll [ENGINE=chromium] [TRIALS=10] node scripts/ios-safari/probe.selftest.mjs   # the preview keeps a scroll across a window move
+ *   PROBE=reload-tap node scripts/ios-safari/probe.selftest.mjs   # engine-retry's Reload press: a long hold reads as a long press, a tap as a click
+ *   PROBE=boot-report node scripts/ios-safari/probe.selftest.mjs   # latticeBootReport names a held Studio island as unhydrated
  */
 import fs from 'node:fs';
 import os from 'node:os';
@@ -80,6 +83,35 @@ if (process.env.PROBE === 'font-cache') {
 		await context.close();
 		fs.rmSync(dir, { recursive: true, force: true });
 	}
+	process.exit(failed ? 1 : 0);
+}
+if (process.env.PROBE === 'media-vault') {
+	// The Studio's photo move and move-back, as run.mjs runs them: plant, reload, check the move, reload, check the move-back.
+	const MV = fs.readFileSync(path.join(here, 'media-vault-probe.js'), 'utf8');
+	for (const { label, options } of shapes) {
+		const context = await browser.newContext(options);
+		const page = await context.newPage();
+		await page.addInitScript(SEED);
+		const load = async (reload) => {
+			if (reload) await page.reload({ waitUntil: 'domcontentloaded' });
+			else await page.goto(`${BASE}/studio/`, { waitUntil: 'domcontentloaded' });
+			await page.addScriptTag({ content: MV });
+		};
+		await load(false);
+		const first = await page.evaluate(() => globalThis.latticeMediaVaultProbe());
+		report(label, 'media-vault-probe.js', first);
+		if (first.ok) {
+			await load(true);
+			const second = await page.evaluate((seed) => globalThis.latticeMediaVaultAfterMove(seed), first.seed);
+			report(label, 'media-vault-probe.js after the move', second);
+			if (second.ok) {
+				await load(true);
+				report(label, 'media-vault-probe.js after the move-back', await page.evaluate((seed) => globalThis.latticeMediaVaultAfterMoveBack(seed), first.seed));
+			}
+		}
+		await context.close();
+	}
+	await browser.close();
 	process.exit(failed ? 1 : 0);
 }
 if (process.env.PROBE === 'chat-storage') {
@@ -147,6 +179,60 @@ if (process.env.PROBE === 'player-charts') {
 		await context.close();
 	}
 	fs.rmSync(dir, { recursive: true, force: true });
+	await browser.close();
+	process.exit(failed ? 1 : 0);
+}
+
+if (process.env.PROBE === 'reload-tap') {
+	// engine-retry.mjs's Reload press, judged off-device: the recorder it installs before the press, read by
+	// `reloadTapReading`. A starved simulator stretched the tap into a long press, which sends no click (iPhone, run
+	// 46108755390). The failing arm holds a synthetic touch for 800 ms on the page clock (#32), with no click; the control
+	// is a real tap, which clicks.
+	const { TAP_RECORDER, reloadTapReading } = await import('./engine-retry.mjs');
+	const context = await browser.newContext({ hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } });
+	const page = await context.newPage();
+	await page.route('https://tap.test/**', (r) => r.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><button class="nacre-failed__retry" style="width:200px;height:80px">Reload</button>' }));
+	const read = async () => reloadTapReading(await page.evaluate(() => window.__engineRetryTap));
+	await page.clock.install();
+	await page.goto('https://tap.test/');
+	await page.evaluate(TAP_RECORDER);
+	// Linux WebKit refuses `new Touch`; the recorder reads only the event's type, so a plain Event is the same signal.
+	await page.evaluate(() => document.querySelector('button').dispatchEvent(new Event('touchstart', { bubbles: true })));
+	await page.clock.runFor(800);
+	await page.evaluate(() => document.querySelector('button').dispatchEvent(new Event('touchend', { bubbles: true })));
+	const held = await read();
+	console.log(`long hold: ${held}`);
+	if (!/held \d+ ms and Safari treated it as a long press; no click reached the page/.test(held)) failed++;
+	await page.evaluate(TAP_RECORDER);
+	await page.touchscreen.tap(100, 40);
+	const tapped = await read();
+	console.log(`real tap: ${tapped}`);
+	if (!/a click reached the page/.test(tapped)) failed++;
+	await context.close();
+	await browser.close();
+	process.exit(failed ? 1 : 0);
+}
+
+if (process.env.PROBE === 'boot-report') {
+	// studio-probe.js's first-wait message (and engine-retry's trace) carries show-editor.js's `latticeBootReport`. The
+	// failing arm holds the Studio island's chunk, the request it never answers being the signal (#32), and the boot line
+	// must name that island as unhydrated. The control loads the Studio whole: no island left unhydrated.
+	const SHOW = fs.readFileSync(path.join(here, 'show-editor.js'), 'utf8');
+	for (const hold of [true, false]) {
+		const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 1180, height: 820 } });
+		const page = await context.newPage();
+		let seen;
+		const arrived = new Promise((r) => (seen = r));
+		if (hold) await page.route('**/_astro/StudioIsland.*.js', () => seen());
+		await page.goto(`${BASE}/studio/`, { waitUntil: hold ? 'domcontentloaded' : 'load' });
+		if (hold) await arrived;
+		else await page.waitForFunction(() => !!window.__latticeRenderMetrics, null, { timeout: 120000 });
+		const report = await page.evaluate(`(() => {\n${SHOW}\nreturn latticeBootReport();\n})()`);
+		console.log(`${hold ? 'island held' : 'control'}: ${report}`);
+		const named = /unhydrated: [^)]*StudioIsland/.test(report);
+		if (hold !== named) failed++;
+		await context.close();
+	}
 	await browser.close();
 	process.exit(failed ? 1 : 0);
 }

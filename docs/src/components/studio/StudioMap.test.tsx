@@ -139,7 +139,7 @@ describe('StudioMap', () => {
 		pool.capturing = true;
 		URL.createObjectURL ??= () => 'blob:poster';
 		URL.revokeObjectURL ??= () => {};
-		render(setup(undefined, '---\ntheme: indaco\n---\n\n# One\n\n---\n\n<!-- backgroundImage: url(asset:hero) -->\n\n# Two\n\n---\n\n# Three\n').ui);
+		render(setup(undefined, '---\ntheme: indaco\n---\n\n# One\n\n---\n\n<!-- @meta{background-image="url(asset:hero)", carry} -->\n\n# Two\n\n---\n\n# Three\n').ui);
 		const tile = (u: number) => document.querySelector<HTMLElement>(`button[data-unit="${u}"]`);
 		// Slide three's text names no photo; the directive carried from slide two does. Once its poster exists it must stay live.
 		await waitFor(() => expect(tile(2)?.querySelector('img')).not.toBeNull());

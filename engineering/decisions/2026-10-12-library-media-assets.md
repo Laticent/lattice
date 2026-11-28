@@ -42,6 +42,8 @@ A new kind pair in the existing store, `image` and `video`. Each record carries:
   becomes "one name, one asset" for media, so `asset:logo` can only mean one thing.
 - `scope` — `'library'` or a deck id. This is the only thing that separates a shared asset from a
   deck-specific one.
+- **Since vault slice 2 (2026-11-27), the bytes live in the storage vault** and the row holds `vault`, the
+  file's path; `blob` is what a reader gets back. `2026-11-27-vault-slice-2-as-built.md`.
 - `blob` — the bytes as a `Blob`, not a data URL. IndexedDB stores Blobs natively without the
   33% base64 inflation, and a video as a data URL would sit whole in memory.
 - `mime`, `bytes`, `width`, `height`, `addedAt`; for video also `durationMs` and a `poster`

@@ -9,11 +9,11 @@ const deck = (fm: string, ...slides: string[]) => `---\n${fm}\n---\n\n${slides.j
 // earlier version of this file used a ``` fence, which is the shape no chart uses: those slides
 // render as code blocks, so every assertion below was about a deck that could not animate at all.
 const funnel = (tokens = '', rows = 4) =>
-	`<!-- _class: funnel${tokens ? ` ${tokens}` : ''} -->\n\n## Where deals stall\n\n${Array.from({ length: rows }, (_, i) => `- Stage ${i + 1} \`${100 - i * 10}\``).join('\n')}`;
+	`<!-- @meta{class=funnel${tokens ? ` ${tokens}` : ''}} -->\n\n## Where deals stall\n\n${Array.from({ length: rows }, (_, i) => `- Stage ${i + 1} \`${100 - i * 10}\``).join('\n')}`;
 
 describe('target discovery', () => {
 	it('finds the animatable components and ignores the rest', () => {
-		const src = deck('theme: indaco', funnel(), '<!-- _class: content -->\n\n## Just words\n\nNothing to animate.', '<!-- _class: piechart -->\n\n## Mix\n\n- Direct `1`\n- Partner `2`');
+		const src = deck('theme: indaco', funnel(), '<!-- @meta{layout=content} -->\n\n## Just words\n\nNothing to animate.', '<!-- @meta{layout=piechart} -->\n\n## Mix\n\n- Direct `1`\n- Partner `2`');
 		const targets = readTargets(src);
 		expect(targets.map((t) => t.component)).toEqual(['funnel', 'piechart']);
 		// Slide numbers are what an author counts, 1-based, and skip nothing.
@@ -25,7 +25,7 @@ describe('target discovery', () => {
 	});
 
 	it('reports a component that renders but emits no motion roles', () => {
-		const t = readTargets(deck('motion: on', '<!-- _class: word-cloud -->\n\n## Themes\n\n- alpha `4`\n- beta `2`'))[0];
+		const t = readTargets(deck('motion: on', '<!-- @meta{layout=word-cloud} -->\n\n## Themes\n\n- alpha `4`\n- beta `2`'))[0];
 		expect(t.verdict).toBe('no-roles');
 		expect(t.note).toMatch(/emits no motion roles/i);
 	});
@@ -120,19 +120,19 @@ describe('mark counting reports what it does not know', () => {
 	});
 
 	it('does NOT count a nested detail list — `li > ul` is per-stage detail, not another mark', () => {
-		expect(markCount('<!-- _class: funnel -->\n\n## X\n\n- One `10`\n  - detail a\n  - detail b\n- Two `5`')).toBe(2);
+		expect(markCount('<!-- @meta{layout=funnel} -->\n\n## X\n\n- One `10`\n  - detail a\n  - detail b\n- Two `5`')).toBe(2);
 	});
 
 	it('ignores list-looking lines inside a fence', () => {
-		expect(markCount('<!-- _class: funnel -->\n\n## X\n\n- One `10`\n\n```\n- not a mark\n```')).toBe(1);
+		expect(markCount('<!-- @meta{layout=funnel} -->\n\n## X\n\n- One `10`\n\n```\n- not a mark\n```')).toBe(1);
 	});
 
 	it('returns null with no list, rather than 0 — "none" and "unknown" are different claims', () => {
-		expect(markCount('<!-- _class: funnel -->\n\n## No data here')).toBeNull();
+		expect(markCount('<!-- @meta{layout=funnel} -->\n\n## No data here')).toBeNull();
 	});
 
 	it('a target whose marks are unknown gets no duration rather than a made-up one', () => {
-		const t = readTargets(deck('motion: on', '<!-- _class: funnel -->\n\n## Bare'))[0];
+		const t = readTargets(deck('motion: on', '<!-- @meta{layout=funnel} -->\n\n## Bare'))[0];
 		expect(t.marks).toBeNull();
 		expect(t.durationMs).toBeNull();
 	});
@@ -140,7 +140,7 @@ describe('mark counting reports what it does not know', () => {
 
 describe('tally', () => {
 	it('counts each lane once', () => {
-		const src = deck('motion: on', funnel(), funnel('no-motion'), funnel('motion-together'), '<!-- _class: journey -->\n\n## Arc\n\n- Discover `1`');
+		const src = deck('motion: on', funnel(), funnel('no-motion'), funnel('motion-together'), '<!-- @meta{layout=journey} -->\n\n## Arc\n\n- Discover `1`');
 		const t = tally(readTargets(src));
 		// `on` means "will actually animate". The journey's Play resolves on from the deck default,
 		// but it emits no roles, so it is counted as blocked rather than inflating the on count —
@@ -155,13 +155,13 @@ describe('tally', () => {
 
 describe('what can actually animate is decided by data-anima-role, not by `render: svg`', () => {
 	it('state-chart IS animatable — it is `render: hybrid` and emits roles', () => {
-		const t = readTargets(deck('motion: on', '<!-- _class: state-chart -->\n\n## Approval path\n\n- Draft `1`\n- Review `2`\n- Signed `3`'))[0];
+		const t = readTargets(deck('motion: on', '<!-- @meta{layout=state-chart} -->\n\n## Approval path\n\n- Draft `1`\n- Review `2`\n- Signed `3`'))[0];
 		expect(t.verdict).not.toBe('no-roles');
 		expect(t.play).toBe(true);
 	});
 
 	it('diagram is NOT — it declares `render: svg` but its Mermaid markup emits no role', () => {
-		const t = readTargets(deck('motion: on', '<!-- _class: diagram -->\n\n## Flow\n\n```mermaid\ngraph TD\nA-->B\n```'))[0];
+		const t = readTargets(deck('motion: on', '<!-- @meta{layout=diagram} -->\n\n## Flow\n\n```mermaid\ngraph TD\nA-->B\n```'))[0];
 		expect(t.verdict).toBe('no-roles');
 	});
 });
@@ -222,23 +222,23 @@ describe('the component is found wherever it sits in the class list', () => {
 	// The engine's dispatch is `CHART_LAYOUTS.find(l => classTokens.includes(l))` — position
 	// independent. Reading tokens[0] dropped an animating chart out of the sheet entirely.
 	it('finds a funnel behind a leading modifier', () => {
-		const t = readTargets(deck('motion: on', '<!-- _class: dark funnel with-motion -->\n\n## X\n\n- A `1`\n- B `2`'))[0];
+		const t = readTargets(deck('motion: on', '<!-- @meta{class=dark funnel with-motion} -->\n\n## X\n\n- A `1`\n- B `2`'))[0];
 		expect(t?.component).toBe('funnel');
 		expect(t?.play).toBe(true);
 	});
 
 	it('finds it after a register token too', () => {
-		expect(readTargets(deck('motion: on', '<!-- _class: with-motion funnel -->\n\n## X\n\n- A `1`'))[0]?.component).toBe('funnel');
+		expect(readTargets(deck('motion: on', '<!-- @meta{class=with-motion funnel} -->\n\n## X\n\n- A `1`'))[0]?.component).toBe('funnel');
 	});
 });
 
 describe('mark counting stops at the end of the data list', () => {
 	it('a bulleted note under the chart is not a mark', () => {
-		expect(markCount('<!-- _class: funnel -->\n\n## X\n\n- One `10`\n- Two `5`\n\nNotes:\n\n- an aside\n- another')).toBe(2);
+		expect(markCount('<!-- @meta{layout=funnel} -->\n\n## X\n\n- One `10`\n- Two `5`\n\nNotes:\n\n- an aside\n- another')).toBe(2);
 	});
 
 	it('a tilde fence is skipped as well as a backtick fence', () => {
-		expect(markCount('<!-- _class: funnel -->\n\n## X\n\n~~~\n- not a mark\n~~~\n\n- One `10`')).toBe(1);
+		expect(markCount('<!-- @meta{layout=funnel} -->\n\n## X\n\n~~~\n- not a mark\n~~~\n\n- One `10`')).toBe(1);
 	});
 });
 
@@ -246,7 +246,7 @@ describe('a state chart counts its states, not its transitions', () => {
 	// Verified on the live surface: a 3-state state-chart emits exactly 3 `[data-mark]` nodes,
 	// and its nested `- ` items are transitions, not marks.
 	it('counts the states, not the transitions', () => {
-		const chunk = '<!-- _class: state-chart -->\n\n## Approval\n\n- Draft `start`\n  - -submit-> In Review\n- In Review\n  - -approve-> Signed\n- Signed `done`';
+		const chunk = '<!-- @meta{layout=state-chart} -->\n\n## Approval\n\n- Draft `start`\n  - -submit-> In Review\n- In Review\n  - -approve-> Signed\n- Signed `done`';
 		expect(markCount(chunk)).toBe(3);
 	});
 });

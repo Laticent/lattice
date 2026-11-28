@@ -32,7 +32,7 @@ The full form's answer is `pass` `warn` `fail` `unknown` `todo` `skip`, or
 
 | Write | Does |
 |---|---|
-| `<!-- _class: table state-cells -->` | A table's leading cell markers draw discs |
+| `<!-- @meta{layout=table, class=state-cells} -->` | A table's leading cell markers draw discs |
 | `` `[{[x], In force}, {[/], Exempt}]` `` | Renames key entries (`obligation-matrix`, `roadmap`); own paragraph, above the grid |
 | `checks-ringed` · `checks-knockout` · `checks-bold` · `checks-outline` · `checks-tonal` | Disc style, per slide or per deck |
 | `heat` | Yes turns red, no turns green, for a risk reading |
@@ -84,7 +84,7 @@ unknown word still draws, in the informational color. Only `gantt` warns.
 |---|---|
 | `` `\[x]` `` · `` `\{LIVE}` `` | The literal text |
 | `inline-code: literal` in front matter | Pills and inline marks off, whole deck |
-| `<!-- _class: inline-code-literal -->` | The same, one slide |
+| `<!-- @meta{class=inline-code-literal} -->` | The same, one slide |
 | Studio: **Settings → Deck → General → Inline pills and marks** | The front-matter switch |
 
 `[X]`, `[~]`, `{x}` and fenced code blocks never draw anything.

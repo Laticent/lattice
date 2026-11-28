@@ -32,8 +32,8 @@ vi.mock('./studio-stage', () => ({ buildStageDocument: vi.fn(async () => ({ doc:
 const options = { themeBase: '', runtimeUrl: '', engineUrl: '' };
 const NOTE = 'Open on the ask, then pause.';
 const slides = [
-	`<!-- _class: title -->\n\n# One\n\nThe first slide.\n\n<!-- @note{${NOTE}} -->`,
-	'<!-- _class: kpi -->\n\n# Two\n\nThe second slide.',
+	`<!-- @meta{layout=title} -->\n\n# One\n\nThe first slide.\n\n<!-- @note{${NOTE}} -->`,
+	'<!-- @meta{layout=kpi} -->\n\n# Two\n\nThe second slide.',
 ];
 
 let realMatchMedia: typeof window.matchMedia;

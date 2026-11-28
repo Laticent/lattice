@@ -10,7 +10,7 @@ import { currentSlide, expect, gotoStudio, railButtons, setEditorContent, test, 
 test.describe.configure({ timeout: 180_000 });
 
 const DECK = [
-	'<!-- _class: title -->\n\n# Atlas expansion plan\n\n`Growth · FY27`\n\nThree markets, one playbook.',
+	'<!-- @meta{layout=title} -->\n\n# Atlas expansion plan\n\n`Growth · FY27`\n\nThree markets, one playbook.',
 	'## Why now\n\n- First\n  - Demand is already there.\n- Second\n  - The platform is ready.',
 	'## What we ask\n\n- One\n  - Approve the budget.\n- Two\n  - Name an owner.',
 ].join('\n\n---\n\n');

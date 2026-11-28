@@ -10,7 +10,7 @@ beforeAll(async () => {
 });
 
 const LIB: AgentLibrary = { componentDoc: async () => null, guide: async () => null, registersDoc: async () => null, universalsDoc: async () => null };
-const DECK = '---\ntheme: indaco\n---\n\n<!-- _class: title -->\n# Hi';
+const DECK = '---\ntheme: indaco\n---\n\n<!-- @meta{layout=title} -->\n# Hi';
 
 const info = (name: string, over: Partial<AssetInfo> = {}): AssetInfo => ({ name, kind: 'image', width: 3000, height: 2000, bytes: 1000, scope: 'library', ...over });
 
@@ -167,7 +167,10 @@ describe('a caption that is not a string', () => {
 		// A string that is EMPTY once cleaned must not clear the caption either: zero-width space, NEL, NUL, a bidi
 		// override with a joiner, a soft hyphen, the Hangul filler and the braille blank all survive String.trim.
 		const blank = ['\u200b', '\u0085', '\u0000', '\u202e\u200d', '\u00ad', '\u3164\u2800', '   '];
-		const captions = [{ name: 'a', caption: { evil: true } }, ...blank.map((caption) => ({ name: 'a', caption }))];
+		// A caption that is not a string never reaches the handler: the schema refuses the call and names it.
+		const typed = await t.run('caption_asset', JSON.stringify({ captions: [{ name: 'a', caption: { evil: true } }, { name: 'a', caption: 'fine' }] }));
+		expect(typed).toContain('/captions/0/caption must be string');
+		const captions = blank.map((caption) => ({ name: 'a', caption }));
 		const out = await t.run('caption_asset', JSON.stringify({ captions }));
 		expect(out.match(/non-empty string/g)).toHaveLength(captions.length);
 		expect(calls.captions).toEqual([]);

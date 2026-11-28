@@ -186,7 +186,7 @@ const photoDeck = (size, cls, n = 6) => `---
 theme: indaco
 ${size ? `size: ${size}\n` : ''}---
 
-<!-- _class: ${cls} -->
+<!-- @meta{class=${cls}} -->
 
 \`Eyebrow\`
 
@@ -258,7 +258,7 @@ test('bleed takes the whole slide: no header or footer, a stretched grid, a tran
 const lintCore = require('../../../lib/authoring/lint-core');
 
 const VOCAB = { names: new Set(['collage']), modifiers: new Set(['ordered', 'fill', 'above', 'bleed', 'mirror']) };
-const lintCollage = (body) => lintCore.lintTextWith(`---\nmarp: true\ntheme: indaco\n---\n\n<!-- _class: collage -->\n\n## T\n\n${body}\n`, VOCAB);
+const lintCollage = (body) => lintCore.lintTextWith(`---\nmarp: true\ntheme: indaco\n---\n\n<!-- @meta{layout=collage} -->\n\n## T\n\n${body}\n`, VOCAB);
 const rules = (res) => res.map((f) => f.rule);
 const six = Array.from({ length: 6 }, (_v, i) => `- ![Photo ${i + 1}](p${i + 1}.jpg)`).join('\n');
 
@@ -317,7 +317,7 @@ async function renderedSections(md) {
   const { html } = await engine.render(`---\ntheme: indaco\n---\n\n${md}`);
   return [...new JSDOM(`<body>${html}</body>`).window.document.querySelectorAll('article > section')];
 }
-const COLLAGE_MD = '<!-- _class: collage -->\n\n`The atelier`\n\n## Hand-lasted.\n\n`Four photographs`\n\nEach pair starts as a last.\n\n- ![Tall derby, apron toe](https://example.com/a.jpg) `hero`\n- ![Black macro](https://example.com/b.jpg)\n- ![Wingtip brogue](https://example.com/c.jpg)\n- ![Suede chelsea](https://example.com/d.jpg)\n';
+const COLLAGE_MD = '<!-- @meta{layout=collage} -->\n\n`The atelier`\n\n## Hand-lasted.\n\n`Four photographs`\n\nEach pair starts as a last.\n\n- ![Tall derby, apron toe](https://example.com/a.jpg) `hero`\n- ![Black macro](https://example.com/b.jpg)\n- ![Wingtip brogue](https://example.com/c.jpg)\n- ![Suede chelsea](https://example.com/d.jpg)\n';
 
 test('article projection: every photo is re-hosted, in written order, with its alt', async () => {
   const { projectDeckToProse } = await import('../../../lib/transformers/prose-projection.mjs');

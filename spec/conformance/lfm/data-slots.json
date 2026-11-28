@@ -1,6 +1,7 @@
 {
  "title": "A span in a declared data slot belongs to that slot: it is never notation, the slot's own grammar reports it, and outside every slot it is notation again",
  "spec": "LFM-1.1",
+  "until": "LFM-2.0",
  "section": "3.6",
  "rows": [
   { "name": "a flowchart row's record is the node's style, not a pill",

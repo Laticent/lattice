@@ -435,8 +435,8 @@ test("a clip's location data is overwritten before it is stored, and the clip st
 					r.onsuccess = () => {
 						const q = r.result.transaction('assets').objectStore('assets').index('kind').getAll('video');
 						q.onsuccess = async () => {
-							const rec = (q.result as { blob: Blob }[])[0];
-							const buf = new Uint8Array(await rec.blob.arrayBuffer());
+							const rec = (q.result as { blob?: Blob }[])[0];
+							const buf = new Uint8Array(await (await (window as unknown as { __latticeRowBlob: (row: unknown) => Promise<Blob> }).__latticeRowBlob(rec)).arrayBuffer());
 							let s = '';
 							for (const x of buf) s += String.fromCharCode(x);
 							resolve(btoa(s));

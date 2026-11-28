@@ -20,7 +20,7 @@ const { proseWords } = require('../../../lib/authoring/venue-prose');
 const vocab = { names: new Set(['big-number', 'image', 'redline']), modifiers: new Set(['scale-xl', 'split', 'three-col']), capacity: {} };
 const lint = (src) => core.lintTextWith(src, vocab).filter((f) => f.rule === 'venue-prose');
 const words = (n) => Array.from({ length: n }, (_, i) => `w${i}`).join(' ');
-const bigNumber = (n, venue) => `---\n${venue ? `venue: ${venue}\n` : ''}---\n\n<!-- _class: big-number -->\n\n- 1\n  - ${words(n)}\n`;
+const bigNumber = (n, venue) => `---\n${venue ? `venue: ${venue}\n` : ''}---\n\n<!-- @meta{layout=big-number} -->\n\n- 1\n  - ${words(n)}\n`;
 
 describe('venue-prose', () => {
   test('a big-number caption over the hall budget (12) is a warning at venue: hall', () => {
@@ -47,7 +47,7 @@ describe('venue-prose', () => {
   });
 
   test('a bare scale-* class is an info', () => {
-    const src = `<!-- _class: big-number scale-xl -->\n\n- 1\n  - ${words(30)}\n`;
+    const src = `<!-- @meta{layout=big-number, class=scale-xl} -->\n\n- 1\n  - ${words(30)}\n`;
     const f = lint(src);
     assert.equal(f.length, 1);
     assert.equal(f[0].severity, 'info');
@@ -61,7 +61,7 @@ describe('venue-prose', () => {
   });
 
   test('a register measured on its own is judged by its row, and a 0 says there is no room', () => {
-    const redline = (tok, n) => `---\nvenue: conference\n---\n\n<!-- _class: redline ${tok} -->\n\n## H.\n\n> ${words(n)}\n`;
+    const redline = (tok, n) => `---\nvenue: conference\n---\n\n<!-- @meta{class=redline ${tok}} -->\n\n## H.\n\n> ${words(n)}\n`;
     assert.deepEqual(lint(redline('', 60)), [], 'bare holds 72 at conference');
     const split = lint(redline('split', 40));
     assert.equal(split.length, 1, 'split holds 30 at conference');
@@ -73,7 +73,7 @@ describe('venue-prose', () => {
   test('a portrait deck is judged by the row measured on that canvas, not the wide one', () => {
     // Hall holds 12 words on a wide canvas and 24 on a tall one, where the caption takes the content
     // area's full width under ~47 characters a line (tools/calibrate-venue-prose.js, 2026-11-06).
-    const tall = (n) => `---\nsize: portrait\nvenue: hall\n---\n\n<!-- _class: big-number -->\n\n- 1\n  - ${words(n)}\n`;
+    const tall = (n) => `---\nsize: portrait\nvenue: hall\n---\n\n<!-- @meta{class=big-number} -->\n\n- 1\n  - ${words(n)}\n`;
     assert.equal(lint(bigNumber(20, 'hall')).length, 1, 'wide holds 12');
     assert.deepEqual(lint(tall(20)), [], 'tall holds 24');
     const f = lint(tall(30));
@@ -82,7 +82,7 @@ describe('venue-prose', () => {
   });
 
   test('a register is judged by its own row on a portrait canvas too', () => {
-    const redline = (tok, n) => `---\nsize: portrait\nvenue: conference\n---\n\n<!-- _class: redline ${tok} -->\n\n## H.\n\n> ${words(n)}\n`;
+    const redline = (tok, n) => `---\nsize: portrait\nvenue: conference\n---\n\n<!-- @meta{class=redline ${tok}} -->\n\n## H.\n\n> ${words(n)}\n`;
     // Re-measured 2026-11-06 (tools/calibrate-venue-prose.js), once the clause stopped painting over its gloss.
     assert.deepEqual(lint(redline('', 23)), [], 'bare holds 23 at conference on a tall canvas');
     assert.equal(lint(redline('', 24)).length, 1);
@@ -90,19 +90,19 @@ describe('venue-prose', () => {
   });
 
   test('a component without a prose row is not judged', () => {
-    assert.deepEqual(lint(`---\nvenue: hall\n---\n\n<!-- _class: list -->\n\n## H.\n\n- ${words(80)}\n`), []);
+    assert.deepEqual(lint(`---\nvenue: hall\n---\n\n<!-- @meta{layout=list} -->\n\n## H.\n\n- ${words(80)}\n`), []);
   });
 });
 
 describe('proseWords — the slot readers', () => {
   test('big-number reads the nested caption line', () => {
-    assert.equal(proseWords('big-number', '<!-- _class: big-number -->\n\n- 42\n  - one two three four\n'), 4);
+    assert.equal(proseWords('big-number', '<!-- @meta{layout=big-number} -->\n\n- 42\n  - one two three four\n'), 4);
   });
   test('redline counts the clause with its tracked changes as written text', () => {
     assert.equal(proseWords('redline', '## H\n\n> a <del>b</del> <ins>c d</ins> e\n'), 5);
   });
   test('image reads the first plain paragraph below the heading, not the image or a directive', () => {
-    assert.equal(proseWords('image', '<!-- _class: image -->\n\n## Title\n\nOne two three.\n\n![bg](x.png)\n'), 3);
+    assert.equal(proseWords('image', '<!-- @meta{layout=image} -->\n\n## Title\n\nOne two three.\n\n![bg](x.png)\n'), 3);
   });
   test('citation-card ignores a directive comment that spans lines', () => {
     assert.equal(proseWords('citation-card', '## T\n\n<!-- a\nmulti-line -->\n`Cal. Code`\n\n> one two\n\n- three four'), 4);

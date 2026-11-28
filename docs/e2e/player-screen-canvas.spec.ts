@@ -20,7 +20,7 @@ theme: indaco
 size: 4k
 ---
 
-<!-- _class: title -->
+<!-- @meta{class=title} -->
 
 # From signal to strategy
 

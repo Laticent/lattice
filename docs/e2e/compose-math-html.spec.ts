@@ -7,7 +7,7 @@ import { expect, test } from './studio-fixture';
 // Before: a slide holding any of them locked read-only, which held 51 of the 96 locked slides in the shipped decks.
 
 const DECK = [
-	'<!-- _class: content -->',
+	'<!-- @meta{layout=content} -->',
 	'',
 	'## Area',
 	'',
@@ -176,7 +176,7 @@ test.describe('compose math and html', () => {
 	});
 
 	test('a slide with HTML inside a list item stays locked', async ({ page }) => {
-		await openDeckInCompose(page, ['<!-- _class: content -->', '', '## T', '', '- a', '  <div>nested</div>'].join('\n'));
+		await openDeckInCompose(page, ['<!-- @meta{layout=content} -->', '', '## T', '', '- a', '  <div>nested</div>'].join('\n'));
 		await expect(page.locator('.cs-slide-locked')).toHaveCount(1);
 	});
 });

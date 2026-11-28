@@ -38,7 +38,7 @@ theme: indaco
 })();
 </script>
 
-<!-- _class: image -->
+<!-- @meta{class=image} -->
 ![A photo](photo.jpg)
 # A photo slide
 `;

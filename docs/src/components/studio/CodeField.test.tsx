@@ -16,7 +16,7 @@ describe('CodeField — jsdom textarea fallback', () => {
 	});
 
 	it('honors the markdown language for the skeleton field', () => {
-		render(<CodeField language="markdown" ariaLabel="Component skeleton" value="<!-- _class: x -->" onChange={() => {}} />);
+		render(<CodeField language="markdown" ariaLabel="Component skeleton" value="<!-- @meta{class=x} -->" onChange={() => {}} />);
 		expect(screen.getByLabelText('Component skeleton')).toBeInTheDocument();
 	});
 });

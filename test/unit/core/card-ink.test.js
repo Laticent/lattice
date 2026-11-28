@@ -118,7 +118,7 @@ test('the fills and inks restated here are the ones image.styles.css paints', as
 
 test('lint: thin-card-no-ink warns on a thin spotlight card with no ink, and only then', () => {
   const { lintText } = require(path.join(ROOT, 'lib/authoring/lint.js'));
-  const deck = (fm, cls) => `---\ntheme: indaco\n${fm}---\n\n<!-- _class: ${cls} -->\n\n## A photo.\n\nWords.\n\n![bg](sample:photo-wide.svg)\n`;
+  const deck = (fm, cls) => `---\ntheme: indaco\n${fm}---\n\n<!-- @meta{class=${cls}} -->\n\n## A photo.\n\nWords.\n\n![bg](sample:photo-wide.svg)\n`;
   const hits = (src) => lintText(src).filter((f) => f.rule === 'thin-card-no-ink');
   const one = hits(deck('', 'image spotlight image-card-35'));
   assert.equal(one.length, 1, JSON.stringify(one));

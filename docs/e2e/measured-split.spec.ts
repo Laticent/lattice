@@ -14,7 +14,7 @@ import { expect, gotoStudio, livePreview, setEditorContent, test } from './studi
 
 const items = (n: number) => Array.from({ length: n }, (_, i) => `- Item ${i + 1} on the agenda`).join('\n');
 // The count-based control writes `fit: heal`: measuring is the default (lib/core/resolve-fit.js fitPacks).
-const deck = (fit: string, size: string, n: number) => `---\nmarp: true\ntheme: indaco\nsize: ${size}\n${fit ? `fit: ${fit}\n` : ''}---\n\n<!-- _class: agenda -->\n\n## The agenda\n\n${items(n)}\n`;
+const deck = (fit: string, size: string, n: number) => `---\nmarp: true\ntheme: indaco\nsize: ${size}\n${fit ? `fit: ${fit}\n` : ''}---\n\n<!-- @meta{class=agenda} -->\n\n## The agenda\n\n${items(n)}\n`;
 
 type Measured = { plan: Record<string, unknown>; remembered: string[]; facts: { slide: string; over: boolean }[]; rounds: number; fellBack: number; reused?: boolean } | null;
 /** What the Studio's hidden frame last measured and planned (docs/src/lib/measured-split.ts). */
@@ -101,7 +101,7 @@ test.describe('@crosswidth @webkit-tablet @gecko a chart slide\'s key insight in
 	// page where the export had two. A deck with nothing else to split measures it now (split-gate.js `codaMayMove`).
 	test('a square chart slide with a key insight shows two pages, the insight on the second', async ({ page }) => {
 		await gotoStudio(page);
-		await setEditorContent(page, '---\nmarp: true\ntheme: indaco\nsize: square\n---\n\n<!-- _class: bar -->\n\n## Support load sits with two teams.\n\n- Platform `412`\n- Billing `388`\n- Mobile `96`\n- Web `71`\n\n> Two teams take four tickets in five.\n');
+		await setEditorContent(page, '---\nmarp: true\ntheme: indaco\nsize: square\n---\n\n<!-- @meta{class=bar} -->\n\n## Support load sits with two teams.\n\n- Platform `412`\n- Billing `388`\n- Mobile `96`\n- Web `71`\n\n> Two teams take four tickets in five.\n');
 		await expect.poll(async () => Object.values((await lastMeasured(page))?.plan ?? {}).some((v) => v && typeof v === 'object' && 'insightOwn' in (v as object)), { timeout: 20000 }).toBe(true);
 		await expect.poll(() => pagesInSlide(page), { timeout: 20000 }).toBe(2);
 	});
@@ -202,7 +202,7 @@ test.describe('@crosswidth @gecko the Playground when its measured split does no
 
 	test('draws a phone chart for the insight that stays on its slide', async ({ page }) => {
 		await page.route(/measured-split[^/]*\.js(\?|$)/, (route) => route.abort());
-		const chart = '---\nmarp: true\ntheme: indaco\nsize: portrait\n---\n\n<!-- _class: bar -->\n\n## Support load sits with two teams.\n\n- Platform `412`\n- Billing `388`\n- Mobile `96`\n- Web `71`\n\n> Two teams take four tickets in five, and the other two together take well under a fifth of the volume.\n';
+		const chart = '---\nmarp: true\ntheme: indaco\nsize: portrait\n---\n\n<!-- @meta{class=bar} -->\n\n## Support load sits with two teams.\n\n- Platform `412`\n- Billing `388`\n- Mobile `96`\n- Web `71`\n\n> Two teams take four tickets in five, and the other two together take well under a fifth of the volume.\n';
 		await page.addInitScript((s) => {
 			try {
 				localStorage.setItem('lattice-docs-pg-source', s);
@@ -221,7 +221,7 @@ test.describe('@crosswidth @gecko the Playground when its measured split does no
 
 // The same failure path in the Studio's preview and its webpage export (checker, 2026-11-27: both kept the measured
 // drawing, so a chart was sized for room its insight never left; the Playground alone drew it again).
-const insightChart = '---\nmarp: true\ntheme: indaco\nsize: portrait\n---\n\n<!-- _class: bar -->\n\n## Support load sits with two teams.\n\n- Platform `412`\n- Billing `388`\n- Mobile `96`\n- Web `71`\n\n> Two teams take four tickets in five, and the other two together take well under a fifth of the volume.\n';
+const insightChart = '---\nmarp: true\ntheme: indaco\nsize: portrait\n---\n\n<!-- @meta{class=bar} -->\n\n## Support load sits with two teams.\n\n- Platform `412`\n- Billing `388`\n- Mobile `96`\n- Web `71`\n\n> Two teams take four tickets in five, and the other two together take well under a fifth of the volume.\n';
 
 test.describe('@crosswidth @gecko the Studio when its measured split does not load', () => {
 	test.use({ viewport: { width: 1440, height: 900 } });

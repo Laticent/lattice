@@ -61,8 +61,8 @@ One register, one token, and the brand bar comes with it.
 
 ## This slide opted out
 
-1. `_class: corners-square`
-   - a slide overrides the deck, the same way `_class: light` overrides a dark deck
+1. `class=corners-square`
+   - a slide overrides the deck, the same way `class=light` overrides a dark deck
 2. The deck's token is evicted, not stacked
    - both rules land at one specificity, so leaving them side by side would let source order decide instead of the author
 

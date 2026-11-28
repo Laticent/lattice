@@ -29,7 +29,7 @@ examples:
     label: In a table
     caption: A trend column turns a row of numbers into a shape you can compare down the table.
     sample: |
-      <!-- _class: table table-fill -->
+      <!-- @meta{layout=table, class=table-fill} -->
 
       ## Asia Pacific is the only region still accelerating.
 
@@ -49,7 +49,7 @@ examples:
     label: Seven types
     caption: A series draws a line, area, bars, steps or wins and losses. A ratio draws a ring or a bullet.
     sample: |
-      <!-- _class: table table-fill -->
+      <!-- @meta{layout=table, class=table-fill} -->
 
       ## One grammar, seven types.
 
@@ -66,7 +66,7 @@ examples:
     label: Three looks
     caption: The same spark as a filled tile, an outline, or a pale tint. Set it per spark, per slide or for the whole deck.
     sample: |
-      <!-- _class: table table-fill -->
+      <!-- @meta{layout=table, class=table-fill} -->
 
       ## One spark, three looks.
 
@@ -125,7 +125,7 @@ To set the frame, look or corners for the whole deck, use the `spark:` front-mat
 spark: etch rounded
 ---
 
-<!-- _class: table spark-bare -->
+<!-- @meta{layout=table, class=spark-bare} -->
 ```
 
 In the Studio, type `` `~ `` for a menu of starter sparks. After a comma, the menu offers only the words that fit next.

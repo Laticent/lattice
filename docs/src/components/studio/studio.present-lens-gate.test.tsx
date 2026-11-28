@@ -18,9 +18,9 @@ vi.mock('./studio-stage', () => ({ buildStageDocument: vi.fn(async () => ({ doc:
 const options = { themeBase: '', runtimeUrl: '', engineUrl: '' };
 // A deck whose middle slide is the only member of `brief`.
 const slides = [
-	'<!-- _class: title -->\n\n# Cover',
-	'<!-- _class: kpi -->\n<!-- _lens: brief -->\n\n# The number',
-	'<!-- _class: quote -->\n\n# Appendix',
+	'<!-- @meta{layout=title} -->\n\n# Cover',
+	'<!-- @meta{layout=kpi} -->\n<!-- @meta{lens=brief} -->\n\n# The number',
+	'<!-- @meta{layout=quote} -->\n\n# Appendix',
 ];
 
 // A registry with an APPROVED brief (hash bound to its real membership) vs. an UNAPPROVED one.

@@ -24,7 +24,7 @@ const EMULATOR = path.join(ROOT, 'lattice.js');
 const DECK = ['---', 'theme: indaco', '---', '',
 	'## Avatars', '', 'Alpha `!{Ada Okafor}` Bravo `!{Ben Liu, lg}` Charlie `!{Cy Diaz, rounded, border=c3}` Delta', '',
 	'---', '', '## Sparks', '', 'Echo `~{0.8 0.9 1.1 1.2 1.4 1.5 1.7 1.9, end}` Foxtrot `~{1.9/1.6, bullet}` Golf', '',
-	'---', '', '<!-- _class: verdict-grid -->', '', '## Cards', '', '- Option one', '  - [x] Residency', '  - Fine.', '- Option Hotel', '  - [x] Residency', '  - Better.', ''].join('\n');
+	'---', '', '<!-- @meta{layout=verdict-grid} -->', '', '## Cards', '', '- Option one', '  - [x] Residency', '  - Fine.', '- Option Hotel', '  - [x] Residency', '  - Better.', ''].join('\n');
 
 function readPnm(file) {
 	const buf = fs.readFileSync(file);

@@ -20,7 +20,7 @@ const recipe = closing.split;
 
 const ROWS = ['- `a` — one', '- `b` — two', '- `c` — three', '- `d` — four', '- `e` — five'].join('\n');
 const sectionOf = (cls, body) => {
-  const { html } = createEngine().render(`---\ntheme: indaco\n---\n\n<!-- _class: ${cls} -->\n\n${body}\n`, 'indaco');
+  const { html } = createEngine().render(`---\ntheme: indaco\n---\n\n<!-- @meta{class=${cls}} -->\n\n${body}\n`, 'indaco');
   const [s] = splitSections(html).filter((p) => p.type === 'section');
   return s;
 };

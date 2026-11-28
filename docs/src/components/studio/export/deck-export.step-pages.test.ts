@@ -23,12 +23,12 @@ describe('stretchByStepPages', () => {
 
 describe('deckSteps (whether the export sheet offers the switch)', () => {
 	it('is on for a slide build, a deck-wide build, or a focus walk', () => {
-		expect(deckSteps('# A\n\n---\n\n<!-- _build -->\n\n- x')).toBe(true);
-		expect(deckSteps('<!-- _focusSteps: row 1 | row 2 -->')).toBe(true);
+		expect(deckSteps('# A\n\n---\n\n<!-- @meta{build} -->\n\n- x')).toBe(true);
+		expect(deckSteps('<!-- @meta{focus-steps="row 1 | row 2"} -->')).toBe(true);
 		expect(deckSteps('---\nbuild: items\n---\n\n# A')).toBe(true);
 	});
 	it('is off for a deck that never steps', () => {
-		expect(deckSteps('# A\n\n---\n\n<!-- _class: table -->\n\n# B')).toBe(false);
+		expect(deckSteps('# A\n\n---\n\n<!-- @meta{layout=table} -->\n\n# B')).toBe(false);
 		expect(deckSteps(undefined)).toBe(false);
 		// A `build:` line in a slide's code is not the front-matter key.
 		expect(deckSteps('# A\n\n```yaml\nbuild: npm run build\n```')).toBe(false);

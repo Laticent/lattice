@@ -31,7 +31,7 @@ const pkg = (code, name = 'tally', extra = {}, manifest = { facts: 1 }) => ({
 const deck = (...classes) => `<article>${classes.map((c) => `<section class="${c}"><p>${c}</p></section>`).join('\n')}</article>`;
 
 describe('the registry slot', () => {
-  const md = '---\ntheme: indaco\n---\n\n<!-- _class: tally -->\n\n## Three wins\n\n- 3\n\n---\n\n<!-- _class: bar -->\n\n## Bars\n\n- A `1`\n- B `2`\n';
+  const md = '---\ntheme: indaco\n---\n\n<!-- @meta{class=tally} -->\n\n## Three wins\n\n- 3\n\n---\n\n<!-- @meta{layout=bar} -->\n\n## Bars\n\n- A `1`\n- B `2`\n';
 
   test('without a hook the render is byte-identical', () => {
     const e = engine.createEngine();
@@ -60,7 +60,7 @@ describe('the registry slot', () => {
   });
 
   test('it runs inside a pane, at the host slide’s position', () => {
-    const paned = '---\ntheme: indaco\n---\n\n## Intro\n\n---\n\n## Host\n\n<!-- panes: 50/50 -->\n<!-- pane: list -->\n\n- one\n\n<!-- pane: table -->\n\n| a | b |\n|---|---|\n| 1 | 2 |\n';
+    const paned = '---\ntheme: indaco\n---\n\n## Intro\n\n---\n\n## Host\n\n<!-- @meta{panes=50/50} -->\n<!-- @meta{pane=list} -->\n\n- one\n\n<!-- @meta{pane=table} -->\n\n| a | b |\n|---|---|\n| 1 | 2 |\n';
     const calls = [];
     engine.createEngine().render(paned, 'indaco', {
       codePackages: (html, ctx) => {

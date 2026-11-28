@@ -12,7 +12,7 @@ import { expect, gotoStudio, livePreview, persistedSource, setEditorContent, tes
 // With LATTICE_EVIDENCE_DIR=<dir> it saves each state; off by default, so CI writes nothing.
 
 const EVIDENCE = process.env.LATTICE_EVIDENCE_DIR || '';
-const DECK = '## Launch status\n\nThe launch is `@tag-chip{Launch, hot}` and the pilot is `@tag-chip{Pilot, cold}` this week.\n\n---\n\n<!-- _class: cards-grid -->\n\n## Two streams carry the launch.\n\n- Platform\n  - On track `@tag-chip{Ready, cold}` for the first cohort.\n- Growth\n  - At risk `@tag-chip{Blocked, hot}` until pricing lands.\n\n---\n\n<!-- _class: columns -->\n\n## Pricing gates the growth stream.\n\n### Today\n\nThe page is `@tag-chip{Draft, cold}` and unreviewed.\n\n### Next week\n\nLegal signs off `@tag-chip{Review, hot}` on Tuesday.\n';
+const DECK = '## Launch status\n\nThe launch is `@tag-chip{Launch, hot}` and the pilot is `@tag-chip{Pilot, cold}` this week.\n\n---\n\n<!-- @meta{layout=cards-grid} -->\n\n## Two streams carry the launch.\n\n- Platform\n  - On track `@tag-chip{Ready, cold}` for the first cohort.\n- Growth\n  - At risk `@tag-chip{Blocked, hot}` until pricing lands.\n\n---\n\n<!-- @meta{layout=columns} -->\n\n## Pricing gates the growth stream.\n\n### Today\n\nThe page is `@tag-chip{Draft, cold}` and unreviewed.\n\n### Next week\n\nLegal signs off `@tag-chip{Review, hot}` on Tuesday.\n';
 
 for (const [label, width, height] of [
 	['desktop', 1440, 900],

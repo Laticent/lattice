@@ -36,7 +36,7 @@ async function seedOneOfEach(page: Parameters<typeof gotoStudio>[0]) {
 
 	await page.getByRole('button', { name: 'Component', exact: true }).click();
 	await page.getByRole('textbox', { name: 'Component name' }).fill('quarter-callout');
-	await retype(page, 'Component skeleton', '<!-- _class: quarter-callout -->\n\n## Revenue is up 24%\n\nGrowth.');
+	await retype(page, 'Component skeleton', '<!-- @meta{class=quarter-callout} -->\n\n## Revenue is up 24%\n\nGrowth.');
 	await retype(page, 'Component CSS', 'section.quarter-callout { display: grid; }\nsection.quarter-callout h2 { color: var(--accent); }');
 	await page.getByRole('button', { name: 'Save', exact: true }).click();
 	await expect(liveToast(page, /Saved .*quarter-callout/)).toBeVisible();

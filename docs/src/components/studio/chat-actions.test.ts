@@ -123,7 +123,7 @@ describe('fixes from the adversarial review', () => {
 	it('the outline shows the heading a reader sees, not one hidden in a comment or a code fence', () => {
 		expect(outlineTitle('<!--\n# Q3 Board Review\n-->\n\n# Approve the transfer')).toBe('Approve the transfer');
 		expect(outlineTitle('```md\n# Agenda\n```\n\n## Real heading')).toBe('Real heading');
-		expect(outlineTitle('<!-- _class: big-number -->\n\n`40%`')).toBe('');
+		expect(outlineTitle('<!-- @meta{layout=big-number} -->\n\n`40%`')).toBe('');
 	});
 
 	it('a hidden heading does not reach the queued outline, and the slide count is the whole deck', async () => {

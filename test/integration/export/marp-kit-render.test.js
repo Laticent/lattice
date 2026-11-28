@@ -249,7 +249,14 @@ const FIXTURES = [
 		display: '.katex-display',
 		stage(dir) {
 			const out = path.join(dir, 'export');
-			const r = spawnSync(process.execPath, [EXPORT_CLI, SOURCE_DECK, out, 'cuoio'], {
+			// The kit's sample is a MARP deck (`_class:` is Marp's own directive there), and since the cut Lattice reads
+			// only `@meta{…}` records (slice E), so the export is fed the sample as Lattice source: migrated, in a copy.
+			// It names no local file, so the copy renders the same.
+			const { migrateMetaSource } = require('../../../lib/authoring/meta-migrate.mjs');
+			const { META_MIGRATE_KIT } = require('../../../lib/core/meta-scan.mjs');
+			const src = path.join(dir, DECK);
+			fs.writeFileSync(src, migrateMetaSource(fs.readFileSync(SOURCE_DECK, 'utf8'), { kit: META_MIGRATE_KIT }).source);
+			const r = spawnSync(process.execPath, [EXPORT_CLI, src, out, 'cuoio'], {
 				cwd: ROOT,
 				encoding: 'utf8',
 				timeout: TIMEOUT,

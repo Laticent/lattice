@@ -14,7 +14,10 @@
 //   - INLINE, in Markdown: `` `key:` `` in backticks.
 //   - BARE, in plain text (a Studio tool's `chat` description, the llms.txt source): `key:` as a word.
 // The retired set is read from `DECK_SETTINGS`, so the next rename that retires a key turns its own leftover guidance
-// red here with no edit to this file.
+// red here with no edit to this file. Slide comments the @meta cut (#3563) retired are asked of
+// lint-core itself (`legacy-directive-comment`), so every spelling it reports is guarded: on its own line a comment
+// counts as a settings line wherever it sits, and in a code span (`` `<!-- _class: x -->` ``, `` `_footer:` ``) it
+// needs a cue like any key.
 //
 // Guidance may NAME a retired key to say what replaced it. An inline or bare mention passes when its paragraph (a run
 // of non-blank lines; each list item and table row is its own; a sentence in plain text) says so in words
@@ -55,29 +58,37 @@ const SANCTIONED = {
     why: "`form:` is mostly a component manifest's Frame field, the subject of the doc; two mentions (:5, :780) say the deck key is gone",
     keys: { form: 6 },
   },
-  'design/design-principles.md': {
-    why: 'names the `paginate:` slide comment as ignored, with the lint pointing at what to write instead',
-    keys: { paginate: 1 },
-  },
   'design/concepts.md': {
     why: "`form:` here is a component manifest's Frame field, not the retired deck key",
     keys: { form: 1 },
   },
-  'design/design-system.md': {
-    why: "`form:` here is a component manifest's Frame field, not the retired deck key",
-    keys: { form: 1 },
-  },
   'docs/src/content/docs/spec/lfm.md': {
-    why: 'generated from ratified spec/LFM-1.0.md, whose Appendix A deck is read in every environment, Marp included; a change goes through the spec process (§7)',
-    keys: { paginate: 1 },
+    why: "TEMPORARY, the whole entry: generated from spec/LFM-1.0.md, which #3554 (the spec desk) regenerates with @meta examples and no `paginate:` or `_class` taught as current (checked against #3554's head). Whichever of #3554 and #3606 lands second deletes this entry; the stale-entry check forces it",
+    keys: { paginate: 2, _class: 5 },
+  },
+  'lib/base/base.registers.docs.md': {
+    why: 'the raw-Marp section: Marpit itself reads `_class:`, and a deck exported to Marp must list the register token in it',
+    keys: { _class: 4 },
+  },
+  'design/design-system.md': {
+    why: "`form:` here is a component manifest's Frame field, not the retired deck key; `_class` is the Marp kit's own comment form, where the VS Code completion works",
+    keys: { form: 1, _class: 1 },
+  },
+  'design/skills/import.md': {
+    why: 'a check-list item that says no Marp directive comment (`<!-- _class: … -->`) is left in an imported deck, and the "Marp leftovers" list of input to migrate (`<!-- _paginate: false -->`)',
+    keys: { _class: 1, _paginate: 1 },
   },
   'docs/src/content/docs/reference/cli.md': {
     why: "the `lattice migrate notes` table lists the old forms it rewrites; the row's left column is the input",
     keys: { say: 1 },
   },
   'docs/src/content/docs/spec/diagnostics.md': {
-    why: "the diagnostics table names what each rule reports: `stray-overflow-marker`'s retired key, and `say:` as an unknown `terms:` field",
-    keys: { 'overflow-marker': 1, say: 1 },
+    why: "the diagnostics table names what each rule reports: `stray-overflow-marker`'s retired key, and `say:` as an unknown `terms:` field. TEMPORARY for the comment forms, each dropped by the stale-entry check as its fix lands: `_track`, `_build`, `_focus`, `_debug` are the `track-directive` (:160), `one-stepping-directive` (:166), `code-line-range` (:183) and `unknown-debug-facet` (:272) rows, which #3554 (the spec desk) rewrites",
+    keys: { 'overflow-marker': 1, say: 1, _track: 1, _build: 1, _focus: 1, _debug: 1 },
+  },
+  'docs/src/content/catalog/libraries/lente.md': {
+    why: "the standalone `lente` package reads a `<!-- _lens: … -->` comment itself; the same line gives Lattice's record, `@meta{lens=…}`",
+    keys: { _lens: 1 },
   },
 };
 
@@ -85,16 +96,80 @@ const SANCTIONED = {
 // "before" or "old" on its own appears in plenty of current instructions, and a cue that broad excused
 // `` `guards: loose` is the default `` (lib/base/base.docs.md) because "before #2308" sat in the same paragraph.
 const RETIREMENT_CUE =
-  /\b(?:retired|retirement|renamed|was called|replaced|no longer|legacy|migrat\w*|rewrites?|deprecated|(?:the|an?) old(?:er)? (?:name|names|key|keys|form|forms|spelling|one|note|syntax|classes)|old names|LFM 1\.x|reaches nothing)\b|\b(?:the|an?) old `[^`]+` (?:key|keys|class|classes|name|form|spelling)\b|\b(?:was|formerly) `|→|`[^`]+`[ \t]*(?:becomes|is now|instead of)[ \t]+`/i;
+  /\b(?:retired|retirement|renamed|was called|replaced|no longer|legacy|migrat\w*|rewrites?|deprecated|(?:the|an?) old(?:er)? (?:name|names|key|keys|form|forms|spelling|one|note|syntax|classes)|old names|LFM 1\.x|reaches nothing)\b|`[^`]+`[^.]*\b(?:is|are) not read\b|\b(?:the|an?) old `[^`]+` (?:key|keys|class|classes|name|form|spelling|comment|comments)\b|\b(?:was|formerly) `|→|`[^`]+`[ \t]*(?:becomes|is now|instead of)[ \t]+`/i;
+// The spec's own words for a form a renderer ignores (LFM §2.3, "**Not read:** … MUST NOT apply"). Case-sensitive, so
+// ordinary prose ("the theme must not apply its footer") is no cue.
+const SPEC_CUE = /\*\*Not read:?\*\*|\bMUST NOT apply\b/;
+const isCue = (text) => RETIREMENT_CUE.test(text) || SPEC_CUE.test(text);
 
 const RETIRED = DECK_SETTINGS.filter((r) => r.kind === 'retired').map((r) => r.key);
-const ALT = RETIRED.map((k) => k.replace(/[.*+?^${}()|[\]\\-]/g, '\\$&')).join('|');
+// A slide comment the engine no longer reads. The @meta cut (#3563) made `<!-- @meta{…} -->` the one way a slide sets
+// anything, and lint-core reports every old comment as `legacy-directive-comment`. Rather than list the spellings
+// (`_class`, `class`, `_paginate`, `footer`, a pane marker, …), the test asks the linter, so a spelling it starts or
+// stops reporting moves this guard with it. The answer is cached per comment text.
+const lintCore = require('../../../lib/authoring/lint-core.js');
+const LINT_VOCAB = { names: new Set(), modifiers: new Set(), capacity: {} };
+const retiredCache = new Map();
+/** The retired spelling a comment uses (`_class`, `footer`, `_pane`), or null when the engine reads it or it is no setting. */
+function retiredComment(comment) {
+  if (!retiredCache.has(comment)) {
+    const deck = `---\ntheme: indaco\n---\n\n${comment}\n\n## A title that makes a claim.\n`;
+    const f = lintCore.lintTextWith(deck, LINT_VOCAB).find((x) => x.rule === 'legacy-directive-comment');
+    const body = commentBody(comment);
+    retiredCache.set(comment, f ? f.classToken || body.split(/[\s:]/)[0] : null);
+  }
+  return retiredCache.get(comment);
+}
+const esc = (k) => k.replace(/[.*+?^${}()|[\]\\-]/g, '\\$&');
+const ALT = RETIRED.map(esc).join('|');
 const FM_LINE = new RegExp(`^[ \\t]*(${ALT})[ \\t]*:`);
+// Comments are found with string scanning, not a regex, and an end is `-->` or `--!>` (HTML's two closers). This reads
+// docs for the guard; it filters nothing that reaches a page.
+const COMMENT_ENDS = ['-->', '--!>'];
+/** The text between `<!--` and its end, trimmed. */
+function commentBody(comment) {
+  let body = comment.slice(comment.indexOf('<!--') + 4);
+  for (const end of COMMENT_ENDS) if (body.endsWith(end)) body = body.slice(0, -end.length);
+  return body.trim();
+}
+/** Each comment in `text` as `<!-- body -->`; one left open runs to the end of `text`. */
+function commentsIn(text) {
+  const out = [];
+  let at = text.indexOf('<!--');
+  while (at !== -1) {
+    const ends = COMMENT_ENDS.map((e) => [text.indexOf(e, at + 4), e]).filter(([i]) => i !== -1).sort((a, b) => a[0] - b[0]);
+    const stop = ends.length ? ends[0][0] + ends[0][1].length : text.length;
+    out.push(`<!-- ${commentBody(text.slice(at, stop))} -->`);
+    at = text.indexOf('<!--', stop);
+  }
+  return out;
+}
+/** The comments a line holds when the line is nothing but comments (one or several), else none. Such a line is something an author copies, wherever it sits. */
+function ownLineComments(line) {
+  const t = line.trim();
+  if (!t.startsWith('<!--') || !COMMENT_ENDS.some((e) => t.endsWith(e))) return [];
+  return commentsIn(t);
+}
 const INLINE = new RegExp(`\`(${ALT})[ \\t]*:`, 'g');
+const CODE_SPAN = /`([^`\n]+)`/g;
+/** The retired comment spellings a code span shows: a comment (`<!-- _class: kpi -->`, `# T <!-- footer: x`) or a key (`_class:`). */
+function retiredInSpan(span) {
+  const out = [];
+  for (const comment of commentsIn(span)) {
+    const key = retiredComment(comment);
+    if (key) out.push(key);
+  }
+  const k = /^(_[\w-]+)[ \t]*:/.exec(span.trim());
+  if (k && !span.includes('<!--')) {
+    const key = retiredComment(`<!-- ${k[1]}: x -->`);
+    if (key) out.push(key);
+  }
+  return out;
+}
 const BARE = new RegExp(`(?<![\\w-])(${ALT})[ \\t]*:`, 'g');
 const FENCE = /^[ \t]*(`{3,}|~{3,})/;
 // A fence whose body is settings or a deck: a bare `key:` line in one is something an author copies.
-const SETTINGS_FENCE = /^[ \t]*(?:`{3,}|~{3,})[ \t]*(?:yaml|yml|md|markdown|lfm)?[ \t]*$/i;
+const SETTINGS_FENCE = /^[ \t]*(?:`{3,}|~{3,})[ \t]*(?:(?:md|markdown|lfm|lattice|html)(?:[ \t].*)?)?$/i;
 const YAML_FENCE = /^[ \t]*(?:`{3,}|~{3,})[ \t]*(?:yaml|yml)\b/i;
 const UNIT_START = /^[ \t]*(?:[-*+][ \t]|\d+\.[ \t]|\|)/;
 
@@ -116,7 +191,7 @@ function retiredKeys(text) {
   }
   const cued = new Set();
   lines.forEach((line, i) => {
-    if (RETIREMENT_CUE.test(line)) cued.add(unit[i]);
+    if (isCue(line)) cued.add(unit[i]);
   });
   let inFence = false;
   let inYaml = false; // inside a ```yaml fence: every line is a settings line, with or without `---`
@@ -139,7 +214,15 @@ function retiredKeys(text) {
       const m = FM_LINE.exec(line);
       if (m) out.push({ line: i + 1, key: m[1], shape: 'front-matter' });
     }
-    if (!cued.has(unit[i])) for (const m of line.matchAll(INLINE)) out.push({ line: i + 1, key: m[1], shape: 'inline' });
+    // A retired comment on its own line is copyable wherever it sits: any fence, any indent, or raw in the source an
+    // agent reads.
+    const owned = ownLineComments(line).map(retiredComment).filter(Boolean);
+    for (const key of owned) out.push({ line: i + 1, key, shape: 'front-matter' });
+    const ck = owned.length > 0;
+    if (!cued.has(unit[i])) {
+      for (const m of line.matchAll(INLINE)) out.push({ line: i + 1, key: m[1], shape: 'inline' });
+      if (!ck) for (const m of line.matchAll(CODE_SPAN)) for (const key of retiredInSpan(m[1])) out.push({ line: i + 1, key, shape: 'inline' });
+    }
     if (t === '') return;
     if ((t === '---' && atStart) || /=\s*`---$/.test(t)) inFm = true;
     if (FENCE.test(line)) {
@@ -166,7 +249,7 @@ function sentenceAround(text, at) {
  * @returns {string[]} the keys, one per mention
  */
 function bareRetiredKeys(text) {
-  return [...text.matchAll(BARE)].filter((m) => !RETIREMENT_CUE.test(sentenceAround(text, m.index))).map((m) => m[1]);
+  return [...text.matchAll(BARE)].filter((m) => !isCue(sentenceAround(text, m.index))).map((m) => m[1]);
 }
 
 /** The findings in one source file, as `{ line, key, shape }`. */
@@ -239,6 +322,25 @@ test('a mention its paragraph marks as history passes; a front-matter block neve
   assert.deepEqual(retiredKeys('`paginate: true` becomes `pagination: true`.\n'), []);
   // "The old `marks:` key" names the key between "old" and its noun.
   assert.deepEqual(retiredKeys('The old `paginate:` key, which split in two.\n'), []);
+  // A retired directive comment: in a deck fence it is a settings line; inline it needs a cue.
+  assert.deepEqual(retiredKeys('```markdown\n<!-- _class: title -->\n\n# A\n```\n'), [{ line: 2, key: '_class', shape: 'front-matter' }]);
+  assert.equal(retiredKeys('Put `<!-- _class: kpi -->` at the top of the slide.\n').length, 1);
+  assert.deepEqual(retiredKeys('The old `<!-- _class: kpi -->` comments are not read at all.\n'), []);
+  // The comment form in any fence, indented, or raw; a heading in the same code span.
+  for (const deck of ['```html\n<!-- _class: kpi -->\n```\n', '```markdown title="deck.md"\n<!-- _class: kpi -->\n```\n', '- Write:\n  ```\n    <!-- _class: kpi -->\n  ```\n', '<!-- _class: kpi -->\n']) {
+    assert.equal(retiredKeys(deck).filter((h) => h.key === '_class').length, 1, deck);
+  }
+  assert.equal(retiredKeys('Write `# Revenue <!-- _class: kpi -->` on the slide.\n').length, 1);
+  // The spec's own phrasing for forms a renderer ignores.
+  assert.deepEqual(retiredKeys('- **Not read:** a directive comment (`<!-- _class: … -->`, `<!-- footer: … -->`).\n  A conformant renderer MUST NOT apply any of them.\n'), []);
+  // Lowercase "must not apply" is ordinary prose, not the spec's cue.
+  assert.equal(retiredKeys('Put `<!-- _class: kpi -->` on the slide; the theme must not apply its footer.\n').length, 1);
+  // Two comments on one line: each is read.
+  assert.equal(retiredKeys('```markdown\n<!-- _class: kpi --> <!-- _paginate: false -->\n```\n').length, 2);
+  // A comment closed with `--!>`, HTML's other comment end, is still a comment.
+  assert.equal(retiredKeys('```markdown\n<!-- _class: kpi --!>\n```\n').length, 1);
+  // "not read" is a cue only after a code span in the same sentence.
+  assert.equal(retiredKeys('Add `<!-- _class: kpi -->`. Notes are not read by the engine.\n').length, 1);
   // A common word is not a cue: "before" here is an instruction, not history.
   assert.equal(retiredKeys('Set `paginate: true` before the first slide.\n').length, 1);
   // A cue next to a block does not excuse the block.

@@ -36,7 +36,7 @@ until it writes a record.
 
 The frames, finishes, tones and sizes are the same ones a picture takes (`lib/plugins/image/image.docs.md`), so a clip matches
 the photos beside it. A deck sets them once with the `video:` register (`video: mat nimbus=40`), a slide with a class
-(`<!-- _class: video-keyline -->`), and a record's own word wins over both. One finish and one tone at a time: two finishes
+(`<!-- @meta{class=video-keyline} -->`), and a record's own word wins over both. One finish and one tone at a time: two finishes
 leave the record as code, and `lint:deck` says why.
 
 The record goes on a line of its own, with a blank line above and below it. In running text it stays code, and `lint:deck`

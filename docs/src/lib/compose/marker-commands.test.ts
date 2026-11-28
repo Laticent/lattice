@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { deckToDoc, docToDeck } from './deck-doc';
 import { setListMarker } from './marker-commands';
 
-const DECK = ['<!-- _class: checklist -->', '', '## Gates', '', '- [x] Security', '- [!] Pricing', '- plain item', '', '---', '', '<!-- _class: checklist -->', '', '## Locked', '', '- [ ] Has ~~strike~~'].join('\n');
+const DECK = ['<!-- @meta{layout=checklist} -->', '', '## Gates', '', '- [x] Security', '- [!] Pricing', '- plain item', '', '---', '', '<!-- @meta{layout=checklist} -->', '', '## Locked', '', '- [ ] Has ~~strike~~'].join('\n');
 
 /** The position of the `[` that leads the list item whose text contains `word`. */
 function markerPos(state: EditorState, word: string): number {

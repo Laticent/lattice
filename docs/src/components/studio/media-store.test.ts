@@ -26,6 +26,7 @@ import {
 	sniffVideoMime,
 	visibleMedia,
 } from './media-store';
+import { pinStudioVault } from './media-vault';
 
 async function emptyShelf() {
 	for (const a of await listAssets()) await deleteAsset(a.id);
@@ -163,7 +164,7 @@ describe('decksUsing', () => {
 // Safari in a private window refuses to store a Blob: "UnknownError: Error preparing Blob/File data to
 // be stored in object store" (reproduced on real WebKit, where an ArrayBuffer and a string store fine).
 // These patch `put` to behave that way, so the fallback is tested against the engine's own refusal.
-describe('an engine that will not store a Blob', () => {
+describe('an engine that will not store a Blob, on a host with no vault', () => {
 	const bytes = new Uint8Array([137, 80, 78, 71, 1, 2, 3, 4, 5, 6]);
 	const refuse = (what: 'blob' | 'blob-and-buffer') => {
 		const orig = IDBObjectStore.prototype.put;
@@ -173,8 +174,15 @@ describe('an engine that will not store a Blob', () => {
 			return orig.call(this, value, key);
 		});
 	};
-	afterEach(() => vi.restoreAllMocks());
-	beforeEach(emptyShelf);
+	// A host with no vault, where the row still holds the bytes (media-vault.ts, "No vault, no move").
+	afterEach(() => {
+		vi.restoreAllMocks();
+		pinStudioVault(undefined);
+	});
+	beforeEach(async () => {
+		await emptyShelf();
+		pinStudioVault(null);
+	});
 
 	const png = (name = 'hero') => base({ name, blob: new Blob([bytes], { type: 'image/png' }), mime: 'image/png', bytes: bytes.length });
 

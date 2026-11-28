@@ -5,6 +5,10 @@
 // ENGINE=chromium|webkit|firefox (default chromium); BASE=<origin> (default http://localhost:4321).
 // CPU throttling, the heap reading and long tasks are Chromium-only: on WebKit and Firefox the run is
 // unthrottled and reports first-slide time alone, so compare builds on one engine, never across engines.
+// MEASURE=open,export (vault slice 2, 2026-11-27-vault-slice-2-as-built.md): after the reloads, also time opening
+// the Library's images until 12 cards have decoded (`photoOpenMs`), and Download backup until the zip arrives
+// (`exportMs`). A build whose boot moves photos into the storage vault reports that move as `moveMs`, timed
+// from the seeding reload until no photo row holds its own bytes.
 // PLAYWRIGHT=<module path>: use the docs suite's Playwright (docs/node_modules/playwright), whose WebKit and
 // Firefox builds the e2e suite installs, when the default `playwright` wants browser builds that are not there.
 const playwright = require(process.env.PLAYWRIGHT || 'playwright');
@@ -21,6 +25,7 @@ const SCENARIOS = {
 	decks40: { decks: 40 },
 	decks40_versions: { decks: 40, versions: 25 },
 	photos60: { photos: 60 },
+	photos50: { photos: 50 },
 	everything: { decks: 40, versions: 25, chats: 60, photos: 60 },
 };
 
@@ -125,6 +130,45 @@ async function paintMs(page) {
 }
 
 const median = (a) => [...a].sort((x, y) => x - y)[Math.floor(a.length / 2)];
+const MEASURE = (process.env.MEASURE || '').split(',').filter(Boolean);
+
+/** How many photo rows still hold their own bytes (a Blob or a buffer) rather than naming a vault file. */
+const rowsHoldingBytes = (page) =>
+	page.evaluate(async () => {
+		const db = await new Promise((res, rej) => {
+			const r = indexedDB.open('lattice-workbench');
+			r.onsuccess = () => res(r.result);
+			r.onerror = () => rej(r.error);
+		});
+		const rows = await new Promise((res) => {
+			const r = db.transaction('assets').objectStore('assets').getAll();
+			r.onsuccess = () => res(r.result);
+		});
+		db.close();
+		return rows.filter((x) => (x.kind === 'image' || x.kind === 'video') && !x.vault && (x.blob || x.data)).length;
+	});
+
+async function photoOpenMs(page) {
+	const t0 = Date.now();
+	await page.getByRole('button', { name: 'Open Library' }).click();
+	await page.getByRole('tab', { name: 'Media', exact: true }).click();
+	await page.waitForFunction(() => [...document.querySelectorAll('[data-media-card] img')].filter((i) => i.complete && i.naturalWidth > 0).length >= 12, null, { timeout: 60000, polling: 'raf' });
+	return Date.now() - t0;
+}
+
+async function exportMs(page) {
+	await page.getByRole('button', { name: 'Workspace settings', exact: true }).first().click();
+	const dialog = page.getByRole('dialog', { name: /Workspace/ });
+	await dialog.getByRole('tab', { name: 'Data', exact: true }).click();
+	const t0 = Date.now();
+	const download = page.waitForEvent('download', { timeout: 120000 });
+	await dialog.getByRole('button', { name: /Download backup/ }).click();
+	const d = await download;
+	await d.path();
+	const ms = Date.now() - t0;
+	await page.keyboard.press('Escape');
+	return ms;
+}
 
 (async () => {
 	const browser = await playwright[ENGINE].launch();
@@ -153,7 +197,24 @@ const median = (a) => [...a].sort((x, y) => x - y)[Math.floor(a.length / 2)];
 		await page.frameLocator('[aria-label="Live deck preview"] iframe.live').locator('.lattice').first().waitFor({ timeout: 60000 });
 		await page.waitForTimeout(1500); // let the app create its databases
 		const info = await seed(page, s);
+		const tMove = Date.now();
 		await paintMs(page); // warm-up reload (SW + HTTP cache warm, as in a regular profile)
+		if (s.photos) {
+			// A build with the vault moves the seeded photos at its first idle moment; time that, then measure
+			// steady state. A build without it never moves them, and reports no moveMs.
+			// Stop once the count has not moved for 10 s: a build without the vault never moves a photo.
+			let last = -1;
+			for (let i = 0, still = 0; i < 1200 && still < 40; i++) {
+				const n = await rowsHoldingBytes(page);
+				if (n === 0) break;
+				still = n === last ? still + 1 : 0;
+				last = n;
+				await page.waitForTimeout(250);
+			}
+			const left = await rowsHoldingBytes(page);
+			info.moveMs = left === 0 ? Date.now() - tMove : null;
+			info.rowsHoldingBytesAfter = left;
+		}
 		if (THROTTLE > 1 && cdp) await cdp.send('Emulation.setCPUThrottlingRate', { rate: THROTTLE });
 		const runs = [];
 		for (let i = 0; i < RELOADS; i++) runs.push(await paintMs(page));
@@ -169,6 +230,12 @@ const median = (a) => [...a].sort((x, y) => x - y)[Math.floor(a.length / 2)];
 			}
 			return { localStorageAfterMB: +((chars * 2) / 1e6).toFixed(1), localStorageAfterChars: chars, chatKeysAfter: chatKeys };
 		});
+		if (MEASURE.includes('open') && s.photos) after.photoOpenMs = await photoOpenMs(page);
+		if (MEASURE.includes('export')) {
+			await page.reload();
+			await page.frameLocator('[aria-label="Live deck preview"] iframe.live').locator('.lattice').first().waitFor({ timeout: 60000 });
+			after.exportMs = await exportMs(page);
+		}
 		results[name] = { ...info, ...after, paintMedian: median(runs.map((r) => r.wall)), longTaskMedian: median(runs.map((r) => r.longTasks)), longTaskBy3sMedian: median(runs.map((r) => r.longTasksAfter3s)), heapMB: median(runs.map((r) => r.heap)), runs: runs.map((r) => r.wall).join(',') };
 		console.log(name, JSON.stringify(results[name]));
 		await ctx.close();

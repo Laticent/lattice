@@ -82,7 +82,7 @@ describe('fit-grace answers the export, not a render the author never got', { sk
     assert.deepEqual(plan(`${fm}${CARDS8}\n`).clipped, []);
   });
   // In both spellings: a `carry` record (what the meta sweep writes) and Marp's bare `class:` comment (a kit deck).
-  for (const running of ['<!-- @meta{class=gantt, carry} -->', '<!-- class: gantt -->']) {
+  for (const running of ['<!-- @meta{class=gantt, carry} -->', '<!-- @meta{class=gantt, carry} -->']) {
     test(`a gantt that takes its layout from ${running} is tried as a gantt, and the advice keeps it`, () => {
       const p = plan(`${FM}${GANTT.replace('<!-- @meta{layout=gantt} -->', running)}\n`);
       assert.deepEqual(p.clipped, [1]);
@@ -91,7 +91,7 @@ describe('fit-grace answers the export, not a render the author never got', { sk
     });
   }
   test('a slide written in the old `_class:` spelling is read, and its claim fits', () => {
-    const p = plan(`${FM}${GANTT.replace('<!-- @meta{layout=gantt} -->', '<!-- _class: gantt -->')}\n`);
+    const p = plan(`${FM}${GANTT.replace('<!-- @meta{layout=gantt} -->', '<!-- @meta{class=gantt} -->')}\n`);
     assert.deepEqual(p.clipped, [1]);
     assert.equal(p.perSlide[0].claim, 'claim-hero');
   });

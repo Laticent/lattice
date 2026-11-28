@@ -61,7 +61,7 @@ const SHAPES = `---
 theme: indaco
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## Every reference shape
 
@@ -77,7 +77,7 @@ theme: indaco
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## Bodies that are not canonical base64
 
@@ -91,14 +91,13 @@ theme: indaco
 
 ---
 
-<!-- _class: content -->
-<!-- _backgroundImage: url(asset:p3) -->
+<!-- @meta{layout=content, background-image="url(asset:p3)"} -->
 
 ## A background directive
 
 ---
 
-<!-- _class: collage -->
+<!-- @meta{layout=collage} -->
 
 ## Four up
 

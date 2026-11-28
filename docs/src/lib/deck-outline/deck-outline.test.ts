@@ -99,15 +99,15 @@ describe('DeckIndex — agrees with the derivations it replaces', () => {
 	});
 
 	it('an eyebrow and directives travel with their heading', () => {
-		const src = '# A\n\n<!-- _class: kpi -->\n\n`EYEBROW`\n\n## B\n';
+		const src = '# A\n\n<!-- @meta{layout=kpi} -->\n\n`EYEBROW`\n\n## B\n';
 		const ix = buildDeckIndex(src);
-		expect(partText(ix, 0, 1).startsWith('<!-- _class: kpi -->')).toBe(true);
+		expect(partText(ix, 0, 1).startsWith('<!-- @meta{layout=kpi} -->')).toBe(true);
 	});
 });
 
 // ── Incremental updates equal a full build ──────────────────────────────────────
 
-const LINES = ['# Head', '## Sub', 'text line', '', '---', '***', '```', '~~~', '$$', '<div>', '</div>', 'Setext', '===', '- item', '> quote', '<!-- _class: kpi -->', '`EYEBROW`', '| a | b |', '|---|---|', '    code', '- - -'];
+const LINES = ['# Head', '## Sub', 'text line', '', '---', '***', '```', '~~~', '$$', '<div>', '</div>', 'Setext', '===', '- item', '> quote', '<!-- @meta{layout=kpi} -->', '`EYEBROW`', '| a | b |', '|---|---|', '    code', '- - -'];
 const deckArb = fc.tuple(fc.boolean(), fc.boolean(), fc.array(fc.constantFrom(...LINES), { minLength: 0, maxLength: 40 })).map(([fm, rule, lines]) => `${fm ? `---\ntheme: indaco\n${rule ? 'split: rule\n' : ''}---\n\n` : ''}${lines.join('\n')}\n`);
 const editArb = fc.record({ at: fc.nat(), del: fc.nat({ max: 12 }), ins: fc.oneof(fc.constantFrom('\n---\n', '```\n', '# X\n', '\n', 'x', '\n\n', '=', '-', '<div>\n', '## Y\n'), fc.string({ maxLength: 6 })) });
 function apply(src: string, e: { at: number; del: number; ins: string }): string {

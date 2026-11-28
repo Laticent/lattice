@@ -94,7 +94,7 @@ function slideFor(group, combo) {
   const parts = combo.split('|');
   if (!parts[1]) parts[1] = 'venue-laptop';
   const classes = [GROUP_CLASS[group], ...parts].filter(Boolean).join(' ');
-  const head = `${classes ? `<!-- _class: ${classes} -->\n\n` : ''}# ${group}|${combo}\n\n`;
+  const head = `${classes ? `<!-- @meta{class=${classes}} -->\n\n` : ''}# ${group}|${combo}\n\n`;
   return group === 'compare'
     ? `${head}\`L\`\n\n\`\`\`js\n${RULER}\n\`\`\`\n\n\`R\`\n\n\`\`\`js\n${RULER}\n\`\`\`\n`
     : `${head}\`\`\`js\n${RULER}\n\`\`\`\n`;
@@ -179,7 +179,7 @@ async function measureCodeBars(browser, { groups = Object.keys(BAR_LAYOUT), rung
         const block = `${rec ? `\`@code{${rec}}\`\n` : ''}\`\`\`js\nconst a = 1;\nconst b = 2;\n\`\`\`\n`;
         const body = g === 'compare' ? `\`L\`\n\n${block}\n\`R\`\n\n\`\`\`js\nx\n\`\`\`\n` : block;
         // The designed rung (and a bare spot scale) stamps `venue-laptop`: a slide with no venue renders at its shape's default (slideFor).
-        slides.push(`<!-- _class: ${[BAR_LAYOUT[g], r, r.startsWith('venue-') ? '' : 'venue-laptop'].filter(Boolean).join(' ')} -->\n\n# ${g}|${r}|${v}\n\n${body}`);
+        slides.push(`<!-- @meta{class=${[BAR_LAYOUT[g], r, r.startsWith('venue-') ? '' : 'venue-laptop'].filter(Boolean).join(' ')}} -->\n\n# ${g}|${r}|${v}\n\n${body}`);
       }
       const src = path.join(dir, `${canvas.key}.md`);
       const html = path.join(dir, `${canvas.key}.html`);

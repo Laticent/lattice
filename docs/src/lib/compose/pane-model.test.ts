@@ -13,25 +13,25 @@ import { addPaneTitle, applyPaneChoice, paneChoices, paneDirectionOf, paneMarker
 // starts, what the picker writes, and that an edit never moves a marker.
 
 const MARKED = [
-	'<!-- _class: columns ratio-60-40 -->',
+	'<!-- @meta{layout=columns, class=ratio-60-40} -->',
 	'',
 	'## Services outgrew licenses.',
 	'',
-	'<!-- _pane: bar -->',
+	'<!-- @meta{pane=bar} -->',
 	'### Revenue by line',
 	'`$M, trailing four quarters`',
 	'',
 	'- Licenses `42`',
 	'- Services `47`',
 	'',
-	'<!-- _pane: list no-title -->',
+	'<!-- @meta{pane=list no-title} -->',
 	'### What changed',
 	'',
 	'- Services crossed licenses',
 	'',
 ].join('\n');
 
-const OUTLINE = ['<!-- _class: rows -->', '', '## The migration halved tickets.', '', '### Before', '', '- 1,240 a month', '', '`Since May`', '### After', '', '- 610 a month', ''].join('\n');
+const OUTLINE = ['<!-- @meta{layout=rows} -->', '', '## The migration halved tickets.', '', '### Before', '', '- 1,240 a month', '', '`Since May`', '### After', '', '- 610 a month', ''].join('\n');
 
 const deck = (...slides: string[]) => slides.join('\n\n---\n\n');
 const stateOf = (src: string) => EditorState.create({ doc: deckToDoc(src) });
@@ -59,8 +59,8 @@ describe('a `_pane` marker stays where the author wrote it', () => {
 		const out = typeInSlide(MARKED, 0, ' now');
 		// Before the fix the splitter took both markers as slide directives, and the edit wrote them
 		// above the `##`: the slide lost its panes.
-		expect(out.indexOf('<!-- _pane: bar -->')).toBeGreaterThan(out.indexOf('## Services'));
-		expect(out.indexOf('<!-- _pane: list no-title -->')).toBeGreaterThan(out.indexOf('- Services `47`'));
+		expect(out.indexOf('<!-- @meta{pane=bar} -->')).toBeGreaterThan(out.indexOf('## Services'));
+		expect(out.indexOf('<!-- @meta{pane=list no-title} -->')).toBeGreaterThan(out.indexOf('- Services `47`'));
 		expect(out).toContain('## Services outgrew licenses. now');
 	});
 	it('an untouched pane slide still round-trips byte for byte', () => {
@@ -68,7 +68,7 @@ describe('a `_pane` marker stays where the author wrote it', () => {
 		expect(typeInSlide(src, 0, '!').trimEnd().endsWith(MARKED.trimEnd())).toBe(true);
 	});
 	it('keeps a `_pane` line inside a code fence as code', () => {
-		const fenced = '## T\n\n```md\n<!-- _pane: bar -->\n```';
+		const fenced = '## T\n\n```md\n<!-- @meta{pane=bar} -->\n```';
 		expect(docToDeck(deckToDoc(fenced))).toBe(fenced);
 	});
 });
@@ -83,7 +83,7 @@ describe('slidePanes reads panes with the kernel rule', () => {
 		]);
 		const slide = stateOf(MARKED).doc.child(0);
 		for (const p of info?.panes ?? []) {
-			expect(slide.child(p.marker as number).attrs.text).toMatch(/_pane:/);
+			expect(slide.child(p.marker as number).attrs.text).toMatch(/pane=/);
 			expect(slide.child(p.title as number).textContent).toBe(p.index === 0 ? 'Revenue by line' : 'What changed');
 		}
 	});
@@ -104,28 +104,28 @@ describe('slidePanes reads panes with the kernel rule', () => {
 		// A MULTI-LINE note between the marker and `### T` is skipped whole, as the engine skips it:
 		// T titles the marker's pane and U starts the second. (The kernel read it line by line until
 		// the second review: T started a pane and the `list`-style marker after it folded away.)
-		expect(titles('<!-- _class: columns -->\n\n## H\n\n<!-- _pane: bar -->\n<!-- a note\nover two lines -->\n\n### T\n\n- A `1`\n\n### U\n\ny')).toEqual([
+		expect(titles('<!-- @meta{layout=columns} -->\n\n## H\n\n<!-- @meta{pane=bar} -->\n<!-- a note\nover two lines -->\n\n### T\n\n- A `1`\n\n### U\n\ny')).toEqual([
 			['bar', 'T'],
 			['content', 'U'],
 		]);
 		// A BOLD pill is not a pill.
-		expect(titles('<!-- _class: columns -->\n\n## H\n\n<!-- _pane: bar -->\n\n**`eb`**\n\n### T\n\n- A `1`\n\n### U\n\ny')).toEqual([
+		expect(titles('<!-- @meta{layout=columns} -->\n\n## H\n\n<!-- @meta{pane=bar} -->\n\n**`eb`**\n\n### T\n\n- A `1`\n\n### U\n\ny')).toEqual([
 			['bar', null],
 			['content', 'T'],
 		]);
 		// A pill and then a one-line comment still title the marker's pane.
-		expect(titles('<!-- _class: columns -->\n\n## H\n\n<!-- _pane: bar -->\n\n`eb`\n\n<!-- note -->\n\n### T\n\n- A `1`\n\n### U\n\ny')).toEqual([
+		expect(titles('<!-- @meta{layout=columns} -->\n\n## H\n\n<!-- @meta{pane=bar} -->\n\n`eb`\n\n<!-- note -->\n\n### T\n\n- A `1`\n\n### U\n\ny')).toEqual([
 			['bar', 'T'],
 			['content', 'U'],
 		]);
 	});
 	it('is null on a slide that is not a pane layout', () => {
-		expect(slidePanes(stateOf('<!-- _class: list -->\n\n## T\n\n### A\n\n### B').doc.child(0))).toBeNull();
-		expect(paneDirectionOf(['<!-- _class: list dark -->'])).toBeNull();
-		expect(paneDirectionOf(['<!-- _class: rows ratio-35-65 -->'])).toBe('stack');
+		expect(slidePanes(stateOf('<!-- @meta{layout=list} -->\n\n## T\n\n### A\n\n### B').doc.child(0))).toBeNull();
+		expect(paneDirectionOf(['<!-- @meta{layout=list, class=dark} -->'])).toBeNull();
+		expect(paneDirectionOf(['<!-- @meta{layout=rows, class=ratio-35-65} -->'])).toBe('stack');
 	});
 	it('a component that owns its `###`s keeps them: no third pane, no stray title', () => {
-		const src = '<!-- _class: columns -->\n\n## T\n\n<!-- _pane: team-profile sides -->\n\n### Board\n\n- A\n\n### Staff\n\n- B\n\n<!-- _pane: list -->\n\n- x';
+		const src = '<!-- @meta{layout=columns} -->\n\n## T\n\n<!-- @meta{pane=team-profile sides} -->\n\n### Board\n\n- A\n\n### Staff\n\n- B\n\n<!-- @meta{pane=list} -->\n\n- x';
 		const info = slidePanes(stateOf(src).doc.child(0));
 		expect(info?.panes.map((p) => [p.cls, p.modifiers, p.title])).toEqual([
 			['team-profile', ['sides'], null],
@@ -194,15 +194,15 @@ describe('the pane picker and the title field write what an author would', () =>
 		// The marker is written as a record (record note §15), with the spacing the author wrote: it sat right above its
 		// heading (#3128).
 		expect(out).toContain('<!-- @meta{pane=big-number no-title} -->\n### What changed');
-		expect(out).not.toContain('_pane: list');
+		expect(out).not.toContain('pane=list');
 		expect(applyPaneChoice(state, 0, 0, { cls: 'bar', starter: null })).toBeNull(); // already bar
 	});
 	it('rewrites a record marker in place, keeping its other fields', () => {
-		const src = '<!-- _class: columns -->\n\n## T\n\n<!-- {pane=bar, footer="Lead with the trend."} -->\n\n- A `4`\n\n<!-- {pane=list} -->\n\n### Notes\n\n- x';
+		const src = '<!-- @meta{layout=columns} -->\n\n## T\n\n<!-- @meta{pane=bar, footer="Lead with the trend."} -->\n\n- A `4`\n\n<!-- @meta{pane=list} -->\n\n### Notes\n\n- x';
 		const state = stateOf(src);
 		const tr = applyPaneChoice(state, 0, 0, { cls: 'kpi', starter: null });
 		const out = emitDeck(tr?.doc ?? state.doc, initBaseline(state.doc));
-		expect(out).toContain('<!-- {pane=kpi, footer="Lead with the trend."} -->');
+		expect(out).toContain('<!-- @meta{pane=kpi, footer="Lead with the trend."} -->');
 	});
 	it('writes a marker right above the `###` of a pane that has none, leaving a pill above it where the engine renders it', () => {
 		const state = stateOf(OUTLINE);
@@ -215,13 +215,13 @@ describe('the pane picker and the title field write what an author would', () =>
 		expect(again?.panes.map((p) => p.cls)).toEqual(['content', 'kpi']);
 	});
 	it('adds a title under a marker and selects it for typing', () => {
-		const src = '<!-- _class: columns -->\n\n## T\n\n<!-- _pane: bar -->\n\n- A `4`\n\n<!-- _pane: list -->\n\n### Notes\n\n- x';
+		const src = '<!-- @meta{layout=columns} -->\n\n## T\n\n<!-- @meta{pane=bar} -->\n\n- A `4`\n\n<!-- @meta{pane=list} -->\n\n### Notes\n\n- x';
 		const state = stateOf(src);
 		const tr = addPaneTitle(state, 0, 0);
 		expect(tr).not.toBeNull();
 		const next = state.apply(tr as NonNullable<typeof tr>);
 		expect(next.doc.textBetween(next.selection.from, next.selection.to)).toBe('Pane title');
-		expect(emitDeck(next.doc, initBaseline(state.doc))).toContain('<!-- _pane: bar -->\n\n### Pane title\n\n- A `4`');
+		expect(emitDeck(next.doc, initBaseline(state.doc))).toContain('<!-- @meta{pane=bar} -->\n\n### Pane title\n\n- A `4`');
 		expect(addPaneTitle(state, 0, 1)).toBeNull(); // pane 2 has a title
 	});
 	it('offers content first, never a host, and only components that fit the pane', () => {

@@ -36,7 +36,7 @@ const LONG = `${'QUJD'.repeat(1500)}iVBO+w0/Zg==`;
 // and an unterminated comment whose quoted line is cut at 80 characters inside the payload (the checker's case).
 const deck = (p) =>
 	[
-		'<!-- _class: statement -->',
+		'<!-- @meta{class=statement} -->',
 		'',
 		'## Heading',
 		'',
@@ -44,7 +44,7 @@ const deck = (p) =>
 		'',
 		'---',
 		'',
-		'<!-- _class: imagee -->',
+		'<!-- @meta{class=imagee} -->',
 		'',
 		'## Heading',
 		'',

@@ -13,13 +13,14 @@
 // brings in a module the base does not have yet (`ensureFor` answers `grew`), which is one more render
 // in the cold case and almost never after that.
 //
-// HINTS ONLY WARM. `warm(markdown)` reads `_class:` / `class=` words and starts fetching the modules
+// HINTS ONLY WARM. `warm(markdown)` reads the class words of each one-line `@meta{…}` record and starts fetching the modules
 // those classes name, in parallel with the engine bundle. It never adds anything to the registered
 // set: the rendered HTML decides that. (Markdown alone misses modules on 6 of 9 decks; the note, §4.)
 //
 // Pane decks (`<lat-pane>`) are styled by selectors the engine rewrites per deck, so the raw module
 // selectors cannot be asked about that document: the scan falls back to the token filter for them.
 
+import { CLASS_VOCAB } from '../../../lib/core/meta-keys.mjs';
 import { sanitizeStyleText } from '../../../lib/core/sanitize-style-text.mjs';
 import { neededModules, scanDocument } from '../../../lib/core/style-needs-scan.mjs';
 
@@ -308,22 +309,26 @@ export function createStyleLoader(stylesBase: string, opts: { indexName?: string
 	 */
 	function warm(markdown: string): void {
 		if (fetchMode === 'bundle') return; // a prefetched single module would never be part of a later bundle request
-		void loadIndex()
-			.then((n) => {
+		// The record reader loads LAZILY: it holds the engine's whole door (about 20KB gzip), and a static import put it on
+		// the playground's eager path for a prefetch hint (route budget, slice E). The hint waits for the index anyway.
+		void Promise.all([loadIndex(), import('../../../lib/core/comment-directive.mjs')])
+			.then(([n, { readSettingEntries }]) => {
 				const words = new Set<string>();
-				// Line by line, never one regex over the whole text: a `_class:` directive followed by tens of
+				// Line by line, never one regex over the whole text: a directive followed by tens of
 				// thousands of spaces cost seconds with the single pattern (red team, 2026-10-19).
+				// Since the cut only an `@meta{…}` record sets a class (record note §15), read through the engine's own grammar;
+				// an old `_class:` comment sets nothing, so it warms nothing.
 				for (const line of markdown.split('\n')) {
 					if (line.length > 2000) continue;
-					const at = line.indexOf('class:');
-					if (at < 0) continue;
+					const at = line.indexOf('<!--');
+					if (at < 0 || !line.includes('@meta{', at)) continue;
 					// A comment ends at `-->` or `--!>`; the words after either are not class names. Cut with indexOf, not a regex.
-					let rest = line.slice(at + 6);
+					let body = line.slice(at + 4);
 					for (const end of ['-->', '--!>']) {
-						const k = rest.indexOf(end);
-						if (k >= 0) rest = rest.slice(0, k);
+						const k = body.indexOf(end);
+						if (k >= 0) body = body.slice(0, k);
 					}
-					for (const w of rest.split(/\s+/)) if (w) words.add(w.replace(/['"]/g, '').toLowerCase());
+					for (const e of readSettingEntries(`<!--${body}-->`, CLASS_VOCAB)) for (const w of e.value.split(/\s+/)) if (w) words.add(w.toLowerCase());
 				}
 				const named = n.index.flatMap((m, i) => (!m.always && !included[i] && m.alts.some((alt) => alt[0].length > 0 && alt[0].every((c) => words.has(c))) ? [i] : []));
 				// A deck whose words name most of the sheet will be loaded whole (`ensureFor` says so):

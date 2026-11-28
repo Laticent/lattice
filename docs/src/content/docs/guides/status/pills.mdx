@@ -5,7 +5,7 @@ description: The brace grammar — put a label in braces inside inline code and 
 
 import CraftLab from '../../../../components/craft/CraftLab.astro';
 
-export const LAB_LEDGER = `<!-- _class: list-tabular -->
+export const LAB_LEDGER = `<!-- @meta{layout=list-tabular} -->
 
 ## One slide, four different statuses.
 
@@ -19,7 +19,7 @@ export const LAB_LEDGER = `<!-- _class: list-tabular -->
    - Retired this quarter \`{CLOSED, tag, c12}\`
 `;
 
-export const LAB_SHAPES = `<!-- _class: list-tabular -->
+export const LAB_SHAPES = `<!-- @meta{layout=list-tabular} -->
 
 ## Eight shapes, one geometry.
 
@@ -178,7 +178,7 @@ inline-code: literal
 ```
 
 For one slide, add `inline-code-literal` to its class:
-`<!-- _class: inline-code-literal -->`. In the Studio the same switch is
+`<!-- @meta{class=inline-code-literal} -->`. In the Studio the same switch is
 **Settings → Deck → General → Inline pills and marks**. Turning it off writes
 the `inline-code: literal` line for you.
 

@@ -6,7 +6,7 @@ import { deckEditorText, expect, gotoStudio, isPhone, openSlideLook, persistedSo
 // author's range collapsed it to a caret, so the next Delete removed one character instead of the range. The unit tier
 // (editor-value-echo.test.tsx) pins the mapping in jsdom; this drives the real Studio and the real Inspector (HARD RULE #23).
 
-const DECK = '---\ntitle: Held\n---\n\n<!-- _class: kpi -->\n\n## Held\n\nalpha beta gamma\n';
+const DECK = '---\ntitle: Held\n---\n\n<!-- @meta{layout=kpi} -->\n\n## Held\n\nalpha beta gamma\n';
 const RANGE = 'beta gamma';
 
 /** Select `RANGE` in the deck editor: CodeMirror's own selection, the same state a drag or Shift+arrows leaves. */

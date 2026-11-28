@@ -30,7 +30,7 @@ theme: indaco
 size: square
 ${venue ? `venue: ${venue}\n` : ''}---
 
-<!-- _class: team-profile sides -->
+<!-- @meta{class=team-profile sides} -->
 
 \`Q3 business review\`
 

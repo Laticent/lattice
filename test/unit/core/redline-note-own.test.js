@@ -11,7 +11,7 @@ const { createEngine } = require('../../../lib/engine');
 const { splitSections } = require('@laticent/markup');
 const { carouselize } = require('../../../lib/core/carousel');
 
-const md = `---\ntheme: indaco\n---\n\n<!-- _class: redline three-col -->\n\n## Old, new and why.\n\n\`Cal. Civ. Code §1798.135\`\n\n> The old clause, as it read.\n\n> The new clause, as it reads now.\n\n- **Scope.** Sale and sharing fold into one duty.\n- **Floor.** One method now suffices.\n`;
+const md = `---\ntheme: indaco\n---\n\n<!-- @meta{class=redline three-col} -->\n\n## Old, new and why.\n\n\`Cal. Civ. Code §1798.135\`\n\n> The old clause, as it read.\n\n> The new clause, as it reads now.\n\n- **Scope.** Sale and sharing fold into one duty.\n- **Floor.** One method now suffices.\n`;
 const s = splitSections(createEngine().render(md, 'indaco').html).filter((p) => p.type === 'section')[0];
 const text = (h) => h.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
 

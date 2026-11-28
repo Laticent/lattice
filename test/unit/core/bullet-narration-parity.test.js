@@ -148,7 +148,7 @@ function corpus(count, startSeed = 20260921) {
       const kids = Math.floor(rnd() * 3);
       for (let k = 0; k < kids; k++) lines.push(pick(rnd() < 0.2 ? AMBIGUOUS_CHILD : CHILD)(num));
     }
-    decks.push(`<!-- _class: bullet -->\n\n## H.\n\n${lines.join('\n')}`);
+    decks.push(`<!-- @meta{layout=bullet} -->\n\n## H.\n\n${lines.join('\n')}`);
   }
   return decks;
 }
@@ -335,7 +335,7 @@ test('the three named shapes, each against its own rendered <desc>', () => {
     ['- Uptime `99.4%`\n  - Band `99.5%` `99.7%`\n  - Target `99.9%`\n- Latency `2` `4`', { cleared: 0, scored: 2 }],
   ];
   for (const [body, expected] of cases) {
-    const src = `<!-- _class: bullet -->\n\n## H.\n\n${body}`;
+    const src = `<!-- @meta{layout=bullet} -->\n\n## H.\n\n${body}`;
     const { cleared, scored } = drawnTally(src);
     assert.deepEqual({ cleared, scored }, expected, `the RENDER moved for: ${body}`);
     const spoken = spokenTally(narrateBullet(src) || '');

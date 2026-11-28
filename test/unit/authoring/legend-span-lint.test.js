@@ -7,7 +7,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { findLegendSpans, lintTextWith } = require('../../../lib/authoring/lint-core.js');
 
-const heatmap = (span) => `---\nmarp: true\n---\n\n<!-- _class: heatmap -->\n\n## R\n\n| | A |\n|---|--:|\n| r | 1 |\n\n\`${span}\`\n`;
+const heatmap = (span) => `---\nmarp: true\n---\n\n<!-- @meta{layout=heatmap} -->\n\n## R\n\n| | A |\n|---|--:|\n| r | 1 |\n\n\`${span}\`\n`;
 
 test('a clean anchored legend on a heatmap has nothing to say', () => {
   assert.deepEqual(findLegendSpans(heatmap('@callout{{Peak, for="r · A"}}')), []);
@@ -51,7 +51,8 @@ test('a for= that names no cell of the slide\'s table is told so, with the names
 });
 
 test('the component is any class word on the slide, not only the first', () => {
-  const src = heatmap('@callout{{Peak, for=0}}').replace('_class: heatmap', '_class: compact heatmap');
+  const src = heatmap('@callout{{Peak, for=0}}').replace('layout=heatmap', 'class="compact heatmap"');
+  assert.match(src, /class="compact heatmap"/);
   assert.deepEqual(findLegendSpans(src), []);
 });
 
@@ -60,12 +61,12 @@ test('a callout the author switched off gets one info note, and with-callout on 
   const [f] = findLegendSpans(off);
   assert.equal(f.rule, 'legend-off');
   assert.equal(f.severity, 'info');
-  assert.deepEqual(findLegendSpans(off.replace('_class: heatmap', '_class: heatmap with-callout')), []);
-  assert.equal(findLegendSpans(heatmap('@callout{{Peak, for=0}}').replace('_class: heatmap', '_class: heatmap no-callout'))[0].rule, 'legend-off');
+  assert.deepEqual(findLegendSpans(off.replace('layout=heatmap', 'class="heatmap with-callout"')), []);
+  assert.equal(findLegendSpans(heatmap('@callout{{Peak, for=0}}').replace('layout=heatmap', 'class="heatmap no-callout"'))[0].rule, 'legend-off');
 });
 
 test('the deck switch reads as the render reads it, and the off note only where a component reads legends', () => {
-  const withFm = (fm, cls = 'heatmap') => heatmap('@callout{{Peak, for=0}}').replace('marp: true', `marp: true\n${fm}`).replace('_class: heatmap', `_class: ${cls}`);
+  const withFm = (fm, cls = 'heatmap') => heatmap('@callout{{Peak, for=0}}').replace('marp: true', `marp: true\n${fm}`).replace('layout=heatmap', `class="${cls}"`);
   assert.equal(findLegendSpans(withFm('callout: OFF'))[0].rule, 'legend-off');
   assert.equal(findLegendSpans(withFm('callout: [off]'))[0].rule, 'legend-off');
   // A nested key is not the deck's switch.
@@ -125,7 +126,7 @@ test('a @callout span with no layout word gets no layout note, even when its ent
 });
 
 // The charts that name their marks by label (callout-layer.js): the list's items are the names.
-const listChart = (cls, list, span) => `---\nmarp: true\n---\n\n<!-- _class: ${cls} -->\n\n## R\n\n${list}\n\n\`${span}\`\n`;
+const listChart = (cls, list, span) => `---\nmarp: true\n---\n\n<!-- @meta{class=${cls}} -->\n\n## R\n\n${list}\n\n\`${span}\`\n`;
 const BAR_LIST = '- Q1 `1`\n- Q2 `2`\n- Q3 `3`';
 
 test('a callout on a bar that names a category the list has says nothing', () => {

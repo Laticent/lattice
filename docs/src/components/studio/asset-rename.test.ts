@@ -30,7 +30,7 @@ describe('renameAssetInSource — theme', () => {
 
 describe('renameAssetInSource — component', () => {
 	it('rewrites the class token on every slide that uses it', () => {
-		const src = deck('<!-- _class: scorecard -->\n\n# A\n\n---\n\n<!-- _class: scorecard dark -->\n\n# B\n');
+		const src = deck('<!-- @meta{class=scorecard} -->\n\n# A\n\n---\n\n<!-- @meta{class=scorecard dark} -->\n\n# B\n');
 		const out = renameAssetInSource(src, 'component', 'scorecard', 'scoreboard');
 		expect(out.hits).toBe(2);
 		// The rename is an edit, so the class moves into a record in the old comment's place (record note §15).
@@ -40,7 +40,7 @@ describe('renameAssetInSource — component', () => {
 	});
 
 	it('keeps the other tokens, and their order', () => {
-		const src = deck('<!-- _class: dark scorecard compact -->\n\n# A\n');
+		const src = deck('<!-- @meta{class=dark scorecard compact} -->\n\n# A\n');
 		const out = renameAssetInSource(src, 'component', 'scorecard', 'scoreboard');
 		expect(out.source).toContain('<!-- @meta{class=dark scoreboard compact} -->');
 	});
@@ -48,22 +48,22 @@ describe('renameAssetInSource — component', () => {
 	it('does NOT touch a token that merely starts with the old name', () => {
 		// `scorecard-wide` is a different component. A substring rewrite would rename it
 		// to `scoreboard-wide` and break a deck that was never referring to this asset.
-		const src = deck('<!-- _class: scorecard-wide -->\n\n# A\n');
+		const src = deck('<!-- @meta{class=scorecard-wide} -->\n\n# A\n');
 		expect(renameAssetInSource(src, 'component', 'scorecard', 'scoreboard')).toEqual({ source: src, hits: 0 });
 	});
 
 	it('does NOT edit a `_class` written inside a fenced code block', () => {
 		// A `code` slide DEMONSTRATING the directive is documentation, not a reference.
-		const src = deck('<!-- _class: code -->\n\n# Docs\n\n```md\n<!-- _class: scorecard -->\n```\n');
+		const src = deck('<!-- @meta{layout=code} -->\n\n# Docs\n\n```md\n<!-- @meta{class=scorecard} -->\n```\n');
 		const out = renameAssetInSource(src, 'component', 'scorecard', 'scoreboard');
 		expect(out.hits).toBe(0);
-		expect(out.source).toContain('<!-- _class: scorecard -->'); // the sample survives verbatim
+		expect(out.source).toContain('<!-- @meta{class=scorecard} -->'); // the sample survives verbatim
 	});
 });
 
 describe('renameAssetInSource — finish', () => {
 	it('rewrites the deck-wide key AND the per-slide finish- token', () => {
-		const src = deck('<!-- _class: title finish-velvet -->\n\n# A\n', 'theme: indaco\nfinish: velvet\n');
+		const src = deck('<!-- @meta{layout=title, class=finish-velvet} -->\n\n# A\n', 'theme: indaco\nfinish: velvet\n');
 		const out = renameAssetInSource(src, 'finish', 'velvet', 'navy');
 		expect(out.hits).toBe(2);
 		expect(out.source).toContain('finish: navy');
@@ -82,7 +82,7 @@ describe('renameAssetInSource — finish', () => {
 	});
 
 	it('does not mistake a component named like the finish', () => {
-		const src = deck('<!-- _class: velvet -->\n\n# A\n');
+		const src = deck('<!-- @meta{class=velvet} -->\n\n# A\n');
 		// The finish token is `finish-velvet`; a bare `velvet` component is a different asset.
 		expect(renameAssetInSource(src, 'finish', 'velvet', 'navy')).toEqual({ source: src, hits: 0 });
 	});
@@ -90,25 +90,25 @@ describe('renameAssetInSource — finish', () => {
 
 describe('renameAssetInSource — guards', () => {
 	it('is a no-op for an empty or unchanged name', () => {
-		const src = deck('<!-- _class: scorecard -->\n\n# A\n');
+		const src = deck('<!-- @meta{class=scorecard} -->\n\n# A\n');
 		expect(renameAssetInSource(src, 'component', 'scorecard', 'scorecard').hits).toBe(0);
 		expect(renameAssetInSource(src, 'component', '', 'x').hits).toBe(0);
 		expect(renameAssetInSource(src, 'component', 'scorecard', '').hits).toBe(0);
 	});
 
 	it('preserves every untouched byte around the edit', () => {
-		const src = deck('<!-- _class: scorecard -->\n<!-- _footer: hello -->\n\n# A\n\nBody with trailing spaces   \n');
+		const src = deck('<!-- @meta{class=scorecard} -->\n<!-- @meta{footer=hello} -->\n\n# A\n\nBody with trailing spaces   \n');
 		const out = renameAssetInSource(src, 'component', 'scorecard', 'scoreboard');
-		expect(out.source).toBe(src.replace('<!-- _class: scorecard -->', '<!-- @meta{class=scoreboard} -->'));
+		expect(out.source).toBe(src.replace('<!-- @meta{class=scorecard} -->', '<!-- @meta{class=scoreboard} -->'));
 	});
 });
 
 describe('renameAssetAcrossDecks', () => {
 	it('returns only the decks that changed', () => {
 		const decks: Array<[string, string]> = [
-			['a', deck('<!-- _class: scorecard -->\n\n# A\n')],
+			['a', deck('<!-- @meta{class=scorecard} -->\n\n# A\n')],
 			['b', deck('# B with no components\n')],
-			['c', deck('<!-- _class: scorecard dark -->\n\n# C\n')],
+			['c', deck('<!-- @meta{class=scorecard dark} -->\n\n# C\n')],
 		];
 		const { changed, hits } = renameAssetAcrossDecks(decks, 'component', 'scorecard', 'scoreboard');
 		expect([...changed.keys()]).toEqual(['a', 'c']);
@@ -119,14 +119,14 @@ describe('renameAssetAcrossDecks', () => {
 	});
 
 	it('counts every reference, not every deck', () => {
-		const decks: Array<[string, string]> = [['a', deck('<!-- _class: scorecard -->\n\n# A\n\n---\n\n<!-- _class: scorecard -->\n\n# B\n')]];
+		const decks: Array<[string, string]> = [['a', deck('<!-- @meta{class=scorecard} -->\n\n# A\n\n---\n\n<!-- @meta{class=scorecard} -->\n\n# B\n')]];
 		expect(renameAssetAcrossDecks(decks, 'component', 'scorecard', 'scoreboard').hits).toBe(2);
 	});
 });
 
 describe('a rename reaches a slide record (meta record step 3)', () => {
 	it('renames a component named in a record', () => {
-		const out = renameAssetInSource('---\ntitle: T\n---\n\n<!-- {layout=scorecard, footer="Q3"} -->\n\n## A\n', 'component', 'scorecard', 'kpi-card');
+		const out = renameAssetInSource('---\ntitle: T\n---\n\n<!-- @meta{layout=scorecard, footer="Q3"} -->\n\n## A\n', 'component', 'scorecard', 'kpi-card');
 		expect(out.source).toContain('kpi-card');
 		expect(out.source).not.toContain('scorecard');
 	});

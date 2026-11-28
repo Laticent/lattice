@@ -48,7 +48,7 @@ const PLAIN = slides(40);
  * used to be derived by walking every section — so this shape re-parsed the whole deck on every
  * keystroke (63.2ms p50). #1280 supplies the section position instead. It must stay on the slice route.
  */
-const GALLERY = `---\npagination: true\n---\n\n${slides(40, (i) => (i % 8 === 0 ? '<!-- _class: divider -->\n\n' : ''))}`;
+const GALLERY = `---\npagination: true\n---\n\n${slides(40, (i) => (i % 8 === 0 ? '<!-- @meta{layout=divider} -->\n\n' : ''))}`;
 
 /** Paginated but no dividers — the #1272 case. Also must stay on the slice route. */
 const PAGINATED = `---\npagination: true\n---\n\n${slides(40)}`;
@@ -76,7 +76,7 @@ const GLOSSARY = `---\nglossary: auto\nacronyms:\n  ARR:\n    definition: Annual
  * property: 54 committed decks trip this probe and nothing else (#1333). If you made running
  * globals sliceable and this row went red, that is the win landing — move it into FAST_ROUTE.
  */
-const RUNNING_HEADER = `<!-- header: Q3 Board Review -->\n\n${slides(40)}`;
+const RUNNING_HEADER = `<!-- @meta{header="Q3 Board Review", carry} -->\n\n${slides(40)}`;
 
 const sectionsHtml = (n: number) =>
 	`<article class="lattice">${Array.from({ length: n }, (_, i) => `<section class="form" id="${i + 1}"><div class="cell-stage"><h1>Slide ${i + 1}</h1></div></section>`).join('')}</article>`;

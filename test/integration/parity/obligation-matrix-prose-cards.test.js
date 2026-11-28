@@ -30,7 +30,7 @@ theme: indaco
 size: square
 ---
 
-<!-- _class: obligation-matrix asymmetric -->
+<!-- @meta{class=obligation-matrix asymmetric} -->
 
 ## Three regimes, three obligations, room to breathe.
 

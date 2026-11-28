@@ -50,7 +50,7 @@ const SENTINEL = 'UNRENDERABLE_FENCE_SENTINEL';
 
 const deckWith = (body) => [
   '---', 'theme: indaco', '---', '',
-  '<!-- _class: diagram -->', '',
+  '<!-- @meta{layout=diagram} -->', '',
   '## A diagram that will not draw', '',
   '```mermaid', ...body, '```', '',
 ].join('\n');
@@ -389,7 +389,7 @@ describe('a fence Mermaid never draws', { skip: skipWithoutChrome(CHROME), timeo
     // `startOnLoad` is off by then. The runtime switches it off in the script's own onload
     // (HARD RULE #25 red team: the error graphic showed for ~130ms in up to 4 of 4 runs). Four
     // diagrams and five documents, because the race is a race.
-    const four = deckWith(['flowchart LR', `  A["${SENTINEL}"] --> B`, '```', '', '---', '', '<!-- _class: diagram -->', '', '## Two', '', '```mermaid', 'flowchart LR', '  C --> D', '```', '', '---', '', '<!-- _class: diagram -->', '', '## Three', '', '```mermaid', 'sequenceDiagram', '  A->>B: hi', '```', '', '---', '', '<!-- _class: diagram -->', '', '## Four', '', '```mermaid', 'flowchart TB', '  E --> F']);
+    const four = deckWith(['flowchart LR', `  A["${SENTINEL}"] --> B`, '```', '', '---', '', '<!-- @meta{layout=diagram} -->', '', '## Two', '', '```mermaid', 'flowchart LR', '  C --> D', '```', '', '---', '', '<!-- @meta{layout=diagram} -->', '', '## Three', '', '```mermaid', 'sequenceDiagram', '  A->>B: hi', '```', '', '---', '', '<!-- @meta{layout=diagram} -->', '', '## Four', '', '```mermaid', 'flowchart TB', '  E --> F']);
     for (let i = 0; i < 5; i++) {
       const r = await readFence({ mermaid: 'no-tag', payload: 'serve', deck: four, waitFor: 'rendered', settleMs: 20000 });
       assert.equal(r.bomb, 0, `run ${i}: Mermaid drew its own error graphic into a render target`);

@@ -30,10 +30,10 @@ async function hostileBackup(): Promise<Buffer> {
 	lib.file('probe-beacon-theme/probe-beacon-theme.css', theme('probe-beacon-theme', `:root { --leak: url(https://${BEACON}/theme.png); }`));
 	lib.file('probe-clean/probe-clean.manifest.json', JSON.stringify({ name: 'probe-clean', type: 'component', format: 1 }));
 	lib.file('probe-clean/probe-clean.styles.css', 'section.probe-clean { display: grid; }');
-	lib.file('probe-clean/probe-clean.gallery.md', '<!-- _class: probe-clean -->\n\n## Clean\n');
+	lib.file('probe-clean/probe-clean.gallery.md', '<!-- @meta{class=probe-clean} -->\n\n## Clean\n');
 	lib.file('probe-beacon/probe-beacon.manifest.json', JSON.stringify({ name: 'probe-beacon', type: 'component', format: 1 }));
 	lib.file('probe-beacon/probe-beacon.styles.css', 'section.probe-beacon { display: grid; }');
-	lib.file('probe-beacon/probe-beacon.gallery.md', `<!-- _class: probe-beacon -->\n\n## Hi\n\n![x](https://${BEACON}/gallery.png)\n`);
+	lib.file('probe-beacon/probe-beacon.gallery.md', `<!-- @meta{class=probe-beacon} -->\n\n## Hi\n\n![x](https://${BEACON}/gallery.png)\n`);
 
 	const zip = new JSZip();
 	zip.file('manifest.json', JSON.stringify({ format: 'lattice-workspace/1', exportedAt: new Date(0).toISOString(), counts: { decks: 1, themes: 2, components: 2, finishes: 0 } }));

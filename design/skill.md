@@ -27,25 +27,25 @@ Open the relevant file before starting work. Only load what the current task nee
 
 **Do not load all files at once.** Load only what the task requires.
 
-**Vocabulary.** A **component** is what authors invoke as `<!-- _class: cards-grid -->`. The pre-design-system docs called these "layouts" or "templates" — the words are interchangeable in older prose, but design-system.md normalizes on *component*.
+**Vocabulary.** A **component** is what authors invoke as `<!-- @meta{layout=cards-grid} -->`. The engine reads only `@meta` records: the old `<!-- _class: cards-grid -->` comment is a lint error (`legacy-directive-comment`), and `lattice migrate meta` rewrites a whole deck. The pre-design-system docs called these "layouts" or "templates" — the words are interchangeable in older prose, but design-system.md normalizes on *component*.
 
 ---
 
 ## Rendering Modes (quick reference)
 
-Two modes, same `.md` source file. The VS Code preview needs the copy-and-go
-kit's link and script lines at the end of the deck and its security level at
-*Disable*; it is a drafting surface, and Lattice-only front-matter keys reach it
-only through a settings block (`dist/marp-kit/README.md`).
+The owned engine renders every first-party path from the same `.md` source. Marp's own tools (the VS Code
+preview, marp-cli) are covered in `dist/marp-kit/README.md`.
 
 | Situation | Use |
 |-----------|-----|
 | Final PDF / PPTX / PNG for delivery | Mode 3 — the `lattice` CLI (owned engine; **default**) |
-| VS Code live preview | Mode 1 — Marp Extension (marp-vscode) |
+| Live preview while you write | the Studio, or `npm run preview` |
 | Verifying layout spec compliance | Mode 3 (the owned engine is canonical) |
 
 **Default to the bundled `lattice` CLI (Mode 3)** — the owned engine renders
-every first-party path and needs no Marp.
+every first-party path and needs no Marp. A Lattice deck is not a Marp deck:
+Marp does not read `@meta` records, so a Marp tool (marp-cli, the marp-vscode
+preview) gets an Export-to-Marp bundle (`npm run export:marp`), never the source.
 
 **Image quality.** PDF and HTML are vector end-to-end (text, SVG-rendered Mermaid,
 code highlighting) — no DPI knob to turn. PNG export rasterizes through Chromium;
@@ -90,7 +90,7 @@ in the settings block, because Marp drops the front-matter key.
 | Follow the viewer's OS preference | `color-mode: system` |
 | Adopt the host (site toggle / reader's OS) | `color-mode: inherited` |
 | Whole deck dark, simplest theme swap | `theme: cuoio-dark` (or `indaco-dark`) |
-| One slide dark on a light deck | `<!-- _class: dark -->` on that slide |
+| One slide dark on a light deck | `<!-- @meta{class=dark} -->` on that slide |
 
 The first-class `color-mode:` key is the way. The legacy `class: dark`/`class: light`
 still works on a deck that sets nothing else — but where a deck carries both, **the key
@@ -274,16 +274,14 @@ Works on SVG, PNG, and JPEG. Composes with every treatment
 | Logo on every slide | `logo: ./logo.svg` |
 | Title slide only | `logo: ./logo.svg` + `logo-finish: title` |
 | Keep the file's own colors | `logo: ./logo.svg` + `logo-finish: brand` |
-| Put a soft plate behind the logo | `logo-finish: plate`, or `_class: logo-plate` on one slide |
+| Put a soft plate behind the logo | `logo-finish: plate`, or `<!-- @meta{class=logo-plate} -->` on one slide |
 | Recolor from the palette (follows light and dark) | `logo-finish: accent` or a blend, `accent-ink` |
 | Another berth (hides the header, footer or page number there) | `logo-finish: bottom-center` |
 | Several at once, one line | `logo-finish: bottom-center accent-ink lg title` |
-| Hide it on one slide | `<!-- _class: no-logo -->` |
+| Hide it on one slide | `<!-- @meta{class=no-logo} -->` |
 
-The directive runs at build time. It does **not** render in the
-marp-vscode preview pane, which runs marp-core directly without Lattice's
-markdown-it plugins. The published-HTML path
-(`lattice-runtime.js`) restores it for any deck served from a web
+The logo is placed at build time. The published-HTML path
+(`lattice-runtime.js`) places it too, for any deck served from a web
 origin. See [lib/base/base.docs.md § Custom logo](../lib/base/base.docs.md)
 and [gotchas.md](../engineering/gotchas.md).
 

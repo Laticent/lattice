@@ -125,8 +125,8 @@ test('@webkit-tablet on WebKit, posters fill the tiles past the live cap', async
 const hue = (i: number) => (i * 9) % 360;
 const COLORED = Array.from({ length: 40 }, (_, i) =>
 	i % 7 === 3
-		? `<!-- _backgroundColor: hsl(${hue(i)} 70% 50%) -->\n\n# Slide ${i + 1}\n\n\`\`\`mermaid\nflowchart LR\n  A --> B\n\`\`\``
-		: `<!-- _backgroundColor: hsl(${hue(i)} 70% 50%) -->\n\n# Slide ${i + 1}`,
+		? `<!-- @meta{background-color="hsl(${hue(i)} 70% 50%)"} -->\n\n# Slide ${i + 1}\n\n\`\`\`mermaid\nflowchart LR\n  A --> B\n\`\`\``
+		: `<!-- @meta{background-color="hsl(${hue(i)} 70% 50%)"} -->\n\n# Slide ${i + 1}`,
 ).join('\n\n---\n\n');
 
 /** For each poster on the rail: its tile, and which slide its pixels are nearest to (a patch at 85% across, 80% down). */

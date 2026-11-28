@@ -16,6 +16,7 @@ const shape = (n) => (n.kids.length ? [n.kind, n.kids.map(shape)] : n.kind);
 
 describe('lattice-deck: the tree', () => {
   test('a slide holds its blocks, nested in their containers, and its comments with directives and plain comments', () => {
+    // An old comment is still a directive node, so a rule can name it; `record: false` says it sets nothing.
     const text = '---\ntheme: indaco\n---\n<!-- _class: lead -->\n# Hi\n\n- a\n  > q\n\n<!-- a speaker note -->\n';
     const tree = parse(text);
     assert.deepEqual(tree.kids.map((k) => k.kind), ['front-matter', 'slide']);
@@ -25,10 +26,14 @@ describe('lattice-deck: the tree', () => {
     assert.equal(slice(text, dir.parts.key), '_class');
     assert.equal(slice(text, dir.parts.value), 'lead');
     assert.equal(slice(text, tree.kids[1].kids[3].kids[0]), 'a speaker note');
+    // Since the cut (record note §15, slice E) the engine blanks the old comment, so no fact resolves it.
+    assert.deepEqual(latticeDeck.facts['slide.classes'](tree, null, tree.slideNodes[0]), []);
+    const rec = parse(text.replace('<!-- _class: lead -->', '<!-- @meta{class=lead} -->'));
+    assert.deepEqual(latticeDeck.facts['slide.classes'](rec, null, rec.slideNodes[0]), ['lead']);
   });
 
   test('every field of a record is a directive; the parts search never reuses an earlier field\'s text', () => {
-    const text = '<!-- {layout=cards, footer="cards"} -->\n';
+    const text = '<!-- @meta{layout=cards, footer="cards"} -->\n';
     const comment = parse(text).kids[0].kids[0];
     assert.equal(comment.attrs.record, true);
     assert.deepEqual(comment.kids.map((d) => [d.attrs.key, d.attrs.value]), [['class', 'cards'], ['footer', 'cards']]);
@@ -47,6 +52,10 @@ describe('lattice-deck: the tree', () => {
     assert.equal(html.kids[0].attrs.folded, true);
     assert.equal(html.kids[0].kids[0].attrs.folded, true);
     assert.deepEqual(latticeDeck.facts['slide.classes'](tree, null, tree.slideNodes[0]), []);
+    // A folded record resolves nothing either: the directive grammar reads no field from it.
+    const rec = parse('<div>\n<!-- @meta{layout=kpi} -->\n</div>\n');
+    assert.equal(rec.kids[0].kids[0].kids[0].attrs.record, true);
+    assert.deepEqual(latticeDeck.facts['slide.classes'](rec, null, rec.slideNodes[0]), []);
   });
 
   test('a comment its list item ends before `-->` is folded too', () => {
@@ -63,19 +72,19 @@ describe('lattice-deck: the tree', () => {
   });
 
   test('a comment in a fence is code, not a comment', () => {
-    const tree = parse('```html\n<!-- _class: kpi -->\n```\n');
+    const tree = parse('```html\n<!-- @meta{layout=kpi} -->\n```\n');
     assert.deepEqual(tree.kids[0].kids.map((k) => k.kind), ['fence']);
   });
 
   test('notes and code are inert; directives are not', () => {
-    const text = '<!-- _class: lead -->\n<!-- say this -->\n\n```\ncode\n```\n';
+    const text = '<!-- @meta{class=lead} -->\n<!-- say this -->\n\n```\ncode\n```\n';
     const tree = parse(text);
     assert.deepEqual(latticeDeck.inert(tree).map((s) => slice(text, s)), ['say this', '```\ncode\n```']);
     assert.deepEqual(latticeDeck.shape(tree, src(text)).inert, ['say this', '```\ncode\n```']);
   });
 
   test('maps spans onto a CRLF source with a BOM', () => {
-    const text = '﻿<!-- _class: lead -->\r\n# A\r\n\r\n<!-- note -->\r\n';
+    const text = '﻿<!-- @meta{class=lead} -->\r\n# A\r\n\r\n<!-- note -->\r\n';
     const tree = parse(text);
     const [c1, , c2] = tree.kids[0].kids;
     assert.equal(slice(text, c1.kids[0].parts.value), 'lead');
@@ -84,7 +93,7 @@ describe('lattice-deck: the tree', () => {
 });
 
 describe('lattice-deck: facts and location', () => {
-  const text = '---\ntheme: indaco\n---\n<!-- class: kpi wide -->\n# One\n\n---\n\n<!-- _class: lead -->\n# Two\n\n---\n\n<!-- _footer: f -->\n# Three\n';
+  const text = '---\ntheme: indaco\n---\n<!-- @meta{layout=kpi, class=wide, carry} -->\n# One\n\n---\n\n<!-- @meta{class=lead} -->\n# Two\n\n---\n\n<!-- @meta{footer=f} -->\n# Three\n';
   const tree = parse(text);
   const fact = (name, i) => latticeDeck.facts[name](tree, null, tree.slideNodes[i]);
 
@@ -192,7 +201,7 @@ describe('the stamps', () => {
 
 describe('lattice-deck: what the checker found', () => {
   test('a key is found at a key boundary only: `class` is never the start of `classic-cards`', () => {
-    const text = '<!-- {layout=classic-cards, footer="Q3"} -->\n';
+    const text = '<!-- @meta{layout=classic-cards, footer="Q3"} -->\n';
     const [cls, footer] = parse(text).kids[0].kids[0].kids;
     assert.equal(cls.parts.key, undefined);
     assert.equal(slice(text, footer.parts.key), 'footer');

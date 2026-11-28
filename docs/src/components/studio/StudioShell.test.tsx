@@ -1548,7 +1548,7 @@ describe('StudioShell — workspace-inherited reader views (B)', () => {
 	it('a view the deck has TAGGED sheds its Starter badge — it is being worked on (#993)', () => {
 		// Seed a deck whose source already tags a slide into the inherited "Bottom line" (stored JSON-encoded,
 		// the shape loadSource reads).
-		localStorage.setItem('lattice-studio-src-q3-board', JSON.stringify('<!-- _class: title -->\n<!-- _lens: +brief -->\n\n# Q3\n\n---\n\n## Detail'));
+		localStorage.setItem('lattice-studio-src-q3-board', JSON.stringify('<!-- @meta{layout=title} -->\n<!-- @meta{lens="+brief"} -->\n\n# Q3\n\n---\n\n## Detail'));
 		render(<StudioShell options={options} />);
 		fireEvent.click(screen.getByRole('button', { name: 'Toggle Reader views' })); // open the Lenses panel (first-class now)
 		expect(screen.getByText('Bottom line')).toBeInTheDocument();

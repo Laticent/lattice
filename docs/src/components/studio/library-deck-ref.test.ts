@@ -36,7 +36,7 @@ beforeAll(() => {
 // pass as one.
 const SRC = [
 	'---\ntheme: indaco\n---\n\n# Halcyon quarterly',
-	'<!-- _class: content -->\n\n## Retention held\n\n- 94% of accounts renewed.\n\n<!-- @note{Open with the retention number.} -->\n\n<!-- @say{Retention held at ninety-four percent.} -->\n\n<!-- @alt{A bullet list.} -->',
+	'<!-- @meta{layout=content} -->\n\n## Retention held\n\n- 94% of accounts renewed.\n\n<!-- @note{Open with the retention number.} -->\n\n<!-- @say{Retention held at ninety-four percent.} -->\n\n<!-- @alt{A bullet list.} -->',
 ].join('\n\n---\n\n');
 
 const file = (b: Blob | Uint8Array | string, name: string, type = '') => new File([b as BlobPart], name, { type });
