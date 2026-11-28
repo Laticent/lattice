@@ -1,0 +1,195 @@
+# title
+
+> Opening slide. Dark canvas, centered, no chrome.
+
+**Function** anchor · **Form** bookend · **Substance** prose
+
+**Tags** `pitch` · `board-deck` · `showcase` · `kickoff`
+
+First slide of every deck. Sets the topic and the visual tone. Drops the running header and the page number, and keeps the deck's footer, its standing note (a "Confidential" or a copyright), by the anchor-chrome rule (engineering/decisions/2026-11-08-anchor-chrome.md). `silent` drops every band in one token. On a phone, a title whose lede runs past the page splits: the cover keeps the eyebrow, the title and the deck's footer, and the lede (with anything authored after it) takes one page of its own on the same canvas; a lede longer than that page still clips, and the export says so. A title that fits never splits (engineering/decisions/2026-10-28-fit-everywhere-model.md §25). Add `spectrum` when the deck itself is built on a multi-step color story (a level system, a spectrum of stages) worth echoing here. The deck's `cover-layout: light` register repaints the front and back cover together on the deck's light canvas, in both color modes (`cover-light`; a slide opts out with `cover-inverse`). `light` alone sets a scheme and keeps the dark panel (lib/base/base.registers.docs.md § cover). Seven cover compositions (`cover-masthead`, `cover-ledger`, `cover-column`, `cover-label`, `cover-stage`, `cover-frame`, `cover-poster`) set how the heading block sits; the deck writes one with the same register's second word (`cover-layout: light column`) so both covers match, and `cover-plain` keeps one slide centered. A `cover-stage` or `cover-poster` heading holds about 60 characters; a longer one grows down from the top of the frame and overflows at the foot.
+
+## Agent contract
+
+**By venue** no count budget. A bookend: one heading and a line or two, with no repeated element to count.
+
+### Slots
+
+| Slot | Write | Required | Description |
+|---|---|---|---|
+| `heading` | a `# ` heading | yes | Deck title. Capped at `--measure-bookend-heading` (16em ≈ 33 characters) so a long title composes as a block rather than a full-width banner; `text-wrap: balance` evens the lines. Override the token in front-matter `style:` — never hand-break with `<br>`. |
+| `eyebrow` | a line of `inline code` | no | Optional category label rendered above the h1 (authored as an inline-code paragraph immediately after the h1; flex `order` lifts it above). |
+| `subtitle` | a paragraph | no | Optional plain-paragraph subtitle below the h1. Uncapped — title's subtitle is a single tagline, unlike closing's, which takes `--measure-bookend-lede`. |
+
+### Common mistakes
+
+- **Eyebrow written as bold or plain text instead of inline code, e.g. `**Category · Date**`.** Wrap the eyebrow paragraph in backticks. The eyebrow CSS matches `h1 + p:has(> code:only-child)`; without the code span the paragraph falls through to the general subtitle rule instead — it still renders styled, just as a second subtitle line, not the eyebrow lifted above the h1.
+- **The subtitle paragraph is authored before the eyebrow paragraph instead of after it.** The eyebrow match is an immediate-next-ELEMENT-sibling selector (`h1 + p:has(> code:only-child)`) — it only counts element siblings, so an HTML comment between the h1 and the eyebrow is harmless, but another paragraph is not. Keep the source order heading → eyebrow → subtitle.
+- **Inline emphasis (`**bold**`, `_italic_`) inside the h1 itself.** Keep the h1 to plain text. The centered, oversized type already carries full weight — nested emphasis at that scale reads as noise, not emphasis.
+- **Trying to author the spectrum bar as a markdown `---`/`***` rule instead of the `spectrum` class.** Every top-level `hr` token in a slide body is the slide separator (it splits the deck into a new slide) — there is no way to hand-author a literal rule element here. Add the `spectrum` class instead; the bar is CSS-generated.
+- **A `> …` key insight or a below-note on this slide.** Anchors take no closing beat (2026-11-20): a `> …` here is not drawn as a Key Insight panel, and `lint:deck` flags it (`block-unsupported`). Put the takeaway on the content slide it sums up.
+
+## When to use
+
+- **First slide of every deck.** Sets topic, audience, and visual tone in one glance. The dark canvas anchors the deck visually so subsequent slides feel like a continuous document.
+- **Brand or section bookends.** Pair with `divider` (mid-deck section breaks) and `closing` (the final slide) for the full anchor trio. All three share the dark-bookend treatment.
+- **Pitch and proposal openings.** When the audience needs the headline and the framing line before any data. The subtitle paragraph is where the framing line goes.
+
+## When NOT to use
+
+- **Mid-deck statements.** Use `big-number` or `content` for emphatic statements inside a deck. Reaching for the title chrome mid-deck breaks the bookend signal.
+- **Multi-line h1.** Keep the h1 to one editorial line. The layout is centered and large — two-line titles get cramped and lose impact.
+- **Header or footer overrides.** Don't blank the footer with an empty `footer=""` in a title slide's record. The footer is the deck's standing note (a "Confidential", a copyright), and a cover is where a reader most expects it. Drop it on purpose with `no-footer`, or every band with `silent`.
+
+## Authoring
+
+```markdown
+<!-- @meta{layout=title} -->
+
+# Deck title goes here
+
+`Category · Date or audience`
+
+One-line subtitle that frames the deck.
+```
+
+## Anatomy
+
+```text
+┌─────────────────────────────────────────┐
+│            [dark background]            │
+│                                         │
+│              EYEBROW LABEL              │
+│                                         │
+│           Display Title Here            │
+│           Subtitle or tagline           │
+│                                         │
+└─────────────────────────────────────────┘
+```
+
+## Variants (component-specific)
+
+### `spectrum` — spectrum
+
+A generated gradient bar below the subtitle, in the theme's own six-step palette.
+
+```markdown
+<!-- @meta{layout=title, class=silent spectrum} -->
+
+# A deck built on a color-coded spectrum.
+
+`Six stages, six colors`
+
+The title echoes the same six-step story the deck's own components carry.
+```
+
+### `cover-masthead` — cover-masthead
+
+A heavy rule over the title, set left.
+
+```markdown
+<!-- @meta{layout=title, class=silent cover-masthead} -->
+
+# The cover composes as a masthead.
+
+`anchor · title · cover-masthead`
+
+The heading sits under a heavy rule as wide as its measure.
+```
+
+### `cover-ledger` — cover-ledger
+
+A small-caps title over a double rule.
+
+```markdown
+<!-- @meta{layout=title, class=silent cover-ledger} -->
+
+# The cover composes as a ledger.
+
+`anchor · title · cover-ledger`
+
+Small capitals over a double rule, centered.
+```
+
+### `cover-column` — cover-column
+
+An accent column at the right edge, the title set left.
+
+```markdown
+<!-- @meta{layout=title, class=silent cover-column} -->
+
+# The cover composes as a column.
+
+`anchor · title · cover-column`
+
+The accent column runs between the header and footer bands.
+```
+
+### `cover-label` — cover-label
+
+A gallery wall label: a smaller title low on the left under a hairline.
+
+```markdown
+<!-- @meta{layout=title, class=silent cover-label} -->
+
+# The cover composes as a label.
+
+`anchor · title · cover-label`
+
+A quiet caption sits under the hairline, the way a museum labels a work.
+```
+
+### `cover-stage` — cover-stage
+
+A stage-size centered title.
+
+```markdown
+<!-- @meta{layout=title, class=silent cover-stage} -->
+
+# Built for the back row.
+
+`anchor · title · cover-stage`
+
+One short line, sized for the back of the hall.
+```
+
+### `cover-frame` — cover-frame
+
+The title boxed in a keyline.
+
+```markdown
+<!-- @meta{layout=title, class=silent cover-frame} -->
+
+# The cover composes as a frame.
+
+`anchor · title · cover-frame`
+
+The keyline follows the deck's rule weight.
+```
+
+### `cover-poster` — cover-poster
+
+A giant title set left.
+
+```markdown
+<!-- @meta{layout=title, class=silent cover-poster} -->
+
+# Say it loud.
+
+`anchor · title · cover-poster`
+
+A poster headline, heavy, tight and set left.
+```
+
+## Universal modifiers
+
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the universal modifier catalog](../authoring/modifiers.md), generated from `lib/base/base.manifest.json`.
+
+## Related components
+
+- [`divider`](./divider.md) — mid-deck section breaks — same dark-bookend chrome
+- [`closing`](./closing.md) — the final slide — closes the bookend pair
+
+## Demo deck
+
+Every variant rendered, with a live preview and an in-browser editor:
+<https://lattice.style/components/anchor/title>

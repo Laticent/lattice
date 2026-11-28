@@ -1,0 +1,8 @@
+{
+  "markdown.marp.themes": [
+    "./.vscode/themes/lattice.css",
+    "./.vscode/themes/cuoio.css",
+    "./.vscode/themes/cuoio-dark.css"
+  ],
+  "markdown.marp.html": "all"
+}
