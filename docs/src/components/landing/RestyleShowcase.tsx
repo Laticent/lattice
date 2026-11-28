@@ -167,15 +167,15 @@ export default function RestyleShowcase({ data }: { data: RestyleData }) {
 
 	return (
 		<div className="lx-ui mx-auto max-w-[860px]">
-			{/* The front-matter strip. Its theme chip reserves the width of the longest name
-			    ("a11y-achromatopsia"), so the switch beside it never moves as the cycle
-			    advances, and on a phone the row never re-wraps. */}
+			{/* The front-matter strip. Its theme chip reserves the width of the longest line,
+			    "theme: a11y-achromatopsia" (25ch of text plus the chip's padding and border),
+			    so the chip never changes width as the cycle advances. */}
 			<div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
 				<span className="font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
 					Front matter
 				</span>
 				<code
-					className="min-w-[25ch] rounded-md border border-border bg-card px-2 py-1 font-mono text-[13px] text-foreground"
+					className="min-w-[calc(25ch+18px)] rounded-md border border-border bg-card px-2 py-1 font-mono text-[13px] text-foreground"
 				>
 					theme: <span className="font-semibold text-primary">{active?.name ?? ''}</span>
 				</code>

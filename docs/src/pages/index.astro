@@ -112,8 +112,9 @@ const paletteAccents = [...palettes.filter((n) => !n.startsWith('a11y-')), ...pa
 		const a11y = name.startsWith('a11y-');
 		const accent = lightToken(name, 'accent') ?? '#888888';
 		// The swatch: the accent over half the dot, two more of the palette's colors over the
-		// rest. The four color-blind-safe palettes share their accent and chart hues; what sets
-		// them apart is their status colors, so their swatches show those instead. Built here,
+		// rest. The four color-blind-safe palettes share their accent and chart hues, so their
+		// swatches show their status colors instead, which set grayscale and blue-yellow apart.
+		// Red-green and red-blind share every light token, so those two swatches match. Built here,
 		// not in the island, because the home route sits at its eagerJsGz ceiling.
 		const c1 = lightToken(name, a11y ? 'pass' : 'chart-cat1');
 		const c2 = lightToken(name, a11y ? 'warn' : 'chart-cat2');
