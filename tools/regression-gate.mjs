@@ -97,7 +97,7 @@ import {
   THEMES,
 } from './lib/golden-render.mjs';
 import { deckGoldenPdfs } from './lib/golden-set.mjs';
-import { controlLine, controlPasses, controlVerdict, groupByBlessCommit, hostLine, renderBuildSteps, renderEnvOverrides, resolveSource, staleSteps } from './lib/regress-control.mjs';
+import { controlLine, controlPasses, controlVerdict, groupByBlessCommit, hostLine, hostStateRefusals, renderBuildSteps, renderEnvOverrides, resolveSource, staleSteps } from './lib/regress-control.mjs';
 
 const require = createRequire(import.meta.url);
 const { pixelDiff, montageTriptych, pngsToPdf } = require('./pixel-check.js');
@@ -566,12 +566,35 @@ function controlOne(treeRoot, item) {
   }
 }
 
+// The host state hostStateRefusals judges. A store that cannot be read counts as installed.
+function hostState() {
+  let installed;
+  try {
+    const home = require('../lib/packages/home.js');
+    const root = home.packagesRoot({});
+    installed = home.listInstalled(root).map((p) => `${p.type}/${p.name}`);
+  } catch (err) {
+    installed = [`the store could not be read: ${String(err.message || err).split('\n')[0]}`];
+  }
+  let untrackedPluginList = false;
+  if (existsSync(join(ROOT, 'lattice-plugins.json'))) {
+    try {
+      git(['ls-files', '--error-unmatch', '--', 'lattice-plugins.json']);
+    } catch {
+      untrackedPluginList = true;
+    }
+  }
+  return { installed, untrackedPluginList };
+}
+
 // Why the control cannot run at all here, or ''. Every render build is `--check`ed in this checkout,
 // about 20 s for all of them; nothing is rebuilt, so the drift above and the control's HEAD render
 // see the same files.
 function controlRefusal() {
   const env = renderEnvOverrides(process.env);
   if (env.length) return `render settings in the environment (${env.join(', ')}) would reach both renders alike; unset them and run again`;
+  const host = hostStateRefusals(hostState());
+  if (host.length) return `${host.join('; ')}; move them aside and run again`;
   const steps = renderBuildSteps(readdirSync(join(ROOT, 'tools')));
   const stale = staleSteps(steps, (step) => execFileSync(process.execPath, [join('tools', step), '--check'], { cwd: ROOT, stdio: 'ignore' }));
   if (stale.length) return `this checkout's render builds are stale or missing (${stale.join(', ')}); run \`npm run build\` and try again`;
