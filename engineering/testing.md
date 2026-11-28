@@ -165,6 +165,10 @@ table names the ten shapes F1–F10 and the fix for each. The short form:
   `expect.poll(…)`. Never `waitForTimeout` (F2).
 - **Assert on work done, not on milliseconds.** Count calls, nodes or bytes
   (`test/helpers/work-count.js`). Speed belongs to `npm run bench` (F1, #19).
+- **Fail a child process on a hang, not on a total.** Run a Node child through `runNode` (async) or
+  `runNodeSync` (`test/helpers/spawn-progress.js`). It watches the CPU of the child's whole process tree,
+  Chromium included, and fails a tree that spins or sits idle, never a slow one. A `lattice.js` export takes
+  `EXPORT_WATCH` (F4).
 - **Read state after it settles.** Await the state you need, then assert; compare only what the test
   is about (F3).
 - **Own your inputs.** Seed every random draw and print the seed (F5). Stub the network (F6). Give

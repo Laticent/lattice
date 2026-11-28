@@ -8,7 +8,10 @@ const { JSDOM } = require('jsdom');
 const { scanWork, charReads } = require('../../helpers/work-count');
 const { virtualClock } = require('../../helpers/runtime-boot');
 const { trackConnections } = require('../../helpers/request-log');
-const { runNode, cpuMs } = require('../../helpers/spawn-progress');
+const { runNode, runNodeSync, cpuMs, treeCpu } = require('../../helpers/spawn-progress');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 const net = require('node:net');
 const { EventEmitter, once } = require('node:events');
 
@@ -181,5 +184,63 @@ describe('runNode', { skip: process.platform !== 'linux' && 'watches /proc, whic
     const slow = 'let n = 0; const step = () => { const end = Date.now() + 30; while (Date.now() < end); if (++n < 10) setTimeout(step, 200); else console.log("done"); }; step();';
     const r = await runNode('-e', [slow], { cpuBudgetMs: 60_000, stallMs: 1500 });
     assert.deepEqual(r, { status: 0, stdout: 'done\n', stderr: '' });
+  });
+  // A child that starts processes (lattice.js starts Chromium) is judged by its whole tree, not by its own CPU alone.
+  // Each grandchild below is a plain Node process, so the arms run in a unit job; the real-Chromium arms live in
+  // test/integration/export/spawn-progress-chromium.test.js.
+  const grandchild = (code) => `require('node:child_process').spawn(process.execPath, ['-e', ${JSON.stringify(code)}], { stdio: 'ignore' }); setInterval(() => {}, 1e9);`;
+
+  test('failing arm: a grandchild that spins while the child waits on it counts as the child spinning', async () => {
+    await assert.rejects(runNode('-e', [grandchild('for (;;) {}')], { cpuBudgetMs: 500, stallMs: 60_000, ceilingMs: 20_000 }), /spun \d+ s of CPU without exiting/);
+  });
+
+  test('failing arm: a tree that only ticks, under the stall floor, is stuck though its CPU never stands still', async () => {
+    // 5 ms of work every 200 ms: about 25 ms per second, the shape of an idle Chromium waiting on a page that never loads.
+    const ticker = 'setInterval(() => { const end = Date.now() + 5; while (Date.now() < end); }, 200);';
+    await assert.rejects(runNode('-e', [grandchild(ticker)], { cpuBudgetMs: 60_000, stallMs: 2000, stallCpuMs: 200, ceilingMs: 20_000 }), /used \d+ ms of CPU in 2 s, no more than an idle process/);
+  });
+
+  test('a hung tree is killed whole: no grandchild outlives the test', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'spawn-progress-'));
+    const pidFile = path.join(dir, 'grandchild.pid');
+    const code = `const c = require('node:child_process').spawn(process.execPath, ['-e', 'setInterval(() => {}, 1e9)'], { stdio: 'ignore' }); require('node:fs').writeFileSync(${JSON.stringify(pidFile)}, String(c.pid)); setInterval(() => {}, 1e9);`;
+    await assert.rejects(runNode('-e', [code], { stallMs: 1000 }), /used no CPU for \d+ s/);
+    const pid = Number(fs.readFileSync(pidFile, 'utf8'));
+    // runNode rejects only once the tree is dead, so this reads the state right after the hang, with no wait.
+    let state = 'gone';
+    try { state = fs.readFileSync(`/proc/${pid}/stat`, 'utf8').split(') ')[1][0]; } catch { /* reaped */ }
+    assert.ok(state === 'gone' || state === 'Z', `grandchild ${pid} survived its tree's hang (state ${state})`);
+  });
+
+  test('the tree count keeps a grandchild\'s work after it exits', async () => {
+    // The grandchild works 400 ms and exits; the child says "gone" once it has, then waits. The count is read every
+    // 20 ms until then, and once after: it must never fall, and must still hold the grandchild's work at the end.
+    const work = 'const end = Date.now() + 400; while (Date.now() < end);';
+    const code = `require('node:child_process').spawn(process.execPath, ['-e', ${JSON.stringify(work)}], { stdio: 'ignore' }).on('exit', () => console.log('gone')); setInterval(() => {}, 1e9);`;
+    const child = require('node:child_process').spawn(process.execPath, ['-e', code]);
+    const reads = [];
+    let sample;
+    try {
+      const tree = treeCpu(child.pid); // inside the try, so a helper that throws still kills the child below
+      sample = setInterval(() => reads.push(tree.read()), 20);
+      await once(child.stdout, 'data'); // "gone": the grandchild has exited
+      clearInterval(sample);
+      reads.push(tree.read());
+      for (let i = 1; i < reads.length; i++) assert.ok(reads[i] >= reads[i - 1], `the count went down: ${reads[i - 1]} → ${reads[i]}`);
+      assert.ok(reads.at(-1) >= 300, `the grandchild's 400 ms of work reads as ${reads.at(-1)} ms once it has exited`);
+    } finally {
+      clearInterval(sample);
+      child.kill('SIGKILL');
+    }
+  });
+
+  test('runNodeSync relays status and output, and throws, with the reason, when the child hangs', () => {
+    const r = runNodeSync('-e', ['console.log("out"); console.error("err"); process.exit(3)']);
+    assert.deepEqual(r, { status: 3, stdout: 'out\n', stderr: 'err\n' });
+    assert.throws(() => runNodeSync('-e', ['console.error("before"); for (;;) {}'], { cpuBudgetMs: 500, stallMs: 60_000 }), /spun \d+ s of CPU without exiting[\s\S]*--- its stderr ---\nbefore/);
+  });
+
+  test('runNodeSync refuses a wall-clock timeout, the F4 shape it replaces', () => {
+    assert.throws(() => runNodeSync('-e', ['0'], { timeout: 60_000 }), /takes no `timeout`/);
   });
 });
