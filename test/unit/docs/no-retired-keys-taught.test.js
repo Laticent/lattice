@@ -14,9 +14,10 @@
 //   - INLINE, in Markdown: `` `key:` `` in backticks.
 //   - BARE, in plain text (a Studio tool's `chat` description, the llms.txt source): `key:` as a word.
 // The retired set is read from `DECK_SETTINGS`, so the next rename that retires a key turns its own leftover guidance
-// red here with no edit to this file. RETIRED_COMMENTS adds the slide directive comments the @meta cut (#3563)
-// retired, `<!-- _class: … -->` first: on its own line in a deck fence it counts as a settings line, and inline
-// (`` `<!-- _class: x -->` ``, `` `_class:` ``) it needs a cue like any key.
+// red here with no edit to this file. Slide comments the @meta cut (#3563) retired are asked of
+// lint-core itself (`legacy-directive-comment`), so every spelling it reports is guarded: on its own line a comment
+// counts as a settings line wherever it sits, and in a code span (`` `<!-- _class: x -->` ``, `` `_footer:` ``) it
+// needs a cue like any key.
 //
 // Guidance may NAME a retired key to say what replaced it. An inline or bare mention passes when its paragraph (a run
 // of non-blank lines; each list item and table row is its own; a sentence in plain text) says so in words
@@ -74,16 +75,43 @@ const SANCTIONED = {
     keys: { form: 1, _class: 1 },
   },
   'design/skills/import.md': {
-    why: 'a check-list item that says no Marp directive comment (`<!-- _class: … -->`) is left in an imported deck',
-    keys: { _class: 1 },
+    why: 'a check-list item that says no Marp directive comment (`<!-- _class: … -->`) is left in an imported deck, and the "Marp leftovers" list of input to migrate (`<!-- _paginate: false -->`)',
+    keys: { _class: 1, _paginate: 1 },
   },
   'docs/src/content/docs/reference/cli.md': {
     why: "the `lattice migrate notes` table lists the old forms it rewrites; the row's left column is the input",
-    keys: { say: 2 },
+    keys: { say: 1 },
   },
   'docs/src/content/docs/spec/diagnostics.md': {
-    why: "the diagnostics table names what each rule reports: `stray-overflow-marker`'s retired key, and `say:` as an unknown `terms:` field. TEMPORARY for `_class`: the `meta-class-overridden` row (:440) still lists a `_class:` comment as a way to set a slide's class; #3554 (the spec desk) fixes it",
-    keys: { 'overflow-marker': 1, say: 1, _class: 1 },
+    why: "the diagnostics table names what each rule reports: `stray-overflow-marker`'s retired key, and `say:` as an unknown `terms:` field. TEMPORARY for the comment forms: the `meta-class-overridden` (:440), `track-directive` (:160), `one-stepping-directive` (:166), `code-line-range` (:183) and `unknown-debug-facet` (:272) rows still describe an old comment as current, and lint-core.js:1100 still counts `_class` as a class setter; followups.d/3606-p1-retired-comment-forms-in-docs.md",
+    keys: { 'overflow-marker': 1, say: 1, _class: 1, _track: 1, _build: 1, _focus: 1, _debug: 1 },
+  },
+  'docs/src/content/catalog/libraries/lente.md': {
+    why: "the standalone `lente` package reads a `<!-- _lens: … -->` comment itself; the same line gives Lattice's record, `@meta{lens=…}`",
+    keys: { _lens: 1 },
+  },
+  // TEMPORARY, each a file this PR does not own, still describing an old comment as current. Tracked in
+  // followups.d/3606-p1-retired-comment-forms-in-docs.md and reported to desk:agent-native; the stale-entry check
+  // fails once a file is fixed, so its entry goes with the fix.
+  'docs/src/content/catalog/libraries/markup.md': {
+    why: "TEMPORARY: :103 says the engine's `_focus: line` and `_build: lines` read the fence's lines",
+    keys: { _build: 1, _focus: 1 },
+  },
+  'lib/base/base.docs.md': {
+    why: "TEMPORARY: :1755 says a slide's `_backgroundImage: url(…)` follows the logo's URL list",
+    keys: { _backgroundImage: 1 },
+  },
+  'lib/components/anchor/title/title.docs.md': {
+    why: "TEMPORARY: :41's anti-pattern names `_footer: ''`, a form the engine no longer reads",
+    keys: { _footer: 1 },
+  },
+  'lib/components/anchor/closing/closing.docs.md': {
+    why: "TEMPORARY: :53's anti-pattern names `_footer: ''`, a form the engine no longer reads",
+    keys: { _footer: 1 },
+  },
+  'lib/components/anchor/divider/divider.docs.md': {
+    why: "TEMPORARY: :47's anti-pattern names `_header: ''` and `_footer: ''`, forms the engine no longer reads",
+    keys: { _header: 1, _footer: 1 },
   },
 };
 
@@ -94,19 +122,45 @@ const RETIREMENT_CUE =
   /\b(?:retired|retirement|renamed|was called|replaced|no longer|legacy|migrat\w*|rewrites?|deprecated|(?:the|an?) old(?:er)? (?:name|names|key|keys|form|forms|spelling|one|note|syntax|classes)|old names|LFM 1\.x|reaches nothing)\b|`[^`]+`[^.]*\b(?:is|are) not read\b|\b(?:the|an?) old `[^`]+` (?:key|keys|class|classes|name|form|spelling)\b|\b(?:was|formerly) `|→|`[^`]+`[ \t]*(?:becomes|is now|instead of)[ \t]+`/i;
 
 const RETIRED = DECK_SETTINGS.filter((r) => r.kind === 'retired').map((r) => r.key);
-// Slide directive comments the engine no longer reads. DECK_SETTINGS lists front-matter keys only, so these are named
-// here: the @meta cut (#3563) made `<!-- @meta{…} -->` the one way a slide picks its layout, and `<!-- _class: x -->`
-// reaches nothing (lint: `legacy-directive-comment`).
-const RETIRED_COMMENTS = ['_class'];
+// A slide comment the engine no longer reads. The @meta cut (#3563) made `<!-- @meta{…} -->` the one way a slide sets
+// anything, and lint-core reports every old comment as `legacy-directive-comment`. Rather than list the spellings
+// (`_class`, `class`, `_paginate`, `footer`, a pane marker, …), the test asks the linter, so a spelling it starts or
+// stops reporting moves this guard with it. The answer is cached per comment text.
+const lintCore = require('../../../lib/authoring/lint-core.js');
+const LINT_VOCAB = { names: new Set(), modifiers: new Set(), capacity: {} };
+const retiredCache = new Map();
+/** The retired spelling a comment uses (`_class`, `footer`, `_pane`), or null when the engine reads it or it is no setting. */
+function retiredComment(comment) {
+  if (!retiredCache.has(comment)) {
+    const deck = `---\ntheme: indaco\n---\n\n${comment}\n\n## A title that makes a claim.\n`;
+    const f = lintCore.lintTextWith(deck, LINT_VOCAB).find((x) => x.rule === 'legacy-directive-comment');
+    const body = comment.replace(/^<!--\s*|\s*-->$/g, '');
+    retiredCache.set(comment, f ? f.classToken || body.split(/[\s:]/)[0] : null);
+  }
+  return retiredCache.get(comment);
+}
 const esc = (k) => k.replace(/[.*+?^${}()|[\]\\-]/g, '\\$&');
 const ALT = RETIRED.map(esc).join('|');
-const ALL = [...RETIRED, ...RETIRED_COMMENTS].map(esc).join('|');
 const FM_LINE = new RegExp(`^[ \\t]*(${ALT})[ \\t]*:`);
-// A directive comment on its own line inside a deck fence: something an author copies.
-const COMMENT_LINE = new RegExp(`^[ \\t]*<!--[ \\t]*(${RETIRED_COMMENTS.map(esc).join('|')})[ \\t]*:`);
-// Inline: `key:` or `<!-- key: … -->` in a code span.
-const INLINE = new RegExp(`\`(?:[^\`\\n]*?<!--[ \\t]*)?(${ALL})[ \\t]*:`, 'g');
-const BARE = new RegExp(`(?<![\\w-])(${ALL})[ \\t]*:`, 'g');
+// A comment on its own line: something an author copies, wherever it sits.
+const OWN_COMMENT = /^[ \t]*(<!--.*?-->)[ \t]*$/;
+const INLINE = new RegExp(`\`(${ALT})[ \\t]*:`, 'g');
+const CODE_SPAN = /`([^`\n]+)`/g;
+/** The retired comment spellings a code span shows: a comment (`<!-- _class: kpi -->`, `# T <!-- footer: x`) or a key (`_class:`). */
+function retiredInSpan(span) {
+  const out = [];
+  for (const m of span.matchAll(/<!--.*?(?:-->|$)/g)) {
+    const key = retiredComment(m[0].endsWith('-->') ? m[0] : `${m[0]} -->`);
+    if (key) out.push(key);
+  }
+  const k = /^(_[\w-]+)[ \t]*:/.exec(span.trim());
+  if (k && !span.includes('<!--')) {
+    const key = retiredComment(`<!-- ${k[1]}: x -->`);
+    if (key) out.push(key);
+  }
+  return out;
+}
+const BARE = new RegExp(`(?<![\\w-])(${ALT})[ \\t]*:`, 'g');
 const FENCE = /^[ \t]*(`{3,}|~{3,})/;
 // A fence whose body is settings or a deck: a bare `key:` line in one is something an author copies.
 const SETTINGS_FENCE = /^[ \t]*(?:`{3,}|~{3,})[ \t]*(?:(?:md|markdown|lfm|lattice|html)(?:[ \t].*)?)?$/i;
@@ -154,11 +208,15 @@ function retiredKeys(text) {
       const m = FM_LINE.exec(line);
       if (m) out.push({ line: i + 1, key: m[1], shape: 'front-matter' });
     }
-    // A retired directive comment on its own line is copyable wherever it sits: any fence, any indent, or raw in the
-    // source an agent reads.
-    const c = COMMENT_LINE.exec(line);
-    if (c) out.push({ line: i + 1, key: c[1], shape: 'front-matter' });
-    if (!cued.has(unit[i])) for (const m of line.matchAll(INLINE)) out.push({ line: i + 1, key: m[1], shape: 'inline' });
+    // A retired comment on its own line is copyable wherever it sits: any fence, any indent, or raw in the source an
+    // agent reads.
+    const c = OWN_COMMENT.exec(line);
+    const ck = c && retiredComment(c[1]);
+    if (ck) out.push({ line: i + 1, key: ck, shape: 'front-matter' });
+    if (!cued.has(unit[i])) {
+      for (const m of line.matchAll(INLINE)) out.push({ line: i + 1, key: m[1], shape: 'inline' });
+      if (!ck) for (const m of line.matchAll(CODE_SPAN)) for (const key of retiredInSpan(m[1])) out.push({ line: i + 1, key, shape: 'inline' });
+    }
     if (t === '') return;
     if ((t === '---' && atStart) || /=\s*`---$/.test(t)) inFm = true;
     if (FENCE.test(line)) {
