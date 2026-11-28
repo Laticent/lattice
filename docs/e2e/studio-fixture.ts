@@ -550,6 +550,35 @@ export function liveToast(page: Pick<Page, 'locator'>, text: RegExp | string): L
 	return page.locator('[data-sonner-toast]:not([data-removed="true"])').filter({ hasText: text });
 }
 
+/**
+ * Every toast text the page shows from now on, kept after the pill leaves. Call it BEFORE the action whose
+ * toast you want, then read the log with `expect.poll(log)`.
+ *
+ * A plain "… ready." confirmation lives for STATUS_DURATION (2.6 s, lib/notify.ts), and a test that downloads
+ * a file and parses it before looking for the toast can miss it: on a loaded CI runner the download and the
+ * parse took longer than the dwell, and `toBeVisible` then waited 30 s for a pill that had already gone
+ * (studio-smoke on #3599). The log also makes "no warning toast" mean something: read after the dwell, a
+ * `toHaveCount(0)` on the live DOM passes even if the warning was shown. `characterData` is observed because
+ * notify() reuses a live pill's id, so a second message can rewrite the first one's text in place.
+ */
+export async function recordToasts(page: Page): Promise<() => Promise<string[]>> {
+	await page.evaluate(() => {
+		const w = window as unknown as { __latticeToastLog?: string[] };
+		if (w.__latticeToastLog) return;
+		const log: string[] = [];
+		w.__latticeToastLog = log;
+		const read = () => {
+			for (const el of document.querySelectorAll('[data-sonner-toast]')) {
+				const t = (el.textContent ?? '').trim();
+				if (t && !log.includes(t)) log.push(t);
+			}
+		};
+		new MutationObserver(read).observe(document.body, { childList: true, subtree: true, characterData: true });
+		read();
+	});
+	return () => page.evaluate(() => [...((window as unknown as { __latticeToastLog?: string[] }).__latticeToastLog ?? [])]);
+}
+
 /** The app toast pill — the canonical name for the centralized toast accessor.
  *  Prefer this in new specs; `toastText` remains as its long-standing alias. */
 export const appToast = toastText;
