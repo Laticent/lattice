@@ -22,9 +22,9 @@ as its first public version.
 Trama stay AGPL". The question called Calco (editable PowerPoint) and Trama (diagram layout) "real
 product features" and the other 16 "generic building blocks". So Calco and Trama stay
 AGPL-3.0-only. That question did not raise Lente's policy finding (§3), so it went to the owner
-on its own at 03:47 UTC, in the same tool: "Keep Lente AGPL". At about 10:50 UTC, in this session's question tool, the owner
-also chose "Keep Fluido AGPL" (D2) and "Reword now, in this PR" for the inbound-license wording (D3).
-So 14 libraries move.
+on its own at 03:47 UTC, in the same tool: "Keep Lente AGPL". At about 10:50 UTC, in this
+session's question tool, the owner also chose "Keep Fluido AGPL" (D2) and "Reword now, in this
+PR" for the inbound-license wording (D3). So 14 libraries move.
 
 This note is evidence, not legal advice.
 
