@@ -203,3 +203,32 @@ describe('linkTreeModules', () => {
     }
   });
 });
+
+test('hostStateRefusals refuses an installed package store and an untracked plugin list', () => {
+  assert.deepEqual(m.hostStateRefusals({ installed: [], untrackedPluginList: false }), []);
+  const store = m.hostStateRefusals({ installed: ['component/tiered'], untrackedPluginList: false });
+  assert.equal(store.length, 1);
+  assert.match(store[0], /installed in your store \(component\/tiered\)/);
+  assert.match(m.hostStateRefusals({ installed: [], untrackedPluginList: true })[0], /untracked lattice-plugins\.json/);
+  const many = m.hostStateRefusals({ installed: ['a/1', 'a/2', 'a/3', 'a/4'], untrackedPluginList: true });
+  assert.equal(many.length, 2);
+  assert.match(many[0], /a\/1, a\/2, a\/3, …/);
+});
+
+test('renderGallery darkens with the rendered root\'s own injectDark, not this checkout\'s', async () => {
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const path = require('node:path');
+  const gr = await import('../../../tools/lib/golden-render.mjs');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'regress-dark-'));
+  try {
+    fs.mkdirSync(path.join(root, 'tools'));
+    fs.writeFileSync(path.join(root, 'tools', 'build-galleries.js'), "module.exports = { injectDark: (md) => 'OTHER TREE:' + md };\n");
+    assert.equal(gr.injectDarkFor(root)('x'), 'OTHER TREE:x');
+    // This checkout's own producer is a different function.
+    const here = path.join(__dirname, '..', '..', '..');
+    assert.notEqual(gr.injectDarkFor(here)('x'), 'OTHER TREE:x');
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
