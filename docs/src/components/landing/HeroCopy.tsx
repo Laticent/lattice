@@ -35,17 +35,25 @@ export function HeroCopy() {
 			</h1>
 			{/* "Markdown" stays (the developer visitor asked for it back) but is glossed
 			    in the same breath for everyone else: both scoring reviews on 2026-10-28
-			    split on it, and the gloss serves both. */}
+			    split on it, and the gloss serves both. Prose round 2026-11-28 (owner pick A, three
+			    reviewers): Compose and Source named as equals, Compose first, no parenthetical gloss. The Studio's Compose comes FIRST
+			    (owner's next-round brief, item 1): it is a first-class way to write, and
+			    second place would read as the fallback for people who cannot write
+			    Markdown. "Pick" keeps the writer choosing the layout (§7.1): in Compose
+			    from the slide's layout menu, in Markdown by name. */}
 			<p className="m-0 max-w-[46ch] text-[clamp(17px,1.5vw,20px)] text-foreground">
-				For the boardroom, the pitch, the briefing, and the lecture hall. Write each slide as a few lines of plain
-				text (Markdown, as simple as a bulleted email) and name the layout that fits it. Lattice sets every page so
-				your audience gets the point at a glance.
+				For the boardroom, the pitch, the briefing, and the lecture hall. Write each slide in Compose, as you would a
+				document, or in Source as Markdown. Pick the layout that fits, and Lattice designs every page so your
+				audience gets the point at a glance.
 			</p>
-			{/* The contrast with AI deck generators, at the fold. Both scoring reviews
+			{/* The contrast with AI deck generators, at the fold. Bounded like the proof
+			    strip (owner, 2026-11-28, PR 3618 "copy 1 yes"): the same text and palette give
+			    the same design; never identical pixels on every machine. Both scoring reviews
 			    found it only mid-page; the July note's §7.1 still holds — the page
 			    never lets the product write the deck. */}
 			<p className="m-0 mt-4 max-w-[46ch] text-[15px] font-semibold text-[var(--text-heading)]">
-				Not an AI that guesses your slides: Lattice renders what you wrote, the same way every time.
+				Not an AI that guesses your slides: Lattice renders what you wrote, and the same text and palette give the same
+				design every time.
 			</p>
 		</div>
 	);
@@ -57,7 +65,7 @@ export function HeroCopy() {
 // buttons and three paragraphs of small print; both scoring reviews flagged it.
 //
 // The fold offers exactly TWO doors — browser and machine — and the button labels
-// name the job of each ("Open the Studio", "Use the command line"). The sentence
+// name the job of each ("Open the Studio", "For developers: the command line"). The sentence
 // that used to explain them under the buttons repeated the Studio section and the
 // How-it-works band, so the third scoring round's dedupe cut it.
 // See engineering/decisions/2026-07-30-landing-studio-promotion.md §0 F1.
@@ -75,11 +83,11 @@ export function HeroActions({
 					</a>
 				</Button>
 				<Button asChild variant="outline" size="lg">
-					<a href={getStartedHref}>Use the command line</a>
+					<a href={getStartedHref}>For developers: the command line</a>
 				</Button>
 			</div>
 			<p className="m-0 mt-4 max-w-[46ch] text-[13px] text-muted-foreground">
-				Free and open source, no sign-up. Or skim{' '}
+				Free and open source, no sign-up, and the decks you make are yours to share on any terms. Or skim{' '}
 				<a className="font-semibold text-primary hover:underline" href={galleryHref} target="_blank" rel="noopener">
 					a finished deck, as a PDF
 				</a>

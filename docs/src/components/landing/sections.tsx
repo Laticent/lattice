@@ -48,30 +48,30 @@ export function SectionHead({
 	);
 }
 
-// ── "How it works" strip ────────────────────────────────────────────────────
-// A slim three-step band under the audience rooms. It sits AFTER the "why" (the
-// say-more section and the rooms), so the visitor meets the mechanism once they
-// know what it is for; its payload is the two facts the fold no longer carries —
-// you name a layout, and one command emits every delivery format.
+// ── "How it works" steps ────────────────────────────────────────────────────
+// Three steps, folded INTO the Studio section (owner's next-round brief, item 1): it was
+// a band of its own between "Say more with less" and the rooms, and the Studio now sits
+// there. Each step names both doors, the Studio and the command line, so neither reads
+// as the lesser one: Compose is a first-class way to write, not a fallback for people
+// who cannot write Markdown.
 const HOW_STEPS: { verb: string; body: React.ReactNode }[] = [
-	{ verb: 'Write', body: 'a slide is a few lines of Markdown.' },
+	{ verb: 'Write', body: 'in Compose, like a document, or in Source, as a few lines of Markdown.' },
 	{
-		verb: 'Name a layout',
+		verb: 'Pick a layout',
 		body: (
 			<>
-				call it <code className="font-mono text-[0.9em] text-primary">big-number</code>,{' '}
-				<code className="font-mono text-[0.9em] text-primary">gantt</code>, or{' '}
-				<code className="font-mono text-[0.9em] text-primary">verdict-grid</code>.
+				by what the slide needs to do (a big number, a timeline, a verdict grid), from the slide’s menu in Compose
+				or by name in Source.
 			</>
 		),
 	},
-	{ verb: 'Build', body: 'one command renders the PDF, PPTX, PNG, or HTML.' },
+	{ verb: 'Export', body: 'a PDF, a PowerPoint, or a web page, from the Studio or with one command.' },
 ];
 
 export function HowItWorks() {
 	return (
 		// biome-ignore lint/a11y/noRedundantRoles: list-style:none makes WebKit drop the implicit list role — the explicit role restores "list, 3 items" for VoiceOver.
-		<ol role="list" className="m-0 grid list-none grid-cols-1 gap-[18px] p-0 sm:grid-cols-3">
+		<ol role="list" aria-label="How it works" className="m-0 grid list-none grid-cols-1 gap-[18px] p-0 sm:grid-cols-3">
 			{HOW_STEPS.map((s, i) => (
 				<li key={s.verb} className="flex items-start gap-3.5">
 					<span
@@ -95,6 +95,8 @@ export function HowItWorks() {
 // memo-to-waterfall before/after moved up into the hero in the third scoring
 // round, so this band states the idea and its three beats and does not repeat the
 // demonstration. See engineering/decisions/2026-10-28-home-positioning-audit.md §5, §15.
+// Under it, the SlideJobs island shows the vocabulary grouped by the job a slide does
+// (compare, explain, quantify, sequence, teach, decide), one live slide at a time.
 const SAY_MORE_BEATS: { lead: string; body: string }[] = [
 	{
 		lead: 'One idea per slide.',
@@ -102,7 +104,7 @@ const SAY_MORE_BEATS: { lead: string; body: string }[] = [
 	},
 	{
 		lead: 'Show it instead of saying it.',
-		body: 'A plain list becomes a funnel, a Gantt chart, a map, or a verdict grid. No drawing tool.',
+		body: 'Choose a funnel, a timeline, a map, or a verdict grid, and your plain list is drawn as one. No drawing tool.',
 	},
 	{
 		lead: 'Spend the hour on the argument.',
@@ -222,8 +224,8 @@ export function RoomCards({ playgroundHref, layoutCount }: { playgroundHref: str
 					...c,
 					body: (
 						<>
-							Gantt charts, every Mermaid diagram type, code diffs, statute stacks, and radar charts, in the notation
-							each field expects. {layoutCount} layouts in all, one Markdown syntax.
+							Project timelines, flowcharts and diagrams, code changes, stacked legal clauses, and radar charts, each drawn
+							the way its field expects. {layoutCount} layouts in all, written the same way.
 						</>
 					),
 				}
@@ -518,15 +520,15 @@ const WHY_CARDS: WhyCard[] = [
 		title: 'Layouts you ask for by name.',
 		body: (
 			<>
-				You ask for a verdict grid, a derivation, a statute stack — the name says what the slide does. &ldquo;Which
-				layout do I want?&rdquo; has an answer that isn&rsquo;t <em>scroll the gallery</em>.
+				You ask for a verdict grid, a derivation, a stack of legal clauses: the name says what the slide does, so
+				you find the right one without browsing a gallery.
 			</>
 		),
 	},
 	{
 		id: 'no-service',
-		title: 'No service, no account, no telemetry.',
-		body: 'The engine runs on your own machine, or in your own build, and sends nothing anywhere.',
+		title: 'No account, and nothing reported back.',
+		body: 'Lattice runs on your own machine, or in your own build, and reports nothing back. Your deck leaves it only when you share a live link or use an AI feature on your own account.',
 	},
 ];
 
@@ -554,13 +556,15 @@ export function WhyCards() {
 }
 
 // ── Proof strip ─────────────────────────────────────────────────────────────
-// One receipt from /comparison, promoted to the landing. The headline is a
-// protected line (copy-positioning doc §10) — promote verbatim, never rewrite.
-// The study is linked INLINE (the same source and date comparison.astro cites):
-// a page that attacks AI tools for unsourced numbers cannot print one bare, and
-// both scoring reviews on 2026-10-28 read it as uncited from here.
-// The attribution carries the caveat; the full sourced treatment (with its
-// "read it as directional" footnote) lives one click away on /comparison.
+// The headline is a protected line (copy-positioning doc §10): promote verbatim,
+// never rewrite. The body is the DETERMINISTIC-RENDERING argument, bounded to what
+// the engine does (owner's next-round brief, item 2): the design rules are applied
+// the same way, so the same text and palette give the same design, and no model
+// picks the layout. It claims nothing about whether a deck's facts are right, how
+// well anything reasons, or identical pixels on machines we do not control. It
+// replaced a third-party fact-checking figure (a blog post's "20% of claims right"):
+// a claim about other tools' accuracy that this page could neither re-measure nor
+// bound. The sourced treatment of AI tools stays on /comparison, one click away.
 export function ProofStrip({ comparisonHref }: { comparisonHref: string }) {
 	return (
 		<div className="mx-auto max-w-[62ch] text-center">
@@ -568,16 +572,9 @@ export function ProofStrip({ comparisonHref }: { comparisonHref: string }) {
 				The artsy deck wins the demo. The deterministic deck wins the boardroom.
 			</h2>
 			<p className="m-0 mb-5 text-[16.5px] leading-[1.6] text-foreground">
-				When{' '}
-				<a
-					className="font-semibold text-primary hover:underline"
-					href="https://medium.com/@neel2108/we-fact-checked-6-ai-presentation-makers-heres-how-often-they-hallucinate-90e6093e42fc"
-					rel="noopener"
-				>
-					one team fact-checked six AI deck generators
-				</a>{' '}
-				in February 2026, the best got 20% of its claims right. Models predict plausible text instead of looking facts
-				up. Lattice never invents a number or reshuffles a layout.
+				An AI deck generator asks a model to design each slide, so the same request can come back laid out a different
+				way. Lattice applies the same design rules to every slide: the same text and the same palette give the same
+				design, every time, and the renderer never asks a model to guess the layout. What the slide says is still yours to check.
 			</p>
 			<a
 				className="inline-flex items-center gap-1.5 text-[15px] font-semibold text-primary hover:underline"
@@ -589,16 +586,84 @@ export function ProofStrip({ comparisonHref }: { comparisonHref: string }) {
 	);
 }
 
+// ── Quality, in three layers ────────────────────────────────────────────────
+// What keeps a deck on standard, told as three layers that each do a different job
+// (owner's next-round brief, item 4), so no layer is credited with another's work:
+//   PREVENTS — the type scale and the theme: no slide can pick its own size or color.
+//   DETECTS  — the linter: an author can still break a rule, and it names which.
+//   ASSESSES — the Studio's Deck read: Craft (Structure, Writing craft, Contract) and
+//              Style (Brevity, Framing, Data, Pacing) against the deck's profile.
+// Every name and count is the engine's, read at build time (engine-facts.ts) and pinned
+// by engine-facts.test.ts: never an invented category like "Visual consistency: Passed".
+// "Contract" is glossed in place because it is the Studio's own label, and the reader
+// here owns how a company presents, not how a linter works. The VenueDemo island under
+// these cards is the DETECTS layer at work on a real slide.
+export function QualityLayers({
+	typeSizes,
+	craft,
+	style,
+	profiles,
+}: { typeSizes: number; craft: string[]; style: string[]; profiles: string[] }) {
+	// "A", "A and B", "A, B, and C": two items take no comma.
+	const list = (xs: string[]) =>
+		xs.length < 3 ? xs.join(' and ') : `${xs.slice(0, -1).join(', ')}, and ${xs[xs.length - 1]}`;
+	const layers: { step: string; title: string; body: React.ReactNode }[] = [
+		{
+			step: 'Prevents',
+			title: 'The look cannot drift.',
+			body: `Type comes in ${typeSizes} fixed sizes, each with one job, and every layout takes its colors from your theme. Nobody picks a font size slide by slide.`,
+		},
+		{
+			step: 'Detects',
+			title: 'Lattice flags a problem slide before anyone sees it.',
+			body: 'It reads every slide as you write in the Studio, or when you run the check from the command line, and names the problem and the fix: a slide too full for the room, or a layout given the wrong kind of content.',
+		},
+		{
+			step: 'Assesses',
+			title: 'The Studio scores how the deck reads.',
+			body: (
+				<>
+					Two scores. Craft covers {list(craft)}. Contract asks whether each slide follows its layout’s rules, and is
+					scored from what the checks found. Style covers {list(style)}, judged against the kind of deck it is (
+					{list(profiles)}).
+				</>
+			),
+		},
+	];
+	return (
+		// biome-ignore lint/a11y/noRedundantRoles: list-style:none makes WebKit drop the implicit list role — the explicit role restores the list for VoiceOver.
+		<ol role="list" className="m-0 grid list-none grid-cols-1 gap-[18px] p-0 md:grid-cols-3">
+			{layers.map((l) => (
+				<li key={l.step} className="min-w-0">
+					<Card className="h-full gap-0 py-0">
+						<CardContent className="px-6 py-[22px]">
+							<p className="m-0 mb-2 font-mono text-[11.5px] font-medium uppercase tracking-[0.14em] text-primary">
+								{l.step}
+							</p>
+							<h3 className="mb-2 font-[family-name:var(--font-body)] text-[18px] font-semibold leading-[1.3] tracking-[-0.01em] text-[var(--text-heading)]">
+								{l.title}
+							</h3>
+							<p className="m-0 text-[15px] leading-[1.55] text-foreground">{l.body}</p>
+						</CardContent>
+					</Card>
+				</li>
+			))}
+		</ol>
+	);
+}
+
 // ── The Studio section ──────────────────────────────────────────────────────
-// The page's "what is behind the browser door" answer, at position 3 — AFTER
-// "How it works", so the visitor reads the text-file → named-layout → one-command
-// model BEFORE they learn there is an app. That order is deliberate: at position
-// 2 the page would read "web app that also has a CLI"; at 3 it reads "engine,
-// and here is the room it lives in."
+// The page's "what is behind the browser door" answer, directly after "Say more
+// with less" (owner's next-round brief, item 1). It used to sit well below the
+// rooms, AFTER a separate "How it works" band, so the visitor read the text-file
+// model before learning there is an app. The owner reversed that: most of the
+// people who own how a company presents will write in the Studio, so it is the
+// second thing they see, and the three how-it-works steps now live inside it,
+// each naming both doors (Compose or Markdown; the Studio or one command).
 //
 // It ABSORBS the former ByomSection. Every asset of that section survives
 // verbatim — the `Bring your own model` eyebrow (red-teamed in the copy doc
-// §5.5 precisely to disclaim at skim altitude), the `Point your copilot at
+// §5.5 precisely to disclaim at skim altitude), the `Let your AI assistant draft` (formerly `Point your copilot at
 // Lattice.` heading words, the whole body paragraph, and the `How AI authoring
 // works →` link and its #ai-authoring target. It loses only its h2 altitude and
 // its own band. The page therefore carries ONE AI conversation instead of two in
@@ -624,7 +689,7 @@ const STUDIO_ROWS: { label: string; body: React.ReactNode }[] = [
 	// and a fourth row costs phones a screen.
 	{
 		label: 'Edit',
-		body: 'Write in Compose, a plain writing page with no Markdown at all, or in Source, the Markdown itself, beside a live preview of the finished slide. Share a link and up to four people edit with you live, with a voice call if you want one.',
+		body: 'Write in Compose, which works like a document, or in Source, the same deck as Markdown, beside a live preview of the finished slide. Share a link and up to four people edit with you live, with a voice call if you want one.',
 	},
 	{
 		label: 'Review',
@@ -688,13 +753,12 @@ export function StudioCopy() {
 					    components and finishes — decks live in the workspace, so the old
 					    wording named a real surface that holds something else. */}
 					<p className="m-0 mb-6 max-w-[46ch] text-[17px] leading-[1.6] text-foreground">
-						The same engine that renders your PDFs, running in a browser tab — with an editor, your saved decks, and
-						Present mode around it. Your decks live in this browser: no account, nothing to install.
+						Write, check and present your deck in a browser tab, with the same engine that makes the PDF. Your decks are
+						saved in this browser, and you can export a copy any time: no account, nothing to install.
 					</p>
 
-					{/* Three beats, echoing the "How it works" band two sections up so the
-					    page reads as one voice. Three rather than four: mobile pays for
-					    every row, and this section already costs it the most. */}
+					{/* Three beats, in the same voice as the how-it-works steps above them.
+					    Three rather than four: mobile pays for every row. */}
 					<dl className="m-0 flex flex-col gap-3">
 						{STUDIO_ROWS.map((r) => (
 							<div key={r.label} className="flex flex-col gap-0.5 sm:flex-row sm:gap-2.5">
@@ -734,7 +798,7 @@ export function StudioActions({ studioHref, newDeckHref }: { studioHref: string;
 	);
 }
 
-// The section's trust footer, spanning the full panel under the columns.
+// The section's trust footer, under the how-it-works steps (which carry the rule above both).
 //
 // It deliberately carries NO eyebrow and does not name the nav's `Preview`
 // badge. An earlier draft opened with "Why the nav says Preview" and "The Studio
@@ -746,7 +810,7 @@ export function StudioActions({ studioHref, newDeckHref }: { studioHref: string;
 // trust work with none of the doubt, and stays true whatever the nav says.
 export function StudioTrust() {
 	return (
-		<div className="lx-ui mt-8 max-w-[62ch] border-t border-border pt-8">
+		<div className="lx-ui mt-6 max-w-[62ch]">
 			{/* "One click saves a copy" — the whole-workspace backup genuinely is one
 			    click; an export is two (open Share, pick a format), so the earlier
 			    "everything you write exports … in one click" overstated it. */}
@@ -768,14 +832,16 @@ export function StudioTrust() {
 // engine is agent-addressable" and started reading as "our web app has AI chat"
 // — the exact adjacency §3 exists to prevent.
 //
-// Every string is the original, verbatim, at its original altitude. It sits
+// Its heading changed in the 2026-11-28 prose round (owner's pick: "Let your AI assistant draft.
+// Lattice still designs.", stating the split in the heading); the eyebrow is unchanged. It sits
 // immediately AFTER the Studio section so the page still holds one AI
 // conversation rather than two in two registers.
 export function ByomSection({
 	featuresHref,
 	url,
 	layoutCount,
-}: { featuresHref: string; url: (p: string) => string; layoutCount: number }) {
+	outputExceptionVersion,
+}: { featuresHref: string; url: (p: string) => string; layoutCount: number; outputExceptionVersion: string }) {
 	return (
 		<div className="grid grid-cols-1 items-start gap-x-[clamp(24px,3vw,44px)] gap-y-10 lg:grid-cols-[1.15fr_1fr]">
 			<div className="min-w-0 max-w-[62ch]">
@@ -783,12 +849,12 @@ export function ByomSection({
 					<Eyebrow>Bring your own model</Eyebrow>
 				</div>
 				<h2 className="mb-3.5 font-[family-name:var(--font-display)] text-[clamp(28px,3.4vw,42px)] leading-[1.08] tracking-[-0.02em] text-[var(--text-heading)]">
-					Point your copilot at Lattice.
+					Let your AI assistant draft. Lattice still designs.
 				</h2>
 				<p className="m-0 mb-5 text-[17px] leading-[1.6] text-foreground">
-					Lattice itself never guesses, but a model can still draft the words. Lattice ships a machine-readable layout
-					catalog and a published authoring spec, so Claude, Cursor, or any agent can draft a valid deck, and the
-					engine renders only what is in the file — the design was finished long before the model arrived.
+					Lattice itself never guesses, but an AI assistant can still draft the words. Lattice publishes its layouts and
+					its writing rules in a form assistants can read, so Claude, Cursor, or any other can draft a valid deck, and
+					Lattice renders only what is in the file: the design was finished long before the assistant arrived.
 				</p>
 				{/* The one new sentence. "The split holds", not "the same rule holds" —
 				    the paragraph above describes a split (the model drafts, the engine
@@ -820,13 +886,13 @@ export function ByomSection({
 					</a>
 				</div>
 			</div>
-			<BuildersPanel url={url} layoutCount={layoutCount} />
+			<BuildersPanel url={url} layoutCount={layoutCount} outputExceptionVersion={outputExceptionVersion} />
 		</div>
 	);
 }
 
 // ── For builders ────────────────────────────────────────────────────────────
-// The technical visitor's band, beside "Point your copilot at Lattice" — the other
+// The technical visitor's band, beside the AI section ("Let your AI assistant draft.") — the other
 // half of the same audience. When the Libraries and Specs sections left the home
 // scroll, a single sentence under Next steps replaced them, and both scoring
 // reviews (2026-10-28) marked the developer visitor down for it: a technical
@@ -834,7 +900,11 @@ export function ByomSection({
 // reasons to trust the engine. Three proof points, each with its link, and the
 // AGPL line in plain words, because a procurement reader stops at the license
 // name. The library count comes from nav.mjs, so it updates itself.
-function BuildersPanel({ url, layoutCount }: { url: (p: string) => string; layoutCount: number }) {
+function BuildersPanel({
+	url,
+	layoutCount,
+	outputExceptionVersion,
+}: { url: (p: string) => string; layoutCount: number; outputExceptionVersion: string }) {
 	const points: { lead: string; body: React.ReactNode }[] = [
 		{
 			lead: 'Open formats.',
@@ -856,7 +926,7 @@ function BuildersPanel({ url, layoutCount }: { url: (p: string) => string; layou
 					<a className="font-semibold text-primary hover:underline" href={url('libraries/')}>
 						{librariesNav(url).length} framework-free libraries
 					</a>
-					, each usable without Lattice.
+					, each usable without Lattice under the same AGPL-3.0-only license.
 				</>
 			),
 		},
@@ -864,8 +934,8 @@ function BuildersPanel({ url, layoutCount }: { url: (p: string) => string; layou
 			lead: 'Coming from Marp or Slidev?',
 			body: (
 				<>
-					You keep writing Markdown, and gain {layoutCount} named layouts, a linter that knows them, and an engine that
-					renders the same way on every machine.{' '}
+					You keep writing Markdown, and gain {layoutCount} named layouts, a linter that knows them, and design rules the
+					engine applies the same way every time: the same file and palette give the same design.{' '}
 					<a className="font-semibold text-primary hover:underline" href={url('comparison/#vs-marp')}>
 						The honest comparison
 					</a>
@@ -900,7 +970,18 @@ function BuildersPanel({ url, layoutCount }: { url: (p: string) => string; layou
 				))}
 			</dl>
 			<p className="m-0 mt-5 border-t border-border pt-4 text-[13.5px] leading-[1.55] text-muted-foreground">
-				Open source under AGPL-3.0, with an exception that leaves every deck you make free of any license.
+				The engine is open source under{' '}
+				<a className="font-semibold text-primary hover:underline" href="https://github.com/Laticent/lattice/blob/main/LICENSE">
+					AGPL-3.0-only
+				</a>
+				, and the specs are CC-BY-4.0. The{' '}
+				<a
+					className="font-semibold text-primary hover:underline"
+					href="https://github.com/Laticent/lattice/blob/main/LICENSE-EXCEPTIONS"
+				>
+					Lattice Output Exception {outputExceptionVersion}
+				</a>{' '}
+				lets you share the decks you render on terms of your choice.
 			</p>
 		</div>
 	);
@@ -996,7 +1077,7 @@ export function nextStepsFor(url: (p: string) => string): NextStep[] {
 		{
 			href: url('getting-started/'),
 			title: 'For developers',
-			body: 'Install the command line, render your first deck in a few minutes, and build decks in CI.',
+			body: 'Install the command line, render your first deck in minutes, and build decks in CI.',
 			cta: 'Getting started',
 		},
 		{
@@ -1008,7 +1089,7 @@ export function nextStepsFor(url: (p: string) => string): NextStep[] {
 		{
 			href: url('components/'),
 			title: 'Browse the layouts',
-			body: 'Every layout (the reference calls them components) with a live preview and an in-browser editor — themable in all palettes.',
+			body: 'Every layout, with a live preview you can edit, in every palette.',
 			cta: 'Layout reference',
 		},
 	];

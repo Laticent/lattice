@@ -428,3 +428,71 @@ names Compose and live editing, in the Studio section's Edit row rather than a f
 which would cost phones a screen. Both claims rest on real-surface runs from this PR: a
 two-browser live session over the public relays (four-person cap visible in the roster)
 and the Compose specs. The two-lens rescore was not rerun for this one-row change.
+
+## 17. Next round (2026-11-28): the Studio up, a venue demo, quality in three layers
+
+An outside proposal ("Lattice Homepage Strategy and Wireframes") was reviewed by an expert, a
+red-team, an inversion and a fact-checker. The verdict kept this page's structure, the §10
+protect list and the six audience rooms, and took a few ideas. The owner settled the rest in
+the brief that started the round. What shipped, as a delta on the page:
+
+- **The Studio moved up**, directly after "Say more with less", and the "How it works" band
+  folded into its panel, so the section count stayed at nine. The hero lead names Compose as a
+  way to write ("in the Studio as you would a document, with no Markdown at all"), placed
+  FIRST so it never reads as the fallback. The H1 and the eyebrow are unchanged.
+- **The slide-jobs picker** (`SlideJobs.tsx`) groups the vocabulary by what a slide does
+  (compare, explain, quantify, sequence, teach, decide): one live engine render at a time,
+  each a layout not already on the page, each introduced by a line saying what to look at.
+- **Quality in three layers** (`QualityLayers`): the type scale and theme PREVENT drift, the
+  linter DETECTS broken rules, the Studio's Deck read ASSESSES (Craft: Structure, Writing craft,
+  Contract, scored from lint findings; Style: Brevity, Framing, Data, Pacing, against the deck's
+  profile). Names and counts come from the engine at build time (`engine-facts.ts`).
+- **The venue demo** (`VenueDemo.tsx`) is the detecting layer at work: one five-number `stats`
+  slide at `venue: laptop | huddle | conference | hall`, named as viewing conditions. It fits
+  the first two; at the other two the engine clips it and rings it, and `lint:deck` warns
+  (`capacity-scale`, printed verbatim). The fix shown is the author's: two slides, lint-clean at
+  every venue. `engine-facts.test.ts` pins which venues warn, so a change to the `stats` venue
+  budgets fails a test. The brief named `capacity-overflow`; on a 16:9 deck that rule fires on a
+  count past `hard` at any venue, and the rule that fires when a VENUE makes a slide too full is
+  `capacity-scale`, so the page shows that one.
+- **The AI proof strip** keeps its protected headline and replaces the third-party "20% of its
+  claims right" figure with the deterministic-rendering argument, bounded: the same text and
+  palette give the same design, and no model picks the layout. Nothing about facts, reasoning,
+  or identical pixels across machines. The builders panel's "renders the same way on every
+  machine" got the same bound. The `/comparison` page keeps the sourced study.
+- **Licenses by name** in the builders panel: AGPL-3.0-only, CC-BY-4.0 for the specs, and the
+  Lattice Output Exception, whose version is read from `LICENSE-EXCEPTIONS` (1.2 since #3598;
+  the brief said 1.1).
+
+**Cost, measured** (dev server, 1440/820/390, light and dark, `.scratch/home-shots/{before,after}`):
+the phone page grew from 9,974 to 13,000 px (the quality section is most of it); the hero's live
+slide still paints in about 1.3 s; the hero's "Open the Studio" button moved from 524 to 579 px
+(the longer lead), and the Studio section's headline from 5,942 to 2,658 px, two and a half phone
+screens sooner. The two new demos load their bodies with `import()` once they near the viewport
+(`LiveDemos.tsx`, `client:only`): server-rendered, their tab markup put the home route 27.8 KB past
+its `htmlRaw` ceiling. Even lazy, the page adds 1,298 B of eager JS (the 1.1 KB shell, plus Radix
+tabs split out of the hero into a shared chunk), past the `eagerJsGz` ceiling main sat 273 B under; raising a ceiling is the owner's call, put to them on
+the PR. Real-user proof (§16) is still the open gap, and the PR proposes a small before/after
+visitor test instead of a rescore number.
+
+**Owner's picks (2026-11-28, in PR 3618's session).**
+- **D1 A:** raise the home eagerJsGz ceiling about 1.5 KB, in its own PR. #3629 sets it by hand, 331,264 → 332,800, and #3618 declares its +1,372 B (CI's measurement) in `docs/route-budget.d/home-live-demos.md`.
+- **Copy 1 yes:** the hero's "the same way every time" now carries the same bound as the proof strip: the same text and palette give the same design.
+- **Copy 2 yes:** "Compose should be the focus, we mention markdown as source". The meta description and the how-it-works Write step lead with Compose and name Markdown as Source.
+- **Copy 3 keep:** the Studio H2 "The same deck, without installing anything." is unchanged.
+
+**After #3629 and #3621 landed (2026-11-28).** Main alone measured home htmlRaw 126,880 B, and with #3618 merged in the page was 2.5 KB past its 130.9 KB ceiling. Astro ships `<!-- -->` comments in the HTML (9.2 KB of them on home), so the comments in the sections this round owns (say-more, Studio, quality, AI) became `{/* */}`, which Astro strips. Home then measured htmlRaw 129.8 KB and eagerJsGz 324.7 KB, both under their ceilings, with about 1.1 KB and 0.3 KB of room.
+
+**Prose round (2026-11-28, owner: "review all the prose", mostly for non-technical readers).** Three independent reviews ran: a conversion copywriter, a B2B marketing and sales lead, and a cold read as a non-technical COO. The owner's picks:
+- Hero lead A: "Write each slide in Compose, as you would a document, or in Source as Markdown. Pick the layout that fits, and Lattice designs every page…"
+- The second hero button becomes "For developers: the command line".
+- The brand body is rewritten without `logo:`/`theme:` (its chip now reads "Deck settings").
+- The AI heading becomes "Let your AI assistant draft. Lattice still designs."
+
+Consensus fixes applied:
+- The `<title>` no longer leads with Markdown.
+- The Studio lead and Edit row drop "with no Markdown at all".
+- Plain names replace code slugs in the how-it-works step and the slide-jobs captions.
+- The venue demo's labels read "Before · one slide" / "After · two slides" and "Lattice's checks: no warnings". The engine's warning text stays verbatim.
+- Jargon is cut from the review room, the why cards and the next-step cards.
+- The hero small print says the decks you make are yours to share on any terms.

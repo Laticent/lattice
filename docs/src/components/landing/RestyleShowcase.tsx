@@ -172,7 +172,7 @@ export default function RestyleShowcase({ data }: { data: RestyleData }) {
 			    so the chip never changes width as the cycle advances. */}
 			<div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
 				<span className="font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-					Front matter
+					Deck settings
 				</span>
 				<code
 					className="min-w-[calc(25ch+18px)] rounded-md border border-border bg-card px-2 py-1 font-mono text-[13px] text-foreground"
