@@ -19,7 +19,6 @@ const ROOT = path.join(__dirname, '../../..');
 const legacy = require('../../../tools/segno-legacy/author-css.js');
 const { rootTokenCopy, packAuthorCss } = require('../../../lib/export/author-css.js');
 const { readGlobalStyle } = require('../../../lib/export/export-scaffold');
-const { cssTokens } = require('../../../lib/core/css-tokens.js');
 const { prng } = require('../../fixtures/web-ref-fuzz.js');
 
 const same = (css) => rootTokenCopy(css) === legacy.tokenCopy(css);
