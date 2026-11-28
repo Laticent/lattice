@@ -111,7 +111,7 @@ function retiredComment(comment) {
   if (!retiredCache.has(comment)) {
     const deck = `---\ntheme: indaco\n---\n\n${comment}\n\n## A title that makes a claim.\n`;
     const f = lintCore.lintTextWith(deck, LINT_VOCAB).find((x) => x.rule === 'legacy-directive-comment');
-    const body = comment.replace(/^<!--\s*|\s*-->$/g, '');
+    const body = commentBody(comment);
     retiredCache.set(comment, f ? f.classToken || body.split(/[\s:]/)[0] : null);
   }
   return retiredCache.get(comment);
@@ -119,15 +119,41 @@ function retiredComment(comment) {
 const esc = (k) => k.replace(/[.*+?^${}()|[\]\\-]/g, '\\$&');
 const ALT = RETIRED.map(esc).join('|');
 const FM_LINE = new RegExp(`^[ \\t]*(${ALT})[ \\t]*:`);
-// A comment on its own line: something an author copies, wherever it sits.
-const OWN_COMMENT = /^[ \t]*(<!--.*?-->)[ \t]*$/;
+// Comments are found with string scanning, not a regex, and an end is `-->` or `--!>` (HTML's two closers). This reads
+// docs for the guard; it filters nothing that reaches a page.
+const COMMENT_ENDS = ['-->', '--!>'];
+/** The text between `<!--` and its end, trimmed. */
+function commentBody(comment) {
+  let body = comment.slice(comment.indexOf('<!--') + 4);
+  for (const end of COMMENT_ENDS) if (body.endsWith(end)) body = body.slice(0, -end.length);
+  return body.trim();
+}
+/** Each comment in `text` as `<!-- body -->`; one left open runs to the end of `text`. */
+function commentsIn(text) {
+  const out = [];
+  let at = text.indexOf('<!--');
+  while (at !== -1) {
+    const ends = COMMENT_ENDS.map((e) => [text.indexOf(e, at + 4), e]).filter(([i]) => i !== -1).sort((a, b) => a[0] - b[0]);
+    const stop = ends.length ? ends[0][0] + ends[0][1].length : text.length;
+    out.push(`<!-- ${commentBody(text.slice(at, stop))} -->`);
+    at = text.indexOf('<!--', stop);
+  }
+  return out;
+}
+/** The comment a line holds when the line is nothing but one comment, or null. A comment on its own line is something an author copies, wherever it sits. */
+function ownLineComment(line) {
+  const t = line.trim();
+  if (!t.startsWith('<!--') || !COMMENT_ENDS.some((e) => t.endsWith(e))) return null;
+  const found = commentsIn(t);
+  return found.length === 1 ? found[0] : null;
+}
 const INLINE = new RegExp(`\`(${ALT})[ \\t]*:`, 'g');
 const CODE_SPAN = /`([^`\n]+)`/g;
 /** The retired comment spellings a code span shows: a comment (`<!-- _class: kpi -->`, `# T <!-- footer: x`) or a key (`_class:`). */
 function retiredInSpan(span) {
   const out = [];
-  for (const m of span.matchAll(/<!--.*?(?:-->|$)/g)) {
-    const key = retiredComment(m[0].endsWith('-->') ? m[0] : `${m[0]} -->`);
+  for (const comment of commentsIn(span)) {
+    const key = retiredComment(comment);
     if (key) out.push(key);
   }
   const k = /^(_[\w-]+)[ \t]*:/.exec(span.trim());
@@ -187,8 +213,8 @@ function retiredKeys(text) {
     }
     // A retired comment on its own line is copyable wherever it sits: any fence, any indent, or raw in the source an
     // agent reads.
-    const c = OWN_COMMENT.exec(line);
-    const ck = c && retiredComment(c[1]);
+    const c = ownLineComment(line);
+    const ck = c && retiredComment(c);
     if (ck) out.push({ line: i + 1, key: ck, shape: 'front-matter' });
     if (!cued.has(unit[i])) {
       for (const m of line.matchAll(INLINE)) out.push({ line: i + 1, key: m[1], shape: 'inline' });
@@ -302,6 +328,8 @@ test('a mention its paragraph marks as history passes; a front-matter block neve
     assert.equal(retiredKeys(deck).filter((h) => h.key === '_class').length, 1, deck);
   }
   assert.equal(retiredKeys('Write `# Revenue <!-- _class: kpi -->` on the slide.\n').length, 1);
+  // A comment closed with `--!>`, HTML's other comment end, is still a comment.
+  assert.equal(retiredKeys('```markdown\n<!-- _class: kpi --!>\n```\n').length, 1);
   // "not read" is a cue only after a code span in the same sentence.
   assert.equal(retiredKeys('Add `<!-- _class: kpi -->`. Notes are not read by the engine.\n').length, 1);
   // A common word is not a cue: "before" here is an instruction, not history.
