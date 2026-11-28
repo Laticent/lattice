@@ -26,8 +26,15 @@
 // The verdict passes when the engine loaded by the path the card advises. Which path it took is the finding.
 
 import dns from 'node:dns/promises';
+import fs from 'node:fs';
 import http from 'node:http';
 import net from 'node:net';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { LONG_PRESS_MS, tapClicked, tapHold } from './tap-guard.mjs';
+
+// The shared page helpers (show-editor.js): the trace's boot line is its `latticeBootReport`, as studio-probe.js's is.
+const SHOW_EDITOR = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), 'show-editor.js'), 'utf8');
 
 /** True for a request the proxy treats as an engine sub-file (the entry, `engine.js`, is never failed). */
 export function isEngineSubFile(url) {
@@ -49,6 +56,33 @@ export function engineRetryVerdict(r) {
 	if (r.afterReload === 'loaded') return { ok: true, path: 'Reload' };
 	if (r.newTab === 'loaded') return { ok: true, path: 'new tab' };
 	return { ok: false, path: 'none', error: `the engine loaded neither after Reload (${r.afterReload ?? 'not run'}) nor in a new tab (${r.newTab ?? 'not run'})` };
+}
+
+/**
+ * In-page: record the next touch and any click after it, as `window.__engineRetryTap = { events: [{ type, t }] }`, the log
+ * shape tap-guard.mjs reads (`tapHold`, `tapClicked`). Installed just before the card's button is pressed, so a press
+ * that never reloaded the page can say whether a click ever reached it.
+ */
+export const TAP_RECORDER = `(() => {
+	const L = (window.__engineRetryTap = { events: [] });
+	const t0 = performance.now();
+	for (const type of ['touchstart', 'touchend', 'touchcancel', 'click'])
+		window.addEventListener(type, () => L.events.push({ type, t: Math.round(performance.now() - t0) }), { capture: true });
+})()`;
+
+/**
+ * Why a press of the card's button did not reload the page, from the recorder's log: a starved simulator stretches a tap
+ * into a long press, and on iOS a long press on a button sends no click (iPhone, run 46108755390: taps held 1 to 2.3 s in
+ * the same job). The step stays red either way (the owner's rule for these stalls: never loosen a probe); this only says
+ * whether the run could judge Reload at all. Pure, so the unit suite covers it.
+ * @param {{ events?: Array<{ type: string, t: number }> } | null | undefined} log
+ */
+export function reloadTapReading(log) {
+	const hold = tapHold(log);
+	if (hold === null) return 'no touch reached the page, so this run cannot judge Reload';
+	if (tapClicked(log)) return `the tap was held ${hold} ms and a click reached the page, yet it did not reload`;
+	if (hold >= LONG_PRESS_MS) return `the tap was held ${hold} ms and Safari treated it as a long press; no click reached the page, so this run cannot judge Reload`;
+	return `the tap was held ${hold} ms and no click reached the page, so this run cannot judge Reload`;
 }
 
 /**
@@ -213,9 +247,9 @@ export async function runEngineRetryProbe(wd, id, base, mode = 'drop') {
 		// The browser keeps 250 resource entries by default and the Studio fetches more, so a full list drops later fetches:
 		// on a healthy WebKit load it listed 12 chunks as "not fetched" and left out engine.js. A full list says so, and the
 		// "not fetched" field reads unknown rather than naming files that did load.
-		const islands = await wd('POST', `/session/${id}/execute/sync`, { script: `const isl = [...document.querySelectorAll('astro-island')]; const ent = performance.getEntriesByType('resource'); const full = ent.length >= 250; const names = new Set(ent.map((e) => e.name)); const short = (u) => String(u).replace(/^.*\\/_astro\\//, ''); const want = [...document.querySelectorAll('script[src*="/_astro/"], link[rel=modulepreload][href*="/_astro/"]')].map((e) => e.src || e.href); const astro = ent.filter((e) => /\\/_astro\\//.test(e.name)); return 'islands ' + isl.length + ' (unhydrated: ' + (isl.filter((i) => i.hasAttribute('ssr')).map((i) => short(i.getAttribute('component-url') || '?')).join(', ') || 'none') + '); _astro fetched ' + astro.length + (full ? '+ (list full)' : '') + '; named but not fetched: ' + (full ? 'unknown (resource list full at ' + ent.length + ': later fetches are not listed)' : want.filter((u) => !names.has(u)).map(short).slice(0, 12).join(', ') || 'none') + '; over 3 s: ' + (astro.filter((e) => e.duration > 3000).map((e) => short(e.name) + ' ' + Math.round(e.duration) + 'ms').join(', ') || (full ? 'none listed (list full)' : 'none'));`, args: [] }).catch((e) => `islands unreadable: ${String(e).slice(0, 80)}`);
+		const islands = await wd('POST', `/session/${id}/execute/sync`, { script: `${SHOW_EDITOR}\nreturn latticeBootReport();`, args: [] }).catch((e) => `islands unreadable: ${String(e).slice(0, 80)}`);
 		const timing = await wd('POST', `/session/${id}/execute/sync`, { script: `const all = performance.getEntriesByType('resource'); return (all.length >= 250 ? 'resource list FULL at ' + all.length + ' (later fetches, the engine included, are not listed; a missing file proves nothing) || ' : 'resource list ' + all.length + ' || ') + all.filter((e) => /\\/playground\\/v\\/|sw\\.js/.test(e.name)).slice(0, 40).map((e) => e.name.replace(/^.*\\/playground\\/v\\/[^/]+\\//, '…/') + ' ' + Math.round(e.duration) + 'ms ' + (e.responseStatus ?? '?') + ' ' + (e.transferSize ?? '?') + 'B').join(' | ') + ' || sw: ' + (navigator.serviceWorker && navigator.serviceWorker.controller ? 'controlled' : 'none');`, args: [] }).catch((e) => `timing unreadable: ${String(e).slice(0, 80)}`);
-		console.log(`engine retry ${mode}, ${where}: ${what}. Page: ${page}. Boot: ${islands}. Proxy saw: ${proxy.state.seen.join(' | ') || 'nothing'}. Safari timing: ${timing}`);
+		console.log(`engine retry ${mode}, ${where}: ${what}. Page: ${page}. ${islands}. Proxy saw: ${proxy.state.seen.join(' | ') || 'nothing'}. Safari timing: ${timing}`);
 	};
 	const r = { card: false, cut: 0, afterRetry: 'none', afterReload: null, newTab: null };
 	try {
@@ -247,11 +281,13 @@ export async function runEngineRetryProbe(wd, id, base, mode = 'drop') {
 		// The product's own Reload button, not WebDriver's refresh: the button marks the tab first, and the reloaded page
 		// reads that mark to give its last advice. A plain refresh skipped it (run 44972018871).
 		await markDocument();
+		await wd('POST', `/session/${id}/execute/sync`, { script: TAP_RECORDER, args: [] });
 		await pressCardButton();
 		// Only the NEW document counts: the one the press left still shows Reload until the navigation replaces it.
 		const reloaded = await waitFor(`!window.__engineRetryOldDoc && (last === 'loaded' || last === 'card' || last === 'reload' || last === 'closetab')`, 150000);
 		if (reloaded !== 'none' && (await wd('POST', `/session/${id}/execute/sync`, { script: 'return !!window.__engineRetryOldDoc;', args: [] }))) {
-			step('Reload: the button reloaded the page', false, 'the page the press left is still loaded');
+			const tap = await wd('POST', `/session/${id}/execute/sync`, { script: 'return window.__engineRetryTap || null;', args: [] }).catch(() => null);
+			step('Reload: the button reloaded the page', false, `the page the press left is still loaded: ${reloadTapReading(tap)}`);
 		}
 		if (reloaded === 'none') await trace('after Reload', 'neither the card nor the engine came on the reloaded page');
 		r.afterReload = reloaded === 'loaded' ? 'loaded' : reloaded === 'card' || reloaded === 'reload' || reloaded === 'closetab' ? 'failed' : 'none';
