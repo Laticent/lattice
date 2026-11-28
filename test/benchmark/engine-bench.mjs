@@ -752,6 +752,55 @@ async function collageTier() {
   return { summary };
 }
 
+// ── SLIDE FACTS TIER (the code door's HTML reader, on hostile slides) ────────
+//
+// `slideFacts` reads one slide's HTML for a code package, and a hostile slide (a 220 KB run of raw
+// elements, 40,000 closes that match nothing) must not make it rescan. The unit test holds that ON
+// WORK: test/unit/cli/slide-facts.test.js asserts that twice the input costs twice the characters
+// read (HARD RULE #32). This tier is where the SPEED goes (#19): it prints the same cases' median
+// ms beside the work count. REPORTED, never blessed or gated: the unit test already fails a rescan
+// on any machine, and a time here is only the record a later change is compared against.
+const SLIDE_FACTS_CASES = {
+  'a `<` that opens no tag': (n) => `<section><p>${'<"'.repeat(n)}</p></section>`,
+  'raw elements': (n) => `<section>${'<xmp></xmp>'.repeat(n)}</section>`,
+  'closes that match nothing': (n) => `<section>${'<svg>'.repeat(n)}${'</b>'.repeat(n)}</section>`,
+  'an unterminated quote': (n) => `<section><p a="${'<b>'.repeat(n)}</p></section>`,
+  'one tag with many quoted attributes': (n) => `<section><p ${'a="x" '.repeat(n)}>t</p></section>`,
+};
+async function slideFactsTier() {
+  let slideFacts;
+  try {
+    ({ slideFacts } = await import('../../lib/core/slide-facts.mjs'));
+  } catch {
+    slideFacts = null;
+  }
+  if (!slideFacts) {
+    console.log('\n=== SLIDE FACTS · not comparable (no slide-facts reader in this tree) ===');
+    return null;
+  }
+  const { charReads } = requireHere('../helpers/work-count.js');
+  const summary = [];
+  for (const [label, make] of Object.entries(SLIDE_FACTS_CASES)) {
+    const html = make(40000);
+    const { scanned, reads } = charReads(() => slideFacts(html));
+    for (let i = 0; i < 2; i++) slideFacts(html); // warm
+    const ms = [];
+    for (let i = 0; i < 7; i++) {
+      const t0 = process.hrtime.bigint();
+      slideFacts(html);
+      ms.push(Number(process.hrtime.bigint() - t0) / 1e6);
+    }
+    ms.sort((a, b) => a - b);
+    summary.push({ dataset: `slide facts · ${label}`, chars: html.length, work: scanned + reads, ms: ms[ms.length >> 1] });
+  }
+  console.log('\n=== SLIDE FACTS · the code door\'s reader on hostile slides (reported, not gated) ===');
+  console.log(`${'dataset'.padEnd(52)}${'chars'.padStart(9)}${'work'.padStart(10)}${'work/char'.padStart(11)}${'median ms'.padStart(11)}`);
+  for (const r of summary) {
+    console.log(`${r.dataset.padEnd(52)}${String(r.chars).padStart(9)}${String(r.work).padStart(10)}${(r.work / r.chars).toFixed(2).padStart(11)}${r.ms.toFixed(2).padStart(11)}`);
+  }
+  return { summary };
+}
+
 // ── SPLIT TIER (Fluid: the structural split, through Fluido's plan) ──────────
 //
 // `structuralSplit` is the one preprocessor every surface calls, and Fluido's `planSlide` makes its
@@ -2977,6 +3026,8 @@ async function main() {
   const collage = await collageTier();
   // In-process (~3s), and blessed on its work counts: the structural split's cost record (Fluid).
   const split = await splitTier();
+  // In-process (~3s), REPORTED only: the code door's HTML reader on hostile slides (its gate is the unit test's work count).
+  const slideFactsT = await slideFactsTier();
   // In-process (~3s), and blessed on its work counts: the undo history's HARD RULE #19 record.
   const filoT = await filoTier();
   // In-process (~1s), and blessed on its work count: the slide-metadata memo's HARD RULE #19 record.
@@ -3108,7 +3159,7 @@ async function main() {
   // result, leaving the memo's regression guard reachable only when a human typed
   // `npm run bench:check`. The comparator does not read it yet; shipping the data
   // is the half that belongs to this file.
-  if (asJson) console.log('\n' + JSON.stringify({ render, edit, flowchart: flow, collage, split, squadra, inline, export: exp, print, diagrams, cli }, null, 2));
+  if (asJson) console.log('\n' + JSON.stringify({ render, edit, flowchart: flow, collage, split, slideFacts: slideFactsT, squadra, inline, export: exp, print, diagrams, cli }, null, 2));
   const missing = [
     !wantExport && '--export (rasterize tier, ~2 min)',
     !wantPrint && '--print (print re-place tier, ~11 min)',

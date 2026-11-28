@@ -11,6 +11,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { JSDOM } = require('jsdom');
+const { charReads } = require('../../helpers/work-count.js');
 const { slideFacts, parseTree, decodeEntities, FACTS_VERSION, FACT_DIRECTIVES, MAX_DEPTH } = require('../../../lib/core/slide-facts.mjs');
 const { slideInput } = require('../../../lib/core/code-door-core.mjs');
 const { splitSections } = require('@laticent/markup');
@@ -136,22 +137,27 @@ describe('slide facts', () => {
 });
 
 describe('the reader holds on hostile HTML (the red team and the checker)', () => {
-  const timed = (html) => {
-    const t = performance.now();
-    const f = slideFacts(html);
-    return { f, ms: performance.now() - t };
+  // Work, not time (HARD RULE #32, F1): the characters every string search, regex exec, slice and
+  // Array search reads while the slide is read (test/helpers/work-count.js). A linear reader does
+  // twice the work on twice the input; a scan that restarts from every opener does four times.
+  const worked = (html) => {
+    const { result: f, scanned, reads } = charReads(() => slideFacts(html));
+    return { f, work: scanned + reads };
   };
+  const growth = (make, n) => worked(make(2 * n)).work / worked(make(n)).work;
 
   test('a character whose lowercase is longer (`İ`) does not shift what a raw element hides', () => {
-    const { f } = timed(`<section><p>${'İ'.repeat(40)}<title>t</title>Visible words here</p><textarea>q</textarea><p>After</p></section>`);
+    const { f } = worked(`<section><p>${'İ'.repeat(40)}<title>t</title>Visible words here</p><textarea>q</textarea><p>After</p></section>`);
     assert.deepEqual(f.blocks.map((b) => b.text), [`${'İ'.repeat(40)}tVisible words here`, 'After']);
   });
 
   test('deep nesting neither overflows the stack nor nests the facts past MAX_DEPTH', () => {
     for (const open of ['<div>', '<span>', '<ul><li>', '<blockquote>']) {
-      const { f, ms } = timed(`<section><p>${open.repeat(20000)}deep</p></section>`);
+      const make = (n) => `<section><p>${open.repeat(n)}deep</p></section>`;
+      const { f, work } = worked(make(20000));
       assert.match(f.text, /deep/, open);
-      assert.ok(ms < 2000, `${open}: ${ms} ms`);
+      const g = work / worked(make(10000)).work;
+      assert.ok(g < 2.5, `${open}: twice the nesting costs ${g.toFixed(2)}× the work (linear is 2×)`);
       let depth = 0;
       const walk = (v, d) => {
         depth = Math.max(depth, d);
@@ -162,16 +168,19 @@ describe('the reader holds on hostile HTML (the red team and the checker)', () =
     }
   });
 
-  test('no scan is quadratic: each of these 100+ KB slides reads in well under a second', () => {
+  test('no scan is quadratic: twice the hostile input costs twice the work, not four times', () => {
     const cases = {
-      'a `<` that opens no tag': `<section><p>${'<"'.repeat(60000)}</p></section>`,
-      'raw elements': `<section>${'<xmp></xmp>'.repeat(40000)}</section>`,
-      'closes that match nothing': `<section>${'<svg>'.repeat(40000)}${'</b>'.repeat(40000)}</section>`,
-      'an unterminated quote': `<section><p a="${'<b>'.repeat(40000)}</p></section>`,
+      'a `<` that opens no tag': (n) => `<section><p>${'<"'.repeat(n)}</p></section>`,
+      'raw elements': (n) => `<section>${'<xmp></xmp>'.repeat(n)}</section>`,
+      'closes that match nothing': (n) => `<section>${'<svg>'.repeat(n)}${'</b>'.repeat(n)}</section>`,
+      'an unterminated quote': (n) => `<section><p a="${'<b>'.repeat(n)}</p></section>`,
+      'one tag with many quoted attributes': (n) => `<section><p ${'a="x" '.repeat(n)}>t</p></section>`,
     };
-    for (const [label, html] of Object.entries(cases)) {
-      const { ms } = timed(html);
-      assert.ok(ms < 1000, `${label}: ${Math.round(ms)} ms for ${html.length} characters`);
+    // 20,000 repeats is 40 to 220 KB; the count is the same on any machine, so the size only has to
+    // make a rescan's n² stand far above the linear cost.
+    for (const [label, make] of Object.entries(cases)) {
+      const g = growth(make, 20000);
+      assert.ok(g < 2.5, `${label}: twice the input costs ${g.toFixed(2)}× the work (linear is 2×, a rescan 4×)`);
     }
   });
 });
