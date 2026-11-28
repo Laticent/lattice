@@ -95,7 +95,6 @@ describe('drift: Tab offers every option the CLI accepts', () => {
     // A switch already typed is not offered again (the render command's rule).
     assert.ok(offered(['lint'], '--').has('--fix'));
     assert.ok(!offered(['lint', '--fix'], '--').has('--fix'), 'lint re-offers --fix');
-    assert.ok(!offered(['migrate', 'notes', '--back', 'a.md'], '--').has('--back'), 'migrate re-offers --back');
     assert.deepEqual(missing(new Set([...FMT, '--not-a-fmt-flag']), [['fmt']]), ['--not-a-fmt-flag']);
   });
 
@@ -104,6 +103,7 @@ describe('drift: Tab offers every option the CLI accepts', () => {
     for (const form of ['meta', 'notes']) assert.deepEqual(missing(MIGRATE[form], [['migrate', form]]), [], form);
     // Failing arm: --back is a notes flag only.
     assert.ok(!offered(['migrate', 'meta'], '--').has('--back'), 'meta offers --back');
+    assert.ok(!offered(['migrate', 'notes', '--back', 'a.md'], '--').has('--back'), 'migrate re-offers --back');
   });
 
   test('failing arms: an option Tab does not offer, and a flag parseArgs adds on its own', () => {
