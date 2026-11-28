@@ -23,7 +23,7 @@ A long register can't shrink to fit — so when it holds more than one record, t
 - A dense list overflows? It can't drop a type size — readability is the floor
 - So the engine **leads with an accent cover** — a heading, a semantic intro, a forward arrow
 - Then it flows the layout's **own native cards** — never generic rows
-- A small **progress track** ties the run together — k-of-N, beside the page number
+- A small **rail** ties the run together — k-of-N, beside the page number
 
 ---
 

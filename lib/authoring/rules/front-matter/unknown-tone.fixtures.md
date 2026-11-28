@@ -64,6 +64,27 @@ pptx:
 # A slide
 ```
 
+The old `rail` is a `key-renamed` error at column 0, which reports it there. Indented, where that rule does not look, it
+stays this rule's warning, so it is never quiet.
+
+```md bad nested-rail
+---
+pptx:
+  tone: ⟦rail⟧
+---
+
+# A slide
+```
+
+```md fixed nested-rail
+---
+pptx:
+  tone: stripe
+---
+
+# A slide
+```
+
 The value is read as the register reads it: quotes and a trailing comment are not part of it.
 
 ```md bad quoted
@@ -86,7 +107,7 @@ A known name, in any case, is quiet.
 
 ```md good
 ---
-tone: RAIL
+tone: STRIPE
 ---
 
 # A slide

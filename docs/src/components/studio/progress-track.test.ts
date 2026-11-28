@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
-import { PROGRESS_TRACK_AXES, parseProgressRail, progressTrackOptions, progressTrackValue } from './progress-track';
+import { PROGRESS_TRACK_AXES, parseProgressTrack, progressTrackOptions, progressTrackValue } from './progress-track';
 
 describe('progress-track (the `progress-track:` register)', () => {
 	it('mirrors the engine register: every axis, word and order', async () => {
@@ -10,10 +10,10 @@ describe('progress-track (the `progress-track:` register)', () => {
 	});
 
 	it('reads one word per axis, any order; ignores the unknown and a second word on an axis', () => {
-		expect(parseProgressRail('bar edge')).toEqual({ style: 'bar', placement: 'edge' });
-		expect(parseProgressRail('off, center')).toEqual({ show: 'off', placement: 'center' });
-		expect(parseProgressRail('left dots bar')).toEqual({ style: 'dots' });
-		expect(parseProgressRail('')).toEqual({});
+		expect(parseProgressTrack('bar edge')).toEqual({ style: 'bar', placement: 'edge' });
+		expect(parseProgressTrack('off, center')).toEqual({ show: 'off', placement: 'center' });
+		expect(parseProgressTrack('left dots bar')).toEqual({ style: 'dots' });
+		expect(parseProgressTrack('')).toEqual({});
 	});
 
 	it('writes axis order and drops every default word, so an all-default rail has no line', () => {

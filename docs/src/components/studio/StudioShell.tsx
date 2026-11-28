@@ -151,7 +151,7 @@ import type { Fix } from './photo-verdict';
 import { deleteStudioPlugin, listStudioPlugins, type StudioPluginRecord } from './plugin-library';
 import { PreviewPool } from './preview-pool';
 import { PREVIEW_CHROME, PREVIEW_RECT_KEY, STUDIO_SPLIT_KEY, STUDIO_SPLIT_PANEL_IDS } from './preview-rect';
-import { type ProgressTrackAxis, parseProgressRail, progressTrackLabel, progressTrackOptions, progressTrackValue } from './progress-track';
+import { type ProgressTrackAxis, parseProgressTrack, progressTrackLabel, progressTrackOptions, progressTrackValue } from './progress-track';
 import { ReshapePicker } from './ReshapePicker';
 import { activeRule, RULES } from './rule-catalog';
 import { type ComponentEntry, SlidePicker } from './SlidePicker';
@@ -2746,11 +2746,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// placement, style and show. `off` stamps the register's own `progress-track-off`; a deck that still
 	// says `class: no-progress` (how this toggle used to write it) reads as OFF too, and
 	// the toggle clears that old spelling whichever way it is flipped.
-	const railWords = parseProgressRail(getFrontMatter(source, 'progress-track') || '');
+	const railWords = parseProgressTrack(getFrontMatter(source, 'progress-track') || '');
 	const deckRail = railWords.show !== 'off' && !(getFrontMatter(source, 'class') || '').split(/\s+/).includes('no-progress');
 	// Read the CURRENT source inside the write, not the render's copy: two quick picks must both land.
 	const writeRail = (s: string, patch: Partial<Record<ProgressTrackAxis, string | undefined>>) => {
-		const next = { ...parseProgressRail(getFrontMatter(s, 'progress-track') || ''), ...patch };
+		const next = { ...parseProgressTrack(getFrontMatter(s, 'progress-track') || ''), ...patch };
 		return writeFrontMatterLine(s, 'progress-track', progressTrackValue(next) || null);
 	};
 	const setRailWord = (axis: ProgressTrackAxis, v: string) =>

@@ -28,6 +28,13 @@ test('tone: rail is reported once, as a rename, and fixed to stripe; other tone 
   assert.deepEqual(rules(deck('tone: stripe')), []);
 });
 
+test('an indented tone: rail, which key-renamed does not read, still gets unknown-tone, with the fix to stripe', () => {
+  const found = rules(deck('pptx:\n  tone: rail'));
+  assert.deepEqual(found.map((f) => f.rule), ['unknown-tone']);
+  assert.match(found[0].message, /default `stripe` shape/);
+  assert.equal(applyAllFixes(deck('pptx:\n  tone: rail'), vocab), deck('pptx:\n  tone: stripe'));
+});
+
 test('the engine reads progress-track: and tone: stripe, and the old classes are errors with a fix', () => {
   const html = render(deck('progress-track: edge\ntone: stripe', '<!-- @meta{class=tone-pass} -->\n\n## B.\n\nText.\n')).html;
   assert.match(html, /\bprogress-track-edge\b/);

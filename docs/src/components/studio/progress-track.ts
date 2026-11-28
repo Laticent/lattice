@@ -22,7 +22,7 @@ export const PROGRESS_TRACK_AXIS_ORDER: readonly ProgressTrackAxis[] = AXES.map(
 export const progressTrackWords = (axis: ProgressTrackAxis): string[] => [...(AXES.find((a) => a.axis === axis)?.names ?? [])];
 
 /** The deck's current words, by axis: the first recognized word on each axis, as the kernel reads it. */
-export const parseProgressRail = (value: string): ProgressTrackWords => parseAxisLine(AXES, value);
+export const parseProgressTrack = (value: string): ProgressTrackWords => parseAxisLine(AXES, value);
 
 /** Words → the line's value: axis order, every DEFAULT word dropped, `''` when nothing is left (the
  *  caller then drops the key). `on` is a default too — the rail shows unless a deck says `off`. */
