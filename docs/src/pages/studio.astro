@@ -615,7 +615,10 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 						if (cIdx && cIdx.length) { for (var ci = 0; ci < cIdx.length; ci++) cIds.push(cIdx[ci] && cIdx[ci].id); }
 						else cIds = Object.keys(DECK_CAPTIONS);
 						var boot = cDid ? (cIds.indexOf(cDid) !== -1 ? cDid : '') : cIds[0];
-						if (boot && typeof DECK_CAPTIONS[boot] === 'string' && !localStorage.getItem('lattice-studio-src-' + boot)) r.setAttribute('data-ssr-caption', DECK_CAPTIONS[boot]);
+						// An edited deck has its text in its own key, or (vault slice 3) in the storage vault, which the index marks.
+						var cVault = false;
+						if (cIdx && cIdx.length) { for (var cv = 0; cv < cIdx.length; cv++) if (cIdx[cv] && cIdx[cv].id === boot && cIdx[cv].vault) cVault = true; }
+						if (boot && typeof DECK_CAPTIONS[boot] === 'string' && !cVault && !localStorage.getItem('lattice-studio-src-' + boot)) r.setAttribute('data-ssr-caption', DECK_CAPTIONS[boot]);
 						else r.setAttribute('data-ssr-caption-unknown', '');
 					} catch (e6) { r.setAttribute('data-ssr-caption-unknown', ''); }
 					// NEWCOMER BAKE: see STUDIO_BAKE in the frontmatter.
@@ -660,6 +663,8 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 						}
 						if (did) {
 							var edited = localStorage.getItem('lattice-studio-src-' + did);
+							// A deck in the storage vault (vault slice 3): its text is in the boot cache, studio-store BOOT_SRC_LS.
+							if (!edited) { try { var bsc = JSON.parse(localStorage.getItem('lattice-studio-boot-src') || 'null'); if (bsc && bsc.id === did && typeof bsc.text === 'string') edited = JSON.stringify(bsc.text); } catch (e9) { edited = null; } }
 							var sz = '';
 							if (edited) {
 								// studio-store persists edited source via write() = JSON.stringify(source), so the raw value

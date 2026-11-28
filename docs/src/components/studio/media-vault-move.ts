@@ -42,7 +42,7 @@ export const MAX_DEAD_ATTEMPTS = 3;
 const ATTEMPT_KEY = 'lattice-media-move-attempt';
 /** Set once this device has written the move's backup, so deleting the backup never makes a later run (a photo
  *  that keeps failing to move, say) pack the whole workspace again on every start. */
-const BACKED_UP_KEY = 'lattice-media-move-backed-up';
+export const BACKED_UP_KEY = 'lattice-media-move-backed-up';
 const ls = {
 	get: (k: string) => {
 		try {
@@ -61,9 +61,30 @@ const ls = {
 	},
 };
 const deadAttempts = () => Number(ls.get(ATTEMPT_KEY)) || 0;
-const attemptDied = () => deadAttempts() >= MAX_DEAD_ATTEMPTS;
+/** Set once this device's count has been cleared for the closed-page rule (vault slice 3). Before it, a reload during
+ *  the move counted as a death, so three short visits could end the move for good; such a device gets one fresh set
+ *  of attempts, once. A move that really crashes still stops after `MAX_DEAD_ATTEMPTS` more. */
+export const ATTEMPT_RESET_KEY = 'lattice-media-move-attempt-reset';
+const attemptDied = () => {
+	if (ls.get(ATTEMPT_RESET_KEY) !== '1') {
+		ls.set(ATTEMPT_KEY, null);
+		ls.set(ATTEMPT_RESET_KEY, '1');
+	}
+	return deadAttempts() >= MAX_DEAD_ATTEMPTS;
+};
 function markAttempt(on: boolean): void {
 	ls.set(ATTEMPT_KEY, on ? String(deadAttempts() + 1) : null);
+}
+
+/** While a move runs, a page that closes (a reload, a closed tab) did not die: put the attempt count back to `before`,
+ *  so a few short visits never switch a move off for good. A crash or an out-of-memory kill fires no `pagehide`, so
+ *  it still counts toward `MAX_DEAD_ATTEMPTS`. Returns the call that stops listening, for when the attempt ends. */
+export function forgiveAttemptOnLeave(key: string, before: number): () => void {
+	const g = globalThis as { addEventListener?: (t: string, f: () => void) => void; removeEventListener?: (t: string, f: () => void) => void };
+	if (typeof g.addEventListener !== 'function') return () => {};
+	const handBack = () => ls.set(key, before ? String(before) : null);
+	g.addEventListener('pagehide', handBack);
+	return () => g.removeEventListener?.('pagehide', handBack);
 }
 
 export type MoveReport = {
@@ -132,40 +153,45 @@ export function moveMediaIntoVault(deps: MoveDeps = {}): Promise<MoveReport> {
 			if (attemptDied()) return { ...report, stopped: 'gave-up' };
 			const total = pending.reduce((n, r) => n + (Number(r.bytes) || 0), 0);
 			if (total > MAX_MOVE_BYTES) return { ...report, stopped: 'too-large' };
+			const stopForgiving = forgiveAttemptOnLeave(ATTEMPT_KEY, deadAttempts());
 			markAttempt(true);
-			const have = await vault.list('.lattice/backups').catch(() => []);
-			if (!have.some((e) => e.path === BACKUP_PATH) && ls.get(BACKED_UP_KEY) !== '1') {
-				try {
-					const pack = deps.pack ?? (async (now: number) => (await import('./workspace-backup')).packWorkspace(now));
-					await vault.write(BACKUP_PATH, await pack(deps.now ?? Date.now()));
-					report.backedUp = true;
-					ls.set(BACKED_UP_KEY, '1');
-				} catch {
-					markAttempt(false);
-					return { ...report, stopped: 'backup-failed' };
+			try {
+				const have = await vault.list('.lattice/backups').catch(() => []);
+				if (!have.some((e) => e.path === BACKUP_PATH) && ls.get(BACKED_UP_KEY) !== '1') {
+					try {
+						const pack = deps.pack ?? (async (now: number) => (await import('./workspace-backup')).packWorkspace(now));
+						await vault.write(BACKUP_PATH, await pack(deps.now ?? Date.now()));
+						report.backedUp = true;
+						ls.set(BACKED_UP_KEY, '1');
+					} catch {
+						markAttempt(false);
+						return { ...report, stopped: 'backup-failed' };
+					}
 				}
-			}
-			for (const row of pending) {
-				const path = mediaPath(row.id, row.kind, row.mime);
-				try {
-					const bytes = new Uint8Array(row.blob instanceof Blob ? await row.blob.arrayBuffer() : (row.data as ArrayBuffer));
-					const want = await sha256(bytes);
-					const entry = await vault.write(path, new Blob([bytes]));
-					// Read the file BACK and hash what is stored. The entry's own sha256 is computed from the input
-					// before it is stored (core.ts), so comparing against it proves nothing (the red team's finding).
-					const stored = new Uint8Array(await (await vault.read(path)).arrayBuffer());
-					if (stored.byteLength !== bytes.byteLength || (await sha256(stored)) !== want) throw new Error('the vault stored different bytes');
-					const outcome = await swap(row, path, entry.id);
-					if (outcome === 'swapped') report.moved++;
-					else if (outcome === 'changed') await vault.remove(path).catch(() => {});
-				} catch {
-					// The row keeps its own bytes and still reads; the next start tries again.
-					report.failed++;
-					await vault.remove(path).catch(() => {});
+				for (const row of pending) {
+					const path = mediaPath(row.id, row.kind, row.mime);
+					try {
+						const bytes = new Uint8Array(row.blob instanceof Blob ? await row.blob.arrayBuffer() : (row.data as ArrayBuffer));
+						const want = await sha256(bytes);
+						const entry = await vault.write(path, new Blob([bytes]));
+						// Read the file BACK and hash what is stored. The entry's own sha256 is computed from the input
+						// before it is stored (core.ts), so comparing against it proves nothing (the red team's finding).
+						const stored = new Uint8Array(await (await vault.read(path)).arrayBuffer());
+						if (stored.byteLength !== bytes.byteLength || (await sha256(stored)) !== want) throw new Error('the vault stored different bytes');
+						const outcome = await swap(row, path, entry.id);
+						if (outcome === 'swapped') report.moved++;
+						else if (outcome === 'changed') await vault.remove(path).catch(() => {});
+					} catch {
+						// The row keeps its own bytes and still reads; the next start tries again.
+						report.failed++;
+						await vault.remove(path).catch(() => {});
+					}
 				}
+				markAttempt(false);
+			} finally {
+				stopForgiving();
 			}
 		}
-		if (pending.length) markAttempt(false);
 		return report;
 	});
 }

@@ -179,7 +179,7 @@ import { runFormatCode, type StudioCommand } from './studio-commands';
 import { commitSource, historyInput, isMacLike, LOAD, type SourceIntent, type StampedIntent, slideBoundary, timed, type UndoVerb, undoChord, undoOwner } from './studio-filo';
 import { deckOutputLang, languageLabel, resolveSupported } from './studio-language';
 import { chatPanel, DIAGRAMS_USED_KEY, FABRICATE_USED_KEY, lensesPanel, libraryPanel, liveCornerPanel, liveLobbyPanel, livePanel, livePillPanel, livePointersPanel, STUDIO_PANELS, sharePanel, slideSettingsPanel, workspacePanel } from './studio-panels';
-import { type Checkpoint, checkpointMeta, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckMetaFor, deckSourceFor, deckWebOrigins, deleteDeck as deleteDeckStore, type EditMode, FLUSH_EVENT, hasAnswerAfterConnect, hasStoredPosture, loadActiveDeck, loadBootCaret, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, markBackupNudged, CHAT_CARD_NO_ENTRY as NO_ENTRY, onSourceWriteError, type Posture, relabelCheckpoint, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveCheckpointDurably, saveCheckpointWithId, saveSettings, saveSettingsTier, saveSettingsView, saveSource, saveSourceSum, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, slideCountLabel, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
+import { type Checkpoint, checkpointMeta, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckLoaded, deckMetaFor, deckSourceFor, decksReady, deckWebOrigins, deleteDeck as deleteDeckStore, type EditMode, FLUSH_EVENT, hasAnswerAfterConnect, hasStoredPosture, loadActiveDeck, loadBootCaret, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, markBackupNudged, CHAT_CARD_NO_ENTRY as NO_ENTRY, onSourceWriteError, type Posture, relabelCheckpoint, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveCheckpointDurably, saveCheckpointWithId, saveSettings, saveSettingsTier, saveSettingsView, saveSource, saveSourceSum, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, slideCountLabel, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
 import { CONTENT_SWITCH_TOKENS, CONTENT_SWITCHES, type ContentSwitch, type SwitchState, switchState } from './switch-controls';
 import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
@@ -2468,7 +2468,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		if (practiceRef.current) src = practiceRef.current.real;
 		// A refused write (a full quota) leaves the stored source, its sidecar and its title mirror
 		// as they were, still in step with each other; the author hears about it below.
-		if (!saveSource(id, src)) return;
+		// The open deck's save merges against the text its editor derives from (vault slice 3, `saveSource` fromShell).
+		if (!saveSource(id, src, { fromShell: id === deckIdRef.current })) return;
 		// Filo's reload sidecar, in the same synchronous write: the Studio wrote this text through the
 		// open deck's history. Not for another deck (a retired-plugin rewrite, `onRetire`), and not
 		// during a live session: the history did not record those, so they read as outside changes.
@@ -3305,6 +3306,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 
 	function loadDeck(d: StudioDeck) {
 		if (d.id !== deck.id && !live.mayLeaveDeck()) return;
+		// A deck in the storage vault that this tab has not read yet (the first moments after boot): wait for the
+		// shelf, so the switch never shows, and then saves over, a text that is not the deck's.
+		if (!deckLoaded(d.id)) {
+			void decksReady().then(() => loadDeck(d)).catch(() => notify("Couldn't open that deck yet. Try again in a moment."));
+			return;
+		}
 		// Flush the current deck's edits before leaving it (the debounce may not
 		// have fired), then restore the target deck's saved source.
 		flushActiveDeck();
@@ -3638,9 +3645,20 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			const next = list[0] ?? DECKS[0];
 			sourceOwnerRef.current = next.id;
 			setDeck(next);
-			const text = deckSourceFor(next);
-			setSource(text, LOAD);
-			goToChunk(0, { after: text });
+			const open = () => {
+				if (deckIdRef.current !== next.id) return;
+				const text = deckSourceFor(next);
+				setSource(text, LOAD);
+				goToChunk(0, { after: text });
+			};
+			// A vault deck this tab has not read yet (the first moments after boot): show nothing until the shelf has it,
+			// so no keystroke lands on a placeholder that a later save would merge over the real deck (the checker's C2).
+			// A save of it meanwhile is refused by the shelf's guard.
+			if (deckLoaded(next.id)) open();
+			else {
+				setSource('', LOAD);
+				void decksReady().then(open).catch(() => {});
+			}
 		}
 		notify('Deck deleted.');
 	}
@@ -4268,7 +4286,15 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// (3) Library photos and videos move into the storage vault once, behind one automatic backup, or back out
 		// on the undo path (media-vault-move.ts `settleMediaStorage`). Off the boot path: it waits for an idle moment, and every photo still reads
 		// from where it is until its own move lands, so nothing on screen waits for it.
-		const move = () => void import('./media-vault-move').then((m) => m.settleMediaStorage()).catch(() => {});
+		// (4) Then deck text (vault slice 3, deck-vault-move.ts `settleDeckStorage`), under the same lock: the shelf reads
+		// the vault first, then any deck still in localStorage moves in.
+		const move = () =>
+			void import('./media-vault-move')
+				.then((m) => m.settleMediaStorage())
+				.catch(() => {})
+				.then(() => import('./deck-vault-move'))
+				.then((m) => m.settleDeckStorage())
+				.catch(() => {});
 		const ric = (globalThis as { requestIdleCallback?: (fn: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
 		if (typeof ric === 'function') ric(move, { timeout: 5000 });
 		else setTimeout(move, 0);
@@ -6091,13 +6117,45 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			});
 		});
 	}, []);
+	// Decks in the storage vault (vault slice 3): read onto the shelf after the first paint, and another tab's save of
+	// the open deck taken as one undo step (deck-shelf-shell.ts, loaded on first use).
+	const shelfHooks = React.useRef({ setSource, flushActiveDeck });
+	shelfHooks.current = { setSource, flushActiveDeck };
+	React.useEffect(() => {
+		let stop = () => {};
+		let gone = false;
+		const bootShown = deckLoaded(deckIdRef.current);
+		void import('./deck-shelf-shell').then((m) => {
+			if (gone) return;
+			stop = m.startShelf({
+				deckId: () => deckIdRef.current,
+				owner: () => sourceOwnerRef.current,
+				source: () => sourceRef.current,
+				setSource: (t, intent) => shelfHooks.current.setSource(t, intent),
+				cancelAutosave: () => {
+					if (autosaveTimer.current !== null) clearTimeout(autosaveTimer.current);
+					autosaveTimer.current = null;
+				},
+				flush: () => shelfHooks.current.flushActiveDeck(),
+				cleared: () => decksClearedRef.current,
+				bootShown,
+				load: LOAD,
+			});
+		});
+		return () => {
+			gone = true;
+			stop();
+		};
+	}, []);
 	// The same for the deck itself, which is worse: the edits on screen are not in this browser yet.
 	React.useEffect(() => {
 		let shownAt = Number.NEGATIVE_INFINITY;
 		return onSourceWriteError(({ error }) => {
 			if (Date.now() - shownAt < 60_000) return;
 			shownAt = Date.now();
-			const full = error instanceof DOMException && error.name === 'QuotaExceededError';
+			// By name, not class: a vault write (vault slice 3) can fail in the OPFS worker or in IndexedDB, and the error
+			// that comes back is not always a DOMException of this realm.
+			const full = (error as { name?: string } | null)?.name === 'QuotaExceededError';
 			// Worded for every caller of saveSource (the editor's save, an import, a restore, a new deck),
 			// not only the editor's.
 			notifySticky(full ? "Couldn't save a deck: this browser's storage is full." : "Couldn't save a deck to this browser.", {

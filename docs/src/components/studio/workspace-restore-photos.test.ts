@@ -8,7 +8,7 @@
 // prove the rules; this proves the DECKS follow them: a photo that has to come back under a new name
 // leaves the decks the restore wrote naming it, and a deck the restore did not write is not touched.
 import 'fake-indexeddb/auto';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.hoisted(() => {
 	const store = new Map<string, string>();
@@ -38,7 +38,8 @@ vi.hoisted(() => {
 import { createAgentAssets } from './agent-assets-browser';
 import { deleteAsset, listAssets } from './library/asset-store.js';
 import { LIBRARY_SCOPE, listMedia, type NewMedia, saveMedia, setMediaCaption } from './media-store';
-import { exportStudioState, importStudioState, loadCheckpoints, loadDeckList, loadSource, saveCheckpoint, saveSource } from './studio-store';
+import { pinStudioVault, studioVault } from './media-vault';
+import { exportStudioState, importStudioState, loadCheckpoints, loadDeckList, loadSource, resetShelfForTests, saveCheckpoint, saveSource } from './studio-store';
 import { png } from './test-images';
 import { packWorkspace, restoreWorkspace } from './workspace-backup';
 
@@ -52,6 +53,10 @@ const photo = (name: string, bytes: Uint8Array, scope = LIBRARY_SCOPE): NewMedia
 async function wipe() {
 	localStorage.clear();
 	for (const a of await listAssets()) await deleteAsset(a.id);
+	// Decks live in the storage vault too (vault slice 3), and the shelf rebuilds the index from it.
+	const v = await studioVault();
+	for (const e of (await v?.list('', { recursive: true })) ?? []) await v?.remove(e.path);
+	resetShelfForTests();
 }
 function putDeck(id: string, title: string, source: string) {
 	saveSource(id, source);
@@ -212,6 +217,15 @@ describe('a photo kept to a deck that came back as a COPY', () => {
 });
 
 describe('a deck this browser refused to store', () => {
+	// The localStorage path: a host with no storage vault, where the refusal is synchronous (vault slice 3).
+	beforeEach(() => {
+		pinStudioVault(null);
+		resetShelfForTests();
+	});
+	afterEach(() => {
+		pinStudioVault(undefined);
+		resetShelfForTests();
+	});
 	it('does not bring its photos back, onto the local deck of the same id or anywhere else', async () => {
 		const blob = await backupFromA(async () => {
 			putDeck('deck-aaa', 'Plan', '# Plan (backup)\n\n![p](asset:priv)\n');
