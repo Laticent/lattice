@@ -1,4 +1,4 @@
-import { ArrowUp, Cloud, FileBox, KeyRound, PanelLeftClose, Paperclip, Sparkles, Unlock, Upload } from 'lucide-react';
+import { ArrowUp, Cloud, FileBox, FileText, Images, KeyRound, LayoutGrid, LifeBuoy, Palette, PanelLeftClose, Paperclip, Plug, Presentation, Sparkles, Unlock, Upload } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { PanelBody, PanelDock, PanelHeader, PanelSearch, PanelSection, PanelSheet, SETTING_SCOPE } from '@/components/ui/panel';
@@ -169,18 +169,28 @@ export function WorkspaceShell({ open, onOpenChange, children }: { open: boolean
 
 // ── Library ──────────────────────────────────────────────────────────────────
 
-// Four sections, then a second row of kinds inside Design and Media. Eight flat pills wrapped
+// Sections, then a second row of kinds inside Design and Media. Eight flat pills wrapped
 // onto a second row at 390px and made the person pick a kind before they could see anything.
 // `LibraryFilter` is the fine-grained value; `sectionOf` says which pill it lives under.
-export type LibraryFilter = 'all' | 'design' | 'theme' | 'component' | 'finish' | 'motion' | 'media' | 'image' | 'video' | 'refdoc' | 'plugin';
-export type LibrarySection = 'all' | 'design' | 'media' | 'files' | 'plugins';
-export const LIBRARY_SECTIONS: Array<{ value: LibrarySection; label: string }> = [
-	{ value: 'all', label: 'All' },
-	{ value: 'design', label: 'Design' },
-	{ value: 'media', label: 'Media' },
-	{ value: 'files', label: 'Files' },
-	{ value: 'plugins', label: 'Plugins' },
+// Decks is its own section (followups.d/3356-p1, design §7 of 2026-11-22-local-first-drive-storage.md): a kept
+// deck is something you open, not a file you cite, so it no longer hides under Files.
+export type LibraryFilter = 'all' | 'deck' | 'design' | 'theme' | 'component' | 'finish' | 'motion' | 'media' | 'image' | 'video' | 'refdoc' | 'plugin';
+export type LibrarySection = 'all' | 'decks' | 'design' | 'media' | 'files' | 'plugins';
+// Each section draws an icon: the dock and the phone show only it (`iconOnly`, six labeled pills wrap at 320px), the
+// sheet shows it beside the label, so the one section reads the same at every width.
+const SECTION_ICON = 'size-3.5 shrink-0';
+export const LIBRARY_SECTIONS: Array<{ value: LibrarySection; label: string; icon: React.ReactNode }> = [
+	{ value: 'all', label: 'All', icon: <LayoutGrid className={SECTION_ICON} aria-hidden /> },
+	{ value: 'decks', label: 'Decks', icon: <Presentation className={SECTION_ICON} aria-hidden /> },
+	{ value: 'design', label: 'Design', icon: <Palette className={SECTION_ICON} aria-hidden /> },
+	{ value: 'media', label: 'Media', icon: <Images className={SECTION_ICON} aria-hidden /> },
+	{ value: 'files', label: 'Files', icon: <FileText className={SECTION_ICON} aria-hidden /> },
+	{ value: 'plugins', label: 'Plugins', icon: <Plug className={SECTION_ICON} aria-hidden /> },
 ];
+/** Which section pills fold into "More" when even the icons do not fit one row, least used first. */
+export const LIBRARY_OVERFLOW = { hideFirst: ['plugins', 'files'] };
+/** The Library's pills are icons where six labels do not fit: the dock (280–480px) and the phone. */
+export const libraryIconOnly = (docked: boolean | undefined, phone: boolean) => !!docked || phone;
 /** The kinds inside a section. The first entry is the whole section. */
 export const LIBRARY_KINDS: Partial<Record<LibrarySection, Array<{ value: LibraryFilter; label: string }>>> = {
 	design: [
@@ -198,17 +208,18 @@ export const LIBRARY_KINDS: Partial<Record<LibrarySection, Array<{ value: Librar
 };
 export function sectionOf(f: LibraryFilter): LibrarySection {
 	if (f === 'all') return 'all';
+	if (f === 'deck') return 'decks';
 	if (f === 'refdoc') return 'files';
 	if (f === 'plugin') return 'plugins';
 	if (f === 'media' || f === 'image' || f === 'video') return 'media';
 	return 'design';
 }
 /** The filter a section opens on. */
-export const sectionFilter = (s: LibrarySection): LibraryFilter => (s === 'files' ? 'refdoc' : s === 'plugins' ? 'plugin' : s);
+export const sectionFilter = (s: LibrarySection): LibraryFilter => (s === 'decks' ? 'deck' : s === 'files' ? 'refdoc' : s === 'plugins' ? 'plugin' : s);
 export const LIBRARY_HEADER = {
 	icon: <FileBox />,
 	title: 'Library',
-	searchPlaceholder: 'Search themes, components, finishes, images, videos, files & plugins…',
+	searchPlaceholder: 'Search decks, themes and more…',
 } as const;
 
 export function LibraryShell({ docked, open, onOpenChange, children }: { docked?: boolean; open: boolean; onOpenChange: (v: boolean) => void; children?: React.ReactNode }) {
@@ -231,6 +242,9 @@ export function LibraryShell({ docked, open, onOpenChange, children }: { docked?
 				actions={
 					<Inert>
 						{phone ? null : search}
+						<Button variant="outline" size="icon-sm" className="shrink-0" aria-label="Backup and restore">
+							<LifeBuoy className="size-3.5" />
+						</Button>
 						<Button variant="outline" size="sm" className="shrink-0 gap-1.5" aria-label="Import files">
 							<Upload className="size-3.5" />
 							<span className={cn('hidden', docked ? '@[20rem]:inline' : 'sm:inline')}>Import</span>
@@ -244,8 +258,10 @@ export function LibraryShell({ docked, open, onOpenChange, children }: { docked?
 			/>
 			<div className="flex items-center gap-2 border-b border-border bg-card px-4 py-2.5">
 				<Inert className="min-w-0 flex-1">
-					<PillTabs ariaLabel="Library sections" value="all" onValueChange={() => {}} tabs={LIBRARY_SECTIONS} dense={docked} />
+					<PillTabs ariaLabel="Library sections" value="all" onValueChange={() => {}} tabs={LIBRARY_SECTIONS} dense={docked} iconOnly={libraryIconOnly(docked, phone)} overflow={LIBRARY_OVERFLOW} />
 				</Inert>
+				{/* The kinds button's place, as the live row holds it (Library.tsx): the same room, so the same fold on load. */}
+				<span aria-hidden className="size-8 shrink-0" />
 			</div>
 			<div className="min-h-0 min-w-0 flex-1 overflow-hidden p-4">
 				{/* Blank on purpose: the Library reads its shelf from storage after it mounts, so

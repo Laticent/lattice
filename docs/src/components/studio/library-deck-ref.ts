@@ -229,7 +229,9 @@ export async function readLibraryReference(file: File): Promise<LibraryReference
 }
 
 /** A Markdown file is a deck when it has front matter or a slide break (`---`), read with the rail's own splitter. */
-async function hasSlides(text: string): Promise<boolean> {
+/** Does this Markdown have slides (front matter or a slide break)? The rule the Library's import and its Decks section
+ *  share, so a Markdown file the import kept as notes is never listed as a deck, and the reverse. */
+export async function hasSlides(text: string): Promise<boolean> {
 	const src = text.replace(/^\uFEFF/, '');
 	const body = stripFrontMatter(src);
 	if (body !== src) return true;

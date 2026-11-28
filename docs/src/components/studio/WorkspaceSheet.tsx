@@ -1,4 +1,4 @@
-import { Archive, BookOpen, Cpu, Database, Download, ExternalLink, FileBox, FolderTree, Image as ImageIcon, KeyRound, Languages, LifeBuoy, MessageSquareText, MonitorDown, MousePointer2, PencilLine, PencilRuler, ShieldAlert, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, TriangleAlert, Type, Upload, Volume2, Wallet, Zap } from 'lucide-react';
+import { Archive, BookOpen, Cpu, Database, Download, ExternalLink, FileBox, FolderTree, Image as ImageIcon, KeyRound, Languages, LifeBuoy, MessageSquareText, MonitorDown, MousePointer2, PencilLine, PencilRuler, ShieldAlert, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, TriangleAlert, Type, Volume2, Wallet, Zap } from 'lucide-react';
 import * as React from 'react';
 import { orSupportsCache } from '@/components/studio/ai/or-cache.js';
 import { fmtPrice, fmtTokens, fmtUSD } from '@/components/studio/ai/or-catalog.js';
@@ -26,6 +26,7 @@ import { ChatModelSection, ImageReaderSection, ProvidersSection, VoiceModelSecti
 import { disconnectAllProviders, } from './api-key';
 import { architectSpend, connectOpenRouter, setBudget, useArchitectStatus } from './architect';
 import { packBundle } from './asset-bundle';
+import { type BackupBusy, BackupRestore } from './BackupRestore';
 import { DeleteBtn } from './delete-btn';
 import { iosNeedsShareSheet } from './download';
 import { clearDecksAndTheirPhotos, clearDownloadedModels, clearEverything, clearLibraryAssets, clearNarrationAudio, clearSiteCache, fmtBytes, type GovernanceStats, loadGovernanceStats } from './governance';
@@ -40,11 +41,9 @@ import { listStoredScenes } from './scene-library';
 import { languageFor } from './studio-language';
 import {
 	type HandleStyle,
-	lastBackupAt,
 	loadInstructions,
 	loadOnDeviceInstructions,
 	loadSettings,
-	markBackupTaken,
 	ON_DEVICE_INSTRUCTIONS_MAX,
 	type PdfPages,
 	type PdfWriter,
@@ -55,9 +54,7 @@ import {
 	saveSettings,
 	truncateCodePoints,
 } from './studio-store';
-import { DEGRADED_TOAST_MS } from './toast-duration';
-import type { PackReport } from './workspace-backup';
-import { downloadBlob, isEvictionProneBrowser, stashRestoreReport, storageSummary, WORKSPACE_ZIP_NAME } from './workspace-backup-meta';
+import { downloadBlob } from './workspace-backup-meta';
 
 
 const pct = (used: number, total: number) => (total > 0 ? Math.min(100, Math.max(0, (used / total) * 100)) : 0);
@@ -357,12 +354,11 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 	// Re-read with `spend`, which every recorded call refreshes.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: spend is the refresh trigger
 	const spendByUse = React.useMemo(() => readSpendByUse(), [spend]);
-	// Backup & restore (General tab): the passive tier of the durability story —
-	// a last-backup line + storage readout that are simply always there.
-	const [backupAt, setBackupAt] = React.useState<number | null>(() => lastBackupAt());
-	const [storageLine, setStorageLine] = React.useState('');
-	const [busy, setBusy] = React.useState<'backup' | 'restore' | 'scenes' | null>(null);
-	const restoreInput = React.useRef<HTMLInputElement>(null);
+	// Backup & restore: the passive tier of the durability story — a last-backup line + storage readout that are simply
+	// always there. The controls are BackupRestore.tsx, shared with the Library's dialog; the scene export below is this
+	// sheet's own long job, and each holds the other's buttons while it runs.
+	const [busy, setBusy] = React.useState<'scenes' | null>(null);
+	const [backupBusy, setBackupBusy] = React.useState<BackupBusy>(null);
 	// Install-the-app (General tab): four honest states — see install-app.ts.
 	// Chromium can park its prompt at any moment, so track the announce event.
 	const [install, setInstall] = React.useState<InstallState>(() => installState());
@@ -380,8 +376,6 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 		if (open) {
 			setSpend(architectSpend());
 			setPulse((p) => p + 1);
-			setBackupAt(lastBackupAt());
-			storageSummary().then(setStorageLine).catch(() => {});
 		}
 	}, [open]);
 
@@ -471,61 +465,6 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 		} catch (e) {
 			notify(`Scene export failed: ${(e as Error)?.message || 'unknown error'}`);
 		} finally {
-			setBusy(null);
-		}
-	};
-
-	const downloadBackup = async () => {
-		setBusy('backup');
-		try {
-			const now = Date.now();
-			// Loaded on click: pack and restore are off the Studio's eager path.
-			const { backupRestoreGaps, packWorkspace } = await import('./workspace-backup');
-			const report: PackReport = { refdocsBytes: 0 };
-			// Recorded once the file is actually handed over: on iOS that is after the share sheet,
-			// and a Save toast left to time out must not leave "Last backup: today" behind it.
-			downloadBlob(WORKSPACE_ZIP_NAME, await packWorkspace(now, report), {
-				onSaved: () => {
-					markBackupTaken(now);
-					setBackupAt(now);
-				},
-			});
-			// Still downloaded: a backup you hold beats none. But it must not look like one that will
-			// restore in full when it won't (followups.d/2336 item 17b, the owner's call: warn, still
-			// save), and the warning stays up long enough to read.
-			const gaps = backupRestoreGaps(report);
-			const verb = iosNeedsShareSheet() ? 'Backup ready' : 'Backup downloaded';
-			if (gaps.length) notify(`${verb} — but ${gaps.join('; and ')}. Keep the original files, or remove some and back up again.`, { duration: DEGRADED_TOAST_MS });
-			else if (!iosNeedsShareSheet()) notify('Backup downloaded — your whole workspace, yours to keep.');
-		} catch (e) {
-			notify(`Backup failed: ${(e as Error)?.message || 'unknown error'}`);
-		} finally {
-			setBusy(null);
-		}
-	};
-	const restoreBackup = async (file: File) => {
-		setBusy('restore');
-		try {
-			const { restoreWorkspace } = await import('./workspace-backup');
-			const s = await restoreWorkspace(file, Date.now());
-			const decks = s.added + s.restoredCopies;
-			const assets = s.themes + s.components + s.finishes + s.scenes;
-			const photos = s.media;
-			// A library package the backup held but could not be read back is NAMED, never
-			// dropped in silence — the reload below would otherwise hide that it was ever there.
-			const done = `Workspace restored — ${decks} deck${decks === 1 ? '' : 's'}${assets ? ` + ${assets} library asset${assets === 1 ? '' : 's'}` : ''}${photos ? ` + ${photos} photo${photos === 1 ? '' : 's'}` : ''} in${s.mediaRenamed ? `. ${s.mediaRenamed} photo${s.mediaRenamed === 1 ? '' : 's'} came back under a new name because a different photo already had it` : ''}.`;
-			// The restore touches decks, settings, and the Library across several
-			// stores; a reload is the one honest way to re-derive every view of them.
-			// Always reload at once, while this modal still covers the editor: a tab left live over the
-			// store the restore just rewrote writes its stale deck back on the next keystroke. What was
-			// skipped rides the reload (`stashRestoreReport`) and is shown, until dismissed, once the
-			// Studio has booted on the restored data.
-			const notRestored = s.refused.length ? `Not restored: ${s.refused.map((r) => `${r.name} (${r.why})`).join('; ')}` : '';
-			if (notRestored) stashRestoreReport({ done, notRestored });
-			notify(`${done} Reloading…`, notRestored ? { description: notRestored } : undefined);
-			setTimeout(() => window.location.reload(), 1100);
-		} catch (e) {
-			notify(`Restore failed: ${(e as Error)?.message || 'not a workspace backup'}`);
 			setBusy(null);
 		}
 	};
@@ -1329,35 +1268,19 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 						    eviction case); the installed app and other browsers don't get it. */}
 						<div className="mt-6">
 							<GroupLabel icon={<LifeBuoy className="size-3.5" />}>Backup &amp; restore</GroupLabel>
-							<p className="mb-3 text-xs text-muted-foreground">
-								Your decks live in this browser — private to this device. A backup keeps them yours even if the browser clears its data.
-								{isEvictionProneBrowser() ? ' Safari clears unused site data after a week — a backup makes that a non-event.' : ''}
-							</p>
-							<div className="grid grid-cols-2 gap-2.5">
-								<button type="button" onClick={downloadBackup} disabled={busy != null} className="flex items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2.5 text-[13px] font-semibold text-primary-foreground disabled:opacity-60">
-									<Download className="size-4" />{busy === 'backup' ? 'Packing…' : 'Download backup'}
-								</button>
-								<button type="button" onClick={() => restoreInput.current?.click()} disabled={busy != null} className="flex items-center justify-center gap-2 rounded-xl border border-border bg-background px-3 py-2.5 text-[13px] font-semibold text-[var(--text-heading)] disabled:opacity-60">
-									<Upload className="size-4" />{busy === 'restore' ? 'Restoring…' : 'Restore backup'}
-								</button>
-								<input ref={restoreInput} type="file" accept=".zip" aria-label="Restore a workspace backup" className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) restoreBackup(f); }} />
-							</div>
+							<BackupRestore open={open} busy={backupBusy} onBusyChange={setBackupBusy} disabled={busy != null}>
 							{sceneCount > 0 && (
 								<div className="mt-3 rounded-xl border border-border bg-background p-3">
 									<p className="text-[13px] font-semibold text-[var(--text-heading)]">{sceneCount} saved motion scene{sceneCount === 1 ? '' : 's'}</p>
 									<p className="mt-1 text-xs leading-relaxed text-muted-foreground">
 										Scenes were standalone animated assets, built on an engine Lattice no longer uses. Nothing has been deleted — they stay here and ride in every backup — but the tab that made them is gone, so this is how you take them with you.
 									</p>
-									<button type="button" onClick={downloadScenes} disabled={busy != null} className="mt-2.5 flex items-center justify-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-[13px] font-semibold text-[var(--text-heading)] disabled:opacity-60">
+									<button type="button" onClick={downloadScenes} disabled={busy != null || backupBusy != null} className="mt-2.5 flex items-center justify-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-[13px] font-semibold text-[var(--text-heading)] disabled:opacity-60">
 										<Download className="size-4" />{busy === 'scenes' ? 'Packing…' : 'Download scenes (.zip)'}
 									</button>
 								</div>
 							)}
-							<p className="mt-3 flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
-								<SlidersHorizontal className="size-3" />
-								Last backup: {backupAt ? new Date(backupAt).toLocaleDateString() : 'never'}{storageLine ? ` · ${storageLine}` : ''}
-							</p>
-							<p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">One zip: every deck (readable .md copies included), version history, chats, settings, and your Library — saved themes, components, finishes, and reference docs. Restoring never overwrites — a deck that changed since the backup comes back beside the current one as “(restored)”. Your OpenRouter connection is never in the file.</p>
+							</BackupRestore>
 						</div>
 							<div className="mb-2 flex items-center justify-between gap-2">
 								<GroupLabel icon={<ShieldCheck className="size-3.5" />}>Your data</GroupLabel>

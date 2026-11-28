@@ -38,6 +38,7 @@ const PROBES = [
 	{ file: 'photo-probe.js', fn: 'latticePhotoProbe' },
 	{ file: 'panes-probe.js', fn: 'latticePanesProbe' },
 	{ file: 'sheet-focus-probe.js', fn: 'latticeSheetFocusProbe' },
+	{ file: 'library-probe.js', fn: 'latticeLibraryProbe' },
 	// A first visit: nothing stored, so the Studio opens in Compose (run.mjs passes `seed: false` for it too).
 	// It asks its runner for a real tap at the stop that focuses the editor (#3291): `tapRunner` below answers.
 	{ file: 'compose-probe.js', fn: 'latticeComposeProbe', fresh: true, taps: true },
