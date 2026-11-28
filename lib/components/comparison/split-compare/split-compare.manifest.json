@@ -1,9 +1,9 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "split-compare",
-  "cards": {
-    "default": "stretch",
-    "withCoda": "stretch"
+  "align": {
+    "default": "fill",
+    "withCoda": "fill"
   },
   "adapt": {
     "mode": "reflow",
@@ -73,14 +73,7 @@
   },
   "function": "comparison",
   "form": "split",
-  "coda": {
-    "dock": "row",
-    "readsInsightLabel": true,
-    "claims": [
-      "blockquote",
-      "trailing-paragraph"
-    ]
-  },
+  "coda": { "dock": "row", "readsInsightLabel": true, "claims": ["blockquote"] },
   "substance": "structure",
   "tags": [
     "tradeoff",
@@ -126,6 +119,20 @@
       "match": { "kind": "list", "depth": 2, "marker": "any" },
       "required": false,
       "description": "Each option's points, one line per row. Rows stay parallel across the options."
+    }
+  },
+  "variants": ["panel-narrow", "panel-wide"],
+  "variantAxes": [{ "label": "Width", "exclusive": true, "members": ["panel-narrow", "panel-wide"] }],
+  "variantDocs": {
+    "panel-narrow": {
+      "label": "panel-narrow",
+      "summary": "Narrows the dark frame to 0.8 of its width; the option grid takes the room.",
+      "sample": "<!-- @meta{layout=split-compare, class=panel-narrow} -->\n\n`Decision Required`\n\n## A narrow frame gives the options room.\n\nUse it when each option carries three rows.\n\n- Alternative option\n  - First fact about the alternative\n  - Second fact about the alternative\n- Preferred option\n  - First fact about the preferred path\n  - Second fact about the preferred path\n\n> The recommendation in one decisive sentence.\n"
+    },
+    "panel-wide": {
+      "label": "panel-wide",
+      "summary": "Widens the dark frame to 1.3 of its width; for a question that carries the argument.",
+      "sample": "<!-- @meta{layout=split-compare, class=panel-wide} -->\n\n`Decision Required`\n\n## A wide frame puts the question first.\n\nUse it when the framing is the argument and each option is short.\n\n- Alternative option\n  - One fact\n- Preferred option\n  - One fact\n\n> The recommendation in one decisive sentence.\n"
     }
   },
   "skeleton": "<!-- @meta{layout=split-compare} -->\n\n`Decision Required`\n\n## Headline that frames the choice.\n\nOne-sentence context paragraph explaining the stakes.\n\n- Alternative option\n  - First fact about the alternative\n  - Second fact about the alternative\n- Preferred option\n  - First fact about the preferred path\n  - Second fact about the preferred path\n\n> The recommendation in one decisive sentence.\n",
@@ -196,7 +203,7 @@
     },
     {
       "mistake": "Setting a long deck-level `header:` or `footer:` on a deck that uses this layout.",
-      "fix": "The running header and footer stay on the dark rail they start on. Each holds one line; past that it ends in an ellipsis and the export reports it as a chrome cut (author-only, no reader pill). Measured at 16:9 the rail holds about 37 characters of header and 39 of footer. Shorten it, or set a shorter one on these slides with `<!-- @meta{header=\"…\"} -->` / `<!-- @meta{footer=\"…\"} -->`."
+      "fix": "The running header and footer stay on the dark rail they start on. Each holds one line; past that it ends in an ellipsis and the export reports it as a chrome cut (author-only, no reader pill). Measured at 16:9 the rail holds about 37 characters of header and 39 of footer; `panel-narrow` scales the rail and its chrome to about 30 and 31, `panel-wide` to about 49 and 50. Shorten it, or set a shorter one on these slides with `<!-- @meta{header=\"…\"} -->` / `<!-- @meta{footer=\"…\"} -->`."
     },
     {
       "mistake": "Expecting a split-compare slide to drop the deck's `finish:`, or to show it on one side only.",

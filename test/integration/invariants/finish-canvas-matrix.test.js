@@ -37,7 +37,7 @@ const { resolveChrome } = require('../../../tools/lib/resolve-chrome');
 const ROOT = path.join(__dirname, '..', '..', '..');
 
 // The canvas modifiers a slide can carry alongside a component class. `''` = none.
-// `cover-light` is the light cover (`cover: light`, lib/core/resolve-cover.js): unlike `light` it
+// `cover-light` is the light cover (`cover-layout: light`, lib/core/resolve-cover-layout.js): unlike `light` it
 // REPLACES the title and closing canvas with `var(--bg)`, as `divider light` does. Its pairs with the
 // scheme registers are listed so a dark deck's light cover is measured too.
 const MODIFIERS = ['', 'dark', 'light', 'print', 'color-light', 'color-system', 'cover-light', 'cover-light dark', 'cover-light print', 'cover-light color-system'];
@@ -305,7 +305,7 @@ function deriveShapes(css) {
       // `--fin-canvas`. A child shape can only change the verdict by moving one of
       // them. Widening this to "any custom property" was measured and is wrong in the
       // expensive direction: it pulls in the nine bare `section:has(…)` layout rules
-      // (`--coda-host-gap`, `--cards-align`), which move neither side, and because they
+      // (`--coda-host-gap`, `--align-v`), which move neither side, and because they
       // are bare they attach to all 18 frames — a 10x cross that ran 6.5 minutes and
       // then died on a CDP timeout. Redefining a token BOTH sides consume
       // (`--surface-inverse`) cancels out and cannot break the comparison, which is why

@@ -56,11 +56,19 @@ Until the P7 rename lands, "auto-split" and `split-*` in the code mean **Fluid's
 | cover, body and closing pages | `lib/core/split-envelope.js` |
 | the 14 per-component strategies | `lib/core/carousel.js` `CAROUSEL_STRATEGIES` |
 | panes split per pane at non-`wide` sizes | `lib/core/panes.js` `installPaneSplit` |
-| the size gate | `lib/engine/structural-split.js` `splitApplies` |
+| the size gate and the slide stamp (the light half every render runs) | `lib/engine/split-gate.js` `splitApplies`, `stampSlideNumbers` (re-exported by `structural-split.js`) |
 
 Callers: the CLI (`lattice.js`), the Playground (`lib/playground/index.js` `splitForPreview`), the
 Studio (`docs/src/playground/single-slide-render.ts`) and the Studio's player export
 (`docs/src/components/studio/share-export.ts`). All of them go through `structuralSplit`.
+
+The browser engine loads the splitter on demand. `lib/playground/index.js` imports only `split-gate.js`;
+`structuralSplit`, the kernels and the per-component capacity table come in through `import()`
+(`lib/playground/split-lazy.js`) the first time a box that paginates asks for them, so a docs page that never renders
+at square, tall or strip carries none of it (about 22 KB gz, 2026-11-22). A browser host awaits
+`PG.splitReady(width, height)` before `splitForPreview`: it resolves at once at 16:9. A call made before the load
+returns the stamped, unsplit document with `pending: true`. `test/integration/invariants/engine-split-lazy.test.js`
+holds both the boot closure and that contract.
 
 ## Checking a change
 

@@ -38,6 +38,29 @@ modifier keeps slide content clear of those bands.
 
 See `engineering/decisions/2026-06-16-social-mobile-portrait-sizes.md`.
 
+## Narrow boxes — layouts reflow by text room
+
+A layout changes shape when its text would run short of room, measured in characters a line,
+not by the box's shape. A square post shown in a hall has the same room as a portrait post on a
+laptop, so the two get the same layout. Nothing to author: every layout below does it on its own.
+
+- **Three thresholds.** Under ~70 characters a line (square at laptop), a row of four or more
+  fields side by side stacks. Under ~47 (square at hall, portrait and story at laptop), a
+  two-column form goes to one and a fixed-width tab becomes a band. Under ~35 (portrait and
+  story at conference and hall), a row's marker (an ordinal, a check, a label column, a page
+  reference) moves above, below or in line with its text, so the text keeps the full width.
+- **16:9 is untouched.** A landscape box holds at least ~74 characters even at `venue: hall`,
+  so no threshold reaches it.
+- **Which layouts.** agenda, checklist, list, list-steps, statute-stack, regulatory-update,
+  authority-chain, glossary, list-tabular, inventory, premise, math (`matrix`), topic (`fact`),
+  video, and the split cover's lead-in.
+- **For component CSS.** Reflow with `@container lattice (width < 34em | 23em | 17em)`, no
+  other value (a test pins the three), and lay a multi-column grid on
+  `grid-template-columns: var(--fluid-cols)` with `--col-max` set: as many columns as keep 24
+  characters each, never more than designed.
+
+See `engineering/decisions/2026-10-28-fit-everywhere-model.md` §13.
+
 ## Animate a chart in place — the `chart-anima` modifier
 
 On the live surfaces (Studio, Playground, Present), **`chart-anima`** brings a rendered chart to life — a funnel's bands build in top-to-bottom (its labels follow, the worst drop-off emphasizes); a pie fades in as a whole disc. Model-free: the motion is derived from the chart's own marks, no LLM.
@@ -165,9 +188,9 @@ subtitle, Key Insight, below-note, header, footer and page number; only the body
   directives (`_class`, `_footer`, …) reach every page wherever you wrote them, and a component
   named in its `_class` does not: each page is its pane's. The same markdown reads side by side
   at 16:9 and one-per-slide on a phone.
-- **`cards:` works in a pane** as on a slide: a card row or list in a pane sits at the top,
-  centers or stretches as the deck's `cards:` or the slide's `_class: cards-*` says, for every
-  component that goes in a pane and takes `cards:` on a slide (tables do not; `split-panel` and
+- **`align:` works in a pane** as on a slide: a card row or list in a pane sits at the top,
+  middle or bottom, spreads or fills as the deck's `align:` or the slide's `_class: align-*`
+  says, for every component that goes in a pane and declares an `align` default (tables do not; `split-panel` and
   `split-compare` opt out of panes; `inventory`'s cards need its `.cards` modifier, which a pane
   marker cannot carry). One setting per slide: both panes take it.
 - **A chart in a pane draws for the pane.** Its labels, ticks and key print at the size a chart
@@ -223,7 +246,7 @@ The CSS pattern is `p:has(> code:only-child) + h1/h2/…`. Eyebrows are
 so the eyebrow pattern can never violate heading-order rules.
 
 **The WHOLE paragraph has to be the code span.** `` `Section 01` `` is an
-eyebrow; `` `guards: loose` is the default `` is a sentence, and renders as
+eyebrow; `` `fit: heal` is the default `` is a sentence, and renders as
 one. CSS `:only-child` cannot see text, so before #2308 any paragraph holding
 exactly one code span matched — "The `background:` shorthand clears every
 longhand" after a heading was re-typeset as a muted subtitle and lost its
@@ -368,15 +391,31 @@ audience should remember from a card-grid slide.
 > Signals without decisions are noise.
 ```
 
-**Supported layouts: almost all of them — this block is OPT-OUT.** A layout renders
-the callout unless it declares `coda: { claims: ["blockquote"] }` in its manifest.
-These do: `quote` (the quotation itself), `math` (a display equation),
-`citation-card`, `redline`, `inventory`, `policy-recommendation` and `split-panel`
-(its `pullquote` variant) all use the element for their own anatomy; `split-compare`
-paints the same `--insight-label` on its verdict card. `contact`, `wifi` and `gift-card` claim it
-for a different reason — they are posters whose card fills the stage, so there is no
-band position that does not crush it. The generated `layout-*` skeletons are excluded
-by pattern. Everywhere else a trailing blockquote becomes the callout.
+**Supported layouts: 67 of 80 draw this panel — the block is OPT-OUT.** A layout
+renders the callout unless it declares `coda: { claims: ["blockquote"] }` in its
+manifest. Thirteen do. **The four anchors — `title`, `closing`, `divider`, `topic` —
+take no coda at all**: they open and close the argument, and a takeaway belongs on the
+content slide it sums up (owner, 2026-11-20); `lint:deck` flags a `>` written on one.
+Six more because a blockquote IS part of the layout: `quote` (the quotation),
+`math` (a display equation), `redline` (the old and new passages), and the three QR
+posters, `contact`, `wifi` and `gift-card`, whose card fills the stage. Three more
+draw your trailing `> …` as their OWN insight treatment rather than this panel:
+`inventory` (a band, pull-quote, kicker or sidebar, by look), `policy-recommendation`
+(the ask) and `split-compare` (the verdict card, which reads the same
+`--insight-label`). `citation-card` keeps its FIRST blockquote, the cited text, and
+takes a later one as the key insight (`coda: { anatomy: ["blockquote"] }`). The
+generated `layout-*` skeletons are excluded by pattern.
+
+**On a phone, a chart or diagram's key insight takes its own page.** On a square, tall or
+strip slide split by measurement (the default), a chart or diagram with a key insight (or
+below-note) under it always gives them the run's closing page, however short the insight,
+and the figure keeps the slide: a chart is drawn for the whole page, and a diagram scales up
+into it. The figure itself never splits, and a chart's own caption stays with it. The slide's
+footer line, if it has one, moves to that closing page too. A deck that does not measure
+(`fit: heal`, `trim` or `report`), a `fit-report` slide, and the Studio's Present and slide
+overview keep the insight under the figure, and the chart is drawn for the room beside it. A
+16:9 slide never splits, so it is unchanged. `lint:deck`'s `verbose-key-insight` still asks
+for about 18 words.
 
 Don't derive the answer from that paragraph — read `authoring.blocks` in
 `dist/docs/components.json`, which is generated from the same predicate the RENDER
@@ -408,51 +447,47 @@ shouldn't get card weight.
 — Note: figures are pre-audit; final numbers ship in Q3.
 ```
 
-**Supported layouts: opt-out, like Key Insight above — but a DIFFERENT set.** A
-layout withholds the note by declaring `coda: { claims: ["trailing-paragraph"] }`,
-and after the 2026-09-01 audit every surviving claim is one the layout's own anatomy
-really uses: the bookend lede (`title`, `closing`, `divider`), `quote`'s attribution,
-`stats`' italic lede, `image` and `split-panel`'s body regions, `split-compare`'s
-verdict, `math`'s equation grid, the two QR posters (`contact`, `wifi` — a 527px card
-in a 524px stage; there is no band position that does not crush it), and every
-chart-frame layout, which turns a final paragraph into `.chart-caption` (`matrix-grid` and
-`state-chart` into their swatch `legend`). Each claim is in that component's manifest
-(`coda.claims`), which is the list to trust; this paragraph names examples.
-Everything else promotes, **including `content`**, which means any slide that names no
-component at all, since that is what an un-classed slide resolves to (#1292).
+**Supported layouts: 71 of 80, opt-out like Key Insight.** A layout withholds the
+note by declaring `coda: { claims: ["trailing-paragraph"] }`. Nine do: the four
+anchors (no coda, see Key Insight above), `math` (its equation grid), `image` (its
+text column) and the three QR posters. Some layouts place it somewhere other than
+the band, and each is declared:
 
-**Two claims did NOT survive that audit, and the pattern is worth knowing.** Rendered
-through the real emulator and measured in Chromium, `diagram` and `big-number` each
-withheld the note to protect anatomy they do not render. `diagram` is the sharper case:
-it claimed the paragraph for a `.diagram-caption`, and **no code path in the tree emits
-that class** — what actually caught the paragraph was diagram's *dek* rule
-(`section.diagram > .cell-stage > p`, the rule for the LEADING paragraph under the
-heading), so the author's closing sentence rendered as a second dek at the foot of the
-slide. `big-number` had no rule matching a trailing paragraph at all; its documented
-caption is a nested bullet (`ul > li:first-child > ul > li`), not a paragraph. Both now
-take the note, and diagram's dead caption rule is deleted with its claim. This is the
-same defect `code` carried until 2026-08-30, when its claim was found to be protecting a
-caption selector the markdown path never emits
-(`engineering/decisions/2026-08-30-code-type-step.md` §3) — a claim can be dead for years
-without anything failing loudly, because the failure IS silence.
+- **Every chart kind** (`coda: { caption: true }`). The note IS the chart's caption:
+  the kernel takes it like any note, and the chart draws it inside the figure as its
+  caption, so the key insight stays the slide's panel below. One paragraph after the
+  data is the caption; captions stay optional. **Both beats together take roughly a
+  sixth of the stage.** Most charts scale into what is left; `gantt`, `journey`,
+  `matrix-grid` and `roadmap` deliberately do not shrink their drawing, so at their
+  gallery density a key insight AND a caption overflow and the engine reports
+  "Content clipped" by name. Trim the plan, or keep one of the two beats.
+- **`quote`** (`coda: { anatomy: ["trailing-paragraph"] }`). The first paragraph
+  after the quotation is its attribution; a SECOND paragraph is the note.
+- **`diagram` and `video`** (`coda: { caption: true }`). The note is the figure's
+  caption, drawn under it; the key insight stays the slide's panel.
+- **`split-panel` and `split-compare`**. The beats sit in the supporting column, after
+  the layout's own content (split-compare: after its verdict). On `split-panel
+  pullquote` the first blockquote is the panel's quotation and the line after it the
+  cite (`coda.variants`), so a later blockquote is the key insight and a later
+  paragraph the note.
 
-**Three more looked dead and are not, which is the more useful half of the audit.**
-`matrix-grid` and `state-chart` both LOOK like they render nothing with the trailing
-paragraph, and a probe that appends a note to their sample sees exactly that. What the
-probe cannot see is that the paragraph is already their documented `legend` slot
-(`p:last-of-type`), which the transform pre-wraps in a span so `liftChartCaption` can lift
-it into `.chart-caption` as one inline run. Drop the claim and the coda harvests the
-legend instead — measured on their own manifest samples with nothing appended, the legend
-became a below-note and the chart lost it. A probe that always adds a beat cannot see
-this, because the added beat displaces the legend from the anchor position; the bare
-sample is what shows it. `math` is the third: dropping its claim docks the band inside its
-equation grid at 584.6px wide and 376px off the floor, where every other layout lands
-full-width 56px above the footer. One manifest value cannot describe that, and fixing it
-is a layout change rather than a claim change.
+Everything else promotes, **including `content`**, which means any slide that names
+no component at all, since that is what an un-classed slide resolves to (#1292).
+`stats`, `split-panel` and `split-compare` took the note on 2026-11-20: their own lede
+or verdict comes first, and promotion needs a structural block before the paragraph, so
+the lede is never taken (`engineering/decisions/2026-11-20-coda-and-marp-parity.md`).
 
-The two sets do not coincide: `inventory` takes a below-note but not a key insight,
-`timeline-list` the reverse. Read `authoring.blocks` in `dist/docs/components.json`
-for the per-component answer rather than deriving it from either list here (#1651).
+The history of these lists — claims that protected selectors nothing emitted
+(`diagram`, `big-number`, `code`), and the ones that looked dead and were not
+(`matrix-grid`, `state-chart`) — is in
+`engineering/decisions/2026-09-01-universal-coda-registers.md`. Read
+`authoring.blocks` in `dist/docs/components.json` for the per-component answer
+rather than deriving it from either list here (#1651).
+
+**On Marp, both blocks need the runtime.** The coda is built by the same kernel in
+`lattice-runtime-min.js`; without it (the VS Code preview at its default security,
+*Strict*) a trailing `> …` is a plain quote and the paragraph is body text with only
+a CSS-drawn hairline. The kit's README, *Fidelity*, has the measurement.
 
 Both blocks land in the same place: one `.cell-coda` cell at the end of the slide,
 built before any component transform runs, docked by the section's declared outer
@@ -593,8 +628,9 @@ which fails on a missing name and on a stale one.)*
 
 The three registers are told apart by MARKDOWN SHAPE, not by a class the author
 types. They do not all reach the same layouts, and the counts are measured on a real
-render rather than derived from this page — 61 layouts, one probe slide each:
-**key insight 51, below-note 36, annotation 36.** The last two are equal by
+render rather than derived from this page — 80 layouts, one probe slide each, on the
+engine (2026-11-20): **key insight 67 (plus 3 that draw it in their own style),
+below-note 71, annotation 71.** The last two are equal by
 construction: an annotation *is* a below-note that happens to be italic-only.
 
 | Markdown shape | Renders as | Visual |
@@ -604,9 +640,8 @@ construction: an annotation *is* a below-note that happens to be italic-only.
 | `<p>` containing only `_italic_` | **Annotation** | drawn `✦` + dotted rule + muted label-size text |
 
 A slide may carry one Key Insight (blockquote) plus one trailing-
-paragraph register (below-note OR annotation), in that order. See
-`examples/gallery.md` slide 21 for key-insight + below-note,
-slide 22 for key-insight + annotation.
+paragraph register (below-note OR annotation), in that order.
+`examples/coda-everywhere.md` shows all three beats across the layout families.
 
 #### Renaming the eyebrow — `insight-*` modifiers
 

@@ -4,7 +4,7 @@ import { type PatternJob, type PatternRunner, runPattern } from '../../lib/deck-
 import { getFrontMatter } from '../../lib/front-matter';
 import { agentLibrary, agentLibraryInventory } from './agent-library';
 import { applyProposedEditsChecked, chatAgentDeps, loadArchitectAuthoring } from './architect';
-import { type AgentComplete, type AgentLibrary, buildAgentSystem, createToolbox, deckBrief, deckForTurn, deckSlides, GUIDE_TOPICS, INLINE_DECK_CHARS, isBlockKey, mdSections, proposalFromDraft, runAgentLoop, slideWords, type ToolCall } from './architect-agent';
+import { type AgentComplete, type AgentLibrary, buildAgentSystem, CANON_CARD_LINE, createToolbox, deckBrief, deckForTurn, deckSlides, GUIDE_TOPICS, INLINE_DECK_CHARS, isBlockKey, isOnRequestKey, mdSections, proposalFromDraft, runAgentLoop, slideWords, TERM_ALIASES, type ToolCall } from './architect-agent';
 import { checkerNote, finalizeAgent, init as initChatAgent } from './chat-agent';
 import { FRONT_MATTER_KEYS } from './editor-complete';
 
@@ -74,6 +74,18 @@ describe('the system prompt', () => {
 		expect(sys).not.toContain(['<!--', 'note:'].join(' '));
 	});
 
+	it('states the card-nesting rule once: the contract keeps it, the shorter canon copy is dropped (#3531)', async () => {
+		const { deckCanon } = await loadArchitectAuthoring();
+		const canon = String(deckCanon.DECK_CANON);
+		// The filter is keyed on the canon's own line: if the canon rewords it, this goes red instead of duplicating again.
+		expect(canon.split('\n').some((l) => l.startsWith(CANON_CARD_LINE))).toBe(true);
+		const sys = buildAgentSystem({ canon, catalog: CATALOG, frontMatterKeys: FRONT_MATTER_KEYS, themes: ['indaco'], finishes: [] });
+		expect(sys).not.toContain(CANON_CARD_LINE);
+		expect(sys).toContain('NESTED bullets');
+		// The rest of the canon still rides along.
+		expect(sys).toContain('HOW A BOARDROOM DECK WORKS');
+	});
+
 	it('is byte-stable for the same inputs (the cache prefix)', () => {
 		const o = { canon: 'C', catalog: CATALOG, frontMatterKeys: FRONT_MATTER_KEYS, themes: ['indaco'], finishes: [] };
 		expect(buildAgentSystem(o)).toBe(buildAgentSystem(o));
@@ -139,6 +151,48 @@ describe('the toolbox', () => {
 		const theme = await toolbox().run('read_front_matter', JSON.stringify({ key: 'theme' }));
 		expect(theme).toContain('"indaco"');
 		expect(await toolbox().run('read_front_matter', JSON.stringify({ key: 'nope' }))).toContain('not a front-matter key');
+	});
+
+	it('names the on-request keys in the prompt and still serves each one in full (#3533)', async () => {
+		// The trim drops their descriptions from every request's prefix, not the keys: the prompt lists each name, and
+		// read_front_matter returns the same one-liner it always did, because the toolbox reads the whole table.
+		// Derived from the table's groups: today the six export switches, the seven raw-CSS keys and the debug overlay.
+		const ON_REQUEST_KEYS = FRONT_MATTER_KEYS.filter(isOnRequestKey).map((k) => k.key);
+		expect(ON_REQUEST_KEYS).toHaveLength(14);
+		expect(ON_REQUEST_KEYS).toEqual(expect.arrayContaining(['present', 'debug', 'backgroundColor', 'style']));
+		const sys = buildAgentSystem({ canon: 'C', catalog: CATALOG, frontMatterKeys: FRONT_MATTER_KEYS, themes: ['indaco'], finishes: [] });
+		const also = sys.split('\n').find((l) => l.startsWith('- Also read, for export, preview and raw CSS')) ?? '';
+		const tb = toolbox();
+		for (const key of ON_REQUEST_KEYS) {
+			expect(sys, key).not.toContain(`\n- ${key}: `);
+			expect(also, key).toMatch(new RegExp(`[ ,]${key}[,.]`));
+			const info = FRONT_MATTER_KEYS.find((k) => k.key === key)?.info ?? '';
+			expect(await tb.run('read_front_matter', JSON.stringify({ key })), key).toContain(`${key}: ${info}`);
+		}
+		// The two older spellings of terms: are named on its row and still read in full.
+		const terms = sys.split('\n').find((l) => l.startsWith('- terms: ')) ?? '';
+		for (const alias of TERM_ALIASES) {
+			expect(terms).toContain(`\`${alias}:\``);
+			expect(sys).not.toContain(`\n- ${alias}: `);
+			expect(await tb.run('read_front_matter', JSON.stringify({ key: alias }))).toContain(`${alias}: Older name for terms:`);
+		}
+	});
+
+	it('cuts a long row at a word, never inside one', () => {
+		const sys = buildAgentSystem({ canon: 'C', catalog: CATALOG, frontMatterKeys: FRONT_MATTER_KEYS, themes: ['indaco'], finishes: [] });
+		// Before: "- present: … the Studio sets it at e…". Each cut row's kept text must end where a word of its source ends.
+		let cut = 0;
+		for (const k of FRONT_MATTER_KEYS) {
+			const row = sys.split('\n').find((l) => l.startsWith(`- ${k.key}: `));
+			const source = k.info.replace(/\s+/g, ' ').trim();
+			// Only a row longer than the 140-character limit is cut; a shorter one may hold an ellipsis of its own.
+			if (!row || source.length <= 140) continue;
+			const kept = row.slice(`- ${k.key}: `.length, row.lastIndexOf('…'));
+			cut++;
+			expect(source.startsWith(kept), k.key).toBe(true);
+			expect(source[kept.length], `${k.key} is cut inside a word: ${JSON.stringify(kept.slice(-12))}`).toMatch(/[\s,;:·—–-]/);
+		}
+		expect(cut).toBeGreaterThan(0);
 	});
 
 	it('reads a guide whole, or one section, and refuses an unknown topic', async () => {

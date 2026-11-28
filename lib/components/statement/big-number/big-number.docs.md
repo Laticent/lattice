@@ -10,7 +10,7 @@ Use to make one metric land. The number should be the headline — supporting te
 
 ## Agent contract
 
-**By venue** (`venue:`) its caption holds laptop ~36 · huddle ~24 · conference ~16 · hall ~12 words on a wide canvas. On a square canvas: laptop ~29 · huddle ~25 · conference ~18 · hall ~10. On a tall canvas: laptop ~18 · huddle ~12 · conference ~8 · hall ~3. On a strip canvas: laptop ~36 · huddle ~25 · conference ~19 · hall ~10. A 0 means that register has no room for its prose at that venue. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured on the real slide by growing that slot until the page clips (`tools/calibrate-venue-prose.js`); `lint:deck` reads the same numbers.
+**By venue** (`venue:`) its caption holds laptop ~36 · huddle ~24 · conference ~16 · hall ~12 words on a wide canvas. On a square canvas: laptop ~29 · huddle ~25 · conference ~18 · hall ~25. On a tall canvas: laptop ~44 · huddle ~32 · conference ~26 · hall ~24. On a strip canvas: laptop ~92 · huddle ~74 · conference ~62 · hall ~56. A 0 means that register has no room for its prose at that venue. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured on the real slide by growing that slot until the page clips (`tools/calibrate-venue-prose.js`); `lint:deck` reads the same numbers.
 
 ### Slots
 
@@ -22,6 +22,7 @@ Use to make one metric land. The number should be the headline — supporting te
 
 ### Common mistakes
 
+- **Writing the takeaway or the source as a second caption line under the number.** Close the slide with the coda instead. A `> …` after the number is the Key Insight panel, a plain paragraph is the below-note, and an italic `*Source: …*` line is the source line; the note and source line center under the number. The caption stays one line.
 - **Caption authored as a second top-level bullet instead of nested under the number's list item.** Indent the caption as a sub-bullet of the number, not a sibling `- caption` line — a sibling bullet doesn't just miss the caption styling, it matches the SAME top-level rule as the number itself and renders as a second giant hero-sized line.
 - **The unit or label baked into the number line itself, e.g. `- 1,248,500,000 users`.** Keep the number list item to the numeral plus its own unit symbol (`%`, `$`, `×`). Put what's being counted in the nested caption (the layout's demonstrated pattern — see the skeleton/sample) or, for a short category name, the eyebrow — not appended prose after the number itself.
 - **Eyebrow restates the number's value instead of naming its category, e.g. eyebrow `92%` above a number `92%`.** The eyebrow names the metric class ("Audience recall", "Q3 revenue"); the number carries the value. Restating the value in both places wastes the eyebrow's one job.

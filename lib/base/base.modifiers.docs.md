@@ -67,7 +67,7 @@ The room the slide is sized for (`venue:` per slide).
 
 Acts on: the slide. Pick one.
 
-- `venue-huddle` · `venue-conference` · `venue-hall`
+- `venue-laptop` · `venue-huddle` · `venue-conference` · `venue-hall` · `venue-phone` · `venue-tablet`
 
 ### Type set — `type-set`
 
@@ -199,13 +199,14 @@ Acts on: the slide. Pick one.
 
 - `tone-rail` · `tone-edge` · `tone-glow`
 
-### Card spacing — `cards`
+### Align — `align`
 
-What a card row does with spare height.
+Where content sits, up and down and side to side (`align:` per slide). One word per axis.
 
-Acts on: card-row. Pick one.
+Acts on: the slide.
 
-- `cards-center` · `cards-stretch` · `cards-top` · `cards-spread`
+- one of `align-top` · `align-middle` · `align-bottom` · `align-spread` · `align-fill`
+- one of `align-left` · `align-center` · `align-right` · `align-full`
 
 ### Card lift — `lift`
 
@@ -390,14 +391,11 @@ Acts on: the slide. Not offered.
 
 ### Stage frame — `frame`
 
-Where the stage sits in the frame, and the footer band's inset.
+Optical centering for the stage, and the footer band's inset. Where the stage sits is the `align:` register.
 
 Acts on: the slide.
 
-- one of `align-top` · `align-middle` · `align-bottom`
-- one of `align-left` · `align-center` · `align-right`
-- one of `fill-center` · `fill-anchor` · `fill-optical`
-- and `footer-inset`
+- `fill-optical` · `footer-inset`
 
 ### Chrome — `chrome`
 
@@ -469,7 +467,7 @@ A register is a front-matter key. It stamps its value as class words on every sl
 | `typography:` | `type-set` |  |
 | `inline-code:` | `inline-code` |  |
 | `lift:` | `lift` |  |
-| `cards:` | `cards` |  |
+| `align:` | `align` |  |
 | `corners:` | `corners` |  |
 | `claim:` | `claim` |  |
 | `fit:` | `fit` |  |
@@ -499,7 +497,7 @@ A register is a front-matter key. It stamps its value as class words on every sl
 | `color-mode:` | — | Stamps the engine's `color-*` classes, which an author never types; a slide uses `dark` or `light` (mood). |
 | `finish:` | — | Stamps `finish finish-<name>`, an open vocabulary: a saved finish is any name. |
 | `image-card:` | — | Stamps the image card's classes, which the image-card register owns (lib/core/resolve-image-card.js). |
-| `cover:` | — | Stamps `cover-*` on title and closing slides only, which the cover register owns (lib/core/resolve-cover.js). |
+| `cover-layout:` | — | Stamps `cover-*` on title and closing slides only, which the cover-layout register owns (lib/core/resolve-cover-layout.js). |
 | `player-motion:` | — | Read by the player, not stamped on a slide. |
 | `pace:` | — | Read by the narrated guide, not stamped on a slide. |
 | `delivery:` | — | Read by the narrated guide, not stamped on a slide. |

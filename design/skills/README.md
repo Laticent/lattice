@@ -37,7 +37,7 @@ skill. The others are authorable end-to-end from the file.
 
 | Skill | Use when… | ≈ tokens |
 |---|---|---|
-| [`chart-component`](./chart-component.md) | Use when adding a new chart kind to the chart family: manifest, pure SVG kernel, palette-blind chart CSS and the contrast contract. | 5.9k |
+| [`chart-component`](./chart-component.md) | Use when adding a new chart kind to the chart family: manifest, pure SVG kernel, palette-blind chart CSS and the contrast contract. | 6.0k |
 | [`component-showcase`](./component-showcase.md) | Use when writing the gallery slides that teach one component: word budgets per slide form, sized before you render. | 2.1k |
 | [`component`](./component.md) | Use when adding a new `_class:` layout to the catalog: manifest, palette-blind CSS, optional transform, generated docs. | 3.7k |
 | [`deck`](./deck.md) | Use when writing a whole deck from a blank file: narrative arc, front matter, picking layouts, the 10/10 bar and the ship checklist. | 3.3k |

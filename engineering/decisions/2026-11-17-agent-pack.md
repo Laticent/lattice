@@ -85,16 +85,18 @@ on the branch alike. The folders keep the kit's names rather than new ones (`lay
 | Layer | URL | Holds | Budget |
 |---|---|---|---|
 | Router | `/llms.txt` | What Lattice is, then the pack first, the docs copies second, the 700 KB reference last | 4 KB (existing gate) |
-| Start | `/agents/start.md` | The file shape, the deck canon, the rules, every layout in one line (job, capacity, words per item, variants), the modifiers, the plugins' inline notation, skeletons for the 19 most-used layouts, check and render | **48,000 characters** (~42,700 today, ~10.7k tokens) |
+| Start | `/agents/start.md` | The file shape with a whole three-slide deck, the short deck canon, the rules, the 19 common layouts one line each, one modifier from each of three groups, the notes, check and render, and links on (§4.9) | **1,500 tokens** (owner, 2026-11-27) on Claude's count: gated at 990 o200k; 983 today (Claude 1,457). Was 48,000 characters |
+| All layouts | `/agents/layouts.md` | What `start.md` held until 2026-11-27, less the full canon: the rules in detail, the parts any slide can carry, the registers, every layout in one line (job, capacity, words per item, variants), the modifiers, the plugins' inline notation, skeletons for the 19 most-used layouts and 2 charts | none; read on demand (10,700 o200k tokens) |
 | Plugins | `/agents/plugins/<name>.md` | The 16 plugin docs: pills, icons, sparks, checks, avatars, image, video, callout, legend, code, math, mermaid, function-plot, anima, meta, chart-family | read when a slide uses one |
 | Small model | `/agents/paste/lattice-instructions-solo.md` | 19 layouts, self-contained, for a 4,096-token local context | 10,000 characters (existing) |
 | Layouts | `/agents/components/<name>.md` | Capacity, slots, variant rule, common mistakes, skeleton | read only for layouts the deck uses |
 | Craft | `/agents/skills/<skill>.md` | `design/skills/`: edit, restyle, chart from data, speaker notes, fix findings, and the rest | on demand |
 | Export | `/agents/render/lattice-export-to-marp.md` | The one page that describes marp-cli | — |
 
-`start.md` writes nothing twice. Each section is a file the kit already builds (`DECK_CANON`, the
-rules, the modifiers) or a field of `components.json` (purpose, capacity, skeleton), so it cannot
-disagree with the rest of the pack.
+`start.md` and `layouts.md` write nothing twice. Each section is a file or a value the kit already
+builds (`DECK_CANON_SHORT`, the rules, the modifiers) or a field of `components.json` (purpose,
+capacity, skeleton), so neither can disagree with the rest of the pack. The full `DECK_CANON` is
+`authoring/deck-canon.md`, which `start.md` links.
 
 ### 4.2 Lattice is the renderer
 
@@ -120,7 +122,8 @@ bundles; every one of them is generated from the same pieces as the site pack, s
 In the kit build (`assertPack` in `tools/build-agent-kit.mjs`), so `npm run build` fails:
 
 1. Every relative link in every kit `.md` names a file the kit carries.
-2. `start.md` holds its budget (`START_MAX`).
+2. `start.md` holds its budget: `START_TOKEN_MAX`, 990 o200k tokens since 2026-11-27 (§4.9).
+   It was `START_MAX`, 48,000 characters.
 3. Marp framing appears only in `render/lattice-export-to-marp.md` (and `skills/import.md`, whose
    job is importing Marp decks): no `marp: true` line, no "a Marp deck", no `--theme-set`, no
    marp-cli, no `@marp-team/` package. This is the sentence-level check the register's file-level
@@ -128,11 +131,12 @@ In the kit build (`assertPack` in `tools/build-agent-kit.mjs`), so `npm run buil
 
 In `test/unit/tools/agent-kit-structure.test.js`:
 
-4. `start.md` names every layout in `components.json`, with its variants on its line, and every
+4. `layouts.md` (until 2026-11-27, `start.md`) names every layout in `components.json`, with its variants on its line, and every
    plugin that has a doc, which the pack also carries. The owner asked whether agents would know
    variants, budgets, modifiers and plugins: the first draft carried modifiers and budgets but
    listed no variant names and no plugin at all.
-5. Every skeleton in `start.md` and every example deck lints with zero errors and zero warnings.
+5. Every skeleton in `layouts.md`, `start.md`'s own example deck, and every example deck lints with
+   zero errors and zero warnings.
    This found the starter deck's kpi pills in the pre-2026-10 form: three warnings in the one file
    the kit tells a model to copy, and the pills rendered as plain code.
 
@@ -189,6 +193,138 @@ Shipping the universal reference surfaced two more teaching defects, both fixed 
 its key insight example used `- **Title.** body` (a lint error on `cards-grid`), and three of
 its front-matter examples still carried `marp: true`. The new
 `test/unit/components/skeletons-lint-clean.test.js` lints every one of its examples for errors.
+
+### 4.9 The entry point is budgeted in tokens (2026-11-27)
+
+**The owner's decision:** "we use 1.5K tokens. 48K characters means nothing in the agentic world."
+`start.md`'s budget is 1,500 tokens, replacing the 48,000 characters of §4.1 and gate 2 (owner,
+desk session_015KSkL4AtPNjvKkBShG56Nu, 2026-11-27). Measured before the change, `start.md` was
+46,311 characters and 12,324 o200k tokens, eight times over.
+
+So the pack has two layers where it had one. `start.md` is the short contract and `layouts.md` is
+the reference behind it: everything `start.md` used to carry, moved whole, with the structure
+gates that guarded it (gates 4 and 5). The full canon (its traps, rhythm and chrome budgets) stays
+in `authoring/deck-canon.md`, linked from `start.md`. `start.md` keeps only what a deck cannot be
+written without (983 o200k tokens, measured):
+
+| Section | Source | o200k tokens |
+|---|---|---|
+| Title, version, the link to all layouts | `packages/lattice/package.json` `version` | 32 |
+| The file: a whole title, list and closing deck, and how a record names a layout | `DECK_SETTINGS` (`theme`, `pagination`, `color-mode`), each layout's `skeleton`, `silent` on the bookends as the canon says | 158 |
+| What a good deck is | `DECK_CANON_SHORT`, less its RIGHT COMPONENT bullet (§4 is that bullet, as a list) and its CARD-style bullet (§3's nest rule says it, naming the layouts) | 191 |
+| Rules | `essentials(SOLO_LAYOUTS)`, less what the canon and §1 already say and the unclosed-comment rule the linter reports, with the nest and bodied-row rules as one line; where content goes on each listed layout with no heading slot (from the slot contracts) and the `NUMBER_SLOT_LAYOUTS` row, from their skeletons; the notes, from `NOTE_NAMES` | 232 |
+| The 19 common layouts | `SOLO_LAYOUTS` + `SOLO_INTENT`, the solo text's own list | 235 |
+| Modifiers | a record with a modifier, the first token of three `UNIVERSAL_GROUPS` (mood, tone, insight), and the link | 63 |
+| Check, render, read more | the checker, `npx @laticent/lattice`, the render page, the full canon | 70 |
+
+What `start.md` no longer says, and where each now lives:
+
+| No longer in `start.md` | Now in |
+|---|---|
+| Every layout beyond the 19, with capacity, word budgets and variants | `layouts.md` §3 |
+| The skeletons beyond `title`, `list` and `closing` | `layouts.md` §6 and `components/<name>.md` |
+| The universal parts (key insight, below-note and the rest) and the deck-wide registers | `layouts.md` §2 |
+| The inline notation (pills, icons, sparks, checks) | `layouts.md` §5 |
+| The detailed rules: kpi row colors, kpi key-insight fit, the `big-number`/`quote` claim, timeline status words, `profile:` | `layouts.md` §1 and §2 |
+| The full canon: traps, rhythm, chrome word budgets | `authoring/deck-canon.md` (linked) |
+| The canon's RIGHT COMPONENT bullet | `start.md` §4's list does its job; `authoring/deck-canon.md` |
+| The canon's CARD-style bullet | `start.md` §3's nest rule, which names every listed layout lint holds to it |
+| The ledger and statement rules for layouts outside the 19 (`authority-chain`, `regulatory-update`, `split-compare`, `principles`) | the linter, which reports both (`split-bodyless-item`, `statement-ol-bold`); `main`'s `start.md` never carried them either |
+| Every modifier token but `dark`, `tone-pass` and `insight-key` (chrome, decoration, state, table and the rest) | `authoring/modifiers.md` (linked); `silent` is in §1's deck |
+| "Every `<!-- -->` comment is closed" | the linter, which reports it as an error (`unterminated-comment`) |
+| The skills link | the kit README; `start.md` keeps the full-canon link |
+| The starter-deck link | the kit README's `examples/` row |
+
+Every slide record in `start.md` is written by `lib/core/meta-comment.mjs` `metaClass`, and every
+front-matter key is read from `DECK_SETTINGS` and refused when retired, so a later rename changes
+`start.md` without an edit to the generator. The generator's other slide directives (the paste
+texts, the upload bundles, the README) are left as they were: the @meta cut (#3563) rewrites them,
+and touching them here would only make the two changes collide.
+
+The worked decks agree with the canon. The canon says both bookends carry `silent`, so `start.md`'s
+deck and the paste texts' worked decks write it; the skeletons, which are shapes, leave it to the
+author. A test holds the two together (`every worked deck writes \`silent\` on its bookends`).
+
+**Why the gate is 990 and not 1,500.** The gate counts offline with o200k_base, the tokenizer the
+repo already ships (`gpt-tokenizer`, the CLAUDE.md router gate's); the build makes no network call.
+Claude is the pack's main reader, so the 1,500 must hold on Claude's count. The first draft gated at
+1,300 o200k on a guessed 15% margin. Measured on the real counters (Anthropic's `count_tokens` and
+Gemini's `countTokens`, both free count-only endpoints, no generation), the guess was wrong:
+
+| `start.md` | o200k | Gemini 3.x | Claude 5 (Opus, Sonnet, Haiku, Fable alike) |
+|---|---|---|---|
+| `main` (before) | 12,324 | — | — |
+| first draft (1,300 gate) | 1,273 | 1,360 | 1,956 |
+| first 990 push | 984 | 1,040 | 1,476 |
+| after eval run 1 (kpi rule) | 981 | 1,037 | 1,459 |
+| after eval run 2 (big-number rule) | 984 | 1,042 | 1,460 |
+| after the general rule | 983 | 1,040 | 1,458 |
+| after eval run 3 (bodied-row fix) | 966 | 1,022 | 1,429 |
+| nest rule names its layouts | 981 | 1,034 | 1,455 |
+| as merged (agenda rows named plain) | 983 | 1,036 | 1,457 |
+
+Claude counts this file at **1.51×** o200k (1.54× on the draft); Gemini at 1.06–1.07×. So the gate
+is 990 o200k, about 1,495 on Claude's count (the desk picked this over keeping 1,300, 2026-11-27).
+The ratio belongs to this file, not to Markdown in general: **re-count `start.md` on Claude's and
+Gemini's counters in the per-release check**, and move `START_TOKEN_MAX` if the ratio moves.
+`tools/agent-pack-eval.mjs`'s budget and workflow stay the owner's open calls; this change leaves the
+eval as it is.
+
+**The eval, run on the 990 file (2026-11-27, run 46023640639, the owner's "raise it").** Claude
+Sonnet 5.5 had only `start.md` in its prompt and wrote one deck per brief; the run cost USD 0.08.
+
+| brief | main, old 12k `start.md` (run 45998307020) | run 1: first 990 file (46023640639) | run 2: + kpi rule (46026988831) | run 3: + general rule (46032981944) |
+|---|---|---|---|---|
+| board-ask | pass: 7 slides, 6 layouts, 2 suggestions | pass: 7 slides, 6 layouts, 2 suggestions | **fail**: `big-number` number written as a heading | pass: 8 slides, 6 layouts, 2 suggestions |
+| teaching | pass: 10 slides, 8 layouts, 0 suggestions | pass: 8 slides, 6 layouts, 2 suggestions | pass: 8 slides, 6 layouts, 2 suggestions | **fail**: a body nested under each `agenda` row |
+| data-review | pass: 6 slides, 6 layouts, 1 suggestion | **fail**: the export clipped slide 3 | pass: 7 slides, 7 layouts, 3 suggestions | pass: 6 slides, 6 layouts, 1 suggestion |
+| cost (USD) | 0.23, both arms | 0.08 | 0.075 | 0.077 |
+
+Slide 3 was a `kpi` written as `- Customer satisfaction: 91%` with a sentence under each row. The
+file carried no `kpi` skeleton, so the model guessed the shape. Rewriting only that slide to the
+skeleton's shape (`1. 91%`, then the label and one short context line) renders with no overflow.
+So `start.md` now teaches the number-row shape for `NUMBER_SLOT_LAYOUTS` (`kpi`, `stats`), using the
+`kpi` skeleton's own first row as the example, inside the 990 gate.
+
+Run 2 passed data-review and failed board-ask the same way: its `big-number` slide wrote
+`# 3.8 days` as a heading, which leaves the number slot empty (`slot-contract`,
+`big-number-hero-heading`). The rule now says a number is a list item, never a heading, and gives
+the `big-number` skeleton's first item too. With only that slide rewritten, the deck lints clean and
+renders with no overflow. The pattern is the cost of the cut: a layout whose skeleton is not in
+`start.md` is a guess for a model that cannot open `components/<name>.md`, and both failed guesses
+were content written as a heading. So the rule is generated, not listed by hand: every layout
+`start.md` lists whose slot contract (`lib/authoring/slot-contract.generated.js`) has no heading slot
+is named with the form its required slot takes (today `big-number`, a list item, and `quote`, a
+`>` blockquote), plus the `NUMBER_SLOT_LAYOUTS` row (`kpi`, `stats`). Every other listed layout has
+an `h2` title slot, so a heading there is right. A new headingless layout enrolls itself, and a test
+derives the same set from the contracts. The three briefs' expected-shape decks lint clean against
+it and render with no overflow. Run 3 is the last eval round for this PR (the raise-loop cap).
+
+Run 3 passed board-ask and data-review and failed teaching on a rule `start.md` itself taught:
+"A row on `agenda`, `kpi`, … always has a body under its title". The model nested a body under each
+`agenda` row, and `agenda` reads one list level (`list-depth-unsupported`). The sentence comes from
+`essentials()`, which every paste text shares, and it drew its layouts from `LEDGER_LAYOUTS`, the
+inline-bold set, rather than from the layouts lint holds to a nested body (`SPLIT_SLOT_LAYOUTS` and
+`NUMBER_SLOT_LAYOUTS`). The defect was older than this PR (`main`'s paste texts teach it too); it is
+fixed at its source, so the paste texts, the repo drop-ins and `start.md` now name `split-panel`,
+`split-compare`, `kpi` and `stats` only. A test pins the set to lint's. The teaching deck with its
+agenda rows left bare lints clean and renders with no overflow. No fourth run: the desk capped the
+loop at three, so the fix is verified locally, not by the eval.
+
+Narrowing that sentence opened a gap the card grader found: it had been the only text in `start.md`
+that kept `list-steps`, `list-tabular` and `timeline-list` off inline bold, which lint makes an error
+on them (`card-style-inline-title` checks `CARD_STYLE_LAYOUTS` and `LEDGER_LAYOUTS`), while the
+canon says only "CARD-style layouts". So the shared nest rule now names its layouts from those two
+sets (less `agenda`, whose rows take no body), `start.md` folds the bodied-row rule into it as one
+line, and drops the canon's CARD-style bullet, which the named rule replaces. The layouts in that
+set whose list contract reads one level (`lib/core/list-contract.js`, today `agenda`) are named
+instead as "rows are one plain line": a nested body is dropped there, and inline bold is still an
+error. Where the number-row example already shows `kpi` and `stats` with a body, `start.md`'s
+bodied clause names only `split-panel`. A test pins both sets to lint's and the list contract's.
+
+**The engine version is stamped** into `start.md`, `layouts.md` and `/llms.txt`, read from
+`packages/lattice/package.json`. `publish-kits.yml` now republishes on a change to that file, so a
+release republishes the pack with its new number.
 
 ### 4.10 Paired, capped and two-turn (2026-11-27)
 

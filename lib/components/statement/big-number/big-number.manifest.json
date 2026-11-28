@@ -2,7 +2,7 @@
   "$schema": "../../manifest.schema.json",
   "name": "big-number",
   "adapt": {
-    "mode": "native",
+    "mode": "reflow",
     "priority": [
       "number",
       "caption",
@@ -55,7 +55,7 @@
   "sample": "<!-- @meta{layout=big-number} -->\n\n`big-number · one number, the whole canvas`\n\n- 1\n  - claim per slide is what this layout enforces — the number argues, the caption stays to a line.\n",
   "stressDoc": {
     "summary": "Ten digits is the practical ceiling.",
-    "sample": "<!-- @meta{layout=big-number} -->\n\n`big-number · stress — the longest number that still lands`\n\n- $1,248,500,000\n  - ten digits with separators, scaled down to fit; past this width the claim stops reading at the back of the room.\n"
+    "sample": "<!-- @meta{layout=big-number, class=venue-laptop} -->\n\n`big-number · stress — the longest number that still lands`\n\n- $1,248,500,000\n  - ten digits with separators, scaled down to fit; past this width the claim stops reading at the back of the room.\n"
   },
   "whenToUse": [
     {
@@ -105,6 +105,10 @@
   ],
   "commonMistakes": [
     {
+      "mistake": "Writing the takeaway or the source as a second caption line under the number.",
+      "fix": "Close the slide with the coda instead. A `> …` after the number is the Key Insight panel, a plain paragraph is the below-note, and an italic `*Source: …*` line is the source line; the note and source line center under the number. The caption stays one line."
+    },
+    {
       "mistake": "Caption authored as a second top-level bullet instead of nested under the number's list item.",
       "fix": "Indent the caption as a sub-bullet of the number, not a sibling `- caption` line — a sibling bullet doesn't just miss the caption styling, it matches the SAME top-level rule as the number itself and renders as a second giant hero-sized line."
     },
@@ -141,23 +145,23 @@
             "laptop": 29,
             "huddle": 25,
             "conference": 18,
-            "hall": 10
+            "hall": 25
           }
         },
         "tall": {
           "row": {
-            "laptop": 18,
-            "huddle": 12,
-            "conference": 8,
-            "hall": 3
+            "laptop": 44,
+            "huddle": 32,
+            "conference": 26,
+            "hall": 24
           }
         },
         "strip": {
           "row": {
-            "laptop": 36,
-            "huddle": 25,
-            "conference": 19,
-            "hall": 10
+            "laptop": 92,
+            "huddle": 74,
+            "conference": 62,
+            "hall": 56
           }
         }
       }

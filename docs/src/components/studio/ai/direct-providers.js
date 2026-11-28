@@ -110,14 +110,34 @@ export function usablePrice(row) {
 	return { promptPerM: row.promptPerM, completionPerM: row.completionPerM, imagePerM: row.imagePerM ?? null, contextLength: row.contextLength ?? null };
 }
 
-/** USD for a usage, from per-million prices; null without a price. Anthropic cache tokens priced at its published multipliers. */
-export function estimateCost(usage, price) {
+/** Anthropic's published cache multipliers, as fractions of base input: a 5-minute write, a 1-hour write, a read. */
+export const CACHE_RATES = Object.freeze({ write5m: 1.25, write1h: 2, read: 0.1 });
+
+/**
+ * USD for a usage, from per-million prices; null without a price. Anthropic's cache tokens are priced at its published
+ * multipliers, and a write is priced by its TTL: Anthropic splits `cache_creation` into 5-minute and 1-hour tokens, and a
+ * 1-hour write costs 2x base input against 1.25x (#3533 S02). Without that split, the writes are priced at `writeRate`,
+ * the rate the request's own TTL implies.
+ * @param {any} usage
+ * @param {{ promptPerM: number | null, completionPerM: number | null } | null} price
+ * @param {number} [writeRate]
+ */
+export function estimateCost(usage, price, writeRate = CACHE_RATES.write5m) {
 	if (!usage || !price || price.promptPerM == null || price.completionPerM == null) return null;
 	const p = price.promptPerM / 1e6;
 	const c = price.completionPerM / 1e6;
-	const write = usage.cache_creation_input_tokens || 0;
+	const split = usage.cache_creation;
+	const w1h = Number(split?.ephemeral_1h_input_tokens) || 0;
+	const w5m = Number(split?.ephemeral_5m_input_tokens) || 0;
+	const writeUsd = split && (w1h || w5m) ? (w5m * CACHE_RATES.write5m + w1h * CACHE_RATES.write1h) * p : (usage.cache_creation_input_tokens || 0) * p * writeRate;
 	const readTok = usage.cache_read_input_tokens || 0;
-	return (usage.prompt_tokens || 0) * p + write * p * 1.25 + readTok * p * 0.1 + (usage.completion_tokens || 0) * c;
+	return (usage.prompt_tokens || 0) * p + writeUsd + readTok * p * CACHE_RATES.read + (usage.completion_tokens || 0) * c;
+}
+
+/** The write rate a request's own cache marks imply: 2x when any mark asks for a 1-hour TTL, else the 5-minute 1.25x. */
+export function requestWriteRate(body) {
+	const marks = [...(body?.system ?? []), ...(body?.messages ?? []).flatMap((m) => (Array.isArray(m?.content) ? m.content : []))].map((b) => b?.cache_control).filter(Boolean);
+	return marks.some((m) => m.ttl === '1h') ? CACHE_RATES.write1h : CACHE_RATES.write5m;
 }
 
 // Text models only: the /models lists also carry embedding, image, audio and moderation models.
@@ -247,24 +267,36 @@ export function toAnthropicBody({ messages, model, maxTokens, json, tools, toolC
 const FINISH = { end_turn: 'stop', stop_sequence: 'stop', max_tokens: 'length', tool_use: 'tool_calls', refusal: 'content_filter' };
 
 /** Anthropic usage → the OpenAI-shaped usage the spend ledger reads, priced as an estimate. */
-function anthropicUsage(u, price) {
+function anthropicUsage(u, price, writeRate) {
 	const usage = {
 		prompt_tokens: (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0) + (u.cache_read_input_tokens || 0),
 		completion_tokens: u.output_tokens || 0,
 		cache_creation_input_tokens: u.cache_creation_input_tokens || 0,
 		cache_read_input_tokens: u.cache_read_input_tokens || 0,
+		...(u.cache_creation ? { cache_creation: u.cache_creation } : {}),
 	};
+	// The cached share in the shape every other route reports it, so the chat's usage line reads it the same way.
+	if (u.cache_read_input_tokens != null) usage.prompt_tokens_details = { cached_tokens: u.cache_read_input_tokens || 0 };
 	usage.total_tokens = usage.prompt_tokens + usage.completion_tokens;
 	// estimateCost prices prompt_tokens at full rate, so price only the uncached input there.
-	const cost = estimateCost({ ...usage, prompt_tokens: u.input_tokens || 0 }, price);
+	const cost = estimateCost({ ...usage, prompt_tokens: u.input_tokens || 0 }, price, writeRate);
 	return { ...usage, cost: cost ?? 0, estimated: true, ...(cost == null ? { unpriced: true } : {}) };
 }
 
 function openaiUsage(u, price) {
 	const usage = { prompt_tokens: u.prompt_tokens || 0, completion_tokens: u.completion_tokens || 0 };
+	// Kept, not dropped: it is where OpenAI and Gemini report cached input. Absent stays absent, which the chat reads as unknown.
+	if (u.prompt_tokens_details) usage.prompt_tokens_details = u.prompt_tokens_details;
 	usage.total_tokens = u.total_tokens || usage.prompt_tokens + usage.completion_tokens;
 	const cost = estimateCost(usage, price);
 	return { ...usage, cost: cost ?? 0, estimated: true, ...(cost == null ? { unpriced: true } : {}) };
+}
+
+/** The error a Stop raises, shaped as fetch's own abort so every caller already handles it. */
+function abortError() {
+	const e = new Error('aborted');
+	e.name = 'AbortError';
+	return e;
 }
 
 // ── The backend ──────────────────────────────────────────────────────────────────────────
@@ -477,10 +509,16 @@ export function directBackend(provider, { catalog, catalogNow, defaultMaxTokens 
 		};
 		while (true) {
 			const { value, done: end } = await reader.read();
-			if (end || signal?.aborted) break;
+			// A Stop ends the round as an abort, as a rejected read does: never as a finished reply whose partial usage and
+			// half-streamed tool calls would then be reported and run (#3533 S01).
+			// The end first: a reply whose stream has ended finished, even if a Stop lands in that instant (#3533).
+			if (end) break;
+			if (signal?.aborted) throw abortError();
 			buf += dec.decode(value, { stream: true });
 			let nl;
 			while ((nl = buf.indexOf('\n')) >= 0) {
+				// Checked per line as well as per read: one read can hold the rest of the stream.
+				if (signal?.aborted) throw abortError();
 				const line = buf.slice(0, nl).trim();
 				buf = buf.slice(nl + 1);
 				if (!line.startsWith('data:')) continue;
@@ -534,7 +572,7 @@ export function directBackend(provider, { catalog, catalogNow, defaultMaxTokens 
 		const priced = price(model);
 		if (!onToken || !res.body) {
 			const data = await res.json();
-			if (data.usage) report(onUsage, anthropicUsage(data.usage, priced));
+			if (data.usage) report(onUsage, anthropicUsage(data.usage, priced, requestWriteRate(body)));
 			report(onFinishReason, FINISH[data.stop_reason] || data.stop_reason);
 			const blocks = data.content || [];
 			const calls = blocks.filter((b) => b.type === 'tool_use').map((b) => ({ id: b.id, type: 'function', function: { name: b.name, arguments: JSON.stringify(b.input ?? {}) } }));
@@ -552,7 +590,7 @@ export function directBackend(provider, { catalog, catalogNow, defaultMaxTokens 
 		let finish = null;
 		const calls = []; // by content-block index
 		const done = () => {
-			report(onUsage, anthropicUsage(usage, priced));
+			report(onUsage, anthropicUsage(usage, priced, requestWriteRate(body)));
 			report(onFinishReason, finish);
 			const made = calls.filter(Boolean);
 			if (made.length) report(onToolCalls, made);
@@ -560,10 +598,16 @@ export function directBackend(provider, { catalog, catalogNow, defaultMaxTokens 
 		};
 		while (true) {
 			const { value, done: end } = await reader.read();
-			if (end || signal?.aborted) break;
+			// A Stop ends the round as an abort, as a rejected read does: never as a finished reply whose partial usage and
+			// half-streamed tool calls would then be reported and run (#3533 S01).
+			// The end first: a reply whose stream has ended finished, even if a Stop lands in that instant (#3533).
+			if (end) break;
+			if (signal?.aborted) throw abortError();
 			buf += dec.decode(value, { stream: true });
 			let nl;
 			while ((nl = buf.indexOf('\n')) >= 0) {
+				// Checked per line as well as per read: one read can hold the rest of the stream.
+				if (signal?.aborted) throw abortError();
 				const line = buf.slice(0, nl).trim();
 				buf = buf.slice(nl + 1);
 				if (!line.startsWith('data:')) continue;

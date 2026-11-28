@@ -68,7 +68,7 @@ const { playerStagesFixture } = require(path.join(ROOT, 'test', 'fixtures', 'pla
 // the pointerup's own point, which Mobile Safari reported as (0, 0) on every touch (iOS 26.5 simulator, platform suite
 // run 44013499171), so a tap could turn the slide. Script only: one pointermove listener and two variables
 // (108,060 -> +483 bytes = 108,543). Both hosts agree.
-// Re-blessed 2026-11-20 for the light cover (`cover: light` → `cover-light`, lib/core/resolve-cover.js): the
+// Re-blessed 2026-11-20 for the light cover (`cover-layout: light` → `cover-light`, lib/core/resolve-cover-layout.js): the
 // player script's `pinsOpposite` also leaves a `cover-light` slide alone on a toggle, so a light cover is not
 // restamped with the deck's dark class. Script only, `||el.classList.contains('cover-light')`
 // (108,543 -> +38 bytes = 108,581); the fixture has no cover-light slide, so its rendering is unchanged. Both hosts agree.

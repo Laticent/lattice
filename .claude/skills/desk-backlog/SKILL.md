@@ -34,7 +34,7 @@ yours; do not invent another). Tag this session `desk:backlog` and `ui:pinned`.
    branch `claude/issue-<n>-<slug>`); that move is the documented claim, not a desk
    label change.
 4. **Report** to the command center: dispatched issues as fleet items, the batched
-   proposals as numbered actions, and `budget: N/10 today`, with its `meter:` ledger.
+   proposals as numbered actions, and `budget: N/10 today`, with its `meter:` ledger, which also rides on every gate message to the command center (a card announcement, a 🧱 line).
 
 ## Lane
 

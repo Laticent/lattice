@@ -17,7 +17,8 @@
     "escalateTo": [
       "split across slides"
     ],
-    "note": "columns INCLUDING the leading workstream label column, so 4 = three phases. Past four phases the landscape grid crushes; at portrait the horizons cards paginate instead (one card per page since #2016 — the four-page budget it used to name is gone)"
+    "note": "columns INCLUDING the leading workstream label column, so 4 = three phases. Past four phases the landscape grid crushes; at portrait the horizons cards paginate instead (one card per page since #2016 — the four-page budget it used to name is gone)",
+    "withClaim": {"quiet":{"soft":6,"hard":6},"hero":{"soft":6,"hard":6}}
   },
   "split": {
     "strategy": "roadmap-horizons",
@@ -54,11 +55,7 @@
     "data": true
   },
   "stage": "canvas",
-  "coda": {
-    "claims": [
-      "trailing-paragraph"
-    ]
-  },
+  "coda": { "claims": [], "caption": true },
   "labelSet": {
     "aria": "Status key",
     "members": [

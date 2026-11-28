@@ -10,11 +10,13 @@
 
 import { splitSections } from '@laticent/markup';
 import { deriveKatexProviderUrl, ensureKatexProvider } from '@/lib/ensure-katex';
+import { mayWantMeasuredSplit } from '@/lib/fit-pack-wanted';
 import { ensureEngine } from '@/lib/load-engine';
 import { offFences, offFencesSentence } from '@/lib/off-fences';
 import type { LatticePlaygroundEngine } from '@/lib/playground-global';
 import { renderMarkdown } from '@/lib/render-engine';
 import { createThemeFetcher } from '@/lib/theme-fetch';
+import { LAZY_LOAD_MS, withinMs } from '@/lib/within-ms';
 import type { SingleSlideOptions } from '@/playground/single-slide-render';
 import fontPolicyCore from '../../../../lib/core/font-policy.js';
 import { glossaryEntries, resolveGlossaryMode, withoutAutoGlossary } from '../../../../lib/core/glossary-auto.mjs';
@@ -580,8 +582,67 @@ export async function shareHtmlPlayer(
 	// Loud when the bundle lacks it: the export would quietly ship each multi-element slide as one
 	// crowded page, and a portrait deck as a different file from the CLI's.
 	if (!PG.splitForPreview) console.warn('lattice: this engine bundle has no structural split; a portrait, square or mobile deck exports unsplit.');
+	// THE MEASURED SPLIT (`fit: pack`, 2026-10-28-fit-everywhere-model.md §16): the CLI measures the
+	// deck rendered whole and packs each overflowing slide by measured height, so this export does the
+	// same, in a hidden frame built as the preview's is, before the cut. The plan it finds is reused for
+	// the strip-notes candidate below (same slides, same numbers), so both cut alike. Loaded only for a
+	// deck that asks; a failed load or an unmeasurable frame keeps today's split, as the CLI does.
+	let exportPlan: Record<string, unknown> | null = null;
+	// Set when the deck wanted the measured split and did not get it: every render of this export, the strip-notes
+	// candidate's too, then draws its charts for the room the key insight takes, so both cut alike.
+	let unmeasured = false;
+	// The engine loads its splitter on demand: `splitReady` returns nothing at landscape. Every cut below (the
+	// measured one, the deck and the strip-notes candidate) has the same box, so one wait covers them all.
+	// Bounded, as the preview's is: a chunk that never settles (a stalled fetch, a service worker that never answers) ends
+	// in the refusal just below, never an Export that spins for good (checker, 2026-11-27).
+	const splitLoad = PG.splitReady?.(out.width || 1280, out.height || 720);
+	if (splitLoad) await withinMs(splitLoad, LAZY_LOAD_MS);
+	// A splitter that did not load (a stale deploy's chunk, the network) leaves a portrait or square deck one crowded
+	// page a slide: a different file from the CLI's. Refuse, as for an engine that is not ready, rather than ship it.
+	// An empty document asks the question without splitting the deck twice.
+	if (PG.splitForPreview?.('', source, out.width || 1280, out.height || 720, { settle: false }).pending) {
+		throw new Error('the slide splitter did not load — reload the page and export again');
+	}
+	if (PG.splitForPreview && mayWantMeasuredSplit(source)) {
+		const [ms, dp, sz] = (await withinMs(Promise.all([import('@/lib/measured-split'), import('@/playground/deck-preview.js'), import('@/lib/sanitize-slide-html.js')]), LAZY_LOAD_MS).catch(() => null)) ?? [null, null, null];
+		// A module that did not load cannot say whether the deck wanted the measured split, so it counts as wanted, as
+		// the preview and the Playground count it.
+		const wanted = !ms || ms.measuredSplitWanted(source);
+		if (ms && dp && sz && wanted) {
+			const w = out.width || 1280;
+			const h = out.height || 720;
+			const measure = () =>
+				ms
+					.measuredSplitInFrame({
+						html: out.html,
+						split: (html, plan) => (PG.splitForPreview as NonNullable<typeof PG.splitForPreview>)(html, source, w, h, { settle: false, plan }),
+						verdictConfig: PG.fitVerdictConfig?.(),
+						runtimeUrl: options.runtimeUrl,
+						buildDoc: (html) => dp.buildSrcdoc({ html: sz.sanitizeSlideHtml(html), css: out.css, mode: 'light', geom: { w, h }, runtimeUrl: options.runtimeUrl, previewFonts: true }),
+						width: w,
+						height: h,
+					})
+					.catch((e) => {
+						console.warn('lattice: the measured split failed, so this export keeps the structural split', e);
+						return null;
+					});
+			// A plan read while a face was still loading laid the text out in a fallback face: measure once more, with the
+			// faces the first pass loaded, rather than ship the fallback's split (checker, 2026-11-27).
+			let measured = await measure();
+			if (measured && measured.fontsLoaded === false) measured = (await measure()) ?? measured;
+			if (measured) exportPlan = measured.plan;
+		}
+		unmeasured = wanted && !exportPlan;
+		if (unmeasured) {
+			// The engine drew each chart for the room a moved key insight frees (`data-coda-moves`), but without the
+			// measured split the insight stays on its slide: draw the deck again for the room it takes, as the preview
+			// and the Playground do on this path (checker, 2026-11-27). The failure path only; a measured export is
+			// unchanged.
+			out = await renderMarkdown(PG, source, theme, { styles: 'flat', samplesUrl: samplesBaseFor(options.themeBase), ...(await assetOpts(source)), measured: false });
+		}
+	}
 	const splitLikeCli = <R extends { html: string; width?: number; height?: number }>(r: R, src: string): R =>
-		PG.splitForPreview ? { ...r, html: PG.splitForPreview(r.html, src, r.width || 1280, r.height || 720, { settle: false }).html } : r;
+		PG.splitForPreview ? { ...r, html: PG.splitForPreview(r.html, src, r.width || 1280, r.height || 720, { settle: false, ...(exportPlan ? { plan: exportPlan } : {}) }).html } : r;
 	// The deck's `font-embedding:` line with the export panel's choice on top, the plan the command line runs.
 	const fontSetting = (await step('load the exporter', () => import('./export/deck-export.js'))).deckFontSetting(source);
 	// Under the Emoji font setting `system` the player carries no icon font, so every slide draws its icons' <svg>, as the
@@ -686,7 +747,7 @@ export async function shareHtmlPlayer(
 			// The same embed + placeholder passes, so the candidate compares like-for-like with
 			// `recordSections`. The cache means it fetches nothing the first pass already did, and
 			// the notes cut changes no picture, so the first pass's report stands for it.
-			async (src) => renderMarkdown(PG, src, theme, { styles: 'flat', samplesUrl: samplesBaseFor(options.themeBase), ...(await assetOpts(src)) }).then((r) => shipRender(r, src)).then(async (r) => ({ ...r, html: shownHtml(remoteRef.blockWebImages((await withMedia(r.html)).html, []).html) })),
+			async (src) => renderMarkdown(PG, src, theme, { styles: 'flat', samplesUrl: samplesBaseFor(options.themeBase), ...(await assetOpts(src)), ...(unmeasured ? { measured: false } : {}) }).then((r) => shipRender(r, src)).then(async (r) => ({ ...r, html: shownHtml(remoteRef.blockWebImages((await withMedia(r.html)).html, []).html) })),
 		);
 		envelopeSource = cut.source;
 		fidelityWarning = cut.warning;

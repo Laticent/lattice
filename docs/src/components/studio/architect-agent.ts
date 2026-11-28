@@ -251,9 +251,12 @@ const PURPOSE = [
 	'- Be economical. Answer in a few short paragraphs at most; use lists only when they carry structure.',
 ].join('\n');
 
+/** How the deck canon's card-nesting line starts (lib/authoring/deck-canon.js). */
+export const CANON_CARD_LINE = '• CARD-style layouts nest';
+
 /** The always-on reference: the authoring contract, what exists, and where to read more.
  *  Byte-stable for a given catalog (the cache prefix). */
-export function buildAgentSystem(opts: { canon: string; catalog: AgentComponent[]; frontMatterKeys: { key: string; info: string }[]; themes: string[]; finishes: { name: string; blurb?: string }[] }): string {
+export function buildAgentSystem(opts: { canon: string; catalog: AgentComponent[]; frontMatterKeys: { key: string; info: string; group?: string }[]; themes: string[]; finishes: { name: string; blurb?: string }[] }): string {
 	const byBucket = new Map<string, AgentComponent[]>();
 	for (const c of opts.catalog) {
 		if (!c?.name) continue;
@@ -264,16 +267,23 @@ export function buildAgentSystem(opts: { canon: string; catalog: AgentComponent[
 	const index = [...byBucket.entries()]
 		.map(([b, list]) => `${b}: ${list.sort((x, y) => x.name.localeCompare(y.name)).map((c) => `${c.name} — ${oneLine(c.summary || c.description)}`).join('; ')}`)
 		.join('\n');
-	const fm = opts.frontMatterKeys.map((k) => `- ${k.key}: ${oneLine(k.info, 140)}`).join('\n');
+	const fm = promptFrontMatter(opts.frontMatterKeys);
 	const finishes = opts.finishes.map((f) => f.name).join(', ');
 	const guides = Object.entries(GUIDE_TOPICS).map(([k, v]) => `- ${k} — ${v}`).join('\n');
 	// The same authoring rules the one-shot primer carries, verbatim, so the agent and the
 	// on-device path cannot drift on the contract.
 	const rules = (AUTHORING_RULES as string[]).map((r) => `- ${r}`).join('\n');
+	// The canon's one-line card-nesting rule is a shorter copy of the AUTHORING CONTRACT's (which adds the 3-space
+	// indent under `1.`), so the agent reads it once. The one-shot paths keep it: they carry no contract.
+	const canon = opts.canon
+		.trim()
+		.split('\n')
+		.filter((l) => !l.startsWith(CANON_CARD_LINE))
+		.join('\n');
 	return [
 		PURPOSE,
 		`AUTHORING CONTRACT\n${rules.trim()}\n- A slide has four notes, each a comment after the slide's content whose whole body is \`@name{…}\`: \`<!-- @note{…} -->\` (speaker notes, for the presenter; detail cut from a slide goes here), \`<!-- @say{…} -->\` (the exact words the voice and the captions read), \`<!-- @alt{…} -->\` (alt text, for someone who cannot see the slide) and \`<!-- @handout{…} -->\` (for someone reading the deck alone, later). Braces in a note must balance. A plain comment reaches nothing; never write one as a note. Read the speaker-notes guide only for \`@say\`, review comments or the notes rubric.`,
-		opts.canon.trim(),
+		canon,
 		`COMPONENTS — the value of \`<!-- _class: NAME -->\`. read_component gives the skeleton, variants and budget.\n${index}`,
 		`FRONT MATTER — deck-level keys in the leading \`---\` block. read_front_matter gives a key's values and behavior.\n${fm}`,
 		`THEMES (\`theme:\`): ${opts.themes.join(', ')}`,
@@ -285,7 +295,36 @@ export function buildAgentSystem(opts: { canon: string; catalog: AgentComponent[
 
 function oneLine(s: unknown, n = 110): string {
 	const t = String(s ?? '').replace(/\s+/g, ' ').trim();
-	return t.length > n ? `${t.slice(0, n - 1)}…` : t;
+	if (t.length <= n) return t;
+	// At a word, not inside one: a cut mid-word ("…the Studio sets it at e…") reads as a typo and carries nothing (#3533).
+	const cut = t.slice(0, n - 1);
+	const space = cut.lastIndexOf(' ');
+	return `${(space > n / 2 ? cut.slice(0, space) : cut).replace(/[\s,;:·—–-]+$/, '')}…`;
+}
+
+/**
+ * Keys the chat's static prompt names but does not describe: the export switches and the raw-CSS escape hatches (their groups in
+ * lib/core/deck-settings.js, so a new one joins on its own) and the preview-only debug overlay. The chat agent has no reason to set
+ * them on an edit; their rows cost about 395 tokens on every request (o200k, #3533) and several were cut mid-row.
+ * read_front_matter still serves each one in full, because the toolbox reads the whole table, and the prompt still lists their
+ * names, so the model knows they exist.
+ */
+const ON_REQUEST_GROUPS: ReadonlySet<string> = new Set(['export', 'raw']);
+export function isOnRequestKey(k: { key: string; group?: string }): boolean {
+	return (k.group != null && ON_REQUEST_GROUPS.has(k.group)) || k.key === 'debug';
+}
+
+/** Older spellings the `terms:` row absorbs (lib/core/glossary-auto.mjs, set_terms): named on that row, not given their own. */
+export const TERM_ALIASES: readonly string[] = ['lexicon', 'acronyms'];
+
+/** The FRONT MATTER block's rows: one per key the chat may set, then the on-request keys by name. */
+export function promptFrontMatter(keys: readonly { key: string; info: string; group?: string }[]): string {
+	const rows = keys
+		.filter((k) => !isOnRequestKey(k) && !TERM_ALIASES.includes(k.key))
+		.map((k) => `- ${k.key}: ${oneLine(k.info, 140)}${k.key === 'terms' ? ` (${TERM_ALIASES.map((a) => `\`${a}:\``).join(' and ')} are older names for it, read the same way)` : ''}`);
+	const onRequest = keys.filter(isOnRequestKey).map((k) => k.key);
+	if (onRequest.length) rows.push(`- Also read, for export, preview and raw CSS (read_front_matter describes each): ${onRequest.join(', ')}.`);
+	return rows.join('\n');
 }
 
 /** The per-turn brief: front matter, an outline with word counts against the budget, and
@@ -540,10 +579,13 @@ export function createToolbox(opts: {
 	}
 
 	async function readFrontMatter(keyRaw: unknown): Promise<string> {
-		const key = String(keyRaw ?? '').trim().replace(/:$/, '').toLowerCase();
-		const info = opts.frontMatterKeys.find((k) => k.key === key);
+		const asked = String(keyRaw ?? '').trim().replace(/:$/, '');
+		// Matched without case, then read under its own spelling: lowercasing the question alone made the five camelCase keys
+		// (backgroundColor, backgroundImage, …) unreadable, "not a front-matter key" (#3533).
+		const info = opts.frontMatterKeys.find((k) => k.key.toLowerCase() === asked.toLowerCase());
+		const key = info?.key ?? asked.toLowerCase();
 		const regs = await opts.library.registersDoc().catch(() => null);
-		const needle = `\`${key}:`;
+		const needle = `\`${key.toLowerCase()}:`;
 		const sec = regs ? mdSections(regs).find((s) => s.heading.toLowerCase().includes(needle)) : undefined;
 		if (!info && !sec) return `"${key}" is not a front-matter key Lattice reads. Known keys are listed in your system prompt.`;
 		note(`read how the ${key} setting works`);

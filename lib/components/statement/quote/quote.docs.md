@@ -6,7 +6,7 @@
 
 **Tags** `pull-quote` · `quotation` · `showcase`
 
-Use to land a phrase verbatim — customer voice, expert claim, mission statement. Keep under ~25 words. The quote IS the slide; the attribution is the supporting credit. `bare` drops the card, border, and quotation-mark glyphs for a plain, display-scale statement — a hook or cold-open line, not a sourced quotation.
+Use to land a phrase verbatim — customer voice, expert claim, mission statement. Keep under ~25 words. The quote IS the slide; the attribution is the supporting credit. `bare` drops the card, border, and quotation-mark glyphs for a plain, display-scale statement — a hook or cold-open line, not a sourced quotation. On a phone or tablet a quote that does not fit continues on the next page at the end of a sentence, each page a whole quote card, with the attribution on the last page; a single sentence longer than a page still clips.
 
 ## Agent contract
 
@@ -23,6 +23,7 @@ Use to land a phrase verbatim — customer voice, expert claim, mission statemen
 
 - **Writing the attribution as a second line inside the blockquote (`> quote text` then `> — Person`) instead of a separate paragraph after it.** The attribution slot is the paragraph AFTER the blockquote, not inside it — written inside, it inherits the blockquote's large italic quotation styling instead of the smaller attribution treatment.
 - **Splitting the quotation across two paragraphs inside the blockquote.** The blockquote's opening/closing smart-quote glyphs decorate the blockquote as a whole, once — two paragraphs inside it both render at full quotation size with no visual distinction, instead of the single continuous quotation the layout expects.
+- **The attribution written over two paragraphs: the name, then the role on its own line.** Since 2026-11-20 the first paragraph after the quotation is the attribution and the second is the slide's below-note, so a role line on its own renders as a note (`lint:deck` warns: `quote-note`). Put the role on the attribution line, `— Jane Doe, Head of Product`; write a second paragraph only when it is a note.
 
 ## When to use
 
