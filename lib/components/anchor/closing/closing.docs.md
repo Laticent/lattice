@@ -50,7 +50,7 @@ Last slide of every deck. Restates the takeaway or call-to-action. Drops the pag
 ## When NOT to use
 
 - **Multi-line heading.** Keep the closing line to one editorial sentence. The layout is centered and large — two-line closings get cramped and lose impact.
-- **Header or footer overrides.** Don't blank the footer with `_footer: ''` on the closing: it is the deck's standing note (a "Confidential", a copyright), and the last slide is often the one left on screen. Drop it on purpose with `no-footer`, or every band with `silent`.
+- **Header or footer overrides.** Don't blank the footer with an empty `footer=""` in the closing's record: it is the deck's standing note (a "Confidential", a copyright), and the last slide is often the one left on screen. Drop it on purpose with `no-footer`, or every band with `silent`.
 - **Mid-deck closing.** If the audience needs a strong statement mid-deck, use `big-number` or `content` with the `dark` modifier. Reserving closing for the final slide preserves its bookend role.
 
 ## Authoring
