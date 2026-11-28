@@ -21,8 +21,8 @@ Apache-2.0.
 **The owner narrowed it** in the same desk session's question tool at 03:24 UTC: "16 Apache; Calco,
 Trama stay AGPL". The question called Calco (editable PowerPoint) and Trama (diagram layout) "real
 product features" and the other 16 "generic building blocks". So Calco and Trama stay
-AGPL-3.0-only. The question did not raise Lente's policy finding (§3), so Lente also stays
-AGPL-3.0-only until the owner answers that separately, and 15 libraries move.
+AGPL-3.0-only. That question did not raise Lente's policy finding (§3), so it went to the owner
+on its own at 03:47 UTC, in the same tool: "Keep Lente AGPL". So 15 libraries move.
 
 This note is evidence, not legal advice.
 
@@ -96,8 +96,8 @@ Cenno is private and stays AGPL-3.0-only, as E2 says.
 
 ## 5. Open
 
-- **Lente.** Options for the owner: keep it AGPL; or move `SUGGESTERS` into the engine (the host
-  already injects the catalog and the class reader), then relicense the rest.
+- **Lente** stays AGPL (owner, 03:47 UTC). Opening it later means moving `SUGGESTERS` into the
+  engine first (the host already injects the catalog and the class reader).
 - **`ltt.schema.json`.** It is generated from `@laticent/ltt`'s types, so it ships under the
   package's Apache-2.0. The map (§3) asked whether the schema counts as spec (CC-BY-4.0); this
   change treats it as code.
