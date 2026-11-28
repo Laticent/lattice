@@ -55,6 +55,8 @@ for (const tag of ['@gecko', '@webkit-tablet']) test.describe(`version history s
 		await page.getByRole('button', { name: 'Version history' }).click();
 		await page.getByRole('button', { name: 'Save a version' }).click();
 		await expect(toastText(page)).toContainText("Couldn't save this version: this browser's storage is full.");
+		// Read once, now: a retrying `not.toContainText` waits out the success pill's 2.6 s dwell and passes on the bug.
+		expect(await toastText(page).textContent(), 'a failed save never says it was saved').not.toContain('Version saved');
 		// Still listed for this session, as the notice promises.
 		await expect(page.getByText('Saved version').first()).toBeVisible();
 	});
