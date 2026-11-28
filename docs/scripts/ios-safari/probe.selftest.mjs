@@ -18,6 +18,7 @@
  *   PROBE=player-charts node scripts/ios-safari/probe.selftest.mjs   # chart cards in an exported player, opened and closed by taps
  *   PROBE=logo-wall node scripts/ios-safari/probe.selftest.mjs   # a logo wall's first paint: never the unpacked grid
  *   PROBE=playground-scroll [ENGINE=chromium] [TRIALS=10] node scripts/ios-safari/probe.selftest.mjs   # the preview keeps a scroll across a window move
+ *   HOLD=<regex> [ONLY=panes-probe.js] [SHAPES=iPad-Safari-width] node scripts/ios-safari/probe.selftest.mjs   # never answer matching requests: a stall report's failing arm
  */
 import fs from 'node:fs';
 import os from 'node:os';
@@ -616,10 +617,17 @@ async function tapRunner(page, fn, touch) {
 		await page.evaluate((v) => window.__latticeTapDone(v), verdict);
 	}
 }
-for (const { label, options } of shapes) {
-	for (const probe of PROBES) {
-		const context = await browser.newContext(options);
+// HOLD=<regex> answers no request whose URL matches, for the whole run: the failing arm for a probe's stall report
+// (followups.d/3368-p1). `HOLD='/_astro/image-size-memo\.' ONLY=panes-probe.js SHAPES=iPad-Safari-width` must FAIL with
+// the panes probe naming that step (`render gate …:image-size-memo`). The service worker is blocked while a hold is on,
+// so every request reaches the page's route. ONLY and SHAPES pick probes and shapes by name, comma-separated.
+const HOLD = process.env.HOLD ? new RegExp(process.env.HOLD) : null;
+const only = (list, env, key) => (process.env[env] ? list.filter((x) => process.env[env].split(',').includes(x[key])) : list);
+for (const { label, options } of only(shapes, 'SHAPES', 'label')) {
+	for (const probe of only(PROBES, 'ONLY', 'file')) {
+		const context = await browser.newContext(HOLD ? { ...options, serviceWorkers: 'block' } : options);
 		const page = await context.newPage();
+		if (HOLD) await page.route(HOLD, () => {});
 		if (!probe.fresh) await page.addInitScript(SEED);
 		await page.goto(`${BASE}/studio/`, { waitUntil: 'domcontentloaded' });
 		await page.addScriptTag({ content: probe.source });

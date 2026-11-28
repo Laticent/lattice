@@ -1950,6 +1950,16 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		// This render's turn on the host. The restyle path waits for a sheet to load; a newer render that
 		// starts meanwhile must win, so the older one checks this after its wait and stands down.
 		const renderGen = (liveHost.__latticeRenderGen = (liveHost.__latticeRenderGen ?? 0) + 1);
+		// WHICH STEP THE NEWEST RENDER IS WAITING ON, on the host as `data-lattice-render-gate="<step>"`, the
+		// way `data-lattice-bake` carries the bake's outcome. A first render that stalled after the engine loaded showed no
+		// frame, no sample and no alert for 150 s on an iPad simulator (followups.d/3368-p1, run 46081960658). Write-only.
+		// The step is a number, to keep the Studio's eager bundle under its ceiling; RENDER_GATE_STEPS in
+		// docs/scripts/ios-safari/panes-probe.js names them: 0 theme (the deck's CSS and KaTeX faces), 1 engine render (with the
+		// pane-run chunk), 2 split (the splitter, measured-split and split-page-pick chunks), 3 image chunks (remote-ref,
+		// image-size-memo, preview-image-scale, then stamping the sizes), 4 frame load, 5 sheet load, 6 done, 7 stood down,
+		// 8 failed. A gate still short of done long after frame-scheduler.ts's 4 s watchdog is a render that never settled:
+		// the scheduler has cleared its guard, and with no new edit nothing renders again.
+		const markGate = (step: number) => host.setAttribute('data-lattice-render-gate', '' + step);
 		// A render stands down only once a NEWER one OWNS the frame, never merely because a newer one has started:
 		// that one may still fail (bad Markdown mid-typing, an engine error) before it does anything, and an older
 		// render that had already swapped the sheet would then leave the new sheet under the old body. A render
@@ -1987,6 +1997,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					PG.addThemes([{ name: extra.name, css: extra.css }]);
 				})
 			: themes.ensure(palette, mode);
+		markGate(0);
 		return Promise.all([themeReady, katexReady])
 			.then(async () => {
 				// Bail if the host was disposed/detached while the theme fetch was in
@@ -2045,6 +2056,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// `renderedBase`, the deck renders `renderedTotal`, and a split slide shows ONE of its
 				// `paneRun` pages — the one navigation asked for, else the caret's, else the one shown.
 				// The arithmetic lives in ./pane-run, loaded only for a host that hands over a map.
+				markGate(1);
 				const paneMod = opts?.paneCounts ? await import('../lib/pane-run') : null;
 				const run = paneMod?.paneRunFor(opts ?? {}, splitPageByHost.get(host));
 				const paneCounts = run?.paneCounts;
@@ -2314,6 +2326,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// The engine loads its splitter on demand: `splitReady` returns nothing at landscape, so only a real load waits.
 					// Bounded: a load that never settles shows this slide unsplit, never a preview held on its placeholder.
 					const splitLoad = PG.splitReady?.(out.width, out.height);
+					markGate(2);
 					if (splitLoad) await withinMs(splitLoad, LAZY_LOAD_MS);
 					let r = PG.splitForPreview(out.html, slideSource, out.width, out.height, splitOpts);
 					// THE MEASURED SPLIT (`fit: pack`, 2026-10-28-fit-everywhere-model.md §16): the same
@@ -2527,6 +2540,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// placeholder before ANY sink sees the markup, so the write, patch and restyle paths all
 				// carry it; the frame's policy refuses the ones a rewrite cannot reach (a `url()`, a
 				// Mermaid `img:`). The allowed origins join the policy, so they join the sig too.
+				markGate(3);
 				const remoteRef = await loadRemoteRef();
 				if (disposed || !host.isConnected) return { ok: false, slides: 0, error: 'renderer disposed' };
 				// Stamp each image slide from what is already known of its photo, before ANY sink writes it,
@@ -2616,6 +2630,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// A newer render already owns the frame: stand down now, rather than park and hold the scheduler.
 					if (newerOwns()) return { ok: false, slides: 0, error: 'renderer disposed' };
 					let waited: ReturnType<typeof setTimeout> | undefined;
+					markGate(4);
 					await Promise.race([docLoad, new Promise<void>((resolve) => { waited = setTimeout(resolve, DOC_LOAD_WAIT_MS); })]);
 					clearTimeout(waited);
 					// A newer render may have written while this one waited: it owns the frame now.
@@ -2727,6 +2742,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 						// patch path and goes through this one, where it waits on the same sheet instead of writing its
 						// body into a document that is mid-swap and keeping a stale signature after.
 						(host as LiveHost).__latticeFrameSig = undefined;
+						markGate(5);
 						await sheetLoaded;
 						// The renderer may have been torn down, the frame's document replaced, or a newer render
 						// written its slide, while the sheet loaded; either way this render has nothing left to patch
@@ -2975,7 +2991,12 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				tFrameStart = performance.now();
 				return { ok: true, slides, error: null, writePath: 'write' as const, page: splitPage, canSplit, webImagesBlocked };
 			})
+			.then((r) => {
+				markGate(r.ok ? 6 : 7);
+				return r;
+			})
 			.catch((e) => {
+				markGate(8);
 				// Surface failures in the console (the old landing bridge did; the
 				// specimen also shows them via its status line) so a broken theme fetch
 				// / engine error isn't swallowed silently on the landing islands.
