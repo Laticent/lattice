@@ -9041,7 +9041,6 @@ const SANCTIONED_SPINE_READERS = Object.freeze([
   { file: 'lib/export/marp-bundle.js', shape: 'attr-reader', count: 2, why: 'OWN ASSETS: strips Lattice\'s own runtime `<script src>` tags from the Marp bundle, and (2026-11-10) the one `<link rel="stylesheet" href>` to its own VS Code stylesheet, matched against the exact list of its own file names (`lattice-vscode.css`, the kit\'s `lattice-vscode-min.css`).' },
   { file: 'lib/export/marp-bundle-html.js', shape: 'attr-reader', count: 2, why: 'OWN ASSETS: matches Lattice\'s own runtime `<script src>` lines, and the one `<link rel="stylesheet">` to the bundle\'s own VS Code-shaped stylesheet (2026-11-10), each against an exact list of the bundle\'s own file names, to let them through.' },
   { file: 'lib/export/player-assets.mjs', shape: 'url-reader', count: 1, why: 'OWN ASSETS: finds `data:` urls in the player\'s own CSS, to deduplicate them.' },
-  { file: 'lib/export/player-fonts.js', shape: 'url-reader', count: 1, why: 'OWN ASSETS: reads the player\'s own `data:font/woff2` faces.' },
   { file: 'lib/export/player-images.mjs', shape: 'url-reader', count: 1, why: 'OWN ASSETS: finds `data:image` urls in the player\'s own CSS, to deduplicate them.' },
   { file: 'lib/fonts/face-css.js', shape: 'url-reader', count: 1, why: 'OWN ASSETS: reads the `src` of Lattice\'s own bundled `@font-face` rules.' },
   { file: 'lib/export/deck-assets.js', shape: 'url-reader', count: 1, why: 'OWN ASSETS: finds `asset:` names a deck references (the host\'s own map); it reads no web address.' },

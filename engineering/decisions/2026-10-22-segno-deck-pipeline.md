@@ -1202,7 +1202,7 @@ readers that ship.
 |---|---|---|---|---|
 | export/player-core.mjs: the comment, string and `url()` mask (×2), `noComments`, the `@font-face` walk, the `url()` list | minifying, `url()` rewriting and the font faces of the player's CSS | 3 | no | yes |
 | export/player-prune.js: `@font-face` blocks (×3) | the font faces the player keeps | 5 | no | yes |
-| export/player-fonts.js: `FACE`, `DATA_URI` | the embedded woff2 faces | 3 | no | yes |
+| export/player-fonts.js: `FACE`, `DATA_URI` (**moved in P5b:** onto lib/export/css-at-rules.js, the one face reader the font code shares; six player exports byte-identical, test/unit/export/player-fonts-differential.test.js) | the embedded woff2 faces | 3 | no | yes |
 | export/player-assets.mjs, player-images.mjs: data-URL `url()` | inlined data URLs | 1, 2 | no | yes |
 | export/katex-inline.js: `woff2Src`, the `@font-face` split (**moved in P5b:** `woff2Srcs` and `faceRules` read tokens; byte-identical on KaTeX's sheet, test/unit/export/katex-inline-differential.test.js) | KaTeX's font faces | 3 | no | yes |
 | export/marp-bundle.js: `FONT_URL`, the emoji `@font-face` drop | font paths; one face removed | 6 | no | yes (Marp export) |
