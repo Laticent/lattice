@@ -124,7 +124,7 @@ const { venuePickCell } = require('./lib/venue-capacity');
 const { ORIENTATION_TO_FAMILIES, FAMILY_NAMES } = require('../lib/adaptive/families');
 const { themeChain } = require('../lib/theme/chain.mjs');
 const { THEME_EDGES } = require('../lib/theme/edges.generated.mjs');
-const { ensureContrast, hexToOklch, oklabDistance, withLightness } = require('../lib/core/color.js');
+const { hexToOklch, oklabDistance, withLightness } = require('../lib/core/color.js');
 const { solveInk, bestEffortInk, feasibleRange, MIN_DIST } = require('../lib/theme/cat-ink.js');
 
 // The capacity to publish, matching what `tools/build-component-docs.js` prints in
@@ -217,7 +217,38 @@ const PORTAL_TOKENS = [
   // fell through to a static hex fallback and couldn't adapt to light/dark.
   // Emitting it here makes the trio resolve on `document.body`, per palette + mode.
   'pass', 'warn', 'fail',
+  // ── The families the deck themes grew after this list stopped growing (2026-07..11) ──
+  // Each line below is a WHOLE family, built from its own contract rather than picked
+  // token by token, so the site cannot hold half of one: a hand-picked subset is what let
+  // the site read `--text-secondary`, `--cat-N-mark` and `--warn-bg` for months while
+  // every one of them fell back (engineering/decisions/2026-11-28-site-token-fidelity.md).
+  //
+  // Status is FIVE kinds, not three (2026-10-24-status-is-one-system.md), each a TRIPLET
+  // of text ink, mark and the ink drawn on that mark (2026-11-16-status-triplets.md), plus
+  // the pass/warn/fail row tints (`--{s}-bg`) that only the trio declares.
+  ...['pass', 'warn', 'fail', 'info', 'mute'].flatMap((s) => [`${s}-mark`, `${s}-on-mark`]),
+  'info', 'mute',
+  'pass-bg', 'warn-bg', 'fail-bg',
+  // The 12-slot categorical contract: fill, mark and ink are three tiers of ONE hue, and
+  // the two `-on-` tokens are what reads on a fill and on a mark
+  // (2026-07-15-categorical-token-contract.md). `--chart-catN` above is the CHART family's
+  // own 8-hue cycle, a separate live contract, and stays.
+  ...Array.from({ length: 12 }, (_, i) => [`cat-${i + 1}-fill`, `cat-${i + 1}-mark`, `cat-${i + 1}-ink`]).flat(),
+  'cat-on-fill', 'cat-on-mark',
+  // The text tiers between body and muted, and the display ink above heading
+  // (design/theming.md, the text roles).
+  'text-secondary', 'text-label', 'text-display',
+  // The spectrum's end stop: the second color of the palette's own ramp, which the Studio's
+  // spectrum catalogs paint swatches from.
+  'spectrum-end',
 ];
+
+// Tokens a palette MAY declare: emitted where it does, absent where it does not, so a
+// consumer's own `var(--x, fallback)` is what the palette's absence means. `--spectrum-solid`
+// is the 2-of-18 override for a palette whose distinctive hue is not its accent
+// (lib/base/base.variants.css, the `solid` spectrum style); `--spectrum-vertical` is a
+// gradient like `--spectrum`.
+const PORTAL_OPTIONAL_TOKENS = ['spectrum-solid', 'spectrum-vertical'];
 
 // ── The Studio editor's SYNTAX INK tier ───────────────────────────────────
 //
@@ -668,36 +699,17 @@ function resolvePalettes() {
       light.spectrum = tidy(pick(spec, lightSchemeDark));
       dark.spectrum = tidy(pick(spec, darkSchemeDark));
     }
-    // Status FILL tokens — a white-text-safe companion to the foreground trio. The
-    // foreground --pass/--warn/--fail are tuned to READ as text and go BRIGHT in dark mode,
-    // so a `bg-[var(--fail)] text-white` chip/button inverts to ~2:1. Derive a fill by
-    // darkening the resolved status hue — `light[s]`, i.e. the arg matching the light
-    // block's canvas scheme (the light arg for normal palettes; the DARK arg for carbone,
-    // whose canvas is dark in both modes) — via OKLCH lightness until white text clears AA
-    // (4.5:1), and emit the SAME value in both modes so a status button looks identical
-    // light/dark. Hue-preserving, so the a11y palettes keep their colorblind-safe fill
-    // (blue/amber, grayscale) instead of a hardcoded red/green.
-    for (const s of ['pass', 'warn', 'fail']) {
-      // FAIL LOUD on anything but a 6-digit hex, in the same spirit as isDarkSurface below.
-      // Every palette resolves --pass/--warn/--fail to a 6-digit hex today; a non-hex value
-      // means a future theme expressed its status color as color-mix()/oklch()/light-dark()
-      // we can't darken here. We require SIX digits specifically (not 3) so the guard matches
-      // the emission contract — the fills are asserted 6-digit hex in portal-color-scheme.test.js,
-      // and a 3-digit token that already cleared AA would slip through here and then fail that
-      // test opaquely. Passing a non-hex through un-repaired would ship an un-contrast-checked
-      // fill under white text — the ~2:1 failure this token exists to prevent — so we throw and
-      // force the author to extend the parser rather than silently regress AA.
-      if (!/^#[0-9a-f]{6}$/i.test(String(light[s]).trim())) {
-        throw new Error(
-          `status fill: --${s} "${light[s]}" (palette "${name}") is not a 6-digit hex literal, so ` +
-            `its white-text-safe fill can't be derived. Extend the parser (or resolve --${s} ` +
-            `to 6-digit hex) rather than let a bright status color ship as an un-checked fill.`,
-        );
-      }
-      const base = ensureContrast(light[s], '#ffffff', 4.5, 'darken');
-      light[`${s}-fill`] = base;
-      dark[`${s}-fill`] = base;
+    for (const t of PORTAL_OPTIONAL_TOKENS) {
+      const r = resolveToken(map, t);
+      if (!r) continue;
+      const tidy = (v) => v.replace(/\s+/g, ' ').trim();
+      light[t] = tidy(pick(r, lightSchemeDark));
+      dark[t] = tidy(pick(r, darkSchemeDark));
     }
+    // (A site-derived `--{pass,warn,fail}-fill` tier used to be derived here: the status hue
+    // darkened until white text cleared AA, one value for both modes. Every theme now curates that
+    // pill itself, `--X-mark` under `--X-on-mark` (2026-11-16-status-triplets.md), so the site paints
+    // the theme's pill and invents none. engineering/decisions/2026-11-28-site-token-fidelity.md.)
     // The editor SYNTAX INK tier, per mode against that mode's own canvas pair. Seeded
     // from tokens that are NOT all on PORTAL_TOKENS (`--syntax-string` / `--syntax-number`),
     // so they are resolved here the way --spectrum is, and a palette missing one is a
@@ -816,19 +828,90 @@ function isDarkSurface(bg) {
  *  light/dark style — the keystone that makes scrollbars and form controls
  *  respect the site's mode. See docs/src/styles/landing.css for the on-brand
  *  scrollbar/accent tint that layers on top. */
-function paletteCss() {
-  const blocks = [];
-  for (const p of resolvePalettes()) {
-    const decls = (set) =>
+/** One palette-mode's declarations. */
+// `fallback` leaves out the OPTIONAL tokens: a per-palette block never unsets a token it lacks,
+// so an optional token in the bare-`:root` fallback would leak into every palette that does not
+// declare it (the default palette's `--spectrum-solid` on all 18), and the consumer's own
+// `var(--spectrum-solid, var(--accent))` fallback would never fire.
+function tokenDecls(set, { fallback = false } = {}) {
+  return (
       `color-scheme:${isDarkSurface(set.bg) ? 'dark' : 'light'};` +
       PORTAL_TOKENS.map((t) => `--${t}:${set[t]};`).join('') +
       (set.spectrum ? `--spectrum:${set.spectrum};` : '') +
-      ['pass-fill', 'warn-fill', 'fail-fill'].map((t) => (set[t] ? `--${t}:${set[t]};` : '')).join('') +
-      SYNTAX_INK_TOKENS.map((t) => `--${t}:${set[t]};`).join('');
-    blocks.push(`html[data-palette="${p.name}"][data-mode="light"]{${decls(p.light)}}`);
-    blocks.push(`html[data-palette="${p.name}"][data-mode="dark"]{${decls(p.dark)}}`);
+      (fallback ? '' : PORTAL_OPTIONAL_TOKENS.map((t) => (set[t] ? `--${t}:${set[t]};` : '')).join('')) +
+      SYNTAX_INK_TOKENS.map((t) => `--${t}:${set[t]};`).join(''));
+}
+
+function paletteCss() {
+  const blocks = [];
+  const palettes = resolvePalettes();
+  // THE FIRST-PAINT FALLBACK: the site's default palette, in both faces, on bare `:root`.
+  // It paints the cold window before the head script stamps `data-palette` / `data-mode`
+  // (and a no-JS visit), keyed to the OS scheme so a dark visitor never sees a white
+  // flash. It used to be typed by hand, twice (landing.css and lattice.css), as indaco
+  // when the default is cuoio, and it had drifted (an indaco `--border` the theme no
+  // longer ships). Generated, it is the default palette's own values and every token the
+  // blocks below carry, so it cannot drift again. `:root` is (0,1,0) and every block below
+  // is (0,2,1), so the exact per-palette values win the instant the attributes land.
+  const def = palettes.find((p) => p.name === siteDefaultPalette());
+  if (!def) throw new Error(`site default palette "${siteDefaultPalette()}" is not a selectable base palette`);
+  blocks.push(`:root{${tokenDecls(def.light, { fallback: true })}}`);
+  blocks.push(`@media (prefers-color-scheme:dark){:root{${tokenDecls(def.dark, { fallback: true })}}}`);
+  // The on-dark ink ramp is palette-independent (white at four alphas,
+  // 2026-08-11-on-dark-ink-tiers.md), so it is read from the engine base once, not per palette.
+  blocks.push(`:root{${onDarkInks().map(([k, v]) => `--${k}:${v};`).join('')}}`);
+  blocks.push(`:root{${siteFontStacks().map(([k, v]) => `--${k}:${v};`).join('')}}`);
+  for (const p of palettes) {
+    blocks.push(`html[data-palette="${p.name}"][data-mode="light"]{${tokenDecls(p.light)}}`);
+    blocks.push(`html[data-palette="${p.name}"][data-mode="dark"]{${tokenDecls(p.dark)}}`);
   }
   return blocks.join('\n');
+}
+
+/** The site's default palette, read from the ONE place the site declares it
+ *  (`DEFAULT_PALETTE` in docs/src/lib/site-chrome.ts), so the generated fallback follows it. */
+function siteDefaultPalette() {
+  const src = fs.readFileSync(path.join(ROOT, 'docs', 'src', 'lib', 'site-chrome.ts'), 'utf8');
+  const m = /export const DEFAULT_PALETTE\s*=\s*'([\w-]+)'/.exec(src);
+  if (!m) throw new Error('docs/src/lib/site-chrome.ts: no `export const DEFAULT_PALETTE = \'<name>\'` to read the site default from');
+  return m[1];
+}
+
+/** The metric-matched local fallback the site self-hosts for each webfont (docs/src/styles/fonts.css):
+ *  a local face sized to the webfont so the swap does not shift the layout. */
+const SITE_METRIC_FALLBACK = {
+  'Playfair Display': 'Playfair Fallback',
+  Outfit: 'Outfit Fallback',
+  'JetBrains Mono': 'JetBrains Mono Fallback',
+};
+
+/** The engine's font stacks (lib/base/base.tokens.css `--font-display/-body/-mono/-label`), with the
+ *  site's metric fallback slotted in right after the lead face. The decks and the site then share one
+ *  set of faces and one emoji fallback chain; the site adds only the face that stops a layout shift. */
+function siteFontStacks() {
+  const css = fs.readFileSync(path.join(ROOT, 'lib', 'base', 'base.tokens.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  const out = [];
+  for (const role of ['display', 'body', 'mono', 'label']) {
+    const m = new RegExp(`--font-${role}\\s*:\\s*([^;]+);`).exec(css);
+    if (!m) throw new Error(`lib/base/base.tokens.css: no --font-${role} to give the site`);
+    const families = splitTopLevel(m[1].replace(/\s+/g, ' ').trim()).map((f) => f.trim());
+    const lead = families[0].replace(/^['"]|['"]$/g, '');
+    const fallback = SITE_METRIC_FALLBACK[lead];
+    if (fallback) families.splice(1, 0, `'${fallback}'`);
+    out.push([`font-${role}`, families.join(', ')]);
+  }
+  return out;
+}
+
+/** The engine's `--on-dark-*` ramp, as declared in lib/base/base.tokens.css. */
+function onDarkInks() {
+  const css = fs.readFileSync(path.join(ROOT, 'lib', 'base', 'base.tokens.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  const found = new Map();
+  for (const m of css.matchAll(/--(on-dark-(?:primary|secondary|ghost|watermark))\s*:\s*([^;]+);/g)) {
+    if (!found.has(m[1])) found.set(m[1], m[2].trim());
+  }
+  if (found.size !== 4) throw new Error(`lib/base/base.tokens.css: expected the four --on-dark-* rungs, found ${[...found.keys()].join(', ') || 'none'}`);
+  return [...found];
 }
 
 // ── Text helpers ─────────────────────────────────────────────────────────
@@ -1501,8 +1584,10 @@ module.exports = {
   resolvePalettes,
   listBasePalettes,
   paletteCss,
+  tokenDecls,
   isDarkSurface,
   PORTAL_TOKENS,
+  PORTAL_OPTIONAL_TOKENS,
   SYNTAX_INK_ROLES,
   SYNTAX_INK_REPELLED,
   SYNTAX_INK_TOKENS,

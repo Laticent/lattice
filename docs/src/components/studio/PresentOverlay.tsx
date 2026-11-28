@@ -876,8 +876,6 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	 *  subscription effect below for why the deck-theme props cannot carry that signal. */
 	const [chromeGen, setChromeGen] = React.useState(0);
 	const stageDocRef = React.useRef('');
-	/** The Stage's letterbox color — what the audience chrome's ink is resolved against. */
-	const stageBgRef = React.useRef('#15110d');
 	const clampedRef = React.useRef(0);
 	const countRef = React.useRef(0);
 	const curRef = React.useRef('');
@@ -1055,12 +1053,11 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		let canceled = false;
 		const source = fmAll + set.join(SLIDE_SEP);
 		const build = () => buildStageDocument(options, source, set.length, paletteOverride, extraTheme, extraCss, modeOverride, stageRef.current?.token, webOrigins)
-			.then(({ doc, bg }) => {
+			.then(({ doc }) => {
 				if (canceled) return;
 				stageBuildFailedRef.current = false;
 				publishStageBuild('built');
 				stageDocRef.current = doc;
-				stageBgRef.current = bg;
 				stageRef.current?.write(doc);
 			})
 			.catch(() => {

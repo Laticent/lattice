@@ -19,11 +19,10 @@ export type HeadlineAlignEntry = {
 	swatch: { background: string; backgroundSize?: string; backgroundPosition?: string; backgroundRepeat?: string };
 };
 
-// --text-secondary is a slide-theme token NOT emitted on the docs chrome (it isn't in
-// PORTAL_TOKENS, and not every base palette defines it — so it can't be added without a
-// throw). Fall back to --text-muted, which IS a chrome token, so these preview swatches
-// stay visible when rendered outside a slide. (Gotchas: "Chrome tokens are the
-// PORTAL_TOKENS subset".)
+// --text-secondary is emitted on the docs chrome too (PORTAL_TOKENS, since 2026-11-28), so
+// these preview swatches paint the theme's own secondary ink inside and outside a slide. The
+// --text-muted fallback only covers a surface that has neither the deck theme nor the site
+// token sheet. (Gotchas: "Chrome (`<body>`) tokens are the `PORTAL_TOKENS` families".)
 const INK = 'var(--text-secondary, var(--text-muted))';
 // Two stacked hairline bars (a "heading" + a shorter "line") anchored to one edge.
 const bars = (pos: string) =>

@@ -15807,7 +15807,7 @@ function checkDanglingTokenReads(errors, dirs = {}) {
       'the surface looks themed and never is (--chart-2 did this across 15 files and 36 palette x mode rows, #1688); ' +
       'without one the undefined property invalidates the WHOLE declaration at computed-value time, so the element ' +
       'drops to its initial value rather than to the previous rule. Point the read at a token that exists — the ' +
-      'palette trio is --pass/--warn/--fail (and --pass-fill/--warn-fill/--fail-fill under white text), the neutrals ' +
+      'status is --pass/--warn/--fail/--info/--mute (ink) and --X-mark under --X-on-mark (a filled pill), the neutrals ' +
       'are --text-heading/--text-body/--text-muted, and Tailwind BRIDGE names (--card, --muted-foreground) are ' +
       'spelled --color-* in styles/tailwind.css so they work in a CLASS but not in a raw var(). If the read is ' +
       'deliberate, add it to SANCTIONED_DANGLING_TOKEN_READS with what the fallback lands on and why that is the ' +

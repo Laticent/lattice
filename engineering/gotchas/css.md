@@ -474,17 +474,20 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   scratch prototype showed discs missing in light *and* a frozen-white mark in
   dark before the knob split.
 
-## Chrome (`<body>`) tokens are the `PORTAL_TOKENS` subset — a slide-only token is `undefined` there (the `--pass`/`--warn`/`--fail` bug, fixed)
+## Chrome (`<body>`) tokens are the `PORTAL_TOKENS` families — a token outside them is `undefined` there (the `--pass`/`--warn`/`--fail` bug, fixed)
 
 - **Symptom:** An element **portaled to `<body>`** (a diagnostics overlay, a badge, a
   status pill) that colors itself with `var(--<token>, #fallback)` looks **muddy /
   un-themed**, and (the tell) does **not** adapt between light and dark — the same dull
   hue in both. `getComputedStyle(document.documentElement).getPropertyValue('--<token>')`
   returns `""`.
-- **Cause:** The docs-site **chrome** tokens on `html[data-palette][data-mode]` are a
-  GENERATED SUBSET, not the full theme — `tools/build-docs-portal.js` `PORTAL_TOKENS`,
-  emitted into `docs/src/styles/lattice-tokens.generated.css`. Only tokens on that list
-  resolve outside a slide. A token a theme defines but that **isn't in `PORTAL_TOKENS`**
+- **Cause:** The docs-site **chrome** tokens on `html[data-palette][data-mode]` are
+  GENERATED, not the full theme — `tools/build-docs-portal.js` `PORTAL_TOKENS` (and
+  `PORTAL_OPTIONAL_TOKENS`), emitted into `docs/src/styles/lattice-tokens.generated.css`.
+  Since 2026-11-28 the list is built from whole FAMILIES (five-kind status triplets, the
+  12-slot categorical contract, the text tiers, the spectrum end), so most theme roles a
+  chrome surface wants are there; only tokens on it resolve outside a slide
+  (`engineering/decisions/2026-11-28-site-token-fidelity.md`). A token a theme defines but that **isn't in `PORTAL_TOKENS`**
   lives only inside the slide iframe's theme, so a `<body>` element referencing it gets
   the invalid-substitution fallback (same family as the `var(--fg)` / `--state-color`
   traps above — but here the fallback *paints*, just wrong, so it's easy to miss). This
@@ -497,15 +500,14 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   base palette is missing the token, so completing the trio also surfaced + fixed
   `carta`, which referenced `var(--fail)`/`var(--warn)` in its `-bg` vars without ever
   defining them.
-- **Foreground token vs. white-text fill — two different tokens.** `--pass`/`--warn`/`--fail`
-  are tuned for FOREGROUND use (text / icon / underline) and go BRIGHT in dark mode (e.g.
-  indaco `--pass` #6fcc4d). So a `bg-[var(--pass)] text-white` FILL resolves to ~2:1 in dark.
-  The companion **`--pass-fill`/`--warn-fill`/`--fail-fill`** tokens exist for exactly this:
-  the generator (`build-docs-portal.js`) darkens each status hue via OKLCH lightness until
-  white text clears AA (4.5:1), same value in both modes — so a status FILL is theme-aware AND
-  colorblind-safe (an a11y palette gets blue/amber/gray, not red/green). **White-text status
-  fills use `var(--*-fill)`; foreground uses (`text-[var(--fail)]`, severity underlines) use
-  the plain token.** Same split applies to `bg-[var(--accent)]` fills — use `text-[var(--on-accent)]`,
+- **Foreground token vs. filled pill — two different tiers.** `--pass`/`--warn`/`--fail`/
+  `--info`/`--mute` are the INK, tuned for text / icon / underline, and go BRIGHT in dark mode
+  (e.g. indaco `--pass` #6fcc4d). So a `bg-[var(--pass)] text-white` fill resolves to ~2:1 in
+  dark. A filled status pill is the theme's own triplet: **`bg-[var(--X-mark)]` under
+  `text-[var(--X-on-mark)]`** (2026-11-16-status-triplets.md), AA on every palette and mode
+  (`tools/check-shadcn-bridge-contrast.js`), colorblind-safe on the a11y palettes; a dot is
+  `--X-mark` alone. (A site-derived `--pass-fill`/`--warn-fill`/`--fail-fill` tier did this job
+  until 2026-11-28; it is retired, so do not reach for it.) Same split applies to `bg-[var(--accent)]` fills — use `text-[var(--on-accent)]`,
   never `text-white` (`--accent` resolves *light* in dark mode for some palettes).
 - **Thin palettes need the `@import` stripped before the block scan.** `parseThemeVars`
   keyed `:root` blocks by a regex whose selector captured everything up to `{` — so a
@@ -527,13 +529,13 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   palette's dark canvas wrong, from one missing link. Walk the chain recursively from the
   SOURCE `themes/*.css` (or use `lib/theme/chain.mjs`), never a hand-written special case;
   `themes/*.manifest.json` `extends` says the same thing if you would rather read data.
-- **Can't always add a token to `PORTAL_TOKENS` — the throw is a coverage gate.** `resolveToken`
-  throws if ANY base palette lacks the token, so a token only *some* palettes define (audited:
-  `--text-secondary`, `--spectrum-end`/`-vertical`/`-solid`, `--cat-N-mark`) can't join without
-  first completing it across all ~18 themes. When that's out of scope, give the chrome USE a
-  fallback to a token that IS on chrome instead — `var(--text-secondary, var(--text-muted))` —
-  rather than shipping a `""`. (`--cat-N-mark` in anima scenes and `--spectrum-*` swatches
-  already resolve in their themed context or fall back to `--accent`, so they were left as-is.)
+- **`PORTAL_TOKENS` is a coverage gate; `PORTAL_OPTIONAL_TOKENS` is not.** `resolveToken`
+  throws if ANY base palette lacks a `PORTAL_TOKENS` entry, so a family joins only once all 18
+  palettes declare it (the a11y palettes through onyx). A token only *some* palettes declare by
+  design (`--spectrum-solid`, `--spectrum-vertical`) goes on `PORTAL_OPTIONAL_TOKENS`: emitted where
+  a palette declares it, absent elsewhere, so the chrome read's own `var(--x, fallback)` is what its
+  absence means. Optional tokens stay OUT of the generated first-paint fallback, or the default
+  palette's value would leak into every palette that lacks one.
 - **Foreground status text on chrome (RESOLVED in #1160).** The FILL tokens fix white-text
   backgrounds, not FOREGROUND status text; two palettes used to ship sub-AA foreground
   `--pass`/`--warn`/`--fail` (#1152, closed by #1160). (1) `carbone`: its `--bg` is a flat dark

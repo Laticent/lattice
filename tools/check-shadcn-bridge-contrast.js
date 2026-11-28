@@ -4,13 +4,14 @@
  * Contrast gate for the shadcn ↔ Lattice token bridge.
  *
  * The bridge (docs/src/styles/tailwind.css) maps shadcn's semantic color
- * tokens onto the Lattice palette tokens. Two of those mappings are DERIVED,
- * not direct aliases, so they need validating per palette/mode forever (not
- * "reviewed once"):
+ * tokens onto the Lattice palette tokens. One mapping is DERIVED, not a direct
+ * alias, so it needs validating per palette/mode forever (not "reviewed once"):
  *   • shadcn `--accent` (hover/active surface) = mix(bg-alt → accent, 14% oklab)
- *   • shadcn `--destructive` = a palette-blind danger ramp (one light, one dark)
- * Plus the critical always-on pairs the bridge relies on (primary button text,
- * card body, muted caption).
+ * Plus every theme pairing the site chrome PAINTS, scored where the site paints it:
+ * primary button text, card body, muted caption, destructive (= the theme's `--fail`
+ * ink and its `--fail-mark` / `--fail-on-mark` pill), the five status kinds as ink,
+ * dot and pill, the asides and tip on their grounds, the text tiers, and the docs
+ * Card icon tile (the category chip: on-fill glyph on the fill, mark rim).
  *
  * This reads the SAME generated token file the site themes from
  * (docs/src/styles/lattice-tokens.generated.css) and the bridge's own
@@ -58,26 +59,25 @@ function parsePalettes(css) {
 	return out;
 }
 
-/** Pull the palette-blind destructive constants out of the bridge stylesheet. */
-function parseDestructive(css) {
-	const grab = (scope, name) => {
-		// crude scoped lookup: find the scope's block, then the var inside it
-		const block = new RegExp(`${scope}\\s*\\{([\\s\\S]*?)\\}`).exec(css);
-		const src = block ? block[1] : css;
-		const v = new RegExp(`${name}\\s*:\\s*(#[0-9a-fA-F]{3,8})`).exec(src);
-		return v ? v[1] : null;
+/** The site's destructive mapping, read from the bridge so the gate scores what ships. It
+ *  must be the theme's blocked status: `--fail` as the ink, `--fail-mark` under `--fail-on-mark`
+ *  as the pill. A fixed red here is the defect this replaced (one value per mode, every palette). */
+function checkDestructiveMapping(css) {
+	const want = {
+		'--color-destructive': 'var(--fail)',
+		'--color-destructive-mark': 'var(--fail-mark)',
+		'--color-destructive-foreground': 'var(--fail-on-mark)',
 	};
-	return {
-		light: {
-			bg: grab(':root', '--lx-ui-destructive'),
-			fg: grab(':root', '--lx-ui-destructive-foreground'),
-		},
-		dark: {
-			bg: grab("\\:root\\[data-mode='dark'\\]", '--lx-ui-destructive'),
-			fg: grab("\\:root\\[data-mode='dark'\\]", '--lx-ui-destructive-foreground'),
-		},
-	};
+	const bad = [];
+	for (const [name, value] of Object.entries(want)) {
+		const m = new RegExp(`${name}\\s*:\\s*([^;]+);`).exec(css);
+		if (!m || m[1].trim() !== value) bad.push(`${name} is ${m ? m[1].trim() : 'missing'}, want ${value}`);
+	}
+	return bad;
 }
+
+const AA_GRAPHIC = 3.0; // WCAG 1.4.11: a dot, a rim, an icon glyph
+const STATUS = ['pass', 'warn', 'fail', 'info', 'mute'];
 
 function lOf(hex) {
 	return hexToOklab(hex).L;
@@ -87,21 +87,13 @@ function main() {
 	const tokensCss = fs.readFileSync(TOKENS, 'utf8');
 	const bridgeCss = fs.readFileSync(BRIDGE, 'utf8');
 	const palettes = parsePalettes(tokensCss);
-	const destructive = parseDestructive(bridgeCss);
-
-	if (!destructive.light.bg || !destructive.dark.bg) {
-		console.error('✗ could not parse --lx-ui-destructive from tailwind.css');
-		process.exit(1);
-	}
-
-	const failures = [];
+	const failures = checkDestructiveMapping(bridgeCss).map((m) => `tailwind.css: ${m}`);
 	const warnings = [];
 	const rows = [];
 
 	for (const { palette, mode, tokens } of palettes) {
 		const t = (n) => tokens[n];
 		const lxAccent = mix(t('--bg-alt'), t('--accent'), ACCENT_MIX); // oklab, matches CSS
-		const dz = destructive[mode] || destructive.light;
 
 		// `soft: true` pairs are the THEME's own property (--text-muted on a
 		// surface), not a bridge-derived token. The bridge maps shadcn's muted
@@ -111,7 +103,30 @@ function main() {
 		const checks = [
 			['primary btn (on-accent/accent)', t('--on-accent'), t('--accent'), AA, false],
 			['accent hover text (heading/lx-ui-accent)', t('--text-heading'), lxAccent, AA, false],
-			['destructive (fg/bg)', dz.fg, dz.bg, AA, false],
+			['destructive ink (fail/bg)', t('--fail'), t('--bg'), AA, false],
+			['destructive ink (fail/bg-alt)', t('--fail'), t('--bg-alt'), AA, false],
+			['destructive pill (fail-on-mark/fail-mark)', t('--fail-on-mark'), t('--fail-mark'), AA, false],
+			...STATUS.flatMap((s) => [
+				[`${s} ink on canvas (${s}/bg)`, t(`--${s}`), t('--bg'), AA, false],
+				[`${s} ink on card (${s}/bg-alt)`, t(`--${s}`), t('--bg-alt'), AA, false],
+				[`${s} pill (${s}-on-mark/${s}-mark)`, t(`--${s}-on-mark`), t(`--${s}-mark`), AA, false],
+				[`${s} dot (${s}-mark/bg)`, t(`--${s}-mark`), t('--bg'), AA_GRAPHIC, false],
+			]),
+			// Starlight asides sit on --bg-alt with the title, icon and rule in the status ink: the `ink on card` rows above.
+			// The tip aside takes the accent (it has no status meaning): title and rule are --accent on --bg-alt.
+			['tip aside title (accent/bg-alt)', t('--accent'), t('--bg-alt'), AA, false],
+			['text-secondary on canvas', t('--text-secondary'), t('--bg'), AA, false],
+			['text-secondary on card', t('--text-secondary'), t('--bg-alt'), AA, false],
+			['text-label on canvas', t('--text-label'), t('--bg'), AA, false],
+			['text-label on card', t('--text-label'), t('--bg-alt'), AA, false],
+			// Docs Card icon tiles: the category chip (lattice.css) — glyph --cat-on-fill on the fill, rim the mark.
+			...Array.from({ length: 12 }, (_, i) => [
+				// AA, not 3:1: the contract promises text-grade ink on a fill, and the docs say so.
+				`card tile glyph (cat-on-fill/cat-${i + 1}-fill)`, t('--cat-on-fill'), t(`--cat-${i + 1}-fill`), AA, false,
+			]),
+			...Array.from({ length: 12 }, (_, i) => [
+				`card tile rim (cat-${i + 1}-mark/bg)`, t(`--cat-${i + 1}-mark`), t('--bg'), AA_GRAPHIC, false,
+			]),
 			['card body (body/bg-alt)', t('--text-body'), t('--bg-alt'), AA, false],
 			['muted caption (muted/bg-alt)', t('--text-muted'), t('--bg-alt'), AA_SECONDARY, true],
 			// MEASURED, DELIBERATELY NOT A PAIR. Five call sites once put `text-primary`
@@ -134,7 +149,8 @@ function main() {
 			// there it is sub-AA on 33 of the 36 palette x mode blocks (3.05:1 at worst).
 			// The site header's current-row description shipped at 3.80:1 on exactly that
 			// ground. Measured across the three --text-* roles the generated token file actually
-			// carries — heading, body, muted; --text-secondary and --text-label are NOT in it —
+			// carried when this was written — heading, body, muted (--text-secondary and --text-label
+			// are scored above now that the sheet carries them) —
 			// --text-heading is the ONLY
 			// one that clears 4.5 on this surface everywhere (worst 7.01) — which is what
 			// the bridge already declares --accent-foreground to be. So the rule the two

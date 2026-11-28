@@ -357,7 +357,7 @@ export function BarIcon({ label, hint, caption, active, recent, onClick, childre
 			{children}
 			<span>{caption}</span>
 			{typeof badge === 'number' && badge > 0 && (
-				<span aria-hidden="true" className="absolute -top-1 -right-1 flex h-[15px] min-w-[15px] items-center justify-center rounded-full border-[1.5px] border-[var(--bg-alt)] bg-[var(--warn-fill)] px-[3px] font-mono text-[9px] font-bold leading-none text-white">{badge > 99 ? '99+' : badge}</span>
+				<span aria-hidden="true" className="absolute -top-1 -right-1 flex h-[15px] min-w-[15px] items-center justify-center rounded-full border-[1.5px] border-[var(--bg-alt)] bg-[var(--warn-mark)] px-[3px] font-mono text-[9px] font-bold leading-none text-[var(--warn-on-mark)]">{badge > 99 ? '99+' : badge}</span>
 			)}
 		</button></Tip>
 	);

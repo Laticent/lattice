@@ -80,58 +80,24 @@ describe('portal color-scheme derivation', () => {
 });
 
 /**
- * Unit: the white-text-safe status FILL trio (`--pass-fill`/`--warn-fill`/
- * `--fail-fill`) the portal derives alongside the foreground status trio.
- *
- * The foreground `--pass`/`--warn`/`--fail` are tuned to READ as text and go
- * BRIGHT in dark mode, so a `bg-[var(--fail)] text-white` chip/button inverts
- * to ~2:1. The derivation darkens the light-side status hue until white text
- * clears AA (4.5:1). This locks that contract: nothing but `ensureContrast`'s
- * own return value guards it today, and the tightest margin (carbone warn-fill)
- * sits at ~4.50 — a hair above the floor — so a theme tweak could cross it
- * unnoticed. If a future palette expressed a status token as a non-hex value,
- * the derivation FAILS LOUD (mirroring isDarkSurface) rather than shipping an
- * un-checked fill; that path is exercised by the resolvePalettes call below
- * simply completing without throwing on today's all-hex palettes.
+ * Unit: the site derives no status fill of its own. A `--{pass,warn,fail}-fill` tier (the status hue
+ * darkened under white text) was retired for the theme's own curated pill, `--X-mark` under
+ * `--X-on-mark` (engineering/decisions/2026-11-28-site-token-fidelity.md). That pair's AA floor on
+ * every palette and mode is held by tools/check-shadcn-bridge-contrast.js.
  */
-describe('status fill tokens (white-text-safe)', () => {
-  const FILLS = ['pass-fill', 'warn-fill', 'fail-fill'];
-
-  test('every palette/mode block emits all three fills, as 6-digit hex', () => {
-    const css = paletteCss();
-    const re = /html\[data-palette="([^"]+)"\]\[data-mode="([^"]+)"\]\{([^}]*)\}/g;
-    let blocks = 0;
-    for (let m; (m = re.exec(css)); ) {
-      const [, palette, mode, body] = m;
-      for (const t of FILLS) {
-        const v = new RegExp(`--${t}:([^;]+);`).exec(body)?.[1];
-        assert.ok(v, `${palette}/${mode}: missing --${t}`);
-        assert.match(v, /^#[0-9a-f]{6}$/i, `${palette}/${mode}: --${t} "${v}" is not 6-digit hex`);
-      }
-      blocks++;
-    }
-    assert.equal(blocks, 2 * resolvePalettes().length, `expected a light+dark block per palette, saw ${blocks}`);
+describe('status pills are the theme\'s own', () => {
+  test('no palette/mode block emits a site-derived -fill tier', () => {
+    assert.doesNotMatch(paletteCss(), /--(pass|warn|fail)-fill:/);
   });
-
-  test('every emitted fill clears AA (4.5:1) against white text', () => {
+  test('every block emits each status mark and the ink drawn on it', () => {
     const css = paletteCss();
     const re = /html\[data-palette="([^"]+)"\]\[data-mode="([^"]+)"\]\{([^}]*)\}/g;
     for (let m; (m = re.exec(css)); ) {
-      const [, palette, mode, body] = m;
-      for (const t of FILLS) {
-        const match = new RegExp(`--${t}:([^;]+);`).exec(body);
-        assert.ok(match, `${palette}/${mode}: missing --${t}`);
-        const v = match[1];
-        const ratio = contrastRatio(v, '#ffffff');
-        assert.ok(ratio >= 4.5, `${palette}/${mode}: white on --${t} ${v} is ${ratio.toFixed(3)}:1 (< 4.5)`);
-      }
-    }
-  });
-
-  test('a fill is identical in light and dark mode (a solid button must not flip color)', () => {
-    for (const p of resolvePalettes()) {
-      for (const t of FILLS) {
-        assert.equal(p.light[t], p.dark[t], `${p.name}: --${t} differs between modes (${p.light[t]} vs ${p.dark[t]})`);
+      for (const s of ['pass', 'warn', 'fail', 'info', 'mute']) {
+        const mark = new RegExp(`--${s}-mark:([^;]+);`).exec(m[3])?.[1];
+        const on = new RegExp(`--${s}-on-mark:([^;]+);`).exec(m[3])?.[1];
+        assert.ok(mark && on, `${m[1]}/${m[2]}: missing --${s}-mark or --${s}-on-mark`);
+        assert.ok(contrastRatio(on, mark) >= 4.5, `${m[1]}/${m[2]}: --${s}-on-mark on --${s}-mark is ${contrastRatio(on, mark).toFixed(3)}:1`);
       }
     }
   });

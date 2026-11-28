@@ -6,7 +6,7 @@
  * --bg / --accent / --text-* / --border keyed on html[data-palette][data-mode].
  * Here we (1) pull that file in, (2) remap Starlight's --sl-color-* surface
  * onto those site tokens, and (3) re-skin the header into the site topbar.
- * Net effect: picking any of the 14 palettes re-themes the docs exactly like
+ * Net effect: picking any of the shipped palettes re-themes the docs exactly like
  * the rest of the site, and a palette/mode chosen on another page carries
  * across the jump (shared localStorage keys: lattice-docs-palette / -mode,
  * wired in Header.astro; data-palette/-mode set pre-paint in ThemeProvider).
@@ -31,23 +31,12 @@
 @import './tailwind.css';
 
 :root {
-	--sl-font: 'Outfit', 'Outfit Fallback', system-ui, sans-serif;
-	--sl-font-mono: 'JetBrains Mono', 'JetBrains Mono Fallback', 'Courier New', monospace;
+	--sl-font: var(--font-body);
+	--sl-font-mono: var(--font-mono);
 
-	/* Fallback palette (indaco light) for the SSR/no-JS first paint, before
-	 * ThemeProvider sets data-palette/-mode. Overridden by the generated blocks
-	 * the moment those attributes land. Mirrors landing.css. */
-	--bg: #ffffff;
-	--bg-alt: #f2f5fa;
-	--border: #e4eaf2;
-	--text-heading: #0a1628;
-	--text-body: #1e3a5f;
-	--text-muted: #5c6f8a;
-	--muted-mark: #6b7f9a;
-	--accent: #006fa8;
-	--accent-soft: #eff6fc;
-	--on-accent: #ffffff;
-	--surface-inverse: #003d66;
+	/* The faces (--font-display/-body/-mono/-label) and the first-paint fallback palette (the
+	 * site default, both faces) are GENERATED into lattice-tokens.generated.css from the engine
+	 * base and the themes; nothing here repeats them. */
 }
 
 /* ── Remap Starlight's color surface onto the site palette tokens ──────────
@@ -55,8 +44,8 @@
  * @layer starlight.base props.css regardless of its [data-theme] specificity.
  * The site tokens are themselves mode-aware (resolved per data-mode), so a
  * single block covers both light and dark — no data-theme branching needed.
- * We remap only the neutral/semantic tokens; the categorical hues
- * (orange/green/red/purple/blue used by asides + syntax) stay Starlight's. */
+ * The categorical hues Starlight's asides use are remapped onto the status
+ * family further down (§ Asides). */
 :root {
 	/* Surfaces */
 	--sl-color-bg: var(--bg);
@@ -95,7 +84,7 @@
 .sl-markdown-content h2,
 .hero h1,
 h1#_top {
-	font-family: 'Playfair Display', 'Playfair Fallback', Georgia, serif;
+	font-family: var(--font-display);
 	letter-spacing: -0.015em;
 }
 .hero h1 {
@@ -106,26 +95,65 @@ h1#_top {
  * Starlight's <Card> cycles the icon tile through FIXED categorical hues
  * (--sl-color-purple/orange/green/red/blue) by card position — palette-blind
  * and not contrast-curated per mode, so they clash on the ink-only (onyx,
- * concrete) and warm themes. Keep the distinct-per-card look the rainbow gave,
- * but source it from the palette's OWN categorical series (--chart-cat1..8 —
- * tuned per palette AND light/dark, exposed to the docs via
- * lattice-tokens.generated.css). Each icon gets its hue's full color for the
- * glyph + border and a faint same-hue fill, so it stays distinct AND on-palette
- * with AA contrast in every theme/mode. Unlayered → beats Starlight's
+ * concrete) and warm themes. Each tile is instead the theme's own category
+ * chip, from the 12-slot categorical contract
+ * (2026-07-15-categorical-token-contract.md): the slot's FILL as the ground, the
+ * contract's `--cat-on-fill` as the glyph (AA on every fill, worst 4.88, gated), and the
+ * slot's MARK as the rim, which holds 3:1 against the canvas where a pale light
+ * fill alone would not (a fill can sit at 1.06:1 to --bg). On a dark face the
+ * hue lives in the fill and the mark is pale, so a mark-colored glyph went
+ * white on every tile; the chip keeps each card's hue in both faces. Gated in
+ * tools/check-shadcn-bridge-contrast.js. Unlayered → beats Starlight's
  * @layer starlight.components nth-child rules. */
 .sl-markdown-content .card .icon {
-	color: var(--lx-cat, var(--accent));
-	border-color: var(--lx-cat, var(--accent));
-	background-color: color-mix(in srgb, var(--lx-cat, var(--accent)) 14%, var(--bg));
+	color: var(--cat-on-fill, var(--text-heading));
+	border-color: var(--lx-cat-mark, var(--accent));
+	background-color: var(--lx-cat-fill, var(--accent-soft));
 }
-.sl-markdown-content .card:nth-child(8n + 1) .icon { --lx-cat: var(--chart-cat1); }
-.sl-markdown-content .card:nth-child(8n + 2) .icon { --lx-cat: var(--chart-cat2); }
-.sl-markdown-content .card:nth-child(8n + 3) .icon { --lx-cat: var(--chart-cat3); }
-.sl-markdown-content .card:nth-child(8n + 4) .icon { --lx-cat: var(--chart-cat4); }
-.sl-markdown-content .card:nth-child(8n + 5) .icon { --lx-cat: var(--chart-cat5); }
-.sl-markdown-content .card:nth-child(8n + 6) .icon { --lx-cat: var(--chart-cat6); }
-.sl-markdown-content .card:nth-child(8n + 7) .icon { --lx-cat: var(--chart-cat7); }
-.sl-markdown-content .card:nth-child(8n + 8) .icon { --lx-cat: var(--chart-cat8); }
+.sl-markdown-content .card:nth-child(12n + 1) .icon { --lx-cat-fill: var(--cat-1-fill); --lx-cat-mark: var(--cat-1-mark); }
+.sl-markdown-content .card:nth-child(12n + 2) .icon { --lx-cat-fill: var(--cat-2-fill); --lx-cat-mark: var(--cat-2-mark); }
+.sl-markdown-content .card:nth-child(12n + 3) .icon { --lx-cat-fill: var(--cat-3-fill); --lx-cat-mark: var(--cat-3-mark); }
+.sl-markdown-content .card:nth-child(12n + 4) .icon { --lx-cat-fill: var(--cat-4-fill); --lx-cat-mark: var(--cat-4-mark); }
+.sl-markdown-content .card:nth-child(12n + 5) .icon { --lx-cat-fill: var(--cat-5-fill); --lx-cat-mark: var(--cat-5-mark); }
+.sl-markdown-content .card:nth-child(12n + 6) .icon { --lx-cat-fill: var(--cat-6-fill); --lx-cat-mark: var(--cat-6-mark); }
+.sl-markdown-content .card:nth-child(12n + 7) .icon { --lx-cat-fill: var(--cat-7-fill); --lx-cat-mark: var(--cat-7-mark); }
+.sl-markdown-content .card:nth-child(12n + 8) .icon { --lx-cat-fill: var(--cat-8-fill); --lx-cat-mark: var(--cat-8-mark); }
+.sl-markdown-content .card:nth-child(12n + 9) .icon { --lx-cat-fill: var(--cat-9-fill); --lx-cat-mark: var(--cat-9-mark); }
+.sl-markdown-content .card:nth-child(12n + 10) .icon { --lx-cat-fill: var(--cat-10-fill); --lx-cat-mark: var(--cat-10-mark); }
+.sl-markdown-content .card:nth-child(12n + 11) .icon { --lx-cat-fill: var(--cat-11-fill); --lx-cat-mark: var(--cat-11-mark); }
+.sl-markdown-content .card:nth-child(12n + 12) .icon { --lx-cat-fill: var(--cat-12-fill); --lx-cat-mark: var(--cat-12-mark); }
+
+/* ── Asides — the theme's status colors, not Starlight's fixed hues ────────
+ * Starlight paints its asides (note / caution / danger, and diff marks) from its
+ * own fixed blue, orange, red and green. Each is a status the theme already
+ * curates per palette and per mode (2026-10-24-status-is-one-system.md). Both the
+ * `-high` step (the title and its icon, which is `currentColor`) and the base step
+ * (the aside's left rule) are the status INK; the `-low` step, the aside's ground,
+ * is the palette's own card surface, `--bg-alt`. Every status ink is gated AA on
+ * `--bg-alt` (tools/check-shadcn-bridge-contrast.js), so the title and the rule
+ * both read on it; the status MARK would not (below 3:1 on --bg-alt in 27 dark
+ * palette-mode-kinds). `--bg-alt` stands the aside off the page in every palette,
+ * which a faint status wash could not do and still hold AA for the title (12% fell
+ * below 4.5:1 on 12 palette-modes; 4% held it but barely showed). Purple (tip) has
+ * no status meaning, so it takes the accent, on the same ground: `--accent-soft`
+ * equals `--bg` on eight dark palettes, which left the tip with no ground at all. */
+:root {
+	--sl-color-blue-high: var(--info);
+	--sl-color-blue: var(--info);
+	--sl-color-blue-low: var(--bg-alt);
+	--sl-color-orange-high: var(--warn);
+	--sl-color-orange: var(--warn);
+	--sl-color-orange-low: var(--bg-alt);
+	--sl-color-red-high: var(--fail);
+	--sl-color-red: var(--fail);
+	--sl-color-red-low: var(--bg-alt);
+	--sl-color-green-high: var(--pass);
+	--sl-color-green: var(--pass);
+	--sl-color-green-low: var(--bg-alt);
+	--sl-color-purple-high: var(--accent);
+	--sl-color-purple: var(--accent);
+	--sl-color-purple-low: var(--bg-alt);
+}
 
 /* ── Header → the shared SiteHeader ─────────────────────────────────────────
  * Starlight's PageFrame supplies the fixed bar (.header) with the border +
@@ -142,6 +170,14 @@ h1#_top {
 	height: 100%;
 	max-width: none;
 	padding: 0;
+}
+
+/* The header's GitHub link is a bare <a> (a ghost Button rendered asChild), and the docs zone
+ * gives a bare link no color, so its glyph fell to the browser's default link blue here only.
+ * Inherit the header ink, as the sibling icon buttons do. In CSS rather than a utility class
+ * on the island, so the fix adds no eager JS to every route that ships the header. */
+.header a[aria-label='GitHub repository'] {
+	color: inherit;
 }
 
 /* Mobile sidebar toggle (Starlight's <starlight-menu-button>). Restyle the
