@@ -99,7 +99,9 @@ Now a page that closes while a move runs (`pagehide`: a reload, a closed tab) pu
 counts. Measured on the same run: after 8 short visits the count is 1, and the decks move the first time the page
 stays up for about 20 s. The price: until the move lands, every start packs the backup again. In the bench's loop
 (a reload every 7 s at CPU ×4) that adds about 0.4 s to `everything`'s median first slide. A device where slice 2's
-photo move already gave up keeps its count; this does not reset it.
+photo move already gave up under the old rule is cleared once (`lattice-media-move-attempt-reset`): it gets one fresh
+set of attempts, and a move that really crashes stops after three more, as before. The deck move is new in this
+release, so no device has an old deck count to clear.
 
 What the cap no longer catches: a pack that is slow but never crashes, on a device where the person always leaves
 before it ends, now packs again on every start with no cap (the deck move has no size gate like the media move's

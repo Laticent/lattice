@@ -11,7 +11,7 @@ import { deleteAsset, listAssets } from './library/asset-store.js';
 import { renameMedia } from './media-edit';
 import { LIBRARY_SCOPE, listMedia, type NewMedia, saveMedia, setMediaCaption, setMediaScope } from './media-store';
 import { MEDIA_DIRECTION_KEY, mediaPath, studioVault } from './media-vault';
-import { BACKUP_PATH, deletePreMoveBackup, MAX_DEAD_ATTEMPTS, MAX_MOVE_BYTES, MOVE_BACK_LEFT_KEY, moveMediaIntoVault, moveMediaOutOfVault, preMoveBackup, settleMediaStorage } from './media-vault-move';
+import { ATTEMPT_RESET_KEY, BACKUP_PATH, deletePreMoveBackup, MAX_DEAD_ATTEMPTS, MAX_MOVE_BYTES, MOVE_BACK_LEFT_KEY, moveMediaIntoVault, moveMediaOutOfVault, preMoveBackup, settleMediaStorage } from './media-vault-move';
 import { packMedia } from './workspace-media';
 
 // Node has no localStorage; the move's crash-loop guard keeps one mark there.
@@ -48,6 +48,7 @@ async function empty() {
 	localStorage.removeItem(MOVE_BACK_LEFT_KEY);
 	localStorage.removeItem('lattice-media-move-backed-up');
 	localStorage.removeItem('lattice-media-move-attempt');
+	localStorage.setItem(ATTEMPT_RESET_KEY, '1'); // a device past the one-time reset, as every test but its own assumes
 	for (const a of await listAssets()) await deleteAsset(a.id);
 	const v = await studioVault();
 	for (const e of await v!.list('', { recursive: true })) await v!.remove(e.path);
@@ -199,6 +200,22 @@ describe('the one move into the vault', () => {
 		await put({ ...legacy('m_b', 'two', bytes(10, 16), 'blob'), bytes: MAX_MOVE_BYTES + 1 });
 		expect(await moveMediaIntoVault({ pack: async () => new Blob(['zip']) })).toMatchObject({ stopped: 'too-large', moved: 0 });
 		expect(await vaultFiles()).toEqual([mediaPath('m_a', 'image', 'image/png')]);
+	});
+
+	it('a device the old rule stopped gets one fresh set of attempts, once', async () => {
+		await put(legacy('m_a', 'one', bytes(10, 19), 'blob'));
+		localStorage.removeItem(ATTEMPT_RESET_KEY); // before this release, three reloads mid-move ended it
+		localStorage.setItem('lattice-media-move-attempt', String(MAX_DEAD_ATTEMPTS));
+		try {
+			expect(await moveMediaIntoVault({ pack: async () => new Blob(['zip']) })).toMatchObject({ moved: 1 });
+			expect(localStorage.getItem(ATTEMPT_RESET_KEY)).toBe('1');
+			// Once only: a count that reaches the cap again, now from real crashes, stops the move as before.
+			await put(legacy('m_b', 'two', bytes(10, 20), 'blob'));
+			localStorage.setItem('lattice-media-move-attempt', String(MAX_DEAD_ATTEMPTS));
+			expect(await moveMediaIntoVault({ pack: async () => new Blob(['zip']) })).toMatchObject({ stopped: 'gave-up', moved: 0 });
+		} finally {
+			localStorage.removeItem('lattice-media-move-attempt');
+		}
 	});
 
 	it('a page closed while the move runs hands its attempt back; only a crash counts toward the cap', async () => {

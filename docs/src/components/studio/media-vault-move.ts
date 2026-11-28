@@ -61,7 +61,17 @@ const ls = {
 	},
 };
 const deadAttempts = () => Number(ls.get(ATTEMPT_KEY)) || 0;
-const attemptDied = () => deadAttempts() >= MAX_DEAD_ATTEMPTS;
+/** Set once this device's count has been cleared for the closed-page rule (vault slice 3). Before it, a reload during
+ *  the move counted as a death, so three short visits could end the move for good; such a device gets one fresh set
+ *  of attempts, once. A move that really crashes still stops after `MAX_DEAD_ATTEMPTS` more. */
+export const ATTEMPT_RESET_KEY = 'lattice-media-move-attempt-reset';
+const attemptDied = () => {
+	if (ls.get(ATTEMPT_RESET_KEY) !== '1') {
+		ls.set(ATTEMPT_KEY, null);
+		ls.set(ATTEMPT_RESET_KEY, '1');
+	}
+	return deadAttempts() >= MAX_DEAD_ATTEMPTS;
+};
 function markAttempt(on: boolean): void {
 	ls.set(ATTEMPT_KEY, on ? String(deadAttempts() + 1) : null);
 }
