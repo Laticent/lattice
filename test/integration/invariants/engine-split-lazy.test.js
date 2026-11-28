@@ -98,7 +98,7 @@ describe('the engine loads its splitter on demand', () => {
 	});
 
 	test('CONTRACT: pending before splitReady, split after it; 16:9 never needs the splitter', () => {
-		const deck = ['---', 'theme: indaco', 'size: portrait', '---', '', '<!-- _class: checklist -->', '', '# Launch checklist', '', '- Book the venue', '- Send the invites', '- Print the badges', '- Brief the speakers', ''].join('\n');
+		const deck = ['---', 'theme: indaco', 'size: portrait', '---', '', '<!-- @meta{class=checklist} -->', '', '# Launch checklist', '', '- Book the venue', '- Send the invites', '- Print the badges', '- Brief the speakers', ''].join('\n');
 		const wide = deck.replace('size: portrait', 'size: 16:9');
 		const probe = `
 			globalThis.window = globalThis;
@@ -144,7 +144,7 @@ describe('the engine loads its splitter on demand', () => {
 			const chunk = Object.keys(meta.outputs).find((k) => Object.keys(meta.outputs[k].inputs).some((n) => n.endsWith('lib/core/carousel.js')));
 			assert.ok(chunk, 'the build has a chunk carrying the splitter');
 			fs.rmSync(path.join(broken, path.basename(chunk)));
-			const deck = ['---', 'theme: indaco', 'size: portrait', '---', '', '<!-- _class: checklist -->', '', '# Launch checklist', '', '- Book the venue', '- Send the invites', '- Print the badges', ''].join('\n');
+			const deck = ['---', 'theme: indaco', 'size: portrait', '---', '', '<!-- @meta{class=checklist} -->', '', '# Launch checklist', '', '- Book the venue', '- Send the invites', '- Print the badges', ''].join('\n');
 			const probe = `
 				globalThis.window = globalThis;
 				globalThis.self = globalThis;

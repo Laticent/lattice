@@ -7,13 +7,13 @@ const assert = require('node:assert/strict');
 const g = require('../../../lib/cli/fit-grace.js');
 
 describe('fit-grace: adding a claim to a slide', () => {
-  // Since the meta sweep (#3497) decks name a slide's layout in a `@meta` record; the engine still reads the old
-  // `_class:` comment. Grace reads both through the shared reader and writes the claim as a record.
+  // Since the cut (slice E) the engine reads a slide's class only from a `@meta` record. Grace reads it through the
+  // same shared reader and writes the claim as a record.
   test('a record at the slide\'s end carries its whole class plus the claim, from a record or a comment', () => {
     assert.equal(g.withClaim('<!-- @meta{layout=gantt} -->\n\n## T', 'claim-hero'),
       '<!-- @meta{layout=gantt} -->\n\n## T\n\n<!-- @meta{layout=gantt, class=claim-hero} -->\n');
-    assert.equal(g.withClaim('<!-- _class: split-panel cat-8 -->\n\n## T', 'claim-quiet'),
-      '<!-- _class: split-panel cat-8 -->\n\n## T\n\n<!-- @meta{layout=split-panel, class=cat-8 claim-quiet} -->\n');
+    assert.equal(g.withClaim('<!-- @meta{class=split-panel cat-8} -->\n\n## T', 'claim-quiet'),
+      '<!-- @meta{class=split-panel cat-8} -->\n\n## T\n\n<!-- @meta{layout=split-panel, class=cat-8 claim-quiet} -->\n');
   });
   test('the record it adds is the class the slide renders with (the last class directive wins)', () => {
     const out = g.withClaim('<!-- @meta{layout=kpi, footer=F} -->\n\n## T', 'claim-hero');
@@ -21,23 +21,24 @@ describe('fit-grace: adding a claim to a slide', () => {
   });
   test('a running class, even one written on this slide, is not the slide\'s own spot class', () => {
     assert.equal(g.hasSpotClass('<!-- @meta{layout=gantt} -->\n\n## T'), true);
-    assert.equal(g.hasSpotClass('<!-- _class: gantt -->\n\n## T'), true);
+    assert.equal(g.hasSpotClass('<!-- @meta{class=gantt} -->\n\n## T'), true);
     assert.equal(g.hasSpotClass('<!-- @meta{class=gantt, carry} -->\n\n## T'), false);
-    assert.equal(g.hasSpotClass('<!-- class: gantt -->\n\n## T'), false);
+    assert.equal(g.hasSpotClass('<!-- @meta{class=gantt, carry} -->\n\n## T'), false);
     assert.equal(g.hasSpotClass('## T'), false);
   });
   test('a record value that needs quoting is quoted, and reads back whole (checker on #3362, merge review)', () => {
     assert.equal(g.classRecord(['kpi', 'a,b']), '<!-- @meta{layout=kpi, class="a,b"} -->');
     assert.equal(g.classInForce(g.classRecord(['kpi', 'a,b', 'claim-hero'])), 'kpi a,b claim-hero');
   });
-  test('the short record form and a quoted value with `carry` in it are spot classes; a `_` in a class name is not', () => {
-    assert.equal(g.hasSpotClass('<!-- {layout=kpi} -->\n\n## T'), true);
+  test('a quoted value with `carry` in it is a spot class; a `_` in a class name is not; the retired bare form sets nothing', () => {
+    // Since the cut (slice E) the bare `<!-- {…} -->` record sets nothing, so the slide has no class of its own.
+    assert.equal(g.hasSpotClass('<!-- {layout=kpi} -->\n\n## T'), false);
     assert.equal(g.hasSpotClass('<!-- @meta{layout=kpi, footer="x,carry,y"} -->\n\n## T'), true);
-    assert.equal(g.hasSpotClass('<!-- class: my_class-x -->\n\n## T'), false);
+    assert.equal(g.hasSpotClass('<!-- @meta{class=my_class-x, carry} -->\n\n## T'), false);
   });
   test('reads the slide\'s own classes in either spelling', () => {
     assert.deepEqual(g.slideClasses('<!-- @meta{layout=bar, class=claim-quiet} -->'), ['bar', 'claim-quiet']);
-    assert.deepEqual(g.slideClasses('<!-- _class: bar  claim-quiet -->'), ['bar', 'claim-quiet']);
+    assert.deepEqual(g.slideClasses('<!-- @meta{class=bar  claim-quiet} -->'), ['bar', 'claim-quiet']);
     assert.deepEqual(g.slideClasses('## no directive'), []);
   });
 });
@@ -81,7 +82,7 @@ describe('fit-grace: what the author reads', () => {
 // and a trial slide rendered on its own must keep what it inherits. Rebuilt by the Studio's `synthesizePrelude`, which
 // reads a `carry` record and a bare `class:` comment alike.
 describe('fit-grace: a slide that inherits its class', () => {
-  for (const [name, first] of [['a carry record', '<!-- @meta{class=gantt, carry} -->'], ['a bare class comment', '<!-- class: gantt -->']]) {
+  for (const [name, first] of [['a carry record', '<!-- @meta{class=gantt, carry} -->'], ['a bare class comment', '<!-- @meta{class=gantt, carry} -->']]) {
     const slides = [`${first}\n\n## A`, '## B', '<!-- @meta{layout=list} -->\n\n## C'];
     test(`${name}: a slide alone renders with the running class`, () => {
       assert.equal(g.classInForce(g.standalone(slides, 1)), 'gantt');
@@ -138,18 +139,18 @@ describe('fit-grace: the trial renders the way the export did', () => {
 // hidden slides shifted the pages, and advised a claim on a slide the author marked `claim-framed`.
 describe('fit-grace: reads the deck the way the engine does', () => {
   test('a directive shown inside a code fence is not one', () => {
-    const tutorial = '## How to\n\n```markdown\n<!-- @meta{class=quote, carry} -->\n<!-- class: quote -->\n```';
+    const tutorial = '## How to\n\n```markdown\n<!-- @meta{class=quote, carry} -->\n<!-- @meta{class=quote, carry} -->\n```';
     assert.equal(g.classInForce(g.standalone([tutorial, '## Next'], 1)), '');
     assert.deepEqual(g.slideClasses('```md\n<!-- @meta{layout=quote} -->\n```\n\n## T'), []);
   });
   test('a class quoted in inline code, a paragraph or an HTML block on an earlier slide is not a running class', () => {
-    for (const quoted of ['Write `<!-- class: kpi -->` above a slide.', 'Prose <!-- class: kpi --> mid-paragraph.', '<div>\n<!-- class: kpi -->\n</div>']) {
+    for (const quoted of ['Write `<!-- @meta{class=kpi, carry} -->` above a slide.', 'Prose <!-- @meta{class=kpi, carry} --> mid-paragraph.', '<div>\n<!-- @meta{class=kpi, carry} -->\n</div>']) {
       const slides = [`## Setting a class\n\n${quoted}`, '## Next\n\n- a'];
       assert.equal(g.classInForce(g.standalone(slides, 1)), '', quoted);
     }
   });
   test('a slide framed through a running class gets no claim (checker on #3362, merge review)', () => {
-    for (const running of ['<!-- @meta{class="cards-grid claim-framed", carry} -->', '<!-- class: cards-grid claim-framed -->']) {
+    for (const running of ['<!-- @meta{class="cards-grid claim-framed", carry} -->', '<!-- @meta{class=cards-grid claim-framed, carry} -->']) {
       const deck = `---\ntheme: indaco\n---\n\n${running}\n\n## One\n\n---\n\n## Two clips\n`;
       const p = g.plan(deck, { dir: '/nonexistent-fit-grace-dir', exportVerdict: { pages: 2, overflow: [2], clipped: [], footerOnly: [] } });
       assert.deepEqual(p.perSlide, [{ slide: 2, claim: null, had: null, framed: true }], running);
@@ -158,7 +159,7 @@ describe('fit-grace: reads the deck the way the engine does', () => {
   test('a bare CR or CRLF deck keeps its front matter AND its slides', () => {
     // The front matter alone passed while the slides came back empty: the fence and the splitter read different text.
     for (const eol of ['\r', '\r\n']) {
-      const deck = ['---', 'theme: indaco', '---', '', '# A', '<!-- class: kpi -->', '', '---', '', '# B', ''].join(eol);
+      const deck = ['---', 'theme: indaco', '---', '', '# A', '<!-- @meta{class=kpi, carry} -->', '', '---', '', '# B', ''].join(eol);
       const parts = g.deckParts(deck);
       assert.equal(parts.yaml, 'theme: indaco', JSON.stringify(eol));
       assert.equal(parts.slides.length, 2, JSON.stringify(eol));
@@ -170,7 +171,7 @@ describe('fit-grace: reads the deck the way the engine does', () => {
   });
   test('pages map onto the SHOWN slides, and a claim-framed slide gets no claim', () => {
     // Slide 1 is hidden, so the export's page 1 is slide 2. Slide 2 is claim-framed, so nothing is rendered.
-    const deck = '---\ntheme: indaco\n---\n\n<!-- hide -->\n\n# Hidden\n\n---\n\n<!-- _class: list claim-framed -->\n\n## Framed\n';
+    const deck = '---\ntheme: indaco\n---\n\n<!-- hide -->\n\n# Hidden\n\n---\n\n<!-- @meta{class=list claim-framed} -->\n\n## Framed\n';
     const p = g.plan(deck, { dir: '/nonexistent-fit-grace-dir', exportVerdict: { pages: 1, overflow: [1], clipped: [], footerOnly: [] } });
     assert.deepEqual(p.clipped, [2]);
     assert.equal(p.perSlide[0].framed, true);

@@ -32,7 +32,7 @@ theme: indaco
 size: portrait
 ${fit ? `fit: ${fit}\n` : ''}---
 
-<!-- _class: ${cls} -->
+<!-- @meta{class=${cls}} -->
 
 ## Support load sits with two teams.
 

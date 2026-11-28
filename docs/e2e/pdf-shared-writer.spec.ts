@@ -16,7 +16,7 @@ test.describe.configure({ timeout: 240_000 });
 const MARKERS = ['Zephyr', 'Quartzite', 'Halyard'];
 const DECK = [
 	...MARKERS.map((word, i) => `## ${word} update\n\n- ${word} contracts signed across ${i + 2} northern territories.`),
-	'<!-- _class: bar -->\n\n## Coverage by region\n\n- EMEA `4.2`\n- Americas `3.1`\n- APAC `2.4`\n',
+	'<!-- @meta{layout=bar} -->\n\n## Coverage by region\n\n- EMEA `4.2`\n- Americas `3.1`\n- APAC `2.4`\n',
 ].join('\n\n---\n\n');
 
 async function exportPdf(page: Parameters<typeof gotoStudio>[0], opts: { fourK?: boolean } = {}) {
@@ -85,7 +85,7 @@ test('Share → PDF writes real, tagged text and vector charts over one photo pe
 
 test('Share → PDF keeps the deck’s own section box-shadow (the tone rail), as the CLI does', async ({ page }) => {
 	await gotoStudio(page);
-	await setEditorContent(page, '<!-- _class: tone-warn -->\n\n## Churn is the risk\n');
+	await setEditorContent(page, '<!-- @meta{class=tone-warn} -->\n\n## Churn is the risk\n');
 	await expect(railButtons(page)).toHaveCount(1);
 	const file = join(tmpdir(), `shared-writer-rail-${Date.now()}.pdf`);
 	writeFileSync(file, await exportPdf(page));

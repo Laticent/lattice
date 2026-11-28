@@ -16,10 +16,10 @@ const catalog = catalogFromComponents([
 	{ name: 'closing', bucket: 'anchor', function: 'anchor', form: 'bookend' },
 ]);
 const slides = [
-	'<!-- _class: title -->\n# Cover',
-	'<!-- _class: kpi -->\n# The number',
-	'<!-- _class: quote -->\n# A voice',
-	'<!-- _class: closing -->\n# The ask',
+	'<!-- @meta{layout=title} -->\n# Cover',
+	'<!-- @meta{layout=kpi} -->\n# The number',
+	'<!-- @meta{layout=quote} -->\n# A voice',
+	'<!-- @meta{layout=closing} -->\n# The ask',
 ];
 
 function setup(fm: string, over: Partial<React.ComponentProps<typeof LensesPanel>> = {}) {
@@ -121,7 +121,7 @@ describe('LensesPanel — suggest + membership', () => {
 		const user = userEvent.setup();
 		// ask is single; two slides carry the tag. The projection shows one, but BOTH checkboxes must be
 		// checked-and-removable — else the author strands a tag they can't clear.
-		const twoTagged = ['<!-- _class: title -->\n<!-- _lens: ask -->\n# Cover', '<!-- _class: closing -->\n<!-- _lens: ask -->\n# The ask'];
+		const twoTagged = ['<!-- @meta{layout=title} -->\n<!-- @meta{lens=ask} -->\n# Cover', '<!-- @meta{layout=closing} -->\n<!-- @meta{lens=ask} -->\n# The ask'];
 		const { onTag } = setup('lenses:\n  ask: { label: "The ask", base: none, single: true }', { slides: twoTagged });
 		await user.click(screen.getByRole('button', { name: /The ask/ }));
 		// The SECOND tagged slide is checked (aria-pressed) yet marked "not shown" (single cap), and
@@ -133,7 +133,7 @@ describe('LensesPanel — suggest + membership', () => {
 });
 
 describe('LensesPanel — approval gate (the human control)', () => {
-	const tagged = ['<!-- _class: title -->\n# Cover', '<!-- _class: kpi -->\n<!-- _lens: brief -->\n# The number'];
+	const tagged = ['<!-- @meta{layout=title} -->\n# Cover', '<!-- @meta{layout=kpi} -->\n<!-- @meta{lens=brief} -->\n# The number'];
 	const fm = 'lenses:\n  brief: { label: "Bottom line", base: none }';
 
 	it('Approve is GATED on preview — locked until the author previews, then binds the content hash', async () => {
@@ -173,7 +173,7 @@ describe('LensesPanel — approval gate (the human control)', () => {
 		expect(w1.mock.calls[0][1].lenses.find((l: { id: string }) => l.id === 'brief').approved).toBeUndefined();
 
 		// Same approval against EDITED content → drift → preview-gated Re-approve writes the fresh hash.
-		const drifted = [tagged[0], '<!-- _class: kpi -->\n<!-- _lens: brief -->\n# A different number'];
+		const drifted = [tagged[0], '<!-- @meta{layout=kpi} -->\n<!-- @meta{lens=brief} -->\n# A different number'];
 		const onWriteRegistry = vi.fn();
 		render(<LensesPanel slides={drifted} registry={parseLensRegistry(approvedFm)} catalog={catalog} activeLens="full" onPreview={() => {}} onWriteRegistry={onWriteRegistry} onTag={() => {}} onRemoveLens={() => {}} />);
 		const rows = screen.getAllByRole('button', { name: /Bottom line/ });
@@ -217,7 +217,7 @@ describe('LensesPanel — the landing view (`lens-default:`)', () => {
 	// landing lever fails SOFT, so an author who picks an unapproved view must be told that readers
 	// land on Full until they approve it, rather than left guessing why nothing changed.
 	// See 2026-08-25-lens-view-defaults-and-depth.md §3.
-	const tagged = ['<!-- _class: title -->\n# Cover', '<!-- _class: kpi -->\n<!-- _lens: brief -->\n# The number'];
+	const tagged = ['<!-- @meta{layout=title} -->\n# Cover', '<!-- @meta{layout=kpi} -->\n<!-- @meta{lens=brief} -->\n# The number'];
 	const bare = 'lenses:\n  brief: { label: "Bottom line", base: none }';
 	const approvedFm = (head = '') => `${head}lenses:\n  brief: { label: "Bottom line", base: none, approved: ${JSON.stringify(approvalHash(tagged, parseLensRegistry(bare), 'brief'))} }`;
 	// shadcn/radix SelectTrigger exposes role="combobox" with its aria-label (the PaletteControls pattern).
@@ -261,7 +261,7 @@ describe('LensesPanel — the landing note names the REAL reason', () => {
 	// A landing view can miss for four different reasons, and "not approved yet" is only one of them.
 	// Each state gets its own sentence, because an author told the wrong reason goes looking in the
 	// wrong place — and the stale-id case would otherwise leave the select rendering nothing at all.
-	const tagged = ['<!-- _class: title -->\n# Cover', '<!-- _class: kpi -->\n<!-- _lens: brief -->\n# The number'];
+	const tagged = ['<!-- @meta{layout=title} -->\n# Cover', '<!-- @meta{layout=kpi} -->\n<!-- @meta{lens=brief} -->\n# The number'];
 
 	it('a STAGED (hidden) landing view says it is staged, not unapproved', () => {
 		const hidden = 'lens-default: brief\nlenses:\n  brief: { label: "Bottom line", base: none, hidden: true }';
@@ -270,7 +270,7 @@ describe('LensesPanel — the landing note names the REAL reason', () => {
 	});
 
 	it('an EMPTY landing view says it has no slides yet', () => {
-		setup('lens-default: brief\nlenses:\n  brief: { label: "Bottom line", base: none }', { slides: ['<!-- _class: title -->\n# Cover'] });
+		setup('lens-default: brief\nlenses:\n  brief: { label: "Bottom line", base: none }', { slides: ['<!-- @meta{layout=title} -->\n# Cover'] });
 		expect(screen.getByText(/Bottom line has no slides yet/i)).toBeInTheDocument();
 	});
 
@@ -292,10 +292,10 @@ describe('LensesPanel — the depth model (rungs, cuts, and the ladder)', () => 
 	// Slide 1 (kpi) is in brief AND evidence; slide 3 (closing) is in brief only — so brief escapes
 	// evidence by one slide, and the ladder is broken exactly once.
 	const broken = [
-		'<!-- _class: title -->\n# Cover',
-		'<!-- _class: kpi -->\n<!-- _lens: brief -->\n# The number',
-		'<!-- _class: quote -->\n# A voice',
-		'<!-- _class: closing -->\n<!-- _lens: brief -evidence -->\n# The ask',
+		'<!-- @meta{layout=title} -->\n# Cover',
+		'<!-- @meta{layout=kpi} -->\n<!-- @meta{lens=brief} -->\n# The number',
+		'<!-- @meta{layout=quote} -->\n# A voice',
+		'<!-- @meta{layout=closing} -->\n<!-- @meta{lens=brief -evidence} -->\n# The ask',
 	];
 	const sound = broken.map((s) => s.replace(' -evidence', ''));
 	const LADDER = 'lenses:\n  brief: { label: "Bottom line", base: none, kind: rung }\n  evidence: { label: "The evidence", base: all, kind: rung }';

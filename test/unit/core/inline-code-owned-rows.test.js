@@ -24,7 +24,7 @@ const { LIST_ROW_OWNERS, ownsListRows } = require(path.join(ROOT, 'lib/core/reso
 const core = require(path.join(ROOT, 'lib/authoring/lint-core.js'));
 const { bootRuntime } = require('../../helpers/runtime-boot');
 
-const deck = (cls, body) => ['---', 'theme: indaco', '---', '', `<!-- _class: ${cls} -->`, '', body].join('\n');
+const deck = (cls, body) => ['---', 'theme: indaco', '---', '', `<!-- @meta{class=${cls}} -->`, '', body].join('\n');
 const render = (md) => new JSDOM(latticeEngine.createEngine().render(md).html).window.document;
 
 test('the owners come from the manifests: the two graph charts and hub-spoke, and only components that declare it', () => {
@@ -136,7 +136,7 @@ test('hub-spoke owns only the rows it reads; its detail sublist renders pills as
   assert.equal(ownedRowDepth(['flowchart', 'lr']), Number.POSITIVE_INFINITY);
   assert.equal(ownedRowDepth(['list']), 0);
   const engine = require(path.join(ROOT, 'lib/engine'));
-  const deck = (cls) => `---\ntheme: indaco\n---\n\n<!-- _class: ${cls} -->\n\n## T\n\n- Hub \`{icon=server}\`\n  - A \`{LIVE, tag}\`\n    - detail \`{LIVE, tag}\`\n  - B\n`;
+  const deck = (cls) => `---\ntheme: indaco\n---\n\n<!-- @meta{class=${cls}} -->\n\n## T\n\n- Hub \`{icon=server}\`\n  - A \`{LIVE, tag}\`\n    - detail \`{LIVE, tag}\`\n  - B\n`;
   const pills = (cls) => (engine.render(deck(cls)).html.match(/class="lat-pill"/g) || []).length;
   assert.equal(pills('hub-spoke'), 1, 'only the detail row makes a pill');
   assert.equal(pills('hub-spoke tiered'), 0, 'under tiered the third level is a leaf row, owned');

@@ -172,7 +172,7 @@ const datasets = [
   // open now. The row holds that path, which no gallery reaches.
   { name: 'unclosed html (div x8000)', src: `---\ntheme: indaco\n---\n\n# Pasted\n\n${'<div>\n'.repeat(8000)}`, theme: 'indaco' },
   // THE SLIDE-METADATA DOOR (engineering/decisions/2026-10-17-meta-record.md §1, §9 step 2): the same deck written with
-  // records (`<!-- {class=cards} -->`) instead of directive comments, so the pair says what the door
+  // records (`<!-- @meta{class=cards} -->`) instead of directive comments, so the pair says what the door
   // and the token expansion cost against the comments they replace. The claim is "no slower than comments, within the
   // variance band" (HARD RULE #19); the jargon row above is the comment arm, rendered from the same source.
   { name: 'records (jargon, every directive a record)', src: migrateMetaSource(jargon, { kit: META_KIT }).source, theme: 'crepuscolo' },
@@ -292,7 +292,7 @@ const COLD_ENGINE = [
 function overflowingDeck(slides) {
   const body = Array.from({ length: 14 }, (_, j) =>
     `- Item ${j} title\n  - ${'A reasonably long body sentence that will push this slide well past its frame. '.repeat(3)}`).join('\n');
-  const one = (i) => `<!-- _class: checklist -->\n\n# Slide ${i} with a fairly long headline that keeps going\n\n${body}`;
+  const one = (i) => `<!-- @meta{layout=checklist} -->\n\n# Slide ${i} with a fairly long headline that keeps going\n\n${body}`;
   return `---\nmarp: true\ntheme: indaco\nform: on\n---\n\n`
     + Array.from({ length: slides }, (_, i) => one(i)).join('\n\n---\n\n') + '\n';
 }
@@ -1098,9 +1098,9 @@ async function memoTier() {
   }
   const photo = (k) => `![bg](data:image/jpeg;base64,${String.fromCharCode(65 + k).repeat(5_000_000)})`;
   let slides = [
-    '<!-- _class: title -->\n\n# Phone photos',
-    ...[0, 1, 2].map((k) => `<!-- _class: image -->\n\n\`Photo ${k + 1}\`\n\n## A phone photo\n\n${photo(k)}`),
-    '<!-- {layout=cards} -->\n\n## Plain\n\n- One\n  - body',
+    '<!-- @meta{layout=title} -->\n\n# Phone photos',
+    ...[0, 1, 2].map((k) => `<!-- @meta{layout=image} -->\n\n\`Photo ${k + 1}\`\n\n## A phone photo\n\n${photo(k)}`),
+    '<!-- @meta{layout=cards} -->\n\n## Plain\n\n- One\n  - body',
     '## End\n\nText.',
   ];
   // The linter's rules, the editor and the outline each cut the whole deck into chunks: 35 cuts of one deck per edit,
@@ -1167,7 +1167,7 @@ async function memoTier() {
     // address. The shortcut once wrote it into the record's text for the record reader to parse again (2.5 s against 1.5 s
     // for the same deck as `![bg]`, media-plugins.md §9, 2026-11-16); `recordChars` is the record text the reader was handed per render.
     if (elision.readStats.recordChars !== undefined) {
-      const described = [0, 1, 2].map((k) => `<!-- _class: image -->\n\n## A phone photo\n\n![Photo ${k + 1}](data:image/jpeg;base64,${String.fromCharCode(65 + k).repeat(3_500_000)} "Taken on a phone")`).join('\n\n---\n\n');
+      const described = [0, 1, 2].map((k) => `<!-- @meta{layout=image} -->\n\n## A phone photo\n\n![Photo ${k + 1}](data:image/jpeg;base64,${String.fromCharCode(65 + k).repeat(3_500_000)} "Taken on a phone")`).join('\n\n---\n\n');
       engine.render(described);
       const rec = { ...elision.readStats };
       const shortcutTimes = [];

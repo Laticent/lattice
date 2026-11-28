@@ -92,28 +92,38 @@ test('the bundle step writes the page numbers and leaves a plain header for the 
   assert.match(out, /^header: Deck$/m);
 });
 
-// The checker's case (2026-10-21): two comments on ONE line. The engine reads the line as one directive whose value runs
-// on through the second comment, and a comment followed by text as none; the bundle used to read each comment alone.
-// So this compares the bundle with the engine itself, not with a hand-written answer.
+// The checker's case (2026-10-21): two comments on ONE line. So this compares the bundle with the engine itself, not
+// with a hand-written answer. Since the cut (meta-record §15) the engine reads a slide's settings only from an own-line
+// `@meta` record, and an old `_class:` comment sets nothing, so the AUTHORED deck is written in records and the bundle
+// reads what the bridge (`recordsToComments`, every producer's first pass) writes from it. A record with a second
+// comment or text on its line applies nothing in the engine; the bridge leaves it as written, and the bundle reads
+// nothing from it either.
+const { recordsToComments } = require('../../../lib/core/meta-door.mjs');
+const engineNumbers = (deck) => [...String(render(deck, {}).html).matchAll(/<section\b[^>]*>/g)].map((m) => /data-lattice-pagination="\d+"/.test(m[0]));
 test('a line with two comments, or a comment and text, is numbered as the engine numbers it', () => {
-  const engine = (deck) => [...String(render(deck, {}).html).matchAll(/<section\b[^>]*>/g)].map((m) => /data-lattice-pagination="\d+"/.test(m[0]));
   for (const line of [
-    '<!-- _class: title --> <!-- _class: big-number -->',
-    '<!-- _class: big-number --> <!-- _class: title -->',
-    '<!-- header: H --> <!-- _class: no-pagination -->',
-    '<!-- _class: title --> trailing',
-    '<!-- _class: a --> <!-- _paginate: false -->',
+    '<!-- @meta{class=title} -->',
+    '<!-- @meta{class=title} --> <!-- @meta{class=big-number} -->',
+    '<!-- @meta{class=big-number} --> <!-- @meta{class=title} -->',
+    '<!-- @meta{header=H} --> <!-- @meta{class=no-pagination} -->',
+    '<!-- @meta{class=title} --> trailing',
+    '<!-- @meta{class=a} --> <!-- _paginate: false -->',
   ]) {
     const deck = `---\nmarp: true\n---\n\n# A\n\n---\n\n${line}\n\n# B\n`;
-    assert.deepEqual(pages(deck), engine(deck), line);
+    assert.deepEqual(pages(recordsToComments(deck)), engineNumbers(deck), line);
   }
+  // The arm: an own-line record is applied by both, so the comparison above compares a real opt-out.
+  assert.deepEqual(engineNumbers('---\nmarp: true\n---\n\n# A\n\n---\n\n<!-- @meta{class=title} -->\n\n# B\n'), [true, false]);
+  // And an old comment now numbers nothing differently in the engine: it sets nothing.
+  assert.deepEqual(engineNumbers('---\nmarp: true\n---\n\n# A\n\n---\n\n<!-- _class: title -->\n\n# B\n'), [true, true]);
 });
 
 test('a deck-wide class: reaches every slide, and a slide own class adds to it instead of replacing it', () => {
   // Before 2026-11-04 a slide's `_class:` replaced the deck's `class:` here, so `class: no-pagination` numbered
   // every slide that named a layout, while the engine (which adds the two) numbered none of them.
-  const deck = '---\nclass: no-pagination\n---\n\n# Plain\n\n---\n\n<!-- _class: content -->\n\n# Own\n\n---\n\n<!-- _class: content with-pagination -->\n\n# Back\n\n---\n\n<!-- class: cards-grid -->\n\n# Running\n';
-  assert.deepEqual(pages(deck), [false, false, true, false]);
+  // Authored in records (the engine reads only those since the cut); the bundle reads the bridge's comments.
+  const deck = '---\nclass: no-pagination\n---\n\n# Plain\n\n---\n\n<!-- @meta{class=content} -->\n\n# Own\n\n---\n\n<!-- @meta{class="content with-pagination"} -->\n\n# Back\n\n---\n\n<!-- @meta{class=cards-grid, carry} -->\n\n# Running\n';
+  assert.deepEqual(pages(recordsToComments(deck)), [false, false, true, false]);
   // The same deck through the engine: which sections carry a page number.
   const html = render(deck).html;
   const numbered = [...html.matchAll(/<section\b[^>]*>/g)].map((m) => /data-lattice-pagination="\d+"/.test(m[0]) && !/\bno-pagination\b/.test(m[0]));

@@ -26,7 +26,7 @@ import { type ComposeHandle, ComposeView, collapseKey } from './ComposeView';
 // never moved the previewed slide, and picking a slide in the preview never moved
 // Compose. These lock both halves in on the real ProseMirror view.
 
-const DECK = ['<!-- _class: title -->\n\n# One\n\nbody one', '<!-- _class: content -->\n\n# Two\n\nbody two', '<!-- _class: quote -->\n\n> Three'].join('\n\n---\n\n');
+const DECK = ['<!-- @meta{layout=title} -->\n\n# One\n\nbody one', '<!-- @meta{layout=content} -->\n\n# Two\n\nbody two', '<!-- @meta{layout=quote} -->\n\n> Three'].join('\n\n---\n\n');
 
 function mount(onCursorSlide?: (i: number) => void) {
 	const ref = React.createRef<ComposeHandle>();
@@ -213,8 +213,8 @@ describe('revealTail — following what a tour types into Compose', () => {
 });
 
 describe('ComposeView: an outside change while a note is being written', () => {
-	const NOTE_DECK = '<!-- _class: content -->\n\n# One\n\nbody one\n\n<!-- a plain note. -->';
-	const CHANGED = '<!-- _class: content -->\n\n# One changed\n\nbody one\n\n<!-- a plain note. -->';
+	const NOTE_DECK = '<!-- @meta{layout=content} -->\n\n# One\n\nbody one\n\n<!-- a plain note. -->';
+	const CHANGED = '<!-- @meta{layout=content} -->\n\n# One changed\n\nbody one\n\n<!-- a plain note. -->';
 
 	it('waits until the caret leaves the note field, then lands', async () => {
 		const { view } = (() => {
@@ -310,8 +310,8 @@ describe('ComposeView: the caret a reload starts on', () => {
 });
 
 describe('ComposeView: a note half written when the deck switches', () => {
-	const A = '<!-- _class: content -->\n\n# One\n\nbody one\n\n<!-- a plain note. -->';
-	const B = '<!-- _class: content -->\n\n# Other deck\n\nbody other';
+	const A = '<!-- @meta{layout=content} -->\n\n# One\n\nbody one\n\n<!-- a plain note. -->';
+	const B = '<!-- @meta{layout=content} -->\n\n# Other deck\n\nbody other';
 
 	it('writes the words to the deck being left, not to the next deck', async () => {
 		const onChange = vi.fn();
@@ -344,7 +344,7 @@ describe('ComposeView: a note half written when the deck switches', () => {
 });
 
 describe('ComposeView: an outside change is shown, not applied twice', () => {
-	const BASE = '<!-- _class: content -->\n\n## Plan\n\nThe launch is on Monday.\n\nClosing words.';
+	const BASE = '<!-- @meta{layout=content} -->\n\n## Plan\n\nThe launch is on Monday.\n\nClosing words.';
 	const CHANGED = BASE.replace('Monday', 'Tuesday morning');
 
 	it('paints the changed line and words, and leaves the deck bytes and undo history alone', () => {
@@ -435,7 +435,7 @@ describe('applyHistory — a Filo undo lands now, focused or not', () => {
 // own delete takes a slide's say line with it and leaves every other slide's where it was: there is no number to keep.
 describe('Compose delete takes a slide’s notes with it', () => {
 	it('deleting slide 1 removes its @say and keeps the others on their slides', () => {
-		const deck = ['<!-- _class: title -->\n\n# One\n\nbody one\n\n<!-- @say{Narrate one} -->', '<!-- _class: content -->\n\n# Two\n\nbody two\n\n<!-- @say{Narrate two} -->'].join('\n\n---\n\n');
+		const deck = ['<!-- @meta{layout=title} -->\n\n# One\n\nbody one\n\n<!-- @say{Narrate one} -->', '<!-- @meta{layout=content} -->\n\n# Two\n\nbody two\n\n<!-- @say{Narrate two} -->'].join('\n\n---\n\n');
 		const out: string[] = [];
 		render(<ComposeView source={deck} onChange={(s) => out.push(s)} />);
 		const view = theView();

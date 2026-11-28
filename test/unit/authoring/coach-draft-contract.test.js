@@ -81,13 +81,13 @@ test('Contract separates these draft states — it is not a constant off the cor
   assert.ok(clean - errored >= 25, `a draft must move Contract materially (moved ${clean - errored})`);
 });
 
-test('an old comment spelling costs Contract what a warning costs, and its @meta twin reads 100', () => {
-  // The sweep (record note §15, slice D) put the corpus in records, so the Coach counts `legacy-directive-comment` like
-  // any warning: the temporary exemption (lib/authoring/legacy-meta-rules.js) is gone.
+test('an old comment spelling costs Contract what an error costs, and its @meta twin reads 100', () => {
+  // The cut (record note §15, slice E) made the engine read settings only from records, so an old comment sets
+  // nothing and the linter calls `legacy-directive-comment` an ERROR: the Coach counts it like any error.
   const record = `${HEAD}\n---\n\n<!-- @meta{layout=content} -->\n\n${SLIDE}`;
   const legacy = record.replace(/<!-- @meta\{layout=(\w+)\} -->/g, '<!-- _class: $1 -->');
   assert.notEqual(record, legacy);
-  assert.deepEqual(score(legacy).lint.map((f) => [f.rule, f.severity]), [['legacy-directive-comment', 'warning'], ['legacy-directive-comment', 'warning']]);
+  assert.deepEqual(score(legacy).lint.map((f) => [f.rule, f.severity]), [['legacy-directive-comment', 'error'], ['legacy-directive-comment', 'error']]);
   assert.ok(score(legacy).contract < score(record).contract, 'the legacy draft costs Contract');
   assert.equal(score(record).contract, 100);
 });

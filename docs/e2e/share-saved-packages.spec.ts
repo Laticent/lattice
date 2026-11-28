@@ -35,7 +35,7 @@ const DECK = `---
 theme: ${THEME}
 ---
 
-<!-- _class: ${COMPONENT} -->
+<!-- @meta{class=${COMPONENT}} -->
 
 ## Boxed
 
@@ -63,7 +63,7 @@ async function saveProbes(page: Page) {
 
 	await page.getByRole('button', { name: 'Component', exact: true }).click();
 	await page.getByRole('textbox', { name: 'Component name' }).fill(COMPONENT);
-	await retype(page, 'Component skeleton', `<!-- _class: ${COMPONENT} -->\n\n## Boxed\n\nBody.`);
+	await retype(page, 'Component skeleton', `<!-- @meta{class=${COMPONENT}} -->\n\n## Boxed\n\nBody.`);
 	await retype(page, 'Component CSS', `section.${COMPONENT} { outline: 3px solid var(--accent); }\nsection.${COMPONENT} h2 { color: var(--accent); }`);
 	await page.getByRole('button', { name: 'Save', exact: true }).click();
 	await expect(page.getByText(new RegExp(`Saved .*${COMPONENT}`)).first()).toBeVisible();

@@ -42,7 +42,7 @@ flowchart LR
 
 ---
 
-<!-- _class: bar -->
+<!-- @meta{class=bar} -->
 
 ## Revenue by region
 

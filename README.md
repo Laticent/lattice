@@ -356,7 +356,7 @@ slide and derives Mermaid's `themeVariables` from them
 theme as the build path; one file to edit.
 
 It also composes every slide as **Form** — the masthead band, bay, progress track,
-and section watermarks — matching the engine, so a deck dropped into a Marp tool
+and section watermarks — matching the engine, so an Export-to-Marp bundle opened in a Marp tool
 gets the full layout with no per-slide tagging. Form is unconditional: there is no
 front-matter key and no per-slide opt-out, on any render path. What varies is which
 **Frame** a slide composes as, and its component decides that: ten sovereign Frames

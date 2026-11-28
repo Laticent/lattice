@@ -63,7 +63,7 @@ image: mat nimbus=40
 ---
 ```
 
-A slide's own class overrides the deck (`<!-- _class: content image-keyline -->`), and a record's own word overrides both. A
+A slide's own class overrides the deck (`<!-- @meta{layout=content, class=image-keyline} -->`), and a record's own word overrides both. A
 layout that places the picture itself (a collage tile, a `bleed` background, the `image` slide's panel) decides its frame and
 size, so those words have nothing to act on there; each layout's guide says what it decides, in its "Media inside" section.
 

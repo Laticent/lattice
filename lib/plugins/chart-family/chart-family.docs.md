@@ -1,7 +1,7 @@
 # chart-family
 
 Draw a chart slide from what the author wrote. A section whose class names a member of the chart
-bucket (`_class: bar`, `line`, `gantt`, `radar`, … 24 of them) is handed to that member's kernel,
+bucket (`<!-- @meta{layout=bar} -->`, `line`, `gantt`, `radar`, … 24 of them) is handed to that member's kernel,
 which builds the figure from the section's first list or table; the family then wraps the figure
 in the chart frame (eyebrow, title, subtitle, figure, caption). Authors never name this plugin:
 they write a chart slide, and every chart's own page (`lib/components/chart/<name>/<name>.docs.md`)

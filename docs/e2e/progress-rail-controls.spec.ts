@@ -5,7 +5,7 @@ import { acceptCompletion, CHROME, gotoStudio, openDeckSettingsAt, openSection, 
 // (lib/core/resolve-progress-track.js), the toggle writes its `off` word, and the editor completes
 // each word. The engine side is test/unit/forms/progress-tile.test.js; this pins the Studio's writes.
 
-const DECK = '---\nmarp: true\ntheme: indaco\nclass: no-progress\n---\n\n# Rail controls\n\n---\n\n<!-- _class: divider -->\n\n## One\n\n---\n\n## A slide\n\nBody\n\n---\n\n<!-- _class: divider -->\n\n## Two\n';
+const DECK = '---\nmarp: true\ntheme: indaco\nclass: no-progress\n---\n\n# Rail controls\n\n---\n\n<!-- @meta{layout=divider} -->\n\n## One\n\n---\n\n## A slide\n\nBody\n\n---\n\n<!-- @meta{layout=divider} -->\n\n## Two\n';
 
 for (const [label, width, height] of [
 	['desktop', 1440, 900],

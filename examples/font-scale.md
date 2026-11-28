@@ -142,7 +142,7 @@ One modifier bumps the readable fonts on a slide — or the whole deck — up in
 ## One slide, or the whole deck.
 
 - One slide
-  - `<!-- _class: cards-grid scale-xl -->` — the spot directive scales just this section.
+  - `<!-- @meta{layout=cards-grid, class=scale-xl} -->` — the slide's record scales just this section.
 - Whole deck
   - Put `class: scale-xl` in the front matter — every slide grows.
 - Composes

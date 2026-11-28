@@ -191,7 +191,7 @@ test('the slide reads along only with the captions off: the caption already does
 test('while the Guide plays the chart hover is off, and pausing hands the chart back', async ({ page }) => {
 	const deck = [
 		'---', 'marp: true', 'theme: indaco', 'delivery: restrained', '---', '',
-		'<!-- _class: bar -->', '', '## EMEA is where the quarter was won.', '',
+		'<!-- @meta{layout=bar} -->', '', '## EMEA is where the quarter was won.', '',
 		'- North America `$4.1M`', '  - Flat on last year.',
 		'- LATAM `$1.2M`', '  - Two new logos.',
 		'- EMEA `$6.8M`', '  - Three renewals landed.',

@@ -8,7 +8,7 @@ import { DeckConfigPanel } from './DeckConfigPanel';
 // what is dropped at a baseline) are test/unit/playground/deck-config.test.js; this suite
 // pins what the panel draws and that each control reaches the writer.
 
-const CLEAN = '<!-- _class: title silent -->\n\n# A new deck\n\nStart sketching.\n';
+const CLEAN = '<!-- @meta{layout=title, class=silent} -->\n\n# A new deck\n\nStart sketching.\n';
 
 function mount(initial: string, props: Partial<React.ComponentProps<typeof DeckConfigPanel>> = {}) {
 	let source = initial;

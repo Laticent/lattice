@@ -7,7 +7,8 @@ pipeline and is the only first-party render path
 
 What this folder holds is the seam where Lattice's own render meets *Marpit's
 file format*, which LFM is deliberately compatible with (`---` separators, YAML
-front matter, `<!-- _class: -->` directives), plus the override layer a deck
+front matter; Marpit's own `<!-- _class: -->` directives are the old form, which
+Lattice no longer reads and the Export-to-Marp bundle still writes), plus the override layer a deck
 needs when it is rendered by REAL marp-core — the Export-to-Marp bundle
 (`lib/export/marp-bundle.js`).
 

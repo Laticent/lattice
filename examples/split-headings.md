@@ -41,14 +41,14 @@ by default, so the body stays clean Markdown an outliner or linter is happy with
 
 ## Your eyebrow and class ride along.
 
-A slide's `<!-- _class -->` directive and its eyebrow sit above the heading in
+A slide's `<!-- @meta{…} -->` record and its eyebrow sit above the heading in
 source — and stay with it. The break is pulled back over that lead-in, so it
 never orphans onto the slide before.
 
 - Eyebrow first
   - The kicker above this title is on THIS slide, not the last.
-- Directives travel
-  - `_class: cards-grid` attaches to the heading it precedes.
+- Records travel
+  - `layout=cards-grid` attaches to the heading it precedes.
 - Same on export
   - The emulator and the marp-cli export divide identically.
 

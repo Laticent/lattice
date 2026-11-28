@@ -29,7 +29,7 @@ const section = (n: number, total: number, body: string) =>
 const DECK4 = `<article class="lattice">\n${section(1, 4, 'Opening')}\n${section(2, 4, 'Pane A')}\n${section(3, 4, 'Pane B')}\n${section(4, 4, 'After')}\n</article>`;
 const ALONE = `<article class="lattice">\n${section(1, 2, 'Pane A')}\n${section(2, 2, 'Pane B')}\n</article>`;
 // A deck that needs the whole-deck render (a running global), so narrowing is exercised.
-const DECK_SCOPED = '<!-- header: Q3 -->\n\nbody';
+const DECK_SCOPED = '<!-- @meta{header=Q3, carry} -->\n\nbody';
 
 // Each render waits for the previous write's frame to load; jsdom loads none (src/test/frame-load.ts).
 let restoreFrames: () => void = () => {};

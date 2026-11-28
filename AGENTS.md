@@ -1,10 +1,11 @@
 # AGENTS.md — authoring Lattice decks with an AI agent
 
 Lattice renders boardroom-quality PDFs from Markdown. A deck is a Lattice
-Flavored Markdown (LFM) file — Marpit-compatible, rendered by Lattice's own
-engine — and each slide opts into a **component** via a
-`<!-- _class: <name> -->` directive and fills its slots with ordinary
-Markdown. This file orients any AI agent (Claude Code, Copilot, Cursor, an
+Flavored Markdown (LFM) file, rendered by Lattice's own engine, and each
+slide opts into a **component** with a `<!-- @meta{layout=<name>} -->` record
+and fills its slots with ordinary Markdown. The engine reads only `@meta`
+records: an old `<!-- _class: <name> -->` comment is a lint error, and
+`lattice migrate meta` rewrites a whole deck. This file orients any AI agent (Claude Code, Copilot, Cursor, an
 SDK agent) toward authoring decks correctly. For engine/contributor work,
 read `CLAUDE.md` and the `engineering/` docs instead. To find **where code lives**,
 grep `dist/engineering/codemap.md` first: one line per folder, code part, plugin and
@@ -66,7 +67,7 @@ once. Don't pick from memory; the catalog is the source of truth.
 
 **Count first, then filter by capacity.** A component overflows when you pour
 more elements into it than it holds — the single most common authoring slip.
-Before committing to a `_class`, **count your content** (how many items / rows
+Before committing to a layout, **count your content** (how many items / rows
 / columns / code lines) and check the component's **`capacity`** in
 `components.pick.md` (the `capacity` column is `axis:sweet/soft/hard`, with its
 escalation target beside it; `components.json` carries the same as

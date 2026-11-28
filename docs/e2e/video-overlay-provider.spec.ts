@@ -53,7 +53,7 @@ const deck = (url: string) => `---
 marp: true
 ---
 
-<!-- _class: video qr -->
+<!-- @meta{class=video qr} -->
 
 ## Watch the tour.
 

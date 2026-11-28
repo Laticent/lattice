@@ -344,7 +344,7 @@ test('an override label carrying an entity reads the same on both arms', () => {
 });
 
 test('an empty directive is no override — the slide derives', () => {
-  // `<!-- _track: -->` emits no attribute at all (slides.js skips an empty
+  // `<!-- @meta{track=""} -->` emits no attribute at all (slides.js skips an empty
   // value), and a hand-written `data-track=""` must read the same way rather
   // than opting the slide out of a scale it can still be part of.
   const deck = S('divider', '<h2>S</h2>') + SD('topic', '', '<h2>Alpha</h2>') + topic('Beta');
@@ -427,12 +427,12 @@ test('idempotent against the REAL pipeline, end to end', () => {
 test('the `_track` directive reaches the slide, and its comment does not', () => {
   const { render } = require('../../../lib/engine');
   const md = [
-    '<!-- _class: divider -->', '', '## Section', '', '---', '',
-    '<!-- _class: topic -->',
-    '<!-- _track: Cost to win | Lifetime value | [Payback] -->', '',
+    '<!-- @meta{layout=divider} -->', '', '## Section', '', '---', '',
+    '<!-- @meta{layout=topic} -->',
+    '<!-- @meta{track="Cost to win | Lifetime value | [Payback]"} -->', '',
     '## Payback', '', 'A claim.', '', '---', '',
-    '<!-- _class: topic -->', '', '## Cost to win', '', 'A claim.', '', '---', '',
-    '<!-- _class: topic -->', '', '## Lifetime value', '', 'A claim.', '',
+    '<!-- @meta{layout=topic} -->', '', '## Cost to win', '', 'A claim.', '', '---', '',
+    '<!-- @meta{layout=topic} -->', '', '## Lifetime value', '', 'A claim.', '',
   ].join('\n');
   const out = render(md, {});
   const html = typeof out === 'string' ? out : out.html;

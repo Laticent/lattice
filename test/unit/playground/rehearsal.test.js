@@ -15,12 +15,12 @@ async function load() {
 }
 
 const DECK = [
-  '# New deck\n<!-- _class: title -->\nBudget proposal',
-  '<!-- _class: divider -->\n## Where we are',
-  '<!-- _class: big-number -->\n$2.4B total revenue',
-  '<!-- _class: quote -->\n"One line, felt not rushed."',
-  '<!-- _class: decision -->\nApprove the FY27 budget.',
-  '<!-- _class: closing -->\nThank you. Questions?',
+  '# New deck\n<!-- @meta{layout=title} -->\nBudget proposal',
+  '<!-- @meta{layout=divider} -->\n## Where we are',
+  '<!-- @meta{layout=big-number} -->\n$2.4B total revenue',
+  '<!-- @meta{layout=quote} -->\n"One line, felt not rushed."',
+  '<!-- @meta{layout=decision} -->\nApprove the FY27 budget.',
+  '<!-- @meta{layout=closing} -->\nThank you. Questions?',
 ].join('\n\n---\n\n');
 
 describe('parseSlides', () => {
@@ -78,7 +78,7 @@ describe('buildDeckRead (whole-deck structural read)', () => {
 
   test('flags a missing ask', async () => {
     const { buildDeckRead, buildDeterministicPlan } = await load();
-    const noAsk = '<!-- _class: title -->\n# A\n\n---\n\n<!-- _class: stats -->\n## B\n\n---\n\n<!-- _class: closing -->\n## C';
+    const noAsk = '<!-- @meta{layout=title} -->\n# A\n\n---\n\n<!-- @meta{layout=stats} -->\n## B\n\n---\n\n<!-- @meta{layout=closing} -->\n## C';
     const p = buildDeterministicPlan(noAsk, 10);
     assert.ok(p.deck.flags.some((f) => /No explicit ask/.test(f.text) && f.tone === 'warn'));
     // direct call also works

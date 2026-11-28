@@ -39,7 +39,7 @@ describe('slide facts', () => {
   // effect. The gallery sweep below cannot catch that; it compares two readers of the same HTML.
   const md = [
     '---', 'theme: indaco', 'header: Deck header', 'footer: Deck footer', '---', '',
-    '<!-- _class: tally split -->', '<!-- _backgroundColor: red -->', '',
+    '<!-- @meta{class=tally split} -->', '<!-- @meta{background-color=red} -->', '',
     '###### Eyebrow', '',
     '## Three *wins* &amp; more', '',
     'A lead with **bold**, a [link](https://x.test) and `code`.', '',

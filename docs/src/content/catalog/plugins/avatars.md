@@ -29,7 +29,7 @@ examples:
     label: A team slide
     caption: On a team slide, an avatar takes the photo's place. A person with no photo or avatar gets their initials.
     sample: |
-      <!-- _class: team-profile -->
+      <!-- @meta{layout=team-profile} -->
 
       ## The account team
 
@@ -107,7 +107,7 @@ Pin traits with `key=value`, then style the tile with words:
 On a team slide, put the avatar on the line where a photo would go:
 
 ```markdown
-<!-- _class: team-profile -->
+<!-- @meta{layout=team-profile} -->
 
 ## The account team
 

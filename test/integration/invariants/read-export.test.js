@@ -272,7 +272,7 @@ describe('--read — the deck as prose, and nothing else moves', () => {
         path.join(dir5, 'deck.md'),
         '---\ntheme: indaco\n---\n\n# Diagram deck\n\n' +
           'A short lede so the page carries some prose of its own before the diagram arrives.\n\n' +
-          '---\n\n<!-- _class: diagram -->\n\n## How a deck becomes a PDF\n\n' +
+          '---\n\n<!-- @meta{layout=diagram} -->\n\n## How a deck becomes a PDF\n\n' +
           '```mermaid\ngraph LR\n  A[Markdown source] --> B[Engine render]\n  B --> C[Rasterize]\n```\n',
       );
       const out = render(dir5, path.join(dir5, 'read.html'), ['--read']);

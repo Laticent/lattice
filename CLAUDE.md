@@ -86,7 +86,7 @@ binds. Read the section before working near the rule: `grep -n '^### #' engineer
 - **#1 — Render paths share one source of truth.** Transforms land in the shared kernel; `lib/engine` is canonical (`engineering/architecture.md`).
 - **#2 — Never hand-edit `dist/`.** Regenerate with `npm run build`.
 - **#3 — No hex literals in layout CSS — always `var(--token)`.** *(gated, `checkHexLiterals`)*
-- **#6 — Before authoring any `<!-- _class: X -->` slide**, in the same turn open `lib/components/<bucket>/X/X.docs.md` (a chart kind: `lib/plugins/chart-family/kinds/X/X.docs.md`) and grep `test/integration/baseline-decks/gallery.md` (base modifiers: `lib/base/base.docs.md`).
+- **#6 — Before authoring any `<!-- @meta{layout=X} -->` slide**, in the same turn open `lib/components/<bucket>/X/X.docs.md` (a chart kind: `lib/plugins/chart-family/kinds/X/X.docs.md`) and grep `test/integration/baseline-decks/gallery.md` (base modifiers: `lib/base/base.docs.md`).
 - **#7 — Every lint rule runs through `lib/authoring/lint-core.js`.** Pure, fs-free, never duplicated.
 - **#8 — Isolate feature/fix content from the six long-running galleries.** Layouts graduate in a separate commit.
 - **#9 — A change a human can SEE ON A SLIDE ships a per-feature demo deck** `examples/<slug>.md`; non-visual work owes its evidence in the PR body.

@@ -23,23 +23,21 @@ describe('the record carrier', () => {
 		expect(applyTag('# Y', 'evidence', false, 'all')).toBe('<!-- @meta{lens="-evidence"} -->\n\n# Y');
 	});
 
-	it('reads an old `_lens` comment until the cut, and moves it into a record when the tag changes', () => {
-		expect([...parseSlideTags('<!-- _lens: brief -->\n# X').include]).toEqual(['brief']);
+	it('an old `_lens` comment is no tag since the cut, and a toggle writes the record and takes the comment out', () => {
+		expect(parseSlideTags('<!-- _lens: brief -->\n# X').include.size).toBe(0);
 		const moved = applyTag('<!-- _lens: brief -->\n\n# X', 'ask', true, 'none');
 		expect(moved).not.toContain('_lens');
-		expect([...parseSlideTags(moved).include].sort()).toEqual(['ask', 'brief']);
+		expect([...parseSlideTags(moved).include]).toEqual(['ask']);
 	});
 
-	it('a slide the record reader cannot edit keeps the comment behavior: the first tag counts and a toggle still writes', () => {
-		// The checker on slice D: duplicate or nested tags made `writeMeta` a no-op, so a Studio toggle did nothing, and a
-		// duplicate read the LAST tag where LFM 1.1 says the first counts.
+	it('two old comments, or one nested in a list, are no tag either; a toggle still writes a record', () => {
 		const dup = '<!-- _lens: brief -->\n<!-- _lens: ask -->\n\n# X';
-		expect([...parseSlideTags(dup).include]).toEqual(['brief']);
-		expect(applyTag(dup, 'story', true, 'none')).not.toBe(dup);
-		expect([...parseSlideTags(applyTag(dup, 'story', true, 'none')).include].sort()).toEqual(['brief', 'story']);
+		expect(parseSlideTags(dup).include.size).toBe(0);
+		expect([...parseSlideTags(applyTag(dup, 'story', true, 'none')).include]).toEqual(['story']);
 		const nested = '- item\n  <!-- _lens: brief -->\n\n# X';
-		expect([...parseSlideTags(nested).include]).toEqual(['brief']);
-		expect(applyTag(nested, 'brief', false, 'none')).not.toContain('_lens: brief');
+		expect(parseSlideTags(nested).include.size).toBe(0);
+		// Two records: the last one wins, as for any repeated field (the linter names the repeat).
+		expect([...parseSlideTags('<!-- @meta{lens=brief} -->\n<!-- @meta{lens=ask} -->\n\n# X').include]).toEqual(['ask']);
 		// A running global `<!-- lens: … -->` was never a tag, and still is not.
 		expect(parseSlideTags('<!-- lens: brief -->\n# X').include.size).toBe(0);
 	});

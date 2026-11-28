@@ -36,7 +36,7 @@ function sentence(seed, n) {
 /** The deck: a title, then content slides of a heading and three bullets, each with an `@say{…}` note of about 55 words (lib/core/note-grammar.mjs). */
 export function narrationDeckSource(n = NARRATION_SLIDES) {
 	const say = (k) => [sentence(k, 14), sentence(k + 101, 13), sentence(k + 211, 15), sentence(k + 307, 13)].join(' ');
-	const slides = [`---\ntheme: indaco\nsize: 4k\ntitle: ${NARRATION_TITLE}\n---\n\n<!-- _class: title -->\n\n# ${NARRATION_TITLE}.\n\nTen minutes of narration on a 4K canvas.\n\n<!-- @say{${say(0)}} -->`];
+	const slides = [`---\ntheme: indaco\nsize: 4k\ntitle: ${NARRATION_TITLE}\n---\n\n<!-- @meta{class=title} -->\n\n# ${NARRATION_TITLE}.\n\nTen minutes of narration on a 4K canvas.\n\n<!-- @say{${say(0)}} -->`];
 	for (let k = 1; k < n; k++) {
 		slides.push(`## Slide ${k} names one claim.\n\n- ${sentence(k + 401, 7)}\n- ${sentence(k + 503, 8)}\n- ${sentence(k + 601, 7)}\n\n<!-- @say{${say(k)}} -->`);
 	}

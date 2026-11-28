@@ -59,7 +59,7 @@ Each box is outlined by how it lays out its children: **grid** (blue), **flex**
 
 ## Pull every lever on one slide.
 
-`<!-- _debug: on-hover verbose -->` turns on the full set — `identity · layout · size
+`<!-- @meta{debug="on-hover verbose"} -->` turns on the full set — `identity · layout · size
 · class · box` — for **this slide only**. The deck-wide `debug: on-hover` stays the
 default everywhere else; a spot directive just overrides the box it sits on.
 
@@ -74,7 +74,7 @@ default everywhere else; a spot directive just overrides the box it sits on.
 
 ## Mute a slide you have already checked.
 
-`<!-- _debug: off -->` silences the overlay on one slide even while the deck is
+`<!-- @meta{debug=off} -->` silences the overlay on one slide even while the deck is
 debugging — handy once a layout is settled and the boxes are just noise. `off` is
 also the default everywhere: with no `debug:` key at all, the preview is clean.
 

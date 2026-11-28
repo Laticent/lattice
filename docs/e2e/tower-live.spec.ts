@@ -19,7 +19,7 @@ theme: indaco
 delivery: expressive
 ---
 
-<!-- _class: tower -->
+<!-- @meta{class=tower} -->
 
 \`Property catastrophe program · 2027\`
 

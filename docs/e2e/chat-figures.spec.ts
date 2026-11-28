@@ -10,7 +10,7 @@ import { expect, gotoStudio, openChatAtWidth, test } from './studio-fixture';
 // RULE #24): the seeded key is a throwaway string and every openrouter.ai request is fulfilled here.
 
 const FIG = (i: number) => ['```mermaid', 'flowchart LR', `  A["Raw ${i}"] --> B["Classify"]`, '  B --> C["Decide"]', '```'].join('\n');
-const REPLY = ["Here's the pipeline:", '', FIG(1), '', 'The identity behind slide 3:', '', '```math', 'E = mc^2 + \\frac{1}{2}', '```', '', 'And how the slide would read:', '', '```lattice', '<!-- _class: content -->', '## The one slide', '', '- First point', '- Second point', '```', '', ...Array.from({ length: 11 }, (_, i) => FIG(i + 2).concat('\n')), 'Done.'].join('\n');
+const REPLY = ["Here's the pipeline:", '', FIG(1), '', 'The identity behind slide 3:', '', '```math', 'E = mc^2 + \\frac{1}{2}', '```', '', 'And how the slide would read:', '', '```lattice', '<!-- @meta{layout=content} -->', '## The one slide', '', '- First point', '- Second point', '```', '', ...Array.from({ length: 11 }, (_, i) => FIG(i + 2).concat('\n')), 'Done.'].join('\n');
 
 const sse = (frames: unknown[]) => `${frames.map((f) => `data: ${JSON.stringify(f)}\n\n`).join('')}data: [DONE]\n\n`;
 

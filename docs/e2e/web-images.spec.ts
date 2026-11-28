@@ -42,7 +42,7 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 		// Plus two spellings the markup rewrite cannot reach, a CSS escape (`\\68` is `h`) and an
 		// image-set(): only the frame's policy (in the preview) and the capture sweep (in the export)
 		// stand between them and this server.
-		const deck = `<!-- _class: content -->\n\n# A photo from the web\n\n![team photo](${origin}/team.png)\n\n<div style="width:160px;height:40px;background-image:url(\\68ttp://127.0.0.1:${port}/escaped.png)"></div>\n<div style="width:160px;height:40px;background-image:image-set('${origin}/set.png' 1x)"></div>\n\nThe copy around it still renders.`;
+		const deck = `<!-- @meta{layout=content} -->\n\n# A photo from the web\n\n![team photo](${origin}/team.png)\n\n<div style="width:160px;height:40px;background-image:url(\\68ttp://127.0.0.1:${port}/escaped.png)"></div>\n<div style="width:160px;height:40px;background-image:image-set('${origin}/set.png' 1x)"></div>\n\nThe copy around it still renders.`;
 
 		try {
 			await gotoStudio(page);

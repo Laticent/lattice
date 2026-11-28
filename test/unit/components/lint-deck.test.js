@@ -23,7 +23,7 @@ describe('deck linter', () => {
   const vocab = buildVocab();
 
   test('flags inline "- **Title.** body" on a card-style slide (error)', () => {
-    const src = `${FM}<!-- _class: cards-grid -->\n\n## H.\n\n- **First.** body on same line.\n`;
+    const src = `${FM}<!-- @meta{layout=cards-grid} -->\n\n## H.\n\n- **First.** body on same line.\n`;
     const findings = lintText(src, { vocab });
     const f = findings.find((x) => x.rule === 'card-style-inline-title');
     assert.ok(f, JSON.stringify(findings));
@@ -37,14 +37,14 @@ describe('deck linter', () => {
   });
 
   test('flags **bold** inside an ordered-list statement (error)', () => {
-    const src = `${FM}<!-- _class: principles -->\n\n## P.\n\n1. **Bold.** breaks the grid.\n`;
+    const src = `${FM}<!-- @meta{class=principles} -->\n\n## P.\n\n1. **Bold.** breaks the grid.\n`;
     const f = lintText(src, { vocab }).find((x) => x.rule === 'statement-ol-bold');
     assert.ok(f);
     assert.equal(f.severity, 'error');
   });
 
   test('flags a bodyless inline item on a split slide (error)', () => {
-    const src = `${FM}<!-- _class: split-panel metric -->\n\n\`Unit\`\n\n## 114%\n\nContext.\n\n- Title sentence. Body crammed on the same line.\n`;
+    const src = `${FM}<!-- @meta{layout=split-panel, class=metric} -->\n\n\`Unit\`\n\n## 114%\n\nContext.\n\n- Title sentence. Body crammed on the same line.\n`;
     const f = lintText(src, { vocab }).find((x) => x.rule === 'split-bodyless-item');
     assert.ok(f, JSON.stringify(lintText(src, { vocab })));
     assert.equal(f.severity, 'error');
@@ -52,19 +52,19 @@ describe('deck linter', () => {
   });
 
   test('flags a bare title-only item on a split slide (error — also unlifted)', () => {
-    const src = `${FM}<!-- _class: split-panel -->\n\n\`Eyebrow\`\n\n## Head.\n\nFraming.\n\n- A finding with no nested body\n`;
+    const src = `${FM}<!-- @meta{layout=split-panel} -->\n\n\`Eyebrow\`\n\n## Head.\n\nFraming.\n\n- A finding with no nested body\n`;
     const f = lintText(src, { vocab }).find((x) => x.rule === 'split-bodyless-item');
     assert.ok(f);
     assert.equal(f.severity, 'error');
   });
 
   test('accepts the nested shape on a split slide', () => {
-    const src = `${FM}<!-- _class: split-panel pullquote -->\n\n> Quote.\n\n\`Speaker\`\n\n- First implication\n  - What it means.\n- Second implication\n  - A consequence.\n`;
+    const src = `${FM}<!-- @meta{layout=split-panel, class=pullquote} -->\n\n> Quote.\n\n\`Speaker\`\n\n- First implication\n  - What it means.\n- Second implication\n  - A consequence.\n`;
     assert.equal(lintText(src, { vocab }).filter((x) => x.rule === 'split-bodyless-item').length, 0);
   });
 
   test('warns when an h2-anchored split slide has no `## ` headline', () => {
-    const src = `${FM}<!-- _class: split-panel metric -->\n\n\`Unit\`\n\nContext only, no headline.\n\n- Title\n  - body.\n`;
+    const src = `${FM}<!-- @meta{layout=split-panel, class=metric} -->\n\n\`Unit\`\n\nContext only, no headline.\n\n- Title\n  - body.\n`;
     const f = lintText(src, { vocab }).find((x) => x.rule === 'split-missing-headline');
     assert.ok(f, JSON.stringify(lintText(src, { vocab })));
     assert.equal(f.severity, 'warning');
@@ -72,20 +72,20 @@ describe('deck linter', () => {
   });
 
   test('does NOT warn split-panel pullquote for a missing `## ` (blockquote-anchored)', () => {
-    const src = `${FM}<!-- _class: split-panel pullquote -->\n\n> Quote.\n\n\`Speaker\`\n\n- A\n  - b.\n`;
+    const src = `${FM}<!-- @meta{layout=split-panel, class=pullquote} -->\n\n> Quote.\n\n\`Speaker\`\n\n- A\n  - b.\n`;
     const f = lintText(src, { vocab }).find((x) => x.rule === 'split-missing-headline');
     assert.ok(!f, 'split-panel pullquote should not require an h2');
   });
 
   test('warns when split-panel pullquote has no `> ` blockquote', () => {
-    const src = `${FM}<!-- _class: split-panel pullquote -->\n\n\`Speaker\`\n\n- A\n  - b.\n`;
+    const src = `${FM}<!-- @meta{layout=split-panel, class=pullquote} -->\n\n\`Speaker\`\n\n- A\n  - b.\n`;
     const f = lintText(src, { vocab }).find((x) => x.rule === 'split-statement-missing-quote');
     assert.ok(f);
     assert.equal(f.severity, 'warning');
   });
 
   test('warns when split-compare does not have exactly two options', () => {
-    const three = `${FM}<!-- _class: split-compare -->\n\n## H.\n\n- One\n  - a.\n- Two\n  - b.\n- Three\n  - c.\n`;
+    const three = `${FM}<!-- @meta{layout=split-compare} -->\n\n## H.\n\n- One\n  - a.\n- Two\n  - b.\n- Three\n  - c.\n`;
     const f = lintText(three, { vocab }).find((x) => x.rule === 'split-compare-option-count');
     assert.ok(f);
     assert.equal(f.severity, 'warning');
@@ -93,12 +93,12 @@ describe('deck linter', () => {
   });
 
   test('accepts a well-formed split-compare two-up', () => {
-    const two = `${FM}<!-- _class: split-compare -->\n\n## H.\n\n- One\n  - a.\n- Two\n  - b.\n`;
+    const two = `${FM}<!-- @meta{layout=split-compare} -->\n\n## H.\n\n- One\n  - a.\n- Two\n  - b.\n`;
     assert.equal(lintText(two, { vocab }).filter((x) => x.rule.startsWith('split-')).length, 0);
   });
 
   test('warns on a kpi/stats item with no nested label (warning)', () => {
-    const src = `${FM}<!-- _class: stats -->\n\n## Results.\n\n1. 73%\n2. 4.2×\n`;
+    const src = `${FM}<!-- @meta{layout=stats} -->\n\n## Results.\n\n1. 73%\n2. 4.2×\n`;
     const f = lintText(src, { vocab }).find((x) => x.rule === 'number-slot-bodyless-item');
     assert.ok(f, JSON.stringify(lintText(src, { vocab })));
     assert.equal(f.severity, 'warning');
@@ -106,12 +106,12 @@ describe('deck linter', () => {
   });
 
   test('accepts the nested number+label shape on kpi/stats', () => {
-    const src = `${FM}<!-- _class: kpi -->\n\n## Q4.\n\n1. $2.4B\n   - Total revenue\n2. 42%\n   - Gross margin\n`;
+    const src = `${FM}<!-- @meta{layout=kpi} -->\n\n## Q4.\n\n1. $2.4B\n   - Total revenue\n2. 42%\n   - Gross margin\n`;
     assert.equal(lintText(src, { vocab }).filter((x) => x.rule === 'number-slot-bodyless-item').length, 0);
   });
 
   test('flags an unknown class token (warning)', () => {
-    const src = `${FM}<!-- _class: card-grid -->\n\n## Typo.\n`;
+    const src = `${FM}<!-- @meta{class=card-grid} -->\n\n## Typo.\n`;
     const f = lintText(src, { vocab }).find((x) => x.rule === 'unknown-class');
     assert.ok(f);
     assert.equal(f.severity, 'warning');
@@ -126,7 +126,7 @@ describe('deck linter', () => {
   test('does not flag decoration/position modifier fragments', () => {
     // 'tint-corner' + 'at-tl' are a multi-token universal; 'mark-orbit' a
     // decoration. None should read as an unknown class.
-    const src = `${FM}<!-- _class: content tint-corner at-tl mark-orbit no-footer -->\n\n## H.\n`;
+    const src = `${FM}<!-- @meta{layout=content, class=tint-corner at-tl mark-orbit no-footer} -->\n\n## H.\n`;
     assert.deepEqual(lintText(src, { vocab }).filter((f) => f.rule === 'unknown-class'), []);
   });
 
@@ -143,7 +143,7 @@ describe('deck linter', () => {
   });
 
   test('reports findings by human 1-based slide number (front matter excluded)', () => {
-    const src = `${FM}<!-- _class: content -->\n\n## ok.\n\n---\n\n<!-- _class: cards-grid -->\n\n- **X.** y.\n`;
+    const src = `${FM}<!-- @meta{layout=content} -->\n\n## ok.\n\n---\n\n<!-- @meta{layout=cards-grid} -->\n\n- **X.** y.\n`;
     const f = lintText(src, { vocab }).find((x) => x.rule === 'card-style-inline-title');
     // content = slide 1, cards-grid = slide 2 — matching the preview's "Slide N".
     assert.equal(f.slide, 2);
@@ -218,8 +218,8 @@ describe('deck linter', () => {
     assert.match(found[0].fix, /<!-- @meta\{layout=kpi\} -->/);
     // The per-slide and the mid-deck-global spellings are both legitimate and silent.
     for (const src of [
-      '---\ntheme: indaco\n---\n\n<!-- _class: kpi -->\n\n## H.\n',
-      '---\ntheme: indaco\n---\n\n<!-- class: kpi -->\n\n## H.\n',
+      '---\ntheme: indaco\n---\n\n<!-- @meta{layout=kpi} -->\n\n## H.\n',
+      '---\ntheme: indaco\n---\n\n<!-- @meta{layout=kpi, carry} -->\n\n## H.\n',
     ]) {
       assert.equal(lintText(src, { vocab }).filter((x) => x.rule === 'deck-wide-component').length, 0, src);
     }
@@ -282,7 +282,7 @@ describe('deck linter', () => {
     const { applyAllFixes } = require('../../../lib/authoring/lint-core');
     const src = [
       '---', 'theme: indaco', 'spectrum: on  # brand', 'spectrum-edge: left', 'spectrum-card: auto', 'spectrum-card-edge: top',
-      'spectrum-trim: restrained', '---', '', '<!-- _class: cards-grid spectrum-edge-top no-spectrum-card with-spectrum-trim -->', '', '## H.', '',
+      'spectrum-trim: restrained', '---', '', '<!-- @meta{layout=cards-grid, class=spectrum-edge-top no-spectrum-card with-spectrum-trim} -->', '', '## H.', '',
     ].join('\n');
     const found = lintText(src, { vocab }).filter((x) => /spectrum|unknown-class/.test(x.rule));
     assert.ok(found.length >= 8, found.map((f) => f.rule).join(', '));
@@ -357,7 +357,7 @@ describe('deck linter', () => {
 
   test('per-slide accent tokens (spectrum-*, card-spectrum-*, trim-spectrum-*, rule-*, eyebrow-*) are known classes', () => {
     for (const t of ['spectrum-duo', 'spectrum-left', 'no-spectrum', 'with-spectrum', 'spectrum-band', 'spectrum-hairline', 'spectrum-regular', 'spectrum-top', 'no-heading-rule', 'with-heading-rule', 'with-card-spectrum', 'card-spectrum-band', 'card-spectrum-solid', 'no-card-spectrum', 'card-spectrum-top', 'trim-spectrum-rainbow', 'trim-spectrum-mono', 'trim-spectrum-quiet', 'rule-short', 'eyebrow-dot']) {
-      const src = `---\ntheme: indaco\n---\n\n<!-- _class: ${t} -->\n\n## H.\n`;
+      const src = `---\ntheme: indaco\n---\n\n<!-- @meta{class=${t}} -->\n\n## H.\n`;
       assert.equal(lintText(src, { vocab }).filter((x) => x.rule === 'unknown-class').length, 0, t);
     }
   });
@@ -365,7 +365,7 @@ describe('deck linter', () => {
   test('every retired switch spelling is flagged with an autofix to its no-X / with-X name', () => {
     const { RETIRED_SWITCHES } = require('../../../lib/authoring/switches-retired.mjs');
     for (const [from, to] of Object.entries(RETIRED_SWITCHES)) {
-      const hits = lintText(`---\ntheme: indaco\n---\n\n<!-- _class: content ${from} -->\n\n## H.\n`, { vocab })
+      const hits = lintText(`---\ntheme: indaco\n---\n\n<!-- @meta{class=content ${from}} -->\n\n## H.\n`, { vocab })
         .filter((x) => x.rule === 'unknown-class' && x.classToken === from);
       assert.equal(hits.length, 1, `${from} on a slide is not flagged`);
       assert.deepEqual(hits[0].replace, { from, to }, `${from} has no autofix to ${to}`);
@@ -376,7 +376,7 @@ describe('deck linter', () => {
   });
 
   test('a body `finish:` code span is not mistaken for the front-matter key', () => {
-    const src = `${FM}<!-- _class: content -->\n\n## H.\n\n\`finish: bogus\` is just prose.\n`;
+    const src = `${FM}<!-- @meta{layout=content} -->\n\n## H.\n\n\`finish: bogus\` is just prose.\n`;
     assert.equal(lintText(src, { vocab }).filter((x) => x.rule === 'unknown-finish').length, 0);
   });
 
@@ -435,11 +435,11 @@ describe('deck linter', () => {
       'a deck-wide `form` token was always redundant, so it is not reported');
 
     // Per slide.
-    const perSlide = tokens('---\ntheme: indaco\n---\n\n# T\n\n---\n\n<!-- _class: content no-form -->\n\n## H.\n');
+    const perSlide = tokens('---\ntheme: indaco\n---\n\n# T\n\n---\n\n<!-- @meta{layout=content, class=no-form} -->\n\n## H.\n');
     assert.equal(perSlide.length, 1);
     assert.equal(perSlide[0].shapeChange, true);
     assert.equal(
-      tokens('---\ntheme: indaco\n---\n\n# T\n\n---\n\n<!-- _class: content form -->\n\n## H.\n').length,
+      tokens('---\ntheme: indaco\n---\n\n# T\n\n---\n\n<!-- @meta{layout=content, class=form} -->\n\n## H.\n').length,
       0, 'a per-slide `form` token was always redundant, so it is not reported');
   });
 
@@ -447,20 +447,20 @@ describe('deck linter', () => {
     // `no-form` no longer opts a slide out and `form` no longer opts one in. A slide
     // that carries no chrome does so because its FRAME is sovereign, which is a
     // property of the component, not something a token selects.
-    const out = lintText('---\ntheme: indaco\n---\n\n<!-- _class: content no-form -->\n\n## H.\n', { vocab })
+    const out = lintText('---\ntheme: indaco\n---\n\n<!-- @meta{layout=content, class=no-form} -->\n\n## H.\n', { vocab })
       .filter((x) => x.rule === 'retired-form-token');
     assert.equal(out.length, 1);
     assert.equal(out[0].classToken, 'no-form');
     assert.equal(out[0].severity, 'warning');
     assert.match(out[0].fix, /a layout like/);
     // The bare `form` token never changed the render, so it is not reported (2026-10-06).
-    const optIn = lintText('---\ntheme: indaco\n---\n\n<!-- _class: content form -->\n\n## H.\n', { vocab })
+    const optIn = lintText('---\ntheme: indaco\n---\n\n<!-- @meta{layout=content, class=form} -->\n\n## H.\n', { vocab })
       .filter((x) => x.rule === 'retired-form-token');
     assert.equal(optIn.length, 0);
     // A slide naming neither is untouched — and `no-progress`, the SURVIVING rail
     // control, must never be mistaken for one of them.
     assert.equal(
-      lintText('---\ntheme: indaco\n---\n\n<!-- _class: content no-progress -->\n\n## H.\n', { vocab })
+      lintText('---\ntheme: indaco\n---\n\n<!-- @meta{layout=content, class=no-progress} -->\n\n## H.\n', { vocab })
         .filter((x) => x.rule === 'retired-form-token').length,
       0, 'no-progress is a different register and stays');
   });
@@ -473,7 +473,7 @@ describe('deck linter', () => {
     // the editor anchors a diagnostic inside the chunk for that slide, so slide 0 is the
     // FRONT MATTER and every warning collapsed onto the deck's opening `---`.
     const two = lintText(
-      '---\ntheme: indaco\n---\n\n<!-- _class: content no-form -->\n\n## One.\n\n---\n\n<!-- _class: table no-form -->\n\n## Two.\n',
+      '---\ntheme: indaco\n---\n\n<!-- @meta{layout=content, class=no-form} -->\n\n## One.\n\n---\n\n<!-- @meta{layout=table, class=no-form} -->\n\n## Two.\n',
       { vocab },
     ).filter((x) => x.rule === 'retired-form-token');
     assert.deepEqual(two.map((x) => x.slide), [1, 2], 'each finding names its own slide');
@@ -507,7 +507,7 @@ describe('deck linter', () => {
     // A deck DOCUMENTING this migration quotes the token to show what to delete.
     // Warning on the example is the rule failing at the deck most likely to carry it.
     const fenced = lintText(
-      '---\ntheme: indaco\n---\n\n## Migrating.\n\n```markdown\n<!-- _class: content no-form -->\n```\n',
+      '---\ntheme: indaco\n---\n\n## Migrating.\n\n```markdown\n<!-- @meta{layout=content, class=no-form} -->\n```\n',
       { vocab },
     ).filter((x) => x.rule === 'retired-form-token');
     assert.equal(fenced.length, 0, 'quoted material is not authored material');
@@ -517,7 +517,7 @@ describe('deck linter', () => {
     // `form` left UNIVERSAL_GROUPS.chrome, so the generic `unknown-class` rule started
     // firing on it — telling the author to "check the spelling" of a token that is
     // spelled perfectly and is never coming back. The token is inert, so nothing reports it.
-    const all = lintText('---\ntheme: indaco\n---\n\n<!-- _class: table form -->\n\n## H.\n', { vocab });
+    const all = lintText('---\ntheme: indaco\n---\n\n<!-- @meta{layout=table, class=form} -->\n\n## H.\n', { vocab });
     assert.equal(all.filter((x) => x.rule === 'retired-form-token').length, 0);
     assert.equal(
       all.filter((x) => x.rule === 'unknown-class' && x.classToken === 'form').length,
@@ -531,7 +531,7 @@ describe('deck linter', () => {
     // anchor with no chrome would reach for.
     const catalog = require('../../../lib/forms/cell/masthead/stage-catalog.generated.js');
     const sovereign = Object.keys(catalog).filter((k) => catalog[k] === 'sovereign');
-    const found = lintText('---\ntheme: indaco\n---\n\n<!-- _class: content no-form -->\n\n## H.\n', { vocab })
+    const found = lintText('---\ntheme: indaco\n---\n\n<!-- @meta{layout=content, class=no-form} -->\n\n## H.\n', { vocab })
       .find((x) => x.rule === 'retired-form-token');
     for (const id of sovereign) {
       assert.match(found.fix, new RegExp(`\\\`${id}\\\``), `the coaching names \`${id}\``);
@@ -540,22 +540,22 @@ describe('deck linter', () => {
 
 
   test('the stress-slide marker is the SPECIMEN opt-out — quiet at every band', () => {
-    // `<!-- stress-slide -->` means "this slide EXISTS to show the upper limit". It has
+    // `<!-- @meta{stress-slide} -->` means "this slide EXISTS to show the upper limit". It has
     // always suppressed capacity-crowd; since 2026-07-29 it also makes the SPLITTER leave
     // the slide whole (lib/core/auto-split.js), because paginating a specimen paginates it
     // out of showing the thing it exists to show.
     // checklist's crowd band is (8, 9]: nine items crowd without passing `hard`.
-    const crowd = (marker) => `---\nmarp: true\ntheme: indaco\n---\n\n<!-- _class: checklist -->\n${marker}\n\n## H.\n\n${Array.from({ length: 9 }, (_, i) => `- [x] Item ${i}`).join('\n')}\n`;
-    assert.equal(lintText(crowd('<!-- stress-slide -->'), { vocab }).filter((x) => x.rule === 'capacity-crowd').length, 0, 'marker holds the crowd suggestion');
+    const crowd = (marker) => `---\nmarp: true\ntheme: indaco\n---\n\n<!-- @meta{layout=checklist} -->\n${marker}\n\n## H.\n\n${Array.from({ length: 9 }, (_, i) => `- [x] Item ${i}`).join('\n')}\n`;
+    assert.equal(lintText(crowd('<!-- @meta{stress-slide} -->'), { vocab }).filter((x) => x.rule === 'capacity-crowd').length, 0, 'marker holds the crowd suggestion');
     assert.equal(lintText(crowd(''), { vocab }).filter((x) => x.rule === 'capacity-crowd').length, 1, 'no marker, crowd speaks as before');
     // Past hard, an ordinary slide at the landscape authoring box gets the overflow warning
     // (at a presentation @size the engine splits it, and nothing is said)…
-    const over = (marker, size = '') => `---\nmarp: true\ntheme: indaco\n${size}---\n\n<!-- _class: q-and-a -->\n${marker}\n\n## H.\n\n${Array.from({ length: 8 }, (_, i) => `- Q${i}?\n  - A${i}.`).join('\n')}\n`;
+    const over = (marker, size = '') => `---\nmarp: true\ntheme: indaco\n${size}---\n\n<!-- @meta{layout=q-and-a} -->\n${marker}\n\n## H.\n\n${Array.from({ length: 8 }, (_, i) => `- Q${i}?\n  - A${i}.`).join('\n')}\n`;
     assert.equal(lintText(over(''), { vocab }).filter((x) => x.rule === 'capacity-overflow').length, 1, 'the budget speaks where nothing will be split');
     // …but a SPECIMEN is not, in either box: it overflows on purpose, so the warning is
     // noise its author has already answered.
     for (const size of ['size: portrait\n', '']) {
-      const out = lintText(over('<!-- stress-slide -->', size), { vocab });
+      const out = lintText(over('<!-- @meta{stress-slide} -->', size), { vocab });
       assert.equal(out.filter((x) => x.rule.startsWith('capacity-')).length, 0,
         'and is never warned about the overflow it exists to demonstrate');
     }
@@ -637,7 +637,7 @@ describe('deck linter', () => {
   // and lone CR invented a title-incomplete one. This asserts through `main()`, the real CLI
   // entry, on genuinely raw fixtures, so it fails if the normalization is removed.
   test('a deck lints identically as LF, CRLF and lone CR — the CLI normalizes at the read', async () => {
-    const LF = `${FM}<!-- _class: cards-grid -->\n\n## H.\n\n- **First.** body on same line.\n`;
+    const LF = `${FM}<!-- @meta{layout=cards-grid} -->\n\n## H.\n\n- **First.** body on same line.\n`;
     const run = async (src, tag) => {
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), `lint-eol-${tag}-`));
       const file = path.join(dir, 'deck.md');
@@ -679,13 +679,13 @@ describe('deck linter', () => {
     };
 
     // A malformed `_focus` axis — a `focus-spec` warning, and the rule sets no classToken.
-    const noToken = await run(`${FM}<!-- _class: kpi -->\n<!-- _focus: rowe 4 -->\n\n## H.\n\n- Metric\n  - 42\n`, 'none');
+    const noToken = await run(`${FM}<!-- @meta{layout=kpi} -->\n<!-- @meta{focus=rowe 4} -->\n\n## H.\n\n- Metric\n  - 42\n`, 'none');
     assert.match(noToken, /· focus-spec\n/, `expected a bare rule name, got:\n${noToken}`);
     assert.doesNotMatch(noToken, /\[undefined\]/, 'the CLI must never print a literal [undefined] at an author');
     assert.doesNotMatch(noToken, /focus-spec \[\]/, 'an empty bracket is a different claim from no bracket');
 
     // A finding that DOES carry one still prints it, in the same place, unchanged.
-    const withToken = await run(`${FM}<!-- _class: cards-grid -->\n\n## H.\n\n- **First.** body on same line.\n`, 'some');
+    const withToken = await run(`${FM}<!-- @meta{layout=cards-grid} -->\n\n## H.\n\n- **First.** body on same line.\n`, 'some');
     assert.match(withToken, /· card-style-inline-title \[cards-grid\]\n/, `expected the token bracket, got:\n${withToken}`);
   });
 

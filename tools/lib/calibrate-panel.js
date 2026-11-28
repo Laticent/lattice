@@ -57,7 +57,7 @@ async function main() {
       const deck = gradedDeck({
         comp: 'split-panel', size: '4k', scale, steps: regs,
         slideFor: ([reg]) => ({ slide: `\`Calibration · eyebrow\`\n\n## ${prose(6)}.\n\n*What does a real answer look like?* ${prose(160)}.\n\n${PANEL_POINTS[reg] || PANEL_POINTS.default}` }),
-      }).replace(/<!-- _class: split-panel -->/g, (() => { let i = 0; return () => `<!-- _class: ${regs[i++][1]} -->`; })());
+      }).replace(/<!-- @meta\{class="split-panel"\} -->/g, (() => { let i = 0; return () => `<!-- @meta{class="${regs[i++][1]}"} -->`; })());
       const r = renderProbe(deck, `split-panel-lines-${venue}`, { format: 'html', keep: true });
       try {
         const page = await browser.newPage();

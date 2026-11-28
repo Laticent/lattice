@@ -10,7 +10,7 @@ import { DEFAULT_COALESCE_MS } from '../src/lib/filo/history';
 import { openDeckInCompose, savedDeck } from './compose-insert';
 import { editorFocusSettled, expect, gotoStudio, pressSettled, studioUndo, test } from './studio-fixture';
 
-const DECK = ['<!-- _class: content -->\n\n# One\n\nBody one.', '<!-- _class: content -->\n\n# Two\n\nBody two.', '<!-- _class: content -->\n\n# Three\n\nBody three.'].join('\n\n---\n\n');
+const DECK = ['<!-- @meta{layout=content} -->\n\n# One\n\nBody one.', '<!-- @meta{layout=content} -->\n\n# Two\n\nBody two.', '<!-- @meta{layout=content} -->\n\n# Three\n\nBody three.'].join('\n\n---\n\n');
 
 /** The undo chord as the page's platform binds it (studio-filo.ts `undoChord`). */
 async function chord(page: Page, verb: 'undo' | 'redo'): Promise<void> {
@@ -107,7 +107,7 @@ for (const tag of ['@gecko', '@webkit-tablet']) test.describe(`Compose on Filo $
 	// Before the fix the narrow resync came back one newline short, ComposeView's check caught the mismatch, and the undo
 	// paid a full rebuild (it marks filo:compose-resync). Now the scoped apply is exact and no rebuild runs.
 	test('undoing a Compose slide delete between differently spelled separators stays a scoped apply', async ({ page }) => {
-		const MIXED = '<!-- _class: content -->\n\n# One\n\nBody one.\n\n---\n\n<!-- _class: content -->\n\n# Two\n\nBody two.\n\n---\n<!-- _class: content -->\n\n# Three\n\nBody three.';
+		const MIXED = '<!-- @meta{layout=content} -->\n\n# One\n\nBody one.\n\n---\n\n<!-- @meta{layout=content} -->\n\n# Two\n\nBody two.\n\n---\n<!-- @meta{layout=content} -->\n\n# Three\n\nBody three.';
 		await openDeckInCompose(page, MIXED);
 		await expect.poll(() => savedDeck(page), 'witness: the mixed spellings were saved as typed').toBe(MIXED);
 		await slides(page).nth(1).getByRole('button', { name: 'Delete slide' }).click();

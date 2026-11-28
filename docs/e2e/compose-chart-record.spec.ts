@@ -14,7 +14,7 @@ import { expect, gotoStudio, livePreview, persistedSource, setEditorContent, tes
 const COMPOSE = 'Compose — rich editor';
 
 const DECK = [
-	'<!-- _class: bar -->',
+	'<!-- @meta{layout=bar} -->',
 	'',
 	'## Revenue by region',
 	'',
@@ -24,7 +24,7 @@ const DECK = [
 	'',
 	'---',
 	'',
-	'<!-- _class: heatmap -->',
+	'<!-- @meta{layout=heatmap} -->',
 	'',
 	'## Load by hour',
 	'',
@@ -70,10 +70,10 @@ test.describe('compose chart records', () => {
 	// The native bullet and progress readers and the heatmap's `{> …}` description, on the real surface: the Studio's live preview,
 	// where the browser runtime builds the chart in Chromium (HARD RULE #23). The jsdom tests pin the same markup.
 	const SLIDES = {
-		bullet: '<!-- _class: bullet -->\n\n## KPIs\n\n- Uptime `{99.4%, target=99.9%, floor=99.0%, band=[99.5%]}`\n- Latency `{180, target=200}`',
-		progress: '<!-- _class: progress -->\n\n## Launch\n\n- Build `{68%, at-risk, note="Waiting on the Q4 vendor slot"}`\n- Docs `{90%, on-track}`',
+		bullet: '<!-- @meta{layout=bullet} -->\n\n## KPIs\n\n- Uptime `{99.4%, target=99.9%, floor=99.0%, band=[99.5%]}`\n- Latency `{180, target=200}`',
+		progress: '<!-- @meta{layout=progress} -->\n\n## Launch\n\n- Build `{68%, at-risk, note="Waiting on the Q4 vendor slot"}`\n- Docs `{90%, on-track}`',
 		heatmap: [
-			'<!-- _class: heatmap -->',
+			'<!-- @meta{layout=heatmap} -->',
 			'',
 			'## Retention',
 			'',

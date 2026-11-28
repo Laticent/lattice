@@ -239,7 +239,7 @@ test('the RUNTIME gates the deck CHROME too, and gates it on the same class the 
  */
 
 test('a per-slide `_class: inline-code-literal` turns the grammar off for that slide only', () => {
-  const doc = render([], `# One\n\n${BODY}\n\n---\n\n<!-- _class: ${INLINE_CODE_LITERAL} -->\n\n# Two\n\n${BODY}`);
+  const doc = render([], `# One\n\n${BODY}\n\n---\n\n<!-- @meta{class=${INLINE_CODE_LITERAL}} -->\n\n# Two\n\n${BODY}`);
   const [first, second] = [...doc.querySelectorAll('section')];
   // The control is the FIRST slide: same body, same deck, grammar running.
   assert.equal(first.querySelectorAll('.lat-pill').length, 1, 'control: slide 1 must still draw');
@@ -293,9 +293,9 @@ test('header and footer obey the register — chrome is a span like any other', 
 test('chrome obeys a per-slide `_class: inline-code-literal`', () => {
   const body = [
     '# One', '', BODY, '', '---', '',
-    `<!-- _class: ${INLINE_CODE_LITERAL} -->`,
-    '<!-- _header: "H `{HDR}`" -->',
-    '<!-- _footer: "F `[x]`" -->', '',
+    `<!-- @meta{class=${INLINE_CODE_LITERAL}} -->`,
+    '<!-- @meta{header="H `{HDR}`"} -->',
+    '<!-- @meta{footer="F `[x]`"} -->', '',
     '# Two', '', BODY,
   ].join('\n');
   const doc = render(['header: "H `{HDR}`"', 'footer: "F `[x]`"'], body);
@@ -314,7 +314,7 @@ test('chrome obeys a deck-wide `class:` even on a slide that sets its own `_clas
   // token back runs ELEVEN rules after chrome is built — so reading the slide's class alone
   // gave a literal BODY and drawn CHROME inside one section. Measured, then fixed by reading
   // the deck's front matter the same way `deckClassPropagate` does.
-  const body = ['# One', '', BODY, '', '---', '', '<!-- _class: content -->', '', '# Two', '', BODY].join('\n');
+  const body = ['# One', '', BODY, '', '---', '', '<!-- @meta{layout=content} -->', '', '# Two', '', BODY].join('\n');
   const doc = render([`class: ${INLINE_CODE_LITERAL}`, 'header: "H `{HDR}`"', 'footer: "F `[x]`"'], body);
   assert.ok(doc.querySelectorAll('header, footer').length >= 4, 'anti-vacuity: chrome on both slides');
   assert.equal(doc.querySelectorAll('.lat-pill').length, 0, 'no pill anywhere — body or chrome, either slide');

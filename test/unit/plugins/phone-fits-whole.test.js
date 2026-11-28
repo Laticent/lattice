@@ -10,7 +10,7 @@ const { createEngine } = require('../../../lib/engine');
 const { carouselize } = require('../../../lib/core/carousel');
 
 const render = (size, cls, body) => {
-  const html = createEngine().render(`---\ntheme: indaco\nsize: ${size}\n---\n\n<!-- _class: ${cls} -->\n\n## The chart.\n\n${body}`).html;
+  const html = createEngine().render(`---\ntheme: indaco\nsize: ${size}\n---\n\n<!-- @meta{class=${cls}} -->\n\n## The chart.\n\n${body}`).html;
   return html.match(/(<section[^>]*class="[^"]*\b(?:kanban|roadmap|journey)\b[^"]*"[^>]*>)([\s\S]*?)<\/section>/);
 };
 const lanes = (n, cards) => Array.from({ length: n }, (_, i) =>

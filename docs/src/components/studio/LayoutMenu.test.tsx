@@ -17,10 +17,10 @@ vi.mock('./preview-pool', () => ({
 	PooledThumbFace: () => null,
 }));
 
-const STATS = '<!-- _class: stats -->\n\n## By the numbers.\n\n1. 80\n   - components\n';
+const STATS = '<!-- @meta{layout=stats} -->\n\n## By the numbers.\n\n1. 80\n   - components\n';
 const components = [
 	{ name: 'stats', bucket: 'evidence', purpose: 'A row of figures.', variants: [], related: [{ name: 'chart-bar', when: 'bars for one series' }], skeleton: STATS },
-	{ name: 'chart-bar', bucket: 'chart', purpose: 'Bars.', variants: [], skeleton: '<!-- _class: chart-bar -->\n\n## Bars\n' },
+	{ name: 'chart-bar', bucket: 'chart', purpose: 'Bars.', variants: [], skeleton: '<!-- @meta{class=chart-bar} -->\n\n## Bars\n' },
 ] as unknown as ComponentEntry[];
 
 function setup() {

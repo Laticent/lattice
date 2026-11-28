@@ -56,48 +56,48 @@ progress-track: on
 ---
 
 # Section One
-<!-- _class: divider -->
+<!-- @meta{class=divider} -->
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{class=content} -->
 ## Baseline
 All chrome present: header, footer, page number, rail.
 
 ---
 
-<!-- _class: content no-header -->
+<!-- @meta{class=content no-header} -->
 ## No header
 Header gone; footer + page number stay.
 
 ---
 
-<!-- _class: content no-footer -->
+<!-- @meta{class=content no-footer} -->
 ## No footer
 Footer gone; the PAGE NUMBER must stay (only the footer text hides, not the band).
 
 ---
 
-<!-- _class: content no-pagination -->
+<!-- @meta{class=content no-pagination} -->
 ## No page number
 Pagination gone; footer stays.
 
 ---
 
-<!-- _class: content no-progress -->
+<!-- @meta{class=content no-progress} -->
 ## No rail
 The section rail is gone.
 
 ---
 
-<!-- _class: content silent -->
+<!-- @meta{class=content silent} -->
 ## Silent
 Header, footer, and page number all gone at once.
 
 ---
 
 # Section Two
-<!-- _class: divider -->
+<!-- @meta{class=divider} -->
 `;
 
 // Is the element for `selector` on slide `n` present AND visibly displayed

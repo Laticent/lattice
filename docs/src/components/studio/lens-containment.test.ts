@@ -4,6 +4,7 @@
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { applyTag, catalogFromComponents, type LensDef, type LensRegistry, ladderRungs, suggestMembership, validateLadder } from '@/lib/lente';
+import { slideClassValue } from '../../../../lib/core/class-entries.mjs';
 import { ARCHETYPES } from './lens-archetypes';
 
 // The RUNGS-AND-CUTS decomposition, pinned against the REAL suggester and the REAL component
@@ -30,7 +31,7 @@ const catalog = catalogFromComponents(components.map((c) => ({ name: c.name, buc
 
 // One slide per catalog component — the widest deck the suggester can be asked about, so the
 // relations below are checked over the whole component space rather than a hand-picked sample.
-const slides = components.map((c) => `<!-- _class: ${c.name} -->\n\n# ${c.name}`);
+const slides = components.map((c) => `<!-- @meta{layout=${c.name}} -->\n\n# ${c.name}`);
 
 const registry: LensRegistry = {
 	default: 'full',
@@ -42,7 +43,9 @@ const registry: LensRegistry = {
 	],
 };
 
-const suggestions = suggestMembership(slides, registry, catalog);
+// The Studio's own class reader (LensesPanel.tsx `studioClassOf`): since the cut a slide's class is its `@meta{…}` record
+// (record note §15), which Lente's zero-dependency default reader does not read.
+const suggestions = suggestMembership(slides, registry, catalog, slideClassValue);
 
 /** The set a lens would SUGGEST, resolved against its base: an additive lens collects its
  *  inclusions; a subtractive one is every slide minus its exclusions. */
@@ -126,7 +129,7 @@ function archetypeRegistry(over: Record<string, Partial<LensDef>> = {}): LensReg
 function suggesterTaggedDeck(reg: LensRegistry): string[] {
 	const bases = new Map(reg.lenses.map((l) => [l.id, l.base]));
 	const out = [...slides];
-	for (const s of suggestMembership(slides, reg, catalog)) {
+	for (const s of suggestMembership(slides, reg, catalog, slideClassValue)) {
 		out[s.index] = applyTag(out[s.index], s.lensId, s.member, bases.get(s.lensId) ?? 'none');
 	}
 	return out;

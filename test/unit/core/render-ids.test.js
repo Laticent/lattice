@@ -74,7 +74,7 @@ test('render-ids: a finished render RELEASES its slide scope', () => {
 	// state has to be released, not just set.
 	const { createEngine } = require('../../../lib/engine/index.js');
 	const e = createEngine();
-	e.render('# A\n\n---\n\n<!-- _class: piechart -->\n\n## Pie\n\n- Alpha 40\n- Beta 60\n', 'lattice');
+	e.render('# A\n\n---\n\n<!-- @meta{layout=piechart} -->\n\n## Pie\n\n- Alpha 40\n- Beta 60\n', 'lattice');
 	assert.equal(nextRenderSeq('pie-wedge'), '1', 'the slide scope leaked past the end of the render');
 });
 
@@ -196,7 +196,7 @@ test('engine: a squatting deck gets zero duplicate ids, on every render', () => 
 	// defect this test was rewritten to fix, reintroduced with a SHORTER fuse: the old fixture rotted
 	// when the id shape changed (rare); that one rotted when anyone edited the deck (routine).
 	// Render once with no squat, take the ids the engine actually minted, squat exactly those.
-	const probeDeck = `---\ntheme: indaco\n---\n\n# Shared deck\n\n---\n\n<!-- _class: piechart -->\n\n## Revenue mix.\n\n- Onboarding \`34\`\n- Pricing \`26\`\n- Support \`22\`\n- Integrations \`18\`\n`;
+	const probeDeck = `---\ntheme: indaco\n---\n\n# Shared deck\n\n---\n\n<!-- @meta{layout=piechart} -->\n\n## Revenue mix.\n\n- Onboarding \`34\`\n- Pricing \`26\`\n- Support \`22\`\n- Integrations \`18\`\n`;
 	const minted = [...e.render(probeDeck, 'indaco').html.matchAll(/\sid="((?:lat-)?[a-z][\w-]*-\d+(?:-\d+)?)"/g)].map((m) => m[1]);
 	assert.ok(minted.length >= 2, `fixture broken: the probe render minted ${minted.length} ids`);
 	// ESCAPED, and asserted quote-free first. The harvest pattern above cannot yield a `"` — but that
@@ -209,7 +209,7 @@ test('engine: a squatting deck gets zero duplicate ids, on every render', () => 
 	const squat = minted
 		.map((id) => `<radialGradient id="${attr(id)}"><stop offset="0%" stop-color="#ff0000"/></radialGradient>`)
 		.join('');
-	const deck = `---\ntheme: indaco\n---\n\n# Shared deck\n\n<svg width="1" height="1" aria-hidden="true"><defs>${squat}</defs></svg>\n\n---\n\n<!-- _class: piechart -->\n\n## Revenue mix.\n\n- Onboarding \`34\`\n- Pricing \`26\`\n- Support \`22\`\n- Integrations \`18\`\n`;
+	const deck = `---\ntheme: indaco\n---\n\n# Shared deck\n\n<svg width="1" height="1" aria-hidden="true"><defs>${squat}</defs></svg>\n\n---\n\n<!-- @meta{layout=piechart} -->\n\n## Revenue mix.\n\n- Onboarding \`34\`\n- Pricing \`26\`\n- Support \`22\`\n- Integrations \`18\`\n`;
 
 	let previous = null;
 	for (let render = 1; render <= 4; render += 1) {

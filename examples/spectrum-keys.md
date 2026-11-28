@@ -31,7 +31,7 @@ This deck writes `spectrum: solid left band`, so every slide carries a heavy sol
 
 <!-- @meta{layout=content, class=spectrum-hairline} -->
 
-`_class: spectrum-hairline`
+`class=spectrum-hairline`
 
 ## One slide can change one part and keep the rest
 
@@ -41,7 +41,7 @@ This slide adds `spectrum-hairline`, so its stripe drops to one pixel. It stays 
 
 <!-- @meta{layout=content, class=spectrum-top spectrum-regular} -->
 
-`_class: spectrum-top spectrum-regular`
+`class=spectrum-top spectrum-regular`
 
 ## The default of each part is a class of its own
 
@@ -66,7 +66,7 @@ This slide adds `spectrum-hairline`, so its stripe drops to one pixel. It stays 
 
 <!-- @meta{layout=cards-grid, class=three with-card-spectrum card-spectrum-top card-spectrum-hairline} -->
 
-`_class: with-card-spectrum card-spectrum-top card-spectrum-hairline`
+`class=with-card-spectrum card-spectrum-top card-spectrum-hairline`
 
 ## The card stripe keeps its own three parts
 

@@ -22,7 +22,7 @@ vi.mock('@/playground/single-slide-render', () => ({
 }));
 
 const opts = { themeBase: '', runtimeUrl: '', engineUrl: '' };
-const MD = '<!-- _class: content -->\n\n## A slide.\n';
+const MD = '<!-- @meta{layout=content} -->\n\n## A slide.\n';
 const CSS = 'section.x { color: red; }';
 
 /** The renderer's positional signature: (host, markdown, mermaid, palette, extraTheme, mode, extraCss). */

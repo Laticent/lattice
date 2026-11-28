@@ -29,7 +29,7 @@ const LOCAL = {
 	name: 'mybox',
 	bucket: 'local' as string | null,
 	css: 'section.mybox{background:var(--accent-soft)}',
-	skeleton: '<!-- _class: mybox -->\n\n## Boxed\n\nA local component.',
+	skeleton: '<!-- @meta{class=mybox} -->\n\n## Boxed\n\nA local component.',
 };
 vi.mock('./component-library', () => ({
 	listStudioComponents: vi.fn(async () => [LOCAL]),

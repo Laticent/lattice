@@ -82,7 +82,7 @@ const FIXTURES = {
 // every narrator is reached through them below.
 const NARRATORS = Object.keys(CN).filter((k) => k.startsWith('narrate') && k !== 'narrateChart' && k !== 'narrateChartScript');
 
-const slideFor = ([cls, body]) => `<!-- _class: ${cls} -->\n\n# Title\n\n${NOTE}\n\n${body}\n\nTail copy here.`;
+const slideFor = ([cls, body]) => `<!-- @meta{class=${cls}} -->\n\n# Title\n\n${NOTE}\n\n${body}\n\nTail copy here.`;
 
 test('every exported narrator has a fixture here — a new one cannot join unchecked', () => {
 	const missing = NARRATORS.filter((n) => !FIXTURES[n]);

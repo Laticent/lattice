@@ -6,7 +6,7 @@ import { expect, gotoStudio, openChat, setEditorContent, studioUndo, test } from
 // then the paint removes itself, and the deck's bytes are the ones the change wrote. followups.d/2861-p3;
 // engineering/decisions/2026-10-21-compose-point-and-click.md §8d.
 
-const DECK = ['<!-- _class: content -->', '', '# Launch plan', '', 'The launch is on Monday.', '', 'Closing words.'].join('\n');
+const DECK = ['<!-- @meta{layout=content} -->', '', '# Launch plan', '', 'The launch is on Monday.', '', 'Closing words.'].join('\n');
 const RENAMED = DECK.replace('# Launch plan', '# Pilot plan');
 
 /** Rename the active deck from the switcher: its button is named by the deck's title, and a phone shows no slide count beside it. */
@@ -70,7 +70,7 @@ test.describe('an outside change shown in Compose', () => {
 		});
 		const sse = (frames: unknown[]) => `${frames.map((f) => `data: ${JSON.stringify(f)}\n\n`).join('')}data: [DONE]\n\n`;
 		const usage = { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20, cost: 0 };
-		const rewritten = ['<!-- _class: content -->', '', '# Launch plan', '', 'The launch is on Tuesday morning.', '', 'Closing words.'].join('\n');
+		const rewritten = ['<!-- @meta{layout=content} -->', '', '# Launch plan', '', 'The launch is on Tuesday morning.', '', 'Closing words.'].join('\n');
 		let round = 0;
 		await page.route('https://openrouter.ai/**', async (route) => {
 			if (!route.request().url().includes('/chat/completions')) {

@@ -84,7 +84,7 @@ function probeDeck(m, probes) {
   const slides = [];
   const add = (sample, si, token) => {
     const cls = [m.name, ...sample.tokens, ...(token ? [token] : [])].join(' ');
-    slides.push(`<!-- _class: ${cls} -->\n\n${sample.body}\n`);
+    slides.push(`<!-- @meta{class="${cls}"} -->\n\n${sample.body}\n`);
     roster.push({ sample: si, token });
   };
   samples.forEach((s, si) => {

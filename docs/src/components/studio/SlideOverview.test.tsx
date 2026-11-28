@@ -17,7 +17,7 @@ vi.mock('@/components/DeckPreview', () => ({
 }));
 
 const options = { themeBase: '', runtimeUrl: '', engineUrl: '' };
-const set = ['<!-- _class: title -->\n\n# One', '<!-- _class: kpi -->\n\n# Two', '<!-- _class: quote -->\n\n# Three'];
+const set = ['<!-- @meta{layout=title} -->\n\n# One', '<!-- @meta{layout=kpi} -->\n\n# Two', '<!-- @meta{layout=quote} -->\n\n# Three'];
 
 describe('SlideOverview — the slide sorter', () => {
 	it('renders nothing when closed', () => {

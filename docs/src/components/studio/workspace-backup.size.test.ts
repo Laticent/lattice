@@ -291,7 +291,7 @@ describe('packWorkspace — reports what a restore would not bring back', () => 
 		// Found by the checker: 8 components of ~9 MiB CSS pack to ~80 KB, and unpackBundle refuses
 		// them on the 64 MiB unpacked total. The warning measured only the packed size.
 		const css = `section.big { ${'--x: 1; '.repeat(1_200_000)} }`;
-		for (let i = 0; i < 8; i++) await saveStudioComponent({ name: `big-${i}`, css, skeleton: `<!-- _class: big-${i} -->` });
+		for (let i = 0; i < 8; i++) await saveStudioComponent({ name: `big-${i}`, css, skeleton: `<!-- @meta{class=big-${i}} -->` });
 		const report: PackReport = { refdocsBytes: 0 };
 		const blob = await packWorkspace(T0, report);
 		expect(report.libraryBytes).toBeLessThan(MAX_ZIP_BYTES);

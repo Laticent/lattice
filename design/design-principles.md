@@ -142,29 +142,35 @@ style: |
 ---
 ```
 
-## 2.2 Per-Slide Directives
+## 2.2 Per-Slide Settings
 
-| Directive or class                      | Scope           | Effect                  |
-| --------------------------------------- | --------------- | ----------------------- |
-| `<!-- _class: X -->`                    | This slide only | CSS class on section    |
-| `<!-- _class: … no-pagination -->`      | This slide only | Hide page number        |
-| `<!-- _class: … with-pagination -->`    | This slide only | Show page number        |
-| `<!-- _class: … no-header -->`          | This slide only | Hide the deck header    |
-| `<!-- _header: '' -->`                  | This slide only | Hide header             |
-| `<!-- _footer: '' -->`                  | This slide only | Hide footer             |
-| `<!-- header: 'New' -->`                | This slide only | Change header           |
-| `<!-- footer: 'New' -->`                | This slide only | Change footer           |
+A slide sets its own layout, classes and bands with one `<!-- @meta{…} -->` record.
 
-Header and footer are set for every slide in front matter only. A slide comment sets its own slide, with or without
-the underscore: Lattice is not Marp, where the plain form carries onto every later slide. Every other directive keeps
-Marp's rule: underscore prefix = this slide only, no underscore = this slide and all following.
+| Record                                        | Scope           | Effect                  |
+| --------------------------------------------- | --------------- | ----------------------- |
+| `<!-- @meta{layout=X} -->`                    | This slide only | The slide's component   |
+| `<!-- @meta{class=X} -->`                     | This slide only | CSS class on section    |
+| `<!-- @meta{class=no-pagination} -->`         | This slide only | Hide page number        |
+| `<!-- @meta{class=with-pagination} -->`       | This slide only | Show page number        |
+| `<!-- @meta{class=no-header} -->`             | This slide only | Hide the deck header    |
+| `<!-- @meta{header=""} -->`                   | This slide only | Hide header             |
+| `<!-- @meta{footer=""} -->`                   | This slide only | Hide footer             |
+| `<!-- @meta{header=New} -->`                  | This slide only | Change header           |
+| `<!-- @meta{footer=New} -->`                  | This slide only | Change footer           |
+
+Header and footer are set for every slide in front matter only; a record sets them for its own slide. Every record
+applies to its own slide only. A record that should run onto every later slide says so with `carry`
+(`<!-- @meta{class=dense, carry} -->`); `header` and `footer` never carry.
+
+The engine reads only `@meta` records. Marp's directive comments (`<!-- _class: X -->`, `<!-- footer: New -->`) and the
+bare `<!-- {…} -->` record are lint errors (`legacy-directive-comment`, `meta-opener-bare`), and
+`lattice migrate meta deck.md` or `lint:deck --fix` rewrites a whole deck.
 
 **Page numbers are not a slide directive.** Front matter `pagination:` numbers the deck and is on unless it says
 `false`. A slide opts out with the `no-pagination` class and back in with `with-pagination`. A component opts its
 slides out in its manifest (`"chrome": { "pagination": false }`), as title, divider, topic and closing do, so their
-slides need nothing. A `paginate:` or `pagination:` comment, with or without `_`, is ignored, and the deck lint says what to write instead.
-Marp carries plain directives onward; Export to Marp writes Marp's own directives so a Marp render agrees (owner's
-rulings, 2026-10-20).
+slides need nothing. A `paginate` or `pagination` key on a slide does nothing, and the deck lint says what to write instead.
+Export to Marp writes Marp's own directive comments so a Marp render agrees (owner's rulings, 2026-10-20).
 
 **Anchor slides keep a band unless they already do its job** (owner's ruling, 2026-11-08,
 `engineering/decisions/2026-11-08-anchor-chrome.md`). Each band has one job. The header says which deck this is, so
@@ -174,8 +180,8 @@ title, divider, topic and closing: the divider's section marker and the topic's 
 logo stays everywhere. An author writes nothing for the default, and overrides one slide with the band's switch:
 
 ```markdown
-<!-- _class: title with-header -->
-<!-- _class: divider no-footer -->
+<!-- @meta{layout=title, class=with-header} -->
+<!-- @meta{layout=divider, class=no-footer} -->
 ```
 
 ## 2.3 Header, Footer & Pagination CSS

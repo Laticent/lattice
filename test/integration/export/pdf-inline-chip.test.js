@@ -30,7 +30,7 @@ const EMULATOR = path.join(ROOT, 'lattice.js');
 
 const DECK = [
   '---', 'theme: cuoio', '---', '',
-  '<!-- _class: kpi -->', '',
+  '<!-- @meta{layout=kpi} -->', '',
   '## Three numbers that made the case.', '',
   '1. 12 hrs', '   - per board deck', '   - most of it re-doing chrome `Ops`',
   '2. 40%', '   - reused, badly', '   - and drifting every quarter `Ops`',

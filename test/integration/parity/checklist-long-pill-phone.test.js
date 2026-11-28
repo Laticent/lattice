@@ -27,7 +27,7 @@ theme: indaco
 size: square
 ---
 
-<!-- _class: checklist -->
+<!-- @meta{class=checklist} -->
 
 \`Instagram · the invariants\`
 
@@ -42,7 +42,7 @@ size: square
 
 ---
 
-<!-- _class: checklist -->
+<!-- @meta{class=checklist} -->
 
 ## A status tag stays in the row.
 

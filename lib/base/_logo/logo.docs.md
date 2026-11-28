@@ -34,7 +34,7 @@ logo-finish: bottom-center accent-ink lg   # optional — one word per axis, aut
 ---
 ```
 
-The logo shows on every slide whenever `logo:` is set. A slide hides it with `_class: no-logo`.
+The logo shows on every slide whenever `logo:` is set. A slide hides it with `<!-- @meta{class=no-logo} -->`.
 
 `logo-finish:` takes up to one word per axis, in any order (the register is
 `lib/core/resolve-logo-finish.js`; the editor completes each word):
@@ -43,12 +43,12 @@ The logo shows on every slide whenever `logo:` is set. A slide hides it with `_c
 |---|---|---|
 | placement | `top-right` `top-left` `top-center` `bottom-left` `bottom-center` `bottom-right` | The berth. **Naming one clears the chrome in that band**: a top berth hides the running header and the meta line, `bottom-left` and `bottom-center` hide the footer text, `bottom-right` hides the page number and the progress track. The brand wins every collision, so there is nothing to de-collide. Writing no placement word keeps today's top-right mark beside the header; writing `top-right` explicitly clears the header too. |
 | color | `auto` `accent` `ink` `muted` `canvas` `inverse` `brand` `accent-ink` `accent-canvas` `ink-canvas` | `auto` is the faint watermark that flips on a dark canvas. A palette role or a closed 50/50 blend paints the mark that color through a per-slide SVG filter (flood the color, keep the mark's own alpha), so the same word reads right in light and dark and under every finish. `brand` keeps the file's own colors with nothing behind them (use it for marks whose colors carry meaning: insignia, crests). A tinted mark is fully opaque. |
-| plate | `no-plate` `plate` | `no-plate` is the default: nothing sits behind the mark, so a logo with a transparent background stays transparent. `plate` shows the file's own colors on a soft surface plate (the theme's `--bg-alt` at 70%, a light blur, a small radius and padding). Because the plate is the logo's own background, it overrides the watermark and tint filters, so it reads the same as `brand plate` on any color word. Turn it on for the deck (`logo-finish: brand plate`) or for one slide (`_class: logo-plate`), and take it back on one slide with `_class: logo-no-plate`. |
+| plate | `no-plate` `plate` | `no-plate` is the default: nothing sits behind the mark, so a logo with a transparent background stays transparent. `plate` shows the file's own colors on a soft surface plate (the theme's `--bg-alt` at 70%, a light blur, a small radius and padding). Because the plate is the logo's own background, it overrides the watermark and tint filters, so it reads the same as `brand plate` on any color word. Turn it on for the deck (`logo-finish: brand plate`) or for one slide (`@meta{class=logo-plate}`), and take it back on one slide with `@meta{class=logo-no-plate}`. |
 | size | `md` `sm` `lg` | `md` is the base size, `6.25cqi × 4cqi`; `sm` is 0.75× and `lg` 1.5×. |
 | scope | `all` `title` | `title` shows the mark only on the deck's first slide and any slide using the `title` layout. A surface rendering ONE slide (the Studio's slice preview) must hand the engine that slide's deck position, or its lone section reads as the deck's first; see the note below. |
 
 The words are class tokens on the section, so a slide can also change one axis for itself:
-`_class: logo-ink` recolors the mark on that slide and leaves the deck's placement and size alone.
+`<!-- @meta{class=logo-ink} -->` recolors the mark on that slide and leaves the deck's placement and size alone.
 `no-logo` is the one switch most decks need.
 
 **Migrating an old deck.** `logo-style:` (renamed `logo-finish:`, like `finish:` and `chart-finish:`), `logo-on:`,

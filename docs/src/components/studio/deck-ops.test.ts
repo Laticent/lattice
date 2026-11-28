@@ -7,7 +7,7 @@ import { stripFrontMatter } from '../../lib/front-matter';
 import { addSlideAfter, deleteSlide, deleteTargetName, duplicateSlide, moveSlide, NEW_SLIDE, replaceSlide } from './deck-ops';
 import { canSplitSlide, splitSlideInHalf } from './split-slide';
 
-const DECK = '<!-- _class: title -->\n\n# A\n\n---\n\n<!-- _class: kpi -->\n\n## B\n\n---\n\n<!-- _class: closing -->\n\n## C';
+const DECK = '<!-- @meta{layout=title} -->\n\n# A\n\n---\n\n<!-- @meta{layout=kpi} -->\n\n## B\n\n---\n\n<!-- @meta{layout=closing} -->\n\n## C';
 const count = (s: string) => splitSlides(stripFrontMatter(s)).length;
 
 describe('deck-ops — structural slide editing', () => {
@@ -64,7 +64,7 @@ describe('deck-ops — structural slide editing', () => {
 		expect(count(r.source)).toBe(2);
 		expect(slides.some((s) => s.includes('## B'))).toBe(false);
 		// A one-slide deck is never emptied.
-		const single = '<!-- _class: title -->\n\n# Only';
+		const single = '<!-- @meta{layout=title} -->\n\n# Only';
 		expect(count(deleteSlide(single, 0).source)).toBe(1);
 	});
 
@@ -88,11 +88,11 @@ describe('deck-ops — structural slide editing', () => {
 describe('replaceSlide — changes one slide and no other byte', () => {
 	// A Slide-panel edit used to rejoin the whole deck, which dropped the final newline: the edit then also touched the
 	// LAST byte, the focus hub mapped the caret through one span reaching the end, and the preview jumped to the last slide.
-	const AUTHORED = '---\ntitle: X\n---\n\n<!-- _class: image statement image-card-clear -->\n\n## A\n\n---\n\n## B\n\n\n---\n## C\n\nlast line\n';
+	const AUTHORED = '---\ntitle: X\n---\n\n<!-- @meta{layout=image, class=statement image-card-clear} -->\n\n## A\n\n---\n\n## B\n\n\n---\n## C\n\nlast line\n';
 
 	it('keeps the final newline, the separators and the other slides byte for byte', () => {
-		const next = replaceSlide(AUTHORED, 0, '<!-- _class: image statement image-card-clear image-card-dark -->\n\n## A').source;
-		expect(next).toBe(AUTHORED.replace('image-card-clear -->', 'image-card-clear image-card-dark -->'));
+		const next = replaceSlide(AUTHORED, 0, '<!-- @meta{layout=image, class=statement image-card-clear image-card-dark} -->\n\n## A').source;
+		expect(next).toBe(AUTHORED.replace('image-card-clear} -->', 'image-card-clear image-card-dark} -->'));
 	});
 
 	it('edits a middle and a last slide in place too', () => {
@@ -111,10 +111,10 @@ describe('replaceSlide — changes one slide and no other byte', () => {
 describe('splitSlideInHalf — the one-click fix for a slide too full for its venue', () => {
 	const FM = '---\nmarp: true\nvenue: hall\n---\n\n';
 	const steps = (n: number) => Array.from({ length: n }, (_, i) => `${i + 1}. Step ${i + 1}\n   - Why it matters.`).join('\n');
-	const slide = (n: number) => `<!-- _class: list-steps -->\n\n\`Eyebrow\`\n\n## Heading.\n\n${steps(n)}\n\n> The takeaway.\n\n<!--\nSpeaker note.\n-->`;
+	const slide = (n: number) => `<!-- @meta{layout=list-steps} -->\n\n\`Eyebrow\`\n\n## Heading.\n\n${steps(n)}\n\n> The takeaway.\n\n<!--\nSpeaker note.\n-->`;
 
 	it('halves the main list; the second half repeats the heading and keeps the takeaway and notes', () => {
-		const src = `${FM}<!-- _class: title -->\n\n# T\n\n---\n\n${slide(5)}`;
+		const src = `${FM}<!-- @meta{layout=title} -->\n\n# T\n\n---\n\n${slide(5)}`;
 		const r = splitSlideInHalf(src, 1);
 		expect(r).not.toBeNull();
 		const out = splitSlides(stripFrontMatter(r!.source));
@@ -124,7 +124,7 @@ describe('splitSlideInHalf — the one-click fix for a slide too full for its ve
 		expect(out[1]).toContain('3. Step 3');
 		expect(out[1]).not.toContain('4. Step 4');
 		expect(out[1]).not.toContain('takeaway');
-		expect(out[2]).toMatch(/^<!-- _class: list-steps -->\n\n`Eyebrow`\n\n## Heading\./);
+		expect(out[2]).toMatch(/^<!-- @meta\{layout=list-steps\} -->\n\n`Eyebrow`\n\n## Heading\./);
 		expect(out[2]).toContain('4. Step 4\n   - Why it matters.\n5. Step 5');
 		expect(out[2]).toContain('> The takeaway.');
 		expect(out[2].match(/Speaker note/g)).toHaveLength(1);
@@ -133,7 +133,7 @@ describe('splitSlideInHalf — the one-click fix for a slide too full for its ve
 
 	it('carries a slide record (`@meta{…}`) onto the second half, a wrapped one whole, like the comment it replaces', () => {
 		for (const rec of ['<!-- @meta{layout=list-steps, footer="Q3"} -->', '<!-- @meta{layout=list-steps,\n  footer="Q3"} -->']) {
-			const src = `${FM}${slide(5).replace('<!-- _class: list-steps -->', rec)}`;
+			const src = `${FM}${slide(5).replace('<!-- @meta{layout=list-steps} -->', rec)}`;
 			const out = splitSlides(stripFrontMatter(splitSlideInHalf(src, 0)!.source));
 			expect(out).toHaveLength(2);
 			expect(out[1].startsWith(`${rec}\n\n\`Eyebrow\``)).toBe(true);
@@ -157,16 +157,16 @@ describe('splitSlideInHalf — the one-click fix for a slide too full for its ve
 	});
 
 	it('does not double a speaker note that opens like a directive, and skips $$ math', () => {
-		const s = '<!-- _class: list -->\n<!-- Note: mention the Q3 dip -->\n## H.\n\n$$\n- x\n- y\n- z\n$$\n\n- a\n- b';
+		const s = '<!-- @meta{layout=list} -->\n<!-- Note: mention the Q3 dip -->\n## H.\n\n$$\n- x\n- y\n- z\n$$\n\n- a\n- b';
 		const out = splitSlides(stripFrontMatter(splitSlideInHalf(s, 0)!.source));
-		expect(out[1]).toBe('<!-- _class: list -->\n## H.\n\n- b');
+		expect(out[1]).toBe('<!-- @meta{layout=list} -->\n## H.\n\n- b');
 		expect(out[0]).toContain('$$\n- x\n- y\n- z\n$$');
 	});
 
 	it('never splits a list inside a speaker-note comment', () => {
-		const s = '<!-- _class: list -->\n# Title\n\n- a\n- b\n\n<!--\n- n1\n- n2\n- n3\n- n4\n-->';
+		const s = '<!-- @meta{layout=list} -->\n# Title\n\n- a\n- b\n\n<!--\n- n1\n- n2\n- n3\n- n4\n-->';
 		const out = splitSlides(stripFrontMatter(splitSlideInHalf(s, 0)!.source));
-		expect(out[0]).toBe('<!-- _class: list -->\n# Title\n\n- a');
+		expect(out[0]).toBe('<!-- @meta{layout=list} -->\n# Title\n\n- a');
 		expect(out[1]).toContain('- b\n\n<!--\n- n1\n- n2\n- n3\n- n4\n-->');
 		expect(canSplitSlide('## H.\n\nText.\n\n<!--\n- n1\n- n2\n-->')).toBe(false);
 	});
@@ -291,7 +291,7 @@ describe('deck-ops — compact separators and indented first lines', () => {
 
 	it('keeps indentation with the content it belongs to, and writes moved or new content flush left', () => {
 		const src = '# A\n\n---\n\n    code line\n\n---\n\n# C\n';
-		expect(addSlideAfter(src, 0).source).not.toMatch(/\n[ \t]+<!-- _class/);
+		expect(addSlideAfter(src, 0).source).not.toMatch(/\n[ \t]+<!-- @meta\{/);
 		expect(moveSlide(src, 2, 1).source).not.toMatch(/\n[ \t]+# C/);
 		expect(duplicateSlide(src, 2).source).not.toMatch(/\n[ \t]+# C/);
 		// The indented slide itself, untouched, keeps its code-block indentation.
@@ -348,7 +348,7 @@ describe('deck-ops — compact separators and indented first lines', () => {
 			};
 			for (const [op, r] of [['move', moveSlide(src, a, b)], ['dup', duplicateSlide(src, a)], ['add', addSlideAfter(src, a)], ['delete', deleteSlide(src, a)]] as const) {
 				expect(got(r.source), `${op} ${a}/${b} of ${JSON.stringify(src)}`).toEqual(want(op));
-				expect(r.source, `${op} indented a heading or directive`).not.toMatch(/\n[ \t]+(?:# S|<!-- _class)/);
+				expect(r.source, `${op} indented a heading or directive`).not.toMatch(/\n[ \t]+(?:# S|<!-- @meta\{)/);
 			}
 		}
 	});

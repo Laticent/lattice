@@ -37,7 +37,7 @@ const RUNNING_HEADER_DECK = `---
 pagination: true
 ---
 
-<!-- backgroundColor: ivory -->
+<!-- @meta{background-color=ivory, carry} -->
 
 # Opening
 

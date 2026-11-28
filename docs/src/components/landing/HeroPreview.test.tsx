@@ -19,7 +19,7 @@ vi.mock('@/playground/single-slide-render', () => ({
 }));
 
 const DATA: HeroData = {
-	sample: '<!-- _class: verdict-grid -->\n# x',
+	sample: '<!-- @meta{layout=verdict-grid} -->\n# x',
 	drawn: false,
 	codeHtml: '<span class="ln-class">&lt;!-- _class: verdict-grid --&gt;</span>',
 	componentName: 'verdict-grid',

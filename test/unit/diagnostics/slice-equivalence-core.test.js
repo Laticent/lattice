@@ -24,7 +24,7 @@ test.before(async () => {
 const posOf = (p) => (p ? { index: p.index, total: p.total } : p);
 
 test('deckSectionFor hands over the deck length, which the section rail\'s slide floor reads', () => {
-  const deck = '<!-- _class: divider -->\n# A\n\n---\n\n# b\n\n---\n\n<!-- _class: divider -->\n# C\n\n---\n\n# d';
+  const deck = '<!-- @meta{layout=divider} -->\n# A\n\n---\n\n# b\n\n---\n\n<!-- @meta{layout=divider} -->\n# C\n\n---\n\n# d';
   assert.equal(core.deckSectionFor(deck, 2).slides, 4);
 });
 
@@ -50,24 +50,24 @@ test('frontMatterOf returns the block verbatim, or empty', () => {
 const VOCAB = { known: new Set(['header', 'footer', 'class', 'paginate']), flags: new Set(['build']), slide: new Set(['header', 'footer']) };
 
 test('synthesizePrelude carries a running global forward', () => {
-  const slides = ['<!-- class: dense -->\n# One', '# Two'];
-  assert.equal(core.synthesizePrelude(slides, 1, VOCAB), '<!-- class: dense -->');
+  const slides = ['<!-- @meta{class=dense, carry} -->\n# One', '# Two'];
+  assert.equal(core.synthesizePrelude(slides, 1, VOCAB), '<!-- @meta{class=dense, carry} -->');
 });
 
 test('synthesizePrelude carries a `carry` record forward, field by field, and drops a spot one', () => {
-  // The meta sweep (record note §15, slice D) put `<!-- class: diagram -->` decks into `@meta{layout=diagram, carry}`;
+  // The meta sweep (record note §15, slice D) put `<!-- @meta{layout=diagram, carry} -->` decks into `@meta{layout=diagram, carry}`;
   // a slice after it lost its running class until this read records (examples/deck-class-register.md slide 6).
   const slides = ['<!-- @meta{layout=diagram, footer="F", carry} -->\n# One', '<!-- @meta{class=dense} -->\n# Two', '# Three'];
   assert.equal(core.synthesizePrelude(slides, 2, VOCAB), '<!-- @meta{class=diagram, carry} -->');
   // A later comment of the same engine key replaces the record's value, as the engine resolves it.
-  assert.equal(core.synthesizePrelude([...slides.slice(0, 1), '<!-- class: dense -->\n# Two', '# Three'], 2, VOCAB), '<!-- class: dense -->');
+  assert.equal(core.synthesizePrelude([...slides.slice(0, 1), '<!-- @meta{class=dense, carry} -->\n# Two', '# Three'], 2, VOCAB), '<!-- @meta{class=dense, carry} -->');
   assert.equal(core.synthesizePrelude(['<!-- @meta{build, carry} -->\n# One', '# Two'], 1, VOCAB), '<!-- @meta{build, carry} -->');
 });
 
 test('synthesizePrelude resolves a record and a comment of one key in document order, and writes record fields', () => {
   // The checker on slice D: two separate walks let an earlier record beat a later comment on the same slide.
-  assert.equal(core.synthesizePrelude(['<!-- @meta{class=a, carry} -->\n<!-- class: b -->\n# One', '# Two'], 1, VOCAB), '<!-- class: b -->');
-  assert.equal(core.synthesizePrelude(['<!-- class: b -->\n<!-- @meta{class=a, carry} -->\n# One', '# Two'], 1, VOCAB), '<!-- @meta{class=a, carry} -->');
+  assert.equal(core.synthesizePrelude(['<!-- @meta{class=a, carry} -->\n<!-- @meta{class=b, carry} -->\n# One', '# Two'], 1, VOCAB), '<!-- @meta{class=b, carry} -->');
+  assert.equal(core.synthesizePrelude(['<!-- @meta{class=b, carry} -->\n<!-- @meta{class=a, carry} -->\n# One', '# Two'], 1, VOCAB), '<!-- @meta{class=a, carry} -->');
   // The engine key `backgroundColor` goes back as the record FIELD `background-color`, which the door reads.
   const v = { known: new Set(['backgroundColor']), flags: new Set(), slide: new Set() };
   assert.equal(core.synthesizePrelude(['<!-- @meta{background-color="rgb(1, 2, 3)", carry} -->\n# One', '# Two'], 1, v), '<!-- @meta{background-color="rgb(1, 2, 3)", carry} -->');
@@ -75,12 +75,12 @@ test('synthesizePrelude resolves a record and a comment of one key in document o
 
 test('synthesizePrelude does not carry a slide-only key, in either spelling', () => {
   // `header` and `footer` set their own slide only (audit §11r), so a later slice inherits neither.
-  const slides = ['<!-- header: Q3 -->\n<!-- _footer: F -->\n# One', '# Two'];
+  const slides = ['<!-- @meta{header=Q3} -->\n<!-- @meta{footer=F} -->\n# One', '# Two'];
   assert.equal(core.synthesizePrelude(slides, 1, VOCAB), '');
 });
 
 test('synthesizePrelude ignores a spot directive — it applies to its own slide only', () => {
-  const slides = ['<!-- _header: Q3 -->\n# One', '# Two'];
+  const slides = ['<!-- @meta{header=Q3} -->\n# One', '# Two'];
   assert.equal(core.synthesizePrelude(slides, 1, VOCAB), '');
 });
 
@@ -93,29 +93,29 @@ test('synthesizePrelude ignores a key the engine does not know', () => {
 });
 
 test('synthesizePrelude carries a BARE flag directive', () => {
-  // `<!-- build -->` is legal and means `build:` with an empty value. Missing it
+  // `<!-- @meta{build, carry} -->` is legal and means `build:` with an empty value. Missing it
   // under-synthesizes the prelude and reports a mismatch the synthesizer caused.
-  const slides = ['<!-- build -->\n# One', '# Two'];
-  assert.equal(core.synthesizePrelude(slides, 1, VOCAB), '<!-- build -->');
+  const slides = ['<!-- @meta{build, carry} -->\n# One', '# Two'];
+  assert.equal(core.synthesizePrelude(slides, 1, VOCAB), '<!-- @meta{build, carry} -->');
 });
 
 test('synthesizePrelude keeps the LAST value of a re-set global', () => {
-  const slides = ['<!-- class: a -->', '<!-- class: b -->', '# Three'];
-  assert.equal(core.synthesizePrelude(slides, 2, VOCAB), '<!-- class: b -->');
+  const slides = ['<!-- @meta{class=a, carry} -->', '<!-- @meta{class=b, carry} -->', '# Three'];
+  assert.equal(core.synthesizePrelude(slides, 2, VOCAB), '<!-- @meta{class=b, carry} -->');
 });
 
 test('synthesizePrelude THROWS without a vocabulary — the one failure that must be loud', () => {
   // Defaulting to empty sets would synthesize an empty prelude for every slide, which reads as a
   // plausible equivalence rate and moves the sweep's baseline band by 0.0 points. Nothing anywhere
   // would catch a caller that dropped the argument, so the only detectable failure is a throw.
-  assert.throws(() => core.synthesizePrelude(['<!-- header: Q3 -->', '# Two'], 1), TypeError);
-  assert.throws(() => core.synthesizePrelude(['<!-- header: Q3 -->', '# Two'], 1, { known: new Set() }), TypeError);
+  assert.throws(() => core.synthesizePrelude(['<!-- @meta{header=Q3} -->', '# Two'], 1), TypeError);
+  assert.throws(() => core.synthesizePrelude(['<!-- @meta{header=Q3} -->', '# Two'], 1, { known: new Set() }), TypeError);
   // Without the slide-only set, the prelude would carry `header:` again, silently: that must throw too.
-  assert.throws(() => core.synthesizePrelude(['<!-- header: Q3 -->', '# Two'], 1, { known: new Set(['header']), flags: new Set() }), TypeError);
+  assert.throws(() => core.synthesizePrelude(['<!-- @meta{header=Q3} -->', '# Two'], 1, { known: new Set(['header']), flags: new Set() }), TypeError);
 });
 
 test('synthesizePrelude at slide 0 is empty — nothing precedes it', () => {
-  assert.equal(core.synthesizePrelude(['<!-- header: Q3 -->'], 0, VOCAB), '');
+  assert.equal(core.synthesizePrelude(['<!-- @meta{header=Q3} -->'], 0, VOCAB), '');
 });
 
 // ── The supplied deck position ───────────────────────────────────────────────
@@ -182,7 +182,7 @@ test('positionIsTrustworthy refuses when the caller counts a different number of
 });
 
 test('positionIsTrustworthy trusts a `_focusSteps` deck — one slide stays one slide (2026-11-09)', () => {
-  assert.equal(core.positionIsTrustworthy('<!-- _focusSteps: item 1 | item 2 -->\n# One', 1), true);
+  assert.equal(core.positionIsTrustworthy('<!-- @meta{focus-steps="item 1 | item 2"} -->\n# One', 1), true);
 });
 
 test('positionIsTrustworthy refuses every hr form the `\\n---\\n` splitter cannot see', () => {
@@ -226,7 +226,7 @@ test('the comment check does not span an intervening `-->` — it silently refus
   // A lazy `[\s\S]*?` matched from the FIRST `<!--`, across a real separator, to a LATER `-->` — so
   // any deck with directive comments either side of a separator was refused and the whole
   // optimization switched off with every test still green. This is the shape that caught it.
-  const deck = '<!-- _class: title -->\n# One\n\n---\n\n<!-- _class: content -->\n# Two\n';
+  const deck = '<!-- @meta{layout=title} -->\n# One\n\n---\n\n<!-- @meta{layout=content} -->\n# Two\n';
   assert.equal(core.positionIsTrustworthy(deck, 2), true);
 });
 
@@ -250,7 +250,7 @@ test('deckSectionFor is undefined for a deck with no dividers — no rail to sup
 });
 
 test('deckSectionFor counts dividers at or before the shown slide', () => {
-  const deck = '<!-- _class: divider -->\n# A\n\n---\n\n# a1\n\n---\n\n<!-- _class: divider -->\n# B\n\n---\n\n# b1';
+  const deck = '<!-- @meta{layout=divider} -->\n# A\n\n---\n\n# a1\n\n---\n\n<!-- @meta{layout=divider} -->\n# B\n\n---\n\n# b1';
   assert.deepEqual(posOf(core.deckSectionFor(deck, 0)), { index: 1, total: 2 });
   assert.deepEqual(posOf(core.deckSectionFor(deck, 1)), { index: 1, total: 2 });
   assert.deepEqual(posOf(core.deckSectionFor(deck, 2)), { index: 2, total: 2 });
@@ -270,7 +270,7 @@ test('deckSectionFor counts dividers at or before the shown slide', () => {
 // the derivation apart again this reads 2 and fails; nothing about the returned values changes, so
 // no other test in this file could catch it.
 test('the divider derivation runs ONCE per deck, however many callers ask', () => {
-  const deck = '<!-- _class: divider -->\n# A\n\n---\n\n# a1\n\n---\n\n<!-- _class: divider -->\n# B';
+  const deck = '<!-- @meta{layout=divider} -->\n# A\n\n---\n\n# a1\n\n---\n\n<!-- @meta{layout=divider} -->\n# B';
   core.clearSectionDerivationMemo();
   core.deckSectionFor(deck, 0); // the route gate's probe
   core.deckSectionFor(deck, 2); // supplyablePosition, same render
@@ -286,7 +286,7 @@ test('the divider derivation runs ONCE per deck, however many callers ask', () =
 test('deckSectionFor bails when a divider appears inside code — FAIL SAFE, not fail wrong', () => {
   // As a probe, matching a divider in prose cost a wasted parse and produced correct output. As a
   // COUNTER the same match paints an extra dot and bumps the watermark glyph — wrong output.
-  const deck = '<!-- _class: divider -->\n# A\n\n---\n\nWrite `<!-- _class: divider -->` to divide.';
+  const deck = '<!-- @meta{layout=divider} -->\n# A\n\n---\n\nWrite `<!-- @meta{layout=divider} -->` to divide.';
   assert.equal(core.deckSectionFor(deck, 1), undefined);
 });
 
@@ -301,7 +301,7 @@ test('deckSectionFor bails when a divider appears inside code — FAIL SAFE, not
 // Without the bail the derivation reported none, `positionIsTrustworthy` stayed true, and the
 // preview painted no rail where the deck has one — a regression against `main`, which bails here.
 test('a directive the engine honors but blankCode hides makes the derivation REFUSE', () => {
-  const deck = ['# A', '', '---', '', '- item', '', '    <!-- _class: divider -->', '', '# B'].join('\n');
+  const deck = ['# A', '', '---', '', '- item', '', '    <!-- @meta{layout=divider} -->', '', '# B'].join('\n');
   assert.equal(core.deckSectionFor(deck, 1), undefined, 'must refuse rather than report zero dividers');
   assert.equal(core.deckSectionFor(deck, 0), undefined);
 });
@@ -319,7 +319,7 @@ test('a directive the engine honors but blankCode hides makes the derivation REF
 // it too) and untripped by any committed deck, which is exactly why it needs a test.
 test('a code span that becomes a thematic break when blanked cannot shift the section index', () => {
   const deck = [
-    '<!-- _class: divider -->',
+    '<!-- @meta{layout=divider} -->',
     '# Section A',
     '',
     '---',
@@ -336,7 +336,7 @@ test('a code span that becomes a thematic break when blanked cannot shift the se
     '',
     '---',
     '',
-    '<!-- _class: divider -->',
+    '<!-- @meta{layout=divider} -->',
     '# Section B',
     '',
     '---',
@@ -354,12 +354,12 @@ test('a code span that becomes a thematic break when blanked cannot shift the se
 
 test('deckSectionFor token-tests the class, exactly as the tiles do', () => {
   // `divider-lite` and `section-divider` are not `divider`; a substring match would count them.
-  assert.equal(core.deckSectionFor('<!-- _class: divider-lite -->\n# A\n\n---\n\n# B', 1), undefined);
-  assert.deepEqual(posOf(core.deckSectionFor('<!-- _class: cover divider -->\n# A\n\n---\n\n# B', 1)), { index: 1, total: 1 });
+  assert.equal(core.deckSectionFor('<!-- @meta{class=divider-lite} -->\n# A\n\n---\n\n# B', 1), undefined);
+  assert.deepEqual(posOf(core.deckSectionFor('<!-- @meta{class=cover divider} -->\n# A\n\n---\n\n# B', 1)), { index: 1, total: 1 });
 });
 
 test('supplyablePosition composes the three fields, or hands over nothing', () => {
-  const deck = '<!-- _class: divider -->\n# A\n\n---\n\n# a1';
+  const deck = '<!-- @meta{layout=divider} -->\n# A\n\n---\n\n# a1';
   assert.deepEqual(core.supplyablePosition(deck, 1, 2), { offset: 1, total: 2, deckSection: { index: 1, total: 1, slides: 2 } });
   assert.equal(core.supplyablePosition(deck, undefined, 2), undefined);
   assert.equal(core.supplyablePosition(deck, -1, 2), undefined);
@@ -811,7 +811,7 @@ test('the rail neutralizer survives a nested <div> inside the rail', () => {
 });
 
 test('synthesizePrelude ignores a directive shown inside a fenced code block', () => {
-  const slides = ['# Teaching\n\n```md\n<!-- header: Example -->\n```\n', '# Two'];
+  const slides = ['# Teaching\n\n```md\n<!-- @meta{header=Example} -->\n```\n', '# Two'];
   assert.equal(core.synthesizePrelude(slides, 1, VOCAB), '');
 });
 
@@ -828,14 +828,14 @@ test('a page-number difference is an attribute row, not a "the words differ" row
 // core does not load. Without a map from the caller it refuses, so no slide after a split is handed
 // a number one short of the PDF's; with the Studio's map it offsets through the split.
 test('supplyablePosition refuses a panes deck without a map, and offsets through one with it', () => {
-  const deck = '---\npagination: true\n---\n\nOpening\n\n---\n\n<!-- pane: list -->\n\n- a\n\n<!-- pane: table -->\n\n| x |\n|---|\n| 1 |\n\n---\n\nAfter';
+  const deck = '---\npagination: true\n---\n\nOpening\n\n---\n\n<!-- @meta{pane=list} -->\n\n- a\n\n<!-- @meta{pane=table} -->\n\n| x |\n|---|\n| 1 |\n\n---\n\nAfter';
   assert.equal(core.positionIsTrustworthy(deck, 3), false);
   assert.equal(core.supplyablePosition(deck, 2, 3), undefined);
   assert.deepEqual(core.supplyablePosition(deck, 2, 3, [1, 2, 1]), { offset: 3, total: 4, deckSection: undefined });
   assert.deepEqual(core.supplyablePosition(deck, 0, 3, [1, 2, 1]), { offset: 0, total: 4, deckSection: undefined });
   assert.equal(core.supplyablePosition(deck, 2, 3, [1, 2]), undefined, 'a map of the wrong length is no map');
   // One marker is not a panes slide: nothing to refuse.
-  assert.equal(core.positionIsTrustworthy('A\n\n---\n\n<!-- pane: list -->\n\n- a', 2), true);
+  assert.equal(core.positionIsTrustworthy('A\n\n---\n\n<!-- @meta{pane=list} -->\n\n- a', 2), true);
 });
 
 // The pane markers are read in every spelling by the one shared reader (lib/core/meta-door.mjs `parsePaneMarker`,
@@ -843,31 +843,31 @@ test('supplyablePosition refuses a panes deck without a map, and offsets through
 test('positionIsTrustworthy refuses a panes deck in every marker spelling, and a record that names a pane layout', () => {
   const two = (a, b) => `A\n\n---\n\n## T\n\n${a}\n\n- a\n\n${b}\n\n- b`;
   const spellings = {
-    _pane: ['<!-- _pane: list -->', '<!-- _pane: table no-title -->'],
-    alias: ['<!-- pane: list -->', '<!-- pane: table -->'],
-    record: ['<!-- {pane="list"} -->', '<!-- {pane="table no-title"} -->'],
+    _pane: ['<!-- @meta{pane=list} -->', '<!-- @meta{pane=table no-title} -->'],
+    alias: ['<!-- @meta{pane=list} -->', '<!-- @meta{pane=table} -->'],
+    record: ['<!-- @meta{pane="list"} -->', '<!-- @meta{pane="table no-title"} -->'],
     meta: ['<!-- @meta{pane="list"} -->', '<!-- @meta{pane="table"} -->'],
-    mixed: ['<!-- {footer=x, pane="list"} -->', '<!-- {pane="table", footer=y} -->'],
+    mixed: ['<!-- @meta{footer=x, pane="list"} -->', '<!-- @meta{pane="table", footer=y} -->'],
     internal: ['<!-- lat-meta: {"carry":false,"d":{"pane":"list"}} -->', '<!-- lat-meta: {"carry":false,"d":{"pane":"table"}} -->'],
-    'old and new together': ['<!-- _pane: list -->', '<!-- {pane="table"} -->'],
+    'old and new together': ['<!-- @meta{pane=list} -->', '<!-- @meta{pane="table"} -->'],
   };
   for (const [name, [a, b]] of Object.entries(spellings)) {
     assert.equal(core.positionIsTrustworthy(two(a, b), 2), false, `${name}: two markers refuse`);
     assert.equal(core.positionIsTrustworthy(two(a, b), 2, [1, 2]), true, `${name}: the map lets it through`);
     assert.equal(core.positionIsTrustworthy(`A\n\n---\n\n${a}\n\n- a`, 2), true, `${name}: one marker is not a panes slide`);
   }
-  assert.equal(core.positionIsTrustworthy('A\n\n---\n\n<!-- {layout="columns ratio-60-40"} -->\n\n### L\n\n### R', 2), false);
-  assert.equal(core.positionIsTrustworthy('A\n\n---\n\n<!-- _class: rows -->\n\n### L\n\n### R', 2), false);
+  assert.equal(core.positionIsTrustworthy('A\n\n---\n\n<!-- @meta{layout="columns ratio-60-40"} -->\n\n### L\n\n### R', 2), false);
+  assert.equal(core.positionIsTrustworthy('A\n\n---\n\n<!-- @meta{layout=rows} -->\n\n### L\n\n### R', 2), false);
   // A record that names no pane and no pane layout is an ordinary slide.
-  assert.equal(core.positionIsTrustworthy('A\n\n---\n\n<!-- {layout=cards, footer="Q3"} -->\n\n- a', 2), true);
+  assert.equal(core.positionIsTrustworthy('A\n\n---\n\n<!-- @meta{layout=cards, footer="Q3"} -->\n\n- a', 2), true);
 });
 
 test('needsPaneMap: a deck whose panes are written as records needs the map, as one written in comments does', () => {
   // The sweep (tools/slice-equivalence.mjs) asked its own `_pane:` regex, so a records deck went unmapped and every
   // slide was refused a position it could have had.
-  const two = (m) => `---\ntheme: indaco\n---\n\n<!-- _class: columns -->\n\n${m('list')}\n### A\n\n- a\n\n${m('list')}\n### B\n\n- b\n`;
+  const two = (m) => `---\ntheme: indaco\n---\n\n<!-- @meta{layout=columns} -->\n\n${m('list')}\n### A\n\n- a\n\n${m('list')}\n### B\n\n- b\n`;
   assert.equal(core.needsPaneMap(two((p) => `<!-- _pane: ${p} -->`)), true);
   assert.equal(core.needsPaneMap(two((p) => `<!-- {pane=${p}} -->`)), true);
-  assert.equal(core.needsPaneMap('<!-- {layout=columns} -->\n\n## A\n'), true);
-  assert.equal(core.needsPaneMap('---\ntheme: indaco\n---\n\n<!-- {layout=cards} -->\n\n## A\n'), false);
+  assert.equal(core.needsPaneMap('<!-- @meta{layout=columns} -->\n\n## A\n'), true);
+  assert.equal(core.needsPaneMap('---\ntheme: indaco\n---\n\n<!-- @meta{layout=cards} -->\n\n## A\n'), false);
 });
