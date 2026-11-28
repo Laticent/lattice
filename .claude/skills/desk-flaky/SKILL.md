@@ -40,7 +40,7 @@ Read first, by section: `engineering/workflow.md` §Desks (your powers and budge
    test. Switching one off needs the three-part `// disabled:` reason. Say so to any
    session that tries.
 4. **Report** to the command center: one `send_message` with a fleet item per flake
-   (level, title, pr, session, state) and `budget: N/10 today`, with its `meter:` ledger, which also rides on every gate message to the command center (a card announcement, a 🧱 line).
+   (level, title, pr, session, state) and `budget: N/10 today`, with its `meter:` ledger, which also rides on every other gate message to the command center (a `card ready` line, a 🧱 line, a ❓ card) and is never sent as a message of its own (`engineering/workflow.md` §Desks, "A worker messages the command center only at a gate").
 
 5. **Claim before fix.** When a session reports a flake you already assigned, tell it
    who owns the fix and where, so it does not write a second copy.
