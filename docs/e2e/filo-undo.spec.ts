@@ -24,7 +24,11 @@ async function editedDeck(page: Page): Promise<{ before: string; after: string }
 	// the line above: the start of slide 3's last line.
 	await page.keyboard.press('ControlOrMeta+End');
 	await page.keyboard.press('ArrowUp');
-	await page.keyboard.type('MARK ');
+	// `insertText`, one input event, so the edit is ONE step on any machine. Typed key by key,
+	// Filo starts a new step when two keys land more than DEFAULT_COALESCE_MS (500 ms) apart, as it
+	// should for an author who pauses; under load Playwright's keys did, and one ⌘Z left "M" or
+	// "MAR" behind (2 red in 20 at --workers=4 with CPU burners on main 2ead5e1d).
+	await page.keyboard.insertText('MARK ');
 	const after = await editorDoc(page);
 	expect(after, 'witness: the edit landed').toContain('MARK');
 	return { before: DECK, after };
