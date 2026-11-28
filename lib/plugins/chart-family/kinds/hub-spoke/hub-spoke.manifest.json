@@ -88,6 +88,7 @@
     "overview",
     "proportion"
   ],
+  "searchTerms": ["hub", "network", "partners", "ecosystem", "connections"],
   "description": "Hub and spoke — one center, its satellites, and what flows between them.",
   "purpose": "Use bar or stacked-bar instead when the claim is a ranking or a share: a length or a stacked segment compares values far better than a disc does. Use hub-spoke when the claim is the STRUCTURE — one center and what hangs off it (a program office and its workstreams, a platform and its partners, a distribution center and its regions) — with the values printed beside each satellite. Satellites are neutral unless you group them; a status pill (`at-risk`, `blocked`) marks its own spoke; `sized` scales disc area and `flow-out` / `flow-in` / `flow-both` step connector weight, only when you ask.",
   "variants": [

@@ -59,6 +59,7 @@
     "summary",
     "reference"
   ],
+  "searchTerms": ["features", "points", "highlights", "stacked cards"],
   "description": "Parallel items stacked vertically, full-width cards.",
   "purpose": "Use when the items want vertical reading order — sequential exploration rather than a-glance comparison. 2–4 items work best.",
   "variantKinds": {

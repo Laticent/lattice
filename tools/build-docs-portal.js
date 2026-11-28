@@ -1049,6 +1049,8 @@ function renderPortalJson(manifests) {
     // Publishing the blocks separately is what lets a consumer tell the two apart.
     authoring: { blocks: blocksFor(m.name) },
     skeleton: m.skeleton,
+    // The everyday words an author types to find it (the Studio gallery's meaning search, 2026-11-23-search-by-meaning.md).
+    searchTerms: Array.isArray(m.searchTerms) ? m.searchTerms : [],
     whenToUse: Array.isArray(m.whenToUse) ? m.whenToUse : [],
     antiPatterns: Array.isArray(m.antiPatterns) ? m.antiPatterns : [],
     related: Array.isArray(m.related) ? m.related : [],

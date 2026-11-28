@@ -26,6 +26,7 @@
     "walkthrough",
     "reference"
   ],
+  "searchTerms": ["code", "programming", "snippet", "software", "script"],
   "description": "Single fenced code block as the slide's centerpiece.",
   "purpose": "Use when the code IS the slide — an API snippet, a config example, a migration. For comparing two versions, use compare-code.",
   "slots": {
