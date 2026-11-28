@@ -2,7 +2,7 @@
 origin: 3043
 priority: P2
 recorded: 2026-11-05
-updated: 2026-11-27
+updated: 2026-11-28
 area: infra
 severity: medium
 swimlane: engineering/gotchas/ci.md
@@ -16,7 +16,8 @@ state     — 2026-11-06 a full desktop run on `main` 8a755f69 ended 1,227 passe
             #3150, #3164 and the 2026-11-12 flaky-e2e branches (shell, export, render, compose) fixed most of them at their
             causes, each with its evidence in that PR; the last of those fixes is kept below.
 open      — deck-register-gap.spec.ts:99 (desktop): red only under full-suite load, 0 of 8 runs at 4 workers, cause
-            unknown. #3307 owns it.
+            unknown. #3307 has merged, so its claim is stale; on 2026-11-28 the flake desk gave :99 and :21 (below)
+            to session_015KSkL5qA3FjXiw1Cr933XL.
             compose-avatar-icon-editor.spec.ts:122 (mobile-touch, the `@parity` tap test): red once, in a full
             all-projects run on PR #3480's merged tree (main 7c252ae + the PR), 2026-11-27: the tap on the avatar
             never showed the popover within 15 s. It passed every run after that: 10 of 10 alone (--repeat-each=10),
@@ -26,6 +27,12 @@ open      — deck-register-gap.spec.ts:99 (desktop): red only under full-suite 
             WebKit and Gecko, the paragraphs below (another session owns those projects). The same #3480 run also
             met plugin-admission.spec.ts:375 (webkit-tablet, Preview button click timeout) and
             compose-layout-button.spec.ts:85 (gecko), red once each and green alone and under load since.
+            2026-11-28, PR #3491's all-projects run at --workers=4 (f3222b0), four reds, each 3 of 3 alone after:
+            deck-register-gap.spec.ts:21 (desktop, `align: spread` never became `"spread right"`) and
+            compose-layout-button.spec.ts:85 (gecko again, "Replace text" never appeared), both given to
+            session_015KSkL5qA3FjXiw1Cr933XL; filo-undo.spec.ts:80 (webkit-tablet, ⌘Z from the rail left the edit)
+            and workspace-restore-gate.spec.ts:56 (gecko, the page closed while waiting for the restore's reload),
+            both given to session_015KSkL7sXyLNDKsTcTWygYP.
 cleared   — 2026-11-21, branch claude/chromium-e2e-flake-triage, on main 450df6d with a fresh `build:e2e`, the desktop,
             tablet and mobile projects, --retries=0, whole spec files: 4 workers x2 and x8 under load, and 1 worker x5
             alone. Every Chromium item still listed here passed every run, so each is stale:
