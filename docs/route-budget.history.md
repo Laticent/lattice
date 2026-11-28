@@ -6,16 +6,29 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
-### 2026-11-28 — raise the studio eagerJsGz ceiling by 3,072 B (644,780 → 647,852), by hand, for PRs 3588 and slice 3, at the owner's direction
+### 2026-11-28 — raise the studio eagerJsGz ceiling by 3,072 B (644,780 → 647,852), by hand, for PR 3588, storage slice 3, PR 3615 and PR 3617, at the owner's direction
 
-Owner OK 2026-11-28, in the storage desk's session: "One raise of 3 KB in #3610" (04:00 UTC), chosen over two raises (+1 KB, then +2 KB), over giving bytes back first, and over making deck reads async. It replaces the owner's earlier "Raise ceiling ~1 KB" (03:07 UTC), which covered slice 4 alone. Written by hand, as the entries below are; soft stays 571,778. The rebaseline tool's `--ceiling` would put the ceiling 10% above the measured weight (about 64 KB) and move soft as well.
+Owner OK 2026-11-28, in three picks, each in a question tool:
 
-Why: vault slice 2 (#3582) left `main` 75 B under the old ceiling (644,705 B, measured on `origin/main` after #3582 with `measure-route-base.sh`). Two storage slices each add eager bytes that stay eager:
+- 03:07 UTC, storage desk's session: "Raise ceiling ~1 KB", for PR 3588 alone.
+- 04:00 UTC, storage desk's session: "One raise of 3 KB in #3610", adding storage slice 3. It was chosen over two raises, over giving bytes back first, and over making deck reads async.
+- 04:43 UTC, command center's session: "One raise via #3610", adding the flake desk's PR 3615 and PR 3617 (D4's failure card); the 3 KB already covers all four, measured below. It was chosen over a separate +1 KB raise, over +128 B for PR 3615 alone, and over dropping two of PR 3615's fixes.
 
-- PR 3588 (Library slice 4) adds a declared 722 B (`docs/route-budget.d/3588-library-icon-pills.md`): the Library's section icons and the Backup and restore button in the pre-paint shell, and the icon-only pill mode with its More pill. Merged with `main` it measures 645,427 B (630.3 KB). Giving back the icons already eager elsewhere would save at most about 400 B; the rest would cut the icon-only pills that fit six sections at 320–480 px.
-- Slice 3 (decks into the vault), measured by its worker on ec4f34ac: 631.3 KB, about 1.6 KB over the old ceiling, after moving everything it could to load on first use (632.1 → 631.3 KB). What stays eager is the instant deck read and save path about 18 callers use, and the guard that stops an early save from blanking a deck.
+Written by hand, as the entries below are; soft stays 571,778. The rebaseline tool's `--ceiling` would put the ceiling 10% above the measured weight (about 64 KB) and move soft as well.
 
-Together they need about 2.4 KB; 3 KB leaves about 0.6 KB of slack after both.
+Why: `main` measures 644,716 B (`measure-route-base.sh` on `origin/main` at fc733add), 64 B under the old ceiling. Four changes add eager bytes that stay eager:
+
+| change | studio eagerJsGz | measured by |
+|---|---|---|
+| PR 3588, Library slice 4 | +722 B, declared in `docs/route-budget.d/3588-library-icon-pills.md` | its author, docs build merged with `main` |
+| storage slice 3, decks into the vault | about +1,746 B (631.3 KB on ec4f34ac, rounded to 0.1 KB) | its worker |
+| PR 3615, iPad first-render step tracking | +73 B, cut from 148 B | the flake desk |
+| PR 3617, D4: a hung first render shows the failure card at 30 s (DeckPreview) | +128 B | the flake desk's fix session |
+
+- PR 3588 keeps the Library's section icons and its Backup and restore button in the pre-paint shell, and the icon-only pill mode. Giving back the icons already eager elsewhere saves at most about 400 B; the rest would cut the pills that fit six sections at 320–480 px.
+- Slice 3 keeps the instant deck read and save path about 18 callers use, and the guard that stops an early save from blanking a deck, after moving the rest to load on first use (632.1 → 631.3 KB).
+
+Together `main` reaches about 647,385 B. The new ceiling leaves about 467 B of slack; the one rounded figure (slice 3, ±51 B) fits inside it.
 
 | Route | Metric | Soft before | Soft after | Change | Ceiling after |
 |---|---|---|---|---|---|
