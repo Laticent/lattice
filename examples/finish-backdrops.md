@@ -86,7 +86,7 @@ finish behind every slide, so you never repeat a class.
 
 ## Meridian — duotone, contours, a ghost numeral.
 
-This slide overrides the deck with `_class: finish finish-meridian`. A diagonal
+This slide overrides the deck with `class=finish finish-meridian`. A diagonal
 duotone wash carries faint contour lines. The ghost numeral is **author-set** —
 this slide opts in with its own `Q3`; by default a finish paints no glyph at all.
 
@@ -111,7 +111,7 @@ this slide opts in with its own `Q3`; by default a finish paints no glyph at all
 
 A centered spotlight, concentric rings, and a whisper of a vignette frame the
 slide — the bookend finish for a section or closing, on a clean light canvas with
-dark, legible text. Set per-slide with `_class: finish finish-halo`.
+dark, legible text. Set per-slide with `class=finish finish-halo`.
 
 ---
 
@@ -119,7 +119,7 @@ dark, legible text. Set per-slide with `_class: finish finish-halo`.
 
 ## Ledger — ruled lines, a margin bar, a fold.
 
-This slide carries `_class: finish finish-ledger`: fine horizontal ruled lines, a
+This slide carries `class=finish finish-ledger`: fine horizontal ruled lines, a
 bold accent bar down the left margin, and a top-right corner fold — a board-memo
 surface. The deck-wide Atrium finish is replaced for this one slide.
 
@@ -132,7 +132,7 @@ surface. The deck-wide Atrium finish is replaced for this one slide.
 A new `mesh` wash floats three or four soft accent blooms across the slide — an
 organic gradient-mesh atmosphere with no pattern at all, seated by a whisper of
 a vignette. The wash intensity tunes how strong the blooms read. Pure premium
-air, set per-slide with `_class: finish finish-nimbus`.
+air, set per-slide with `class=finish finish-nimbus`.
 
 ---
 
@@ -157,7 +157,7 @@ air, set per-slide with `_class: finish finish-nimbus`.
 A new `pinstripe` texture rules fine vertical lines — Savile Row on a slide —
 with the pitch tuned by scale. The monogram is **author-set** — this slide opts
 in with its own `AB` initials; an unset finish shows no monogram. Editorial and
-tailored, set with `_class: finish finish-savile`.
+tailored, set with `class=finish finish-savile`.
 
 ---
 
@@ -168,7 +168,7 @@ tailored, set with `_class: finish finish-savile`.
 A new `frame` edge draws a thin inset keyline border — no soft shadow, just four
 crisp accent strips — around a centered spotlight. The plate numeral is
 **author-set** — this slide opts in with its own `04`; by default the frame
-carries no glyph. Museum framing, set per-slide with `_class: finish
+carries no glyph. Museum framing, set per-slide with `class=finish
 finish-gallery`.
 
 ---
@@ -204,7 +204,7 @@ the mark moves, identically in the live preview and the baked PDF.
 1. Front matter declares `finish: atrium` `once`
 2. The engine appends `finish finish-atrium` `every slide`
 3. The compositor blends the layer props `behind content`
-4. A slide overrides with `_class: finish finish-<name>` `per-slide`
+4. A slide overrides with `class=finish finish-<name>` `per-slide`
 5. A slide opts out with `no-finish` `clean`
 
 ---

@@ -107,7 +107,7 @@ describe('export-marp bundle (end-to-end)', () => {
   // panel pointing at a file it doesn't carry.
   test('an `image` slide\'s ![bg] is baked into the .lattice-bg panel, localized', () => {
     const deck = ['---', 'marp: true', 'theme: indaco', '---', '',
-      '<!-- _class: image -->', '', '`Eyebrow`', '', '## A lake view.', '',
+      '<!-- @meta{layout=image} -->', '', '`Eyebrow`', '', '## A lake view.', '',
       'Body prose.', '', '![bg](photo.jpg)', ''].join('\n');
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'export-img-'));
     fs.writeFileSync(path.join(dir, 'photo.jpg'), 'not-really-a-jpeg');
@@ -127,7 +127,7 @@ describe('export-marp bundle (end-to-end)', () => {
   // bake exists to prevent.
   test('a `split: headings` image slide with two headings still gets its panel', () => {
     const deck = ['---', 'marp: true', 'theme: indaco', 'split: headings', '---', '',
-      '<!-- _class: image -->', '', '## First heading', '', 'Prose.', '',
+      '<!-- @meta{layout=image} -->', '', '## First heading', '', 'Prose.', '',
       '## Second heading', '', 'More prose.', '', '![bg](p.jpg)', ''].join('\n');
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'export-split-img-'));
     fs.writeFileSync(path.join(dir, 'p.jpg'), 'x');

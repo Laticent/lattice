@@ -177,7 +177,7 @@ There are four ways to get a dark canvas:
 | Follow the viewer's OS preference | `color-mode: system` — `section.color-system { color-scheme: light dark }`, so `light-dark()` resolves per `prefers-color-scheme`. |
 | Adopt the host (site toggle / reader's OS) | `color-mode: inherited` — `section.color-inherited { color-scheme: inherit }` takes the host's mode. |
 | Whole deck dark, simplest theme swap | `theme: cuoio-dark` (or `indaco-dark`) — a 3-line wrapper pinning `:root{color-scheme:dark}`. |
-| Single slide on an otherwise-light deck | `<!-- _class: dark -->` on that slide — flips just that section. |
+| Single slide on an otherwise-light deck | `<!-- @meta{class=dark} -->` on that slide — flips just that section. |
 
 The legacy deck-wide `class: dark`/`class: light`/`class: print` (and a raw
 `style: ":root{color-scheme:dark}"`) still work on a deck that sets nothing else, but
@@ -302,7 +302,7 @@ and re-hue it (the `new:theme` scaffold does this for you).
   pale dark mark). Warm-palette themes can use a cream off-white for the
   light-mode value. A palette that pins its categorical tier **mode-invariant**
   (the a11y family) must pin this ink to a fixed hex too — an inherited
-  `light-dark()` pair flips under a per-slide `_class: dark` while the pinned
+  `light-dark()` pair flips under a per-slide `@meta{class=dark}` while the pinned
   chips stay put, which is how the gitgraph branch labels reached 1.55:1.
 
 **On-canvas ink** (derived, not authored):

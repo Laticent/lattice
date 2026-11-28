@@ -27,7 +27,7 @@ theme: indaco
 motion: on
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{class=diagram} -->
 
 ## A subgraph frames the boxes before the arrows arrive.
 

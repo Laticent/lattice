@@ -54,7 +54,7 @@ describe('pickSplitPage', () => {
 	});
 	it('keeps the current page for a line that places nowhere (a blank line, a directive)', () => {
 		expect(pickSplitPage(RUN, '', 3)).toBe(3);
-		expect(pickSplitPage(RUN, '<!-- _class: inventory -->', 2)).toBe(2);
+		expect(pickSplitPage(RUN, '<!-- @meta{layout=inventory} -->', 2)).toBe(2);
 		expect(pickSplitPage(RUN, 'text that is on no page at all', 1)).toBe(1);
 	});
 	it('clamps a stale current page to the run, and a lone page is always page 0', () => {

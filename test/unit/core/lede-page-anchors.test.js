@@ -22,7 +22,7 @@ const { carouselize } = require('../../../lib/core/carousel');
 const { loadAll } = require('../../../lib/components');
 
 const slideOf = (cls, body) => {
-  const { html } = createEngine().render(`---\ntheme: indaco\n---\n\n<!-- _class: ${cls} -->\n\n${body}\n`, 'indaco');
+  const { html } = createEngine().render(`---\ntheme: indaco\n---\n\n<!-- @meta{class=${cls}} -->\n\n${body}\n`, 'indaco');
   return splitSections(html).filter((p) => p.type === 'section')[0];
 };
 const recipeOf = (name) => loadAll().find((m) => m.name === name).split;

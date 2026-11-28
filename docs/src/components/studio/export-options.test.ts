@@ -69,15 +69,15 @@ describe('export-options — comment → PDF sticky-note payload', () => {
 // that steps in the record spelling must count (engineering/decisions/2026-10-17-meta-record.md §15, slice A).
 describe('slidesStep / deckSteps read a slide record as the comment it replaces', () => {
 	it.each([
-		['<!-- _build -->\n\n- a', '<!-- @meta{build} -->\n\n- a'],
-		['<!-- _focusSteps: row 1 | row 2 -->\n\n| a |', '<!-- @meta{focus-steps="row 1 | row 2"} -->\n\n| a |'],
+		['<!-- @meta{build} -->\n\n- a', '<!-- @meta{build} -->\n\n- a'],
+		['<!-- @meta{focus-steps="row 1 | row 2"} -->\n\n| a |', '<!-- @meta{focus-steps="row 1 | row 2"} -->\n\n| a |'],
 	])('%s', (comment, record) => {
 		expect(slidesStep(comment)).toBe(true);
 		expect(slidesStep(record)).toBe(true);
 		expect(deckSteps(`# T\n\n---\n\n${record}`)).toBe(true);
 	});
 	it('a directive in a code fence is an example, not a step', () => {
-		expect(slidesStep('```\n<!-- _build -->\n```')).toBe(false);
+		expect(slidesStep('```\n<!-- @meta{build} -->\n```')).toBe(false);
 		expect(deckSteps('# T\n\n- a')).toBe(false);
 	});
 });

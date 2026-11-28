@@ -16,7 +16,7 @@ import { appendToEditor, CHROME, expect, gotoStudio, openInspector, openSection,
 // 1180px. There the open Inspector narrows the editor pane enough that the bar moves "Fix all" into its ⋯ menu
 // (StudioShell `EDIT_FIT`), so the last assertion reads it wherever the layout drew it.
 
-const UNKNOWN_SLIDE = '\n\n---\n\n<!-- _class: kpii -->\n\n# Stray slide\n';
+const UNKNOWN_SLIDE = '\n\n---\n\n<!-- @meta{class=kpii} -->\n\n# Stray slide\n';
 
 /** "Fix all issues" is the editor bar's button while the bar has room, and an item in the bar's ⋯ menu once the bar
  *  has moved it out to fit its pane. Assert it is disabled in whichever form the settled layout drew. */

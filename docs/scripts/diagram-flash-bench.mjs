@@ -152,7 +152,7 @@ The plain slide the navigation starts from.
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{class=diagram} -->
 
 ## Signals move from input to decision.
 
@@ -172,7 +172,7 @@ Text between the two diagrams.
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{class=diagram} -->
 
 ## The second diagram.
 
@@ -230,7 +230,7 @@ Text, in both arms.
 
 `;
 const MOUNT_DECKS = {
-	diagram: `${MOUNT_HEAD}<!-- _class: diagram -->
+	diagram: `${MOUNT_HEAD}<!-- @meta{class=diagram} -->
 
 ## Signals move from input to decision.
 
@@ -247,7 +247,7 @@ flowchart LR
 	// thing. (An earlier version also claimed the two decks were "the same length"; they were
 	// 347 and 365 characters. Length is not the variable being held constant, the SHOWN slide
 	// and the slide count are, so the claim is gone rather than fixed.)
-	prose: `${MOUNT_HEAD}<!-- _class: diagram -->
+	prose: `${MOUNT_HEAD}<!-- @meta{class=diagram} -->
 
 ## Signals move from input to decision.
 

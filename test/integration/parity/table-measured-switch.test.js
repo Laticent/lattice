@@ -39,7 +39,7 @@ theme: indaco
 size: square
 ---
 
-<!-- _class: content -->
+<!-- @meta{class=content} -->
 
 ## Paste the address you already have.
 
@@ -50,7 +50,7 @@ size: square
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{class=content} -->
 
 ## A build beats a vendor on two of four.
 
@@ -63,7 +63,7 @@ size: square
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{class=content} -->
 
 ## Two tables, one wide.
 

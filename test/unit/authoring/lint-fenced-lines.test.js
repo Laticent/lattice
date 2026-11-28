@@ -10,7 +10,7 @@ const { buildVocab } = require('../../../lib/authoring/lint');
 
 const vocab = buildVocab();
 const FM = '---\ntheme: indaco\n---\n\n';
-const GANTT = '<!-- _class: gantt -->\n\n## Plan\n\n- Lane\n';
+const GANTT = '<!-- @meta{layout=gantt} -->\n\n## Plan\n\n- Lane\n';
 
 /** `src` with the line `line` moved inside a code fence, and nothing else changed. */
 function fence(src, line) {
@@ -25,10 +25,10 @@ const CASES = [
   ['gantt-unknown-token', `${FM}${GANTT}  - A \`Q1..Q2\` \`dnoe\`\n`, '  - A `Q1..Q2` `dnoe`'],
   ['gantt-dangling-after', `${FM}${GANTT}  - A \`Q1..Q2\` \`after=Ghost\`\n`, '  - A `Q1..Q2` `after=Ghost`'],
   ['gantt-inverted-dependency', `${FM}${GANTT}  - A \`Q3..Q4\`\n  - B \`Q1..Q2\` \`after=A\`\n`, '  - B `Q1..Q2` `after=A`'],
-  ['unknown-map-region', `${FM}<!-- _class: map -->\n\n## Offices\n\n- Atlantis \`3\`\n`, '- Atlantis `3`'],
-  ['statement-ol-bold', `${FM}<!-- _class: principles -->\n\n## Rules\n\n1. a **bold** span\n`, '1. a **bold** span'],
-  ['check-label-code', `${FM}<!-- _class: verdict-grid -->\n\n## Grid\n\n- Acme\n  - [x] Residency \`@check{fail}\` text\n  - Body.\n`, '  - [x] Residency `@check{fail}` text'],
-  ['video-no-record', `${FM}<!-- _class: video -->\n\n## Clip\n\n- https://www.youtube.com/watch?v=dQw4w9WgXcQ\n`, '- https://www.youtube.com/watch?v=dQw4w9WgXcQ'],
+  ['unknown-map-region', `${FM}<!-- @meta{layout=map} -->\n\n## Offices\n\n- Atlantis \`3\`\n`, '- Atlantis `3`'],
+  ['statement-ol-bold', `${FM}<!-- @meta{class=principles} -->\n\n## Rules\n\n1. a **bold** span\n`, '1. a **bold** span'],
+  ['check-label-code', `${FM}<!-- @meta{layout=verdict-grid} -->\n\n## Grid\n\n- Acme\n  - [x] Residency \`@check{fail}\` text\n  - Body.\n`, '  - [x] Residency `@check{fail}` text'],
+  ['video-no-record', `${FM}<!-- @meta{layout=video} -->\n\n## Clip\n\n- https://www.youtube.com/watch?v=dQw4w9WgXcQ\n`, '- https://www.youtube.com/watch?v=dQw4w9WgXcQ'],
 ];
 
 describe('no lint rule reports a line inside a code fence', () => {
@@ -49,7 +49,7 @@ describe('no lint rule reports a line inside a code fence', () => {
   test('a fenced `@video` record does not count as the slide\'s clip', () => {
     // Only a live record draws a clip; a fenced one is the docs showing the syntax.
     const rec = '`@video{"https://youtu.be/dQw4w9WgXcQ"}`';
-    const src = `${FM}<!-- _class: video -->\n\n## Clip\n\n${rec}\n`;
+    const src = `${FM}<!-- @meta{layout=video} -->\n\n## Clip\n\n${rec}\n`;
     assert.deepEqual(core.lintTextWith(src, vocab).filter((f) => f.rule === 'video-no-record'), []);
     assert.equal(core.lintTextWith(fence(src, rec), vocab).filter((f) => f.rule === 'video-no-record').length, 1);
   });
@@ -60,10 +60,10 @@ describe('no lint rule reports a line inside a code fence', () => {
 // finding after it must still be reported (maker-checker review of this change, 2026-10-29).
 describe('a fence-like line the engine renders as text does not silence the slide', () => {
   const LIVE = [
-    ['a speaker note that quotes a fence', `${FM}<!-- _class: gantt -->\n<!--\nNote: open with \`\`\` then the language.\n\`\`\`js\n-->\n\n## Plan\n\n- Lane\n  - Ship \`Q2..Q3\`\n  - Test \`Q3..Q4\` \`after=Nope\`\n`, 'gantt-dangling-after', '- Test `Q3..Q4` `after=Nope`'],
-    ['a fence left open inside a list item', `${FM}<!-- _class: gantt -->\n\n## Plan\n\n- Lane\n  - Build \`Q1..Q2\`\n\n    \`\`\`\n    note\n- Lane 2\n  - Test \`Q3..Q4\` \`after=Nope\`\n`, 'gantt-dangling-after', '- Test `Q3..Q4` `after=Nope`'],
-    ['an indented fence line under a paragraph', `${FM}<!-- _class: map -->\n\n## Where\n\nIntro\n    \`\`\`\n\n- Frnace \`12\`\n`, 'unknown-map-region', '- Frnace `12`'],
-    ['a fence line inside an HTML block', `${FM}<!-- _class: gantt -->\n\n## Plan\n\n<div>\n\`\`\`\n</div>\n\n- Lane\n  - Ship \`Q1 -> Q2\`\n`, 'gantt-retired-delimiter', '- Ship `Q1 -> Q2`'],
+    ['a speaker note that quotes a fence', `${FM}<!-- @meta{layout=gantt} -->\n<!--\nNote: open with \`\`\` then the language.\n\`\`\`js\n-->\n\n## Plan\n\n- Lane\n  - Ship \`Q2..Q3\`\n  - Test \`Q3..Q4\` \`after=Nope\`\n`, 'gantt-dangling-after', '- Test `Q3..Q4` `after=Nope`'],
+    ['a fence left open inside a list item', `${FM}<!-- @meta{layout=gantt} -->\n\n## Plan\n\n- Lane\n  - Build \`Q1..Q2\`\n\n    \`\`\`\n    note\n- Lane 2\n  - Test \`Q3..Q4\` \`after=Nope\`\n`, 'gantt-dangling-after', '- Test `Q3..Q4` `after=Nope`'],
+    ['an indented fence line under a paragraph', `${FM}<!-- @meta{layout=map} -->\n\n## Where\n\nIntro\n    \`\`\`\n\n- Frnace \`12\`\n`, 'unknown-map-region', '- Frnace `12`'],
+    ['a fence line inside an HTML block', `${FM}<!-- @meta{layout=gantt} -->\n\n## Plan\n\n<div>\n\`\`\`\n</div>\n\n- Lane\n  - Ship \`Q1 -> Q2\`\n`, 'gantt-retired-delimiter', '- Ship `Q1 -> Q2`'],
   ];
   for (const [name, src, rule, line] of LIVE) {
     test(name, () => assert.equal(on(src, rule, line).length, 1));

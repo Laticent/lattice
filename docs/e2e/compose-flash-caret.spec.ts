@@ -15,7 +15,7 @@ import { editorFocusSettled, expect, pressSettled, test } from './studio-fixture
 // gap (HARD RULE #32), so the test makes the gap: in ONE page task it moves the DOM caret the way a click does, then ends the
 // flash's fade, which runs the clear synchronously. `selectionchange` cannot run inside that task, so the clear meets exactly
 // the state a click leaves.
-const DECK = ['<!-- _class: content -->\n\n# One\n\nBody one.', '<!-- _class: content -->\n\n# Two\n\nBody two.', '<!-- _class: content -->\n\n# Three\n\nBody three.'].join('\n\n---\n\n');
+const DECK = ['<!-- @meta{layout=content} -->\n\n# One\n\nBody one.', '<!-- @meta{layout=content} -->\n\n# Two\n\nBody two.', '<!-- @meta{layout=content} -->\n\n# Three\n\nBody three.'].join('\n\n---\n\n');
 
 const slides = (page: Page) => page.locator('.cs-host .cs-slide');
 

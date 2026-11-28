@@ -15,7 +15,7 @@ const { charReads } = require('../../helpers/work-count');
 const { createEngine } = require('../../../lib/engine');
 const { COMPONENT_PLUGINS, componentPluginDiagnostics } = require('../../../lib/plugins/host');
 
-const MATH_SLIDE = '<!-- _class: math -->\n\n## Energy\n\n$$\nE = mc^2\n$$\n';
+const MATH_SLIDE = '<!-- @meta{layout=math} -->\n\n## Energy\n\n$$\nE = mc^2\n$$\n';
 const CONTENT_SLIDE = '## Why the curve bends\n\n$$\n\\sigma(x) = \\frac{1}{1 + e^{-x}}\n$$\n';
 
 describe('components depend on plugins', () => {
@@ -79,7 +79,7 @@ describe('components depend on plugins', () => {
   test('the chart family switched off: every chart slide shows its list, marked, and says why (phase F)', () => {
     const { JSDOM } = require('jsdom');
     const chartFamily = require('../../../lib/transformers/chart-family');
-    const BAR = '<!-- _class: bar -->\n\n## Revenue\n\n- North `42`\n- South `30`\n';
+    const BAR = '<!-- @meta{layout=bar} -->\n\n## Revenue\n\n- North `42`\n- South `30`\n';
     const on = createEngine().render(BAR);
     assert.match(on.html, /class="bar-figure"/);
     assert.ok(!on.html.includes('data-lattice-off'), 'a default render marks nothing');

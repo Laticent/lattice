@@ -34,7 +34,7 @@ const GENERATED = {
 	tags: ['pricing', 'tiers', 'comparison'],
 	description: 'Three pricing tiers side by side.',
 	css: 'section.pricing-trio { display: grid; place-content: center; }\nsection.pricing-trio h2 { color: var(--accent); }',
-	skeleton: '<!-- _class: pricing-trio -->\n\n## Pricing\n\nThree tiers, side by side.',
+	skeleton: '<!-- @meta{class=pricing-trio} -->\n\n## Pricing\n\nThree tiers, side by side.',
 };
 
 /**
@@ -92,7 +92,7 @@ test('@smoke a generate after reopening a component does not overwrite the reope
 	await page.getByRole('menuitem', { name: /Fabricate/ }).click();
 	await page.getByRole('button', { name: 'Component', exact: true }).click();
 	await page.getByRole('textbox', { name: 'Component name' }).fill('quarter-callout');
-	await retype(page, 'Component skeleton', '<!-- _class: quarter-callout -->\n\n## Revenue is up 24%\n\nGrowth.');
+	await retype(page, 'Component skeleton', '<!-- @meta{class=quarter-callout} -->\n\n## Revenue is up 24%\n\nGrowth.');
 	await retype(page, 'Component CSS', 'section.quarter-callout { display: grid; }\nsection.quarter-callout h2 { color: var(--accent); }');
 	await page.getByRole('button', { name: 'Save', exact: true }).click();
 	await expect(liveToast(page, /Saved .*quarter-callout/)).toBeVisible();

@@ -25,11 +25,11 @@ is getting text into Markdown and then shaping it.
 
 - **Nothing the author wrote is lost.** Every point in the source lands on a
   slide or in a speaker note. You reshape; you don't summarize away.
-- **House shape, not a transcript.** Each slide has a `<!-- _class: … -->`
-  line, a `##` heading that is a full sentence making a claim, and a body
+- **House shape, not a transcript.** Each slide has a `<!-- @meta{…} -->`
+  record, a `##` heading that is a full sentence making a claim, and a body
   sized to its component.
-- **Foreign syntax is gone.** No Marp theme names, `<!-- paginate -->`
-  comments, `![bg …]` keywords or remote images left for the linter to
+- **Foreign syntax is gone.** No Marp theme names, Marp directive comments
+  (`<!-- _class: … -->`, `<!-- paginate -->`), `![bg …]` keywords or remote images left for the linter to
   find.
 - **Clean bytes.** LF line endings, no byte-order mark.
 - **Lint-clean**: zero errors and zero warnings.
@@ -75,11 +75,13 @@ slide at the first `#` and at every `##`, and at every `---`. So a pasted
 document already splits into slides — one per section — but each one is a
 plain slide with a label heading. That is the starting point, not the result.
 
-**Marp decks import cleanly.** A Marp deck already uses `---` separators and
-`<!-- _class: … -->` comments, which mean the same thing in Lattice, so it renders.
-What does not carry over is Marp's themes, its per-slide directive comments
-and its background-image size syntax, and the `marp: true` key, which Lattice
-does not read. `lint:deck` names each one.
+**Marp decks need one migration.** A Marp deck already uses `---` separators,
+but its `<!-- _class: … -->`, `<!-- paginate: … -->` and other directive comments
+are Marp's form, and the Lattice engine no longer reads them: each is a
+`legacy-directive-comment` error. `lattice migrate meta deck.md` (or
+`lint:deck --fix`, or the Studio's fix button) rewrites them all as
+`<!-- @meta{…} -->` records. Marp's themes, its background-image size syntax and
+the `marp: true` key do not carry over either. `lint:deck` names each one.
 
 ---
 
@@ -149,7 +151,8 @@ does not read. `lint:deck` names each one.
    | Rule | Source of it | Fix |
    |---|---|---|
    | `unknown-theme` | `theme: gaia` / `default` | a Lattice palette name from the message |
-   | `pagination-comment-retired` | `<!-- paginate: false -->` / `<!-- _paginate: … -->` | `no-pagination` on the slide's `_class:` |
+   | `legacy-directive-comment` | every `<!-- _class: … -->`, `<!-- _footer: … -->` or other directive comment | `lattice migrate meta deck.md`, or `--fix`: each becomes a `<!-- @meta{…} -->` record |
+   | `pagination-comment-retired` | `<!-- paginate: false -->` / `<!-- _paginate: … -->` | `no-pagination` in the slide's `@meta{class=…}` |
    | `image-marp-keyword` | any `![bg …](…)` line | `--fix`: Markdown's picture, `![A name](…)`, with the slide's `image` (`mirror` for left) or `bleed`; then name the photo |
    | `web-image` | a picture loaded from a URL | save it beside the deck, link by relative path |
    | `unknown-class` | a Marp class such as `invert` | a Lattice component, or delete it |
@@ -201,7 +204,7 @@ pagination: true
 header: "Onboarding plan · Engineering"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Onboarding Plan
 
@@ -211,7 +214,7 @@ New engineers ship their first change in their second week, and own a service by
 
 ---
 
-<!-- _class: cards-grid three -->
+<!-- @meta{layout=cards-grid, class=three} -->
 
 ## Each week of the first month ends in something the new hire shipped.
 
@@ -224,7 +227,7 @@ New engineers ship their first change in their second week, and own a service by
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## A named buddy answers the questions a wiki cannot.
 
@@ -232,7 +235,7 @@ Each new hire gets one engineer for the month who reviews their code and joins t
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 ## Name a buddy before the start date.
 
@@ -252,7 +255,7 @@ four and the buddy detail.
 - A 40-section Markdown doc became 12 slides, because sections that made one
   point were merged and the rest went into speaker notes.
 - A Marp deck kept every slide and every word; only front matter, directive
-  comments and image syntax changed, and lint is clean.
+  comments (now `@meta` records) and image syntax changed, and lint is clean.
 - A foreign PowerPoint was rebuilt from its text outline, and the author was
   told plainly that layout and pictures were not carried over automatically.
 - Remote images were downloaded once and linked by relative path.
@@ -284,7 +287,7 @@ four and the buddy detail.
 - [ ] LF endings, no BOM.
 - [ ] Front matter is Lattice's: a real `theme:`, `size: 4k`, `pagination`,
       `header`.
-- [ ] Every slide has a `<!-- _class: … -->` line and a claim-heading.
+- [ ] Every slide has a `<!-- @meta{…} -->` record and a claim-heading.
 - [ ] Every point from the source is on a slide or in a speaker note.
 - [ ] No remote images; no Marp-only directives or theme names.
 - [ ] Title and closing bookends present, both `silent`.

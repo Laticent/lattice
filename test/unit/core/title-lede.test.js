@@ -17,7 +17,7 @@ const { splitSections } = require('@laticent/markup');
 const { carouselize } = require('../../../lib/core/carousel');
 
 const titleOf = (body) => {
-  const { html } = createEngine().render(`---\ntheme: indaco\n---\n\n<!-- _class: title -->\n\n${body}\n`, 'indaco');
+  const { html } = createEngine().render(`---\ntheme: indaco\n---\n\n<!-- @meta{class=title} -->\n\n${body}\n`, 'indaco');
   return splitSections(html).filter((p) => p.type === 'section')[0];
 };
 const strip = (html) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
@@ -83,7 +83,7 @@ test('the cover keeps the deck footer (a title is an anchor); the lede page does
   const ss = require('../../../lib/engine/structural-split');
   const path = require('node:path');
   const cap = ss.splitCapacityFrom(require('../../../lib/components').loadAll(path.join(__dirname, '../../../lib/components')));
-  const md = `---\ntheme: indaco\nsize: square\nfooter: "Confidential"\n---\n\n<!-- _class: title -->\n\n# The title.\n\n${LEDE_A}\n\n${LEDE_B}\n`;
+  const md = `---\ntheme: indaco\nsize: square\nfooter: "Confidential"\n---\n\n<!-- @meta{class=title} -->\n\n# The title.\n\n${LEDE_A}\n\n${LEDE_B}\n`;
   const { html } = createEngine().render(md, 'indaco');
   const out = ss.structuralSplit(html, { deckSource: md, width: 1080, height: 1080, capacity: cap, plan: { 1: { atSeam: true } } }).html;
   const pages = splitSections(out.slice(out.search(/<section\b[^>]*data-lattice-slide=/))).filter((p) => p.type === 'section');

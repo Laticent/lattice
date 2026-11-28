@@ -62,7 +62,7 @@ describe('runPattern: the Worker’s side', () => {
 });
 
 describe('the kernel with a pattern', () => {
-	const slide = ['<!-- _class: content -->', '`Q3 2026 REVIEW`', '', '## Results for Q3 2026', '', 'Revenue in Q3 2026 rose; see [Q3 2026](https://x.test/q3-2026).', '', '<!-- @say{Q3 2026 was strong.} -->', '', '```', 'Q3 2026 in code', '```'].join('\n');
+	const slide = ['<!-- @meta{layout=content} -->', '`Q3 2026 REVIEW`', '', '## Results for Q3 2026', '', 'Revenue in Q3 2026 rose; see [Q3 2026](https://x.test/q3-2026).', '', '<!-- @say{Q3 2026 was strong.} -->', '', '```', 'Q3 2026 in code', '```'].join('\n');
 
 	it('throws if asked to run a pattern itself', () => {
 		expect(() => findInSlide(slide, 'Q\\d', { regex: true })).toThrow(/never runs a pattern/);
@@ -97,7 +97,7 @@ describe('the kernel with a pattern', () => {
 	});
 
 	it('preserve-case writes each match in its own case', () => {
-		const s = ['<!-- _class: content -->', '`OCT LAUNCH`', '', '## Oct launch', '', 'We shipped in oct.'].join('\n');
+		const s = ['<!-- @meta{layout=content} -->', '`OCT LAUNCH`', '', '## Oct launch', '', 'We shipped in oct.'].join('\n');
 		const r = replaceInSlide(s, 'oct', 'October', { preserveCase: true, wholeWord: true });
 		expect(r.text).toContain('`OCTOBER LAUNCH`');
 		expect(r.text).toContain('## October launch');

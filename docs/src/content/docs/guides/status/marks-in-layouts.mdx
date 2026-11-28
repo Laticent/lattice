@@ -5,7 +5,7 @@ description: Which layouts draw state marks, the words each one uses for the six
 
 import CraftLab from '../../../../components/craft/CraftLab.astro';
 
-export const LAB_LABELSET = `<!-- _class: obligation-matrix -->
+export const LAB_LABELSET = `<!-- @meta{layout=obligation-matrix} -->
 
 ## Which obligations reach which regime.
 
@@ -18,7 +18,7 @@ export const LAB_LABELSET = `<!-- _class: obligation-matrix -->
 | US         | [?]       | [/]   | [ ]          |
 `;
 
-export const LAB_HEAT = `<!-- _class: obligation-matrix heat -->
+export const LAB_HEAT = `<!-- @meta{layout=obligation-matrix, class=heat} -->
 
 ## Where the exposure sits.
 
@@ -60,7 +60,7 @@ A plain table does not read markers, so a comparison table typed with `✓` and
 every cell that starts with a marker draws a disc:
 
 ```markdown
-<!-- _class: table state-cells -->
+<!-- @meta{layout=table, class=state-cells} -->
 
 | Criterion | Atlas | Borealis |
 |-----------|-------|----------|
@@ -147,7 +147,7 @@ Three switches change the drawing, and none of them changes an answer.
 
 ### `checks-*` — the disc style
 
-Five styles for the disc, per slide (`<!-- _class: checklist checks-outline -->`)
+Five styles for the disc, per slide (`<!-- @meta{layout=checklist, class=checks-outline} -->`)
 or for the whole deck (`class: checks-bold` in front matter):
 
 | Class | Looks like | Reach for it when |

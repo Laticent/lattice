@@ -24,7 +24,7 @@ Body.
 
 ---
 
-<!-- _class: logo-plate -->
+<!-- @meta{class=logo-plate} -->
 
 ## Two: a plate on this slide
 
@@ -32,7 +32,7 @@ Body.
 
 ---
 
-<!-- _class: logo-no-plate -->
+<!-- @meta{class=logo-no-plate} -->
 
 ## Three: no plate on this slide
 

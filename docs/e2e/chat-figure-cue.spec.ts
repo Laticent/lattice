@@ -11,7 +11,7 @@ import { expect, gotoStudio, openChatAtWidth, setEditorContent, test } from './s
 // THE MODEL IS MOCKED, NOT SPENT (HARD RULE #24). The seeded key is a throwaway string and every
 // openrouter.ai request is fulfilled here.
 
-const DECK = ['---', 'theme: indaco', '---', '', '<!-- _class: title -->', '# Figures', '', '---', '', '<!-- _class: content -->', '## Market', '', '- GDP $5T', '- ARR $5B', '', '---', '', '<!-- _class: content -->', '## Cost', '', '- Run rate $5bn'].join('\n');
+const DECK = ['---', 'theme: indaco', '---', '', '<!-- @meta{layout=title} -->', '# Figures', '', '---', '', '<!-- @meta{layout=content} -->', '## Market', '', '- GDP $5T', '- ARR $5B', '', '---', '', '<!-- @meta{layout=content} -->', '## Cost', '', '- Run rate $5bn'].join('\n');
 
 const sse = (frames: unknown[]) => `${frames.map((f) => `data: ${JSON.stringify(f)}\n\n`).join('')}data: [DONE]\n\n`;
 
@@ -33,8 +33,8 @@ for (const [w, h] of [
 		});
 		const usage = { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20, cost: 0 };
 		const edits = [
-			{ action: 'replace', slide: 2, body: ['<!-- _class: content -->', '## Market', '', '- GDP $5', '- ARR $5bn'].join('\n') },
-			{ action: 'replace', slide: 3, body: ['<!-- _class: content -->', '## Cost', '', '- Run rate $6bn'].join('\n') },
+			{ action: 'replace', slide: 2, body: ['<!-- @meta{layout=content} -->', '## Market', '', '- GDP $5', '- ARR $5bn'].join('\n') },
+			{ action: 'replace', slide: 3, body: ['<!-- @meta{layout=content} -->', '## Cost', '', '- Run rate $6bn'].join('\n') },
 		];
 		let round = 0;
 		await page.route('https://openrouter.ai/**', async (route) => {

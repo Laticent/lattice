@@ -52,10 +52,10 @@ const FETCHES = {
   'inline style image-set() with ")" in a string': '<p style=\'background-image:image-set("a)b" 1x, "https://evil.test/a.png" 2x)\'>x</p>\n',
   'inline style behind a prose "/*"': 'Text /* x\n\n<p style="background-image:url(https://evil.test/a.png)">hi</p>\n\nmore */ y\n',
   'presentation attribute fill=url()': '<svg><rect fill="url(https://evil.test/a#p)"/></svg>',
-  'background directive': '<!-- _backgroundImage: url(https://evil.test/a) -->\n\n# hi',
+  'background directive': '<!-- @meta{background-image="url(https://evil.test/a)"} -->\n\n# hi',
   'logo: front matter': '---\nlogo: https://evil.test/a.png\n---\n\n# hi\n',
   'meta refresh': '<meta http-equiv="refresh" content="0;url=https://evil.test/">\n',
-  'the video component\'s poster bullet': '<!-- _class: video -->\n\n## V\n\n`@video{"https://www.youtube.com/watch?v=aqz-KE-bpKQ", poster="https://evil.test/p.png"}`\n',
+  'the video component\'s poster bullet': '<!-- @meta{layout=video} -->\n\n## V\n\n`@video{"https://www.youtube.com/watch?v=aqz-KE-bpKQ", poster="https://evil.test/p.png"}`\n',
   'a mermaid label spelled with Mermaid\'s numeric codes': '```mermaid\nflowchart LR\n  A["<img src=\'https#58;#47;#47;evil.test/l.png\'>"]\n```\n',
   'a mermaid label spelled with named codes': '```mermaid\nflowchart LR\n  A["<img src=\'https#colon;#sol;#sol;evil.test/l.png\'>"]\n```\n',
   'a mermaid label spelled with HTML entities': '```mermaid\nflowchart LR\n  A["<img src=\'https&#58;&#x2f;&#x2F;evil.test/l.png\'>"]\n```\n',
@@ -138,13 +138,13 @@ const BENIGN = {
   'the vendored runtime from dist/': '<script src="../dist/lattice-runtime.js"></script>',
   'the vendored dagre build beside the deck': '<script src="lattice-dagre-min.js"></script>',
   'a gallery written against the pre-rename name (.min.js, before 2026-09-29)': '<script src="../mermaid-v11.min.js"></script>',
-  'shipped-style front matter': '---\nmarp: true\ntheme: indaco\npagination: true\nheader: "Lattice · closing"\n---\n\n<!-- _class: title silent -->\n\n# Hi\n',
+  'shipped-style front matter': '---\nmarp: true\ntheme: indaco\npagination: true\nheader: "Lattice · closing"\n---\n\n<!-- @meta{layout=title, class=silent} -->\n\n# Hi\n',
   'a plain mermaid diagram': '```mermaid\nflowchart LR\nA-->B\n```\n',
-  'the video component with a video URL alone': '<!-- _class: video -->\n\n## V\n\n`@video{"https://www.youtube.com/watch?v=aqz-KE-bpKQ"}`\n',
+  'the video component with a video URL alone': '<!-- @meta{layout=video} -->\n\n## V\n\n`@video{"https://www.youtube.com/watch?v=aqz-KE-bpKQ"}`\n',
 };
 
 // Front matter has to open the file, so a row that starts with it goes in bare.
-const slide = (md) => (md.startsWith('---\n') ? md : `<!-- _class: probe -->\n\n${md}\n`);
+const slide = (md) => (md.startsWith('---\n') ? md : `<!-- @meta{class=probe} -->\n\n${md}\n`);
 
 describe('galleryRemoteRefs (the rendered check)', () => {
   for (const [name, md] of Object.entries(FETCHES)) {
@@ -160,7 +160,7 @@ describe('galleryRemoteRefs (the rendered check)', () => {
   }
 
   test('the refusing finding names the target, in the words both doors use', () => {
-    const [f] = galleryFindings('<!-- _class: probe -->\n\n![x](https://evil.test/a.png)');
+    const [f] = galleryFindings('<!-- @meta{class=probe} -->\n\n![x](https://evil.test/a.png)');
     assert.equal(f.rule, 'skeleton-remote');
     assert.match(f.message, /^its sample slide loads https:\/\/evil\.test\/a\.png from the network/);
     assert.deepEqual(galleryFindings(''), []);

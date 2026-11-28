@@ -2,9 +2,9 @@
  * Unit: a `_class:` directive belongs to ONE slide (#1329).
  *
  * The PDF path used to answer "what band is this diagram in?" by scanning the whole
- * document up to the fence and taking the last `<!-- _class: … -->` it found. `before`
+ * document up to the fence and taking the last `<!-- @meta{class="…"} -->` it found. `before`
  * never reset at a slide boundary, and Marp's `_class` is a SINGLE-SLIDE directive, so
- * a bare slide following a `<!-- _class: dark -->` slide got a DARK-baked diagram on a
+ * a bare slide following a `<!-- @meta{class=dark} -->` slide got a DARK-baked diagram on a
  * light canvas: white node ink on a light chip. The fallback was asymmetric too —
  * once any `_class:` had appeared earlier in the deck, the deck default stopped being
  * consulted for every later slide, whether or not that slide declared anything.
@@ -64,7 +64,7 @@ function classesAtMarkers(src) {
 describe('slideClassSpans — a directive belongs to its own slide', () => {
   test('#1329: a bare slide after a `_class: dark` slide inherits NOTHING', () => {
     const src = deck([
-      '<!-- _class: dark -->',
+      '<!-- @meta{class=dark} -->',
       '',
       '## Dark slide',
       '',
@@ -85,14 +85,14 @@ describe('slideClassSpans — a directive belongs to its own slide', () => {
   test('a directive placed AFTER the content still governs its own slide', () => {
     // Marp does not care where in the slide the comment sits, and neither may this:
     // the old scan happened to work for a leading directive and only for that.
-    const src = deck(['## Heading', '', '@MARK', '', '<!-- _class: dark -->', ''].join('\n'));
+    const src = deck(['## Heading', '', '@MARK', '', '<!-- @meta{class=dark} -->', ''].join('\n'));
     assert.deepEqual(classesAtMarkers(src), ['dark']);
   });
 
   test('the LAST directive on a slide wins, and does not leak to the next', () => {
     const src = deck([
-      '<!-- _class: light -->',
-      '<!-- _class: dark -->',
+      '<!-- @meta{class=light} -->',
+      '<!-- @meta{class=dark} -->',
       '@MARK',
       '',
       '---',
@@ -107,7 +107,7 @@ describe('slideClassSpans — a directive belongs to its own slide', () => {
     // The engine splits on markdown-it's top-level `hr` tokens. A line-regex splitter
     // sees only `---`, so `***` and `___` would silently carry a directive forward.
     for (const rule of ['---', '***', '___', '- - -', '* * *']) {
-      const src = deck(['<!-- _class: dark -->', '@MARK', '', rule, '', '@MARK', ''].join('\n'));
+      const src = deck(['<!-- @meta{class=dark} -->', '@MARK', '', rule, '', '@MARK', ''].join('\n'));
       assert.deepEqual(classesAtMarkers(src), ['dark', ''], `\`${rule}\` must end the slide`);
     }
   });
@@ -116,13 +116,13 @@ describe('slideClassSpans — a directive belongs to its own slide', () => {
     // `text` over `---` is an H2 in CommonMark. Treating it as a break would split one
     // slide in two and hand the second half no directive — the opposite-sign error
     // that restores an equal slide COUNT while offsetting the mapping.
-    const src = deck(['<!-- _class: dark -->', 'A heading', '---', '', '@MARK', ''].join('\n'));
+    const src = deck(['<!-- @meta{class=dark} -->', 'A heading', '---', '', '@MARK', ''].join('\n'));
     assert.deepEqual(classesAtMarkers(src), ['dark']);
   });
 
   test('a `---` inside a fenced block is not a boundary', () => {
     const src = deck([
-      '<!-- _class: dark -->',
+      '<!-- @meta{class=dark} -->',
       '',
       '```md',
       '---',
@@ -149,7 +149,7 @@ describe('slideClassSpans — a directive belongs to its own slide', () => {
     // neither neighbor. Treating the two alike shifts every directive one slide over.
     const src = [
       '---', 'marp: true', 'theme: onyx', 'split: headings', '---', '',
-      '## First', '', '<!-- _class: dark -->', '', '@MARK', '',
+      '## First', '', '<!-- @meta{class=dark} -->', '', '@MARK', '',
       '## Second', '', '@MARK', '',
     ].join('\n');
     assert.deepEqual(classesAtMarkers(src), ['dark', ''],
@@ -179,7 +179,7 @@ describe('slideClassSpans — a directive belongs to its own slide', () => {
     // Grouping diagrams by slide is what makes the band per SLIDE; two slides with an
     // identical `_class:` must still be two slides, or a per-slide walk collapses.
     const src = deck([
-      '<!-- _class: dark -->', '@MARK', '', '---', '', '<!-- _class: dark -->', '@MARK', '',
+      '<!-- @meta{class=dark} -->', '@MARK', '', '---', '', '<!-- @meta{class=dark} -->', '@MARK', '',
     ].join('\n'));
     const { spans } = slideClassSpans(src);
     const idxs = [];
@@ -190,7 +190,7 @@ describe('slideClassSpans — a directive belongs to its own slide', () => {
   });
 
   test('CRLF source resolves the same as LF', () => {
-    const lf = deck(['<!-- _class: dark -->', '@MARK', '', '---', '', '@MARK', ''].join('\n'));
+    const lf = deck(['<!-- @meta{class=dark} -->', '@MARK', '', '---', '', '@MARK', ''].join('\n'));
     assert.deepEqual(classesAtMarkers(lf.replace(/\n/g, '\r\n')), ['dark', ''],
       'an offset computed off LF-only line lengths lands in the wrong span on a CRLF deck');
   });
@@ -213,7 +213,7 @@ describe('slideClassSpans — a directive belongs to its own slide', () => {
  * regardless of what the corpus happens to contain.
  */
 describe('slideClassSpans — the class in force, not the class written nearest', () => {
-  test('a GLOBAL `<!-- class: X -->` carries forward to the end of the deck', () => {
+  test('a GLOBAL `<!-- @meta{class=X, carry} -->` carries forward to the end of the deck', () => {
     // Marp's two forms, and the one that was missing. `_class` is this slide only;
     // a bare `class` is a running global (lib/engine/slides.js:
     // `{ ...runningGlobal, ...slideLocal }`). Reading only the spot form left every
@@ -222,7 +222,7 @@ describe('slideClassSpans — the class in force, not the class written nearest'
     const src = deck([
       '## One', '', 'a', '',
       '---', '',
-      '<!-- class: dark -->', '', '## Two', '', 'b', '',
+      '<!-- @meta{class=dark, carry} -->', '', '## Two', '', 'b', '',
       '---', '',
       '## Three', '', 'c', '',
     ].join('\n'));
@@ -234,9 +234,9 @@ describe('slideClassSpans — the class in force, not the class written nearest'
     // ...slideLocal }` means `_class: math` on a `class: dark` run renders `math`
     // with no `dark` — and the slide after it goes back to `dark`.
     const src = deck([
-      '<!-- class: dark -->', '', '## One', '', 'a', '',
+      '<!-- @meta{class=dark, carry} -->', '', '## One', '', 'a', '',
       '---', '',
-      '<!-- _class: math -->', '', '## Two', '', 'b', '',
+      '<!-- @meta{layout=math} -->', '', '## Two', '', 'b', '',
       '---', '',
       '## Three', '', 'c', '',
     ].join('\n'));
@@ -245,9 +245,9 @@ describe('slideClassSpans — the class in force, not the class written nearest'
 
   test('a later global replaces an earlier one from its own slide onward', () => {
     const src = deck([
-      '<!-- class: dark -->', '', '## One', '', 'a', '',
+      '<!-- @meta{class=dark, carry} -->', '', '## One', '', 'a', '',
       '---', '',
-      '<!-- class: light -->', '', '## Two', '', 'b', '',
+      '<!-- @meta{class=light, carry} -->', '', '## Two', '', 'b', '',
       '---', '',
       '## Three', '', 'c', '',
     ].join('\n'));
@@ -256,15 +256,15 @@ describe('slideClassSpans — the class in force, not the class written nearest'
 
   test('a directive QUOTED as prose is prose — inline code and fenced blocks', () => {
     // `kit/Sample-Deck.md` is the live case: slide 2 is a `split-panel` that
-    // explains the API by naming `<!-- _class: kpi -->` in a bullet. A raw text
+    // explains the API by naming `<!-- @meta{layout=kpi} -->` in a bullet. A raw text
     // scan reads that as a real directive, and since the last one on a slide wins,
     // the deck's own tutorial slide reported the wrong layout.
     const src = deck([
-      '<!-- _class: split-panel -->', '', '## One', '',
-      '- `<!-- _class: kpi -->` and the next slide is a KPI row.', '',
-      '```md', '<!-- _class: quote -->', '```', '',
+      '<!-- @meta{layout=split-panel} -->', '', '## One', '',
+      '- `<!-- @meta{layout=kpi} -->` and the next slide is a KPI row.', '',
+      '```md', '<!-- @meta{layout=quote} -->', '```', '',
       '---', '',
-      '<!-- _class: diagram -->', '', '## Two', '', 'b', '',
+      '<!-- @meta{layout=diagram} -->', '', '## Two', '', 'b', '',
     ].join('\n'));
     assertMatchesRender(src, ['split-panel', 'diagram']);
   });
@@ -277,7 +277,7 @@ describe('slideClassSpans — the class in force, not the class written nearest'
     // Live in the corpus at `lib/components/math/math/math.gallery.md`.
     const src = [
       '---', 'marp: true', 'theme: onyx', 'split: headings', '---', '',
-      '<!-- _class: math dark -->', '', '## Factorize.', '',
+      '<!-- @meta{layout=math, class=dark} -->', '', '## Factorize.', '',
       '$$', 'A', '=', 'LU', '$$', '',
       '@MARK', '',
     ].join('\n');
@@ -287,9 +287,9 @@ describe('slideClassSpans — the class in force, not the class written nearest'
   });
 
   test('an unrelated global directive does not touch the class', () => {
-    // `<!-- header: … -->` is a global directive too. Only `class` participates.
+    // `<!-- @meta{header="…"} -->` is a global directive too. Only `class` participates.
     const src = deck([
-      '<!-- header: Q3 -->', '<!-- _class: dark -->', '', '## One', '', 'a', '',
+      '<!-- @meta{header=Q3} -->', '<!-- @meta{class=dark} -->', '', '## One', '', 'a', '',
       '---', '', '## Two', '', 'b', '',
     ].join('\n'));
     assertMatchesRender(src, ['dark', '']);
@@ -311,7 +311,7 @@ describe('slideClassSpans — the slide COUNT the engine actually renders', () =
     // this way would otherwise fail its own parity gate while rendering correctly.
     const src = deck([
       '---', '',
-      '<!-- _class: dark -->', '', '## First real slide', '', '@MARK', '',
+      '<!-- @meta{class=dark} -->', '', '## First real slide', '', '@MARK', '',
       '---', '',
       '## Second', '', '@MARK', '',
     ].join('\n'));
@@ -322,7 +322,7 @@ describe('slideClassSpans — the slide COUNT the engine actually renders', () =
   test('the merged leading span still covers every byte from the front matter', () => {
     // Merged forward rather than deleted: deleting it would leave a hole that
     // `slideClassAt` answers `''` for — the silent-wrong-band shape again.
-    const src = deck(['---', '', '<!-- _class: dark -->', '', '## Only', '', 'body', ''].join('\n'));
+    const src = deck(['---', '', '<!-- @meta{class=dark} -->', '', '## Only', '', 'body', ''].join('\n'));
     const { spans } = slideClassSpans(src);
     assert.equal(spans.length, 1);
     assert.equal(spans[0].start, FM.length);
@@ -359,7 +359,7 @@ describe('slideClassSpans — the slide COUNT the engine actually renders', () =
  * terminators, and these pin that it lands in the same place either way.
  */
 describe('slideClassSpans — CRLF, lone CR, and a BOM resolve like the engine', () => {
-  const body = ['<!-- _class: dark -->', '', '## A', '', '@MARK', '', '---', '', '## B', '', '@MARK', ''].join('\n');
+  const body = ['<!-- @meta{class=dark} -->', '', '## A', '', '@MARK', '', '---', '', '## B', '', '@MARK', ''].join('\n');
   const LF = deck(body);
 
   for (const [name, src] of [

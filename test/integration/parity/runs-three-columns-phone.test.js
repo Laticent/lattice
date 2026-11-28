@@ -38,7 +38,7 @@ theme: indaco
 size: square
 ---
 
-<!-- _class: content -->
+<!-- @meta{class=content} -->
 
 ## What the fix actually was: pass the section in.
 
@@ -53,15 +53,15 @@ size: square
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{class=content} -->
 
 ## Why a native state chart.
 
-Mermaid's \`stateDiagram-v2\` works, but theming it cleanly requires a CSS override cascade with \`!important\` (see \`docs/theming.md\`). The native chart uses palette tokens directly — \`var(--cat-1-fill)\`, \`var(--diagram-stroke)\`, \`var(--diagram-line)\`, \`var(--cat-on-fill)\` — and inherits dark / light, every theme, automatically. No mmdc subprocess, no opaque SVG class names, no version coupling. Composite states are a sub-list; parallel regions, history states and guards are not in the grammar. When you need those, \`<!-- _class: diagram -->\` is the Mermaid escape hatch.
+Mermaid's \`stateDiagram-v2\` works, but theming it cleanly requires a CSS override cascade with \`!important\` (see \`docs/theming.md\`). The native chart uses palette tokens directly — \`var(--cat-1-fill)\`, \`var(--diagram-stroke)\`, \`var(--diagram-line)\`, \`var(--cat-on-fill)\` — and inherits dark / light, every theme, automatically. No mmdc subprocess, no opaque SVG class names, no version coupling. Composite states are a sub-list; parallel regions, history states and guards are not in the grammar. When you need those, \`<!-- @meta{class=diagram} -->\` is the Mermaid escape hatch.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{class=content} -->
 
 ## Quarterly revenue by region
 

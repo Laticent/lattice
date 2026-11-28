@@ -56,7 +56,7 @@ three of them directly:
   `mode:` (typographic hand), `finish:` (backdrop). See the `finish.md` and
   `theme.md` skills.
 
-You pick the component (`<!-- _class: name -->`); the engine supplies the chrome
+You pick the component (`<!-- @meta{layout=name} -->`); the engine supplies the chrome
 (masthead band, stage, footer, progress rail) automatically. Your eyebrow and
 title "hoist" into the masthead; your body lands in the stage. You rarely think
 about Form directly — the component already selected it.
@@ -109,7 +109,7 @@ about Form directly — the component already selected it.
    and use the `see also` column to check the neighbors it is confused with.
    Then **count your content** and check the component's `capacity` — if the count
    exceeds `hard`, use the `escalateTo` target or split across slides. Before you
-   author a `<!-- _class: X -->`, open `lib/components/<bucket>/X/X.docs.md` and
+   author a `<!-- @meta{layout=X} -->`, open `lib/components/<bucket>/X/X.docs.md` and
    grep `test/integration/baseline-decks/gallery.md` for a live example (HARD
    RULE #6).
 
@@ -135,7 +135,7 @@ Bookends are stereotyped. **Title** puts `# h1` first (MD041 wants h1 first),
 then the eyebrow, then a one-sentence subtitle:
 
 ```markdown
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Meridian Freight
 
@@ -148,7 +148,7 @@ The quarter beat plan, but a carrier-capacity squeeze needs a board decision tod
 a full sentence, then tight body:
 
 ```markdown
-<!-- _class: kpi -->
+<!-- @meta{layout=kpi} -->
 
 `Performance · Q2 2026`
 
@@ -162,7 +162,7 @@ a full sentence, then tight body:
 **Closing** is one sentence and a signature — never a bullet list of next steps:
 
 ```markdown
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 ## Strong quarter — let's protect the peak.
 

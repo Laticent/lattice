@@ -12,7 +12,7 @@ import { appendToEditor, CHROME, expect, gotoStudio, openInspector, openSection,
 // disabled over it. This constant used to be `zzznotacomponent`, which pinned the older gate
 // (`unknownComponents`), where the button was offered and then did nothing. `kpii` is one
 // character off `kpi`, so it carries a Quick fix and Fix-all has something to do.
-const UNKNOWN_SLIDE = '\n\n---\n\n<!-- _class: kpii -->\n\n# Stray slide\n';
+const UNKNOWN_SLIDE = '\n\n---\n\n<!-- @meta{class=kpii} -->\n\n# Stray slide\n';
 // The exact name: the issue-count button beside it now reads "1 issue: … Fix all swaps it for …",
 // so a /Fix all/ pattern matches both and fails strict mode.
 const fixAll = (page: import('@playwright/test').Page) => page.getByRole('button', { name: 'Fix all issues', exact: true });
@@ -80,6 +80,7 @@ test('an unknown component makes Fix-all actionable; validation-off clears it', 
 // typo'd class, two card lines to nest, and a fenced copy of one of them ABOVE it, which a fix used to
 // land on. Read back from the persisted source, the text the Studio saves. Not on a phone: the one-pane
 // phone layout has no "Fix all" control, as the arm above assumes too.
+// Its `_class: kpii` is OLD on purpose: the typo is fixed, then the comment is migrated, in one Fix all.
 const FIX_ALL_DECK = [
 	'---', 'theme: indaco', '---', '', '# Title', '', '---', '', '<!-- @meta{layout=cards-grid} -->', '', '## Bets', '',
 	'```md', '- **Speed.** ship weekly', '```', '', '- **Speed.** ship weekly', '- **Reach.** two markets', '',
@@ -90,8 +91,10 @@ test('@webkit-tablet @gecko Fix all fixes every live line in one click and leave
 	await setEditorContent(page, FIX_ALL_DECK);
 	await expect(fixAll(page)).toBeEnabled();
 	await fixAll(page).click();
-	// The typo is fixed, then (last) the old comment is written as a `@meta` record (record note §15).
-	await expect.poll(() => persistedSource(page)).toContain('<!-- @meta{layout=kpi} -->');
+	// Since the cut the old comment sets nothing, so it is migrated first (to `class=kpii`, not a component) and the
+	// typo is fixed in the record after: `class=kpi`, which the engine renders as `layout=kpi` would
+	// (lint-core.test.js pins the same order for `applyAllFixes`).
+	await expect.poll(() => persistedSource(page)).toContain('<!-- @meta{class=kpi} -->');
 	// The Studio persists the source as a JSON string.
 	const raw = await persistedSource(page);
 	const src: string = raw.startsWith('"') ? JSON.parse(raw) : raw;
@@ -122,6 +125,7 @@ test('@webkit-tablet @gecko Fix all migrates a deck whose speaker notes are plai
 	await expect(fixAll(page)).toBeDisabled();
 });
 
+// Written in the OLD form on purpose (the sweep must leave it): its point is that Fix all migrates it.
 // The clean break to `@meta` records (engineering/decisions/2026-10-17-meta-record.md §15): every old directive comment
 // is a `legacy-directive-comment` warning whose fix is the whole-deck migration, which also respells a bare
 // `<!-- {…} -->` record as `@meta`. One press of "Fix all" converts the deck, the same text

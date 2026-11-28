@@ -11,7 +11,7 @@ import { expect, gotoStudio, persistedSource, setEditorContent, test } from './s
 test.use({ hasTouch: true });
 
 const COMPOSE = 'Compose — rich editor';
-const DECK = ['<!-- _class: content -->', '', '## KPIs', '', 'Revenue `~{12 14 13 17 21, bar, c3}` and `{SHIPPED, c2}`.', '', '---', '', '<!-- _class: content -->', '', '## Plain', '', 'Nothing here yet.'].join('\n');
+const DECK = ['<!-- @meta{layout=content} -->', '', '## KPIs', '', 'Revenue `~{12 14 13 17 21, bar, c3}` and `{SHIPPED, c2}`.', '', '---', '', '<!-- @meta{layout=content} -->', '', '## Plain', '', 'Nothing here yet.'].join('\n');
 
 async function savedDeck(page: Page): Promise<string> {
 	const raw = await persistedSource(page);
@@ -63,7 +63,7 @@ for (const mode of ['light', 'dark'] as const) {
 
 test('the active slide\'s bar stays fully on screen while a long slide scrolls under it, at 390px', async ({ page }) => {
 	const lines = Array.from({ length: 40 }, (_, i) => `Line ${i + 1} of a long slide that scrolls.`).join('\n\n');
-	const long = ['<!-- _class: content -->', '', '## Long slide', '', lines, '', '---', '', '<!-- _class: content -->', '', '## Next', '', 'Short.'].join('\n');
+	const long = ['<!-- @meta{layout=content} -->', '', '## Long slide', '', lines, '', '---', '', '<!-- @meta{layout=content} -->', '', '## Next', '', 'Short.'].join('\n');
 	await gotoStudio(page);
 	await setEditorContent(page, long);
 	await page.getByRole('button', { name: COMPOSE, exact: true }).first().click();

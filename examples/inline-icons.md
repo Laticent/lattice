@@ -87,7 +87,7 @@ Written like a spark, colored by the deck, and never a font glyph or an emoji.
 
 ## One class sets every icon on a slide.
 
-This slide carries `_class: icon-bare`, so every icon on it drops its tile: `^{lock, c3}` `^{key, c3}` `^{shield-check, c3}` `^{fingerprint, c3}`.
+This slide carries `class=icon-bare`, so every icon on it drops its tile: `^{lock, c3}` `^{key, c3}` `^{shield-check, c3}` `^{fingerprint, c3}`.
 
 An icon's own word still wins: `^{lock, c3, framed}` keeps its tile here.
 

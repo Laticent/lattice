@@ -67,11 +67,11 @@ describe('each old comment form becomes its note', () => {
 
 describe('a record’s retired note fields move to their own comments', () => {
   test('inline fields and `key: |` blocks, in order, the record keeping its other fields', () => {
-    const src = '<!-- {layout=cards, note="Open cold.", say="Hi"}\nreader: |\n  For you.\n\n  Second.\ndescribe: A chart.\nfooter: Q3\n-->\n\n# A\n';
+    const src = '<!-- @meta{layout=cards, note="Open cold.", say="Hi"}\nreader: |\n  For you.\n\n  Second.\ndescribe: A chart.\nfooter: Q3\n-->\n\n# A\n';
     const r = migrateNotesSource(src);
     assert.equal(
       r.source,
-      '<!-- {layout=cards}\nfooter: Q3\n-->\n<!-- @note{Open cold.} -->\n<!-- @say{Hi} -->\n<!-- @handout{For you.\n\nSecond.} -->\n<!-- @alt{A chart.} -->\n\n# A\n',
+      '<!-- @meta{layout=cards}\nfooter: Q3\n-->\n<!-- @note{Open cold.} -->\n<!-- @say{Hi} -->\n<!-- @handout{For you.\n\nSecond.} -->\n<!-- @alt{A chart.} -->\n\n# A\n',
     );
     assert.equal(r.converted, 4);
     const [slide] = read(r.source);
@@ -80,11 +80,11 @@ describe('a record’s retired note fields move to their own comments', () => {
   });
 
   test('a record that held only notes is replaced by them', () => {
-    assert.equal(migrateNotesSource('<!-- {note="only"} -->\n\n# A\n').source, '<!-- @note{only} -->\n\n# A\n');
+    assert.equal(migrateNotesSource('<!-- @meta{note="only"} -->\n\n# A\n').source, '<!-- @note{only} -->\n\n# A\n');
   });
 
   test('a record with no note field is left byte for byte', () => {
-    const src = '<!-- {layout=cards, footer="Q3, review"}\nheader: x\n-->\n\n# A\n';
+    const src = '<!-- @meta{layout=cards, footer="Q3, review"}\nheader: x\n-->\n\n# A\n';
     assert.equal(migrateNotesSource(src).source, src);
   });
 });
@@ -119,7 +119,7 @@ describe('the front-matter say: map moves onto its slides', () => {
 
 describe('one say line per slide, as the engine spoke it', () => {
   test('a slide that held several old say lines keeps only the last, and the run reports it', () => {
-    const src = '# A\n\n<!-- say: first -->\n<!-- say: second -->\n<!-- {layout=cards, say="last"} -->\n\n---\n\n# B\n\n<!-- say: only -->\n';
+    const src = '# A\n\n<!-- say: first -->\n<!-- say: second -->\n<!-- @meta{layout=cards, say="last"} -->\n\n---\n\n# B\n\n<!-- say: only -->\n';
     const r = migrateNotesSource(src);
     assert.deepEqual(read(r.source).map((s) => s.say), ['last', 'only']);
     assert.deepEqual(r.kept, [{ slide: 1, why: '3 say lines; the engine spoke only the last, so the others were removed' }]);
@@ -168,7 +168,7 @@ describe('what the migration never touches', () => {
     const src = [
       '# A', '', '```markdown', '<!-- say: a sample -->', '<!-- a plain sample -->', '```', '',
       'Write `<!-- describe: x -->` inline.', '',
-      '<!-- _class: lead -->', '<!-- _pane: bar -->', '<!-- panes: 60/40 -->', '<!-- {layout=kpi} -->',
+      '<!-- _class: lead -->', '<!-- _pane: bar -->', '<!-- panes: 60/40 -->', '<!-- {layout=kpi} -->', '<!-- @meta{layout=kpi} -->',
       '<!-- markdownlint-disable -->', '<!-- stress-slide -->', '<!-- @note{already} -->', '<!-- @Say{a near miss lint names} -->', '',
     ].join('\n');
     const r = migrateNotesSource(src);
@@ -177,7 +177,7 @@ describe('what the migration never touches', () => {
   });
 
   test('it is idempotent: a migrated deck migrates to itself', () => {
-    const once = migrateNotesSource('---\nsay:\n  1: Map.\n---\n\n# A\n\n<!-- Pause. -->\n<!-- {layout=cards, describe="Chart."} -->\n<!-- reader: Later. -->\n').source;
+    const once = migrateNotesSource('---\nsay:\n  1: Map.\n---\n\n# A\n\n<!-- Pause. -->\n<!-- @meta{layout=cards, describe="Chart."} -->\n<!-- reader: Later. -->\n').source;
     const twice = migrateNotesSource(once);
     assert.equal(twice.source, once);
     assert.deepEqual([twice.converted, twice.moved], [0, 0]);

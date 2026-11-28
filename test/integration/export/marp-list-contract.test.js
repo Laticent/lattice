@@ -27,7 +27,7 @@ marp: true
 theme: indaco
 ---
 
-<!-- _class: agenda -->
+<!-- @meta{class=agenda} -->
 
 ## Agenda
 
@@ -36,7 +36,7 @@ theme: indaco
 
 ---
 
-<!-- _class: cycle -->
+<!-- @meta{class=cycle} -->
 
 ## Cycle
 
@@ -49,7 +49,7 @@ theme: indaco
 
 ---
 
-<!-- _class: list-steps -->
+<!-- @meta{class=list-steps} -->
 
 ## Steps
 

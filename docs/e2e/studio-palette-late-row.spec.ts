@@ -13,7 +13,7 @@ import { expect, gotoStudio, setEditorContent, test } from './studio-fixture';
 // An inline card title (`- **Title.** body`, HARD RULE #5): lint-core's card rule carries a machine fix, and nothing
 // else counts it. Before lint-core answers, "Fix all" falls back to the Studio's unknown-component count
 // (StudioShell `fixableIssues`), so a near-miss name like `kpii` would add the row without lint and prove nothing.
-const DECK = '---\ntheme: indaco\n---\n\n# Title\n\n---\n\n<!-- _class: cards-grid -->\n\n## Bets\n\n- **Bet one.** body\n- **Bet two.** body\n';
+const DECK = '---\ntheme: indaco\n---\n\n# Title\n\n---\n\n<!-- @meta{layout=cards-grid} -->\n\n## Bets\n\n- **Bet one.** body\n- **Bet two.** body\n';
 
 test('@crosswidth @webkit-phone @webkit-tablet @gecko an open palette shows a row that starts to apply while it is open', async ({ page }) => {
 	test.setTimeout(120_000);

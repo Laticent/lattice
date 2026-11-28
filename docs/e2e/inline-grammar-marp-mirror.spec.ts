@@ -54,7 +54,7 @@ const BODY = [
 	'   - `\\{LIVE}` and `\\[x]` and `\\[a-z]` and `\\d+`',
 ].join('\n');
 
-const DECK = ['---', 'theme: indaco', '---', '', '<!-- _class: list-tabular -->', '', BODY].join('\n');
+const DECK = ['---', 'theme: indaco', '---', '', '<!-- @meta{class=list-tabular} -->', '', BODY].join('\n');
 
 /**
  * Both sides are projected by THIS function, evaluated in the page — so a difference

@@ -149,7 +149,7 @@ test('a card named with snake_case code narrates with its underscores and binds 
 	// Narration used to strip every `_`, so "Retire `csv_v1` export" read "Retire csvv1 export" and named no card (#2960).
 	const fm = '---\nmarp: true\n---\n';
 	const md = [
-		'<!-- _class: kanban -->',
+		'<!-- @meta{layout=kanban} -->',
 		'',
 		'## Cards carry code.',
 		'',

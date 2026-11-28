@@ -31,7 +31,7 @@ describe('component-library', () => {
 		await saveStudioComponent({
 			name: 'verdict-board',
 			css: 'section.verdict-board{}',
-			skeleton: '<!-- _class: verdict-board -->',
+			skeleton: '<!-- @meta{class=verdict-board} -->',
 			meta: { function: 'inventory', form: 'grid', substance: 'structure', bucket: 'inventory', tags: ['cards', 'verdict', 'grid'], description: 'A grid of verdicts.', adapt: { mode: 'native' }, capacity: { sweet: 4, soft: 6, hard: 8 } },
 		});
 		const asset = putSpy.mock.calls.at(-1)?.[0] as { manifest: Record<string, unknown> };
@@ -56,7 +56,7 @@ describe('component-library', () => {
 			adapt: { mode: 'native' }, capacity: { sweet: 4, soft: 6, hard: 8 }, density: { axis: 'item', soft: 5 },
 		};
 		vi.mocked(listAssets).mockResolvedValueOnce([
-			{ id: 'c1', kind: 'component', name: 'verdict-grid', bucket: 'inventory', text: 'section.verdict-grid{}', skeleton: '<!-- _class: verdict-grid -->', manifest },
+			{ id: 'c1', kind: 'component', name: 'verdict-grid', bucket: 'inventory', text: 'section.verdict-grid{}', skeleton: '<!-- @meta{layout=verdict-grid} -->', manifest },
 		] as never);
 		const [comp] = await listStudioComponents();
 		expect(comp.meta).toMatchObject({
@@ -84,7 +84,7 @@ describe('component-library — a shipped name saves as <name>-custom', () => {
 		const saved = await saveStudioComponent({
 			name: 'kpi',
 			css: 'section.kpi{padding:1rem}\nsection.kpi .kpi-row{gap:1rem}',
-			skeleton: '<!-- _class: kpi -->\n\n## Numbers',
+			skeleton: '<!-- @meta{layout=kpi} -->\n\n## Numbers',
 		});
 		expect(saved.name).toBe('kpi-custom');
 		const asset = putSpy.mock.calls.at(-1)?.[0] as { name: string; text: string; skeleton: string; manifest: { name: string } };
@@ -92,13 +92,13 @@ describe('component-library — a shipped name saves as <name>-custom', () => {
 		expect(asset.manifest.name).toBe('kpi-custom');
 		// `.kpi` is rewritten as a whole class token; `.kpi-row` is a different class.
 		expect(asset.text).toBe('section.kpi-custom{padding:1rem}\nsection.kpi-custom .kpi-row{gap:1rem}');
-		// The renamed class is written as a record (record note §15): the old comment moves into one.
-		expect(asset.skeleton).toBe('<!-- @meta{class=kpi-custom} -->\n\n## Numbers');
+		// The renamed layout is rewritten in the skeleton's record (record note §15), its field kept.
+		expect(asset.skeleton).toBe('<!-- @meta{layout=kpi-custom} -->\n\n## Numbers');
 	});
 
 	it('leaves an unreserved name exactly as given', async () => {
 		putSpy.mockClear();
-		const saved = await saveStudioComponent({ name: 'my-kpi', css: 'section.my-kpi{}', skeleton: '<!-- _class: my-kpi -->' });
+		const saved = await saveStudioComponent({ name: 'my-kpi', css: 'section.my-kpi{}', skeleton: '<!-- @meta{class=my-kpi} -->' });
 		expect(saved.name).toBe('my-kpi');
 		expect((putSpy.mock.calls.at(-1)?.[0] as { text: string }).text).toBe('section.my-kpi{}');
 	});

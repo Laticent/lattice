@@ -50,7 +50,7 @@ const DECK = `---
 theme: indaco
 ---
 
-<!-- _class: list -->
+<!-- @meta{class=list} -->
 
 \`Reach\`
 
@@ -65,7 +65,7 @@ theme: indaco
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{class=cards-grid} -->
 
 \`Operating picture\`
 

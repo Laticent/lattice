@@ -11,10 +11,10 @@ that any component can opt into.
 | `base.tokens.css` | `:root { ... }` token definitions: spacing scale, font sizes, radii, line heights, palette consumers. Every other CSS file reads these. |
 | `base.elements.css` | Semantic HTML defaults (`section`, `h1`-`h5`, `p`, `strong`, `em`, `code`, `hr`, `ul`, `ol`, `blockquote`). Element selectors only. |
 | `base.modifiers.css` | Auto-detected chrome — eyebrow, subtitle, key-insight panel, below-note, annotation. Triggered by markdown patterns the author writes (no class needed). |
-| `base.variants.css` | Universal opt-in variants — `dark`, `mirror`, `numbered`, `silent`, state markers, tone tokens. Composed via `_class:`. |
+| `base.variants.css` | Universal opt-in variants — `dark`, `mirror`, `numbered`, `silent`, state markers, tone tokens. Composed via a slide's `@meta{class=…}`. |
 | `base.treatments.css` | 27 treatment utility classes — 12 tints (`tint-corner at-tl`, `tint-vignette`, etc.) and 11 marks (`mark-orbit`, `mark-seeds`, etc.) plus `no-treatment` — for peripheral atmospheric accents. |
-| `base.sketch.css` | The `sketch` **mode** (rendering hand) — a deck-wide hand-drawn skin (handwriting type, drawn boxes, and rough.js-drawn lines). Palette-blind; set via `mode:` or `class:` / `_class:`. |
-| `base.finish.css` | The `field` zone of the Finish family — 9 premium **stacked-layer** finish presets (`finish-atrium/meridian/strata/halo/ledger/nimbus/loom/savile/gallery`) on a per-role custom-property compositor (`--fin-wash`/`--fin-texture`/`--fin-mark`/`--fin-edge`), so layers combine by z-index instead of being either/or. `no-finish` (or back-compat `no-backdrop`) opts a slide out. **Rich-on-screen / safe-on-export:** each preset's slot DEFAULT is the richer "dissolving" screen look (directional fades to `transparent` — alpha the browser composites cleanly), with an `--fin-*-opaque` mirror holding the PDF-clean opaque value (every full-bleed fade ends on `var(--fin-canvas)`). One guarded block flips the slots to the opaque mirror for BOTH export paths — `@media print` (CLI vector PDF) and `.lattice-exporting` (the Studio html-to-image raster tags each section before capture) — so the screen is rich while every PDF/PPTX stays opaque-clean (an alpha area-fade bakes to a gray cloud in print-to-PDF). Both faces are palette-blind (`color-mix(var(--accent)/var(--fin-canvas))`), no masks, no `url()`; only the screen face uses alpha. **`--fin-canvas` is the surface THIS SLIDE paints** — `var(--bg)` by default, `--surface-inverse` on the frames that paint an inverse panel (`title`/`closing`/`divider`/`topic`), `var(--accent)` on the six accent covers (the five the splitter emits plus the shared `lat-split-cover`) in **every** mode, `var(--panel-fill)` on a `split-panel` cover carrying a category, and `var(--img-matte)`/`var(--scene-matte)` on the `image` and `scene` compositions that paint the matte — which is what keeps a finish from washing out a frame that paints its own canvas (#1656). It follows the frame **only where the frame actually keeps that canvas**, and after #2291 that is a question about `print` alone: `print` remaps the consumed tokens and `section.print` resets the surface, so a frame that loses the surface to it excludes it. `accent` / `no-spectrum` / `spectrum-<edge>` used to out-specify a frame's own rule and every arm here carried a mode-scoped group excluding them; none of the three was painting a canvas (each draws or removes a *bar* and restated the color while doing it), so they say `background-image` now and the exclusions are gone with them. The accent covers are **not** scoped to `dark` (they were until #2294): a cover paints `var(--accent)` in every mode, and the two arms differ only on print — `section.print` is bundled after the five component sheets and takes their field, while `section.lat-split-cover` is bundled after `section.print` and keeps it. Print has a **fourth** answer: `section.print[data-split-role="cover"]` de-floods any role-stamped cover to `var(--surface-inverse)`, so `--fin-canvas` mirrors it on the same stamp rather than on a frame class. `topic` differs by DOM shape AND by variant, so it takes three arms: `section.topic:not(:has(> ul.tile-track))` restates its canvas at (0,2,2), so a trackless topic holds it under everything, print included, and carries no condition at all; a topic carrying its track is back at (0,1,1) and loses it as `title` does; but `section.topic.fact` (0,2,1) restates it again and out-specifies `section.print` (0,1,1), so a **fact** slide keeps its inverse panel under print even when tracked — measured, `topic fact print` with the track is rgb(236,236,236) while the plain tracked arm was sending `--fin-canvas` to white. Selected deck-wide via the `finish:` register or per-slide via `_class: finish finish-<name>`. See `engineering/decisions/2026-06-30-finish-the-surface-layer.md`. |
+| `base.sketch.css` | The `sketch` **mode** (rendering hand) — a deck-wide hand-drawn skin (handwriting type, drawn boxes, and rough.js-drawn lines). Palette-blind; set via `mode:` or `class:` / a slide's `@meta{class=sketch}`. |
+| `base.finish.css` | The `field` zone of the Finish family — 9 premium **stacked-layer** finish presets (`finish-atrium/meridian/strata/halo/ledger/nimbus/loom/savile/gallery`) on a per-role custom-property compositor (`--fin-wash`/`--fin-texture`/`--fin-mark`/`--fin-edge`), so layers combine by z-index instead of being either/or. `no-finish` (or back-compat `no-backdrop`) opts a slide out. **Rich-on-screen / safe-on-export:** each preset's slot DEFAULT is the richer "dissolving" screen look (directional fades to `transparent` — alpha the browser composites cleanly), with an `--fin-*-opaque` mirror holding the PDF-clean opaque value (every full-bleed fade ends on `var(--fin-canvas)`). One guarded block flips the slots to the opaque mirror for BOTH export paths — `@media print` (CLI vector PDF) and `.lattice-exporting` (the Studio html-to-image raster tags each section before capture) — so the screen is rich while every PDF/PPTX stays opaque-clean (an alpha area-fade bakes to a gray cloud in print-to-PDF). Both faces are palette-blind (`color-mix(var(--accent)/var(--fin-canvas))`), no masks, no `url()`; only the screen face uses alpha. **`--fin-canvas` is the surface THIS SLIDE paints** — `var(--bg)` by default, `--surface-inverse` on the frames that paint an inverse panel (`title`/`closing`/`divider`/`topic`), `var(--accent)` on the six accent covers (the five the splitter emits plus the shared `lat-split-cover`) in **every** mode, `var(--panel-fill)` on a `split-panel` cover carrying a category, and `var(--img-matte)`/`var(--scene-matte)` on the `image` and `scene` compositions that paint the matte — which is what keeps a finish from washing out a frame that paints its own canvas (#1656). It follows the frame **only where the frame actually keeps that canvas**, and after #2291 that is a question about `print` alone: `print` remaps the consumed tokens and `section.print` resets the surface, so a frame that loses the surface to it excludes it. `accent` / `no-spectrum` / `spectrum-<edge>` used to out-specify a frame's own rule and every arm here carried a mode-scoped group excluding them; none of the three was painting a canvas (each draws or removes a *bar* and restated the color while doing it), so they say `background-image` now and the exclusions are gone with them. The accent covers are **not** scoped to `dark` (they were until #2294): a cover paints `var(--accent)` in every mode, and the two arms differ only on print — `section.print` is bundled after the five component sheets and takes their field, while `section.lat-split-cover` is bundled after `section.print` and keeps it. Print has a **fourth** answer: `section.print[data-split-role="cover"]` de-floods any role-stamped cover to `var(--surface-inverse)`, so `--fin-canvas` mirrors it on the same stamp rather than on a frame class. `topic` differs by DOM shape AND by variant, so it takes three arms: `section.topic:not(:has(> ul.tile-track))` restates its canvas at (0,2,2), so a trackless topic holds it under everything, print included, and carries no condition at all; a topic carrying its track is back at (0,1,1) and loses it as `title` does; but `section.topic.fact` (0,2,1) restates it again and out-specifies `section.print` (0,1,1), so a **fact** slide keeps its inverse panel under print even when tracked — measured, `topic fact print` with the track is rgb(236,236,236) while the plain tracked arm was sending `--fin-canvas` to white. Selected deck-wide via the `finish:` register or per-slide via `@meta{class=finish finish-<name>}`. See `engineering/decisions/2026-06-30-finish-the-surface-layer.md`. |
 
 ---
 
@@ -65,7 +65,7 @@ See `engineering/decisions/2026-10-28-fit-everywhere-model.md` §13.
 
 On the live surfaces (Studio, Playground, Present), **`chart-anima`** brings a rendered chart to life — a funnel's bands build in top-to-bottom (its labels follow, the worst drop-off emphasizes); a pie fades in as a whole disc. Model-free: the motion is derived from the chart's own marks, no LLM.
 
-- **Opt-in.** Add `chart-anima` to a slide (`<!-- _class: funnel chart-anima -->`, `<!-- _class: piechart chart-anima -->`) or deck-wide via `class: chart-anima` in the front matter. A section with the class but no animatable chart is a safe no-op.
+- **Opt-in.** Add `chart-anima` to a slide (`<!-- @meta{layout=funnel, class=chart-anima} -->`, `<!-- @meta{layout=piechart, class=chart-anima} -->`) or deck-wide via `class: chart-anima` in the front matter. A section with the class but no animatable chart is a safe no-op.
 - **Preview-only, export byte-identical.** The motion plays only on the live surfaces; the exported **PDF / PPTX / HTML show the finished chart still** (unchanged from a chart without the modifier).
 - **Accessibility for free — but NOT a playback control.** An animated chart runs through the same host as an Anima `scene`, and pauses off-screen. It does **not** get the corner pause / play / replay control: the chart path passes `chrome: false` deliberately (a one-shot play-on-enter), so there is no control to show. A viewer whose system asks for `prefers-reduced-motion` sees the **finished chart, still** — the live host mounts it settled rather than playing a reduced build. Bound the policy per slide/deck with `data-scene-motion` (`still` / `legible`).
 - **Funnel + pie today.** The remaining SVG charts (quadrant, radar, map) follow as each gets its choreography defaults and a real-surface check; the gradient-fill plumbing they share is now fixed (their `url(#…)` fills would namespace the same way), though not yet verified on those charts.
@@ -74,24 +74,24 @@ See `engineering/decisions/2026-09-02-frame-model-for-motion.md` (the current st
 
 ## Two components on one slide — pane layouts
 
-**Experimental — the syntax may change.** Name the slide's layout in `_class`, then write each pane
+**Experimental — the syntax may change.** Name the slide's layout in its `@meta` record, then write each pane
 the way you write a slide, one heading level down. The slide keeps its one eyebrow, title,
 subtitle, Key Insight, below-note, header, footer and page number; only the body splits.
 
 ```markdown
-<!-- _class: columns ratio-60-40 -->
+<!-- @meta{layout=columns, class=ratio-60-40} -->
 
 `Q3 review`
 ## Services outgrew licenses for the first time.
 
-<!-- _pane: bar -->
+<!-- @meta{pane=bar} -->
 ### Revenue by line
 `$M, trailing four quarters`
 
 - Licenses `42`
 - Services `47`
 
-<!-- _pane: list -->
+<!-- @meta{pane=list} -->
 ### What changed
 
 - Services crossed licenses in March
@@ -102,28 +102,27 @@ subtitle, Key Insight, below-note, header, footer and page number; only the body
 
 | A slide | A pane |
 |---|---|
-| `<!-- _class: bar -->` names its component | `<!-- _pane: bar -->` names its component |
+| `<!-- @meta{layout=bar} -->` names its component | `<!-- @meta{pane=bar} -->` names its component |
 | `##` is its title | `###` is its title, set as a label (small tracked capitals) |
 | an eyebrow pill above the `##`, a subtitle pill below it | a subtitle pill below the `###`; no eyebrow (the title is already the label) |
 | names nothing → `content` | names nothing → `content` |
 
-- **The layout goes in `_class`:** `columns` (side by side) or `rows` (stacked), with an optional
-  ratio, 25–75 in 5% steps (default 50/50): `columns ratio-40-60`, `rows ratio-35-65`. The ratio
+- **The layout goes in `layout=`:** `columns` (side by side) or `rows` (stacked), with an optional
+  ratio in `class=`, 25–75 in 5% steps (default 50/50): `layout=columns, class=ratio-40-60`,
+  `layout=rows, class=ratio-35-65`. The ratio
   is a class word like any other, so it takes a dash, never a slash: `60/40` is not a valid CSS
   class name, sets no ratio, and `lint:deck` gives the rewrite. They are components
   like any other (`lib/components/layout/`), of a special kind: a HOST, whose body is two other
   components (manifest `hosts: panes`). The ratio and `no-spine` are its modifiers; other words
-  in the same `_class` (`dark`) apply to the slide as they always do. A second component named
-  in the host's `_class` is ignored — each pane names its own. As with any
-  class, the slide's LAST `_class` is the one that counts: `_class: columns` followed by
-  `_class: dark` is a plain dark slide.
+  in the same `class=` (`dark`) apply to the slide as they always do. A second component named
+  in the host's `class=` is ignored — each pane names its own.
 - **Write the slide's heading first.** Everything before the first pane is the slide's eyebrow,
   title and subtitle. (A `##` inside a pane would start a new slide.)
-- **Where a pane starts.** On a slide with no `_pane` marker, each top-level `###` starts a
+- **Where a pane starts.** On a slide with no `pane=` marker, each top-level `###` starts a
   `content` pane — the quick outline form:
 
   ```markdown
-  <!-- _class: columns -->
+  <!-- @meta{layout=columns} -->
 
   ## The migration halved support tickets.
 
@@ -140,8 +139,8 @@ subtitle, Key Insight, below-note, header, footer and page number; only the body
   heading inside a pane, use `####`. The exception is a component whose own anatomy uses `###`
   (`team-profile sides`, its roster labels): a pane of it keeps every `###` it holds.
 - **A marker names the component, then its modifiers, then `no-title`:**
-  `<!-- _pane: team-profile sides -->`, `<!-- _pane: list takeaway no-title -->`. The modifiers
-  reach the pane as a slide's `_class` would carry them.
+  `<!-- @meta{pane=team-profile sides} -->`, `<!-- @meta{pane=list takeaway no-title} -->`. The
+  modifiers reach the pane as a slide's `class=` would carry them.
 - **The pane title is optional**, but write one: it says what the pane is for. It is set in the
   eyebrow's voice, as a label: the slide's `##` makes the point, and each pane names what it holds
   ("Revenue by line", "Findings by vendor"). Keep it short: a label reads best at five words or
@@ -150,7 +149,7 @@ subtitle, Key Insight, below-note, header, footer and page number; only the body
   `lint:deck` suggests writing it that way. Side by side, the two titles share a row, so both
   bodies start on one line even when one title wraps.
   `no-title` hides it from the eye and keeps it in the document, for screen readers, the Read
-  view and the outline: `<!-- _pane: image no-title -->`.
+  view and the outline: `<!-- @meta{pane=image no-title} -->`.
 - **A pane brings only its component's content.** A `>` Key Insight or a `— ` note that closes
   a pane — the trailing run, where you write a conclusion — is the slide's, set below both panes.
   A `>` in the middle of a pane is a quotation, part of that pane's argument, and stays. Two Key
@@ -159,7 +158,7 @@ subtitle, Key Insight, below-note, header, footer and page number; only the body
   that is nothing but a quote and its `— ` attribution.
 - A **spine** marks the seam between the panes: the same accent rule, fading at both ends,
   that separates a chart from its key. It turns horizontal when the panes stack. Add
-  `no-spine` to drop it (`<!-- _class: columns no-spine -->`) — a photo pane's own edge
+  `no-spine` to drop it (`<!-- @meta{layout=columns, class=no-spine} -->`) — a photo pane's own edge
   usually separates it already.
 - **Which component can go in a pane, and at what share, is measured.** Each manifest's `pane`
   field records the least share it reads at side by side and stacked (`dist/docs/components.json`
@@ -184,12 +183,12 @@ subtitle, Key Insight, below-note, header, footer and page number; only the body
   Those sizes set type about twice as large, so two components do not share one frame there.
   Each page repeats the slide's eyebrow, title and subtitle and renders its pane's component as
   an ordinary slide (auto-splitting as that slide would), the pane's own title and subtitle at
-  the top of the page; the Key Insight and note close the last page. The slide's spot
-  directives (`_class`, `_footer`, …) reach every page wherever you wrote them, and a component
-  named in its `_class` does not: each page is its pane's. The same markdown reads side by side
+  the top of the page; the Key Insight and note close the last page. The slide's own
+  record fields (`class=`, `footer=`, …) reach every page wherever you wrote them, and its
+  `layout=` does not: each page is its pane's. The same markdown reads side by side
   at 16:9 and one-per-slide on a phone.
 - **`align:` works in a pane** as on a slide: a card row or list in a pane sits at the top,
-  middle or bottom, spreads or fills as the deck's `align:` or the slide's `_class: align-*`
+  middle or bottom, spreads or fills as the deck's `align:` or the slide's `@meta{class=align-*}`
   says, for every component that goes in a pane and declares an `align` default (tables do not; `split-panel` and
   `split-compare` opt out of panes; `inventory`'s cards need its `.cards` modifier, which a pane
   marker cannot carry). One setting per slide: both panes take it.
@@ -197,11 +196,10 @@ subtitle, Key Insight, below-note, header, footer and page number; only the body
   slide prints them, and the plot gets shorter or narrower instead — shorter still under a pane
   title. A pie, map or quadrant prints its key larger, beside or below the diagram, where the
   pane has room; a radar scales into its pane as it would on a slide.
-- **The experimental syntax still renders**, as an alias, with the rules it always had:
-  `<!-- panes: 40/60 -->` for the layout (`stack` for rows) and `<!-- pane: list -->` for a marker.
-  In the alias a pane's `###` stays its component's (there are no pane titles), and only a Key
-  Insight or note written after the last pane goes to the slide. `lint:deck` warns and gives the
-  rewrite (`pane-syntax`); the alias may be retired after the next release.
+- **The old pane comments are not read.** The engine no longer reads `<!-- _pane: … -->`,
+  `<!-- pane: list -->` or `<!-- panes: 40/60 -->`: each is a lint error
+  (`legacy-directive-comment`), and `lattice migrate meta` or `lint:deck --fix` rewrites the deck
+  as `@meta` records.
 
 Known limits while it is experimental: a Mermaid diagram scales into its pane, so it draws small
 in a narrow one and nothing warns; the pane's size is modelled from measurements of the slide's
@@ -375,7 +373,7 @@ below the card content. Use it to surface the one takeaway the
 audience should remember from a card-grid slide.
 
 ```markdown
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 ## The framework has four components.
 
@@ -436,7 +434,7 @@ hairline rule. Use for caveats, footnotes, or qualifications that
 shouldn't get card weight.
 
 ```markdown
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 ## …
 
@@ -514,7 +512,7 @@ turns that conclusion into a footnote — muted, hairline-ruled, and pushed to t
 stage floor. `no-note` keeps the trailing paragraph as body copy.
 
 ```markdown
-<!-- _class: content no-note -->
+<!-- @meta{layout=content, class=no-note} -->
 
 ## What we decided.
 
@@ -531,7 +529,7 @@ the drawn warning triangle (`--shape-warning`) beside the label, both painted in
 the theme's warn token.
 
 ```markdown
-<!-- _class: list note-warn -->
+<!-- @meta{layout=list, class=note-warn} -->
 
 ## Adoption, as reported in June.
 
@@ -549,7 +547,7 @@ from a mask, flips with the theme, and prints in grayscale (HARD RULE #29).
 Per-slide as above, or deck-wide in front matter (`class: no-note`) for a deck whose
 prose habitually ends this way. It suppresses only the promotion; nothing else about
 the slide changes, and a Key Insight (`> blockquote`) on the same slide is untouched.
-**Deck-wide reaches every slide, including the ones that name their own `_class:`.**
+**Deck-wide reaches every slide, including the ones that name their own `class=`.**
 (An earlier note here warned it did not, and named a per-slide workaround. That was
 wrong about the engine and is retracted — the deck-wide token was always on the section;
 one transform was reading the wrong attribute off it. #1358,
@@ -570,7 +568,7 @@ from a below-note: lighter visual weight, lower information density, signals
 "this is a footnote, not a continuation of the argument."
 
 ```markdown
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 ## Slide heading.
 
@@ -647,7 +645,7 @@ paragraph register (below-note OR annotation), in that order.
 
 The eyebrow word is not fixed. The Key Insight panel emits its eyebrow as
 `content: var(--insight-label, 'KEY INSIGHT')`, so an `insight-*` modifier on
-the slide `_class` (or a deck-wide frontmatter `class:`) swaps the word to a
+the slide's `class=` (or a deck-wide frontmatter `class:`) swaps the word to a
 curated boardroom heading — the panel chrome, color, and sizing are untouched.
 Defaults never move (the `var()` fallback), so every existing deck renders
 identically; the vocabulary is a small, edited set, not free text.
@@ -682,7 +680,7 @@ instead of a counter. The card body fills from the top; no first line
 is consumed by a label.
 
 ```markdown
-<!-- _class: compare-prose transition -->
+<!-- @meta{layout=compare-prose, class=transition} -->
 
 ## Decisions used to require a quarterly re-litigation.
 
@@ -720,7 +718,7 @@ Authors don't carry presentational markup.
   into a full-width header strip:
 
   ```markdown
-  <!-- _class: decision tag-band -->
+  <!-- @meta{layout=decision, class=tag-band} -->
   ```
 
   The card becomes a vertical column-flex: tag fits its content height
@@ -774,7 +772,7 @@ A deck-wide `class:` in front matter counts like a slide's own: `class: steps` m
 `split-panel` slide a numbered-tags layout.
 
 ```markdown
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 ## Signal Intake produces three outputs.
 
@@ -832,7 +830,7 @@ Both are custom properties, so they can be set from CSS at any level a property
 reaches — a theme's `:root`, a deck's `style:` block, a component — and the class
 is just the author-facing spelling.
 
-| `_class` | Property | Effect |
+| `class=` word | Property | Effect |
 | --- | --- | --- |
 | `table-plain` | `--table-zebra: transparent` | Turns row striping off; the hairlines carry the rhythm alone. |
 | `table-fill` | `--table-grow: 1` (+ `--table-valign: middle`) | The table takes the leftover stage height and its rows spread to use it, centered in their band. |
@@ -844,7 +842,7 @@ work on it, and `table-fill` is how you ask a `table` slide for the filling,
 band-reading geometry instead of its hug-and-center default.
 
 ```markdown
-<!-- _class: table-plain table-fill -->
+<!-- @meta{class=table-plain table-fill} -->
 ```
 
 ### A third switch — `state-cells`, for status in cells
@@ -863,7 +861,7 @@ DISTINCT shape, not just a distinct hue — still parses in grayscale and for a
 color-blind reader.
 
 ```markdown
-<!-- _class: table state-cells -->
+<!-- @meta{layout=table, class=state-cells} -->
 
 ## Where each tool actually lands.
 
@@ -895,7 +893,7 @@ table, and it only reaches the slide body's own top level:
 | a table inside `split-panel`, `split-compare`, `compare-code` or `image` | it lands in a side frame, not the slide body's top level |
 | a table a chart transform generated | it is wrapped in a `<figure>`, and belongs to the chart |
 
-**Reach for `<!-- _class: table -->` when the table IS the slide.** It is this
+**Reach for `<!-- @meta{layout=table} -->` when the table IS the slide.** It is this
 same treatment — it adds no table CSS at all — plus the things a manifest can
 declare and a bare table cannot: a row capacity budget, autosplit, the portrait
 card reshape, the `row`/`col`/`cell` focus axes, and the first-column row-label
@@ -993,7 +991,7 @@ You do not need to do anything. Overrule the engine when it guessed wrong:
 `table-cards` forces the card layout, `table-pairs` the label/value layout,
 `table-lists` one block per column, and `no-table-reflow` keeps the table at every width (it wins a slide
 carrying more than one). A slide's modifier reaches the tables in its panes;
-a pane marker can name its own (`<!-- _pane: content no-table-reflow -->`),
+a pane marker can name its own (`<!-- @meta{pane=content no-table-reflow} -->`),
 which wins for that pane. A raw `<table>` written as HTML is not reflowed. See engineering/decisions/2026-11-03-responsive-tables.md.
 
 The components that own a table have their own narrow form, on the same
@@ -1010,7 +1008,7 @@ the mobile canvas a glossary stacks regardless, as it always has.
 Every on/off a deck or a slide can set is a **switch**, spelled one way: `no-X`
 turns it off, `with-X` turns it back on for one slide. A deck turns one off with
 `class: no-X` (or a setting's own plain word, `motion: off`), and the deck's
-`class:` reaches every slide, including one with its own `_class`. The rule, in
+`class:` reaches every slide, including one with its own `class=`. The rule, in
 every render path: `with-X` > `no-X` > `silent` (header, footer, page number,
 rail) > the layout's default. The list, one row per switch, is the docs page
 [Switches](/reference/switches/) (`docs/src/content/docs/reference/switches.md`);
@@ -1020,7 +1018,7 @@ and `lint:deck` rewrites each one.
 
 ## Common modifiers
 
-Opt-in via `_class:`. Compose with any layout. This section explains the common
+Opt-in via a slide's `@meta{class=…}`. Compose with any layout. This section explains the common
 ones. The full set is declared in `lib/base/base.manifest.json` and listed, group
 by group, in the generated [base modifier reference](./base.modifiers.docs.md),
 which also gives the one-line test for each kind of word: a **modifier** is in a
@@ -1035,7 +1033,7 @@ same layout structure works on either canvas. The dark bookend layouts
 (`title`, `divider`, `closing`) include `dark` in their default chrome.
 
 ```markdown
-<!-- _class: content dark -->
+<!-- @meta{layout=content, class=dark} -->
 ```
 
 ### `light`
@@ -1048,12 +1046,12 @@ bright slide amid dark ones. Deck-wide color mode is the first-class `color-mode
 key (`light` · `dark` · `system` · `inherited` · `print` — the legacy
 `class: dark`/`light`/`print` is a deprecated alias, and **the key wins over it**:
 where a deck carries both, the alias is dropped, not merged). A per-slide
-`_class: light` wins over the deck-wide color mode, so light and dark slides can
+`@meta{class=light}` wins over the deck-wide color mode, so light and dark slides can
 coexist. Light is already the default canvas, so `light` is only meaningful as an
 *override* of a darker context.
 
 ```markdown
-<!-- _class: content light -->
+<!-- @meta{layout=content, class=light} -->
 ```
 
 > **Universal:** `claim-quiet` / `claim-hero` let content claim the stage on
@@ -1076,8 +1074,8 @@ ignore it.
 | `compare-prose` | left and right cards swap; chosen/decision read from the left. |
 
 ```markdown
-<!-- _class: image mirror -->
-<!-- _class: compare-prose mirror chosen -->
+<!-- @meta{layout=image, class=mirror} -->
+<!-- @meta{layout=compare-prose, class=mirror chosen} -->
 ```
 
 `image left` is preserved as a deprecated alias for `image mirror`.
@@ -1134,8 +1132,8 @@ frame. `review-core.js` warns one line earlier on the dark divider
 proxy for line count, so wide-set text can clip without it firing).
 
 ```markdown
-<!-- _class: divider numbered -->         → stamps "01", then "02", …
-<!-- _class: divider light numbered -->   → same series, no restart
+<!-- @meta{layout=divider, class=numbered} -->       → stamps "01", then "02", …
+<!-- @meta{layout=divider, class=light numbered} --> → same series, no restart
 ```
 
 The number is stamped as `data-lat-section` by `lib/core/section-index.js` and read
@@ -1151,7 +1149,7 @@ does not need to be told which deck it is in. The page number is deliberately
 untouched — it sits bottom-right, nowhere near the mark.
 
 One consequence worth knowing before you reach for it: **a numbered divider
-cannot carry a `_footer:` caption.** The component galleries label each variant
+cannot carry a `footer=` caption.** The component galleries label each variant
 in the footer, so the two numbered slides in the baseline gallery are labelled
 by their eyebrow instead. If a slide needs a visible footer, it cannot also be
 `numbered`.
@@ -1177,7 +1175,7 @@ should read uninterrupted, or to omit chrome from a single section
 break.
 
 ```markdown
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 ```
 
 Equivalent to `no-header no-footer no-pagination no-progress`, in one
@@ -1246,7 +1244,7 @@ mode: sketch     # deck-wide rendering mode — propagates to every slide
 ---
 ```
 
-Or per slide: `<!-- _class: cards-grid sketch -->`.
+Or per slide: `<!-- @meta{layout=cards-grid, class=sketch} -->`.
 
 ### Front-matter registers — moved
 
@@ -1262,13 +1260,13 @@ there fairly, and eight more followed it. Nothing about `headline:` or `lift:`
 belongs under a section on handwriting, and the heading structure gave a reader
 no way to find them.
 
-**The per-slide `_class:` tokens went with them**, and HARD RULE #6 sends
-`_class:` authoring to *this* file — so every one of them is listed here, by the
+**The per-slide `class=` tokens went with them**, and HARD RULE #6 sends
+per-slide class authoring to *this* file — so every one of them is listed here, by the
 register it belongs to. Each is documented in
 [`base.registers.docs.md`](base.registers.docs.md); this table exists so that a
 `grep` of the file the rule names still finds the token you are about to write.
 
-| Register | Per-slide `_class:` tokens |
+| Register | Per-slide `class=` tokens |
 |---|---|
 | `mode:` | `sketch-clean-body` |
 | `finish:` | `finish-atrium` · `finish-gallery` · `finish-halo` · `finish-ledger` · `finish-loom` · `finish-meridian` · `finish-nimbus` · `no-finish` · `finish-savile` · `finish-strata` |
@@ -1340,10 +1338,10 @@ token for that).
 | `scale-xl`  | ×1.3  | ~21 pt |
 | `scale-2xl` | ×1.5  | 24 pt  |
 
-Scope works like every other class: `_class:` scopes it to one slide, front-matter `class:` to the whole deck.
+Scope works like every other class: a slide's `@meta{class=…}` scopes it to one slide, front-matter `class:` to the whole deck.
 
 ```markdown
-<!-- _class: cards-grid scale-xl -->
+<!-- @meta{layout=cards-grid, class=scale-xl} -->
 ```
 
 ```yaml
@@ -1373,12 +1371,12 @@ closing do), so an anchor needs no token. The title also drops the running heade
 (`"chrome": { "header": false }`, stamped as `no-header`; `with-header` brings it
 back). Why each anchor keeps or drops each band:
 `engineering/decisions/2026-11-08-anchor-chrome.md`. The class wins over the manifest, and the
-manifest wins over the deck. A `<!-- paginate: -->` or `<!-- _paginate: -->`
-comment is ignored, and `lint:deck` says what to write instead.
+manifest wins over the deck. A `paginate` key in a slide's record does nothing, and `lint:deck` says what to write instead. The
+old `<!-- paginate: -->` and `<!-- _paginate: -->` comments are not read at all: each is a lint error.
 
 ```markdown
-<!-- _class: content no-pagination -->
-<!-- _class: divider with-pagination -->
+<!-- @meta{layout=content, class=no-pagination} -->
+<!-- @meta{layout=divider, class=with-pagination} -->
 ```
 
 ### `with-period` / `no-period`
@@ -1398,7 +1396,7 @@ register or a per-slide `tone-<style>` token — see *The `stamp:` / `tone:`
 front-matter registers* in [`base.registers.docs.md`](base.registers.docs.md).
 
 ```markdown
-<!-- _class: kpi tone-warn -->
+<!-- @meta{layout=kpi, class=tone-warn} -->
 ```
 
 ### State markers — `[x]` `[-]` `[!]` `[?]` `[ ]` `[/]`
@@ -1448,8 +1446,8 @@ Only these six forms are markers. `[X]` is not one: GitHub-flavored markdown
 reads it as a *checked* box, the opposite of what a cross suggests.
 
 **Style variants (`checks-*`).** The disc treatment is one of five
-boardroom-ready styles, switchable per slide (`_class: checklist
-checks-outline`) or per deck (`class: checks-bold`). The marks and
+boardroom-ready styles, switchable per slide (`@meta{layout=checklist,
+class=checks-outline}`) or per deck (`class: checks-bold`). The marks and
 status colors never change — only the disc presentation. A finding's disc is the
 deck's status fill (`--pass-mark` … or their `-vivid` twins, by `color-intensity:`),
 its rail and label the slide ink (`--pass` …), and its row the theme's `--pass-bg` …
@@ -1520,37 +1518,37 @@ axis (`at-tl`, `at-top`, etc.). All palette-blind via `var(--accent)`
 so palette swap = treatment color swap.
 
 ```markdown
-<!-- _class: content tint-corner at-tl -->
-<!-- _class: divider mark-orbit -->
-<!-- _class: closing tint-vignette -->
+<!-- @meta{layout=content, class=tint-corner at-tl} -->
+<!-- @meta{layout=divider, class=mark-orbit} -->
+<!-- @meta{layout=closing, class=tint-vignette} -->
 ```
 
 Available classes: `no-treatment`, `tint-corner at-tl`, `mark-orbit`,
 `tint-vignette`, `tint-edge at-right`, `mark-threads`, plus 21 more.
 
-### Focus & highlighting — `_focus:`
+### Focus & highlighting — `focus=`
 
-Tell a dense slide to focus the room on one thing. `_focus:` names an
+Tell a dense slide to focus the room on one thing. `focus=` names an
 **ordinal target** with one grammar that works on any focusable surface;
 the engine tags the target and the treatment is pure CSS, palette-blind,
 and identical in PDF, PPTX, and HTML (the dim/ring survives because PPTX
 rasterises the rendered slide).
 
 ```markdown
-<!-- _class: table -->
-<!-- _focus: row 4 -->        <!-- a table body row -->
+<!-- @meta{layout=table} -->
+<!-- @meta{focus=row 4} -->          <!-- a table body row -->
 
-<!-- _focus: col 5 -->        <!-- a column -->
-<!-- _focus: cell 4,5 -->     <!-- one cell: row 4, column 5 -->
-<!-- _focus: item 3 -->       <!-- a list / card-grid item -->
-<!-- _focus: line 8-9 -->     <!-- code lines (a range) -->
-<!-- _focus: row 2, row 5 --> <!-- two targets -->
-<!-- _focus: item 2-4 -->     <!-- a range -->
-<!-- _focus: mark 3 -->       <!-- a chart mark: the 3rd bar, wedge, band, cell or state -->
-<!-- _focus: series 2 -->     <!-- a chart series: the 2nd line, radar polygon -->
+<!-- @meta{focus=col 5} -->          <!-- a column -->
+<!-- @meta{focus="cell 4,5"} -->     <!-- one cell: row 4, column 5 -->
+<!-- @meta{focus=item 3} -->         <!-- a list / card-grid item -->
+<!-- @meta{focus=line 8-9} -->       <!-- code lines (a range) -->
+<!-- @meta{focus="row 2, row 5"} --> <!-- two targets -->
+<!-- @meta{focus=item 2-4} -->       <!-- a range -->
+<!-- @meta{focus=mark 3} -->         <!-- a chart mark: the 3rd bar, wedge, band, cell or state -->
+<!-- @meta{focus=series 2} -->       <!-- a chart series: the 2nd line, radar polygon -->
 ```
 
-The universal form is **`_focus: <axis> <ordinal>`** (ordinals count from
+The universal form is **`focus=<axis> <ordinal>`** (ordinals count from
 1). Axes by surface: `item` (lists, card grids), `row` / `col` / `cell`
 (tables), `line` (code), `mark` / `series` (charts).
 
@@ -1565,43 +1563,43 @@ only: a scatter's series is its dots, which carry no series index, and slope
 numbers its lines by palette slot rather than by entity. The default
 look is spotlight, and a receded mark keeps 40% rather than text's 24%,
 because a chart's other marks are the context the focused one is read
-against. A focused line also gains weight. `_focusStyle: ring` keeps every
+against. A focused line also gains weight. `focus-style=ring` keeps every
 mark at full strength and edges the focused one in the accent. Worked deck:
 `examples/focus-chart-marks.md`.
 
 **Look — content-aware by default.** Tables get a **ring** (an accent
 outline; nothing is dimmed, so the comparison stays legible). Lists, grids,
 and code get **spotlight** (the rest recedes, the target stays full).
-Override per slide with `_focusStyle`:
+Override per slide with `focus-style=`:
 
 ```markdown
-<!-- _focusStyle: spotlight -->   <!-- recede the rest (dim) -->
-<!-- _focusStyle: blur -->        <!-- recede the rest (defocus — the camera-focus look) -->
-<!-- _focusStyle: ring -->        <!-- outline the target, no dimming -->
-<!-- _focusStyle: list-fill -->   <!-- accent-soft fill on the target -->
-<!-- _focusStyle: highlight -->   <!-- accent tint + edge on the target; nothing recedes -->
+<!-- @meta{focus-style=spotlight} --> <!-- recede the rest (dim) -->
+<!-- @meta{focus-style=blur} -->      <!-- recede the rest (defocus — the camera-focus look) -->
+<!-- @meta{focus-style=ring} -->      <!-- outline the target, no dimming -->
+<!-- @meta{focus-style=list-fill} --> <!-- accent-soft fill on the target -->
+<!-- @meta{focus-style=highlight} --> <!-- accent tint + edge on the target; nothing recedes -->
 ```
 
 `highlight` is the no-dimming look for every axis. A card, table row, column, cell or code line
 takes an accent tint and an edge (the `preferred` look of `verdict-grid`, without the spark), a
 chart mark takes an edge, a chart series gets a heavier line, and every other target stays untouched. It sets no weight or
-size, so nothing rewraps between `_focusSteps` steps. Worked decks: `examples/focus-styles.md` (the
+size, so nothing rewraps between `focus-steps=` steps. Worked decks: `examples/focus-styles.md` (the
 five styles side by side) and `examples/focus-highlight-axes.md` (`highlight` on every axis).
 
 `blur` survives PDF and PPTX (the rest is rasterised soft, the target stays
 sharp). It only defocuses the rest: the target keeps its size and position, so
-nothing shifts between `_focusSteps` steps and nothing clips at the stage edge. Tune the
+nothing shifts between `focus-steps=` steps and nothing clips at the stage edge. Tune the
 radius per deck via `--focus-blur` (default `0.15cqi`).
 
-**Walk the slide — `_focusSteps`.** One slide whose focus moves, one target
+**Walk the slide — `focus-steps=`.** One slide whose focus moves, one target
 per click, while you present:
 
 ```markdown
-<!-- _class: cards-grid -->
-<!-- _focusSteps: item 1 | item 2 | item 3 | item 4 -->
+<!-- @meta{layout=cards-grid} -->
+<!-- @meta{focus-steps="item 1 | item 2 | item 3 | item 4"} -->
 ```
 
-Each step is a `_focus` spec, and step N lights exactly what `_focus: <step N>`
+Each step is a `focus=` spec, and step N lights exactly what `focus=<step N>`
 would. **It stays one slide everywhere**: one page number, one section, one rail
 dot. Present (the Studio, the Stage window and the exported HTML player) walks it:
 next lights step 1, then step 2, and so on, before moving to the next slide;
@@ -1615,28 +1613,26 @@ lit at its step, and every page keeps the slide's page number. Worked deck: `exa
 Design: `engineering/decisions/2026-11-09-steps-as-a-behavior.md` (the
 one-slide model, which replaced the slide-per-step copy of
 `2026-06-16-focus-highlighting.md` §4). (The grammar is
-linted — a typo like `_focus: rows 4` or `_focusStyle: glow` is flagged
+linted — a typo like `focus=rows 4` or `focus-style=glow` is flagged
 before render. Note: focus resolves on the engine render paths — the
-emulator PDF/PPTX/HTML and the docs playground — and in published HTML; the
-live VS Code Marp preview, which doesn't run the Lattice slide pipeline,
-does not resolve `_focus`.)
+emulator PDF/PPTX/HTML and the docs playground — and in published HTML.)
 
-### Narrative build — `_build`
+### Narrative build — `build`
 
-Walk a slide one beat at a time. `_build` opts a slide into **progressive
+Walk a slide one beat at a time. `build` opts a slide into **progressive
 disclosure** — its units appear step by step instead of all at once. It's
-"`_focus` sequenced over time", so the grammar is a strict subset of `_focus`
+"`focus=` sequenced over time", so the grammar is a strict subset of `focus=`
 (axis + grouping), derived from the slide's own structure — no per-element
 authoring.
 
 ```markdown
-<!-- _build -->            one step per item of the primary collection (default axis)
-<!-- _build: rows -->      pick the axis: item (default) · row · col · line
-<!-- _build: 1, 2-3, 4 --> group units into steps (step 2 reveals units 2 AND 3)
-<!-- _build: none -->      opt this slide OUT (e.g. when a deck builds by default)
+<!-- @meta{build} -->             one step per item of the primary collection (default axis)
+<!-- @meta{build=rows} -->        pick the axis: item (default) · row · col · line
+<!-- @meta{build="1, 2-3, 4"} --> group units into steps (step 2 reveals units 2 AND 3)
+<!-- @meta{build=none} -->        opt this slide OUT (e.g. when a deck builds by default)
 ```
 
-Axes by surface mirror `_focus`: `item` (lists, card grids), `row` / `col`
+Axes by surface mirror `focus=`: `item` (lists, card grids), `row` / `col`
 (tables), `line` (code). **Document order is the step order**; ungrouped units in
 a grouped build show from step 1 (context).
 
@@ -1651,16 +1647,15 @@ fully revealed. Hidden units keep their box, so nothing moves. `--steps` (the
 Studio: "One page per step") prints one page per step, steps 1 to N, every page
 keeping the slide's page number
 (`engineering/decisions/2026-11-09-steps-as-a-behavior.md` §4). A slide takes one
-stepping directive: `_build` or `_focusSteps`, not both.
+stepping field: `build` or `focus-steps=`, not both.
 
 This is progressive disclosure (Beamer overlays / scrollytelling), **not**
 PowerPoint animation: motion is derived, typed, meaning-bearing, and
 print-faithful — there is deliberately no fly-in/spin/easing vocabulary. A build
 is for genuine narrative sequence, not for drip-feeding an overstuffed slide.
 Worked deck: `examples/build.md`. Design: `engineering/decisions/2026-06-16-narrative-step-spec.md`
-(+ the model ADR `…-narrative-step-model.md`). Like `_focus`, `_build` resolves on
-the engine render paths and in published HTML; the live VS Code Marp preview does
-not run the Lattice pipeline, so it does not resolve `_build`.
+(+ the model ADR `…-narrative-step-model.md`). Like `focus=`, `build` resolves on
+the engine render paths and in published HTML.
 
 ### Custom logo
 
@@ -1735,7 +1730,7 @@ logo-finish: bottom-center accent-ink lg   # optional: placement color size scop
 ---
 ```
 
-The logo shows on every slide while `logo:` is set; `_class: no-logo` hides it on one slide. The words
+The logo shows on every slide while `logo:` is set; `<!-- @meta{class=no-logo} -->` hides it on one slide. The words
 of `logo-finish:` and what each does are in `lib/base/_logo/logo.docs.md` § Authoring. Naming a
 placement hides the header, footer or page number in that band, because the brand wins.
 
@@ -1776,18 +1771,17 @@ independently.
 3. `lattice-runtime.js` — `applyDeckLogoFromFrontMatter()` mirrors
    the same DOM injection at view time for published HTML decks.
 
-⚠️ **Build-time only for marp-vscode preview.** The extension doesn't
-run the engine's plugins, so the logo does not appear
-there. The runtime path covers exported HTML viewed in a browser but
-gracefully no-ops in the vscode-webview sandbox (fetch can't reach
-workspace files). Same constraint `class: dark` has — see
+⚠️ **Not in the marp-vscode preview.** An Export-to-Marp bundle opened
+there shows no logo: the extension doesn't run the engine's plugins, and the
+runtime path, which covers exported HTML viewed in a browser, no-ops in the
+vscode-webview sandbox (fetch can't reach workspace files). Same constraint `class: dark` has — see
 `engineering/gotchas.md`.
 
 **Brand colors.** The `brand` color word (`logo-finish: brand`) puts `logo-brand` on the section.
 The silhouette filter is removed; the logo's original colors render directly, with nothing behind
 them, so a logo with a transparent background stays transparent. Add the `plate` word
-(`logo-finish: plate`, or `_class: logo-plate` on one slide) for the original colors on a soft `--bg-alt` plate, and
-`_class: logo-no-plate` to take the deck's plate back on one slide. Use `brand` when the brand's colors carry meaning (government insignia, university crests); reach for
+(`logo-finish: plate`, or `@meta{class=logo-plate}` on one slide) for the original colors on a soft `--bg-alt` plate, and
+`@meta{class=logo-no-plate}` to take the deck's plate back on one slide. Use `brand` when the brand's colors carry meaning (government insignia, university crests); reach for
 `auto` or a palette color otherwise.
 
 ---
@@ -1803,7 +1797,7 @@ pill has its author write one; it never paints its own.
 **Turning the grammar off:** `inline-code: literal` in front matter makes every
 single-backtick span in the deck literal — pills, marks and all, including any in the
 deck's own `header:` / `footer:`. One slide at a time is
-`<!-- _class: inline-code-literal -->`. See [`base.registers.docs.md`](base.registers.docs.md) § `inline-code:`;
+`<!-- @meta{class=inline-code-literal} -->`. See [`base.registers.docs.md`](base.registers.docs.md) § `inline-code:`;
 the Studio carries it as **Deck settings · General · Inline pills and marks**.
 
 ## Inline sparks — `~{12 14 17}`
@@ -1851,9 +1845,9 @@ pick another label, or drop it for an icon-only pill (`` `{icon=code}` ``).
 Modifiers compose space-separated after the layout name.
 
 ```markdown
-<!-- _class: cards-grid compact dark -->
-<!-- _class: closing accent -->
-<!-- _class: list-steps phase -->
+<!-- @meta{layout=cards-grid, class=compact dark} -->
+<!-- @meta{layout=closing, class=accent} -->
+<!-- @meta{layout=list-steps, class=phase} -->
 ```
 
 **Cascade rule:** when two modifiers tune the same variable (e.g.
@@ -1867,31 +1861,34 @@ conflict.
 They look interchangeable and are not. Which one you reach for decides whether a
 slide can override it, and whether it may name a component at all.
 
-| Spelling | Scope | A slide's own `_class:` | May name a component |
+| Spelling | Scope | A slide's own `class=` | May name a component |
 |---|---|---|---|
 | `class:` in **front matter** | the whole deck | **composes** — the deck's tokens are appended to the slide's | **no** |
-| `<!-- class: … -->` **mid-deck** | from that slide to the end, or the next one | **replaces** it for that slide | yes |
-| `<!-- _class: … -->` | that slide | — | yes |
+| `<!-- @meta{class=…, carry} -->` **mid-deck** | from that slide to the end, or the next one | **replaces** it for that slide | yes (`layout=…, carry`) |
+| `<!-- @meta{class=…} -->` | that slide | — | yes (`layout=…`) |
+
+The old comment spellings, `<!-- class: … -->` and `<!-- _class: … -->`, are not read: each is a
+lint error, and `lattice migrate meta` rewrites them as the records above.
 
 The front-matter register is appended to **every** slide, including one that
 names its own layout — that is what makes `class: no-note` or `class: safe`
 useful. It is also why it may not name a component: `class: kpi` plus a slide's
-own `_class: cards-grid` would leave two layouts on one section, with CSS source
+own `layout=cards-grid` would leave two layouts on one section, with CSS source
 order picking the winner. A component name there is **ignored**, and the deck
 linter says so (`deck-wide-component`). Name the layout per slide, or once for a
 run of them:
 
 ```markdown
-<!-- class: diagram -->        ← every slide from here is a diagram slide…
-<!-- _class: closing -->       ← …until one says otherwise
+<!-- @meta{layout=diagram, carry} --> ← every slide from here is a diagram slide…
+<!-- @meta{layout=closing} -->        ← …until one says otherwise
 ```
 
 **Color is the deck's `color-mode:` key, and it wins.** `class: dark` /
 `light` / `print` in front matter is the legacy alias for the same axis; when
 `color-mode:` is present, the alias is dropped rather than merged, so a
 half-migrated deck cannot render one canvas and bake its diagrams for another.
-A per-slide `_class: dark` still wins for that slide, and a mid-deck
-`<!-- class: dark -->` still switches the canvas from there on.
+A per-slide `@meta{class=dark}` still wins for that slide, and a mid-deck
+`<!-- @meta{class=dark, carry} -->` still switches the canvas from there on.
 
 ---
 

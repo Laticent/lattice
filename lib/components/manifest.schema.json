@@ -21,7 +21,7 @@
     "name": {
       "type": "string",
       "pattern": "^[a-z][a-z0-9-]*$",
-      "description": "The `_class` directive value (kebab-case)."
+      "description": "The layout name a slide's record names (`<!-- @meta{layout=<name>} -->`), kebab-case."
     },
     "label": {
       "type": "string",
@@ -76,7 +76,7 @@
     },
     "galleryAuthored": {
       "type": "boolean",
-      "description": "When true, the build-component-docs.js generator skips writing <name>.gallery.md (the file is hand-authored). Use this for components where variation lives in slide CONTENT, not in modifier classes — e.g. `diagram` (every Mermaid diagram type is the same _class) or future `code`/`math` if their galleries need a richer showcase than the manifest's variantDocs can express. <name>.docs.md is still generated from the manifest. The integration test continues to assert light/dark page-count parity for the PDFs but no longer derives the expected count from the manifest formula."
+      "description": "When true, the build-component-docs.js generator skips writing <name>.gallery.md (the file is hand-authored). Use this for components where variation lives in slide CONTENT, not in modifier classes — e.g. `diagram` (every Mermaid diagram type is the same layout) or future `code`/`math` if their galleries need a richer showcase than the manifest's variantDocs can express. <name>.docs.md is still generated from the manifest. The integration test continues to assert light/dark page-count parity for the PDFs but no longer derives the expected count from the manifest formula."
     },
     "form": {
       "enum": [
@@ -266,7 +266,7 @@
         },
         "readsInsightLabel": {
           "type": "boolean",
-          "description": "TRUE when this layout renders the `--insight-label` seam on a surface of its OWN, even though it claims the blockquote. Exactly one layout does: split-compare paints the verdict tag from that token (default 'RECOMMENDATION'), because a recommendation IS a Key Insight variant rather than a split-compare special. It matters to the deck LINT and nowhere else: the `insight-*` modifiers govern the label seam, not the block, so `<!-- _class: split-compare insight-verdict -->` renames a real surface and must not be reported inert. Omit for every layout that reads the seam only through the coda panel."
+          "description": "TRUE when this layout renders the `--insight-label` seam on a surface of its OWN, even though it claims the blockquote. Exactly one layout does: split-compare paints the verdict tag from that token (default 'RECOMMENDATION'), because a recommendation IS a Key Insight variant rather than a split-compare special. It matters to the deck LINT and nowhere else: the `insight-*` modifiers govern the label seam, not the block, so `<!-- @meta{layout=split-compare, class=insight-verdict} -->` renames a real surface and must not be reported inert. Omit for every layout that reads the seam only through the coda panel."
         },
         "claims": {
           "type": "array",
@@ -610,7 +610,7 @@
     },
     "variantKinds": {
       "type": "object",
-      "description": "What kind each variant is, for the ones that are not a plain class the CSS reacts to (the default kind, which needs no entry). `source`: the variant comes from how the author writes the Markdown, not from the class \u2014 cards-grid's `numbered` is a `1.` list \u2014 so writing it in `_class` does nothing; `means` says what to write instead. `requires`: the class acts only alongside one of the listed variants (`list numbered` needs `takeaway`). `lint:deck` warns on both misuses (`variant-inert`). Keys must be variants this manifest declares.",
+      "description": "What kind each variant is, for the ones that are not a plain class the CSS reacts to (the default kind, which needs no entry). `source`: the variant comes from how the author writes the Markdown, not from the class \u2014 cards-grid's `numbered` is a `1.` list \u2014 so writing it in `class=` does nothing; `means` says what to write instead. `requires`: the class acts only alongside one of the listed variants (`list numbered` needs `takeaway`). `lint:deck` warns on both misuses (`variant-inert`). Keys must be variants this manifest declares.",
       "propertyNames": { "pattern": "^[a-z][a-z0-9-]*$" },
       "additionalProperties": {
         "oneOf": [
@@ -749,7 +749,7 @@
     "skeleton": {
       "type": "string",
       "minLength": 1,
-      "description": "Markdown emitted by the scaffolder. Must include the `_class` directive."
+      "description": "Markdown emitted by the scaffolder. Must include the slide record that names the layout (`<!-- @meta{layout=<name>} -->`)."
     },
     "docs": {
       "type": "string",
@@ -882,12 +882,12 @@
     "sample": {
       "type": "string",
       "minLength": 1,
-      "description": "Full slide markdown (including the `_class` directive line, with no modifier) for the default-appearance slide of <name>.gallery.md. The skeleton field is the placeholder template for the scaffolder; sample is real prose that demonstrates the component."
+      "description": "Full slide markdown (including the `<!-- @meta{layout=<name>} -->` record line, with no modifier) for the default-appearance slide of <name>.gallery.md. The skeleton field is the placeholder template for the scaffolder; sample is real prose that demonstrates the component."
     },
     "venueProbe": {
       "type": "string",
       "minLength": 1,
-      "description": "Full slide markdown (with the `_class` directive line) for the LONGEST realistic content this component promises to hold at every venue and canvas family. `check:venue-conformance` renders it beside `sample` and fails the component if anything clips. Declare it for a component whose `venueCapacity` is `none`: with no count budget, this is the only statement of how much it holds."
+      "description": "Full slide markdown (with the `<!-- @meta{layout=<name>} -->` record line) for the LONGEST realistic content this component promises to hold at every venue and canvas family. `check:venue-conformance` renders it beside `sample` and fails the component if anything clips. Declare it for a component whose `venueCapacity` is `none`: with no count budget, this is the only statement of how much it holds."
     },
     "stressDoc": {
       "type": "object",
@@ -937,7 +937,7 @@
           "sample": {
             "type": "string",
             "minLength": 1,
-            "description": "Full slide markdown (including the `_class` directive line) demonstrating this variant in context."
+            "description": "Full slide markdown (including the `<!-- @meta{layout=<name>, class=<variant>} -->` record line) demonstrating this variant in context."
           }
         }
       }
@@ -1238,7 +1238,7 @@
     "align": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Where this component's content sits UP AND DOWN when it is handed more height than it needs: the default for the `align:` register (engineering/decisions/2026-11-06-unified-align.md). The engine resolves it — `lib/core/resolve-align.js`, baked into `lib/core/align-catalog.generated.js` because the runtime bundle cannot fs-load manifests — stamps the word as `data-align` on the section, and base.tokens.css turns it into `--align-v`, which the component stylesheet reads (`align-content` or `justify-content: var(--align-v)`). Declaring it is half the opt-in: a unit test fails a component that declares a default its CSS never reads. Omit this field and the component reads the stage's `align-*` classes instead. The deck's `align:` key and a per-slide `_class: align-*` both override everything here.",
+      "description": "Where this component's content sits UP AND DOWN when it is handed more height than it needs: the default for the `align:` register (engineering/decisions/2026-11-06-unified-align.md). The engine resolves it — `lib/core/resolve-align.js`, baked into `lib/core/align-catalog.generated.js` because the runtime bundle cannot fs-load manifests — stamps the word as `data-align` on the section, and base.tokens.css turns it into `--align-v`, which the component stylesheet reads (`align-content` or `justify-content: var(--align-v)`). Declaring it is half the opt-in: a unit test fails a component that declares a default its CSS never reads. Omit this field and the component reads the stage's `align-*` classes instead. The deck's `align:` key and a per-slide `@meta{class=align-*}` both override everything here.",
       "required": [
         "default"
       ],

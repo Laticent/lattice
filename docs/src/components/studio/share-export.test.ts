@@ -8,7 +8,7 @@ describe('embedFinishInMarkdown', () => {
 	const CSS = 'section.finish.finish-shu { --fin-wash: radial-gradient(circle, red, transparent); }';
 
 	it('embeds the finish CSS as a global <style> after the front matter — PER-SLIDE (no deck-wide class)', () => {
-		const src = '---\ntheme: indaco\n---\n\n<!-- _class: title finish-shu -->\n\n# Hi\n';
+		const src = '---\ntheme: indaco\n---\n\n<!-- @meta{layout=title, class=finish-shu} -->\n\n# Hi\n';
 		// finishClass is empty (the finish is applied per-slide, not deck-wide).
 		const out = embedFinishInMarkdown(src, '', CSS);
 		expect(out).toContain('<style>');
@@ -16,7 +16,7 @@ describe('embedFinishInMarkdown', () => {
 		// the <style> lands right after the closing front-matter fence…
 		expect(out.indexOf('<style>')).toBeGreaterThan(out.indexOf('\n---\n'));
 		// …and BEFORE the first slide content, so it's a global rule.
-		expect(out.indexOf('<style>')).toBeLessThan(out.indexOf('_class: title finish-shu'));
+		expect(out.indexOf('<style>')).toBeLessThan(out.indexOf('@meta{layout=title, class=finish-shu}'));
 		// per-slide: the source's own class line is untouched (no deck-wide class merge).
 		expect(out).not.toMatch(/^class:/m);
 	});
@@ -57,7 +57,7 @@ describe('embedFinishInMarkdown', () => {
 
 	it('embeds combined CSS for multiple per-slide finishes', () => {
 		const combined = `${CSS}\n\nsection.finish.finish-oct { --fin-texture: none; }`;
-		const src = '---\ntheme: indaco\n---\n\n<!-- _class: a finish-shu -->\n\n# A\n\n---\n\n<!-- _class: b finish-oct -->\n\n# B\n';
+		const src = '---\ntheme: indaco\n---\n\n<!-- @meta{class=a finish-shu} -->\n\n# A\n\n---\n\n<!-- @meta{class=b finish-oct} -->\n\n# B\n';
 		const out = embedFinishInMarkdown(src, '', combined);
 		expect(out).toContain('finish-shu');
 		expect(out).toContain('finish-oct'); // both finishes' CSS present

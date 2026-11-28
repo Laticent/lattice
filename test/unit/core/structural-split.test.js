@@ -20,13 +20,13 @@ const DECK = (size) => `---
 theme: indaco
 ${size ? `size: ${size}\n` : ''}---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # A deck
 
 ---
 
-<!-- _class: inventory -->
+<!-- @meta{layout=inventory} -->
 
 \`Eyebrow\`
 
@@ -173,7 +173,7 @@ test('a `<section` quoted in a comment, a <style> or an attribute is text, not a
 test('the page cap holds on the run actually built: exactly 64 pages ship, 65 ring (Fluid P1)', () => {
   // A checklist with a `#` title and no trailer gets no closing page, so its run is its members plus
   // a cover only when the masthead hoists. The cap counts what was BUILT, not an estimate.
-  const deck = (n, trail) => `---\ntheme: indaco\nsize: portrait\n---\n\n<!-- _class: checklist -->\n\n# Launch checklist\n\n${Array.from({ length: n }, (_, i) => `- Item number ${i + 1}`).join('\n')}\n${trail ? '\n> The key insight here.\n' : ''}`;
+  const deck = (n, trail) => `---\ntheme: indaco\nsize: portrait\n---\n\n<!-- @meta{layout=checklist} -->\n\n# Launch checklist\n\n${Array.from({ length: n }, (_, i) => `- Item number ${i + 1}`).join('\n')}\n${trail ? '\n> The key insight here.\n' : ''}`;
   const pages = (md) => {
     const out = engine.render(md, 'indaco', { preview: true });
     return ss.splitTopLevelSections(ss.structuralSplit(out.html, { deckSource: md, width: out.width, height: out.height, capacity: CAPACITY }).html).length;
@@ -190,7 +190,7 @@ test('the page cap holds on the run actually built: exactly 64 pages ship, 65 ri
 // every slide and the split lost its numbering (found by the red-team pass on #3051).
 test('a front-matter header that mentions data-lattice-slide= does not switch off slide numbering', () => {
   const items = Array.from({ length: 30 }, (_, i) => `- Item ${i + 1}`).join('\n');
-  const md = `---\ntheme: indaco\nsize: 9:16\nheader: 'docs mention data-lattice-slide=1'\n---\n\n<!-- _class: agenda -->\n\n# A\n\n${items}\n`;
+  const md = `---\ntheme: indaco\nsize: 9:16\nheader: 'docs mention data-lattice-slide=1'\n---\n\n<!-- @meta{layout=agenda} -->\n\n# A\n\n${items}\n`;
   const out = engine.render(md, 'indaco', { preview: true });
   const r = ss.structuralSplit(out.html, { deckSource: md, width: out.width, height: out.height, capacity: CAPACITY });
   const opens = r.html.match(/<section\b[^>]*>/g) || [];

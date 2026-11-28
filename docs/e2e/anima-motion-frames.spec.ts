@@ -50,7 +50,7 @@ theme: indaco
 motion: on
 ---
 
-<!-- _class: funnel -->
+<!-- @meta{class=funnel} -->
 
 ## Build — marks arrive in reading order.
 

@@ -49,11 +49,11 @@ describe('which comments are blocks is the model\'s answer', () => {
   });
   test('a comment in a list item runs to its `-->` across a blank line, and resolves as the engine does', () => {
     // markdown-it 14.3: an outdented BLANK line no longer ends a comment block inside a list item (14.1 cut the
-    // comment at the item's end, so it folded and resolved nothing). The engine now applies `_class: kpi` here,
-    // and the record must agree with it.
+    // comment at the item's end, so it folded). The comment is one block from line 1 to 3, as the engine reads it; since
+    // the cut (slice E) an old directive comment resolves nothing anywhere, and the door blanks it.
     const [slide] = scanMetaSource('- <!-- _class: kpi\n\n  -->\n').slides;
     assert.deepEqual(slide.comments.map((c) => [c.line, c.endLine, c.folded]), [[1, 3, undefined]]);
-    assert.equal(slide.resolved.size, 1);
+    assert.equal(slide.resolved.size, 0);
   });
   test('an unclosed comment in a list item ends with the item, and a directive below it counts', () => {
     assert.deepEqual(scanned('- <!-- open\n\n<!-- _class: kpi -->\n'), [['_class=kpi']]);
@@ -169,17 +169,17 @@ test('a lint rule about a directive\'s effect skips a folded one: the engine nev
   const vocab = buildVocab();
   const rules = (src) => lintText(src, { vocab }).map((f) => f.rule);
   // The same comments outside the `<div>` are read, and each rule fires; inside it, neither does.
-  assert.ok(rules('# A\n\n<!-- class: columns -->\n\n---\n\n# B\n').includes('pane-layout'));
-  assert.ok(!rules('# A\n\n<div>\n<!-- class: columns -->\n</div>\n\n---\n\n# B\n').includes('pane-layout'));
-  assert.ok(rules('<!-- _debug: bogus -->\n\n# A\n').includes('unknown-debug-facet'));
-  assert.ok(!rules('<div>\n<!-- _debug: bogus -->\n</div>\n\n# A\n').includes('unknown-debug-facet'));
+  assert.ok(rules('# A\n\n<!-- @meta{layout=columns, carry} -->\n\n---\n\n# B\n').includes('pane-layout'));
+  assert.ok(!rules('# A\n\n<div>\n<!-- @meta{layout=columns, carry} -->\n</div>\n\n---\n\n# B\n').includes('pane-layout'));
+  assert.ok(rules('<!-- @meta{debug=bogus} -->\n\n# A\n').includes('unknown-debug-facet'));
+  assert.ok(!rules('<div>\n<!-- @meta{debug=bogus} -->\n</div>\n\n# A\n').includes('unknown-debug-facet'));
 });
 
 describe('a record sets every field it names', () => {
   // The Studio rail labeled `{layout=list-steps, footer="…"}` "text": the scan kept one field per comment, the last
   // one it knew, so the footer resolved and the class did not.
   test('class and footer from one record, each resolved on its slide', () => {
-    const src = '<!-- {layout=list-steps, footer="Q3"}\nnote: |\n  A note.\n-->\n\n## A\n\n---\n\n<!-- {pane=list, footer="P"} -->\n\n## B\n';
+    const src = '<!-- @meta{layout=list-steps, footer="Q3"}\nnote: |\n  A note.\n-->\n\n## A\n\n---\n\n<!-- @meta{pane=list, footer="P"} -->\n\n## B\n';
     const [one, two] = scanMetaSource(src).slides;
     assert.equal(one.resolved.get('class')?.value, 'list-steps');
     assert.equal(one.resolved.get('footer')?.value, 'Q3');
@@ -191,11 +191,13 @@ describe('a record sets every field it names', () => {
     assert.deepEqual(readIsland(island).dirs, []);
   });
   test('a record\'s fields are marked, so a rule for the one-line form leaves them alone', () => {
-    const [one] = scanMetaSource('<!-- {layout=kpi, paginate=true} -->\n\n## A\n').slides;
+    const [one] = scanMetaSource('<!-- @meta{layout=kpi, paginate=true} -->\n\n## A\n').slides;
     assert.ok(one.comments.every((c) => c.record === true));
     assert.equal(one.resolved.get('class').record, true);
+    // An old comment is listed unmarked, for the linter, and resolves nothing since the cut.
     const [two] = scanMetaSource('<!-- _class: kpi -->\n\n## A\n').slides;
-    assert.equal(two.resolved.get('class').record, undefined);
+    assert.equal(two.comments[0].record, undefined);
+    assert.equal(two.resolved.has('class'), false);
   });
 });
 

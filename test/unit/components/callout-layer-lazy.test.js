@@ -69,7 +69,7 @@ describe('the heavy half of the callout layer', () => {
     const load = require('../../../lib/plugins/chart-family/shared/callout-place-load');
     const { default: PG } = await import('../../../lib/playground/index.js');
     // The chart reads the callout through the text of the markup, so a tag inside the sigil hides it from the regex.
-    const deck = '<!-- _class: bar -->\n\n## Revenue\n\n- North `10`\n- South `20`\n\n<p><code>@callout<span></span>{[{South led, for=South}]}</code></p>\n';
+    const deck = '<!-- @meta{layout=bar} -->\n\n## Revenue\n\n- North `10`\n- South `20`\n\n<p><code>@callout<span></span>{[{South led, for=South}]}</code></p>\n';
     load.lazy = true;
     try {
       layer.uninstall();

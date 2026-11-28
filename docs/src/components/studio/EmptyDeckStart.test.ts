@@ -3,7 +3,7 @@ import { browseLabel, START_SLIDES, startPicks } from './EmptyDeckStart';
 import type { PickerItem } from './SlidePicker';
 
 // The start grid's choices (engineering/decisions/2026-11-17-compose-empty-deck.md; the checker on #3273).
-const item = (name: string, bucket = 'anchor'): PickerItem => ({ name, bucket, description: '', skeleton: `<!-- _class: ${name} -->` });
+const item = (name: string, bucket = 'anchor'): PickerItem => ({ name, bucket, description: '', skeleton: `<!-- @meta{class=${name}} -->` });
 
 describe('the empty deck start grid', () => {
 	it('offers the four starting slides in order, from the catalog', () => {

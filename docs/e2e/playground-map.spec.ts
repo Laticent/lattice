@@ -170,13 +170,13 @@ size: portrait
 fit: heal
 ---
 
-<!-- _class: title -->
+<!-- @meta{class=title} -->
 
 # A deck
 
 ---
 
-<!-- _class: inventory -->
+<!-- @meta{class=inventory} -->
 
 \`Eyebrow\`
 
@@ -191,7 +191,7 @@ fit: heal
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{class=closing} -->
 
 # The end
 `;

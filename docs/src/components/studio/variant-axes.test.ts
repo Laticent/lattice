@@ -36,7 +36,7 @@ describe('every exclusive axis of looks swaps, in every manifest', () => {
 			for (const from of axis.members) {
 				for (const to of axis.members) {
 					if (from === to) continue;
-					const chunk = setClassTokens(`<!-- _class: ${m.name} -->\n\n## A slide`, [m.name, from]);
+					const chunk = setClassTokens(`<!-- @meta{class=${m.name}} -->\n\n## A slide`, [m.name, from]);
 					const tokens = getClassTokens(applyVariant(chunk, to, {}, variantsOf(m), m.variantAxes ?? []));
 					expect(tokens, `${m.name} ${from} → ${to}`).toContain(to);
 					expect(tokens, `${m.name} ${from} → ${to}`).not.toContain(from);

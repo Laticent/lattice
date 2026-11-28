@@ -2252,7 +2252,7 @@ describe('core: carousel — feature-cover with ledePage', () => {
 // (`atSeam`). Rendered through the real engine, so the panel markup is the one it emits.
 describe('core: carousel — feature-cover splits split-panel qr at its seam', () => {
   const { createEngine } = require('../../../lib/engine');
-  const src = "---\ntheme: indaco\n---\n\n<!-- _class: split-panel qr -->\n\n`Split-panel qr`\n\n## The payload bullet becomes a code on the panel.\n\nA bare URL auto-resolves; the caption line labels the scan.\n\n- https://example.com/docs\n- Scan for this layout's docs\n";
+  const src = "---\ntheme: indaco\n---\n\n<!-- @meta{class=split-panel qr} -->\n\n`Split-panel qr`\n\n## The payload bullet becomes a code on the panel.\n\nA bare URL auto-resolves; the caption line labels the scan.\n\n- https://example.com/docs\n- Scan for this layout's docs\n";
   const { html } = createEngine().render(src, 'indaco');
   const [qr] = splitSections(html).filter((p) => p.type === 'section');
   const text = (h) => h.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();

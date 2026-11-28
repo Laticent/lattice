@@ -29,7 +29,7 @@ examples:
     label: Beside its equation
     caption: The math slide's canvas variant puts the formula beside its curve.
     sample: |
-      <!-- _class: math canvas -->
+      <!-- @meta{layout=math, class=canvas} -->
 
       ## The logistic curve.
 
@@ -48,7 +48,7 @@ examples:
     label: Two curves
     caption: Each curve takes the next color from the palette. Labels and a grid are one line each.
     sample: |
-      <!-- _class: math canvas -->
+      <!-- @meta{layout=math, class=canvas} -->
 
       ## Two squashing functions, one chart.
 
@@ -118,7 +118,7 @@ Set what's visible with each axis's `domain`:
 To put a plot beside its equation, use the `math` slide's `canvas` variant — write the equation with the [Math](/plugins/math/learn/) plugin, then the plot:
 
 ````markdown
-<!-- _class: math canvas -->
+<!-- @meta{layout=math, class=canvas} -->
 
 ## The logistic curve.
 

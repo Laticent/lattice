@@ -37,9 +37,9 @@ anchors). Both are binding; the split tells you *where the enforcement lives*.
   `SANCTIONED_HEX` allowlist for fixed non-themeable colors. `*.tokens.css` + `var(--t,#fallback)`
   defaults exempt.)*
 
-### #6 — Before authoring any `<!-- _class: X -->` slide
+### #6 — Before authoring any `<!-- @meta{layout=X} -->` slide
 
-- **#6 — Before authoring any `<!-- _class: X -->` slide**, in the SAME turn open
+- **#6 — Before authoring any `<!-- @meta{layout=X} -->` slide**, in the SAME turn open
   `lib/components/<bucket>/X/X.docs.md` (a chart kind:
   `lib/plugins/chart-family/kinds/X/X.docs.md`) AND grep
   `test/integration/baseline-decks/gallery.md` for a live example (base

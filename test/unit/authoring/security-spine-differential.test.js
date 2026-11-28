@@ -68,9 +68,9 @@ a[href="https://selector.example/"] { color: red; }
 
 ---
 
-<!-- _backgroundImage: url(https://dir-bg.example/d.png) -->
+<!-- @meta{background-image="url(https://dir-bg.example/d.png)"} -->
 
-<!-- _backgroundColor: url(https://dir-color.example/c.png) -->
+<!-- @meta{background-color="url(https://dir-color.example/c.png)"} -->
 
 ## Click and script
 
@@ -103,7 +103,7 @@ ${F}
 
 ---
 
-<!-- _class: video -->
+<!-- @meta{layout=video} -->
 
 ## A clip
 
@@ -249,7 +249,7 @@ describe('security spine S2: the rules the renderer has no address for', () => {
   });
 
   test('silent on a clean deck with comments, a local image and a `<style>` block of deck CSS', () => {
-    assert.deepEqual(rules('---\nmarp: true\n---\n\n<!-- _class: lead -->\n\n<style>\nsection { color: var(--text); }\n</style>\n\n<img src="logo.png" alt="">\n'), []);
+    assert.deepEqual(rules('---\nmarp: true\n---\n\n<!-- @meta{class=lead} -->\n\n<style>\nsection { color: var(--text); }\n</style>\n\n<img src="logo.png" alt="">\n'), []);
     // a design tool's logo export: a `<style>` inside `<svg>` with no web address is not unsure and not a web image
     assert.deepEqual(rules('---\nmarp: true\n---\n\n<svg viewBox="0 0 10 10"><defs><style>.cls-1{fill:#e30613}</style></defs><rect class="cls-1" width="10" height="10"/></svg>\n'), []);
   });

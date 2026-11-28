@@ -33,15 +33,15 @@ type PaneCore = {
 const core = (): PaneCore => authoring().lintCore as unknown as PaneCore;
 
 
-/** The component a pane marker alone on its line names, or null. Every spelling (`_pane:`, the `pane:` alias, a
- *  record `{pane="…"}`) is read by the one shared reader, lib/core/meta-door.mjs `parsePaneMarker`. The component is
- *  the value's first word unless it is `no-title`; the alias is one component and at most `no-title` (lib/core/pane-spec.js
- *  `parseMarker`), so `<!-- pane: check the numbers -->` is a speaker note and names nothing. */
+/** The component a pane marker alone on its line names, or null. The marker is read by the one shared reader,
+ *  lib/core/meta-door.mjs `parsePaneMarker`, and only a record (`<!-- @meta{pane="…"} -->`) or the engine's internal
+ *  comment counts: since the cut the door blanks an old `_pane:` / `pane:` comment, so it puts nothing in a pane
+ *  (record note §15). The component is the value's first word unless it is `no-title`. */
 function markerComponent(line: string): string | null {
-	const pane = parsePaneMarker(line)?.pane;
+	const read = parsePaneMarker(line);
+	const pane = read?.spelling === 'record' || read?.spelling === 'internal' ? read.pane : null;
 	if (!pane) return null;
 	const words = pane.value.split(/\s+/).filter(Boolean);
-	if (pane.legacy && (!/^[a-z][\w-]*$/.test(words[0] ?? '') || words.slice(1).some((w) => w !== 'no-title'))) return null;
 	const cls = /^[a-z][\w-]*/.exec(words[0] ?? '')?.[0];
 	return cls && cls !== 'no-title' ? cls : null;
 }

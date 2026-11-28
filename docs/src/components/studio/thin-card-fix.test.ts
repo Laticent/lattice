@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { cardPolicy } from './photo-verdict';
 import { addCardInk, applyFixAt, photoDiagnostic } from './thin-card-fix';
 
-const DECK = '---\ntitle: T\n---\n\n<!-- _class: image spotlight image-card-clear -->\n\n## One\n\n![A lake](sample:photo-wide.svg)\n\n---\n\n<!-- _class: image spotlight image-card-clear -->\n\n## Two\n\n![A lake](sample:photo-wide.svg)\n';
+const DECK = '---\ntitle: T\n---\n\n<!-- @meta{layout=image, class=spotlight image-card-clear} -->\n\n## One\n\n![A lake](sample:photo-wide.svg)\n\n---\n\n<!-- @meta{layout=image, class=spotlight image-card-clear} -->\n\n## Two\n\n![A lake](sample:photo-wide.svg)\n';
 
 describe('addCardInk', () => {
 	it('writes the ink on the named slide only', () => {
@@ -27,13 +27,13 @@ describe('addCardInk', () => {
 describe('photoDiagnostic', () => {
 	const verdict = { low: true, ratio: 1.2, floor: 4.5, fix: 'image-card-dark', fixRatio: 9.3, message: 'm', label: 'Set card ink dark', src: 'live' } as const;
 	it('underlines the photo the slide renders, not one quoted in a comment or a fence', () => {
-		const deck = '---\ntitle: T\n---\n\n<!-- _class: image statement image-card-clear -->\n\n<!-- old: ![X](x.jpg) -->\n\n```\n![Y](y.jpg)\n```\n\n## One\n\n![A lake](sample:photo-wide.svg)\n';
+		const deck = '---\ntitle: T\n---\n\n<!-- @meta{layout=image, class=statement image-card-clear} -->\n\n<!-- old: ![X](x.jpg) -->\n\n```\n![Y](y.jpg)\n```\n\n## One\n\n![A lake](sample:photo-wide.svg)\n';
 		const doc = Text.of(deck.split('\n'));
 		const d = photoDiagnostic(doc, { slideIndex: 0, verdict }, () => null);
 		expect(d && doc.sliceString(d.from, d.to)).toBe('![A lake](sample:photo-wide.svg)');
 	});
 	it('underlines the shortcut picture an `image` slide places, though its class sits in a comment the reader blanks', () => {
-		const deck = '---\ntitle: T\n---\n\n<!-- _class: image statement image-card-clear -->\n\n## One\n\n![A lake](sample:photo-wide.svg)\n';
+		const deck = '---\ntitle: T\n---\n\n<!-- @meta{layout=image, class=statement image-card-clear} -->\n\n## One\n\n![A lake](sample:photo-wide.svg)\n';
 		const doc = Text.of(deck.split('\n'));
 		const d = photoDiagnostic(doc, { slideIndex: 0, verdict }, () => null);
 		expect(d && doc.sliceString(d.from, d.to)).toBe('![A lake](sample:photo-wide.svg)');
@@ -45,7 +45,7 @@ describe('photoDiagnostic', () => {
 });
 
 describe('cardPolicy: ink first exactly where lint flags the card', () => {
-	const src = (cls: string) => `---\ntitle: T\n---\n\n<!-- _class: ${cls} -->\n\n## One\n\n![A lake](sample:photo-wide.svg)\n`;
+	const src = (cls: string) => `---\ntitle: T\n---\n\n<!-- @meta{class=${cls}} -->\n\n## One\n\n![A lake](sample:photo-wide.svg)\n`;
 	const policy = (cls: string, resolved?: string) => {
 		const s = src(cls);
 		return cardPolicy(s.split('---\n\n')[1], s, resolved);
@@ -63,7 +63,7 @@ describe('cardPolicy: ink first exactly where lint flags the card', () => {
 });
 
 // One `---` slide split on its headings is two engine slides, each with its own class and photo (PR #3239).
-const SPLIT = '---\ntitle: T\n---\n\n<!-- _class: image spotlight image-card-clear -->\n## One\n\n![A lake](sample:photo-wide.svg)\n\n<!-- _class: image spotlight image-card-clear -->\n## Two\n\n![A field](sample:photo-tall.svg)\n';
+const SPLIT = '---\ntitle: T\n---\n\n<!-- @meta{layout=image, class=spotlight image-card-clear} -->\n## One\n\n![A lake](sample:photo-wide.svg)\n\n<!-- @meta{layout=image, class=spotlight image-card-clear} -->\n## Two\n\n![A field](sample:photo-tall.svg)\n';
 
 describe('a `---` slide split on its headings: the fix and the underline are the heading part\'s', () => {
 	const verdict = { low: true, ratio: 1.2, floor: 4.5, fix: 'image-card-light', fixRatio: 9.3, message: 'm', label: 'Set card ink light', src: 'live' } as const;
@@ -79,7 +79,7 @@ describe('a `---` slide split on its headings: the fix and the underline are the
 		expect(out.match(/image-card-light/g)).toHaveLength(1);
 	});
 	it('keeps a class the part only inherits: the running class is written with the ink, never replaced by it', () => {
-		const deck = '---\ntitle: T\n---\n\n<!-- class: image spotlight image-card-clear -->\n## One\n\n![A lake](sample:photo-wide.svg)\n\n## Two\n\n![A field](sample:photo-tall.svg)\n';
+		const deck = '---\ntitle: T\n---\n\n<!-- @meta{layout=image, class=spotlight image-card-clear, carry} -->\n## One\n\n![A lake](sample:photo-wide.svg)\n\n## Two\n\n![A field](sample:photo-tall.svg)\n';
 		const out = applyFixAt(deck, 0, 'image-card-light', 1) as string;
 		expect(out.slice(out.indexOf('![A lake]'))).toMatch(/<!-- @meta\{layout=image, class=spotlight image-card-clear image-card-light\} -->\s*## Two/);
 	});
@@ -93,7 +93,7 @@ describe('a `---` slide split on its headings: the fix and the underline are the
 	it('reads what the part inherits at its own place, though an identical part earlier in the deck inherits nothing', () => {
 		// The checker on #3239: the part was found by its text, so the earlier copy answered, and the ink replaced the layout.
 		const twin = '## Two\n\n![B](sample:photo-tall.svg)';
-		const deck = `---\ntitle: T\n---\n\n${twin}\n\n---\n\n<!-- class: image spotlight image-card-clear -->\n## One\n\n![A](sample:photo-wide.svg)\n\n${twin}\n`;
+		const deck = `---\ntitle: T\n---\n\n${twin}\n\n---\n\n<!-- @meta{layout=image, class=spotlight image-card-clear, carry} -->\n## One\n\n![A](sample:photo-wide.svg)\n\n${twin}\n`;
 		const out = applyFixAt(deck, 1, 'image-card-light', 1) as string;
 		expect(out.slice(out.indexOf('## One'))).toMatch(/<!-- @meta\{layout=image, class=spotlight image-card-clear image-card-light\} -->\s*## Two/);
 		// The first copy is untouched.

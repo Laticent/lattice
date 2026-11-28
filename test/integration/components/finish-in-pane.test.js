@@ -30,16 +30,16 @@ theme: indaco
 chart-finish: ${finish}
 ---
 
-<!-- _class: columns ratio-40-60 -->
+<!-- @meta{class=columns ratio-40-60} -->
 
 ## Two charts side by side.
 
-<!-- _pane: progress -->
+<!-- @meta{pane=progress} -->
 
 - Signal intake \`92%\` \`on-track\`
 - Vendor onboarding \`64%\` \`at-risk\`
 
-<!-- _pane: bar -->
+<!-- @meta{pane=bar} -->
 
 - North America \`3.1\`
 - Europe \`2.4\`

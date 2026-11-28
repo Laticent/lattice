@@ -50,7 +50,7 @@ marp: true
 theme: indaco
 ---
 
-<!-- _class: heatmap scale -->
+<!-- @meta{class=heatmap scale} -->
 
 \`Retention · 2026 cohorts\`
 
@@ -68,7 +68,7 @@ marp: true
 theme: indaco
 ---
 
-<!-- _class: funnel -->
+<!-- @meta{class=funnel} -->
 
 ## The funnel narrows; the width is the story.
 
@@ -254,7 +254,7 @@ marp: true
 theme: indaco
 ---
 
-<!-- _class: bar -->
+<!-- @meta{class=bar} -->
 
 ## The European spelling draws the same bars.
 
@@ -317,7 +317,7 @@ const BAR_OVERLAY = `---
 theme: indaco
 ---
 
-<!-- _class: bar -->
+<!-- @meta{class=bar} -->
 
 ## A description cannot cover the page.
 

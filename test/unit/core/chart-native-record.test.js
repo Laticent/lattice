@@ -18,7 +18,7 @@ const { loadAll } = require('../../../lib/components');
 const { bootRuntime } = require('../../helpers/runtime-boot');
 
 const vocab = buildVocab(loadAll(path.join(ROOT, 'lib', 'components')));
-const slide = (cls, body) => `<!-- _class: ${cls} -->\n\n## KPIs\n\n${body}\n`;
+const slide = (cls, body) => `<!-- @meta{class=${cls}} -->\n\n## KPIs\n\n${body}\n`;
 const deck = (cls, body) => `---\nmarp: true\n---\n\n${slide(cls, body)}`;
 const render = (src) => engine.render(src, {}).html;
 // Ids differ per document position only; the markup is otherwise byte for byte.

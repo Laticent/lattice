@@ -15,7 +15,7 @@ const { test, describe, after } = require('node:test');
 const assert = require('node:assert/strict');
 const dispatch = require('../../../lib/plugins/chart-family/chart-family.dispatch');
 
-const BAR = '<!-- _class: bar -->\n\n## Revenue\n\n- North `10`\n- South `20`\n';
+const BAR = '<!-- @meta{layout=bar} -->\n\n## Revenue\n\n- North `10`\n- South `20`\n';
 
 describe('a chart whose kernel is not loaded', () => {
   const saved = dispatch.KERNELS.bar;
@@ -52,7 +52,7 @@ describe('chartsNeeded', () => {
       for (const k of Object.keys(dispatch.KERNELS)) delete dispatch.KERNELS[k];
       const deck = [
         '# The road map, line by line', // prose: not a class
-        '<!-- _class: stacked-bar dark -->',
+        '<!-- @meta{layout=stacked-bar, class=dark} -->',
         '<!--\n_class: hub-spoke\n-->',
       ].join('\n\n');
       assert.deepEqual(PG.chartsNeeded(deck).sort(), ['hub-spoke', 'stacked-bar']);

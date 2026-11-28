@@ -24,9 +24,9 @@ function engine() {
 
 const slide = (a, b) => [
   '---', 'theme: indaco', '---', '',
-  '<!-- _class: columns -->', '', '## Two panes', '',
-  `<!-- _pane: ${a} -->`, '', ...(a === 'table' ? ['| A | B |', '|---|---|', '| 1 | 2 |'] : ['- One `1`', '- Two `2`']), '',
-  `<!-- _pane: ${b} -->`, '', ...(b === 'table' ? ['| A | B |', '|---|---|', '| 1 | 2 |'] : ['- One `1`', '- Two `2`']), '',
+  '<!-- @meta{layout=columns} -->', '', '## Two panes', '',
+  `<!-- @meta{pane=${a}} -->`, '', ...(a === 'table' ? ['| A | B |', '|---|---|', '| 1 | 2 |'] : ['- One `1`', '- Two `2`']), '',
+  `<!-- @meta{pane=${b}} -->`, '', ...(b === 'table' ? ['| A | B |', '|---|---|', '| 1 | 2 |'] : ['- One `1`', '- Two `2`']), '',
 ].join('\n');
 
 const stable = { stablePaneSheet: true };

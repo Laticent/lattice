@@ -36,7 +36,7 @@ const CASES = {
   radar: '- Us\n  - Speed `{4}`\n  - Cost `{3}`\n  - Reach `{5}`\n  - Trust `{2}`',
   heatmap: '| | Jan | Feb |\n|---|---|---|\n| EMEA | `{10}` | `{20}` |\n| APAC | `{30}` | `{40}` |',
 };
-const slide = (cls, body) => `<!-- _class: ${cls} -->\n\n## KPIs\n\n${body}\n`;
+const slide = (cls, body) => `<!-- @meta{class=${cls}} -->\n\n## KPIs\n\n${body}\n`;
 const reset = () => { for (const k of Object.keys(seen)) seen[k] = 0; };
 
 describe('a record the chart reads goes through the row schema, not the bridge fallback', () => {

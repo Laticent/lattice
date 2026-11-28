@@ -25,7 +25,7 @@ theme: indaco
 size: square
 ---
 
-<!-- _class: split-compare -->
+<!-- @meta{class=split-compare} -->
 
 \`Decision\`
 

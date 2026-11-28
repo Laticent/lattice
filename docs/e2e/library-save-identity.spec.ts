@@ -24,7 +24,7 @@ async function retype(page: Parameters<typeof gotoStudio>[0], label: string, tex
 /** Fill a component draft's three gate-coupled fields. */
 async function draftComponent(page: Parameters<typeof gotoStudio>[0], name: string) {
 	await page.getByRole('textbox', { name: 'Component name' }).fill(name);
-	await retype(page, 'Component skeleton', `<!-- _class: ${name} -->\n\n## ${name}\n\nBody.`);
+	await retype(page, 'Component skeleton', `<!-- @meta{class=${name}} -->\n\n## ${name}\n\nBody.`);
 	await retype(page, 'Component CSS', `section.${name} { display: grid; }\nsection.${name} h2 { color: var(--accent); }`);
 }
 

@@ -51,7 +51,7 @@ test('every component skeleton and variant sample lints with no errors or warnin
  * The universal references (lib/base/base.docs.md, base.registers.docs.md) teach the parts every
  * slide shares, and the agent pack ships both. Their Key Insight example wrote cards as
  * `- **Signal Intake.** Body text.`, a lint ERROR on cards-grid, until 2026-11-17. Each example is
- * linted on its own, for errors only: many are annotated (two `_class` lines shown as
+ * linted on its own, for errors only: many are annotated (two `@meta` lines shown as
  * alternatives, `<!-- … -->` notes, arrows), and those annotations raise warnings by design.
  */
 test('every example in the universal references lints with no errors', () => {
@@ -61,7 +61,9 @@ test('every example in the universal references lints with no errors', () => {
     for (const f of ['base.docs.md', 'base.registers.docs.md']) {
       const text = fs.readFileSync(path.join(ROOT, 'lib', 'base', f), 'utf8');
       for (const m of text.matchAll(/```markdown\n([\s\S]*?)\n```/g)) {
-        if (!/_class:/.test(m[1])) continue;
+        // An example is a slide when it carries a `@meta{…}` record; since the cut (meta-record
+        // §15) the docs teach settings only in that form.
+        if (!/@meta\{/.test(m[1])) continue;
         const line = text.slice(0, m.index).split('\n').length;
         const deck = path.join(dir, `${f}-L${line}.md`);
         fs.writeFileSync(deck, `${/^---\n/.test(m[1]) ? '' : '---\ntheme: indaco\n---\n\n'}${m[1]}\n`);
@@ -76,13 +78,18 @@ test('every example in the universal references lints with no errors', () => {
       out = e.stdout;
     }
     const { findings } = JSON.parse(out);
-    // A one-line example (`<!-- _class: title silent -->`) shows a modifier, not a slide, so it
+    // A one-line example (`<!-- @meta{layout=title, class=silent} -->`) shows a modifier, not a slide, so it
     // has no heading or list: #3321's `slot-contract` reports each absent required slot ("This
     // slide has none"). Absence is the point of a fragment; a slot written in the WRONG shape is
     // still an error here.
     const absent = (f) => f.rule === 'slot-contract' && /has none/.test(f.message || '');
+    // A menu example lists one field's alternatives, one record per line (`focus=row 4`,
+    // `focus=col 5`, …). Since the cut those lines are records, and `meta-record` reports each
+    // repeat ("already set by the record on line N"). A repeat is the point of a menu; any other
+    // `meta-record` finding is still an error here.
+    const menu = (f) => f.rule === 'meta-record' && /is already set by the record on line \d+/.test(f.message || '');
     const bad = findings
-      .filter((f) => f.severity === 'error' && !absent(f))
+      .filter((f) => f.severity === 'error' && !absent(f) && !menu(f))
       .map((f) => `${path.basename(f.file || '')} slide ${f.slide}: ${f.rule}`);
     assert.deepEqual(bad, [], 'an example in the universal references teaches a shape the linter rejects');
   } finally {

@@ -130,14 +130,14 @@ describe('admitPlugins — the three routes', () => {
     const noPills = (a) => names(a).filter((n) => !EMBEDDED.includes(n));
     assert.deepEqual(names(admitPlugins('# Hi $x$\n', { defaults: [] })), EMBEDDED);
     assert.deepEqual(noPills(admitPlugins('---\nplugins: [math]\n---\n# Hi\n', { defaults: [] })), ['math']);
-    assert.deepEqual(noPills(admitPlugins('<!-- _class: diagram -->\n# Flow\n', { defaults: [] })), ['mermaid']);
+    assert.deepEqual(noPills(admitPlugins('<!-- @meta{layout=diagram} -->\n# Flow\n', { defaults: [] })), ['mermaid']);
     assert.deepEqual(noPills(admitPlugins('---\nclass: scene\n---\n# Flow\n', { defaults: [] })), ['anima']);
     // A pane renders as its component's class, so a pane marker is the component route too.
-    assert.deepEqual(noPills(admitPlugins('<!-- _pane: math -->\n$$x^2$$\n', { defaults: [] })), ['math']);
+    assert.deepEqual(noPills(admitPlugins('<!-- @meta{pane=math} -->\n$$x^2$$\n', { defaults: [] })), ['math']);
     // A chart FILLS the chart family's `kernel` slot, and filling it is requiring it (phase F): no
     // chart manifest carries a `plugins` block, and the class still loads the family.
-    assert.deepEqual(noPills(admitPlugins('<!-- _class: bar -->\n## Revenue\n', { defaults: [] })), ['chart-family']);
-    assert.deepEqual(noPills(admitPlugins('<!-- _pane: gantt -->\n- A `Q1`\n', { defaults: [] })), ['chart-family']);
+    assert.deepEqual(noPills(admitPlugins('<!-- @meta{layout=bar} -->\n## Revenue\n', { defaults: [] })), ['chart-family']);
+    assert.deepEqual(noPills(admitPlugins('<!-- @meta{pane=gantt} -->\n- A `Q1`\n', { defaults: [] })), ['chart-family']);
     // A stray `<!--` quoted earlier (a code span, a fence) must not swallow a later directive: it
     // used to pair with the directive's `-->`, so the chart class was never read (red team).
     assert.deepEqual(noPills(admitPlugins('# Intro\n\nWrite `<!--` to open one.\n\n---\n\n<!-- _class: bar -->\n\n## G\n', { defaults: [] })), ['chart-family']);
@@ -173,7 +173,7 @@ describe('admitPlugins — the three routes', () => {
   });
 
   it("the host's switch wins over every route", () => {
-    const a = admitPlugins('---\nplugins: [math]\n---\n<!-- _class: math -->\n', { disabled: ['math'] });
+    const a = admitPlugins('---\nplugins: [math]\n---\n<!-- @meta{layout=math} -->\n', { disabled: ['math'] });
     assert.ok(!names(a).includes('math'));
     assert.ok(a.off.includes('math'));
   });
@@ -210,7 +210,7 @@ describe('admitPlugins — the three routes', () => {
   });
 
   it('explains every route that admitted a plugin', () => {
-    const { reasons } = admitPlugins('---\nplugins: [math]\n---\n<!-- _class: math -->\n', { explain: true });
+    const { reasons } = admitPlugins('---\nplugins: [math]\n---\n<!-- @meta{layout=math} -->\n', { explain: true });
     assert.deepEqual(reasons.math, [{ kind: 'default' }, { kind: 'listed' }, { kind: 'component', component: 'math' }]);
   });
 
@@ -220,8 +220,8 @@ describe('admitPlugins — the three routes', () => {
   });
 
   it('reads class directives in every form, from the source', () => {
-    assert.deepEqual(deckClassTokens('---\nclass: dark wide\n---\n<!-- _class: math -->\n<!-- class: diagram -->\n'), ['dark', 'wide', 'math', 'diagram']);
-    assert.deepEqual(deckClassTokens('---\nclass: [dark, wide]\n---\n<!-- _class: "math" -->\n'), ['dark', 'wide', 'math']);
+    assert.deepEqual(deckClassTokens('---\nclass: dark wide\n---\n<!-- @meta{layout=math} -->\n<!-- @meta{layout=diagram, carry} -->\n'), ['dark', 'wide', 'math', 'diagram']);
+    assert.deepEqual(deckClassTokens('---\nclass: [dark, wide]\n---\n<!-- @meta{layout=math} -->\n'), ['dark', 'wide', 'math']);
   });
 });
 
@@ -241,7 +241,7 @@ describe('admission on the render paths', () => {
     const e = createEngine({ plugins: { defaults: [] } });
     assert.ok(!e.render(MATH).html.includes('katex'), 'not loaded: not default, not listed, no class');
     assert.ok(e.render(`---\nplugins: [math]\n---\n${MATH}`).html.includes('katex'), 'listed');
-    assert.ok(e.render(`<!-- _class: math -->\n${MATH}`).html.includes('katex'), 'required by the math class');
+    assert.ok(e.render(`<!-- @meta{layout=math} -->\n${MATH}`).html.includes('katex'), 'required by the math class');
     assert.ok(!e.render(MATH).html.includes('katex'), 'the memoized parser does not leak the last deck\'s set');
   });
 

@@ -22,7 +22,7 @@ const { STATUS_TONE } = require('../../../lib/plugins/chart-family/shared/graph-
 const { ownClassOf } = require('../../helpers/slide-class.js');
 
 const ROOT = path.join(__dirname, '../../..');
-const render = (body, cls = 'state-chart') => String(engine.render(`<!-- _class: ${cls} -->\n\n## A machine.\n\n${body}\n`).html);
+const render = (body, cls = 'state-chart') => String(engine.render(`<!-- @meta{class=${cls}} -->\n\n## A machine.\n\n${body}\n`).html);
 const unesc = (s) => s.replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
 const modelOf = (html) => {
   const m = /data-sc-model="([^"]*)"/.exec(html);
@@ -399,7 +399,7 @@ describe('state chart — every shipped slide lays out with zero quality faults'
 
 describe('state chart — lint reads the same grammar', () => {
   const { findFlowchartIssues } = require('../../../lib/authoring/lint-core');
-  const lint = (body) => findFlowchartIssues(`<!-- _class: state-chart -->\n\n## X.\n\n${body}\n`);
+  const lint = (body) => findFlowchartIssues(`<!-- @meta{layout=state-chart} -->\n\n## X.\n\n${body}\n`);
 
   test('a near-duplicate target is named, since a target is a state\'s name', () => {
     const f = lint('- Draft `start`\n  - -submit-> Aproved\n- Approved `end`');
@@ -434,7 +434,7 @@ describe('state chart — composites in the facts', () => {
 
   test('the narration reads the same roles: the start is not an end, nothing is unreachable', () => {
     const { narrateStateChart } = require('../../../lib/core/chart-narration');
-    const said = narrateStateChart(`<!-- _class: state-chart -->\n\n## Orders.\n\n${COMPOSITE}\n`);
+    const said = narrateStateChart(`<!-- @meta{layout=state-chart} -->\n\n## Orders.\n\n${COMPOSITE}\n`);
     assert.doesNotMatch(said, /Cart is an end state/);
     assert.doesNotMatch(said, /never reaches|Nothing leads to/);
   });
@@ -479,7 +479,7 @@ describe('state chart — hostile names and grammar edges', () => {
 
   test('the narration reads the list after the heading, not a list above it', () => {
     const { narrateStateChart } = require('../../../lib/core/chart-narration');
-    const said = narrateStateChart('<!-- _class: state-chart -->\n\n- Intro point\n\n## Machine\n\n- Draft `start`\n  - -submit-> Review\n- Review `end`\n');
+    const said = narrateStateChart('<!-- @meta{layout=state-chart} -->\n\n- Intro point\n\n## Machine\n\n- Draft `start`\n  - -submit-> Review\n- Review `end`\n');
     assert.match(said, /From Draft, submit goes to Review/);
     assert.doesNotMatch(said, /-submit->/);
     assert.doesNotMatch(said, /starts at Intro/);
@@ -487,7 +487,7 @@ describe('state chart — hostile names and grammar edges', () => {
 
   test('the v1 detectors catch an event holding `=` and the two-slot tint', () => {
     const { findFlowchartIssues } = require('../../../lib/authoring/lint-core');
-    const rules = findFlowchartIssues('<!-- _class: state-chart -->\n\n## X.\n\n1. Draft\n   - `x = y => 2`\n2. Done :::state-pass-hue/state-pass-ink\n').map((x) => x.rule);
+    const rules = findFlowchartIssues('<!-- @meta{layout=state-chart} -->\n\n## X.\n\n1. Draft\n   - `x = y => 2`\n2. Done :::state-pass-hue/state-pass-ink\n').map((x) => x.rule);
     assert.ok(rules.includes('state-chart-v1-transition'));
     assert.ok(rules.includes('state-chart-v1-tint'));
   });
@@ -576,7 +576,7 @@ describe('wrapping is a Trama capability — the flowchart wraps a long flow, ke
 });
 
 describe('graph charts — a composite\'s blockquote is never dropped', () => {
-  const md = (cls) => `<!-- _class: ${cls} -->\n\n## X.\n\n- Active\n  > GROUPNOTE\n  - Draft\n    > DRAFTNOTE\n    - -> Done\n- Done\n`;
+  const md = (cls) => `<!-- @meta{class=${cls}} -->\n\n## X.\n\n- Active\n  > GROUPNOTE\n  - Draft\n    > DRAFTNOTE\n    - -> Done\n- Done\n`;
   for (const cls of ['state-chart', 'flowchart']) {
     test(`${cls}: it rides on the composite's first state, led by its name`, () => {
       const html = String(engine.render(md(cls)).html);

@@ -16,7 +16,7 @@ const vocab = buildVocab(loadAll(path.join(__dirname, '../../../lib/components')
 const deck = (...slides) => `---\ntheme: indaco\n---\n\n${slides.join('\n\n---\n\n')}\n`;
 
 test('a divider straight after a divider warns, on the second one', () => {
-  const f = findEmptySections(deck('<!-- _class: divider numbered -->\n## One', '<!-- _class: divider light -->\n## Two', '## A slide\n\nBody.'));
+  const f = findEmptySections(deck('<!-- @meta{layout=divider, class=numbered} -->\n## One', '<!-- @meta{layout=divider, class=light} -->\n## Two', '## A slide\n\nBody.'));
   assert.equal(f.length, 1);
   assert.equal(f[0].slide, 2);
   assert.equal(f[0].rule, 'empty-section');
@@ -24,15 +24,15 @@ test('a divider straight after a divider warns, on the second one', () => {
 });
 
 test('a slide between the two dividers clears it', () => {
-  assert.equal(findEmptySections(deck('<!-- _class: divider -->\n## One', '## A slide\n\nBody.', '<!-- _class: divider -->\n## Two')).length, 0);
+  assert.equal(findEmptySections(deck('<!-- @meta{layout=divider} -->\n## One', '## A slide\n\nBody.', '<!-- @meta{layout=divider} -->\n## Two')).length, 0);
 });
 
 test('three dividers in a row warn twice', () => {
-  const f = findEmptySections(deck('<!-- _class: divider -->\n## A', '<!-- _class: divider -->\n## B', '<!-- _class: divider dark -->\n## C'));
+  const f = findEmptySections(deck('<!-- @meta{layout=divider} -->\n## A', '<!-- @meta{layout=divider} -->\n## B', '<!-- @meta{layout=divider, class=dark} -->\n## C'));
   assert.deepEqual(f.map((x) => x.slide), [2, 3]);
 });
 
 test('the full lint reports it', () => {
-  const src = deck('<!-- _class: divider -->\n## One', '<!-- _class: divider -->\n## Two', '## A slide\n\nBody.');
+  const src = deck('<!-- @meta{layout=divider} -->\n## One', '<!-- @meta{layout=divider} -->\n## Two', '## A slide\n\nBody.');
   assert.ok(lintTextWith(src, vocab).some((x) => x.rule === 'empty-section' && x.severity === 'warning'));
 });

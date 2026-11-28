@@ -43,7 +43,7 @@ const BRANCHING_DECK = [
 	'---',
 	'',
 	// `tb` pinned: the assertion reads rows, and a top-to-bottom fan-out shares one.
-	'<!-- _class: state-chart tb -->',
+	'<!-- @meta{layout=state-chart, class=tb} -->',
 	'',
 	'`Fan-out`',
 	'',

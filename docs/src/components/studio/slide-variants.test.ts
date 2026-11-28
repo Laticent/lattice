@@ -9,13 +9,13 @@ import { applyVariant, componentLooks, humanizeVariant, variantActive, variantNo
 // mutators (slide-directives) are covered separately; these lock the variant semantics:
 // axis-aware replace, additive add, multi-token variants, and default-clear.
 
-const BASE = '<!-- _class: quote -->\n\n> Words.\n\n— Someone';
+const BASE = '<!-- @meta{layout=quote} -->\n\n> Words.\n\n— Someone';
 const toks = (chunk: string) => getClassTokens(chunk);
 
 // A DECLARED variant set — the component's own alternate forms (like kpi's), NOT the
 // universal config (dark / no-footer / insight-*) that lives in slide settings.
 const KPI = ['attention', 'ops', 'compliance', 'trajectory', 'spotlight'];
-const KBASE = '<!-- _class: kpi -->\n\n1. 100\n   - Done';
+const KBASE = '<!-- @meta{layout=kpi} -->\n\n1. 100\n   - Done';
 const kwith = (tokens: string[]) => setClassTokens(KBASE, tokens);
 
 // kpi's five looks really ARE one family — declare it the way a manifest would.
@@ -30,7 +30,7 @@ const MAP_AXES = [
 	{ label: 'Basemap', exclusive: true, default: 'world', members: ['world', 'us'] },
 	{ label: 'Modifier', members: ['highlight', 'robinson', 'grouped'] },
 ];
-const MBASE = '<!-- _class: map -->\n\n## Where we sell';
+const MBASE = '<!-- @meta{layout=map} -->\n\n## Where we sell';
 const mwith = (tokens: string[]) => setClassTokens(MBASE, tokens);
 
 describe('slide-variants — variant looks are class tokens', () => {

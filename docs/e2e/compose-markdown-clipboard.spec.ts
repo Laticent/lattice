@@ -12,8 +12,8 @@ import { expect, test, toastText } from './studio-fixture';
 // compose-stress.spec.ts), and the handlers under test are the editor's own, which run the same either way.
 // Each wait is on the saved deck, never a clock.
 
-const DECK = ['<!-- _class: title -->', '', '# Kickoff', '', 'Where we start.'].join('\n');
-const PASTE = ['# Quarterly plan', '', '- **Revenue** up 12%', '- Hiring *paused*', '', '---', '', '<!-- _class: big-number -->', '', '# 42%', '', 'Gross margin'].join('\n');
+const DECK = ['<!-- @meta{layout=title} -->', '', '# Kickoff', '', 'Where we start.'].join('\n');
+const PASTE = ['# Quarterly plan', '', '- **Revenue** up 12%', '- Hiring *paused*', '', '---', '', '<!-- @meta{layout=big-number} -->', '', '# 42%', '', 'Gross margin'].join('\n');
 
 /** Put the caret at the end of the given text in Compose. */
 async function caretAfter(page: Page, text: string): Promise<void> {
@@ -58,7 +58,7 @@ test.describe('Markdown on the Compose clipboard', () => {
 			await openDeckInCompose(page, DECK);
 			await caretAfter(page, 'Where we start.');
 			await paste(page, { 'text/plain': PASTE });
-			await expect.poll(() => savedDeck(page)).toContain('<!-- _class: big-number -->');
+			await expect.poll(() => savedDeck(page)).toContain('<!-- @meta{layout=big-number} -->');
 			const saved = await savedDeck(page);
 			expect(saved).toContain('# Quarterly plan');
 			expect(saved).toContain('**Revenue** up 12%');
@@ -68,7 +68,7 @@ test.describe('Markdown on the Compose clipboard', () => {
 	}
 
 	test('slides pasted mid-slide go after that slide and never split it', async ({ page }) => {
-		const two = ['<!-- _class: big-number -->', '', '# 42%', '', 'Gross margin is up. More here.'].join('\n');
+		const two = ['<!-- @meta{layout=big-number} -->', '', '# 42%', '', 'Gross margin is up. More here.'].join('\n');
 		await openDeckInCompose(page, two);
 		await caretAfter(page, 'Gross margin is up. More here.');
 		await page.keyboard.press('Home');
@@ -76,7 +76,7 @@ test.describe('Markdown on the Compose clipboard', () => {
 		await expect.poll(() => savedDeck(page)).toContain('## Risks');
 		const saved = await savedDeck(page);
 		expect(saved).toContain('Gross margin is up. More here.');
-		expect(saved.match(/_class: big-number/g)).toHaveLength(1);
+		expect(saved.match(/@meta\{layout=big-number\}/g)).toHaveLength(1);
 		await expect(page.locator('.cs-slide')).toHaveCount(3);
 	});
 
@@ -85,7 +85,7 @@ test.describe('Markdown on the Compose clipboard', () => {
 		await caretAfter(page, 'Where we start.');
 		const vscode = `<meta charset="utf-8"><div style="white-space: pre;">${PASTE.split('\n').map((l) => `<div><span style="color: #569cd6;">${l.replace(/</g, '&lt;')}</span></div>`).join('')}</div>`;
 		await paste(page, { 'text/plain': PASTE, 'text/html': vscode });
-		await expect.poll(() => savedDeck(page)).toContain('<!-- _class: big-number -->');
+		await expect.poll(() => savedDeck(page)).toContain('<!-- @meta{layout=big-number} -->');
 		expect(await savedDeck(page)).not.toContain('\\---');
 	});
 
@@ -103,7 +103,7 @@ test.describe('Markdown on the Compose clipboard', () => {
 		await openDeckInCompose(page, `---\ntheme: indaco\ntitle: Kickoff\n---\n\n${DECK}`);
 		await caretAfter(page, 'Where we start.');
 		await paste(page, { 'text/plain': `---\ntheme: cuoio\npagination: true\n---\n\n${PASTE}` });
-		await expect.poll(() => savedDeck(page)).toContain('<!-- _class: big-number -->');
+		await expect.poll(() => savedDeck(page)).toContain('<!-- @meta{layout=big-number} -->');
 		const saved = await savedDeck(page);
 		expect(saved.startsWith('---\ntheme: cuoio\ntitle: Kickoff\npagination: true\n---')).toBe(true);
 		expect(saved).not.toContain('indaco');
@@ -144,8 +144,8 @@ test.describe('Markdown on the Compose clipboard', () => {
 	// The engine renders the paste and the spine reads the markup (HARD RULE #22). One spelling a source pattern missed
 	// (a record directive, from the red team) stands in for all of them: what matters is that the check is the renderer's.
 	for (const [label, payload] of [
-		['a background directive', '<!-- _backgroundImage: url(https://example.com/b.png) -->'],
-		['a record directive', '<!-- {footer="![](https://example.com/f.png)"} -->'],
+		['a background directive', '<!-- @meta{background-image="url(https://example.com/b.png)"} -->'],
+		['a record directive', '<!-- @meta{footer="![](https://example.com/f.png)"} -->'],
 	] as const) {
 		test(`a paste that would load from another site is refused whole, with a message: ${label}`, async ({ page }) => {
 			await openDeckInCompose(page, DECK);
@@ -158,12 +158,12 @@ test.describe('Markdown on the Compose clipboard', () => {
 	}
 
 	test('a copy across slides puts their Markdown on text/plain, and the HTML copy stays', async ({ page }) => {
-		await openDeckInCompose(page, `${DECK}\n\n---\n\n<!-- _class: big-number -->\n\n# 42%\n\nGross **margin**`);
+		await openDeckInCompose(page, `${DECK}\n\n---\n\n<!-- @meta{layout=big-number} -->\n\n# 42%\n\nGross **margin**`);
 		await page.locator('.cs-host .ProseMirror').getByText('Kickoff', { exact: true }).click();
 		await page.keyboard.press('ControlOrMeta+a');
 		await page.keyboard.press('ControlOrMeta+a');
 		const { plain, html } = await copy(page);
-		expect(plain).toContain('<!-- _class: title -->');
+		expect(plain).toContain('<!-- @meta{layout=title} -->');
 		expect(plain).toContain('# Kickoff');
 		expect(plain).toMatch(/\n---\n/);
 		expect(plain).toContain('Gross **margin**');
@@ -218,7 +218,7 @@ test.describe('Markdown on the Compose clipboard', () => {
 			const vscode = `<meta charset="utf-8"><div style="white-space: pre;">${PASTE.split('\n').map((l) => `<div><span>${l.replace(/</g, '&lt;')}</span></div>`).join('')}</div>`;
 			await writeClipboard(page, { 'text/plain': PASTE, 'text/html': vscode });
 			await page.keyboard.press('ControlOrMeta+v');
-			await expect.poll(() => savedDeck(page)).toContain('<!-- _class: big-number -->');
+			await expect.poll(() => savedDeck(page)).toContain('<!-- @meta{layout=big-number} -->');
 			expect(await savedDeck(page)).not.toMatch(/\\[-*#<]|\\---/);
 			await expect(page.locator('.cs-slide')).toHaveCount(3);
 		});
@@ -237,7 +237,7 @@ test.describe('Markdown on the Compose clipboard', () => {
 		});
 
 		test('⌘C across slides puts their Markdown on the system clipboard', async ({ page }) => {
-			await openDeckInCompose(page, `${DECK}\n\n---\n\n<!-- _class: big-number -->\n\n# 42%\n\nGross **margin**`);
+			await openDeckInCompose(page, `${DECK}\n\n---\n\n<!-- @meta{layout=big-number} -->\n\n# 42%\n\nGross **margin**`);
 			await page.locator('.cs-host .ProseMirror').getByText('Kickoff', { exact: true }).click();
 			await page.keyboard.press('ControlOrMeta+a');
 			await page.keyboard.press('ControlOrMeta+a');
@@ -245,7 +245,7 @@ test.describe('Markdown on the Compose clipboard', () => {
 			await page.keyboard.press('ControlOrMeta+c');
 			await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).not.toBe('sentinel');
 			const plain = await page.evaluate(() => navigator.clipboard.readText());
-			expect(plain).toContain('<!-- _class: big-number -->');
+			expect(plain).toContain('<!-- @meta{layout=big-number} -->');
 			expect(plain).toMatch(/\n---\n/);
 			expect(plain).toContain('Gross **margin**');
 		});

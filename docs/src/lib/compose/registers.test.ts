@@ -54,7 +54,7 @@ function view(src: string) {
 // The exact reported bug: Key-insight tapped repeatedly with the caret in a list item.
 describe('no unbounded nesting (the `- > > > >` bug)', () => {
 	it('insight on a list item is a strict no-op — never wraps a blockquote', () => {
-		const t = view('<!-- _class: content -->\n\n# Idea\n\n- boxes to drag');
+		const t = view('<!-- @meta{layout=content} -->\n\n# Idea\n\n- boxes to drag');
 		t.caret('boxes to drag');
 		for (let i = 0; i < 6; i++) t.apply('insight');
 		const out = t.src();
@@ -63,7 +63,7 @@ describe('no unbounded nesting (the `- > > > >` bug)', () => {
 	});
 
 	it('insight on a trailing paragraph is an idempotent toggle, never nests', () => {
-		const t = view('<!-- _class: content -->\n\n# Idea\n\nA closing thought.');
+		const t = view('<!-- @meta{layout=content} -->\n\n# Idea\n\nA closing thought.');
 		t.caret('A closing thought.');
 		t.apply('insight'); // → blockquote
 		expect(t.src()).toMatch(/^> A closing thought\.$/m);
@@ -75,7 +75,7 @@ describe('no unbounded nesting (the `- > > > >` bug)', () => {
 	});
 
 	it('insight on a non-last paragraph relocates to the slide end and still toggles', () => {
-		const t = view('<!-- _class: content -->\n\n# Idea\n\nMiddle thought.\n\nTail.');
+		const t = view('<!-- @meta{layout=content} -->\n\n# Idea\n\nMiddle thought.\n\nTail.');
 		t.caret('Middle thought.');
 		t.apply('insight'); // wraps + moves to end
 		expect((t.src().match(/^>/gm) || []).length).toBe(1); // exactly one blockquote line
@@ -86,7 +86,7 @@ describe('no unbounded nesting (the `- > > > >` bug)', () => {
 
 describe('registers are no-ops on content they cannot render from', () => {
 	it('h1/h2 on a list item does not bury a heading in the list', () => {
-		const t = view('<!-- _class: content -->\n\n- one\n- two');
+		const t = view('<!-- @meta{layout=content} -->\n\n- one\n- two');
 		t.caret('one');
 		t.apply('h1');
 		t.apply('h2');
@@ -96,7 +96,7 @@ describe('registers are no-ops on content they cannot render from', () => {
 	});
 
 	it('note on a list item is a no-op', () => {
-		const t = view('<!-- _class: content -->\n\n- alpha\n- omega');
+		const t = view('<!-- @meta{layout=content} -->\n\n- alpha\n- omega');
 		t.caret('omega');
 		t.apply('note');
 		expect(t.src()).not.toMatch(/—/);
@@ -106,7 +106,7 @@ describe('registers are no-ops on content they cannot render from', () => {
 
 describe('registers on a plain paragraph toggle cleanly', () => {
 	it('h1 applies then toggles back to a paragraph', () => {
-		const t = view('<!-- _class: content -->\n\nHello world.');
+		const t = view('<!-- @meta{layout=content} -->\n\nHello world.');
 		t.caret('Hello world.');
 		t.apply('h1');
 		expect(t.src()).toMatch(/^# Hello world\.$/m);
@@ -116,7 +116,7 @@ describe('registers on a plain paragraph toggle cleanly', () => {
 	});
 
 	it('note adds a trailing em-dash once and strips it back off', () => {
-		const t = view('<!-- _class: content -->\n\n# Idea\n\nfootnote here');
+		const t = view('<!-- @meta{layout=content} -->\n\n# Idea\n\nfootnote here');
 		t.caret('footnote here');
 		t.apply('note'); // → "— footnote here"
 		expect(t.src()).toMatch(/—\s*footnote here/);
@@ -127,7 +127,7 @@ describe('registers on a plain paragraph toggle cleanly', () => {
 
 describe('a cross-slide selection registers nothing', () => {
 	it('a selection spanning two slides is a no-op', () => {
-		const t = view('<!-- _class: content -->\n\nOne.\n\n---\n\n<!-- _class: content -->\n\nTwo.');
+		const t = view('<!-- @meta{layout=content} -->\n\nOne.\n\n---\n\n<!-- @meta{layout=content} -->\n\nTwo.');
 		// select from inside slide 1 to inside slide 2
 		let from = -1;
 		let to = -1;
@@ -156,7 +156,7 @@ describe('adversarial register sweep — never corrupts, never nests unbounded',
 	};
 
 	it('a range selection across two blocks in one slide stays valid and never nests', () => {
-		const t = view('<!-- _class: content -->\n\n# Head\n\nBody line.');
+		const t = view('<!-- @meta{layout=content} -->\n\n# Head\n\nBody line.');
 		let from = -1;
 		let to = -1;
 		t.v.state.doc.descendants((node, pos) => {
@@ -170,7 +170,7 @@ describe('adversarial register sweep — never corrupts, never nests unbounded',
 	});
 
 	it('a caret inside a blockquote paragraph: heading is a no-op, insight unwraps', () => {
-		const t = view('<!-- _class: content -->\n\n> quoted thought');
+		const t = view('<!-- @meta{layout=content} -->\n\n> quoted thought');
 		t.caret('quoted thought');
 		t.apply('h1'); // top-level block is a blockquote → no-op
 		expect(t.src()).not.toMatch(/^#\s/m);
@@ -181,7 +181,7 @@ describe('adversarial register sweep — never corrupts, never nests unbounded',
 
 	it('an empty paragraph survives every register (no crash, no nest)', () => {
 		for (const reg of ['h1', 'h2', 'eyebrow', 'subtitle', 'insight', 'note'] as const) {
-			const t = view('<!-- _class: content -->\n\n# Head\n\ntmp');
+			const t = view('<!-- @meta{layout=content} -->\n\n# Head\n\ntmp');
 			// empty the trailing paragraph, caret inside it
 			t.caret('tmp');
 			t.v.dispatch(t.v.state.tr.delete(t.v.state.selection.from - 1, t.v.state.selection.from + 2));
@@ -192,7 +192,7 @@ describe('adversarial register sweep — never corrupts, never nests unbounded',
 	});
 
 	it('note on a non-last paragraph preserves the paragraph text when it moves to the end', () => {
-		const t = view('<!-- _class: content -->\n\nkeep this text\n\nTail.');
+		const t = view('<!-- @meta{layout=content} -->\n\nkeep this text\n\nTail.');
 		t.caret('keep this text');
 		t.apply('note');
 		expect(t.src()).toMatch(/—\s*keep this text/); // text preserved, em-dash prepended
@@ -201,7 +201,7 @@ describe('adversarial register sweep — never corrupts, never nests unbounded',
 	});
 
 	it('a deeply nested list item is a no-op for every block register', () => {
-		const t = view('<!-- _class: content -->\n\n- outer\n  - inner deep');
+		const t = view('<!-- @meta{layout=content} -->\n\n- outer\n  - inner deep');
 		t.caret('inner deep');
 		for (const reg of ['h1', 'insight', 'note'] as const) t.apply(reg);
 		expect(t.src()).not.toMatch(/^>/m);
@@ -211,7 +211,7 @@ describe('adversarial register sweep — never corrupts, never nests unbounded',
 	});
 
 	it('the Format group is context-sensitive to the caret block', () => {
-		const t = view('<!-- _class: content -->\n\n# Head\n\nright after heading\n\n- a list item\n\nlone paragraph');
+		const t = view('<!-- @meta{layout=content} -->\n\n# Head\n\nright after heading\n\n- a list item\n\nlone paragraph');
 		t.caret('Head'); // heading → only H1/H2
 		expect(applicableRegisters(t.v.state).keys).toEqual(['h1', 'h2']);
 		t.caret('right after heading'); // paragraph AFTER a heading → subtitle applies
@@ -225,24 +225,24 @@ describe('adversarial register sweep — never corrupts, never nests unbounded',
 	it('the HEADING register follows the slide-class grammar (H1 for a title, H2 for a body class)', () => {
 		const headings: Record<string, ('h1' | 'h2')[]> = { title: ['h1'], content: ['h2'], 'cards-grid': ['h2'], journey: ['h1', 'h2'] };
 		// A TITLE slide grammars an h1 → the heading register offers ONLY H1 (never H2).
-		const title = view('<!-- _class: title -->\n\n# Deck title\n\nsub line');
+		const title = view('<!-- @meta{layout=title} -->\n\n# Deck title\n\nsub line');
 		title.caret('Deck title');
 		expect(applicableRegisters(title.v.state, headings).keys).toEqual(['h1']);
 		title.caret('sub line'); // paragraph right after the h1 → H1 + subtitle, still NO H2
 		expect(applicableRegisters(title.v.state, headings).keys).toEqual(['h1', 'subtitle', 'insight', 'note']);
 		// A CONTENT slide grammars an h2 → the heading register offers ONLY H2 (never H1 — the
 		// single-h1 rule the user hit on slide 2).
-		const content = view('<!-- _class: content -->\n\n## Section\n\nbody text');
+		const content = view('<!-- @meta{layout=content} -->\n\n## Section\n\nbody text');
 		content.caret('Section');
 		expect(applicableRegisters(content.v.state, headings).keys).toEqual(['h2']);
 		content.caret('body text'); // right after the h2 → H2 + subtitle (never H1)
 		expect(applicableRegisters(content.v.state, headings).keys).toEqual(['h2', 'subtitle', 'insight', 'note']);
 		// A multi-level class (heading slot lists `h1, h2`) offers BOTH.
-		const jrn = view('<!-- _class: journey -->\n\n## Stage\n\nstep');
+		const jrn = view('<!-- @meta{layout=journey} -->\n\n## Stage\n\nstep');
 		jrn.caret('Stage');
 		expect(applicableRegisters(jrn.v.state, headings).keys).toEqual(['h1', 'h2']); // grammar allows both
 		// An UNKNOWN class (not in the grammar map) stays permissive — never silently drop the control.
-		const unknown = view('<!-- _class: mystery-box -->\n\n# Head\n\ntext');
+		const unknown = view('<!-- @meta{class=mystery-box} -->\n\n# Head\n\ntext');
 		unknown.caret('Head');
 		expect(applicableRegisters(unknown.v.state, headings).keys).toEqual(['h1', 'h2']);
 	});
@@ -251,7 +251,7 @@ describe('adversarial register sweep — never corrupts, never nests unbounded',
 	// pill, not render as a lone wrong button. An H1 on a body (h2) slide offers H1 (lit) AND H2.
 	it('keeps a grammar-illegal heading level available so it can be un-set from the pill', () => {
 		const headings: Record<string, ('h1' | 'h2')[]> = { content: ['h2'] };
-		const t = view('<!-- _class: content -->\n\n# Rogue H1'); // an h1 on a body-class slide
+		const t = view('<!-- @meta{layout=content} -->\n\n# Rogue H1'); // an h1 on a body-class slide
 		t.caret('Rogue H1');
 		const { keys, active } = applicableRegisters(t.v.state, headings);
 		expect(active).toBe('h1'); // the block really is an h1
@@ -267,7 +267,7 @@ describe('adversarial register sweep — never corrupts, never nests unbounded',
 	it('is crash-proof on prototype-named classes and permissive when classless', () => {
 		const headings: Record<string, ('h1' | 'h2')[]> = { content: ['h2'], title: ['h1'] };
 		for (const evil of ['constructor', 'hasOwnProperty', 'isPrototypeOf', 'propertyIsEnumerable', 'toString']) {
-			const p = view(`<!-- _class: ${evil} -->\n\n# Head`);
+			const p = view(`<!-- @meta{class=${evil}} -->\n\n# Head`);
 			p.caret('Head');
 			expect(() => applicableRegisters(p.v.state, headings)).not.toThrow();
 			expect(applicableRegisters(p.v.state, headings).keys).toEqual(['h1', 'h2']); // permissive, not stranded/crashed
@@ -277,7 +277,7 @@ describe('adversarial register sweep — never corrupts, never nests unbounded',
 		bare.caret('Just a heading');
 		expect(applicableRegisters(bare.v.state, headings).keys).toEqual(['h1', 'h2']);
 		// The LAST `_class` wins (engine semantics), so Compose gates on what actually renders.
-		const multi = view('<!-- _class: content -->\n<!-- _class: title -->\n\n# T');
+		const multi = view('<!-- @meta{layout=content} -->\n<!-- @meta{layout=title} -->\n\n# T');
 		multi.caret('T');
 		expect(applicableRegisters(multi.v.state, headings).keys).toEqual(['h1']); // title, not content
 	});
@@ -286,10 +286,10 @@ describe('adversarial register sweep — never corrupts, never nests unbounded',
 	// all — not the permissive default — while an UNKNOWN class stays permissive.
 	it('offers no heading register for a known no-heading class, permissive for an unknown one', () => {
 		const headings: Record<string, ('h1' | 'h2')[]> = { content: ['h2'], 'big-number': [] };
-		const bn = view('<!-- _class: big-number -->\n\nplain paragraph');
+		const bn = view('<!-- @meta{layout=big-number} -->\n\nplain paragraph');
 		bn.caret('plain paragraph');
 		expect(applicableRegisters(bn.v.state, headings).keys).toEqual(['insight', 'note']); // no H1/H2
-		const unknown = view('<!-- _class: totally-made-up -->\n\nplain paragraph');
+		const unknown = view('<!-- @meta{class=totally-made-up} -->\n\nplain paragraph');
 		unknown.caret('plain paragraph');
 		expect(applicableRegisters(unknown.v.state, headings).keys).toEqual(['h1', 'h2', 'insight', 'note']);
 	});
@@ -298,7 +298,7 @@ describe('adversarial register sweep — never corrupts, never nests unbounded',
 	// and applying the grammar heading NORMALIZES the level (rather than toggling to a paragraph).
 	it('normalizes an H3–H6 heading instead of mislabeling it H2', () => {
 		const headings: Record<string, ('h1' | 'h2')[]> = { content: ['h2'] };
-		const t = view('<!-- _class: content -->\n\n### Deep head');
+		const t = view('<!-- @meta{layout=content} -->\n\n### Deep head');
 		t.caret('Deep head');
 		const { keys, active } = applicableRegisters(t.v.state, headings);
 		expect(active).toBe(null); // an H3 is not an H1 or H2 register
@@ -310,7 +310,7 @@ describe('adversarial register sweep — never corrupts, never nests unbounded',
 	// Follow-up A: an ORPHAN code label (no adjacent heading) offers eyebrow so its code mark can be
 	// cleared from the pill, not only in Markdown mode.
 	it('offers a clear affordance for an orphan code label', () => {
-		const t = view('<!-- _class: content -->\n\n`LONE LABEL`\n\nbody');
+		const t = view('<!-- @meta{layout=content} -->\n\n`LONE LABEL`\n\nbody');
 		t.caret('LONE LABEL');
 		const { keys } = applicableRegisters(t.v.state);
 		expect(keys).toContain('eyebrow'); // a way to clear the label exists
@@ -321,13 +321,13 @@ describe('adversarial register sweep — never corrupts, never nests unbounded',
 
 	it('a locked slide offers no registers', () => {
 		// A table no longer locks (it's modeled + round-trippable), nor does inline math; a list item holding block HTML still does.
-		const t = view('<!-- _class: content -->\n\n# Locked\n\n- area\n  <div>x</div>');
+		const t = view('<!-- @meta{layout=content} -->\n\n# Locked\n\n- area\n  <div>x</div>');
 		t.caret('Locked');
 		expect(applicableRegisters(t.v.state)).toEqual({ keys: [], active: null });
 	});
 
 	it('a rapid mixed sequence leaves a valid, un-nested doc', () => {
-		const t = view('<!-- _class: content -->\n\n# Head\n\nplain paragraph');
+		const t = view('<!-- @meta{layout=content} -->\n\n# Head\n\nplain paragraph');
 		t.caret('plain paragraph');
 		for (const reg of ['h1', 'insight', 'note', 'h2', 'insight', 'h1', 'note'] as const) t.apply(reg);
 		stable(t);
@@ -336,7 +336,7 @@ describe('adversarial register sweep — never corrupts, never nests unbounded',
 	// Finding 4: a locked slide (a construct Compose can't round-trip, e.g. block HTML in a list item) is immutable —
 	// the register must be a clean no-op, not a doomed dispatch the structural guard silently eats.
 	it('every register is a no-op on a locked slide', () => {
-		const src = '<!-- _class: content -->\n\n# Locked head\n\n- area\n  <div>x</div>';
+		const src = '<!-- @meta{layout=content} -->\n\n# Locked head\n\n- area\n  <div>x</div>';
 		const t = view(src);
 		// sanity: the slide really is locked
 		expect(t.v.state.doc.child(0).attrs.locked).toBe(true);
@@ -349,7 +349,7 @@ describe('adversarial register sweep — never corrupts, never nests unbounded',
 	// Finding 7: a `— …` paragraph that isn't the slide's last block was a dead-end (couldn't
 	// strip or move). It now relocates to the slide end so it becomes the recognized note.
 	it('note on a non-last em-dash paragraph relocates it to the end (no dead-end)', () => {
-		const t = view('<!-- _class: content -->\n\n— aside first\n\nTail.');
+		const t = view('<!-- @meta{layout=content} -->\n\n— aside first\n\nTail.');
 		t.caret('aside first');
 		t.apply('note'); // moves "— aside first" to the slide end
 		const out = t.src();
@@ -377,13 +377,13 @@ describe('the INSIGHT / NOTE registers follow the class that renders them (#1651
 	const headings: Record<string, ('h1' | 'h2')[]> = { content: ['h2'], quote: [], 'timeline-list': ['h2'], inventory: ['h2'] };
 
 	it('offers both on a layout that renders both', () => {
-		const t = view('<!-- _class: content -->\n\n## Head\n\nbody text');
+		const t = view('<!-- @meta{layout=content} -->\n\n## Head\n\nbody text');
 		t.caret('body text');
 		expect(applicableRegisters(t.v.state, headings, blocks).keys).toEqual(['h2', 'subtitle', 'insight', 'note']);
 	});
 
 	it('offers NEITHER on a quote — the case that opened the issue', () => {
-		const t = view('<!-- _class: quote -->\n\n> A quotation.\n\n— Someone');
+		const t = view('<!-- @meta{layout=quote} -->\n\n> A quotation.\n\n— Someone');
 		t.caret('Someone');
 		const keys = applicableRegisters(t.v.state, headings, blocks).keys;
 		expect(keys).not.toContain('insight');
@@ -391,35 +391,35 @@ describe('the INSIGHT / NOTE registers follow the class that renders them (#1651
 	});
 
 	it('offers no insight register from a quote BLOCKQUOTE either', () => {
-		const t = view('<!-- _class: quote -->\n\n> A quotation.\n\n— Someone');
+		const t = view('<!-- @meta{layout=quote} -->\n\n> A quotation.\n\n— Someone');
 		t.caret('A quotation');
 		expect(applicableRegisters(t.v.state, headings, blocks).keys).toEqual([]);
 	});
 
 	it('offers exactly the one a half-supporting layout renders', () => {
-		const tl = view('<!-- _class: timeline-list -->\n\n## Head\n\nbody text');
+		const tl = view('<!-- @meta{layout=timeline-list} -->\n\n## Head\n\nbody text');
 		tl.caret('body text');
 		expect(applicableRegisters(tl.v.state, headings, blocks).keys).toContain('insight');
 		expect(applicableRegisters(tl.v.state, headings, blocks).keys).not.toContain('note');
-		const inv = view('<!-- _class: inventory -->\n\n## Head\n\nbody text');
+		const inv = view('<!-- @meta{layout=inventory} -->\n\n## Head\n\nbody text');
 		inv.caret('body text');
 		expect(applicableRegisters(inv.v.state, headings, blocks).keys).toContain('note');
 		expect(applicableRegisters(inv.v.state, headings, blocks).keys).not.toContain('insight');
 	});
 
 	it('stays permissive for an unknown class and when no map is supplied', () => {
-		const t = view('<!-- _class: mystery-box -->\n\n## Head\n\nbody text');
+		const t = view('<!-- @meta{class=mystery-box} -->\n\n## Head\n\nbody text');
 		t.caret('body text');
 		expect(applicableRegisters(t.v.state, headings, blocks).keys).toContain('insight');
 		expect(applicableRegisters(t.v.state, headings, blocks).keys).toContain('note');
 		// No map at all → exactly the pre-#1651 behavior.
-		const q = view('<!-- _class: quote -->\n\n> A quotation.\n\n— Someone');
+		const q = view('<!-- @meta{layout=quote} -->\n\n> A quotation.\n\n— Someone');
 		q.caret('Someone');
 		expect(applicableRegisters(q.v.state).keys).toContain('insight');
 	});
 
 	it('a prototype-chain key in _class cannot reach a function up the chain', () => {
-		const t = view('<!-- _class: constructor -->\n\n## Head\n\nbody text');
+		const t = view('<!-- @meta{class=constructor} -->\n\n## Head\n\nbody text');
 		t.caret('body text');
 		expect(() => applicableRegisters(t.v.state, headings, blocks)).not.toThrow();
 		expect(applicableRegisters(t.v.state, headings, blocks).keys).toContain('insight');
@@ -441,31 +441,30 @@ describe('the block gate reads every class token, not just the first (#1651)', (
 	};
 
 	it('gates a modifier-first class', () => {
-		expect(keysFor('<!-- _class: dark quote -->\n\n> A quotation.\n\n— Someone')).not.toContain('insight');
-		expect(keysFor('<!-- _class: dark quote -->\n\n> A quotation.\n\n— Someone')).not.toContain('note');
+		expect(keysFor('<!-- @meta{class=dark quote} -->\n\n> A quotation.\n\n— Someone')).not.toContain('insight');
+		expect(keysFor('<!-- @meta{class=dark quote} -->\n\n> A quotation.\n\n— Someone')).not.toContain('note');
 	});
 
 	it('gates a class with trailing modifiers', () => {
-		expect(keysFor('<!-- _class: quote bare silent -->\n\n> A quotation.\n\n— Someone')).not.toContain('insight');
+		expect(keysFor('<!-- @meta{layout=quote, class=bare silent} -->\n\n> A quotation.\n\n— Someone')).not.toContain('insight');
 	});
 
-	// KNOWN LIMIT, not a gap this gate can close: `splitSlideDirectives`'s
-	// `DIRECTIVE_LINE_RE` only hoists `_`-prefixed comments, so a running-global
-	// `<!-- class: quote -->` (and a front-matter `class:`) never reaches the slide's
-	// `directives` at all — it stays in the prose. Compose's HEADING gate is blind to
-	// those two routes in exactly the same way and always has been. Pinned here so the
-	// limit is recorded rather than assumed closed.
-	it('does NOT see a running-global `class:` — it never reaches slide directives', () => {
+	// Since the cut a running class is a record with `carry` (record note §15), and `splitSlideDirectives` hoists a record
+	// like any other, so the gate sees it on the slide that writes it. The old running-global `<!-- class: quote -->`
+	// sets nothing now, so it gates nothing. KNOWN LIMIT, unchanged: a front-matter `class:` never reaches the slide's
+	// `directives`, and Compose's HEADING gate is blind to it in exactly the same way.
+	it('sees a carried class on the slide that writes it, and nothing from an old `class:` comment', () => {
+		expect(keysFor('<!-- @meta{layout=quote, carry} -->\n\n> A quotation.\n\n— Someone')).not.toContain('insight');
 		expect(keysFor('<!-- class: quote -->\n\n> A quotation.\n\n— Someone')).toContain('insight');
 	});
 
 	it('still stays permissive when no token names a known component', () => {
-		expect(keysFor('<!-- _class: dark silent -->\n\n> A quotation.\n\n— Someone')).toContain('insight');
+		expect(keysFor('<!-- @meta{class=dark silent} -->\n\n> A quotation.\n\n— Someone')).toContain('insight');
 	});
 
 	it('a prototype-chain token cannot resolve through Object.prototype', () => {
-		expect(() => keysFor('<!-- _class: constructor quote -->\n\n> A quotation.\n\n— Someone')).not.toThrow();
+		expect(() => keysFor('<!-- @meta{class=constructor quote} -->\n\n> A quotation.\n\n— Someone')).not.toThrow();
 		// `quote` is still found alongside it, so the gate holds.
-		expect(keysFor('<!-- _class: constructor quote -->\n\n> A quotation.\n\n— Someone')).not.toContain('insight');
+		expect(keysFor('<!-- @meta{class=constructor quote} -->\n\n> A quotation.\n\n— Someone')).not.toContain('insight');
 	});
 });

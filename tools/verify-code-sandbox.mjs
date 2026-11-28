@@ -212,12 +212,12 @@ function writePackage(dir, origin) {
   fs.mkdirSync(p, { recursive: true });
   fs.writeFileSync(path.join(p, `${PKG}.manifest.json`), JSON.stringify({ name: PKG, type: 'component', format: 1, facts: 1 }));
   fs.writeFileSync(path.join(p, `${PKG}.styles.css`), `section.${PKG} .${PKG}-rows { display: grid; gap: 0.25em; }\n`);
-  fs.writeFileSync(path.join(p, `${PKG}.gallery.md`), `<!-- _class: ${PKG} -->\n\n## Probe\n\n- one\n`);
+  fs.writeFileSync(path.join(p, `${PKG}.gallery.md`), `<!-- @meta{class="${PKG}"} -->\n\n## Probe\n\n- one\n`);
   fs.writeFileSync(path.join(p, `${PKG}.transform.js`), probeTransform(origin));
   return p;
 }
 
-const PROBE_DECK = `---\ntheme: indaco\n---\n\n<!-- _class: ${PKG} -->\n\n## Sandbox probe\n\n- First row\n- Second row\n- Third row\n`;
+const PROBE_DECK = `---\ntheme: indaco\n---\n\n<!-- @meta{class="${PKG}"} -->\n\n## Sandbox probe\n\n- First row\n- Second row\n- Third row\n`;
 
 function startLogServer() {
   return new Promise((resolve) => {

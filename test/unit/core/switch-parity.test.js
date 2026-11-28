@@ -16,9 +16,9 @@ const { createEngine } = require('../../../lib/engine');
 const { SWITCHES } = require('../../../lib/core/switches');
 
 const BODIES = {
-  content: (cls) => `<!-- _class: content ${cls} -->\n\n## Head.\n\n- a\n- b\n\nTrailing note.\n`,
-  table: (cls) => `<!-- _class: table ${cls} -->\n\n## Rates.\n\n| Criterion | A | B |\n|---|---|---|\n| Speed | 1 | 2 |\n| Cost | 3 | 4 |\n`,
-  panes: (cls) => `<!-- _class: columns ${cls} -->\n\n### Left\n\nOne.\n\n### Right\n\nTwo.\n`,
+  content: (cls) => `<!-- @meta{class=content ${cls}} -->\n\n## Head.\n\n- a\n- b\n\nTrailing note.\n`,
+  table: (cls) => `<!-- @meta{class=table ${cls}} -->\n\n## Rates.\n\n| Criterion | A | B |\n|---|---|---|\n| Speed | 1 | 2 |\n| Cost | 3 | 4 |\n`,
+  panes: (cls) => `<!-- @meta{class=columns ${cls}} -->\n\n### Left\n\nOne.\n\n### Right\n\nTwo.\n`,
 };
 
 const section = (md) => createEngine().render(md).html.match(/<section\b[^>]*>[\s\S]*?<\/section>/)[0]
