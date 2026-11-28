@@ -374,6 +374,18 @@ export const RELEASE_GRACE = 600;
  */
 export const PARK_MS = 5000;
 
+/** How long a slot handed a different slide stays hidden waiting to paint it, counted from when THAT slot began waiting.
+ *  Past this it shows whatever it holds, so no tile stays blank indefinitely. It is deliberately far past a slow phone's
+ *  full write: an earlier 1.5 s backstop showed the old slide on the new tile whenever a paint landed late under load
+ *  (checker on #3507), and a frame that has not painted shows nothing, so a shorter bound buys nothing. */
+export const PENDING_HARD_MS = 6000;
+/** Whether `next` puts a different SLIDE in a slot than `prev` did: the one change whose old picture is wrong rather than
+ *  merely stale (a palette or mode change repaints the same slide). A slot with no props yet has no picture to hide. PURE. */
+export const showsOther = (prev: PooledPreviewProps | null, next: PooledPreviewProps) => prev != null && (prev.sample !== next.sample || prev.extraCss !== next.extraCss);
+/** Whether a paint the frame reported is of the slide the slot holds NOW. A render issued for the slot's previous slide
+ *  can land after the slot moved on, and that paint must not unhide the old picture (checker on #3507). PURE. */
+export const paintedIsCurrent = (props: PooledPreviewProps | null, painted: { sample: string; extraCss: string | undefined }) =>
+	props != null && painted.sample === props.sample && (painted.extraCss ?? '') === (props.extraCss ?? '');
 /** When a slot is due to be parked: free, holding a slide, not parked yet; else never. */
 const parkDue = (s: { tileId: number | null; props: unknown; parked?: boolean; freeSince?: number | null }) => (s.tileId === null && s.props && !s.parked && s.freeSince != null ? s.freeSince + PARK_MS : Number.POSITIVE_INFINITY);
 /** A parked slot's props: nothing to load. The caller keeps the slot's own `drawn` flag, so the
@@ -419,11 +431,27 @@ export function PreviewPool({ children, className, baseSlots: hostBase = BASE_SL
 	const tiles = React.useRef(new Map<number, Tile>());
 	const seq = React.useRef(0);
 	// slot index → the tile it currently shows, and the shape its document was last built for.
-	const [slots, setSlots] = React.useState<{ tileId: number | null; rect: Rect; props: PooledPreviewProps | null; key: string; id: string; gen: number; freeSince?: number | null; parked?: boolean }[]>([]);
+	const [slots, setSlots] = React.useState<{ tileId: number | null; rect: Rect; props: PooledPreviewProps | null; key: string; id: string; gen: number; freeSince?: number | null; parked?: boolean; pending?: boolean; pendingSince?: number }[]>([]);
 	/** The pending park pass (see PARK_MS). */
 	const parkTimer = React.useRef<number | null>(null);
 	/** The pass that runs when the last grace window ends. */
 	const graceTimer = React.useRef<number | null>(null);
+	const hardTimer = React.useRef<number | null>(null);
+	const armHard = React.useCallback((delay: number) => {
+		hardTimer.current = window.setTimeout(() => {
+			hardTimer.current = null;
+			setSlots((prev) => {
+				const now = Date.now();
+				const due = (x: { pending?: boolean; pendingSince?: number }) => x.pending === true && now - (x.pendingSince ?? 0) >= PENDING_HARD_MS;
+				const out = prev.some(due) ? prev.map((x) => (due(x) ? { ...x, pending: false } : x)) : prev;
+				const left = out.filter((x) => x.pending).map((x) => (x.pendingSince ?? now) + PENDING_HARD_MS - now);
+				if (left.length && hardTimer.current === null) armHardRef.current(Math.max(0, Math.min(...left)));
+				return out;
+			});
+		}, delay);
+	}, []);
+	const armHardRef = React.useRef(armHard);
+	armHardRef.current = armHard;
 	const slotsRef = React.useRef(slots);
 	slotsRef.current = slots;
 	const pending = React.useRef<number | null>(null);
@@ -621,6 +649,8 @@ export function PreviewPool({ children, className, baseSlots: hostBase = BASE_SL
 				else {
 					if (s.tileId !== null) s.freeSince = now;
 					s.tileId = null;
+					// A free slot is hidden anyway; clearing the flag keeps it from outliving the slide it was waiting on.
+					s.pending = false;
 				}
 			}
 			// 2. Everything else takes a free slot, preferring one whose document is already the
@@ -629,6 +659,10 @@ export function PreviewPool({ children, className, baseSlots: hostBase = BASE_SL
 				if (held.has(t.id)) {
 					const mine = next.find((s) => s.tileId === t.id);
 					if (mine) {
+						if (showsOther(mine.props, t.props)) {
+							mine.pending = true;
+							mine.pendingSince = Date.now();
+						}
 						mine.props = t.props;
 						// The KEY too. Without this a held slot keeps the shape it was built for while its props
 						// move on — a palette or mode toggle changes the key of every tile at once — and the
@@ -686,6 +720,10 @@ export function PreviewPool({ children, className, baseSlots: hostBase = BASE_SL
 					slot = spare;
 				}
 				slot.tileId = t.id;
+				if (showsOther(slot.props, t.props)) {
+					slot.pending = true;
+					slot.pendingSince = Date.now();
+				}
 				slot.props = t.props;
 				slot.key = k;
 				slot.rect = rectOf(t.el);
@@ -699,6 +737,10 @@ export function PreviewPool({ children, className, baseSlots: hostBase = BASE_SL
 			// Once a look change leaves the grid one shape, the spare goes back with the rest.
 			while (next.length > slotRoom(ceilingRef.current, mixed) && next[next.length - 1].tileId === null) next.pop();
 			setSlots(next);
+			// THE BOUND on a hidden slot: a frame that never reports a paint of its new slide must not leave its tile blank for
+			// good. Each slot is shown PENDING_HARD_MS after it began waiting, whatever it holds. The next deadline is read from
+			// the state the updater just produced, never from `slotsRef`, which can lag a queued `setSlots` (checker on #3507).
+			if (hardTimer.current === null && next.some((x) => x.pending)) armHardRef.current(PENDING_HARD_MS);
 			// A tile held only by its grace window loses its slot when the window ends — but only if a
 			// pass runs then, and when a whole surface closes nothing else would arm one: every slot
 			// stayed held by tiles nobody could see, for good, and none of them was ever parked.
@@ -864,6 +906,17 @@ export function PreviewPool({ children, className, baseSlots: hostBase = BASE_SL
 		},
 		[drainCaptures],
 	);
+	// A slot handed a DIFFERENT slide stays hidden until its frame paints that slide (followup 3507-p2): the patch lands a beat
+	// after the slot moves, and until then the frame still holds the last tile's picture. A search that re-ranked the gallery
+	// showed `math`'s tile wearing the video slide's poster. Hiding costs nothing: the tile's own blank face shows through.
+	// Only a paint OF THE SLIDE THE SLOT NOW HOLDS clears it: under load a render issued for the slot's previous slide lands
+	// after the slot moved on, and reading that paint as the new one showed the old picture again (`movie` then `science`
+	// under `--workers=4`, checker on #3507).
+	const slotPainted = React.useCallback((index: number, painted: { sample: string; extraCss: string | undefined }) => {
+		const s = slotsRef.current[index];
+		if (!s?.pending || !paintedIsCurrent(s.props, painted)) return;
+		setSlots((prev) => prev.map((x, j) => (j === index && x.pending ? { ...x, pending: false } : x)));
+	}, []);
 	const slotRendered = React.useCallback(
 		(index: number) => {
 			const s = slotsRef.current[index];
@@ -895,6 +948,14 @@ export function PreviewPool({ children, className, baseSlots: hostBase = BASE_SL
 					if (el.isConnected) continue;
 					off();
 					nested.current.delete(el);
+				}
+				// FREE ITS FRAME NOW, not at the next throttled pass. A tile that left the page (a search dropped it) leaves its
+				// frame where it stood, holding its picture, and the tile that moves into that spot wears it until the pass runs:
+				// `movie` then `science` put the video slide's poster on `math` (followup 3507-p2). Freeing hides the frame; the
+				// document stays alive for the next tile, so this costs no write.
+				if (slotsRef.current.some((x) => x.tileId === id)) {
+					const at = Date.now();
+					setSlots((prev) => prev.map((x) => (x.tileId === id ? { ...x, tileId: null, freeSince: at, pending: false } : x)));
 				}
 				schedule();
 			},
@@ -941,6 +1002,8 @@ export function PreviewPool({ children, className, baseSlots: hostBase = BASE_SL
 			pending.current = null;
 			window.clearTimeout(parkTimer.current as number);
 			window.clearTimeout(graceTimer.current as number);
+			window.clearTimeout(hardTimer.current as number);
+			hardTimer.current = null;
 			if (raf.current) window.cancelAnimationFrame(raf.current);
 			raf.current = 0;
 			for (const off of nested.current.values()) off();
@@ -1000,7 +1063,7 @@ export function PreviewPool({ children, className, baseSlots: hostBase = BASE_SL
 						// keep the tile's full size because `single-slide-render` scales its render to the
 						// host box — cropping that box would shrink the slide instead of cropping it.
 						const clip = s.rect.clip ?? { top: s.rect.top, left: s.rect.left, width: s.rect.width, height: s.rect.height };
-						const hidden = s.tileId === null || clip.width < 1 || clip.height < 1;
+						const hidden = s.tileId === null || s.pending === true || clip.width < 1 || clip.height < 1;
 						return (
 							<div
 								// KEYED BY SLOT, NEVER BY TILE — the whole mechanism in one line. React then
@@ -1018,7 +1081,7 @@ export function PreviewPool({ children, className, baseSlots: hostBase = BASE_SL
 								style={{ top: clip.top, left: clip.left, width: clip.width, height: clip.height, visibility: hidden ? 'hidden' : 'visible' }}
 							>
 								<div data-slide-frame className="absolute overflow-hidden" style={{ top: s.rect.top - clip.top, left: s.rect.left - clip.left, width: s.rect.width, height: s.rect.height, ...slideFrameStyle('flat') }}>
-									{s.props ? <DeckPreview {...(s.parked ? parkedProps(s.props) : s.props)} drawn={s.props.drawn ?? hasDrawnFence(s.props.sample)} chromeless active className="size-full" aria-hidden onRender={() => slotRendered(i)} /> : null}
+									{s.props ? <DeckPreview {...(s.parked ? parkedProps(s.props) : s.props)} drawn={s.props.drawn ?? hasDrawnFence(s.props.sample)} chromeless active className="size-full" aria-hidden onRender={() => slotRendered(i)} onPaint={(painted) => slotPainted(i, painted)} /> : null}
 								</div>
 							</div>
 						);

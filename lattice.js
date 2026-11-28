@@ -467,6 +467,11 @@ VIDEO
                      (the Studio's) to an MP4 (H.264, AAC, a caption track) and a
                      .vtt sidecar. See lattice video --help
 
+MCP
+  lattice mcp        Reserved for the MCP server, which is not available in this
+                     version: it says so and exits 1. A deck file named mcp
+                     renders as lattice ./mcp
+
 EXAMPLES
   lattice deck.md out.pdf
   lattice deck.md out.pptx          # PowerPoint (image slides)
@@ -515,6 +520,7 @@ MORE
   lattice video …      Render a deck to an MP4 with a voice-over
   lattice lint …       Check a deck without rendering; --fix applies the fixes
   lattice completion   Tab completion for bash, zsh, fish or PowerShell
+  lattice mcp          Reserved for the MCP server; not available in this version
 
   lattice --help all   Every option (image sets, captions, the player, plugins, …)
   Guide:  https://lattice.style/guides/cli/
@@ -584,6 +590,15 @@ if (process.argv[2] === 'lint') {
   const r = require('node:child_process').spawnSync(process.execPath, [path.join(PKG_ROOT, 'lib/cli/lint-deck.js'), ...process.argv.slice(3)], { stdio: 'inherit' });
   if (r.error) console.error(`error: ${r.error.message}`);
   process.exit(r.status ?? 1);
+}
+
+// `lattice mcp` — RESERVED, not built. The verb is held for the MCP server the use-case layer plans
+// (engineering/decisions/2026-11-17-use-case-layer.md §10 step 6) so it is no breaking change when it
+// lands: before this, `lattice mcp` read `mcp` as a deck file. It says so and exits 1, before the help
+// check, so `lattice mcp --help` says the same. A deck file named `mcp` still renders as `lattice ./mcp`.
+if (process.argv[2] === 'mcp') {
+  console.error('lattice mcp: the MCP server is not available in this version. See https://lattice.style/reference/cli/#lattice-mcp');
+  process.exit(1);
 }
 
 // `--help` / `-h` is one screen; `--help all` (`-h all`, `--help=all`, any case) is the full

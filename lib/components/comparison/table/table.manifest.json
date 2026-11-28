@@ -61,6 +61,7 @@
     "assessment",
     "reference"
   ],
+  "searchTerms": ["table", "data", "budget", "grades", "rows and columns", "spreadsheet", "comparison"],
   "description": "The table component — a GFM pipe table with a row capacity, autosplit, and the portrait card reshape.",
   "purpose": "Use when the table IS the slide. A plain markdown table on any slide already gets the house treatment; reach for this when the rows need a capacity budget, autosplit, focus axes, or the portrait reshape.",
   "slots": {

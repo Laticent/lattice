@@ -81,6 +81,7 @@
     "showcase",
     "summary"
   ],
+  "searchTerms": ["features", "benefits", "pillars", "highlights", "services", "grid of cards"],
   "description": "2–4 parallel items, similar weight, scannable in a grid.",
   "purpose": "Use when the audience needs to compare or scan a small set of options at a glance. Avoid for more than 4 items — split into multiple slides. For ordered/numbered steps, use list-steps instead.",
   "variantKinds": {
