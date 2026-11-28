@@ -10,6 +10,23 @@ and epics in full and run the trio and make any corrections. then … sequence i
 after release") · **Desk:** 🧭 Initiative desk (Kirk) · **Pinned to:** `main` at `4bf25e86` ·
 **Status:** in progress. The owner decided C1 and the Sunday publish on 2026-11-27 (§0).
 
+## 0a. The owner's decisions, 2026-11-28 (supersede §0's D1 and Sunday rows)
+
+After the trio reviewed the initiative's *strategy* (red-team, inversion, checker; a second run, this
+time on the direction rather than on this map), the owner decided in this desk's question tool at about
+03:40 UTC. Earlier typed: "i would rather ship now than latter".
+
+| Question | Answer |
+|---|---|
+| When does the release go out? | **As soon as the Apache library PR merges.** rc.1 targets Sun Nov 29 and may float a day or two. This reverses D1 C |
+| Which libraries go Apache? | **16 of 18.** Calco (editable PPTX/ODP) and Trama (graph layout) stay AGPL-3.0-only as product features. Cenno stays private |
+| Do E3–E7 still block 1.0? | **No.** The runtime split (E3–E5) waits for a real adopter or scanner rejecting an exported deck; Desktop and intake (E6–E7) wait for a Desktop candidate. #3540 now says so at the top |
+| Counsel review? | **Not required** (typed: "I don't need a lawyer") |
+
+Why, from the trio: the Output Exception already frees ordinary exported decks, and v1.2 (#3598) adds
+Marp renders. The split covers only edge cases (an edited or patched deck, a scanner fingerprint).
+Nothing in the release plan requires it. Holding npm for months costs all adoption.
+
 ## 0. The owner's decisions (2026-11-27)
 
 Typed in this desk's session; the owner's verbatim words are recorded on [PR #3587](https://github.com/Laticent/lattice/pull/3587#issuecomment-7230353813). The options were put in plain English, with pros and cons.
