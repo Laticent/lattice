@@ -43,5 +43,7 @@ update    — 2026-11-28 (🧪 fix session for #3588's reds). The fourth stall, 
             eager bundle under its ceiling; a gate short of done after the 4 s watchdog says the same), and which await
             inside a merged step stalled.
             Seen in that arm: a render that hangs leaves the frame scheduler's watchdog to clear its guard, nothing renders
-            again, and no failure card shows. That sits beside the frame-scheduler.ts:111 swallowed rejection, and both go
-            in the product fix on its own branch.
+            again, and no failure card shows. The engine-import rejection is already handled on main (DeckPreview's
+            runRender catches `whenReady()` and shows the card with Retry). The hang is not: the 32 s never-paint ceiling
+            skips loader hosts on purpose (#1164), and the Studio's preview is one. Showing a card for a hung render
+            changes that contract, so it waits on the owner's decision before its own branch.
