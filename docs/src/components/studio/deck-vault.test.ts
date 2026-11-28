@@ -257,7 +257,11 @@ describe('the boot cache after a cut-off save', () => {
 		const writeReached = new Promise<void>((r) => {
 			reached = r;
 		});
-		vault.write = ((p: string, d: never, m: never) => (cut ? (reached(), new Promise(() => {})) : realWrite(p, d, m))) as never;
+		vault.write = ((p: string, d: never, m: never) => {
+			if (!cut) return realWrite(p, d, m);
+			reached();
+			return new Promise(() => {});
+		}) as never;
 		saveSource('deck-a', `${deckA}- typed, then closed\n`, { fromShell: true });
 		const cached = mem.get(BOOT_SRC_LS) as string;
 		await writeReached; // the queued write reaches the hung vault: the tab closes on it
@@ -283,7 +287,11 @@ describe('the boot cache after a cut-off save', () => {
 		const writeReached = new Promise<void>((r) => {
 			reached = r;
 		});
-		vault.write = ((p: string, d: never, m: never) => (cut ? (reached(), new Promise(() => {})) : realWrite(p, d, m))) as never;
+		vault.write = ((p: string, d: never, m: never) => {
+			if (!cut) return realWrite(p, d, m);
+			reached();
+			return new Promise(() => {});
+		}) as never;
 		saveSource('deck-a', `${deckA}- typed, then closed\n`, { fromShell: true });
 		const cached = mem.get(BOOT_SRC_LS) as string;
 		await writeReached;
