@@ -4,7 +4,7 @@ import { deckEditorText, expect, gotoStudio, isPhone, setEditorContent, test } f
 // THE DECK EDITOR'S TREE IS THE DECK MODEL'S (Segno P4b, docs/src/lib/deck-language/deck-language.ts), in the real Studio
 // at the three widths the site is held to. The unit suite holds the tree to the model on the corpus; this drives what
 // only a browser answers: the highlighting the tree feeds is painted, and the Enter keymap, which reads the tree by node
-// name (ListItem, ListMark, Blockquote, QuoteMark), continues a list and a quote.
+// name (ListItem under a BulletList, Blockquote), continues a list and a quote.
 
 const DECK = `---
 theme: indaco
@@ -70,6 +70,33 @@ function styleOf(page: Page, text: string): Promise<{ weight: string; color: str
 	}, text);
 }
 
+/** The highlighting the model's tree feeds is painted: the heading spine, the YAML keys, the directive comment. */
+async function paints(page: Page): Promise<void> {
+	await openEditor(page);
+	const body = await styleOf(page, 'Area ');
+	const heading = await styleOf(page, 'The plan');
+	const key = await styleOf(page, 'theme');
+	const comment = await styleOf(page, '_class: lead');
+	expect(body).not.toBeNull();
+	expect(Number(heading?.weight)).toBeGreaterThanOrEqual(600);
+	expect(Number(body?.weight)).toBeLessThan(600);
+	expect(key?.color).not.toBe(body?.color);
+	expect(comment?.style).toBe('italic');
+}
+
+/** Enter continues a list and a quote: the keymap finds the model's ListItem and Blockquote nodes by name. */
+async function continues(page: Page): Promise<void> {
+	await openEditor(page);
+	await caretAfter(page, '- two');
+	await page.keyboard.press('Enter');
+	await page.keyboard.type('three');
+	await expect.poll(() => deckEditorText(page)).toContain('- two\n- three\n');
+	await caretAfter(page, '> quoted');
+	await page.keyboard.press('Enter');
+	await page.keyboard.type('more');
+	await expect.poll(() => deckEditorText(page)).toContain('> quoted\n> more\n');
+}
+
 for (const [width, height] of [
 	[1440, 900],
 	[820, 1180],
@@ -77,30 +104,13 @@ for (const [width, height] of [
 ] as const) {
 	test.describe(`at ${width}px`, () => {
 		test.use({ viewport: { width, height } });
-
-		test('the model’s tree paints the heading spine, the front matter’s YAML keys and the directive comment', async ({ page }) => {
-			await openEditor(page);
-			const body = await styleOf(page, 'Area ');
-			const heading = await styleOf(page, 'The plan');
-			const key = await styleOf(page, 'theme');
-			const comment = await styleOf(page, '_class: lead');
-			expect(body).not.toBeNull();
-			expect(Number(heading?.weight)).toBeGreaterThanOrEqual(600);
-			expect(Number(body?.weight)).toBeLessThan(600);
-			expect(key?.color).not.toBe(body?.color);
-			expect(comment?.style).toBe('italic');
-		});
-
-		test('Enter continues a list and a quote: the keymap reads the model’s ListMark and QuoteMark', async ({ page }) => {
-			await openEditor(page);
-			await caretAfter(page, '- two');
-			await page.keyboard.press('Enter');
-			await page.keyboard.type('three');
-			await expect.poll(() => deckEditorText(page)).toContain('- two\n- three\n');
-			await caretAfter(page, '> quoted');
-			await page.keyboard.press('Enter');
-			await page.keyboard.type('more');
-			await expect.poll(() => deckEditorText(page)).toContain('> quoted\n> more\n');
-		});
+		test('the model’s tree paints the heading spine, the front matter’s YAML keys and the directive comment', ({ page }) => paints(page));
+		test('Enter continues a list and a quote: the keymap reads the model’s ListItem and Blockquote', ({ page }) => continues(page));
 	});
 }
+
+// The other engines, each in its own project's device (iPhone 15 Pro, iPad landscape, Firefox): per-PR CI runs none.
+test.describe('in WebKit and Gecko', () => {
+	test('the model’s tree is painted @webkit-phone @webkit-tablet @gecko', ({ page }) => paints(page));
+	test('Enter continues a list and a quote @webkit-phone @webkit-tablet @gecko', ({ page }) => continues(page));
+});
