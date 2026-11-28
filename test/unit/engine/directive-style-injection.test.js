@@ -237,7 +237,7 @@ describe('nothing re-parses a serialization we produced', () => {
   test('the real engine: a hostile footer beside a slide background stays one declaration', () => {
     const engine = require('../../../lib/engine');
     const { html } = engine.render(
-      '<!-- _footer: Acme;position:fixed;--z-canvas:9;x -->\n<!-- _backgroundImage: url(photo.png) -->\n\n# Quarterly Review\n',
+      '<!-- @meta{footer="Acme;position:fixed;--z-canvas:9;x"} -->\n<!-- @meta{background-image="url(photo.png)"} -->\n\n# Quarterly Review\n',
     );
     const attr = /<section[^>]*\sstyle="([^"]*)"/.exec(html)?.[1];
     assert.ok(attr, 'the slide section must carry a style attribute');

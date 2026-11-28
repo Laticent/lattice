@@ -378,8 +378,8 @@ describe('npm-plugin canary: a hostile plugin reaches nothing', () => {
       fs.mkdirSync(dir, { recursive: true });
       fs.writeFileSync(path.join(dir, `${name}.manifest.json`), JSON.stringify({ name, type: 'component', format: 1 }));
       fs.writeFileSync(path.join(dir, `${name}.styles.css`), stylesheetVectors(main.H)[v](name));
-      fs.writeFileSync(path.join(dir, `${name}.gallery.md`), `<!-- _class: ${name} -->\n\n## ${name}\n`);
-      fs.writeFileSync(path.join(store, 'deck.md'), `---\ntheme: indaco\n---\n\n<!-- _class: ${name} -->\n\n## Sheet\n`);
+      fs.writeFileSync(path.join(dir, `${name}.gallery.md`), `<!-- @meta{class=${name}} -->\n\n## ${name}\n`);
+      fs.writeFileSync(path.join(store, 'deck.md'), `---\ntheme: indaco\n---\n\n<!-- @meta{class=${name}} -->\n\n## Sheet\n`);
       const out = path.join(store, 'deck.html');
       const r = spawnSync(process.execPath, [path.join(__dirname, '../../../lattice.js'), path.join(store, 'deck.md'), out], { encoding: 'utf8', timeout: TIMEOUT, env: { ...process.env, LATTICE_HOME: store } });
       const html = fs.existsSync(out) ? fs.readFileSync(out, 'utf8') : '';

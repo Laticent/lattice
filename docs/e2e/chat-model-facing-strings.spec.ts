@@ -128,3 +128,53 @@ test('the Coach finding fix carries the corrected edit-block protocol @crosswidt
 	expect(system).toMatch(/Variants: [^\n]*\(add to `class=`, e\.g\. `@meta\{layout=/);
 	await test.info().attach('fix-request.json', { body: JSON.stringify(bodies[0], null, 2), contentType: 'application/json' });
 });
+
+test('a front-matter key the prompt only names is still read in full on request (#3533) @crosswidth @webkit-phone @gecko', async ({ page }) => {
+	// The prompt trim drops 14 rows' descriptions and keeps their names on one line. The model asks for one of them, a
+	// camelCase key that read_front_matter could not read before this fix, and the spec reads what the built Studio sent back.
+	test.setTimeout(90_000);
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await page.addInitScript(() => {
+		try {
+			localStorage.setItem('lattice-db-or-key', 'sk-e2e-mock-not-a-real-key');
+			localStorage.setItem('lattice-db-or-model', 'test/model');
+			localStorage.setItem('lattice-db-dedup', 'off');
+		} catch {
+			/* storage unavailable: the spec fails loudly on the missing control */
+		}
+	});
+	const bodies: { messages: (Msg & { tool_call_id?: string })[] }[] = [];
+	await page.route('https://openrouter.ai/**', async (route) => {
+		const url = route.request().url();
+		if (!url.includes('/chat/completions')) {
+			await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(url.includes('/models') ? { data: MODELS } : { data: [] }) });
+			return;
+		}
+		bodies.push(JSON.parse(route.request().postData() || '{}'));
+		const frames =
+			bodies.length === 1
+				? [
+						{ id: 'k1', choices: [{ index: 0, delta: { tool_calls: [{ index: 0, id: 'call-1', type: 'function', function: { name: 'read_front_matter', arguments: '{"key":"backgroundColor"}' } }] } }] },
+						{ id: 'k1', choices: [{ index: 0, delta: {}, finish_reason: 'tool_calls' }], usage: USAGE },
+					]
+				: [
+						{ id: 'k2', choices: [{ index: 0, delta: { content: 'Set backgroundColor to a quoted hex value.' } }] },
+						{ id: 'k2', choices: [{ index: 0, delta: {}, finish_reason: 'stop' }], usage: USAGE },
+					];
+		await route.fulfill({ status: 200, contentType: 'text/event-stream', body: sse(frames) });
+	});
+	await gotoStudio(page);
+	await openChatAtWidth(page, 1440);
+	await page.getByRole('textbox', { name: 'Message the Architect' }).fill('how do I set the slide background color?');
+	await page.getByRole('button', { name: 'Send', exact: true }).click();
+	await expect(page.getByText('Set backgroundColor to a quoted hex value.')).toBeVisible({ timeout: 30_000 });
+
+	expect(bodies.length).toBe(2);
+	const system = bodies[0].messages.filter((m) => m.role === 'system').map((m) => text(m.content)).join('\n');
+	// The row is gone from every request's prefix; the name is still listed, so the model knows to ask.
+	expect(system).not.toContain('\n- backgroundColor: ');
+	expect(system).toMatch(/- Also read, for export, preview and raw CSS \(read_front_matter describes each\): [^\n]*backgroundColor/);
+	const result = text(bodies[1].messages.find((m) => m.role === 'tool' && m.tool_call_id === 'call-1')?.content);
+	expect(result).toContain('backgroundColor: Slide background color');
+	expect(result).not.toContain('not a front-matter key');
+});

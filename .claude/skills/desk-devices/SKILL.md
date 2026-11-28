@@ -48,7 +48,7 @@ whose surface was never reached.
 5. **Write back** (through a session you start, counted in the budget). A claim settled on a surface becomes evidence in its follow-up or PR; a
    new platform trap becomes a gotcha entry; a red test in a suite goes to the flake desk; a suite red that is not a test goes to the deps + nightly desk.
 6. **Report** to the command center: open UNVERIFIED claims by surface, runner minutes used,
-   the owner's device list if any, and `budget: N/10 today`, with its `meter:` ledger, which also rides on every gate message to the command center (a card announcement, a 🧱 line).
+   the owner's device list if any, and `budget: N/10 today`, with its `meter:` ledger, which also rides on every other gate message to the command center (a `card ready` line, a 🧱 line, a ❓ card) and is never sent as a message of its own (`engineering/workflow.md` §Desks, "A worker messages the command center only at a gate").
 
 ## Lane
 

@@ -81,7 +81,7 @@ logo: sample:logo-acme-mark.svg
 finish: atrium
 ---
 
-<!-- _class: title -->
+<!-- @meta{class=title} -->
 
 # A sovereign frame
 
@@ -89,13 +89,13 @@ Its heading and lede are direct children of the section.
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{class=divider} -->
 
 # Section one
 
 ---
 
-<!-- _class: form watermark content -->
+<!-- @meta{class=form watermark content} -->
 
 ## The section-number ghost
 
@@ -103,7 +103,7 @@ Body copy that gives the stage real height to distribute.
 
 ---
 
-<!-- _class: content no-finish -->
+<!-- @meta{class=content no-finish} -->
 
 ## A Form frame with no finish
 
@@ -119,7 +119,7 @@ pagination: true
 footer: "Footer Text"
 ---
 
-<!-- _class: image -->
+<!-- @meta{class=image} -->
 
 ![Acme](sample:logo-acme-mark.svg)
 

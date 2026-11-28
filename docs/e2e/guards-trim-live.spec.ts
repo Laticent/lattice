@@ -26,7 +26,7 @@ const BODY = Array.from(
 ).join(' ');
 
 const deck = (fit: 'trim' | 'heal') =>
-	`---\nmarp: true\ntheme: indaco\nfit: ${fit}\n---\n\n<!-- _class: content -->\n\n## Live preview trims\n\n${BODY}\n`;
+	`---\nmarp: true\ntheme: indaco\nfit: ${fit}\n---\n\n<!-- @meta{layout=content} -->\n\n## Live preview trims\n\n${BODY}\n`;
 
 /** The clamp `applyTrim` writes, read from the live frame rather than from the DOM we built. */
 async function clampedCount(page: Parameters<typeof gotoStudio>[0]): Promise<number> {

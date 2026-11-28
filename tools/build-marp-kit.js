@@ -225,23 +225,22 @@ function vscodeSettings() {
  * "If you only want to make decks, nothing about this constrains you," which is
  * too broad. Measured on a real marp-cli render: `--pdf` carries no engine code
  * at all (no CSS rule, no `@theme` directive survives), but `--html` inlines
- * ~852 KB of engine stylesheet into the output file. The exception is written
- * for assets *Lattice's own export pipeline* embeds, and marp-cli is not that —
- * so publishing a `marp --html` file is, on a literal reading, outside it. That
- * gap is unresolved and is the OWNER's call, not this file's: see
+ * ~852 KB of engine stylesheet into the output file. Version 1.1 of the
+ * exception was written for assets *Lattice's own export pipeline* embeds, and
+ * marp-cli is not that, so publishing a `marp --html` file was, on a literal
+ * reading, outside it. That gap was the OWNER's call, not this file's: see
  * engineering/decisions/2026-08-04-marp-render-output-exception.md.
  *
- * KEEP THIS PARAGRAPH FACTUAL — it must stay true under BOTH resolutions of that
- * question, and an earlier draft did not. It said the gap "is an open question on
- * our side" and told recipients to treat a published `.html` as carrying LICENSE
- * terms "until it is settled." A Munger inversion killed that: this is a
- * COPY-AND-GO folder with no update channel, so whatever it says today, the
- * copies people took say forever. If the exception is later extended, a shipped
- * warning that publishing conveys code outside it becomes wrong — permanently,
- * in every copy. What survives both outcomes is only the measurement (`--pdf`
- * carries nothing, `--html` inlines the stylesheet) and the neutral pointer to
- * LICENSE. Do not add a verdict here, in either direction, and do not re-broaden
- * it to the old reassurance either.
+ * RESOLVED 2026-11-28: the owner extended the exception to Marp renders
+ * (option A of the note above; `LICENSE-EXCEPTIONS` version 1.2, "Marp
+ * renders"). The `--html` bullet now states that grant. It says "version
+ * 1.2", never "and later": no copy can promise a version nobody has written.
+ * It names the version on purpose: this is a COPY-AND-GO folder with no
+ * update channel, and it ships its own copy of `LICENSE-EXCEPTIONS`, so the sentence and the grant it cites
+ * travel together and stay true in every copy. Do not re-broaden it past what
+ * that file grants: modified kit CSS or JavaScript, a tool that is not a named
+ * Marp Tool, extracted assets and the loose folder itself stay outside it. A
+ * unit test (marp-kit.test.js) keeps this version equal to the file's header.
  */
 function notice() {
   return `# Notices
@@ -259,11 +258,13 @@ and \`lattice-runtime.js\`, included for reading rather than running. They are
 built from the Lattice repository, https://github.com/Laticent/lattice, which is
 where their source is.
 
-**The output exception does not apply to this folder.** Lattice grants an
-exception for engine assets its export pipeline embeds *inside a rendered deck*.
-This kit is deliberately the other thing — the engine handed over loose, for
-reuse — so the AGPL applies to it in full. Slides you write are yours and were
-never covered either way; the terms here are about redistributing these files.
+**Apart from the files a rendered deck loads (see below), the output exception
+does not apply to this folder.** Lattice grants an exception, in
+\`LICENSE-EXCEPTIONS\`, for engine assets embedded *inside a rendered deck*.
+This kit is the other thing: the engine handed over loose, for reuse, so the
+AGPL applies to the folder itself. Slides you write are yours and
+were never covered either way; the terms here are about redistributing these
+files.
 
 **Rendering is worth one more paragraph**, because the two routes differ and only
 one of them puts engine code in your hands to pass on:
@@ -277,9 +278,14 @@ one of them puts engine code in your hands to pass on:
   Render either way and share the file however you like. (The one route not
   measured is \`--pptx-editable\`, which converts through LibreOffice.)
 - **\`marp --html\` inlines the engine stylesheet** — about 852 KB of it — into
-  the output file. Keeping that file to yourself conveys nothing to anyone.
-  Publishing it conveys the engine in object form, so if that is your plan, read
-  \`LICENSE\` first. Rendering to PDF instead avoids the question entirely.
+  the output file, and the file loads \`lattice-runtime-min.js\` and the other
+  script and stylesheet files from beside it. If you leave this kit's CSS and
+  JavaScript unmodified and render with Marp CLI or Marp for VS Code, run with
+  the configuration this kit ships, the output exception (version 1.2, in
+  \`LICENSE-EXCEPTIONS\` beside this file) covers that file and the files it
+  loads: you may publish them together under terms of your choice, with no duty
+  to offer their source. Lifting the CSS or scripts out for other use is not
+  covered.
 
 If you plan to redistribute the kit itself, or ship a service built on it, read
 \`LICENSE\`.
@@ -376,20 +382,38 @@ runs before the rest of the deck exists. \`${DECK}\` does this — copy the patt
 default, which turns the deck's \`<script>\` tags into visible text and leaves
 every chart and diagram unbuilt. Both config files here set it.
 
-**Dark mode is \`class: dark\`, not \`color-mode:\`.** \`class:\` is Marp's own
-front-matter key and it stamps every slide, which is exactly what Lattice's dark
-styling keys off. Lattice's richer deck registers (\`color-mode:\`, \`finish:\`,
-\`logo:\`, …) are read from a block that only the full export pipeline writes, so
-in a hand-authored deck like this one they do nothing. Set one or the other, never
-both: in Lattice's own pipeline \`color-mode:\` supersedes the \`class:\` alias and
-drops it, so a deck carrying both renders differently on the two sides.
+**Deck-wide Lattice settings go in a settings block, not the front matter.**
+Marp drops every front-matter key it does not know (\`claim:\`, \`color-mode:\`,
+\`finish:\`, \`mode:\`, …), and a slide's own \`_class:\` REPLACES a \`class:\` set
+at the top, so \`class: dark\` up there misses every slide that names a layout. Put
+them in a block directly under the front matter instead; the runtime reads it and
+applies it to every slide, including the ones with their own \`_class:\`:
+
+\`\`\`markdown
+---
+marp: true
+theme: cuoio
+---
+<script type="application/lattice-settings">
+class: dark
+claim: quiet
+</script>
+\`\`\`
+
+Measured in this kit with \`claim: hero\`, \`color-mode: dark\` and \`class: dark\`.
+It is the runtime that reads the block, so it works wherever the runtime runs (see
+Fidelity below) and nowhere else.
 
 ## Fidelity
 
 **The runtime is what makes this deck complete, and it only runs in a browser.**
-Four of the thirteen slides are assembled by \`lattice-runtime-min.js\`, not by
-CSS: the Mermaid diagram, the chart, the matrix grid, and the split panel. Where
-that script runs, the deck is whole. Where it does not, those four are raw.
+Most Lattice layouts are assembled by \`lattice-runtime-min.js\`, not by CSS: cards,
+KPI rows, lists, the split panels, every chart and diagram, the Key Insight panel and
+below-note, and the \`claim-*\` presets. Measured over all 80 layouts, 63 change by
+more than 5% of their pixels when it runs. Without it only the title, closing,
+divider and topic slides, \`code\`, \`compare-code\`, \`table\`, \`agenda\`,
+\`list-tabular\`, \`list-steps\` and \`premise\` keep their shape. Where the script
+runs, the deck is whole.
 
 - **\`marp --pdf\`** drives real headless Chrome, so the runtime runs and the PDF
   is complete. This is the path \`${DECK}\` is verified on, and the one to trust.
@@ -400,14 +424,14 @@ that script runs, the deck is whole. Where it does not, those four are raw.
 - **The VS Code preview pane** runs marp-core directly, without Lattice's
   markdown-it plugins, and runs the deck's \`<script>\` tags at one preview
   security level only. At VS Code's default (*Strict*) the preview shows *"Some
-  content has been disabled in this document"* and those four slides stay raw;
-  click that message and choose **Disable** (*"Allow all content and script
-  execution"*) and they draw. VS Code remembers the choice per folder. The folder
+  content has been disabled in this document"*, most slides stay raw, and a notice
+  across the top of the preview says so. Click that message and choose
+  **Disable** (*"Allow all content and script execution"*) and they draw. VS Code remembers the choice per folder. The folder
   must be trusted first (the *Restricted Mode* banner → **Manage** → **Trust**).
   Measured on VS Code 1.142.0 and 1.145.2 with Marp for VS Code 3.6.1.
 
-Everything CSS does — layout, palette, typography, every purely-CSS layout —
-holds on all three. Render the deck for anything you need to trust.
+Palette and typography hold on all three; layout holds only where the runtime runs.
+Render the deck for anything you need to trust.
 
 **A video** is written as a record on a line of its own,
 \`@video{"<the clip's address>", title="…"}\`, and draws as a poster that links to

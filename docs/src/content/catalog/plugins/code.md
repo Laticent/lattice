@@ -45,7 +45,7 @@ examples:
     label: A title, numbers and focus
     caption: "@code{…} above the fence: the file name, line numbers, two lines at full strength, and copy buttons."
     sample: |
-      <!-- _class: code -->
+      <!-- @meta{layout=code} -->
 
       ## The retry lives in one place.
 
@@ -65,7 +65,7 @@ examples:
     label: A change
     caption: "@code{diff}: + and - mark the lines, and the code on them is still highlighted."
     sample: |2
-      <!-- _class: code -->
+      <!-- @meta{layout=code} -->
 
       ## One query instead of fifty.
 
@@ -81,7 +81,7 @@ examples:
     label: Before and after
     caption: The compare-code slide sets two blocks side by side; the plain code span above each is its label.
     sample: |
-      <!-- _class: compare-code -->
+      <!-- @meta{layout=compare-code} -->
 
       ## Same config, half the lines.
 

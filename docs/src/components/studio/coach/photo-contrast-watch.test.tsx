@@ -8,7 +8,7 @@ const readVerdict = vi.fn<(...a: unknown[]) => Promise<PhotoVerdict | null>>();
 vi.mock('../photo-verdict', () => ({ readVerdict: (...a: unknown[]) => readVerdict(...a) }));
 
 const LOW: PhotoVerdict = { low: true, ratio: 2.1, floor: 4.5, fix: 'image-card-light', fixRatio: 9, message: 'The text on this photo reads at 2.1:1.', label: 'Set card ink light', src: 'live' };
-const CHUNK = '<!-- _class: image spotlight image-card-clear -->\n\n## A quiet harbor.\n\n![A harbor](sample:photo-wide.svg)\n';
+const CHUNK = '<!-- @meta{layout=image, class=spotlight image-card-clear} -->\n\n## A quiet harbor.\n\n![A harbor](sample:photo-wide.svg)\n';
 const CONTEXT = {};
 
 /** A stand-in for the shell's preview-paint listener set. */

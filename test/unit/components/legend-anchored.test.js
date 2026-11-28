@@ -398,17 +398,17 @@ describe('heatmap: authored callouts', () => {
 });
 
 test('narration does not speak a legend line markdown merged into a paragraph (the chart shows it as code)', () => {
-  const slide = `<!-- _class: heatmap -->\n\n## Retention\n\n${TABLE}\n\nSee:\n\`@legend{{Dip, for=0}}\``;
+  const slide = `<!-- @meta{layout=heatmap} -->\n\n## Retention\n\n${TABLE}\n\nSee:\n\`@legend{{Dip, for=0}}\``;
   assert.doesNotMatch(String(narrateDataSeries(slide)), /Callout/);
 });
 
 test('narration reads a row= / col= callout, markdown in a row name included', () => {
-  const slide = `<!-- _class: heatmap -->\n\n## R\n\n|  | M0 | M1 |\n| --- | --: | --: |\n| Jan_2026 | 1 | 2 |\n\n\`@legend{{Dip, row=Jan_2026, col=M1}}\``;
+  const slide = `<!-- @meta{layout=heatmap} -->\n\n## R\n\n|  | M0 | M1 |\n| --- | --: | --: |\n| Jan_2026 | 1 | 2 |\n\n\`@legend{{Dip, row=Jan_2026, col=M1}}\``;
   assert.match(String(narrateDataSeries(slide)), /Callout at Jan_2026, M1: Dip\./);
 });
 
 test('narration matches for= the way the chart does, markdown in a row name included', () => {
-  const slide = `<!-- _class: heatmap -->\n\n## R\n\n|  | M0 | M1 |\n| --- | --: | --: |\n| Jan_2026 | 1 | 2 |\n\n\`@legend{{Dip, for="Jan_2026 · M1"}}\``;
+  const slide = `<!-- @meta{layout=heatmap} -->\n\n## R\n\n|  | M0 | M1 |\n| --- | --: | --: |\n| Jan_2026 | 1 | 2 |\n\n\`@legend{{Dip, for="Jan_2026 · M1"}}\``;
   assert.match(String(narrateDataSeries(slide)), /Callout at Jan_2026, M1: Dip\./);
 });
 
@@ -429,7 +429,7 @@ describe('the split: @callout and callout: off (2026-10-20-callout-placement.md 
     }
   });
   test('narration reads a @callout, and callout: off silences it', () => {
-    const slide = `<!-- _class: heatmap -->\n\n## R\n\n${TABLE}\n\n${callout}`;
+    const slide = `<!-- @meta{layout=heatmap} -->\n\n## R\n\n${TABLE}\n\n${callout}`;
     assert.match(String(narrateChart(slide)), /Callout at Jan 2026, M1: Dip\./);
     assert.doesNotMatch(String(narrateChart(slide, { frontMatter: 'callout: off' })), /Callout/);
     assert.doesNotMatch(String(narrateChart(slide, { frontMatter: 'marp: true', pluginsOff: ['callout'] })), /Callout/);
@@ -443,7 +443,7 @@ describe('the split: @callout and callout: off (2026-10-20-callout-placement.md 
 describe('the split keeps every pre-split switch, end to end (the checker on P1)', () => {
   const { createEngine } = require('../../../lib/engine');
   const { findLegendSpans } = require('../../../lib/authoring/lint-core');
-  const body = (cls, span = '@callout{{Peak, for="Jan 2026 · M1"}}') => `<!-- _class: ${cls} -->\n\n## R\n\n${TABLE}\n\n\`${span}\`\n`;
+  const body = (cls, span = '@callout{{Peak, for="Jan 2026 · M1"}}') => `<!-- @meta{class=${cls}} -->\n\n## R\n\n${TABLE}\n\n\`${span}\`\n`;
   const deck = (fm, slide) => `---\nmarp: true\n${fm}---\n\n${slide}`;
   const drawn = (src, plugins) => /legend--anchored/.test(createEngine(plugins ? { plugins } : {}).render(src).html);
 
@@ -473,7 +473,7 @@ describe('the split keeps every pre-split switch, end to end (the checker on P1)
     }
   });
   test('the old spelling on a slide nothing reads gets the code warning only, never "it still draws"', () => {
-    const f = findLegendSpans(deck('', '<!-- _class: lead -->\n\n# Hi\n\n`@legend{{Peak, for=1}}`\n'));
+    const f = findLegendSpans(deck('', '<!-- @meta{class=lead} -->\n\n# Hi\n\n`@legend{{Peak, for=1}}`\n'));
     assert.deepEqual(f.map((x) => x.rule), ['legend-span']);
   });
 });
@@ -491,14 +491,14 @@ describe('the author\'s switch: callout off', () => {
     assert.doesNotMatch(out, /legend--anchored/);
   });
   test('narration says nothing for a hidden callout: deck off, or slide off; with-callout wins', () => {
-    const slide = (cls, fm = '') => `${fm}<!-- _class: ${cls} -->\n\n## R\n\n${TABLE}\n\n${callout}`;
+    const slide = (cls, fm = '') => `${fm}<!-- @meta{class=${cls}} -->\n\n## R\n\n${TABLE}\n\n${callout}`;
     assert.doesNotMatch(String(narrateDataSeries(slide('heatmap no-callout'))), /Callout|legend/);
     assert.doesNotMatch(String(narrateDataSeries(slide('heatmap', '---\ncallout: off\n---\n\n'))), /Callout/);
     assert.match(String(narrateDataSeries(slide('heatmap with-callout', '---\ncallout: off\n---\n\n'))), /Callout at Jan 2026, M1: Dip\./);
   });
   test('narration of one split slide reads the deck it came from: front matter and the host\'s off-list', () => {
     // How every caller hands a slide over: split from the deck, so the front matter is not on it.
-    const slide = `<!-- _class: heatmap -->\n\n## R\n\n${TABLE}\n\n${callout}`;
+    const slide = `<!-- @meta{layout=heatmap} -->\n\n## R\n\n${TABLE}\n\n${callout}`;
     assert.match(String(narrateChart(slide)), /Callout at Jan 2026, M1/);
     assert.doesNotMatch(String(narrateChart(slide, { frontMatter: 'marp: true\ncallout: OFF' })), /Callout/);
     assert.doesNotMatch(String(narrateChart(slide, { frontMatter: 'marp: true', pluginsOff: ['callout'] })), /Callout/);
@@ -509,7 +509,7 @@ describe('the author\'s switch: callout off', () => {
 });
 
 test('narration reads a callout after the rows, then its detail', () => {
-  const slide = `<!-- _class: heatmap -->\n\n## Retention\n\n${TABLE}\n\n\`@legend{{Dip, for="Feb 2026 · M2", detail="Pricing change"}}\``;
+  const slide = `<!-- @meta{layout=heatmap} -->\n\n## Retention\n\n${TABLE}\n\n\`@legend{{Dip, for="Feb 2026 · M2", detail="Pricing change"}}\``;
   const spoken = String(narrateDataSeries(slide));
   assert.match(spoken, /Callout at Feb 2026, M2: Dip\. Pricing change\.$/);
   assert.doesNotMatch(spoken, /legend/);
@@ -517,7 +517,7 @@ test('narration reads a callout after the rows, then its detail', () => {
 
 test('narration says the six callouts the chart draws, and not a seventh', () => {
   const seven = Array.from({ length: 7 }, (_, i) => `{C${i + 1}, for=${i % 6}}`).join(', ');
-  const said = String(narrateDataSeries(`<!-- _class: heatmap -->\n\n## R\n\n${TABLE}\n\n\`@legend{[${seven}]}\``));
+  const said = String(narrateDataSeries(`<!-- @meta{layout=heatmap} -->\n\n## R\n\n${TABLE}\n\n\`@legend{[${seven}]}\``));
   assert.match(said, /Callout at [^:]*: C6\./);
   assert.doesNotMatch(said, /C7/);
 });

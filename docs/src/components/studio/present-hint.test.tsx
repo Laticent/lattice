@@ -10,7 +10,7 @@ vi.mock('@/components/DeckPreview', () => ({ default: () => <div data-testid="dp
 vi.mock('./studio-stage', () => ({ buildStageDocument: vi.fn(async () => ({ doc: '', total: 0 })) }));
 
 const options = { themeBase: '', runtimeUrl: '', engineUrl: '' };
-const slides = ['<!-- _class: title -->\n\n# One', '<!-- _class: kpi -->\n\n# Two'];
+const slides = ['<!-- @meta{layout=title} -->\n\n# One', '<!-- @meta{layout=kpi} -->\n\n# Two'];
 const KEY = 'lattice-present-hint';
 const cue = () => screen.queryByText(/Swipe or use/);
 

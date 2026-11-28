@@ -18,7 +18,7 @@
 // and the smoke set stays lean, so this runs in the nightly suite. It costs ~5s.
 import { expect, gotoStudio, slideCount, test } from './studio-fixture';
 
-const PROOF_SLIDE = (n: number) => `<!-- _class: split-panel proof -->
+const PROOF_SLIDE = (n: number) => `<!-- @meta{layout=split-panel, class=proof} -->
 
 \`Level ${n}\`
 

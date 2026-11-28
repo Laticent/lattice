@@ -12,7 +12,7 @@ const { readCellNote, readDescription } = require('../../../lib/core/cell-note.j
 const { CELL_DESCRIPTION_CHARTS } = require('../../../lib/core/chart-rows.js');
 
 const vocab = buildVocab(loadAll(path.join(__dirname, '../../../lib/components')));
-const slide = (cls, body) => `<!-- _class: ${cls} -->\n\n## T\n\n${body}\n`;
+const slide = (cls, body) => `<!-- @meta{class=${cls}} -->\n\n## T\n\n${body}\n`;
 const deck = (cls, body) => `---\nmarp: true\n---\n\n${slide(cls, body)}`;
 const html = (src) => { const o = engine.render(src, {}); return typeof o === 'string' ? o : o.html; };
 const found = (src) => lintCore.lintTextWith(src, vocab).filter((f) => f.rule === 'chart-description-unread');

@@ -11,7 +11,7 @@ import { type InlineKernels, inlineObjectsPlugin, type OpenObject, openObject, o
 const kernels = createRequire(import.meta.url)('../../../../lib/authoring/inline-editors.js') as InlineKernels;
 
 const DECK = [
-	'<!-- _class: content -->',
+	'<!-- @meta{layout=content} -->',
 	'',
 	'## Photos',
 	'',
@@ -27,7 +27,7 @@ const DECK = [
 	'',
 	'---',
 	'',
-	'<!-- _class: content -->',
+	'<!-- @meta{layout=content} -->',
 	'',
 	'## Locked',
 	'',
@@ -158,7 +158,7 @@ describe('editing an image', () => {
 
 	it('does nothing to a locked slide', () => {
 		// The slide holds strikethrough, which Compose cannot round-trip, so it is edited in Markdown.
-		const locked = mount(['<!-- _class: content -->', '', '## L', '', 'Has ~~strike~~ and ![Pic](asset:harbor).'].join('\n'));
+		const locked = mount(['<!-- @meta{layout=content} -->', '', '## L', '', 'Has ~~strike~~ and ![Pic](asset:harbor).'].join('\n'));
 		const [pic] = images(locked);
 		expect(editImage(locked, pic.pos, { src: 'asset:forest' })).toBe(false);
 		expect(images(locked)[0].src).toBe('asset:harbor');
@@ -178,7 +178,7 @@ describe('removing an image', () => {
 	});
 
 	it('takes only the image from a line of text', () => {
-		const view = mount(['<!-- _class: content -->', '', '## T', '', 'Before ![Pic](asset:harbor) after.'].join('\n'));
+		const view = mount(['<!-- @meta{layout=content} -->', '', '## T', '', 'Before ![Pic](asset:harbor) after.'].join('\n'));
 		const [pic] = images(view);
 		expect(removeImage(view, pic.pos)).toBe(true);
 		expect(docToDeck(view.state.doc)).toContain('Before  after.');
@@ -208,7 +208,7 @@ describe('the Image door', () => {
 	});
 
 	it('uses the empty paragraph the caret is in instead of leaving a blank one', () => {
-		const view = mount(['<!-- _class: content -->', '', '## T', '', 'A line.'].join('\n'));
+		const view = mount(['<!-- @meta{layout=content} -->', '', '## T', '', 'A line.'].join('\n'));
 		// Append an empty paragraph after the line and put the caret in it.
 		const para = deckSchema.nodes.paragraph.create();
 		const end = view.state.doc.child(0).content.size + 1;
@@ -220,7 +220,7 @@ describe('the Image door', () => {
 	});
 
 	it('puts it after a whole list, never inside one', () => {
-		const view = mount(['<!-- _class: content -->', '', '## T', '', '- one', '- two', '', 'Tail.'].join('\n'));
+		const view = mount(['<!-- @meta{layout=content} -->', '', '## T', '', '- one', '- two', '', 'Tail.'].join('\n'));
 		caretIn(view, 'one', true);
 		expect(insertImage('asset:forest', 'F')(view.state, view.dispatch)).toBe(true);
 		expect(docToDeck(view.state.doc)).toContain('- two\n\n![F](asset:forest)\n\nTail.');
@@ -241,7 +241,7 @@ describe('the Image door', () => {
 		caretIn(view, 'code');
 		expect(insertImageBlocker(view.state)).toMatch(/code block/);
 		expect(insertImage('asset:forest', 'F')(view.state, view.dispatch)).toBe(false);
-		const locked = mount(['<!-- _class: content -->', '', '## L', '', 'Has ~~strike~~ in it.'].join('\n'));
+		const locked = mount(['<!-- @meta{layout=content} -->', '', '## L', '', 'Has ~~strike~~ in it.'].join('\n'));
 		caretIn(locked, 'Has');
 		expect(insertImageBlocker(locked.state)).toMatch(/edited in Source/);
 		expect(insertImage('asset:forest', 'F')(locked.state, locked.dispatch)).toBe(false);
@@ -269,7 +269,7 @@ describe('opening a deck with images changes no bytes', () => {
 });
 
 describe('an image cannot forge deck structure (found by the red team)', () => {
-	const hostile = 'a\n\n---\n\n<!-- _class: title -->\n\n<!-- _backgroundImage: url(https://evil.example/b.png) -->\n\nb';
+	const hostile = 'a\n\n---\n\n<!-- @meta{layout=title} -->\n\n<!-- @meta{background-image="url(https://evil.example/b.png)"} -->\n\nb';
 
 	function slidesOf(source: string): number {
 		return deckToDoc(source).childCount;
@@ -284,9 +284,9 @@ describe('an image cannot forge deck structure (found by the red team)', () => {
 		view.dispatch(view.state.tr.replaceSelection(slice));
 		const deck = docToDeck(view.state.doc);
 		expect(slidesOf(deck)).toBe(2);
-		expect(deck).not.toMatch(/\n---\n[\s\S]*_backgroundImage/);
-		expect(deck.split('\n').filter((l) => l.includes('_backgroundImage'))).toHaveLength(1); // on the alt/title line itself, inside the image
-		expect(deck).not.toMatch(/^<!-- _backgroundImage/m);
+		expect(deck).not.toMatch(/\n---\n[\s\S]*background-image/);
+		expect(deck.split('\n').filter((l) => l.includes('background-image'))).toHaveLength(1); // on the alt/title line itself, inside the image
+		expect(deck).not.toMatch(/^<!-- @meta\{background-image/m);
 	});
 
 	it('a pasted <img> whose source holds a line break, a quote or a bracket is not an image', () => {
@@ -304,7 +304,7 @@ describe('an image cannot forge deck structure (found by the red team)', () => {
 	});
 
 	it('a node built with hostile attributes still serializes onto one line, whatever made it', () => {
-		const doc = deckToDoc(['<!-- _class: content -->', '', '## T', '', 'x'].join('\n'));
+		const doc = deckToDoc(['<!-- @meta{layout=content} -->', '', '## T', '', 'x'].join('\n'));
 		const slide = doc.child(0);
 		const withBlock = (block: ReturnType<typeof deckSchema.nodes.paragraph.create>) => deckSchema.nodes.doc.create(doc.attrs, [slide.copy(slide.content.append(Fragment.from(block)))]);
 		const hostileImage = deckSchema.nodes.image.create({ src: 'asset:harbor', alt: hostile, title: hostile });
@@ -319,7 +319,7 @@ describe('an image cannot forge deck structure (found by the red team)', () => {
 	});
 
 	it('a backslash in a title or source is escaped, so it cannot cancel the quote or parenthesis after it', () => {
-		const doc = deckToDoc(['<!-- _class: content -->', '', '## T', '', 'x'].join('\n'));
+		const doc = deckToDoc(['<!-- @meta{layout=content} -->', '', '## T', '', 'x'].join('\n'));
 		const slide = doc.child(0);
 		const img = deckSchema.nodes.image.create({ src: 'asset:a\\', alt: 'p', title: 'end\\' });
 		const deck = docToDeck(deckSchema.nodes.doc.create(doc.attrs, [slide.copy(slide.content.append(Fragment.from(deckSchema.nodes.paragraph.create(null, img))))]));
@@ -328,7 +328,7 @@ describe('an image cannot forge deck structure (found by the red team)', () => {
 	});
 
 	it('an ordinary image, with a title, writes the bytes the upstream rule always wrote', () => {
-		const src = ['<!-- _class: content -->', '', '## T', '', '![A (nice) pic](asset:harbor "A title")'].join('\n');
+		const src = ['<!-- @meta{layout=content} -->', '', '## T', '', '![A (nice) pic](asset:harbor "A title")'].join('\n');
 		expect(docToDeck(deckToDoc(src))).toBe(src);
 	});
 });
@@ -365,7 +365,7 @@ describe('what the editor draws agrees with what the engine resolves', () => {
 });
 
 describe('placing a picture writes the SLIDE\'s class, never `![bg]` (owner, 2026-11-10)', () => {
-	const one = (cls: string, pic: string) => [`<!-- _class: ${cls} -->`, '', '## T', '', 'Words.', '', pic].join('\n');
+	const one = (cls: string, pic: string) => [`<!-- @meta{layout=${cls}} -->`, '', '## T', '', 'Words.', '', pic].join('\n');
 
 	it('the class tokens for each placement keep every other word', () => {
 		expect(tokensWithPlacement(['content', 'dark'], 'left')).toEqual(['image', 'dark', 'mirror']);
@@ -404,16 +404,16 @@ describe('placing a picture writes the SLIDE\'s class, never `![bg]` (owner, 202
 			const view = mount(md);
 			return images(view).map((p) => placementAt(view.state, p.pos));
 		};
-		expect(read(deck('', '<!-- _class: image -->\n'))).toEqual([
+		expect(read(deck('', '<!-- @meta{layout=image} -->\n'))).toEqual([
 			{ placement: 'none', canPlace: false },
 			{ placement: 'right', canPlace: false },
 		]);
 		// The first part's own picture is still Compose's to place: writing its `_class` places it, and the engine agrees.
 		expect(read(deck('', ''))[0]).toEqual({ placement: 'none', canPlace: true });
-		expect(read(deck('<!-- _class: content -->\n', ''))[0]).toEqual({ placement: 'none', canPlace: true });
+		expect(read(deck('<!-- @meta{layout=content} -->\n', ''))[0]).toEqual({ placement: 'none', canPlace: true });
 		// A running class carried into the first part is not this slide's to change.
-		expect(read(deck('<!-- class: content -->\n', ''))[0]).toEqual({ placement: 'none', canPlace: false });
-		expect(read(deck('<!-- _class: image -->\n', ''))).toEqual([
+		expect(read(deck('<!-- @meta{layout=content, carry} -->\n', ''))[0]).toEqual({ placement: 'none', canPlace: false });
+		expect(read(deck('<!-- @meta{layout=image} -->\n', ''))).toEqual([
 			{ placement: 'right', canPlace: true },
 			{ placement: 'none', canPlace: false },
 		]);
@@ -432,16 +432,19 @@ describe('placing a picture writes the SLIDE\'s class, never `![bg]` (owner, 202
 		expect(out).not.toMatch(/!\[bg/);
 	});
 
-	it('refuses a slide with a layout of its own, a picture in running text, and a compound class comment', () => {
+	it('refuses a slide with a layout of its own and a picture in running text; two records on one line set nothing', () => {
 		const quote = mount(one('quote', '![A lake](sample:photo-wide.jpg)'));
 		expect(placementAt(quote.state, images(quote)[0].pos).canPlace).toBe(false);
 		expect(placeImage(quote, images(quote)[0].pos, 'left')).toBe(false);
 		const inline = mount(one('content', 'See ![A lake](sample:photo-wide.jpg) here.'));
 		expect(placementAt(inline.state, images(inline)[0].pos).canPlace).toBe(false);
-		const compound = mount(['<!-- _class: content --><!-- _paginate: false -->', '', '## T', '', '![A lake](sample:photo-wide.jpg)'].join('\n'));
-		const before = docToDeck(compound.state.doc);
-		expect(placeImage(compound, images(compound)[0].pos, 'left')).toBe(false);
-		expect(docToDeck(compound.state.doc)).toBe(before);
+		const compound = mount(['<!-- @meta{layout=content} --><!-- @meta{paginate=false} -->', '', '## T', '', '![A lake](sample:photo-wide.jpg)'].join('\n'));
+		// The engine reads a record only on its own line, so this slide has no class: Placement writes a record of its own
+		// above the line and leaves the line as written (the engine renders the result `image mirror`).
+		expect(placeImage(compound, images(compound)[0].pos, 'left')).toBe(true);
+		expect(docToDeck(compound.state.doc)).toBe(
+			'<!-- @meta{layout=image, class=mirror} -->\n\n<!-- @meta{layout=content} --><!-- @meta{paginate=false} -->\n\n## T\n\n![A lake](sample:photo-wide.jpg)',
+		);
 	});
 
 	it('only the slide\'s ONLY lone picture, as a direct paragraph, may be placed (the checker on this change)', () => {
@@ -470,7 +473,7 @@ describe('placing a picture writes the SLIDE\'s class, never `![bg]` (owner, 202
 	});
 
 	it('a carried class reaches the badge, and a bracketed deck class places nothing, as in the engine (inversion, F6)', () => {
-		const carried = mount(['<!-- class: image -->', '', '## One', '', '---', '', '## Two', '', '![A](https://x.test/a.jpg)'].join('\n'));
+		const carried = mount(['<!-- @meta{layout=image, carry} -->', '', '## One', '', '---', '', '## Two', '', '![A](https://x.test/a.jpg)'].join('\n'));
 		expect(placementAt(carried.state, images(carried)[0].pos)).toEqual({ placement: 'right', canPlace: false });
 		const bracket = new EditorView(document.createElement('div'), { state: EditorState.create({ doc: deckToDoc('---\ntheme: indaco\nclass: [bleed]\n---\n\n' + one('content', '![A](https://x.test/a.jpg)')) }) });
 		expect(placementAt(bracket.state, images(bracket)[0].pos).placement).toBe('none');

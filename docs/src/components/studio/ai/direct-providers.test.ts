@@ -6,7 +6,7 @@ import { readChatSelection, selectChat } from '../../../lib/model-selection.js';
 import { __resetOpenRouterKeyForTests, openRouterKeySettled, readProviderKey, writeProviderKey } from '../../../lib/openrouter-key.js';
 import { fakeKey } from '../../../test/fake-key';
 import { createArchitectModel } from './architect-model.js';
-import { catalogIdsFor, directBackend, estimateCost, pickDefaultModel, priceRow, toAnthropicBody, usablePrice } from './direct-providers.js';
+import { CACHE_RATES, catalogIdsFor, directBackend, estimateCost, pickDefaultModel, priceRow, requestWriteRate, toAnthropicBody, usablePrice } from './direct-providers.js';
 
 const CATALOG = [
 	{ id: 'openai/gpt-6.1-terra', name: 'OpenAI: GPT-6.1 Terra', promptPerM: 1, completionPerM: 5, contextLength: 400000, vision: true },
@@ -45,6 +45,20 @@ describe('pricing from the OpenRouter catalog', () => {
 	it('prices Anthropic cache writes at 1.25× and reads at 0.1×', () => {
 		const usd = estimateCost({ prompt_tokens: 1_000_000, completion_tokens: 0, cache_creation_input_tokens: 1_000_000, cache_read_input_tokens: 1_000_000 }, { promptPerM: 2, completionPerM: 10 });
 		expect(usd).toBeCloseTo(2 + 2.5 + 0.2, 6);
+	});
+	it('prices a write by its TTL: Anthropic\'s own 5-minute / 1-hour split, 1.25x and 2x (#3533 S02)', () => {
+		const price = { promptPerM: 2, completionPerM: 10 };
+		// 1M tokens written for an hour, 1M for five minutes: 2 * 2 + 2 * 1.25, not 2M at 1.25.
+		const split = estimateCost({ prompt_tokens: 0, completion_tokens: 0, cache_creation_input_tokens: 2_000_000, cache_creation: { ephemeral_1h_input_tokens: 1_000_000, ephemeral_5m_input_tokens: 1_000_000 } }, price);
+		expect(split).toBeCloseTo(2 * CACHE_RATES.write1h + 2 * CACHE_RATES.write5m, 6);
+		// No split: the rate the request's own marks asked for.
+		expect(estimateCost({ prompt_tokens: 0, completion_tokens: 0, cache_creation_input_tokens: 1_000_000 }, price, CACHE_RATES.write1h)).toBeCloseTo(4, 6);
+	});
+	it('reads the write rate from the request\'s own cache marks', () => {
+		expect(requestWriteRate({ system: [{ type: 'text', text: 'canon', cache_control: { type: 'ephemeral' } }] })).toBe(CACHE_RATES.write5m);
+		expect(requestWriteRate({ system: [{ type: 'text', text: 'canon', cache_control: { type: 'ephemeral', ttl: '1h' } }] })).toBe(CACHE_RATES.write1h);
+		expect(requestWriteRate({ messages: [{ role: 'user', content: [{ type: 'text', text: 'x', cache_control: { type: 'ephemeral', ttl: '1h' } }] }] })).toBe(CACHE_RATES.write1h);
+		expect(requestWriteRate({})).toBe(CACHE_RATES.write5m);
 	});
 	it('defaults to the newest mid-priced model, never a "pro" or "lite" tier', () => {
 		const models = [
@@ -169,6 +183,122 @@ describe('the transports', () => {
 		expect(h['x-api-key']).toBe('sk-ant-test-key-0000000000');
 		expect(h['anthropic-dangerous-direct-browser-access']).toBe('true');
 		expect(h.Authorization).toBeUndefined();
+	});
+
+	it('Anthropic: a cache read reaches the chat as prompt_tokens_details, and a 1-hour write is priced at 2x (#3533 S02)', async () => {
+		writeProviderKey('anthropic', 'sk-ant-test-key-0000000000');
+		await openRouterKeySettled();
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(
+				async () =>
+					new Response(
+						sse([
+							'data: {"type":"message_start","message":{"usage":{"input_tokens":100,"output_tokens":1,"cache_read_input_tokens":7000,"cache_creation_input_tokens":2000,"cache_creation":{"ephemeral_1h_input_tokens":2000,"ephemeral_5m_input_tokens":0}}}}',
+							'data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"ok"}}',
+							'data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":10}}',
+							'data: {"type":"message_stop"}',
+						]),
+						{ status: 200 },
+					),
+			),
+		);
+		const b = directBackend('anthropic', { catalog: async () => CATALOG, catalogNow: () => CATALOG });
+		const usage: Record<string, unknown>[] = [];
+		await b.complete({ model: 'claude-sonnet-5-5', messages: [{ role: 'user', content: 'hi' }], onToken: () => {}, onUsage: (u: Record<string, unknown>) => usage.push(u) });
+		// The chat reads cached input from prompt_tokens_details, as OpenRouter reports it; Anthropic's own key did not say it.
+		expect(usage[0]).toMatchObject({ prompt_tokens: 9100, prompt_tokens_details: { cached_tokens: 7000 } });
+		const p = 2e-6;
+		expect(usage[0].cost).toBeCloseTo(100 * p + 2000 * p * CACHE_RATES.write1h + 7000 * p * CACHE_RATES.read + 10 * 10e-6, 9);
+	});
+
+	it('a Stop mid-stream rejects as an abort and reports no partial usage or tool call (#3533 S01)', async () => {
+		// Before, the loop broke on the signal and then reported the partial usage and the half-streamed tool call as a
+		// finished reply: the round read as billed at a figure that left out its output, and the tool ran after the Stop.
+		writeProviderKey('anthropic', 'sk-ant-test-key-0000000000');
+		await openRouterKeySettled();
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(
+				async () =>
+					new Response(
+						sse([
+							'data: {"type":"message_start","message":{"usage":{"input_tokens":1000,"output_tokens":1}}}',
+							'data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hel"}}',
+							'data: {"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"tu1","name":"edit_slides"}}',
+							'data: {"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"{\\"a\\":"}}',
+							'data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":500}}',
+						]),
+						{ status: 200 },
+					),
+			),
+		);
+		const b = directBackend('anthropic', { catalog: async () => CATALOG, catalogNow: () => CATALOG });
+		const ctl = new AbortController();
+		const usage: unknown[] = [];
+		const tools: unknown[] = [];
+		const run = b.complete({ model: 'claude-sonnet-5-5', messages: [{ role: 'user', content: 'hi' }], signal: ctl.signal, onToken: () => ctl.abort(), onUsage: (u: unknown) => usage.push(u), onToolCalls: (c: unknown[]) => tools.push(...c) });
+		await expect(run).rejects.toMatchObject({ name: 'AbortError' });
+		expect(usage).toEqual([]);
+		expect(tools).toEqual([]);
+	});
+
+	it('OpenAI and Gemini: a Stop mid-stream rejects as an abort, with no partial usage or tool call (#3533 S01)', async () => {
+		writeProviderKey('openai', 'sk-proj-test-key-0000000000');
+		await openRouterKeySettled();
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(
+				async () =>
+					new Response(
+						sse([
+							'data: {"choices":[{"delta":{"content":"Hel"}}]}',
+							'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"t1","type":"function","function":{"name":"edit_slides","arguments":"{\\"a\\":"}}]}}]}',
+							'data: {"choices":[],"usage":{"prompt_tokens":100,"completion_tokens":10,"total_tokens":110}}',
+							'data: [DONE]',
+						]),
+						{ status: 200 },
+					),
+			),
+		);
+		const b = directBackend('openai', { catalog: async () => CATALOG, catalogNow: () => CATALOG });
+		const ctl = new AbortController();
+		const usage: unknown[] = [];
+		const tools: unknown[] = [];
+		const run = b.complete({ model: 'gpt-6.1-terra', messages: [{ role: 'user', content: 'hi' }], signal: ctl.signal, onToken: () => ctl.abort(), onUsage: (u: unknown) => usage.push(u), onToolCalls: (c: unknown[]) => tools.push(...c) });
+		await expect(run).rejects.toMatchObject({ name: 'AbortError' });
+		expect(usage).toEqual([]);
+		expect(tools).toEqual([]);
+	});
+
+	it('a Stop that lands once the stream has ended keeps the finished reply and its exact usage', async () => {
+		// The end is read first: a reply whose stream ended finished, so its own usage stands instead of an estimate.
+		writeProviderKey('openai', 'sk-proj-test-key-0000000000');
+		await openRouterKeySettled();
+		const ctl = new AbortController();
+		const body = ['data: {"choices":[{"delta":{"content":"ok"}}]}', 'data: {"choices":[],"usage":{"prompt_tokens":100,"completion_tokens":10,"total_tokens":110}}'].map((l) => `${l}\n\n`).join('');
+		// One read holds every line; the Stop lands on the read that ends the stream, after the last line was handled. A real
+		// Response reads its source ahead, so the reader is hand-made to pin that order.
+		const chunk = new TextEncoder().encode(body);
+		let reads = 0;
+		const reader = {
+			async read() {
+				if (reads++ === 0) return { value: chunk, done: false };
+				ctl.abort();
+				return { value: undefined, done: true };
+			},
+			releaseLock() {},
+			cancel: async () => {},
+		};
+		vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, status: 200, headers: new Headers(), body: { getReader: () => reader } })));
+		const b = directBackend('openai', { catalog: async () => CATALOG, catalogNow: () => CATALOG });
+		const usage: Record<string, unknown>[] = [];
+		const out = await b.complete({ model: 'gpt-6.1-terra', messages: [{ role: 'user', content: 'hi' }], signal: ctl.signal, onToken: () => {}, onUsage: (u: Record<string, unknown>) => {
+			usage.push(u);
+		} });
+		expect(ctl.signal.aborted).toBe(true);
+		expect(out).toBe('ok');
+		expect(usage[0]).toMatchObject({ prompt_tokens: 100, completion_tokens: 10 });
 	});
 
 	it('OpenAI: the OpenRouter-shaped request at the provider base, max_completion_tokens, estimated usage', async () => {

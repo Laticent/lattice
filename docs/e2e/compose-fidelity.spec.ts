@@ -12,7 +12,7 @@ const DECK = [
 	'---',
 	'',
 	'`Q3 review`',
-	'<!-- _class: content -->',
+	'<!-- @meta{layout=content} -->',
 	'',
 	'# The quarter',
 	'',

@@ -21,7 +21,7 @@ vi.mock('@/playground/single-slide-render', () => ({
 }));
 
 const DATA: RestyleData = {
-	sample: '<!-- _class: kpi -->\n# x',
+	sample: '<!-- @meta{layout=kpi} -->\n# x',
 	drawn: false,
 	palettes: [
 		{ name: 'indaco', label: 'Indaco', accent: '#006fa8' },

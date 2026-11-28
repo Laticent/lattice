@@ -96,7 +96,7 @@ const TWO_SLIDES = `---
 color-mode: light
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{class=diagram} -->
 
 # One
 

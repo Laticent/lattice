@@ -25,7 +25,7 @@ test('every size, frame and show= stays in order, on the slide, under a still he
   const combos = [];
   for (const frame of FRAMES) for (const show of SHOWS) for (const size of SIZES) combos.push({ frame, show, size });
   const slides = combos.map(({ frame, show, size }) =>
-    `<!-- _class: content -->\n\n## The same heading on every slide\n\n\`@image{canoe.jpg, title="Lake", description="Dawn", ${size}${frame ? `, frame=${frame}` : ''}, show=${show}}\`\n\nOne paragraph of text below the picture.`);
+    `<!-- @meta{layout=content} -->\n\n## The same heading on every slide\n\n\`@image{canoe.jpg, title="Lake", description="Dawn", ${size}${frame ? `, frame=${frame}` : ''}, show=${show}}\`\n\nOne paragraph of text below the picture.`);
   const deck = path.join(dir, 'sweep.md');
   fs.writeFileSync(deck, `---\ntheme: indaco\n---\n\n${slides.join('\n\n---\n\n')}\n`);
   const html = path.join(dir, 'sweep.html');

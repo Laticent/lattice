@@ -15,7 +15,7 @@ const COMPOSE = 'Compose — rich editor';
 
 const DECK = [
 	'---', 'marp: true', 'theme: indaco', '---', '',
-	'<!-- _class: obligation-matrix -->', '', '## Duties by regime.', '',
+	'<!-- @meta{layout=obligation-matrix} -->', '', '## Duties by regime.', '',
 	'| Regime | Notice | Export |', '| --- | :---: | :---: |',
 	'| GDPR | [x] | [!] |', '| CCPA | [?] | [ ] |', '| LGPD | [-] | [/] |', '',
 ].join('\n');

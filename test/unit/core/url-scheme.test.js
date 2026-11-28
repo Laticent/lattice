@@ -82,33 +82,40 @@ describe('the engine, end to end', () => {
     const style = /<section[^>]*style="([^"]*)"/.exec(r.html)?.[1] ?? '';
     return { r, bg: /(?:^|;)background-image:([^;]*)/.exec(style)?.[1] ?? null, ids: (r.diagnostics || []).filter((d) => d.id === 'meta/url-scheme') };
   };
+  // The record a slide sets its background with, quoted as `lattice migrate meta` quotes it.
+  const { recordValue } = require('../../../lib/authoring/meta-migrate.mjs');
+  const bgRecord = (url) => `<!-- @meta{background-image=${recordValue(`url(${url})`)}} -->`;
   for (const url of ['javascript:alert(1)', 'file:///etc/passwd', '"data:text/html,<b>x</b>"', '"java\tscript:alert(1)"', 'http://x.example/a.png', '//evil.example/a.png']) {
-    test(`_backgroundImage: url(${url}) is dropped with a diagnostic`, () => {
-      const { bg, ids } = section(`<!-- _backgroundImage: url(${url}) -->\n# A`);
+    test(`background-image=url(${url}) is dropped with a diagnostic`, () => {
+      const { bg, ids } = section(`${bgRecord(url)}\n# A`);
       assert.equal(bg, null);
       assert.equal(ids.length, 1);
     });
   }
+  test('an old `_backgroundImage` comment reaches no style at all since the cut', () => {
+    const { bg } = section('<!-- _backgroundImage: url(https://x.example/a.png) -->\n# A');
+    assert.equal(bg, null);
+  });
   for (const url of ['https://x.example/a.png', 'data:image/png;base64,AAAA', 'img/a.png']) {
-    test(`_backgroundImage: url(${url}) still renders`, () => {
-      const { bg, ids } = section(`<!-- _backgroundImage: url(${url}) -->\n# A`);
+    test(`background-image=url(${url}) still renders`, () => {
+      const { bg, ids } = section(`${bgRecord(url)}\n# A`);
       assert.match(bg, /^url\(/);
       assert.deepEqual(ids, []);
     });
   }
   test('a palette-blind gradient may still read a token', () => {
-    assert.equal(section('<!-- _backgroundImage: linear-gradient(var(--accent), red) -->\n# A').bg, 'linear-gradient(var(--accent), red)');
+    assert.equal(section('<!-- @meta{background-image="linear-gradient(var(--accent), red)"} -->\n# A').bg, 'linear-gradient(var(--accent), red)');
   });
   test('a value cannot build a URL from another value: image-set(var(--header)) is the string-to-URL route', () => {
     for (const v of ['image-set(var(--header) 1x)', 'image-set(attr(x) 1x)', '-webkit-image-set(var(--header) 1x)', 'src(var(--header))', 'cross-fade(var(--header), red)']) {
-      const { bg, ids } = section(`---\nheader: http://127.0.0.1:1/b\n---\n<!-- _backgroundImage: ${v} -->\n# A`);
+      const { bg, ids } = section(`---\nheader: http://127.0.0.1:1/b\n---\n<!-- @meta{background-image=${recordValue(v)}} -->\n# A`);
       assert.equal(bg, null, v);
       assert.equal(ids.length, 1, v);
     }
   });
   test('a value the declaration sink refuses is dropped WITH a diagnostic, not in silence', () => {
     for (const v of ['url(\\66 ile:///etc/passwd)', 'image-set("http://evil/x" 1x)']) {
-      const { bg, ids } = section(`<!-- _backgroundImage: ${v} -->\n# A`);
+      const { bg, ids } = section(`<!-- @meta{background-image=${recordValue(v)}} -->\n# A`);
       assert.equal(bg, null, v);
       assert.equal(ids.length, 1, v);
     }
@@ -117,7 +124,7 @@ describe('the engine, end to end', () => {
   // shortcut, which asks the same list (lib/core/placed-picture.mjs rule 6).
   test('the placed photo follows the same list, on an image slide and a bleed slide', () => {
     for (const cls of ['image', 'content bleed']) {
-      const place = (u) => e.render(`<!-- _class: ${cls} -->\n\n![Photo](${u})\n\n## T\n`).html;
+      const place = (u) => e.render(`<!-- @meta{class=${cls}} -->\n\n![Photo](${u})\n\n## T\n`).html;
       for (const u of ['http://evil/x.png', '//evil/x.png', 'blob:x', 'ftp://e/x', 'javascript:alert(1)', 'file:///etc/x']) {
         assert.doesNotMatch(place(u), /lattice-bg|url\(/, `${cls}: ${u}`);
       }
@@ -127,7 +134,7 @@ describe('the engine, end to end', () => {
     }
   });
   test('a gradient still renders', () => {
-    assert.equal(section('<!-- _backgroundImage: linear-gradient(red, blue) -->\n# A').bg, 'linear-gradient(red, blue)');
+    assert.equal(section('<!-- @meta{background-image="linear-gradient(red, blue)"} -->\n# A').bg, 'linear-gradient(red, blue)');
   });
   test('a hostile front-matter logo shows no logo and says why; a good one is untouched', () => {
     const bad = e.render('---\nlogo: javascript:alert(1)\n---\n# A');

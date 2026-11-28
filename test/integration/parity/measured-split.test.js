@@ -24,9 +24,9 @@ const TMP = path.join(ROOT, '.scratch', 'measured-split');
 const items = (n) => Array.from({ length: n }, (_, i) => `- Item ${i + 1} on the agenda`).join('\n');
 // Eight short items at a portrait box: past agenda's hard count of six, which the structural
 // split cuts on any box but the deck's own, and well inside the slide.
-const FITS = `---\nmarp: true\ntheme: indaco\nsize: portrait\n---\n\n<!-- _class: agenda -->\n\n## Eight short items\n\n${items(8)}\n`;
+const FITS = `---\nmarp: true\ntheme: indaco\nsize: portrait\n---\n\n<!-- @meta{class=agenda} -->\n\n## Eight short items\n\n${items(8)}\n`;
 // Eighteen items at a square box: more than one page can hold.
-const OVER = `---\nmarp: true\ntheme: indaco\nsize: square\n---\n\n<!-- _class: agenda -->\n\n## Eighteen items\n\n${items(18)}\n`;
+const OVER = `---\nmarp: true\ntheme: indaco\nsize: square\n---\n\n<!-- @meta{class=agenda} -->\n\n## Eighteen items\n\n${items(18)}\n`;
 
 function render(name, md, ...flags) {
   fs.mkdirSync(TMP, { recursive: true });

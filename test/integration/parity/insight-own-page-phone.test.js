@@ -34,7 +34,7 @@ pagination: true
 size: square
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{class=diagram} -->
 
 ## The glyph's meaning is never voiced.
 
@@ -49,7 +49,7 @@ sequenceDiagram
 
 ---
 
-<!-- _class: line -->
+<!-- @meta{class=line} -->
 
 ## Churn fell once onboarding moved to week one.
 
@@ -66,7 +66,7 @@ sequenceDiagram
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{class=diagram} -->
 
 ## A short note leaves the diagram its room.
 
@@ -80,7 +80,7 @@ sequenceDiagram
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{class=diagram} -->
 
 ## The glyph's meaning is never voiced, at length.
 
@@ -144,7 +144,7 @@ before(async () => {
     }));
   // The deck again with every slide kept whole.
   const whole = path.join(dir, 'whole.md');
-  fs.writeFileSync(whole, DECK.replaceAll('<!-- _class: diagram -->', '<!-- _class: diagram fit-report -->').replaceAll('<!-- _class: line -->', '<!-- _class: line fit-report -->'));
+  fs.writeFileSync(whole, DECK.replaceAll('<!-- @meta{class=diagram} -->', '<!-- @meta{class=diagram fit-report} -->').replaceAll('<!-- @meta{class=line} -->', '<!-- @meta{class=line fit-report} -->'));
   const w = spawnSync(process.execPath, [path.join(ROOT, 'lattice.js'), whole, path.join(dir, 'whole.pdf'), '--keep-html'], { cwd: ROOT, encoding: 'utf8', timeout: 240000 });
   if (w.status !== 0) throw new Error(`export failed: ${w.stderr}`);
   for (const n of ['1', '2']) {

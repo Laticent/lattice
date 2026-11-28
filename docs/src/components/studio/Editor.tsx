@@ -1,13 +1,12 @@
 import { autocompletion } from '@codemirror/autocomplete';
 import { defaultKeymap } from '@codemirror/commands';
-import { markdown } from '@codemirror/lang-markdown';
-import { yamlFrontmatter } from '@codemirror/lang-yaml';
 import { syntaxHighlighting } from '@codemirror/language';
 import { type Diagnostic, linter, lintGutter } from '@codemirror/lint';
 import { Annotation, ChangeSet, EditorSelection as CmSelection, Compartment, EditorState, type Extension, StateEffect, type Text, Transaction } from '@codemirror/state';
 import { closeHoverTooltips, EditorView, hasHoverTooltips, highlightActiveLine, highlightActiveLineGutter, hoverTooltip, keymap, layer, lineNumbers, RectangleMarker, scrollPastEnd, ViewPlugin, type ViewUpdate } from '@codemirror/view';
 import * as React from 'react';
 import { QuickScroll } from '@/components/ui/quick-scroll';
+import { deckMarkdown } from '@/lib/deck-language/deck-language';
 import { buildDeckIndex, deckEditableOffset } from '@/lib/deck-outline';
 import { type CarriedColumn, lineOffsetIn, plainColumnOfCarried, plainLine, rawColumnFor } from '@/lib/deck-outline/caret-line';
 import { externalInlineKinds, externalPluginsVersion, findingsToDiagnostics, subscribeExternalPlugins } from '@/lib/editor-diagnostics.js';
@@ -48,7 +47,9 @@ let keepInkTooltip: ((tr: Transaction, from: number, to: number) => boolean | nu
 // #562 inline validation (underline + Quick fix). Degrades to a <textarea> if
 // CodeMirror can't construct (e.g. jsdom), so it never breaks tests.
 
-const CLASS_RE = /<!--\s*_class:\s*([A-Za-z0-9-]+)\s*-->/g;
+// The slide's component is the first word of its record's layout (`<!-- @meta{layout=kpi, …} -->`): since the cut an old
+// `<!-- _class: kpi -->` comment sets nothing (record note §15), and the lint core names it with its own fix.
+const CLASS_RE = /<!--\s*@meta\{\s*(?:layout|class)\s*=\s*"?([A-Za-z0-9-]+)/g;
 
 // The "did you mean" for an unknown component: the known name sharing the longest
 // prefix, else one that is a prefix of the typo, else `kpi`. Shared by the inline
@@ -981,7 +982,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 				});
 				return;
 			}
-			// Fallback: swap each unknown `_class` for its nearest known suggestion.
+			// Fallback: swap each unknown record layout for its nearest known suggestion.
 			let text = docString(v.state.doc);
 			CLASS_RE.lastIndex = 0;
 			text = text.replace(CLASS_RE, (full, name: string) =>
@@ -1136,13 +1137,13 @@ export const Editor = React.forwardRef<EditorHandle, {
 						]),
 						cmFindExtension,
 						keymap.of(defaultKeymap),
-						// `yamlFrontmatter` WRAPS the Markdown language rather than sitting beside it, and
-						// without it a deck's front matter is parsed as a CommonMark SETEXT HEADING — the
-						// closing `---` reads as the underline — so `marp: true / theme: … ` rendered bold
-						// in the accent color, indistinguishable from `# Title`, as the first thing an
-						// author sees on opening any deck. Found by a red team running the real parser over
-						// this PR's own demo deck (#1715).
-						yamlFrontmatter({ content: markdown() }),
+						// The deck language: CodeMirror's tree built from the deck model, the parser the engine
+						// renders with (Segno P4b, lib/deck-language/deck-language.ts), so math, `~~`, tables and the
+						// front matter read here as they render. Its front matter is the engine's, as a
+						// `Frontmatter` node with the YAML parsed inside: before #1715 a deck's front matter was
+						// parsed as a CommonMark SETEXT HEADING (the closing `---` read as the underline) and
+						// rendered bold in the accent color, indistinguishable from `# Title`.
+						deckMarkdown(),
 						// The deck editor was the ONE Studio editing surface with no highlighting at
 						// all: it composed `markdown()` + `editorTheme` and no `syntaxHighlighting(…)`,
 						// so the deck source rendered as bare text nodes with ZERO token spans, while

@@ -64,7 +64,7 @@ meta: "Q3 2026 · Finance"
 footer: "Confidential · prepared for the board"
 __STYLE__---
 
-<!-- _class: title -->
+<!-- @meta{class=title} -->
 
 \`Board review · Q3 2026\`
 
@@ -84,7 +84,7 @@ The quarter in one page: what moved, what it cost, and what we ask the board to 
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{class=divider} -->
 
 \`Part three\`
 
@@ -92,7 +92,7 @@ The quarter in one page: what moved, what it cost, and what we ask the board to 
 
 ---
 
-<!-- _class: quote -->
+<!-- @meta{class=quote} -->
 
 > We stopped arguing about the forecast once the numbers arrived before the meeting did.
 
@@ -100,7 +100,7 @@ The quarter in one page: what moved, what it cost, and what we ask the board to 
 
 ---
 
-<!-- _class: big-number -->
+<!-- @meta{class=big-number} -->
 
 \`Net retention · trailing twelve months\`
 
@@ -109,7 +109,7 @@ The quarter in one page: what moved, what it cost, and what we ask the board to 
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{class=cards-grid} -->
 
 \`What we ask\`
 
@@ -124,7 +124,7 @@ The quarter in one page: what moved, what it cost, and what we ask the board to 
 
 ---
 
-<!-- _class: bar -->
+<!-- @meta{class=bar} -->
 
 \`Revenue by segment\`
 
@@ -137,7 +137,7 @@ The quarter in one page: what moved, what it cost, and what we ask the board to 
 
 ---
 
-<!-- _class: piechart -->
+<!-- @meta{class=piechart} -->
 
 ## Where the hours went
 
@@ -148,7 +148,7 @@ The quarter in one page: what moved, what it cost, and what we ask the board to 
 
 ---
 
-<!-- _class: line -->
+<!-- @meta{class=line} -->
 
 \`Revenue · by segment\`
 

@@ -19,7 +19,7 @@ Cost discipline held. Yes. Pipeline coverage sits below target.
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{class=divider} -->
 
 ## Section two
 
@@ -70,7 +70,7 @@ pace: brisk
 delivery: restrained
 ---
 
-<!-- _class: funnel -->
+<!-- @meta{class=funnel} -->
 
 ## Where the pipeline drops off.
 

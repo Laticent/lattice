@@ -39,7 +39,7 @@ theme: indaco
 size: square
 ---
 
-<!-- _class: regulatory-update diff-bands -->
+<!-- @meta{class=regulatory-update diff-bands} -->
 
 ## Privacy & AI motion — Q1 2026 by kind of change.
 
@@ -68,7 +68,7 @@ size: square
 
 ---
 
-<!-- _class: regulatory-update -->
+<!-- @meta{class=regulatory-update} -->
 
 ## Default variant with groups.
 
@@ -101,7 +101,7 @@ size: square
 
 ---
 
-<!-- _class: team-profile sides -->
+<!-- @meta{class=team-profile sides} -->
 
 \`team-profile sides\`
 

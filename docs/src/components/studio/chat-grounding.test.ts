@@ -32,7 +32,7 @@ const CATALOG = [
 		bucket: 'inventory',
 		summary: 'Roster of responsibilities owned by named actors.',
 		description: 'Roster of responsibilities owned by named actors.',
-		skeleton: '<!-- _class: actors -->\n\n## Title\n\n- Row',
+		skeleton: '<!-- @meta{layout=actors} -->\n\n## Title\n\n- Row',
 		variants: ['compact'],
 		capacity: { axis: 'item', soft: 6, hard: 7 },
 		density: { soft: 14 },
@@ -40,7 +40,7 @@ const CATALOG = [
 			{ name: 'title', required: true, description: 'Slide heading.' },
 			{ name: 'rows', required: true, description: 'One row per responsibility.' },
 		],
-		variantSkeletons: [{ name: 'compact', caption: 'tighter rows', sample: '<!-- _class: actors compact -->\n\n## Title\n\n1. Name `value`' }],
+		variantSkeletons: [{ name: 'compact', caption: 'tighter rows', sample: '<!-- @meta{layout=actors, class=compact} -->\n\n## Title\n\n1. Name `value`' }],
 	},
 ];
 

@@ -71,11 +71,11 @@ finish: strata
 
 <style>${LEGACY_CSS} ${LEGACY_MASKED_CSS}</style>
 
-${[...SLIDES.map(([cls, body]) => `<!-- _class: ${cls} -->\n\n${body}`),
-  `<!-- _class: split-panel finish-legacy -->\n\n${BODY}`,
-  `<!-- _class: split-panel no-finish -->\n\n${BODY}`,
-  `<!-- _class: split-panel finish-legacymask -->\n\n${BODY}`,
-  `<!-- _class: split-panel backdrop-clear -->\n\n${BODY}`].join('\n\n---\n\n')}
+${[...SLIDES.map(([cls, body]) => `<!-- @meta{class=${cls}} -->\n\n${body}`),
+  `<!-- @meta{layout=split-panel, class=finish-legacy} -->\n\n${BODY}`,
+  `<!-- @meta{layout=split-panel, class=no-finish} -->\n\n${BODY}`,
+  `<!-- @meta{layout=split-panel, class=finish-legacymask} -->\n\n${BODY}`,
+  `<!-- @meta{layout=split-panel, class=backdrop-clear} -->\n\n${BODY}`].join('\n\n---\n\n')}
 `;
 
 describe('split finish surface (real render)', () => {

@@ -29,11 +29,14 @@ test('fields, flags, carry, quoting and the comment end', () => {
   assert.equal(metaRecord([['pane', 'bar']]), '{pane=bar}');
 });
 
-test('the record renders what the old comment rendered', () => {
+test('the record renders what `lattice migrate meta` makes of the old comment', () => {
+  const { migrateMetaSource } = require('../../../lib/authoring/meta-migrate.mjs');
+  const { META_MIGRATE_KIT } = require('../../../lib/core/meta-scan.mjs');
   const engine = createEngine();
   const deck = (c) => `---\ntheme: indaco\n---\n\n${c}\n\n## T\n\n- a\n  - b\n`;
   for (const cls of ['cards-grid', 'cards-grid dark compact', 'dark cards-grid', 'stats', 'title silent', 'my-local-card']) {
-    const a = engine.render(deck(`<!-- _class: ${cls} -->`));
+    // Since the cut the old comment sets nothing; the migration is the path, so the record must render what it writes.
+    const a = engine.render(migrateMetaSource(deck(`<!-- _class: ${cls} -->`), { kit: META_MIGRATE_KIT }).source);
     const b = engine.render(deck(metaClass(cls)));
     assert.equal(b.html, a.html, cls);
     assert.equal(b.css, a.css, cls);

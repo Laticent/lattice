@@ -262,9 +262,21 @@ launching their own Chrome, as they do today. None of arms (a) to (d) will be bu
 the suite, the CLI or CI changes. `tools/shared-chrome-lab/` stays, because its baseline arm times every
 launch and can serve if the launch timeout is chased again.
 
-The decision is about sharing only. The calco-chips launch timeout that started this note is still
-open. Under HARD RULE #33 it is fixed at its cause on its own branch, `test/calco-chips-launch-timeout`,
-which the flake desk routed back to this note's author.
+The decision is about sharing only.
+
+**Still open: the calco-chips launch timeout.** PR #3577 hunted it under HARD RULE #33 and could not
+reproduce it. Its 4,469 timed launches, with calco-chips' exact options, never failed and never took
+longer than 1.93 s. They covered a quiet machine, an `npm run build` loop, that loop plus
+`test:integration:pr`, and twice the release desk's overlap: a `git clone --no-hardlinks` plus `npm ci`
+beside the tier. On that sandbox it ruled out D-Bus (no socket, so it fails fast), fontconfig, disk space,
+`/dev/shm` and leaked temp profiles. calco-chips now launches through `launchOrExplain`
+(`test/helpers/chrome.js`). On the next failure, that helper appends the wait, load, free memory, live Chrome
+processes, temp space, kernel pressure-stall shares and the cgroup's process count to the error. It also
+adds a snapshot, taken two thirds of the way through the wait, of what the test's own child processes were
+doing. A real Chrome frozen before its endpoint reads `chrome:T(do_signal_stop)` there. That line is where
+to start. It names the cause only if the cause shows in those fields or that snapshot. A cgroup process
+limit is also ruled out: a fork Chrome cannot make fails it in under 0.2 s, not 30 s. The test stays owned by the flake desk's claim
+(`claim:test:test/integration/export/calco-chips.test.js#before`) until the cause is fixed.
 
 ## Recommendation (as written before the decision)
 

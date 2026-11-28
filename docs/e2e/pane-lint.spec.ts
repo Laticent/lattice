@@ -18,14 +18,14 @@ const PANES_DECK = [
 	'',
 	'## Code never sits beside prose.',
 	'',
-	'<!-- _class: columns -->',
-	'<!-- _pane: code -->',
+	'<!-- @meta{layout=columns} -->',
+	'<!-- @meta{pane=code} -->',
 	'',
 	'```js',
 	'const x = 1;',
 	'```',
 	'',
-	'<!-- _pane: content -->',
+	'<!-- @meta{pane=content} -->',
 	'',
 	'A line of prose.',
 	'',
@@ -33,12 +33,12 @@ const PANES_DECK = [
 	'',
 	'## Scorecard.',
 	'',
-	'<!-- _class: columns -->',
-	'<!-- _pane: list -->',
+	'<!-- @meta{layout=columns} -->',
+	'<!-- @meta{pane=list} -->',
 	'',
 	...Array.from({ length: 20 }, (_, i) => `- Point ${i + 1}`),
 	'',
-	'<!-- _pane: content -->',
+	'<!-- @meta{pane=content} -->',
 	'',
 	'A line of prose.',
 	'',
@@ -47,6 +47,6 @@ const PANES_DECK = [
 test('the editor says a panes slide will re-orient, and underlines a pane past its budget', async ({ page }) => {
 	await gotoStudio(page);
 	await setEditorContent(page, PANES_DECK);
-	await expect(page.locator('.cm-lintRange-info').filter({ hasText: 'pane: code' }).first()).toBeVisible({ timeout: 15_000 });
-	await expect(page.locator('.cm-lintRange-warning').filter({ hasText: 'pane: list' }).first()).toBeVisible();
+	await expect(page.locator('.cm-lintRange-info').filter({ hasText: 'pane=code' }).first()).toBeVisible({ timeout: 15_000 });
+	await expect(page.locator('.cm-lintRange-warning').filter({ hasText: 'pane=list' }).first()).toBeVisible();
 });

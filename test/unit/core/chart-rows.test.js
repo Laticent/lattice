@@ -14,7 +14,7 @@ const { loadAll } = require('../../../lib/components');
 
 const manifests = loadAll(path.join(__dirname, '../../../lib/components'));
 const vocab = buildVocab(manifests);
-const deck = (cls, body) => `---\nmarp: true\n---\n\n<!-- _class: ${cls} -->\n\n## A\n\n${body}\n`;
+const deck = (cls, body) => `---\nmarp: true\n---\n\n<!-- @meta{class=${cls}} -->\n\n## A\n\n${body}\n`;
 const recordFindings = (src) => lintCore.lintTextWith(src, vocab).filter((f) => f.rule === 'chart-row-record-unread');
 const { narrateChart } = require('../../../lib/core/chart-narration.js');
 const { CHART_STATUS } = require('../../../lib/core/chart-status.js');
@@ -167,9 +167,10 @@ describe('lint: chart-row-record-unread', () => {
     // No machine fix: phase 4's codemod writes the record, so "Fix all" must not undo it. (On the slide's `@meta`
     // spelling, so Fix all has no old comment to migrate either.)
     assert.equal(f.autofixable, undefined);
-    const rec = src.replace('<!-- _class: map -->', '<!-- @meta{layout=map} -->');
+    // The other record spelling of the same slide (`layout=` for `class=`) is reported the same.
+    const rec = src.replace('<!-- @meta{class=map} -->', '<!-- @meta{layout=map} -->');
     assert.notEqual(rec, src);
-    assert.equal(recordFindings(rec).length, 1, 'the record slide is reported the same');
+    assert.equal(recordFindings(rec).length, 1, 'the layout= record slide is reported the same');
     assert.equal(lintCore.applyAllFixes(rec, vocab), rec);
   });
 

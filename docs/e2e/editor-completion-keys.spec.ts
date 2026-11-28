@@ -131,9 +131,12 @@ test('a front-matter key already set is not offered again @crosswidth @webkit-ph
 
 test('the editor completes what the Playground does: directive names, a nested backdrop map, map regions @crosswidth @webkit-phone @webkit-tablet @gecko', async ({ page }) => {
 	await gotoStudio(page);
-	await setEditorContent(page, '---\ntitle: Shared\n---\n\n<!-- _');
+	// Since the cut the record is the only setting offered after `<!-- `, never an old directive name (the Playground's
+	// own probe in editor-complete.test.ts says the same).
+	await setEditorContent(page, '---\ntitle: Shared\n---\n\n<!-- @m');
 	await page.keyboard.press('Control+Space');
-	await expect(menu(page).getByRole('option', { name: /^_header/ })).toBeVisible();
+	await expect(menu(page).getByRole('option', { name: /^@meta\{/ })).toBeVisible();
+	await expect(menu(page).getByRole('option', { name: /^_header/ })).toHaveCount(0);
 	await page.keyboard.press('Escape');
 	// Inside a nested map, the map's own keys, never the deck's.
 	await setEditorContent(page, '---\nbackdrop:\n  ');
@@ -142,7 +145,7 @@ test('the editor completes what the Playground does: directive names, a nested b
 	await expect(menu(page).getByRole('option', { name: /^title/ })).toHaveCount(0);
 	await page.keyboard.press('Escape');
 	// A map slide's regions, from the completer the Studio loads on first use.
-	await setEditorContent(page, '---\ntitle: Shared\n---\n\n<!-- _class: map -->\n\n- Fra');
+	await setEditorContent(page, '---\ntitle: Shared\n---\n\n<!-- @meta{layout=map} -->\n\n- Fra');
 	await page.keyboard.press('Control+Space');
 	await expect(menu(page).getByRole('option', { name: /^France/ })).toBeVisible();
 });
@@ -176,7 +179,7 @@ test('Ctrl-Space on a blank body line offers what a line starts with, and a `@me
 	await page.keyboard.press('Control+Space');
 	// The layout insert is the `@meta` record (the one spelling, owner 2026-11-22), first in the list.
 	await expect(menu(page).getByRole('option', { name: /^<!-- @meta\{layout=\} -->/ })).toBeVisible();
-	await expect(menu(page).getByRole('option', { name: /^<!-- _class: -->/ })).toHaveCount(0);
+	await expect(menu(page).getByRole('option', { name: /^<!-- @meta{class=""} -->/ })).toHaveCount(0);
 	await expect(menu(page).getByRole('option', { name: /^<!-- @say\{\} -->/ })).toBeVisible();
 	await acceptCompletion(page);
 	await expect(editorText(page)).toContainText('<!-- @meta{layout=} -->');
@@ -188,7 +191,7 @@ test('Ctrl-Space on a blank body line offers what a line starts with, and a `@me
 
 test('a flowchart completes its own names after an arrow, and span words in a backtick @crosswidth @webkit-phone @webkit-tablet @gecko', async ({ page }) => {
 	await gotoStudio(page);
-	await setEditorContent(page, '---\ntitle: Flow\n---\n\n<!-- _class: flowchart -->\n\n## Orders reach the ledger.\n\n- Storefront => Payments\n- Payments\n- Ledger\n');
+	await setEditorContent(page, '---\ntitle: Flow\n---\n\n<!-- @meta{layout=flowchart} -->\n\n## Orders reach the ledger.\n\n- Storefront => Payments\n- Payments\n- Ledger\n');
 	await watchMenuOpen(page);
 	await appendToEditor(page, '- Payments -> Led');
 	await expect(menu(page).getByRole('option', { name: /^Ledger/ })).toBeVisible();

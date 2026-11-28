@@ -335,7 +335,7 @@ The **dark variant in full** — this is the whole file:
       `derive-cat-ink --check` to flag it: the recipe is the curve of record.
 - [ ] A palette that pins its categorical tier mode-invariant (the a11y family)
       must also pin `--cat-on-mark`: an inherited `light-dark()` ink flips under a
-      per-slide `_class: dark` while the pinned chips stay put.
+      per-slide `<!-- @meta{class=dark} -->` while the pinned chips stay put.
 - [ ] `<name>-dark.css` is the 3-line wrapper.
 - [ ] Gallery + mermaid gallery rendered in light AND dark and looked at.
 - [ ] Full 108-token contract defined directly (not just the 11 core) — all 12

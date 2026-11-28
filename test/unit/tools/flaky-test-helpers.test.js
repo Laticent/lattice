@@ -8,6 +8,7 @@ const { JSDOM } = require('jsdom');
 const { scanWork, charReads } = require('../../helpers/work-count');
 const { virtualClock } = require('../../helpers/runtime-boot');
 const { trackConnections } = require('../../helpers/request-log');
+const { runNode, cpuMs } = require('../../helpers/spawn-progress');
 const net = require('node:net');
 const { EventEmitter, once } = require('node:events');
 
@@ -134,5 +135,51 @@ describe('trackConnections', () => {
     server.emit('connection', fakeSocket(() => port));
     await waiting;
     assert.equal(done, true);
+  });
+});
+
+// The deadline that replaced cli.test.js's fixed 10 s total (F4): a child fails for a hang, never for a slow machine.
+// Without /proc (macOS, Windows, or `watchProc: false`) the wall-clock ceiling is the only check; this arm runs on every
+// platform, so it proves a hang is still caught there.
+test('failing arm: with no /proc to watch by, the ceiling alone still kills a spinning child', async () => {
+  await assert.rejects(runNode('-e', ['for (;;) {}'], { watchProc: false, cpuBudgetMs: 100, stallMs: 100, ceilingMs: 1000 }), /still running after 1 s/);
+});
+
+// ci-skip: every CI unit job runs on ubuntu-24.04, where this block runs; only a macOS or Windows box (no /proc) skips it.
+describe('runNode', { skip: process.platform !== 'linux' && 'watches /proc, which only Linux has; elsewhere it is a wall-clock total' }, () => {
+  test('reads a process\'s own CPU time from /proc', () => {
+    const t = cpuMs(process.pid);
+    assert.ok(Number.isFinite(t) && t > 0, `cpu ${t}`);
+    assert.equal(cpuMs(2 ** 22 + 7), null, 'a pid that does not exist reads as null');
+  });
+
+  test('a child that exits is resolved with its status and output', async () => {
+    const r = await runNode('-e', ['console.log("out"); console.error("err"); process.exit(3)']);
+    assert.deepEqual(r, { status: 3, stdout: 'out\n', stderr: 'err\n' });
+  });
+
+  test('failing arm: a child that spins is killed once it has used its CPU budget', async () => {
+    await assert.rejects(runNode('-e', ['for (;;) {}'], { cpuBudgetMs: 500, stallMs: 60_000 }), /spun \d+ s of CPU without exiting/);
+  });
+
+  test('failing arm: a child that waits forever and uses no CPU is killed after the stall limit', async () => {
+    await assert.rejects(runNode('-e', ['setInterval(() => {}, 1e9)'], { cpuBudgetMs: 60_000, stallMs: 1000 }), /used no CPU for \d+ s/);
+  });
+
+  test('failing arm: a child that polls forever, its CPU never stalling, is killed at the ceiling', async () => {
+    const poller = 'setInterval(() => { const end = Date.now() + 5; while (Date.now() < end); }, 100);';
+    await assert.rejects(runNode('-e', [poller], { cpuBudgetMs: 60_000, stallMs: 60_000, ceilingMs: 1500 }), /still running after 1.5 s/);
+  });
+
+  test('failing arm: a child that exits while a process it started holds its output is reported, not waited on', async () => {
+    const orphan = "require('node:child_process').spawn(process.execPath, ['-e', 'setTimeout(() => {}, 3000)'], { stdio: 'inherit', detached: true }).unref();";
+    await assert.rejects(runNode('-e', [orphan], { stallMs: 1000 }), /exited, but its output was still open/);
+  });
+
+  test('a slow child that keeps working is never killed, though it runs longer than the stall limit', async () => {
+    // Runs about 2.3 s and never sits idle for more than 0.2 s: a starved process looks like this, a hung one does not.
+    const slow = 'let n = 0; const step = () => { const end = Date.now() + 30; while (Date.now() < end); if (++n < 10) setTimeout(step, 200); else console.log("done"); }; step();';
+    const r = await runNode('-e', [slow], { cpuBudgetMs: 60_000, stallMs: 1500 });
+    assert.deepEqual(r, { status: 0, stdout: 'done\n', stderr: '' });
   });
 });

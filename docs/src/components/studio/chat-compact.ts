@@ -78,7 +78,7 @@ export function applyCompaction(split: Split, summary: string): Compaction {
 	for (let i = kept.length - 1; i >= 0; i--) {
 		const u = kept[i].usage;
 		if (kept[i].role === 'assistant' && u) {
-			kept[i] = { ...kept[i], usage: { ...u, prompt: Math.max(0, u.prompt - saved), cached: 0, estimated: true } };
+			kept[i] = { ...kept[i], usage: { ...u, prompt: Math.max(0, u.prompt - saved), cached: null, estimated: true } };
 			break;
 		}
 	}

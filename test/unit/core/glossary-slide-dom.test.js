@@ -151,7 +151,7 @@ describe('glossary slide — the two render paths agree', () => {
   test("the DOM mirror reproduces the engine's table and pill", () => {
     const deck = [
       '---', 'marp: true', 'theme: indaco', '---', '',
-      '<!-- _class: glossary -->', '',
+      '<!-- @meta{layout=glossary} -->', '',
       '## Glossary', '',
       '- ARR', "  - Revenue a business can reliably expect to recur every year.",
       '- NDR', "  - The share of last year's revenue kept and expanded.", '',
@@ -179,7 +179,7 @@ describe('glossary slide — the two render paths agree', () => {
   const enginePillFor = (body) => {
     const deck = [
       '---', 'marp: true', 'theme: indaco', '---', '',
-      '<!-- _class: glossary -->', '', '## Glossary', '', body, '',
+      '<!-- @meta{layout=glossary} -->', '', '## Glossary', '', body, '',
     ].join('\n');
     const html = latticeEngine.createEngine().render(deck).html;
     const pill = html.match(/<span class="lat-pill" data-glossary-range="true" data-shape="pill">([^<]*)<\/span>/);

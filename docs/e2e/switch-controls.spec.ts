@@ -9,7 +9,7 @@ const DECK = [
 	'title: Switches',
 	'---',
 	'',
-	'<!-- _class: columns -->',
+	'<!-- @meta{layout=columns} -->',
 	'',
 	'## Two panes side by side',
 	'',

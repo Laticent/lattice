@@ -26,7 +26,7 @@ marp: true
 theme: indaco
 ---
 
-<!-- _class: funnel -->
+<!-- @meta{class=funnel} -->
 
 ## The funnel narrows; the width is the story.
 

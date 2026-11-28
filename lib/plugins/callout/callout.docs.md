@@ -5,7 +5,7 @@ marker on the mark and the note under the figure (the heatmap and the pie may al
 what each color means, is the legend plugin's (`legend.docs.md`).
 
 ```markdown
-<!-- _class: heatmap -->
+<!-- @meta{layout=heatmap} -->
 
 ## Retention decays fastest in month two.
 

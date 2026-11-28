@@ -47,11 +47,11 @@ describe('mixed-spelling', () => {
   test('one spelling, any number of times, is fine; slots never compete', () => {
     assert.deepEqual(mixed(deck('- `^{db}` `^{db, c3}` `^{db, lg}`')), []);
     // `total` on a waterfall and an icon's `db` share no slot.
-    assert.deepEqual(mixed(deck('<!-- _class: waterfall -->\n\n## W\n\n- A `1` `total`\n- B `+1`\n- C `2` `total`\n\n---\n\n- `^{db}`')), []);
+    assert.deepEqual(mixed(deck('<!-- @meta{layout=waterfall} -->\n\n## W\n\n- A `1` `total`\n- B `+1`\n- C `2` `total`\n\n---\n\n- `^{db}`')), []);
   });
 
   test('a marker word is a marker only on a waterfall slide', () => {
-    const src = deck('## Notes\n\n- `total` and `sum` are SQL here\n\n---\n\n<!-- _class: waterfall -->\n\n## W\n\n- A `1` `total`\n- B `+1`\n- C `2` `total`');
+    const src = deck('## Notes\n\n- `total` and `sum` are SQL here\n\n---\n\n<!-- @meta{layout=waterfall} -->\n\n## W\n\n- A `1` `total`\n- B `+1`\n- C `2` `total`');
     assert.deepEqual(mixed(src), []);
   });
 
@@ -74,7 +74,7 @@ describe('mixed-spelling', () => {
   });
 
   test('only a waterfall row\'s trailing pill is a marker, on any slide whose classes include waterfall', () => {
-    const src = deck('<!-- _class: invert waterfall -->\n\n## W\n\nThe `delta` column is in `step` units.\n\n- A `1` `total`\n- B `+1` `step`\n- C `2` `total`\n- D `3` `sum`');
+    const src = deck('<!-- @meta{class="invert waterfall"} -->\n\n## W\n\nThe `delta` column is in `step` units.\n\n- A `1` `total`\n- B `+1` `step`\n- C `2` `total`\n- D `3` `sum`');
     const found = mixed(src);
     assert.deepEqual(found.map((f) => f.span), ['`sum`'], 'the prose `delta` is the author\'s word, not a marker');
   });

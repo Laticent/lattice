@@ -26,7 +26,7 @@ theme: indaco
 size: square
 ---
 
-<!-- _class: content -->
+<!-- @meta{class=content} -->
 
 ## Five shapes, because the people slide is never the same slide twice.
 

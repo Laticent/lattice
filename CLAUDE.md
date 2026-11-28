@@ -46,7 +46,8 @@ or externally visible**. Finding a better option mid-analysis is a reason to re-
 floor. 3. **Cheapest path that meets the bar**; batch questions, never re-ask a settled point.
 4. **Rebase on a conflict, never on drift** (#16). 5. **Run the gates yourself** before declaring done.
 6. **Docs + changeset in the same change** (#10). 7. **Open the PR, drive it green, then ASK to
-merge**: a human approves every merge, authorization covers one head, squash by default; while a
+merge**: a human approves every merge (or `desk:night` on my "good night", `workflow.md` §Desks),
+authorization covers one head, squash by default; while a
 `desk:merge` session is live the PR card is the ask (§Merging). Four bot PR classes auto-merge (backlog
 mirror, release, patch/minor deps, nightly bless); none licenses auto-merging your work.
 
@@ -85,7 +86,7 @@ binds. Read the section before working near the rule: `grep -n '^### #' engineer
 - **#1 — Render paths share one source of truth.** Transforms land in the shared kernel; `lib/engine` is canonical (`engineering/architecture.md`).
 - **#2 — Never hand-edit `dist/`.** Regenerate with `npm run build`.
 - **#3 — No hex literals in layout CSS — always `var(--token)`.** *(gated, `checkHexLiterals`)*
-- **#6 — Before authoring any `<!-- _class: X -->` slide**, in the same turn open `lib/components/<bucket>/X/X.docs.md` (a chart kind: `lib/plugins/chart-family/kinds/X/X.docs.md`) and grep `test/integration/baseline-decks/gallery.md` (base modifiers: `lib/base/base.docs.md`).
+- **#6 — Before authoring any `<!-- @meta{layout=X} -->` slide**, in the same turn open `lib/components/<bucket>/X/X.docs.md` (a chart kind: `lib/plugins/chart-family/kinds/X/X.docs.md`) and grep `test/integration/baseline-decks/gallery.md` (base modifiers: `lib/base/base.docs.md`).
 - **#7 — Every lint rule runs through `lib/authoring/lint-core.js`.** Pure, fs-free, never duplicated.
 - **#8 — Isolate feature/fix content from the six long-running galleries.** Layouts graduate in a separate commit.
 - **#9 — A change a human can SEE ON A SLIDE ships a per-feature demo deck** `examples/<slug>.md`; non-visual work owes its evidence in the PR body.

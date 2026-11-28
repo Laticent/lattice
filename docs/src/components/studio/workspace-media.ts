@@ -125,6 +125,9 @@ export async function packMedia(zip: Zip, opts: PackOptions = {}): Promise<{ row
 		// memory on this phone) costs that item, named in `unreadable`, and never the whole media section.
 		let data: Uint8Array;
 		try {
+			// A photo in the storage vault whose file cannot be read comes back as an EMPTY blob
+			// (media-store `hydrate`); zipping it would write a 0-byte photo and report a complete backup.
+			if (m.blob.size === 0 && m.bytes > 0) throw new Error('unreadable');
 			data = new Uint8Array(await m.blob.arrayBuffer());
 		} catch {
 			unreadable.push(m.name);

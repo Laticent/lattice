@@ -30,13 +30,13 @@ theme: indaco
 size: square
 ---
 
-<!-- _class: divider -->
+<!-- @meta{class=divider} -->
 
 ## Part two
 
 ---
 
-<!-- _class: topic -->
+<!-- @meta{class=topic} -->
 
 ## Pricing
 
@@ -44,7 +44,7 @@ The first half named the problem. The second half prices it: what each option co
 
 ---
 
-<!-- _class: topic -->
+<!-- @meta{class=topic} -->
 
 ## Risk
 

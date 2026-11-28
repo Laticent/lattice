@@ -6,7 +6,7 @@ import { expect, gotoStudio, test } from './studio-fixture';
 // An installed plugin's inline kind (`@tag-chip{Label, hot}`) opens a panel drawn from its manifest's slot in Compose, and a pick
 // writes only the word it changed. followups.d/2846-p4; engineering/decisions/2026-10-21-compose-point-and-click.md §4.
 
-const DECK = ['<!-- _class: content -->', '', '## Launch', '', 'The launch is `@tag-chip{Launch, hot}` this week.', '', 'Closing words.'].join('\n');
+const DECK = ['<!-- @meta{layout=content} -->', '', '## Launch', '', 'The launch is `@tag-chip{Launch, hot}` this week.', '', 'Closing words.'].join('\n');
 
 const panel = (page: Page) => page.locator('[data-slot="popover-content"], [data-slot="sheet-content"]').last();
 

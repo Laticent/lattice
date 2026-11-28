@@ -76,3 +76,58 @@ describe('reasoning stream', () => {
 		expect(body.reasoning).toBeUndefined();
 	});
 });
+
+describe('a Stop on the OpenRouter stream (#3533 S01)', () => {
+	it('rejects as an abort without reporting partial usage or tool calls', async () => {
+		localStorage.setItem('lattice-db-or-key', JSON.stringify('sk-test'));
+		const frames = [
+			{ id: 'gen-1', choices: [{ delta: { content: 'Hel' } }] },
+			{ id: 'gen-1', choices: [{ delta: { tool_calls: [{ index: 0, id: 't1', type: 'function', function: { name: 'edit_slides', arguments: '{"a":' } }] } }] },
+			{ id: 'gen-1', choices: [{ delta: {}, finish_reason: 'tool_calls' }], usage: { cost: 0.002, prompt_tokens: 10, completion_tokens: 2 } },
+		];
+		vi.stubGlobal('fetch', vi.fn(async () => new Response(`${frames.map((f) => `data: ${JSON.stringify(f)}\n\n`).join('')}data: [DONE]\n\n`, { status: 200 })));
+		const m = createArchitectModel({ getSettings: () => ({}) });
+		const ctl = new AbortController();
+		const usage: unknown[] = [];
+		const tools: unknown[] = [];
+		const run = m.complete({ messages: [{ role: 'user', content: 'hi' }], fallback: '', tools: [{ type: 'function', function: { name: 'edit_slides', parameters: {} } }], signal: ctl.signal, onToken: () => ctl.abort(), onUsage: (u: unknown) => usage.push(u), onToolCalls: (c: unknown[]) => tools.push(...c) });
+		await expect(run).rejects.toMatchObject({ name: 'AbortError' });
+		expect(usage).toEqual([]);
+		expect(tools).toEqual([]);
+	});
+
+	it('a Stop on the HTTP 200, before any chunk, fires nothing the chat counts as a billed round', async () => {
+		// Measured: OpenRouter does not bill a request stopped here (tools/stop-billing-probe.mjs, run 46071814895). The chat
+		// charges a stopped round only once one of these callbacks has fired, so none may fire before the first chunk.
+		localStorage.setItem('lattice-db-or-key', JSON.stringify('sk-test'));
+		const ctl = new AbortController();
+		// The body has started (status 200) and sends nothing; the Stop lands on the transport's first read of it.
+		const body = new ReadableStream<Uint8Array>({
+			start(c) {
+				ctl.signal.addEventListener('abort', () => c.error(new DOMException('aborted', 'AbortError')));
+			},
+			pull() {
+				ctl.abort();
+			},
+		});
+		vi.stubGlobal('fetch', vi.fn(async () => new Response(body, { status: 200 })));
+		const m = createArchitectModel({ getSettings: () => ({}) });
+		const fired: string[] = [];
+		const run = m.complete({
+			messages: [{ role: 'user', content: 'hi' }],
+			fallback: '',
+			signal: ctl.signal,
+			onToken: () => fired.push('token'),
+			onGenerationId: () => fired.push('generation id'),
+			onReasoning: () => fired.push('reasoning'),
+			onToolCalls: () => fired.push('tool calls'),
+			onToolStart: () => fired.push('tool start'),
+			onUsage: () => fired.push('usage'),
+		});
+		// The transport either rejects or returns its fallback here; chat-agent reads a return under an aborted signal, with no
+		// usage, as a Stop. What it must not do is fire a callback that marks the round as answered.
+		await run.catch(() => '');
+		expect(ctl.signal.aborted).toBe(true);
+		expect(fired).toEqual([]);
+	});
+});

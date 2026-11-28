@@ -29,7 +29,7 @@ Every slide is numbered unless the deck or the slide says otherwise.
 
 ## One slide drops its number with a class.
 
-- This slide writes `<!-- _class: content no-pagination -->`, so it shows no number
+- This slide writes `<!-- @meta{layout=content, class=no-pagination} -->`, so it shows no number
 - The slide after this one is numbered again
 - Nothing a slide says carries onto the next one
 

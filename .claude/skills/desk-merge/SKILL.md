@@ -44,11 +44,11 @@ facts, and §🚦 Pre-merge card. Tag this session `desk:merge` and `ui:pinned`.
 4. **The digest IS the ask.** While you are live, each PR's session posts its 🚦 card
    on its PR and does not ask in chat (CLAUDE.md DEFAULT OPERATING MODE rule 7). You
    build the digest from those PR cards, as plain text: NOT in a code fence and NOT
-   as list items. Its first line is exactly `🚦 Merge digest` (the merge gate keys on
-   it); then one line per PR that starts `#N — head <sha>`, then `— one line — check
+   as list items. It has the line `🚦 Merge digest` on its own (the merge gate keys on
+   it; text before it is fine); then one line per PR that starts `#N — head <sha>`, then `— one line — check
    state — card level`, in merge order, with the link to its card at the END of the
    row. Any other shape makes the owner's "all" deny. Send it to the
-   command center (your `meter:` ledger goes in a separate message, so the digest keeps its shape; it also rides on every other gate message, `engineering/workflow.md` §Desks "Completion meter"), which shows it to the owner as its own message, so the owner can
+   command center in one message, with your `meter:` ledger below the last row after a blank line (the rows end at the first line that is not a row, so the digest keeps its shape; never send the meter as a message of its own, `engineering/workflow.md` §Desks "Completion meter"), which shows it to the owner as its own message, so the owner can
    answer exactly "all" or "all but #N" there (§Merging, batch the ask).
 5. **Who merges.** The owner's own typed answer in the command center is the owner's
    word, so the command center carries it out: for each PR named, it re-reads the head

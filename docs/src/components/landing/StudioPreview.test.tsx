@@ -18,7 +18,7 @@ vi.mock('@/playground/single-slide-render', () => ({
 }));
 
 const DATA: StudioPreviewData = {
-	sample: '<!-- _class: title -->\n\n# Markdown for the boardroom',
+	sample: '<!-- @meta{layout=title} -->\n\n# Markdown for the boardroom',
 	drawn: false,
 	deckTitle: 'Markdown for the boardroom',
 	slideCount: 7,

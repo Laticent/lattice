@@ -65,7 +65,7 @@ test('engine: an image slide with a </section> quoted in its body keeps the comm
   const engine = require('../../../lib/engine');
   const md = [
     '---', 'theme: indaco', '---', '',
-    '<!-- _class: image -->', '',
+    '<!-- @meta{layout=image} -->', '',
     '![bg](photo.jpg)', '',
     '## Title', '',
     QUOTE_CLOSE, '',

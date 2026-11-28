@@ -245,7 +245,7 @@ describe('icon-font-exports', () => {
 	// a card with uneven corners lost its fill and border (tools/office-quicklook.mjs). So a card that holds any custom
 	// shape is written loose, in paint order, and a card of presets alone stays a group (the owner, 2026-11-03).
 	test('no custom shape sits inside a group; a card of presets alone is still a group', async () => {
-		const pptx = await JSZip.loadAsync(fs.readFileSync(render('cards', [], 'cards.pptx', ['--editable'], ['<!-- _class: cards-grid -->', '', '## Cards', '', '- Gateway `{icon=gateway, c2}`', '  - Hands out the URL.', '- Store `{icon=bucket, c4}`', '  - Keeps each file.', '- Plain', '  - No icon in this one.', ''])));
+		const pptx = await JSZip.loadAsync(fs.readFileSync(render('cards', [], 'cards.pptx', ['--editable'], ['<!-- @meta{layout=cards-grid} -->', '', '## Cards', '', '- Gateway `{icon=gateway, c2}`', '  - Hands out the URL.', '- Store `{icon=bucket, c4}`', '  - Keeps each file.', '- Plain', '  - No icon in this one.', ''])));
 		const slide = await pptx.file('ppt/slides/slide1.xml').async('string');
 		let depth = 0;
 		let grouped = 0;

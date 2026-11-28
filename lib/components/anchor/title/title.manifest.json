@@ -12,7 +12,7 @@
   "function": "anchor",
   "form": "bookend",
   "chrome": { "pagination": false, "header": false },
-  "coda": { "claims": ["trailing-paragraph"] },
+  "coda": { "claims": ["blockquote", "trailing-paragraph"] },
   "split": {
     "strategy": "title-lede",
     "note": "A title whose lede overflows the page (measured, so only a title that does not fit) keeps its eyebrow and title on the cover and gives its lede paragraphs a page of their own after it, on the same canvas (owner, 2026-11-15; fit-everywhere-model.md §25). A title that fits never splits. lib/core/carousel.js title-lede."
@@ -99,7 +99,7 @@
     },
     {
       "title": "Header or footer overrides",
-      "body": "Don't blank the footer with `_footer: ''` on a title slide. The footer is the deck's standing note (a \"Confidential\", a copyright), and a cover is where a reader most expects it. Drop it on purpose with `no-footer`, or every band with `silent`."
+      "body": "Don't blank the footer with an empty `footer=\"\"` in a title slide's record. The footer is the deck's standing note (a \"Confidential\", a copyright), and a cover is where a reader most expects it. Drop it on purpose with `no-footer`, or every band with `silent`."
     }
   ],
   "related": [
@@ -128,7 +128,8 @@
     {
       "mistake": "Trying to author the spectrum bar as a markdown `---`/`***` rule instead of the `spectrum` class.",
       "fix": "Every top-level `hr` token in a slide body is the slide separator (it splits the deck into a new slide) — there is no way to hand-author a literal rule element here. Add the `spectrum` class instead; the bar is CSS-generated."
-    }
+    },
+    {"mistake": "A `> …` key insight or a below-note on this slide.", "fix": "Anchors take no closing beat (2026-11-20): a `> …` here is not drawn as a Key Insight panel, and `lint:deck` flags it (`block-unsupported`). Put the takeaway on the content slide it sums up."}
   ],
   "variantDocs": {
     "spectrum": {

@@ -32,7 +32,7 @@
  *                       recorded "print".
  *
  * And axis 2 is run in BOTH ITS SPELLINGS — the front-matter key and the mid-deck
- * global `<!-- class: … -->` — because they are governed differently ON PURPOSE and
+ * global `<!-- @meta{class="…", carry} -->` — because they are governed differently ON PURPOSE and
  * an untested asymmetry is indistinguishable from a bug. See
  * lib/core/deck-class-register.js: the front-matter register is APPENDED over a
  * slide's own `_class:` and so can collide, while a global comment directive is
@@ -81,8 +81,8 @@ function build({ cm, deck, slide, spelling }) {
   if (cm) fm.push(`color-mode: ${cm}`);
   if (deck && spelling === 'frontmatter') fm.push(`class: ${deck}`);
   fm.push('---', '');
-  const global = deck && spelling === 'global' ? `<!-- class: ${deck} -->\n\n` : '';
-  const spot = slide ? `<!-- _class: ${slide} -->\n\n` : '';
+  const global = deck && spelling === 'global' ? `<!-- @meta{class=${deck}} -->\n\n` : '';
+  const spot = slide ? `<!-- @meta{class=${slide}} -->\n\n` : '';
   return `${fm.join('\n')}\n${global}${spot}## S\n\ntext\n`;
 }
 
@@ -94,7 +94,7 @@ function build({ cm, deck, slide, spelling }) {
  *     deck-wide (a CLI flag is the strongest statement of "this is going on paper").
  *   · `color-mode:` supersedes the legacy front-matter `class:` color alias, whatever
  *     the alias says — including `print`.
- *   · A mid-deck global `<!-- class: … -->` is NOT superseded; a slide's own
+ *   · A mid-deck global `<!-- @meta{class="…", carry} -->` is NOT superseded; a slide's own
  *     `_class:` replaces it WHOLESALE (Marpit's spot-replaces-global: the whole
  *     `class` key, not the tokens it happens to name).
  *   · A slide that names a scheme owns its scheme — but `print` is a medium, not a
@@ -208,7 +208,7 @@ describe('the color register table — color-mode: × class: × _class: × --pri
 
     test('R1 · a slide keeps its own component when the deck-wide register names one too', () => {
       const src = ['---', 'marp: true', 'theme: indaco', 'class: kpi', '---', '',
-        '<!-- _class: kpi -->', '', '## S', '', 'text', ''].join('\n');
+        '<!-- @meta{layout=kpi} -->', '', '## S', '', 'text', ''].join('\n');
       const cls = classOf(src).split(/\s+/);
       assert.ok(cls.includes('kpi'), `the slide's own component survives, got "${cls.join(' ')}"`);
       assert.ok(!cls.includes('content'), 'and no default is appended over it');
@@ -243,9 +243,9 @@ describe('the color register table — color-mode: × class: × _class: × --pri
       assert.equal(resolveDiagramBand({ frontMatter: src, slideClass: '', flagPrint: true }), 'print');
     });
 
-    test('R4 · a mid-deck global `<!-- class: … -->` is never deleted', () => {
+    test('R4 · a mid-deck global `<!-- @meta{class="…", carry} -->` is never deleted', () => {
       const src = ['---', 'marp: true', 'theme: indaco', 'color-mode: light', 'class: dark',
-        '---', '', '## A', '', '---', '', '<!-- class: dark -->', '', '## B', '', 'text', ''].join('\n');
+        '---', '', '## A', '', '---', '', '<!-- @meta{class=dark, carry} -->', '', '## B', '', 'text', ''].join('\n');
       const all = [...engine.render(src).html.matchAll(/<section[^>]*\sclass="([^"]*)"/g)]
         .map((m) => m[1].split(/\s+/));
       assert.ok(all[0].includes('color-light'), `slide 1 takes the deck color mode, got "${all[0].join(' ')}"`);

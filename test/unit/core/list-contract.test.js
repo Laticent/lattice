@@ -275,41 +275,41 @@ describe('R3: a neutral layout renders either marker the same (manifest samples,
 describe('R1, R2: the author marker is recorded where a layout reads it', () => {
   const lists = (md) => [...String(engine.render(md).html).matchAll(/<(ul|ol)([^>]*)>/g)].map((x) => `${x[1]}${x[2]}`);
   test('list-steps: `-` is the same `ol` cards, marked unnumbered; `1.` is marked numbered', () => {
-    assert.deepEqual(lists('<!-- _class: list-steps -->\n\n## S\n\n- A\n  - a\n- B\n  - b\n'), ['ol data-ordered="false"', 'ul', 'ul']);
-    assert.deepEqual(lists('<!-- _class: list-steps -->\n\n## S\n\n1. A\n   - a\n2. B\n   - b\n'), ['ol data-ordered="true"', 'ul', 'ul']);
+    assert.deepEqual(lists('<!-- @meta{layout=list-steps} -->\n\n## S\n\n- A\n  - a\n- B\n  - b\n'), ['ol data-ordered="false"', 'ul', 'ul']);
+    assert.deepEqual(lists('<!-- @meta{layout=list-steps} -->\n\n## S\n\n1. A\n   - a\n2. B\n   - b\n'), ['ol data-ordered="true"', 'ul', 'ul']);
   });
   test('cards-grid keeps the element the author wrote: `ol` draws the corner tags', () => {
-    assert.deepEqual(lists('<!-- _class: cards-grid -->\n\n## S\n\n- A\n  - a\n'), ['ul data-ordered="false"', 'ul']);
+    assert.deepEqual(lists('<!-- @meta{layout=cards-grid} -->\n\n## S\n\n- A\n  - a\n'), ['ul data-ordered="false"', 'ul']);
     // The card's body is a level the layout reads and draws as plain lines, so a `1.` body is a `ul`
     // (no numbers announced that a reader never sees); one level further down is the author's again.
-    assert.deepEqual(lists('<!-- _class: cards-grid -->\n\n## S\n\n1. A\n   1. a\n      1. deep\n'), ['ol data-ordered="true"', 'ul', 'ol']);
+    assert.deepEqual(lists('<!-- @meta{layout=cards-grid} -->\n\n## S\n\n1. A\n   1. a\n      1. deep\n'), ['ol data-ordered="true"', 'ul', 'ol']);
   });
   test('below the deepest level a layout reads, a list is the author\'s: a nested `1.` stays numbered (owner, #3330)', () => {
     // agenda reads one level; a numbered sub-list under a section keeps its `ol` (and a screen reader hears numbers).
-    assert.deepEqual(lists('<!-- _class: agenda -->\n\n## A\n\n- One\n  1. first\n  2. then\n- Two\n'), ['ol', 'ol']);
+    assert.deepEqual(lists('<!-- @meta{layout=agenda} -->\n\n## A\n\n- One\n  1. first\n  2. then\n- Two\n'), ['ol', 'ol']);
     // decision reads two (its card body), so a nested `1.` there is the layout's and reads like `-`.
-    assert.deepEqual(lists('<!-- _class: decision -->\n\n## D\n\n- Option A\n  1. first\n  2. then\n'), ['ul', 'ul']);
+    assert.deepEqual(lists('<!-- @meta{layout=decision} -->\n\n## D\n\n- Option A\n  1. first\n  2. then\n'), ['ul', 'ul']);
     // kpi reads two levels (the value, then its label lines): its second level is still normalized.
-    assert.deepEqual(lists('<!-- _class: kpi -->\n\n## K\n\n- 94%\n  1. Gross retention\n'), ['ol', 'ul']);
+    assert.deepEqual(lists('<!-- @meta{layout=kpi} -->\n\n## K\n\n- 94%\n  1. Gross retention\n'), ['ol', 'ul']);
     // gantt reads three levels (a chart consumes them, so read the kernel): a fourth is the author's.
     const { targetElement } = require('../../../lib/core/list-contract');
     assert.deepEqual([1, 2, 3, 4].map((d) => targetElement(listContractFor('gantt'), d)), ['ul', 'ul', 'ul', null]);
   });
   test('list principles: `-` becomes a dotted `ol`; content and plain list render as written', () => {
-    assert.deepEqual(lists('<!-- _class: list principles -->\n\n## S\n\n- A\n- B\n'), ['ol data-ordered="false"']);
-    assert.deepEqual(lists('<!-- _class: list takeaway -->\n\n## S\n\n- A\n  1. a\n'), ['ul', 'ol']);
+    assert.deepEqual(lists('<!-- @meta{layout=list, class=principles} -->\n\n## S\n\n- A\n- B\n'), ['ol data-ordered="false"']);
+    assert.deepEqual(lists('<!-- @meta{layout=list, class=takeaway} -->\n\n## S\n\n- A\n  1. a\n'), ['ul', 'ol']);
     assert.deepEqual(lists('## S\n\n1. A\n   - a\n'), ['ol', 'ul']);
   });
   test('a `1.` list that starts past 1 keeps its offset when it becomes a `ul`', () => {
-    assert.deepEqual(lists('<!-- _class: cycle -->\n\n## C\n\n3. A\n4. B\n'), ['ul style="--lat-split-offset:2;"']);
+    assert.deepEqual(lists('<!-- @meta{layout=cycle} -->\n\n## C\n\n3. A\n4. B\n'), ['ul style="--lat-split-offset:2;"']);
   });
 });
 
 describe('what the contract leaves alone', () => {
   const lists = (md) => [...String(engine.render(md).html).matchAll(/<(ul|ol)([^>]*)>/g)].map((x) => `${x[1]}${x[2]}`);
   test('a list inside a blockquote callout stays as written, on the engine and in the mirror', () => {
-    assert.deepEqual(lists('<!-- _class: agenda -->\n\n## A\n\n- One\n- Two\n\n> - caveat one\n> - caveat two\n'), ['ol', 'ul']);
-    assert.deepEqual(lists('<!-- _class: list-steps -->\n\n## S\n\n1. A\n2. B\n\n> 1. aside\n'), ['ol data-ordered="true"', 'ol']);
+    assert.deepEqual(lists('<!-- @meta{layout=agenda} -->\n\n## A\n\n- One\n- Two\n\n> - caveat one\n> - caveat two\n'), ['ol', 'ul']);
+    assert.deepEqual(lists('<!-- @meta{layout=list-steps} -->\n\n## S\n\n1. A\n2. B\n\n> 1. aside\n'), ['ol data-ordered="true"', 'ol']);
     const doc = new JSDOM('<body><section class="agenda"><ul><li>x</li></ul><blockquote><ul><li>c</li></ul></blockquote></section></body>').window.document;
     normalizeListsDom(doc);
     assert.deepEqual([...doc.querySelectorAll('ul, ol')].map((e) => e.tagName), ['OL', 'UL']);
@@ -326,22 +326,22 @@ describe('which lists are the layout\'s (the trio review of #3330)', () => {
   const lists = (md) => [...String(engine.render(md).html).matchAll(/<(ul|ol)([^>]*)>/g)].map((x) => `${x[1]}${x[2]}`);
   test('a deck-wide variant in front matter sets the contract, as a slide\'s own class does', () => {
     // `deck_class_propagate` runs after this pass; the pass reads the deck's class itself.
-    assert.deepEqual(lists('---\nclass: steps\n---\n\n<!-- _class: split-panel -->\n\n## H\n\n1. **Plan** it\n2. **Build** it\n'), ['ol data-ordered="true"']);
-    assert.deepEqual(lists('---\nclass: principles\n---\n\n<!-- _class: list -->\n\n## H\n\n- One\n- Two\n'), ['ol data-ordered="false"']);
+    assert.deepEqual(lists('---\nclass: steps\n---\n\n<!-- @meta{layout=split-panel} -->\n\n## H\n\n1. **Plan** it\n2. **Build** it\n'), ['ol data-ordered="true"']);
+    assert.deepEqual(lists('---\nclass: principles\n---\n\n<!-- @meta{layout=list} -->\n\n## H\n\n- One\n- Two\n'), ['ol data-ordered="false"']);
   });
   test('a list after prose is an aside, left as written; one after a heading is a section of the body', () => {
-    assert.deepEqual(lists('<!-- _class: list-steps -->\n\n## H\n\n1. A\n   - a\n2. B\n   - b\n\nOpen risks:\n\n- Lock-in\n- Budget\n'), ['ol data-ordered="true"', 'ul', 'ul', 'ul']);
-    assert.deepEqual(lists('<!-- _class: agenda -->\n\n## H\n\n- One\n- Two\n\nAlso:\n\n1. aside\n   1. deeper\n'), ['ol', 'ol', 'ol']);
-    assert.deepEqual(lists('<!-- _class: regulatory-update -->\n\n## H\n\n### Added\n\n- A\n  - `x`\n\n### Amended\n\n- B\n  - `y`\n'), ['ol', 'ul', 'ol', 'ul']);
+    assert.deepEqual(lists('<!-- @meta{layout=list-steps} -->\n\n## H\n\n1. A\n   - a\n2. B\n   - b\n\nOpen risks:\n\n- Lock-in\n- Budget\n'), ['ol data-ordered="true"', 'ul', 'ul', 'ul']);
+    assert.deepEqual(lists('<!-- @meta{layout=agenda} -->\n\n## H\n\n- One\n- Two\n\nAlso:\n\n1. aside\n   1. deeper\n'), ['ol', 'ol', 'ol']);
+    assert.deepEqual(lists('<!-- @meta{layout=regulatory-update} -->\n\n## H\n\n### Added\n\n- A\n  - `x`\n\n### Amended\n\n- B\n  - `y`\n'), ['ol', 'ul', 'ol', 'ul']);
   });
   test('a pane reads the deck class; a list wrapped in raw HTML is the author\'s; a marker change or a comment is not prose', () => {
-    assert.deepEqual(lists('---\nclass: principles\n---\n\n<!-- _class: columns -->\n\n## H\n\n<!-- _pane: list -->\n\n- Alpha\n- Beta\n\n<!-- _pane: content -->\n\nText.\n'), ['ol data-ordered="false"']);
-    assert.deepEqual(lists('<!-- _class: kpi -->\n\n## H\n\n<div class="note">\n\n- in div\n\n</div>\n\n- real a\n  - x\n'), ['ul', 'ol', 'ul']);
-    assert.deepEqual(lists('<!-- _class: agenda -->\n\n## H\n\n- one\n- two\n* three\n'), ['ol', 'ol']);
-    assert.deepEqual(lists('<!-- _class: list-steps -->\n\n## H\n\n1. A\n   - a\n\n<!-- note -->\n\n1. B\n   - b\n'), ['ol data-ordered="true"', 'ul', 'ol data-ordered="true"', 'ul']);
+    assert.deepEqual(lists('---\nclass: principles\n---\n\n<!-- @meta{layout=columns} -->\n\n## H\n\n<!-- @meta{pane=list} -->\n\n- Alpha\n- Beta\n\n<!-- @meta{pane=content} -->\n\nText.\n'), ['ol data-ordered="false"']);
+    assert.deepEqual(lists('<!-- @meta{layout=kpi} -->\n\n## H\n\n<div class="note">\n\n- in div\n\n</div>\n\n- real a\n  - x\n'), ['ul', 'ol', 'ul']);
+    assert.deepEqual(lists('<!-- @meta{layout=agenda} -->\n\n## H\n\n- one\n- two\n* three\n'), ['ol', 'ol']);
+    assert.deepEqual(lists('<!-- @meta{layout=list-steps} -->\n\n## H\n\n1. A\n   - a\n\n<!-- note -->\n\n1. B\n   - b\n'), ['ol data-ordered="true"', 'ul', 'ol data-ordered="true"', 'ul']);
   });
   test('the slot-label lift bolds the layout\'s items only: a quoted list keeps its weight', () => {
-    const html = String(engine.render('<!-- _class: decision -->\n\n## H\n\n- Build\n  - why\n- Buy\n  - why\n\n> - quoted item\n').html);
+    const html = String(engine.render('<!-- @meta{layout=decision} -->\n\n## H\n\n- Build\n  - why\n- Buy\n  - why\n\n> - quoted item\n').html);
     assert.match(html, /<li><strong>Build<\/strong>/, 'the layout\'s own items are lifted');
     assert.match(html, /<li>quoted item<\/li>/, 'a quoted item is not');
   });
@@ -367,7 +367,7 @@ describe('the runtime mirror agrees with the engine', () => {
     assert.equal(normalizeListsDom(doc), 0);
   });
   test('an engine render is already in shape', () => {
-    const html = String(engine.render('<!-- _class: journey -->\n\n## J\n\n1. Stage\n   1. Step `3`\n').html);
+    const html = String(engine.render('<!-- @meta{layout=journey} -->\n\n## J\n\n1. Stage\n   1. Step `3`\n').html);
     const doc = dom(html);
     assert.equal(normalizeListsDom(doc), 0);
   });

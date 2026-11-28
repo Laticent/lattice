@@ -42,8 +42,8 @@ npx lattice test/integration/baseline-decks/gallery.md gallery.png    # → gall
 ## Render your own deck
 
 A deck is a Markdown file with a small front-matter block selecting a
-palette. Each slide is separated by `---`, and a `<!-- _class: ... -->`
-comment picks the layout.
+palette. Each slide is separated by `---`, and a `<!-- @meta{layout=…} -->`
+record picks the layout.
 
 ```markdown
 ---
@@ -51,7 +51,7 @@ theme: indaco
 pagination: true
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # From Signal to Strategy
 
@@ -61,7 +61,7 @@ A decision framework for product leaders.
 
 ---
 
-<!-- _class: big-number -->
+<!-- @meta{layout=big-number} -->
 
 - 38%
   - of pipeline stalls trace to a single approval step.
@@ -80,7 +80,9 @@ bundle** (or `npm run export:marp`) to produce a self-contained `.zip` — split
 baked to literal `---`, themes, assets, and a zero-install bundled renderer.
 Lattice itself never renders through Marp, and its front matter never needs
 `marp: true` — add that key only if you preview decks with the VS Code Marp
-extension, which activates on it.
+extension, which activates on it. That preview also needs the copy-and-go kit's
+stylesheet and scripts, and its security level set to *Disable*, or most layouts
+show as plain Markdown (`dist/marp-kit/README.md`).
 
 Every render option — palettes, handouts, the shareable player, speaker notes,
 image sets, packages — is a recipe in [Using the command line](/guides/cli/).

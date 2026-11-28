@@ -29,9 +29,9 @@ describe('export: an overflowing table keeps its header, on a slide and in a pan
 	const items = Array.from({ length: 16 }, (_, i) => `- Point ${i + 1} on the regional pipeline`).join('\n');
 	const DECK = [
 		'---\ntheme: indaco\n---',
-		`## A table pane that overflows.\n\n<!-- panes: 35/65 -->\n<!-- pane: list -->\n\n- One point\n\n<!-- pane: table -->\n\n| Region | Value |\n|---|---|\n${rows(24)}\n`,
-		`## A list pane that overflows.\n\n<!-- panes: 50/50 -->\n<!-- pane: list -->\n\n${items}\n\n<!-- pane: table -->\n\n| Region | Value |\n|---|---|\n${rows(2)}\n`,
-		`<!-- _class: table -->\n\n## A table slide that overflows.\n\n| Region | Value |\n|---|---|\n${rows(24)}\n`,
+		`## A table pane that overflows.\n\n<!-- @meta{panes=35/65} -->\n<!-- @meta{pane=list} -->\n\n- One point\n\n<!-- @meta{pane=table} -->\n\n| Region | Value |\n|---|---|\n${rows(24)}\n`,
+		`## A list pane that overflows.\n\n<!-- @meta{panes=50/50} -->\n<!-- @meta{pane=list} -->\n\n${items}\n\n<!-- @meta{pane=table} -->\n\n| Region | Value |\n|---|---|\n${rows(2)}\n`,
+		`<!-- @meta{layout=table} -->\n\n## A table slide that overflows.\n\n| Region | Value |\n|---|---|\n${rows(24)}\n`,
 	].join('\n\n---\n\n');
 
 	let dir;

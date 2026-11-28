@@ -23,7 +23,7 @@ vi.mock('@/playground/voice-model.js', () => ({
 vi.mock('./studio-stage', () => ({ buildStageDocument: vi.fn(async () => ({ doc: '', total: 0 })) }));
 
 const options = { themeBase: '', runtimeUrl: '', engineUrl: '' };
-const slides = ['<!-- _class: title -->\n\n# One\n\nThe first slide has some spoken prose.', '<!-- _class: kpi -->\n\n# Two\n\nThe second slide also reads aloud.'];
+const slides = ['<!-- @meta{layout=title} -->\n\n# One\n\nThe first slide has some spoken prose.', '<!-- @meta{layout=kpi} -->\n\n# Two\n\nThe second slide also reads aloud.'];
 
 afterEach(() => {
 	document.documentElement.removeAttribute('data-palette');

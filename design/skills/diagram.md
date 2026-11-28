@@ -73,7 +73,7 @@ see `chart-from-data.md`) or positions on two scores (`quadrant`).
 - **The palette map:** `lib/plugins/mermaid/shared/mermaid-theme-map.js` decides which
   Mermaid variable each palette token feeds. Read it; never copy from it.
 - **Live examples:** `test/integration/baseline-decks/gallery.md` (search
-  `_class: diagram`), `lib/components/diagram/diagram/diagram.gallery.md`,
+  `layout=diagram`), `lib/components/diagram/diagram/diagram.gallery.md`,
   `examples/mermaid-motion.md`, `examples/flowchart.md`.
 - **Commands:** `npm run new:slide -- diagram` prints the skeleton;
   `npm run lint:deck -- deck.md`; `npx @laticent/lattice deck.md deck.pdf` renders and bakes.
@@ -109,7 +109,7 @@ see `chart-from-data.md`) or positions on two scores (`quadrant`).
 **A Mermaid flowchart:**
 
 ````markdown
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `Claims · intake to payout`
 
@@ -128,7 +128,7 @@ flowchart LR
 **A sequence diagram** (only Mermaid draws these):
 
 ````markdown
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `Claims · adjuster handoff`
 
@@ -150,7 +150,7 @@ sequenceDiagram
 `=>` is the heavy main path):
 
 ```markdown
-<!-- _class: flowchart -->
+<!-- @meta{layout=flowchart} -->
 
 `Claims · who decides`
 

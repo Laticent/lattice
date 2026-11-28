@@ -331,7 +331,7 @@ test('@crosswidth a handoff over a pristine draft applies automatically and is c
 			localStorage.setItem(seeded, '1');
 			localStorage.setItem(k, JSON.stringify({ md, from: 'the landing page', ts: Date.now() }));
 		},
-		[HANDOFF_KEY, '<!-- _class: quote -->\n\n> Handed off.\n', 'e2e-handoff-seeded'] as const,
+		[HANDOFF_KEY, '<!-- @meta{layout=quote} -->\n\n> Handed off.\n', 'e2e-handoff-seeded'] as const,
 	);
 	await gotoPlayground(page);
 
@@ -354,7 +354,7 @@ test('@crosswidth a handoff over a dirty draft parks; Not now keeps it; Replace 
 	// A handoff arrives while the tab is open (another tab's "Open in Playground").
 	await page.evaluate(
 		([k, md]) => localStorage.setItem(k, JSON.stringify({ md, from: 'the component reference', ts: 42 })),
-		[HANDOFF_KEY, '<!-- _class: quote -->\n\n> Incoming.\n'] as const,
+		[HANDOFF_KEY, '<!-- @meta{layout=quote} -->\n\n> Incoming.\n'] as const,
 	);
 	await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
 
@@ -370,7 +370,7 @@ test('@crosswidth a handoff over a dirty draft parks; Not now keeps it; Replace 
 	// It re-offers on the next arrival (fresh ts) and Replace applies + backs up.
 	await page.evaluate(
 		([k, md]) => localStorage.setItem(k, JSON.stringify({ md, from: 'the component reference', ts: 43 })),
-		[HANDOFF_KEY, '<!-- _class: quote -->\n\n> Incoming again.\n'] as const,
+		[HANDOFF_KEY, '<!-- @meta{layout=quote} -->\n\n> Incoming again.\n'] as const,
 	);
 	await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
 	await bar.getByRole('button', { name: 'Replace draft' }).click();
@@ -398,7 +398,7 @@ test('@crosswidth Reset names its target and arm-confirms over a dirty draft', a
 	await page.locator('#pg-template-trigger').click();
 	await page.getByPlaceholder(/Search components/).fill('quote');
 	await page.getByRole('option', { name: 'quote', exact: true }).click();
-	await typeInEditor(page, '<!-- _class: quote -->\n\n> Edited beyond the sample.');
+	await typeInEditor(page, '<!-- @meta{layout=quote} -->\n\n> Edited beyond the sample.');
 
 	await page.locator('#pg-galleries-trigger').click();
 	const sheet = page.getByRole('dialog');

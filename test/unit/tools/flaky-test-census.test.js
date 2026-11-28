@@ -106,6 +106,18 @@ describe('flaky-test census (HARD RULE #32)', () => {
     assert.deepEqual(flakyTestHits(fn), {});
   });
 
+  // The slide-facts stopwatch (2026-11-28): a helper returns its timing under a key, and the test reads the key.
+  const TIMED = `const timed = (html) => {\n  const t = ${'performance'}.now();\n  const f = read(html);\n  return { f, ms: ${'performance'}.now() - t };\n};\n`;
+  test('a timing a helper returns under a key, destructured or read off the call, is a stopwatch assertion', () => {
+    assert.deepEqual(flakyTestHits(`${TIMED}const { ms } = timed(h);\n${'assert'}.ok(ms < 1000);`), { 'clock-assert': 1 });
+    assert.deepEqual(flakyTestHits(`${TIMED}const { f, ms: took } = timed(h);\n${'assert'}.ok(took < 2000);`), { 'clock-assert': 1 });
+    assert.deepEqual(flakyTestHits(`${TIMED}${'assert'}.ok(timed(h).ms < 1000);`), { 'clock-assert': 1 });
+    assert.deepEqual(flakyTestHits(`${TIMED}const r = timed(h);\n${'assert'}.ok(r.ms < 1000);`), { 'clock-assert': 1 });
+    assert.deepEqual(flakyTestHits(`async function timed(h) { const t = ${'Date'}.now(); await go(h); return ({ ms: ${'Date'}.now() - t }); }\nconst { ms } = await timed(h);\n${'expect'}(ms).toBeLessThan(50);`), { 'clock-assert': 1 });
+    // The other keys of the same record are not timings.
+    assert.deepEqual(flakyTestHits(`${TIMED}const { f } = timed(h);\n${'assert'}.match(f.text, /deep/);\n${'assert'}.equal(timed(h).f.text, 'x');`), {});
+  });
+
   test('a flaky-ok mark is read on its own line after a string holding U+2028 or U+2029', () => {
     // TypeScript breaks lines at both; reading the mark from split('\n') once looked two lines off and ignored it.
     const src = `const s = '\u2028\u2029';\n${HELPER_SLEEP} // flaky-ok: the tick of a polling loop`;

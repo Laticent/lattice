@@ -10,7 +10,7 @@ bullet is an assertion about that render:
 ## a spot footer reaches the slide
 
 ```markdown
-<!-- _footer: Q3 review -->
+<!-- @meta{footer=Q3 review} -->
 
 # Results
 ```
@@ -21,10 +21,23 @@ bullet is an assertion about that render:
 ## a spot class reaches the slide
 
 ```markdown
-<!-- _class: statement -->
+<!-- @meta{class=statement} -->
 
 # One idea
 ```
 
 - renders `statement`
+- omits `_class`
+
+## an old directive comment sets nothing (the cut)
+
+```markdown
+<!-- _class: statement -->
+<!-- _footer: Q3 review -->
+
+# One idea
+```
+
+- omits `statement`
+- omits `data-footer`
 - omits `_class`

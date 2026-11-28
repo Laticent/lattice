@@ -59,7 +59,7 @@ describe('applyChartNarration', () => {
 	const narrator = (md: string) => (md.includes('funnel') ? 'Half the visitors sign up.' : null);
 
 	it('substitutes computed chart facts at PROJECTION precedence', () => {
-		const slides = ['# Intro', '<!-- _class: funnel -->', '# Outro'];
+		const slides = ['# Intro', '<!-- @meta{layout=funnel} -->', '# Outro'];
 		const projected = ['Intro.', 'Where the flow drops off.', 'Outro.'];
 		expect(applyChartNarration(slides, projected, narrator)).toEqual(['Intro.', 'Half the visitors sign up.', 'Outro.']);
 	});

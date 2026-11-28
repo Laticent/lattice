@@ -35,7 +35,7 @@ title: Photo copies
 
 ---
 
-<!-- _class: content bleed -->
+<!-- @meta{class=content bleed} -->
 
 ![Blocked](https://evil.example/blocked.jpg)
 
@@ -43,7 +43,7 @@ title: Photo copies
 
 ---
 
-<!-- _class: radar -->
+<!-- @meta{class=radar} -->
 
 ## Two vendors, five axes.
 
@@ -58,7 +58,7 @@ title: Photo copies
 
 ---
 
-<!-- _class: image spotlight -->
+<!-- @meta{class=image spotlight} -->
 
 ## A real photo
 

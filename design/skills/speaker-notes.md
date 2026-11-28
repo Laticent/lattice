@@ -271,7 +271,7 @@ does the cadence vary? What you flag becomes a review comment (§4) or a direct 
 ## The contract / skeleton (one slide, all four notes)
 
 ```markdown
-<!-- {layout=funnel} -->
+<!-- @meta{layout=funnel} -->
 
 ## Where the pipeline leaks.
 

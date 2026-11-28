@@ -327,6 +327,80 @@ WCAG AA — which is deterministic and machine-independent. It runs in the
 `engine-parity` pixel gate was retired with marp in P4 — the owned engine is
 canonical. `npm run regress` survives as a LOCAL golden spot-check.)
 
+**A `regress` drift on a clean checkout is not a regression until `--control` says so.**
+The nightly blesses the goldens on a GitHub runner. A sandbox render differs from them
+by about 0.1–0.3% of a page with no source change, because the PDF's photo layer is
+Skia raster and Skia rasterizes through CPU-dispatched code. It is not the Chrome
+version: measured 2026-11-27, Chrome 157 (CI's pinned build) and 158 wrote
+byte-identical PDFs here. `regress` prints the host's Chrome and CPU on every run.
+`--control` re-renders each drifting golden at the commit its nightly bless rendered
+from (the sha in the bless commit's subject), on this machine, and compares the two
+fresh renders with floor 0: any pixel past the anti-aliasing fuzz counts. Same machine, so
+an unchanged source renders identically (measured on three real controls, decks and
+galleries: no pixel past the fuzz). The verdicts:
+
+- **Cross-machine band**: the two renders match. The run passes, but only when a nightly
+  bless wrote the golden and `package.json` / `package-lock.json` are unchanged since its
+  source, compared with the working tree.
+- **Source drift**: the render path changed since that bless. On `main` the nightly will
+  bless it; on a branch, look at it.
+- **Unavailable**: never a pass. It means one of these:
+  - a render setting is in the environment: any `LATTICE_*` variable but `LATTICE_ACTOR`
+    (lattice.js reads about a dozen, from `LATTICE_PDF_*` to `LATTICE_MERMAID_SINGLE`), or
+    `NODE_TEST_CONTEXT`, which `node --test` sets;
+  - packages are installed in your store (`~/.lattice/packages`; a `LATTICE_HOME` store is
+    already refused above as an environment setting): an installed component whose name a
+    deck uses as a class is embedded in both renders;
+  - an untracked `lattice-plugins.json` sits at the repo root, where the tree, which has no
+    `.git` of its own, finds it by walking up;
+  - a gitignored build this checkout's render loads is stale or missing: run `npm run build`.
+    The check runs `--check` on every one, about 20 s: the Segno grammar, the 19 workspace
+    libraries (`docs/src/lib/*/dist`), `dist/lattice.css` and the default bundle, the dagre
+    and callout-placer bundles, and the PDF writer (`dist/lattice-pdf-compose-min.js`);
+  - the golden has local changes, or was never committed;
+  - the clone is shallow and lacks the source commit, or its cut-off list cannot be read
+    (run `git fetch --unshallow --filter=blob:none`);
+  - git failed;
+  - the old tree would not build, its own render builds failed or came out incomplete, or it
+    would not render.
+
+What the control tree carries and what it borrows. It is the source commit's files plus a
+`node_modules` folder of its own (`buildBaseTree({ ownWorkspaces: true })`, in
+`tools/lib/base-tree.mjs`), laid out as `tools/render-identity.mjs` lays out its reference tree:
+
+- Each `@laticent/*` workspace links to the tree's own copy, under the name the tree's
+  package.json gives it (`tools/lib/workspace-links.js`).
+- Every third-party package, and `docs/node_modules`, links to this checkout's install.
+- The gate then builds the tree's render builds one by one and `--check`s them.
+
+So:
+
+- A workspace change since the source shows up as source drift, like any other source.
+- An old tree finds its own packages, even ones a later rename removed.
+- A dependency change cannot show, so a "band" verdict then does not pass.
+- A golden that no nightly bless wrote (a hand bless, a revert of a bless) has a guessed
+  source, so its "band" does not pass either.
+- Galleries are darkened by the rendered tree's own `injectDark`
+  (`tools/lib/golden-render.mjs` `injectDarkFor`), so a change to how a gallery turns dark
+  shows up as drift. golden-diff renders its base the same way, but its base tree still
+  borrows this checkout's workspace packages, so a change to how `@laticent/segno` reads a
+  class record can still look the same on both sides there.
+- Gaps that remain:
+  - An installed `node_modules` that differs from the committed lockfile (a local
+    `npm install`, a stale install after a pull) cannot be seen. Run `npm ci` before
+    trusting a "band".
+  - The control renders HEAD again, a minute or more after the drift row's own render. Do
+    not edit the checkout while it runs.
+  - Two runs at once share `.scratch/regression` and each deck's `.regr-*` files. They can
+    only fail each other, never pass, but run one at a time.
+  - The npm plugin cache (`~/.lattice/npm-plugins`) is not refused. Today it cannot reach a
+    render, because no `lattice-plugins.json` is tracked and an untracked one is refused.
+
+Cost: about 50 s to build each distinct commit's tree (shared with `golden-diff`,
+`tools/lib/base-tree.mjs`), plus two renders per drifting golden, one at a time. So point
+it at a few goldens with `--only examples/<name>`, not the whole corpus. To find which
+merged PR moved a golden, use `tools/golden-bisect.mjs`.
+
 Each test file wraps its body in `describe('<file-basename>', () => {…})`
 so TAP output groups by file. Source of truth: `package.json` scripts
 plus the directory layout.
@@ -1329,10 +1403,11 @@ copy that leaks markup or still links an HTML page that has a copy.
 
 **The agent pack lives at `/agents/`.** `docs/scripts/sync-portal.mjs` copies `dist/agent-kit/`
 (built by `tools/build-agent-kit.mjs`) there verbatim, and `/llms.txt` sends agents to
-`/agents/start.md` first. The same tree is mirrored to the `dist-kits` branch, so edit the kit's
-generator, never the copies. The kit build fails on a link that leaves the kit and on Marp wording
-outside `render/lattice-export-to-marp.md`; `tools/agent-pack-eval.mjs` (nightly) has a model write
-decks from `start.md` alone. Why: `engineering/decisions/2026-11-17-agent-pack.md`.
+`/agents/start.md` first, then `/agents/layouts.md`. The same tree is mirrored to the `dist-kits` branch, so edit the kit's
+generator, never the copies. The kit build fails on a link that leaves the kit, on Marp wording
+outside `render/lattice-export-to-marp.md`, and on a `start.md` over 990 o200k tokens
+(`START_TOKEN_MAX`: the owner's 1,500 on Claude's count, at the measured 1.51× ratio); `tools/agent-pack-eval.mjs`
+(nightly) has a model write decks from `start.md` alone. Why: `engineering/decisions/2026-11-17-agent-pack.md`.
 The link-preview card is `docs/public/og/lattice.png`, drawn by `node tools/make-og-card.js`
 (committed, like the PWA icons; re-run it after changing the lockup, the promise or the showcase
 slides it uses).

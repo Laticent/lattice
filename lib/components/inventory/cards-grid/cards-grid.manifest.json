@@ -16,7 +16,8 @@
       "list-tabular",
       "split across slides"
     ],
-    "note": "the grid loses scannability past four cards"
+    "note": "the grid loses scannability past four cards",
+    "withClaim": {"hero":{"soft":5,"hard":6}}
   },
   "align": {
     "default": "middle",
@@ -121,7 +122,7 @@
       "selector": "blockquote",
       "match": { "kind": "blockquote" },
       "required": false,
-      "description": "Optional key-insight panel above the cards."
+      "description": "Optional key-insight panel below the cards."
     },
     "body": {
       "selector": "li > ul > li",

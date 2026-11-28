@@ -24,7 +24,7 @@ const { frontMatterBlock } = require(path.join(ROOT, 'lib/core/deck-front-matter
 const { bootRuntime } = require('../../helpers/runtime-boot');
 
 const deck = (fm, body) => ['---', 'theme: indaco', ...fm, '---', '', body].join('\n');
-const TWO = '## One\n\nA `~{1 2 3}` spark.\n\n---\n\n<!-- _class: spark-framed -->\n\n## Two\n\nAnother `~{1 2 3}`.';
+const TWO = '## One\n\nA `~{1 2 3}` spark.\n\n---\n\n<!-- @meta{class=spark-framed} -->\n\n## Two\n\nAnother `~{1 2 3}`.';
 const classesOf = (fm, body) => {
   const doc = new JSDOM(latticeEngine.createEngine().render(deck(fm, body)).html).window.document;
   return [...doc.querySelectorAll('section')].map((s) => s.className.split(/\s+/).filter(Boolean));
@@ -86,7 +86,7 @@ test('runtime: stamps the tokens from a baked block, and evicts per axis', async
 });
 
 test('lint: an unknown word and a second word on an axis warn; the slide classes are known', () => {
-  const found = lintText(deck(['spark: bare glossy framed'], '<!-- _class: content spark-etch -->\n\n## One\n\nText.'));
+  const found = lintText(deck(['spark: bare glossy framed'], '<!-- @meta{layout=content, class=spark-etch} -->\n\n## One\n\nText.'));
   const spark = found.filter((f) => f.rule === 'unknown-spark');
   assert.equal(spark.length, 2, spark.map((f) => f.message).join(' | '));
   assert.ok(spark.some((f) => /'glossy' isn't a valid `spark:` value/.test(f.message)));

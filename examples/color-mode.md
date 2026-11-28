@@ -42,7 +42,7 @@ Pin a mode when the look is the point. Reach for `system` when you'd rather resp
 
 ## A bright island in a dark deck.
 
-This one slide carries `_class: light`. It flips to the light canvas on its own, right in the middle of a dark deck — the per-slide pin wins over the deck-wide one. Use it when a single slide reads better bright: a photo, a quote, a breather between dense dark sections.
+This one slide carries `class=light` in its record. It flips to the light canvas on its own, right in the middle of a dark deck — the per-slide pin wins over the deck-wide one. Use it when a single slide reads better bright: a photo, a quote, a breather between dense dark sections.
 
 ---
 

@@ -45,7 +45,7 @@ header: "Lattice · one page number"
 footer: "The mark in the bottom-right corner is the same mark on every page of the deck"
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 ## Light flowchart
 
@@ -53,7 +53,7 @@ ${FLOW}
 
 ---
 
-<!-- _class: diagram dark -->
+<!-- @meta{layout=diagram, class=dark} -->
 
 ## Dark flowchart
 
@@ -61,19 +61,19 @@ ${FLOW}
 
 ---
 
-<!-- _class: split-panel -->
+<!-- @meta{layout=split-panel} -->
 
 ${ROOMY}
 
 ---
 
-<!-- _class: split-panel -->
+<!-- @meta{layout=split-panel} -->
 
 ${FULL}
 
 ---
 
-<!-- _class: diagram dark -->
+<!-- @meta{layout=diagram, class=dark} -->
 
 ## An author's category, dark
 
@@ -86,7 +86,7 @@ ${F}
 
 ---
 
-<!-- _class: diagram dark -->
+<!-- @meta{layout=diagram, class=dark} -->
 
 ## Every node shape, dark
 
@@ -98,7 +98,7 @@ ${F}
 
 ---
 
-<!-- _class: split-panel watermark -->
+<!-- @meta{layout=split-panel, class=watermark} -->
 
 ## Watermark
 
@@ -109,7 +109,7 @@ ${F}
 
 ---
 
-<!-- _class: split-panel capstone -->
+<!-- @meta{layout=split-panel, class=capstone} -->
 
 \`Level 6 · Creating\`
 

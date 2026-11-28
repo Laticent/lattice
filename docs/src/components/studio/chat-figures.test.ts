@@ -34,7 +34,7 @@ describe('figureSample', () => {
 		expect(out.trimEnd().endsWith('````')).toBe(true);
 	});
 	it('shows only the FIRST slide of a lattice fence — a second would be invisible to the tile', () => {
-		const out = figureSample('lattice', '<!-- _class: content -->\n## One\n\n---\n\n## Two', FM) as string;
+		const out = figureSample('lattice', '<!-- @meta{layout=content} -->\n## One\n\n---\n\n## Two', FM) as string;
 		expect(out).toContain('## One');
 		expect(out).not.toContain('## Two');
 		expect(out.startsWith(FM)).toBe(true);
