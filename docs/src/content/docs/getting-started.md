@@ -80,7 +80,9 @@ bundle** (or `npm run export:marp`) to produce a self-contained `.zip` — split
 baked to literal `---`, themes, assets, and a zero-install bundled renderer.
 Lattice itself never renders through Marp, and its front matter never needs
 `marp: true` — add that key only if you preview decks with the VS Code Marp
-extension, which activates on it.
+extension, which activates on it. That preview also needs the copy-and-go kit's
+stylesheet and scripts, and its security level set to *Disable*, or most layouts
+show as plain Markdown (`dist/marp-kit/README.md`).
 
 Every render option — palettes, handouts, the shareable player, speaker notes,
 image sets, packages — is a recipe in [Using the command line](/guides/cli/).

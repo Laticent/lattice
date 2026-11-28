@@ -43,7 +43,7 @@
     "data": true
   },
   "stage": "canvas",
-  "coda": { "claims": ["trailing-paragraph"] },
+  "coda": { "claims": [], "caption": true },
   "capacity": {
     "axis": "item",
     "min": 2,

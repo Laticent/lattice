@@ -98,4 +98,4 @@ The left rail fills with the raw accent. Its eyebrow rides `--on-accent` at full
 
 ## Curated once. Readable everywhere.
 
-> Reuse the ink the theme already trusts.
+Reuse the ink the theme already trusts.

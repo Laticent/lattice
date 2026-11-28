@@ -40,6 +40,7 @@ const KEEP = Object.freeze({
   'test/fixtures/mermaid-slide-class-forms.md': 'Pins every comment form of a class (spot, running global, quoted) through the Mermaid bake (mermaid-slide-class-forms.test.js).',
   'examples/slide-class-forms.md': 'The demo deck of the comment forms of a class; its eyebrows name each form.',
   'tools/vscode-harness/decks/mermaid-click.md': 'Drives the VS Code preview, which is Marp: it reads only directive comments.',
+  'tools/vscode-harness/decks/runtime-off-notice.md': 'Drives the VS Code preview, which is Marp: it reads only directive comments.',
   // LFM 1.x defines the directive comment; these are its conformance cases, run by tools/lfm-conformance.js. The cut
   // (slice E) marks them `until: LFM-2.0` and the LFM 2.0 draft gets record cases.
   'spec/conformance/lfm/appendix-a.md': 'An LFM-1.0 conformance case, written in the spelling LFM 1.0 defines.',
