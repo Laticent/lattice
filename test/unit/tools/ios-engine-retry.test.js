@@ -154,3 +154,15 @@ test('a lookup that fails falls back to the name, so the proxy still starts', as
 	};
 	assert.equal(await reachableAddress('no-such-host.invalid', 80, { lookup }), 'no-such-host.invalid');
 });
+
+test('a Reload press that did not reload says whether the run could judge it: a long press sends no click', async () => {
+	const { reloadTapReading } = await load();
+	const ev = (...pairs) => ({ events: pairs.map(([type, t]) => ({ type, t })) });
+	// iPhone, run 46108755390: the simulator stretched the tap, and Safari answered with a long press, not a click.
+	assert.equal(reloadTapReading(ev(['touchstart', 0], ['touchend', 1045])), 'the tap was held 1045 ms and Safari treated it as a long press; no click reached the page, so this run cannot judge Reload');
+	assert.equal(reloadTapReading(ev(['touchstart', 0], ['touchend', 80])), 'the tap was held 80 ms and no click reached the page, so this run cannot judge Reload');
+	// A click that arrived and still did not reload is the product's, and says so.
+	assert.equal(reloadTapReading(ev(['touchstart', 0], ['touchend', 90], ['click', 95])), 'the tap was held 90 ms and a click reached the page, yet it did not reload');
+	assert.equal(reloadTapReading(null), 'no touch reached the page, so this run cannot judge Reload');
+	assert.equal(reloadTapReading({ events: [] }), 'no touch reached the page, so this run cannot judge Reload');
+});
