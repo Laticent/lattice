@@ -140,12 +140,11 @@ function commentsIn(text) {
   }
   return out;
 }
-/** The comment a line holds when the line is nothing but one comment, or null. A comment on its own line is something an author copies, wherever it sits. */
-function ownLineComment(line) {
+/** The comments a line holds when the line is nothing but comments (one or several), else none. Such a line is something an author copies, wherever it sits. */
+function ownLineComments(line) {
   const t = line.trim();
-  if (!t.startsWith('<!--') || !COMMENT_ENDS.some((e) => t.endsWith(e))) return null;
-  const found = commentsIn(t);
-  return found.length === 1 ? found[0] : null;
+  if (!t.startsWith('<!--') || !COMMENT_ENDS.some((e) => t.endsWith(e))) return [];
+  return commentsIn(t);
 }
 const INLINE = new RegExp(`\`(${ALT})[ \\t]*:`, 'g');
 const CODE_SPAN = /`([^`\n]+)`/g;
@@ -213,9 +212,9 @@ function retiredKeys(text) {
     }
     // A retired comment on its own line is copyable wherever it sits: any fence, any indent, or raw in the source an
     // agent reads.
-    const c = ownLineComment(line);
-    const ck = c && retiredComment(c);
-    if (ck) out.push({ line: i + 1, key: ck, shape: 'front-matter' });
+    const owned = ownLineComments(line).map(retiredComment).filter(Boolean);
+    for (const key of owned) out.push({ line: i + 1, key, shape: 'front-matter' });
+    const ck = owned.length > 0;
     if (!cued.has(unit[i])) {
       for (const m of line.matchAll(INLINE)) out.push({ line: i + 1, key: m[1], shape: 'inline' });
       if (!ck) for (const m of line.matchAll(CODE_SPAN)) for (const key of retiredInSpan(m[1])) out.push({ line: i + 1, key, shape: 'inline' });
@@ -328,6 +327,8 @@ test('a mention its paragraph marks as history passes; a front-matter block neve
     assert.equal(retiredKeys(deck).filter((h) => h.key === '_class').length, 1, deck);
   }
   assert.equal(retiredKeys('Write `# Revenue <!-- _class: kpi -->` on the slide.\n').length, 1);
+  // Two comments on one line: each is read.
+  assert.equal(retiredKeys('```markdown\n<!-- _class: kpi --> <!-- _paginate: false -->\n```\n').length, 2);
   // A comment closed with `--!>`, HTML's other comment end, is still a comment.
   assert.equal(retiredKeys('```markdown\n<!-- _class: kpi --!>\n```\n').length, 1);
   // "not read" is a cue only after a code span in the same sentence.
