@@ -237,8 +237,12 @@ only what the use-case layer needs from it:
   `slide.replace`, `slide.insert`, `slide.delete`, `slide.move`, `slide.copy`. **Use-case-layer ops**,
   which the dispatcher applies after the spine's: `fm.set`, `fm.block` (front matter),
   `asset.caption` (a Library write, outside the deck) and `deck.create`.
-- **Atomic by default.** A changeset applies whole or not at all. A later op is evaluated against the
-  result of the earlier ones, in order, and that is the documented rule.
+- **Atomic by default.** A changeset applies whole or not at all. Its ops apply in order, but every
+  number and fingerprint in them names a slide of the **base** text and resolves once, before any op
+  runs; after that, only ids flow through the changeset. So `[delete slide 2, edit slide 3]` edits the
+  slide the caller read as 3. (Amended 2026-11-28 by the owner, fork 4 of
+  `2026-11-28-slide-spine-on-segno.md`; it replaced "a later op is evaluated against the result of the
+  earlier ones".)
 - **Index-keyed fix-ups belong to the applier.** Renumbering `say:` entries, carrying lens tags, and
   anything else keyed by position happens inside `applyOps`, never in a kernel's ops. A move and its
   renumbering cannot land apart.

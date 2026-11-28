@@ -1,6 +1,6 @@
 ---
 status: proposed
-summary: The slide spine, designed on Segno's deck model and grown inside Lente. It owns what a deck's slides are (written slides, heading sections, panes, hidden slides), gives each written slide a session id that its own edits carry exactly, addresses slides by id or fingerprint, carries a content revision, applies structural ops atomically with receipts, and replaces the splitters that disagree on numbering. It settles use-case-layer §10 step 0, was hardened by the adversarial trio, and put four forks to the owner, who settled three (the spine grows inside Lente; ids in memory; the spine counts source pages).
+summary: The slide spine, designed on Segno's deck model and grown inside Lente. It owns what a deck's slides are (written slides, heading sections, panes, hidden slides), gives each written slide a session id that its own edits carry exactly, addresses slides by id or fingerprint, carries a content revision, applies structural ops atomically with receipts, and replaces the splitters that disagree on numbering. It settles use-case-layer §10 step 0, was hardened by the adversarial trio, and put four forks to the owner, who settled all four (the spine grows inside Lente; ids in memory; the spine counts source pages; addresses mean the deck as read).
 ---
 
 # The slide spine, on Segno (2026-11-28)
@@ -161,8 +161,8 @@ imports from outside its folder, no DOM, no parser. That works the way Lente alr
   evaluated against the result of the earlier ones. Under §5.2, `[insert first, replace number 3]`
   replaces the old slide 2; here it replaces the old slide 3, which is the slide the caller read. Numbers
   and fingerprints name slides of the base text; after resolution every op holds ids, and only ids flow
-  through the changeset. The ops still **apply** in order. The owner decides the amendment (§11, fork 4);
-  until then §5.2's rule stands.
+  through the changeset. The ops still **apply** in order. The owner approved the amendment (§11, fork 4),
+  and §5.2 now says so.
 - **The fingerprint** is SHA-256 (256 bits, hex) over the written slide normalized by **the spine's one
   normalization**: BOM dropped, line ends folded to LF, trailing whitespace on each line kept, leading and
   trailing blank lines dropped. The typing passes compare slides with the same function.
@@ -332,8 +332,10 @@ this session):**
 
 - **Fork 1: B** (about 11:36 UTC), against this note's first pick of A. The spine grows inside Lente;
   §1 gives the design, §9 the slices.
+- **Fork 4: A** (about 11:37 UTC). Numbers and fingerprints mean the deck as the caller read it; §5.2 of
+  the use-case note is amended in this PR.
 
-**Open:** fork 4.
+No fork is open.
 
 | Fork | Options | Recommendation | Cost |
 |---|---|---|---|
@@ -372,7 +374,7 @@ The trio read the first draft (3961f65b). Its findings and what changed:
 | Checker | Revision over normalized text would let the file host miss a line-ending change | §4: raw bytes for the on-disk check |
 | Checker | Number addressing and `slide.hide`/`show` extend §5.2 unannounced | §3, §5: labeled as extensions |
 | Checker | Drifted line numbers; two files named `deck-lint.ts` | fixed throughout |
-| Card grader | Resolving against the base amends §5.2's in-order rule without saying so | §3 says so; fork 4 puts it to the owner; §5.2 stands until then |
+| Card grader | Resolving against the base amends §5.2's in-order rule without saying so | §3 says so; fork 4 put it to the owner, who chose A; §5.2 amended in this PR |
 | Card grader | "Spine instance" was ambiguous (a new instance per edit would expire every id) | §2: the nonce is per session and carries across `applyOps` |
 | Owner | Fork 1: B, grow Lente (2026-11-28) | §1: the spine inside Lente, fed by `lib/core/lente-host.mjs` through injected seams; slices 1 and 5 name it |
 | Card grader | "Wholly rewritten" was undefined; the lint's page numbers sat in the wrong slice; one refusal had no code | §2 retires on delete only; slice 3; `INVALID` |
