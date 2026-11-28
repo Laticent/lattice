@@ -102,9 +102,9 @@ Function · Form · Substance · Finish. Authored in short names, organized in f
 ## Why dotted names lost the rethink.
 
 - Dotted (rejected).
-  - `<!-- _class: inventory.grid.cards compact -->` is 35 characters. Authors learn ~70 path combinations instead of 35 names. Implementation surfaces leak into invocation — `evidence.canvas.chart.progress` for what used to be `progress`.
+  - `<!-- @meta{layout=inventory.grid.cards, class=compact} -->` spends 20 characters on the layout name. Authors learn ~70 path combinations instead of 35 names. Implementation surfaces leak into invocation — `evidence.canvas.chart.progress` for what used to be `progress`.
 - Short (kept).
-  - `<!-- _class: cards-grid compact -->` is 32 characters and what authors already know. Same pattern as shadcn, Chakra, Mantine, Lit, Slidev, Notion blocks. Discovery happens via tooling, not in the directive name.
+  - `<!-- @meta{layout=cards-grid, class=compact} -->` spends 10, and the name is what authors already know. Same pattern as shadcn, Chakra, Mantine, Lit, Slidev, Notion blocks. Discovery happens via tooling, not in the directive name.
 
 ---
 

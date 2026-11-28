@@ -41,7 +41,7 @@ the line is drawn, then `engineering/gotchas/ci.md`. Tag this session `desk:deps
    hand.** `platform-suites-supervisor.yml` already re-runs once when the runner lost
    the job before any test reported; anything else is a red test (#33).
 3. **Report** to the command center: one fleet item per red run or PR, with
-   `budget: N/10 today`, with its `meter:` ledger, which also rides on every gate message to the command center (a card announcement, a 🧱 line).
+   `budget: N/10 today`, with its `meter:` ledger, which also rides on every other gate message to the command center (a `card ready` line, a 🧱 line, a ❓ card) and is never sent as a message of its own (`engineering/workflow.md` §Desks, "A worker messages the command center only at a gate").
 
 ## Lane
 

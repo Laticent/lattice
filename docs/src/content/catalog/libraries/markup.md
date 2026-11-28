@@ -100,7 +100,7 @@ plainText('<p>Q3&nbsp;<b>grew</b></p>'); // 'Q3 grew'
 
 ## How Lattice uses it
 
-The engine reads every rendered deck through Markup. It splits the HTML into slides to stamp each slide's form and to lay the progress rail, and reads each topic slide's own title to build the track of topics a `topic` slide shows, with the current one lit. Card layouts such as cycle and team profile read their list items with it. The code plugin numbers, focuses and marks the lines of a highlighted fence with `splitCodeLines`, and the engine's `_focus: line` and `_build: lines` read the same lines, so the plugin and the engine agree without the plugin importing the engine. A markdown-it rule from Markup also stops a `<style>` block from swallowing the next slide separator.
+The engine reads every rendered deck through Markup. It splits the HTML into slides to stamp each slide's form and to lay the progress rail, and reads each topic slide's own title to build the track of topics a `topic` slide shows, with the current one lit. Card layouts such as cycle and team profile read their list items with it. The code plugin numbers, focuses and marks the lines of a highlighted fence with `splitCodeLines`, and a slide record's `focus=line` and `build=lines` read the same lines, so the plugin and the engine agree without the plugin importing the engine. A markdown-it rule from Markup also stops a `<style>` block from swallowing the next slide separator.
 
 ## What it doesn't do
 

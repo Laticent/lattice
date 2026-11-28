@@ -348,6 +348,11 @@ galleries: no pixel past the fuzz). The verdicts:
   - a render setting is in the environment: any `LATTICE_*` variable but `LATTICE_ACTOR`
     (lattice.js reads about a dozen, from `LATTICE_PDF_*` to `LATTICE_MERMAID_SINGLE`), or
     `NODE_TEST_CONTEXT`, which `node --test` sets;
+  - packages are installed in your store (`~/.lattice/packages`; a `LATTICE_HOME` store is
+    already refused above as an environment setting): an installed component whose name a
+    deck uses as a class is embedded in both renders;
+  - an untracked `lattice-plugins.json` sits at the repo root, where the tree, which has no
+    `.git` of its own, finds it by walking up;
   - a gitignored build this checkout's render loads is stale or missing: run `npm run build`.
     The check runs `--check` on every one, about 20 s: the Segno grammar, the 19 workspace
     libraries (`docs/src/lib/*/dist`), `dist/lattice.css` and the default bundle, the dagre
@@ -375,8 +380,21 @@ So:
 - A dependency change cannot show, so a "band" verdict then does not pass.
 - A golden that no nightly bless wrote (a hand bless, a revert of a bless) has a guessed
   source, so its "band" does not pass either.
-- One gap remains: an installed `node_modules` that differs from the committed lockfile (a
-  local `npm install`, a stale install after a pull). Run `npm ci` before trusting a "band".
+- Galleries are darkened by the rendered tree's own `injectDark`
+  (`tools/lib/golden-render.mjs` `injectDarkFor`), so a change to how a gallery turns dark
+  shows up as drift. golden-diff renders its base the same way, but its base tree still
+  borrows this checkout's workspace packages, so a change to how `@laticent/segno` reads a
+  class record can still look the same on both sides there.
+- Gaps that remain:
+  - An installed `node_modules` that differs from the committed lockfile (a local
+    `npm install`, a stale install after a pull) cannot be seen. Run `npm ci` before
+    trusting a "band".
+  - The control renders HEAD again, a minute or more after the drift row's own render. Do
+    not edit the checkout while it runs.
+  - Two runs at once share `.scratch/regression` and each deck's `.regr-*` files. They can
+    only fail each other, never pass, but run one at a time.
+  - The npm plugin cache (`~/.lattice/npm-plugins`) is not refused. Today it cannot reach a
+    render, because no `lattice-plugins.json` is tracked and an untracked one is refused.
 
 Cost: about 50 s to build each distinct commit's tree (shared with `golden-diff`,
 `tools/lib/base-tree.mjs`), plus two renders per drifting golden, one at a time. So point

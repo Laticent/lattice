@@ -203,3 +203,41 @@ describe('linkTreeModules', () => {
     }
   });
 });
+
+test('hostStateRefusals refuses an installed package store and an untracked plugin list', () => {
+  assert.deepEqual(m.hostStateRefusals({ installed: [], untrackedPluginList: false }), []);
+  const store = m.hostStateRefusals({ installed: ['component/tiered'], untrackedPluginList: false });
+  assert.equal(store.length, 1);
+  assert.match(store[0], /installed in your store \(component\/tiered\)/);
+  assert.match(m.hostStateRefusals({ installed: [], untrackedPluginList: true })[0], /untracked lattice-plugins\.json/);
+  const many = m.hostStateRefusals({ installed: ['a/1', 'a/2', 'a/3', 'a/4'], untrackedPluginList: true });
+  assert.equal(many.length, 2);
+  assert.match(many[0], /a\/1, a\/2, a\/3, …/);
+});
+
+test('renderGallery darkens with the rendered root\'s own injectDark, not this checkout\'s', async () => {
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const path = require('node:path');
+  const gr = await import('../../../tools/lib/golden-render.mjs');
+  // A stub root: its own producer marks what it darkens, and its "emulator" copies the deck it is
+  // given to the output path, so the dark output shows which injectDark made it. This drives
+  // renderGallery itself; a test of injectDarkFor alone passed with renderGallery reverted to this
+  // checkout's producer (the review of #3614, finding 1).
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'regress-dark-'));
+  try {
+    fs.mkdirSync(path.join(root, 'tools'));
+    fs.mkdirSync(path.join(root, 'gal'));
+    fs.writeFileSync(path.join(root, 'tools', 'build-galleries.js'), "module.exports = { injectDark: (md) => 'STUB-ROOT-DARK\\n' + md };\n");
+    fs.writeFileSync(path.join(root, 'lattice.js'), "require('node:fs').copyFileSync(process.argv[2], process.argv[4]);\n");
+    const md = path.join(root, 'gal', 'probe.gallery.md');
+    fs.writeFileSync(md, '# Probe\n');
+    const dark = gr.renderGallery(root, md, 'dark');
+    assert.match(fs.readFileSync(dark.outPdf, 'utf8'), /^STUB-ROOT-DARK\n# Probe/);
+    const light = gr.renderGallery(root, md, 'light');
+    assert.equal(fs.readFileSync(light.outPdf, 'utf8'), '# Probe\n', 'light is not darkened');
+    for (const p of [...dark.cleanup, ...light.cleanup]) fs.rmSync(p, { force: true });
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
