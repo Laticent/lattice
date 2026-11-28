@@ -39,6 +39,7 @@
     "contrast",
     "tradeoff"
   ],
+  "searchTerms": ["before and after code", "diff", "refactor", "code comparison"],
   "description": "Two fenced code blocks side-by-side, each with a label.",
   "purpose": "Use to contrast a before/after refactor, two API styles, or two configurations. Each side gets an h3 label and one fenced block.",
   "slots": {

@@ -219,9 +219,13 @@ test('meta-opener-bare: a wrapped record under a bare opener is still caught', (
 test('meta-record names what the door drops; meta-class-overridden names the class a later comment replaces', () => {
   const found = findMetaCommentIssues(deck('<!-- @meta{layout=kpi, bogus=1} -->\n\n# A', '<!-- @meta{layout=kpi\n-->\n\n# B'));
   assert.deepEqual(found.map((f) => [f.slide, f.rule, f.classToken]), [[1, 'meta-record', 'meta-unknown-key'], [2, 'meta-record', 'unterminated-record']]);
-  const over = findMetaCommentIssues(deck('<!-- _class: kpi -->\n<!-- @meta{headline=left} -->\n\n# A')).filter((f) => f.rule !== 'legacy-directive-comment');
+  const over = findMetaCommentIssues(deck('<!-- @meta{layout=kpi} -->\n<!-- @meta{headline=left} -->\n\n# A'));
   assert.deepEqual(over.map((f) => [f.slide, f.rule]), [[1, 'meta-class-overridden']]);
   assert.match(over[0].message, /`kpi` is dropped/);
+  // Since the cut an old `_class:` comment sets nothing, so it is never the loser of a class collision: lint names it
+  // as the retired form only, and the record after it is the slide's one class setter.
+  const retired = findMetaCommentIssues(deck('<!-- _class: kpi -->\n<!-- @meta{headline=left} -->\n\n# A'));
+  assert.deepEqual(retired.map((f) => f.rule), ['legacy-directive-comment']);
   // A record sharing its line with text or another comment is not read; the door's diagnostics are not reported for it.
   assert.deepEqual(findMetaCommentIssues(deck('<!-- @meta{layout=kpi, footer=x} --> trailing\n\n# A')).filter((f) => f.rule === 'meta-record'), []);
   // A repeated register field is reported (it would write both words).

@@ -54,6 +54,7 @@
     "walkthrough",
     "planning"
   ],
+  "searchTerms": ["steps", "how to", "process", "instructions", "procedure", "phases"],
   "description": "Horizontal row of ordered step cards, each with a full description body (the `vertical` variant stacks them instead).",
   "purpose": "Use for richer sequential processes where each step needs a paragraph rather than a label. More verbose than timeline; more structured than a plain ordered list.",
   "variants": [

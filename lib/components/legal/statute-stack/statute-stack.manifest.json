@@ -69,6 +69,7 @@
     "reference",
     "compliance"
   ],
+  "searchTerms": ["law", "laws", "statutes", "legal", "articles", "clauses"],
   "description": "Citation hierarchy — federal / state / local rows with citation, headline obligation, and status.",
   "purpose": "Use when three or four parallel jurisdictions need to read at a glance: each row carries the jurisdiction label, the citation, the obligation summary, and an effective-date marker.",
   "excludes": [

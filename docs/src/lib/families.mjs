@@ -113,6 +113,8 @@ export function buildCatalog(manifests, bucketOf) {
 				// after `description`, and nothing else on the client has it.
 				purpose: m.purpose || '',
 				tags: Array.isArray(m.tags) ? m.tags : [],
+				// The everyday words an author types (2026-11-23-search-by-meaning.md); the shared search core indexes them.
+				searchTerms: Array.isArray(m.searchTerms) ? m.searchTerms : [],
 			};
 		})
 		.sort((a, b) => a.name.localeCompare(b.name));

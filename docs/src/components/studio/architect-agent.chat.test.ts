@@ -24,7 +24,7 @@ describe('chatComplete — the cloud agent', () => {
 		await withBackend(async (o) => {
 			seen.push(o);
 			if (seen.length === 1) {
-				o.onToolCalls?.([{ id: 't1', type: 'function', function: { name: 'set_front_matter', arguments: '{"key":"finish","value":"atrium"}' } }]);
+				o.onToolCalls?.([{ id: 't1', type: 'function', function: { name: 'set_front_matter', arguments: '{"key":"finish","value":"atrium","summary":"Test edit"}' } }]);
 				return '';
 			}
 			o.onToken?.('Set the atrium finish.');
@@ -78,7 +78,7 @@ describe('chatComplete — activity labels (the status line is never blank)', ()
 			n++;
 			if (n === 1) {
 				o.onToolStart?.('edit_slides');
-				o.onToolCalls?.([{ id: 't1', type: 'function', function: { name: 'set_front_matter', arguments: '{"key":"finish","value":"atrium"}' } }]);
+				o.onToolCalls?.([{ id: 't1', type: 'function', function: { name: 'set_front_matter', arguments: '{"key":"finish","value":"atrium","summary":"Test edit"}' } }]);
 				return '';
 			}
 			o.onToken?.('Done.');

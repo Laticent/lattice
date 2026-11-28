@@ -40,7 +40,7 @@ Read first, by section: `engineering/workflow.md` §Desks (your powers and budge
    test. Switching one off needs the three-part `// disabled:` reason. Say so to any
    session that tries.
 4. **Report** to the command center: one `send_message` with a fleet item per flake
-   (level, title, pr, session, state) and `budget: N/10 today`, with its `meter:` ledger, which also rides on every gate message to the command center (a card announcement, a 🧱 line).
+   (level, title, pr, session, state) and `budget: N/10 today`, with its `meter:` ledger, which also rides on every other gate message to the command center (a `card ready` line, a 🧱 line, a ❓ card) and is never sent as a message of its own (`engineering/workflow.md` §Desks, "A worker messages the command center only at a gate").
 
 5. **Claim before fix.** When a session reports a flake you already assigned, tell it
    who owns the fix and where, so it does not write a second copy.
@@ -53,7 +53,7 @@ not: a red on `main`, a tool or dependency missing from the sandbox image, a bro
 hook that two or more sessions hit (`engineering/workflow.md` §Desks, "Blockers go to the
 command center"), except a nightly, golden-bless or platform-suite red and a break a
 dependency bump caused, which stay with the deps desk. Give each one owner, tag the fixing session `claim:blocker:<slug>`, and
-tell the command center the owner and tag so it can tell every affected session. A fix that
+put the owner and tag in this pass's report to the command center (step 4), so it can tell every affected session; never as a message of its own. A fix that
 changes a CI job or step, a hook or the environment's settings goes to the owner first
 (CLAUDE.md, SECOND FILTER). Not yours: merging, labels, another session's branch, a red test a session's own change caused
 (that session fixes it, HARD RULE #33), and a non-test bug that only one session hits (the command

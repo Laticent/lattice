@@ -148,6 +148,41 @@ test('FIXTURE PIN: the core vocabularies and name pattern', () => {
     'required set changed');
 });
 
+test('every in-tree component carries searchTerms (optional in the schema, required in the catalog)', () => {
+  // The schema leaves `searchTerms` optional so a component an author makes in the
+  // Studio (Fabricate's gate reads the same schema) is not rejected for lacking it.
+  // Every component WE ship owes them: without them the gallery's meaning search
+  // cannot find it by everyday words (engineering/decisions/2026-11-23-search-by-meaning.md).
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const root = path.join(__dirname, '..', '..', '..', 'lib');
+  const missing = [];
+  let seen = 0;
+  for (const base of [path.join(root, 'components'), path.join(root, 'plugins', 'chart-family', 'kinds')]) {
+    for (const f of fs.readdirSync(base, { recursive: true })) {
+      if (!String(f).endsWith('.manifest.json')) continue;
+      seen += 1;
+      const m = JSON.parse(fs.readFileSync(path.join(base, String(f)), 'utf8'));
+      if (!Array.isArray(m.searchTerms) || m.searchTerms.length < 3) missing.push(String(f));
+    }
+  }
+  assert.ok(seen >= 80, `expected the whole catalog, walked ${seen} manifests`);
+  assert.deepEqual(missing, [], 'these manifests ship without searchTerms');
+});
+
+test('validate() enforces the schema shape of searchTerms (it is optional, so only its shape is checked)', () => {
+  const base = {
+    name: 'x', function: 'anchor', form: 'canvas', substance: 'prose',
+    tags: ['summary', 'takeaway', 'pitch'], description: 'd', skeleton: 's',
+  };
+  assert.deepEqual(components.validate(base, 't'), [], 'absent is fine');
+  assert.deepEqual(components.validate({ ...base, searchTerms: ['grades', 'key numbers', 'year-over-year'] }, 't'), []);
+  for (const bad of ['grades', [], ['a|b', 'c', 'd'], ['UPPER', 'c', 'd'], [1, 2, 3], ['q&a', 'b', 'c'], ['a', 'a', 'b']]) {
+    const errors = components.validate({ ...base, searchTerms: bad }, 't');
+    assert.ok(errors.some((e) => e.includes('searchTerms')), `${JSON.stringify(bad)} must be rejected (got ${JSON.stringify(errors)})`);
+  }
+});
+
 test('every lib/components/ bucket directory is a schema bucket (deleting an enum entry must not silently orphan a family)', () => {
   const fs = require('node:fs');
   const path = require('node:path');

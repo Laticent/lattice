@@ -35,7 +35,7 @@ while it waits, §Relay and §The handoff issue. Tag this session
    - **Close:** a merged PR or `main` already does it, or the owner abandoned it. Name
      the PR or commit that superseded it. The owner closes it, never you.
 3. **Report** to the command center: one fleet item per PR with its sort and the
-   evidence, hand-overs and closes as numbered actions, and `budget: N/10 today`, with its `meter:` ledger, which also rides on every gate message to the command center (a card announcement, a 🧱 line).
+   evidence, hand-overs and closes as numbered actions, and `budget: N/10 today`, with its `meter:` ledger, which also rides on every other gate message to the command center (a `card ready` line, a 🧱 line, a ❓ card) and is never sent as a message of its own (`engineering/workflow.md` §Desks, "A worker messages the command center only at a gate").
 
 ## Lane
 

@@ -17,6 +17,7 @@
   "coda": { "claims": [], "caption": true },
   "conformance": "strict",
   "tags": ["flowchart", "org-chart", "sequence", "process"],
+  "searchTerms": ["diagram", "architecture", "system", "org chart", "relationships", "science"],
   "description": "Mermaid diagram as the slide's centerpiece.",
   "purpose": "Use for relational or topological visuals — flowcharts, sequence diagrams, state machines, ER diagrams. The diagram should occupy at least half the slide.",
   "slots": {

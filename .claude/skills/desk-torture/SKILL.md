@@ -55,7 +55,7 @@ per cycle, and the retainer chain or the listener's add-site that names the culp
    `memory-profiling.md`, a confession not routed this pass as a `followups.d/` file with its
    command line.
 6. **Report** to the command center: the cycle tortured, each confession and where it went,
-   what recovered on idle and was dismissed, and `budget: N/10 today`, with its `meter:` ledger, which also rides on every gate message to the command center (a card announcement, a 🧱 line).
+   what recovered on idle and was dismissed, and `budget: N/10 today`, with its `meter:` ledger, which also rides on every other gate message to the command center (a `card ready` line, a 🧱 line, a ❓ card) and is never sent as a message of its own (`engineering/workflow.md` §Desks, "A worker messages the command center only at a gate").
 
 ## Lane
 

@@ -53,6 +53,7 @@
     "metric",
     "percentage"
   ],
+  "searchTerms": ["numbers", "statistics", "metrics", "results", "dashboard", "figures", "impact", "data"],
   "description": "Row of 3–5 stat tiles, each with a big number and a label.",
   "purpose": "Use for at-a-glance metric rows — quarterly results, headline KPIs. Each tile reads as Big Number + caption.",
   "lists": "neutral",

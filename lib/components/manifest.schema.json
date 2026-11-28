@@ -587,6 +587,14 @@
         }
       }
     },
+    "searchTerms": {
+      "description": "The everyday words an author would TYPE to find this component in the Studio's slide gallery, in plain English (\"grades\", \"movie\", \"data\"). Indexed by the gallery's meaning search beside tags; search stems them, so list a word once. engineering/decisions/2026-11-23-search-by-meaning.md.",
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 12,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9 -]*$" }
+    },
     "tags": {
       "type": "array",
       "minItems": 3,

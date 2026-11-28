@@ -1,4 +1,5 @@
-import { type ComponentProps, StrictMode } from 'react';
+import { type ComponentProps, StrictMode, useMemo } from 'react';
+import { unpackCatalog, type WireCatalogItem } from '@/lib/catalog-wire';
 import { ErrorBoundary } from '../ErrorBoundary.tsx';
 import PlaygroundApp from './PlaygroundApp.tsx';
 
@@ -10,13 +11,19 @@ import PlaygroundApp from './PlaygroundApp.tsx';
 // without a matching cleanup return — the "doesn't unmount cleanly" leak no
 // lint rule catches. StrictMode renders nothing and is a no-op in production
 // builds, so shipping it on the island costs nothing at runtime.
-export default function PlaygroundIsland(props: ComponentProps<typeof PlaygroundApp>) {
+type AppData = ComponentProps<typeof PlaygroundApp>['data'];
+
+// The page sends the catalog in its packed wire form (catalog-wire.ts: the island prop
+// is written into the HTML, and two word lists as arrays pushed the page past its byte
+// ceiling). Unpack once here, so PlaygroundApp only ever sees arrays.
+export default function PlaygroundIsland({ data: wire }: { data: Omit<AppData, 'components'> & { components: WireCatalogItem[] } }) {
+	const data = useMemo<AppData>(() => ({ ...wire, components: unpackCatalog(wire.components) }), [wire]);
 	// Island-level backstop: a throw anywhere in the app degrades to a recoverable card
 	// instead of unmounting the whole client:only island to a white screen.
 	return (
 		<StrictMode>
 			<ErrorBoundary label="The Playground">
-				<PlaygroundApp {...props} />
+				<PlaygroundApp data={data} />
 			</ErrorBoundary>
 		</StrictMode>
 	);
