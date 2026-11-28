@@ -470,13 +470,13 @@ slide still paints in about 1.3 s; the hero's "Open the Studio" button moved fro
 (the longer lead), and the Studio section's headline from 5,942 to 2,658 px, two and a half phone
 screens sooner. The two new demos load their bodies with `import()` once they near the viewport
 (`LiveDemos.tsx`, `client:only`): server-rendered, their tab markup put the home route 27.8 KB past
-its `htmlRaw` ceiling. Even lazy, the shell chunk (1.1 KB gz) puts `eagerJsGz` 1.0 KB past its
-ceiling, because main sits 114 bytes under it; raising a ceiling is the owner's call, put to them on
+its `htmlRaw` ceiling. Even lazy, the page adds 1,298 B of eager JS (the 1.1 KB shell, plus Radix
+tabs split out of the hero into a shared chunk), past the `eagerJsGz` ceiling main sat 273 B under; raising a ceiling is the owner's call, put to them on
 the PR. Real-user proof (§16) is still the open gap, and the PR proposes a small before/after
 visitor test instead of a rescore number.
 
 **Owner's picks (2026-11-28, in PR 3618's session).**
-- **D1 A:** raise the home eagerJsGz ceiling about 1.5 KB, in its own PR. #3629 sets it by hand, 331,264 → 332,800, and #3618 declares its +1,123 B in `docs/route-budget.d/home-live-demos.md`.
+- **D1 A:** raise the home eagerJsGz ceiling about 1.5 KB, in its own PR. #3629 sets it by hand, 331,264 → 332,800, and #3618 declares its +1,298 B in `docs/route-budget.d/home-live-demos.md`.
 - **Copy 1 yes:** the hero's "the same way every time" now carries the same bound as the proof strip: the same text and palette give the same design.
 - **Copy 2 yes:** "Compose should be the focus, we mention markdown as source". The meta description and the how-it-works Write step lead with Compose and name Markdown as Source.
 - **Copy 3 keep:** the Studio H2 "The same deck, without installing anything." is unchanged.
