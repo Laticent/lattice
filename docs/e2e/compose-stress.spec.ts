@@ -547,6 +547,41 @@ test('@parity @crosswidth @webkit-phone closing the add-slide gallery from Compo
 	}
 });
 
+// The caret comes back to the SLIDE it left, however slow the machine. The gallery's search field takes the page's
+// selection, so the editor refocused on close holds no caret; the browser puts one at the start of the text, and
+// ProseMirror restores its own only when that reset arrives within 200 ms of the focus. A loaded 4-worker run went past
+// that, the caret landed in slide 0, and the test above lost slide 1's launcher (the surface now hands the caret back
+// itself, ui/focus-return.ts `returnFocus`). The stall below makes the slow machine every run: 300 ms of main thread
+// right after the editor's focus, before the browser reports where its caret is.
+// Untagged, so only `desktop` (a mouse) runs it: a coarse pointer gets no caret back, which the test above covers.
+test('closing the add-slide gallery gives a mouse its caret back on the same slide, on a slow machine too', async ({ page }) => {
+	await caretInto(page, 1);
+	await composeSlide(page, 1).getByRole('button', { name: 'Add slide below' }).click();
+	const dialog = page.getByRole('dialog').filter({ visible: true }).last();
+	await expect(dialog).toBeVisible();
+	await page.evaluate(() => {
+		const editor = document.querySelector('.cs-host .ProseMirror');
+		const stall = (e: Event) => {
+			if (e.target !== editor) return;
+			document.removeEventListener('focusin', stall, true);
+			const t = performance.now();
+			while (performance.now() - t < 300) {
+				/* a busy machine */
+			}
+		};
+		document.addEventListener('focusin', stall, true);
+	});
+	await dialog.getByRole('button', { name: /^(Close|Back\b)/ }).first().click();
+	await expect(dialog).toBeHidden();
+	await expect.poll(() => page.evaluate(() => !!(document.activeElement as HTMLElement | null)?.isContentEditable)).toBe(true);
+	// Where the browser says the caret is, once it has said it: the selection's slide, read from the DOM.
+	await expect
+		.poll(() => page.evaluate(() => [...document.querySelectorAll('.cs-slide')].findIndex((s) => s.contains(getSelection()?.anchorNode ?? null))))
+		.toBe(1);
+	await expect.poll(() => activeSlide(page)).toBe(1);
+	await expect(composeSlide(page, 1).getByRole('button', { name: 'Add slide below' })).toBeVisible();
+});
+
 test('@parity the slide menu opens again straight after it closes', async ({ page }) => {
 	// A closing menu used to stay mounted through its fade, and its press-outside watcher took the next press on the ⋯ as
 	// outside, so the menu that press opened closed 9 ms later (strip-actions/menu.tsx; the walk below met it once in ten).

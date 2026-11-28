@@ -1,7 +1,7 @@
 import { XIcon } from "lucide-react"
 import { Dialog as SheetPrimitive } from "radix-ui"
 import * as React from "react"
-import { focusLauncher, raisesTouchKeyboard, tappedLauncher } from "@/components/ui/focus-return"
+import { type Caret, caretWithin, focusLauncher, raisesTouchKeyboard, returnFocus, tappedLauncher } from "@/components/ui/focus-return"
 import { usePersistentIds } from "@/components/ui/persistent-surface"
 import { cn } from "@/lib/utils"
 
@@ -179,6 +179,7 @@ function SheetContent({
   // that is gone (a drawer row that launched this sheet) falls back to Radix's own behavior.
   const { onOpenAutoFocus, onCloseAutoFocus, onPointerDownOutside, onInteractOutside } = props
   const returnTo = React.useRef<HTMLElement | null>(null)
+  const caret = React.useRef<Caret | null>(null)
   const launcher = React.useRef<HTMLElement | null>(null)
   // A TAP ON THE SCRIM IS AN OUTSIDE TAP FROM THE SHEET'S FIRST FRAME, AND IT IS READ FROM THE POINTER, NOT FROM A CLICK.
   // Radix starts listening for a pointer down outside the dialog only a `setTimeout(0)` after it mounts
@@ -292,13 +293,16 @@ function SheetContent({
           decided.current = false
           const active = document.activeElement
           returnTo.current = active instanceof HTMLElement && active !== document.body ? active : null
+          caret.current = caretWithin(returnTo.current)
           launcher.current = tappedLauncher()
           onOpenAutoFocus?.(e)
         }}
         onCloseAutoFocus={(e) => {
           onCloseAutoFocus?.(e)
           const el = returnTo.current
+          const at = caret.current
           returnTo.current = null
+          caret.current = null
           if (e.defaultPrevented || !el?.isConnected) return
           const active = document.activeElement
           const box = e.currentTarget
@@ -313,7 +317,7 @@ function SheetContent({
             focusLauncher(from)
             return
           }
-          el.focus({ preventScroll: true })
+          returnFocus(el, at)
         }}
       >
         {children}

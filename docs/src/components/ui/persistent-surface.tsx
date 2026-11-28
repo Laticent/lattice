@@ -5,7 +5,7 @@ import { DismissableLayer } from "radix-ui/internal"
 import * as React from "react"
 import { createPortal, flushSync } from "react-dom"
 
-import { focusLauncher, raisesTouchKeyboard, tappedLauncher } from "@/components/ui/focus-return"
+import { type Caret, caretWithin, focusLauncher, raisesTouchKeyboard, returnFocus, tappedLauncher } from "@/components/ui/focus-return"
 import { useEverTrue } from "@/components/ui/keep-mounted"
 import { cn } from "@/lib/utils"
 
@@ -105,6 +105,7 @@ export function PersistentSurface({
   const rootRef = React.useRef<HTMLDivElement>(null)
   const boxRef = React.useRef<HTMLDivElement>(null)
   const returnTo = React.useRef<HTMLElement | null>(null)
+  const caret = React.useRef<Caret | null>(null)
   const launcher = React.useRef<HTMLElement | null>(null)
   const layerRef = React.useRef<HTMLDivElement>(null)
   // COVERED: a menu or select opened from inside the box is a Radix layer ABOVE this one, and it
@@ -139,6 +140,7 @@ export function PersistentSurface({
     const box = boxRef.current
     if (!root || !box) return
     returnTo.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    caret.current = caretWithin(returnTo.current)
     launcher.current = tappedLauncher()
     // SEEN AGAIN, if a Radix modal hid it. A Radix modal opened after this surface first mounted —
     // the phone's drawer, which is how Add slide is reached there — runs `hideOthers` and marks
@@ -179,7 +181,9 @@ export function PersistentSurface({
   React.useEffect(() => {
     if (drawn) return
     const to = returnTo.current
+    const at = caret.current
     returnTo.current = null
+    caret.current = null
     const box = boxRef.current
     const active = document.activeElement
     const unclaimed = !active || active === document.body || (box?.contains(active) ?? false)
@@ -193,7 +197,7 @@ export function PersistentSurface({
       if (unclaimed && !focusLauncher(from) && box?.contains(active)) (active as HTMLElement).blur()
       return
     }
-    if (to?.isConnected && unclaimed) to.focus({ preventScroll: true })
+    if (to?.isConnected && unclaimed) returnFocus(to, at)
   }, [drawn])
 
   if (!ever || typeof document === "undefined") return null
