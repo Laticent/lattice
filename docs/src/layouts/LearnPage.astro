@@ -24,9 +24,12 @@ const i = siblings.findIndex((s) => s.id === entry.id);
 const prev = i > 0 ? siblings[i - 1] : null;
 const next = i < siblings.length - 1 ? siblings[i + 1] : null;
 const isExternal = (href) => /^https?:/.test(href);
+// A library's own license, from its facts, beside the engine's: the two differ (LICENSING.md).
+const ownLicense = d.kind === 'library' ? d.facts.find((f) => f.k === 'License')?.v : undefined;
+const license = ownLicense ? `${d.name}: ${ownLicense} · Lattice: AGPL-3.0` : undefined;
 ---
 
-<CatalogLayout title={`${d.name} — learn the ${k.label.toLowerCase()} · Lattice`} description={`${d.promise} ${plainText(d.intro)}`}>
+<CatalogLayout title={`${d.name} — learn the ${k.label.toLowerCase()} · Lattice`} description={`${d.promise} ${plainText(d.intro)}`} license={license}>
 	<CatalogTabs slot="subbar" kind={d.kind} name={d.name} hrefs={hrefs} current="learn" />
 
 	<header class="cat-learn-hero">

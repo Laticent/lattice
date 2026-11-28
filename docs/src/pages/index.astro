@@ -103,12 +103,25 @@ const A11Y_LABELS = {
 	'a11y-achromatopsia': 'Color-blind safe (grayscale)',
 };
 const paletteLabel = (name) => A11Y_LABELS[name] ?? titleCase(name);
-const paletteAccents = palettes.map((name) => {
-	const hit = tokensCss.match(
-		new RegExp(`\\[data-palette="${name}"\\]\\[data-mode="light"\\]\\{[^}]*?--accent:(#[0-9A-Fa-f]{3,8})`),
-	);
-	return { name, label: paletteLabel(name), accent: hit ? hit[1] : '#888888' };
-});
+// Brand palettes first, then the four color-blind-safe ones as their own group, so the
+// swatch rail reads as two sets and the carousel cycles them in the order shown.
+const lightToken = (name, token) =>
+	tokensCss.match(new RegExp(`\\[data-palette="${name}"\\]\\[data-mode="light"\\]\\{[^}]*?--${token}:(#[0-9A-Fa-f]{3,8})`))?.[1];
+const paletteAccents = [...palettes.filter((n) => !n.startsWith('a11y-')), ...palettes.filter((n) => n.startsWith('a11y-'))].map(
+	(name) => {
+		const a11y = name.startsWith('a11y-');
+		const accent = lightToken(name, 'accent') ?? '#888888';
+		// The swatch: the accent over half the dot, two more of the palette's colors over the
+		// rest. The four color-blind-safe palettes share their accent and chart hues, so their
+		// swatches show their status colors instead, which set grayscale and blue-yellow apart.
+		// Red-green and red-blind share every light token, so those two swatches match. Built here,
+		// not in the island, because the home route sits at its eagerJsGz ceiling.
+		const c1 = lightToken(name, a11y ? 'pass' : 'chart-cat1');
+		const c2 = lightToken(name, a11y ? 'warn' : 'chart-cat2');
+		const fill = c1 && c2 ? `conic-gradient(${accent} 0 50%, ${c1} 50% 75%, ${c2} 75% 100%)` : accent;
+		return { name, label: paletteLabel(name), accent, fill, a11y };
+	},
+);
 
 // Live-render data: the islands render the hero, the field cards, and the
 // restyle demo through the engine runtime so they follow the selected palette +
@@ -332,8 +345,9 @@ const nextSteps = nextStepsFor(url);
 			<section class="py-[clamp(48px,6vw,88px)]">
 				<div class="wrap">
 					<SectionHead eyebrow="Your brand, on every deck" title="Every deck looks like it came from the same team — because it did.">
-						Slide tools make every slide a blank canvas, so the headline font on page 4 drifts from page 5 and the accent
-						blue wanders between two shades. Lattice removes the canvas. You choose meaning; the engine owns the pixels.
+						Even with a template, every slide in a slide tool is a blank canvas, so the headline font on page 4 drifts from
+						page 5 and the brand color wanders between two shades. Lattice removes the canvas. You choose meaning; the engine
+						owns the pixels.
 					</SectionHead>
 					<DriftDemo />
 					<div class="mt-[clamp(40px,5vw,64px)] mb-6 max-w-[62ch]">
@@ -343,7 +357,8 @@ const nextSteps = nextStepsFor(url);
 						<p class="m-0 text-[17px] text-foreground">
 							Your brand colors live in one palette file and your logo in one{' '}<code class="font-mono text-[0.88em] text-primary">logo:</code>{' '}line,
 							so every deck anyone on the team makes comes out on brand. Change the{' '}<code class="font-mono text-[0.88em] text-primary">theme:</code>{' '}line
-							and the whole deck follows, in light or dark. Watch one quarterly review move through every palette:
+							and the whole deck follows, in light or dark. Below, one quarterly review moves through every palette. Watch the{' '}<code class="font-mono text-[0.88em] text-primary">theme:</code>{' '}line:
+							one word changes, every color follows, and the layout, words and numbers stay put.
 						</p>
 					</div>
 					<RestyleShowcase client:visible data={restyleData} />

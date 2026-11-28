@@ -42,7 +42,7 @@ Change the edge and watch the slides below.
 
 ---
 
-<!-- @meta{layout=content, class=confidential stamp-ribbon} -->
+<!-- @meta{layout=content, class=confidential stamp-shape-ribbon} -->
 
 `Confidential · ribbon`
 
@@ -53,7 +53,7 @@ Change the edge and watch the slides below.
 
 ---
 
-<!-- @meta{layout=content, class=confidential stamp-veil} -->
+<!-- @meta{layout=content, class=confidential stamp-shape-veil} -->
 
 `Confidential · full-slide wash`
 

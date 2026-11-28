@@ -132,13 +132,13 @@ const gesture = (hs: number[], ink: string): Glyph =>
 /** The engine's default stamp and tone shapes (`default:` in lib/core/deck-settings.js), the
  *  value each picker's Auto head names. Mirrored, not imported: that table and its prose would
  *  ride into the Studio's startup bundle for two words. option-glyphs.test.tsx pins them. */
-export const DEFAULT_STAMP = 'tab';
+export const DEFAULT_STAMP_SHAPE = 'tab';
 export const DEFAULT_TONE = 'rail';
 
 const GLYPHS = {
 	/** The edge words of `spectrum:` (Spectrum edge) and `card-spectrum:` (Card spectrum edge). */
 	edge: EDGE,
-	/** `headline:` and the card tag's text alignment. */
+	/** `headline-align:` and the card tag's text alignment. */
 	align: ALIGN,
 	/** `align:`, up and down. */
 	alignV: {
@@ -155,7 +155,7 @@ const GLYPHS = {
 		right: ALIGN.right,
 		full: { icon: StretchHorizontal },
 	},
-	corners: {
+	'slide-corners': {
 		square: { icon: Square },
 		rounded: { icon: SquareRoundCorner },
 	},
@@ -229,8 +229,8 @@ const GLYPHS = {
 		expressive: gesture([40, 86, 56, 96], AC),
 		somber: gesture([26, 30, 26, 30], MUTED),
 	},
-	/** `stamp:` — the shape a state badge renders in, on a miniature slide. */
-	stamp: {
+	/** `stamp-shape:` — the shape a state badge renders in, on a miniature slide. */
+	'stamp-shape': {
 		tab: chipOf(fill(AC, 'right top', '50% 28%')),
 		notch: chipOf(fill(AC, '2px 1.5px', '3px 3px'), fill(SOFT, 'top', '100% 30%')),
 		pill: chipOf(pill('64%', '32%')),

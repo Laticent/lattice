@@ -70,6 +70,7 @@
     "milestones",
     "agile"
   ],
+  "searchTerms": ["schedule", "project plan", "timeline", "deadlines", "tasks", "phases"],
   "description": "Gantt chart — task bars across a date axis.",
   "purpose": "Use for project plans with overlapping or staggered tasks. Each task is a bar on the time axis; bars can span multiple periods and carry status tints.",
   "axisSet": {

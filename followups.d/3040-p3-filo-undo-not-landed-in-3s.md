@@ -40,3 +40,8 @@ done when — the probe names what Filo undid at a miss, and the cause is fixed 
 type → WebKit undo cycles and 3 of 3 doorbell rows, each `historyUndo` prevented and the word undone. Playwright's
 WebKit does not reach it either: filo-undo.spec.ts:65 (the same `historyUndo` through `execCommand('undo')`,
 webkit-tablet) went 40 of 40 at --workers=4 on main 450df6d. The probe's miss log is still the way to a cause.
+
+2026-11-28 — not this lead: filo-undo.spec.ts's rail test, red on #3491's branch under load, left "M" or "MAR" after one ⌘Z
+(2 red in 20 on main 2ead5e1d, webkit-tablet, --workers=4, CPU burners). The undo landed; Playwright's keys came more than
+DEFAULT_COALESCE_MS apart, so the typing was two steps. The test now inserts its edit as one input event. This lead
+(the editor never receives the undo's text) is still open.

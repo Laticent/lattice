@@ -10,9 +10,10 @@
  * chats moving from localStorage to IndexedDB across a reload and the localStorage allowance (PROBE=chat-storage), or what Present costs
  * on a deck of phone photos (PROBE=present-memory, present-memory.mjs and present-memory-probe.js), plays Present with
  * narration (PROBE=present-narration, present-narration.mjs and present-narration-probe.js), or chart detail cards in an
- * exported HTML player, opened and closed by real taps (PROBE=player-charts, player-charts.mjs), or the storage vault's
- * write, reload and read on /proto/vault/ (PROBE=vault, vault-probe.js), or the Studio's own photo move into the vault and
- * its move-back, across two reloads (PROBE=media-vault, media-vault-probe.js). SIM_UDID=mac drives the
+ * exported HTML player, opened and closed by real taps (PROBE=player-charts, player-charts.mjs), the Add slide gallery
+ * opened and closed with its preview documents counted and the WebKit footprint read (PROBE=gallery-memory, gallery-memory.mjs),
+ * the storage vault's write, reload and read on /proto/vault/ (PROBE=vault, vault-probe.js), or the Studio's own photo move
+ * into the vault and its move-back, across two reloads (PROBE=media-vault, media-vault-probe.js). SIM_UDID=mac drives the
  * Mac's own Safari instead (the undo probe's desktop half: the WebKit undo command, and a real ⌘Z key).
  * Plain WebDriver over fetch: no client library, so nothing new to install on the macOS runner.
  *
@@ -165,7 +166,7 @@ try {
 	console.log(`${LABEL}: session on ${caps.platformName} ${caps.platformVersion || ''}, Safari ${caps.browserVersion || '?'}`);
 	// The script limit must outlast a probe's own cold-start waits (150 s each since 2026-11-04, D3 on #3034) plus its steps.
 	await wd('POST', `/session/${id}/timeouts`, { script: 360000, pageLoad: 180000 });
-	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'playground-scroll' ? await runPlaygroundScrollProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : PROBE === 'chat-storage' ? await runChatStorageProbe(id) : PROBE === 'photo-memory' ? await runPhotoMemoryProbe(id) : PROBE === 'present-keepalive' ? await runPresentKeepaliveProbe(id) : PROBE === 'present-memory' ? await runPresentMemoryProbe(id) : PROBE === 'present-landscape' ? await runPresentLandscapeProbe(id) : PROBE === 'present-narration' ? await runPresentNarrationProbe(id) : PROBE === 'codec-support' ? await runCodecProbe(id) : PROBE === 'font-cache' ? await runFontCacheProbe(id) : PROBE === 'player-charts' ? await runPlayerChartsProbe(id) : PROBE === 'vault' ? await runVaultProbe(id) : PROBE === 'media-vault' ? await runMediaVaultProbe(id) : await runStudioProbe(id);
+	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'playground-scroll' ? await runPlaygroundScrollProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : PROBE === 'chat-storage' ? await runChatStorageProbe(id) : PROBE === 'photo-memory' ? await runPhotoMemoryProbe(id) : PROBE === 'present-keepalive' ? await runPresentKeepaliveProbe(id) : PROBE === 'present-memory' ? await runPresentMemoryProbe(id) : PROBE === 'present-landscape' ? await runPresentLandscapeProbe(id) : PROBE === 'present-narration' ? await runPresentNarrationProbe(id) : PROBE === 'codec-support' ? await runCodecProbe(id) : PROBE === 'font-cache' ? await runFontCacheProbe(id) : PROBE === 'player-charts' ? await runPlayerChartsProbe(id) : PROBE === 'vault' ? await runVaultProbe(id) : PROBE === 'media-vault' ? await runMediaVaultProbe(id) : PROBE === 'gallery-memory' ? await runGalleryMemoryProbe(id) : await runStudioProbe(id);
 	result.session = { platformName: caps.platformName, platformVersion: caps.platformVersion, browserVersion: caps.browserVersion, label: LABEL };
 	console.log(`${LABEL}: ${result.ok ? 'PASS' : `FAIL (${result.error})`} at ${result.width}px — ${result.ua}`);
 	for (const s of result.steps) console.log(`  ${s.pass ? 'ok  ' : 'FAIL'} ${s.name}${s.detail ? ` (${s.detail})` : ''}`);
@@ -203,7 +204,7 @@ async function studioPage(id, file, fn, { seed = true } = {}) {
 /**
  * The Studio suite (PROBE=studio): the preview payload probe (studio-probe.js), the pane-swap probe (panes-probe.js, #2916),
  * the logo wall first-paint probe (logo-wall-probe.js, #3492),
- * the sheet focus probe (sheet-focus-probe.js, #3108) and the first-visit Compose probe (compose-probe.js), each on a fresh page, then on
+ * the sheet focus probe (sheet-focus-probe.js, #3108), the Library probe (library-probe.js, #3588) and the first-visit Compose probe (compose-probe.js), each on a fresh page, then on
  * the Compose page a touch tap on a paragraph and one on an empty deck's start grid (empty-deck-probe.js). One result: every step, each named for its probe, and a pass only when both pass. The photo suite
  * (PROBE=photo): the photo verdict probe, photo-probe.js. Each is its own platform suite with its own paths, so a sanitizer change
  * does not pay for the photo check and a Coach change does run it; together they used to make one job that ran out of its 30 minutes
@@ -230,6 +231,8 @@ async function runStudioProbe(id) {
 	const wall = await shotIfFailed('logo-wall', await studioPage(id, 'logo-wall-probe.js', 'latticeLogoWallProbe'));
 	// Focus back on the opener after a sheet closes (ui/sheet.tsx, #3108), in real Mobile Safari.
 	const focus = await shotIfFailed('sheet-focus', await studioPage(id, 'sheet-focus-probe.js', 'latticeSheetFocusProbe'));
+	// The Library's section strip and Backup and restore dialog (library-probe.js, storage slice 4, #3588).
+	const library = await shotIfFailed('library', await studioPage(id, 'library-probe.js', 'latticeLibraryProbe'));
 	// A first visit, with nothing stored: Compose is the default and its slide toolbar holds still (compose-probe.js).
 	const compose = await shotIfFailed('compose', await composeProbePage(id));
 	// Then a real touch tap on a Compose paragraph, on that page, from a blurred editor. The probe above taps only its first
@@ -259,11 +262,11 @@ async function runStudioProbe(id) {
 	const engine = { ok: !!drop.ok && !!http503.ok, error: [drop.error && `drop: ${drop.error}`, http503.error && `503: ${http503.error}`].filter(Boolean).join('; ') || undefined, steps: [drop, http503].flatMap((r, i) => (r.steps || []).map((x) => ({ ...x, name: `${i ? '503' : 'drop'} · ${x.name}` }))) };
 	const named = (label, r) => (r.steps || []).map((s) => ({ ...s, name: `${label} · ${s.name}` }));
 	return {
-		ok: !!preview.ok && !!panes.ok && !!wall.ok && !!focus.ok && !!compose.ok && !!tap.ok && !!empty.ok && !!icons.ok && !!leave.ok && !!engine.ok,
-		error: [preview.error && `preview: ${preview.error}`, panes.error && `panes: ${panes.error}`, wall.error && `logo wall: ${wall.error}`, focus.error && `sheet focus: ${focus.error}`, compose.error && `compose: ${compose.error}`, tap.error && `compose tap: ${tap.error}`, empty.error && `empty deck tap: ${empty.error}`, icons.error && `icon grid: ${icons.error}`, leave.error && `deck tap: ${leave.error}`, engine.error && `engine retry: ${engine.error}`].filter(Boolean).join('; ') || undefined,
+		ok: !!preview.ok && !!panes.ok && !!wall.ok && !!focus.ok && !!library.ok && !!compose.ok && !!tap.ok && !!empty.ok && !!icons.ok && !!leave.ok && !!engine.ok,
+		error: [preview.error && `preview: ${preview.error}`, panes.error && `panes: ${panes.error}`, wall.error && `logo wall: ${wall.error}`, focus.error && `sheet focus: ${focus.error}`, library.error && `library: ${library.error}`, compose.error && `compose: ${compose.error}`, tap.error && `compose tap: ${tap.error}`, empty.error && `empty deck tap: ${empty.error}`, icons.error && `icon grid: ${icons.error}`, leave.error && `deck tap: ${leave.error}`, engine.error && `engine retry: ${engine.error}`].filter(Boolean).join('; ') || undefined,
 		ua: panes.ua ?? preview.ua,
 		width: panes.width ?? preview.width,
-		steps: [...named('preview', preview), ...named('panes', panes), ...named('logo wall', wall), ...named('sheet focus', focus), ...named('compose', compose), ...named('compose tap', tap), ...named('empty deck tap', empty), ...named('icon grid', icons), ...named('deck tap', leave), ...named('engine retry', engine)],
+		steps: [...named('preview', preview), ...named('panes', panes), ...named('logo wall', wall), ...named('sheet focus', focus), ...named('library', library), ...named('compose', compose), ...named('compose tap', tap), ...named('empty deck tap', empty), ...named('icon grid', icons), ...named('deck tap', leave), ...named('engine retry', engine)],
 	};
 }
 
@@ -1078,6 +1081,74 @@ async function runPresentMemoryProbe(id) {
 	];
 	const failed = steps.filter((s) => !s.pass);
 	return { ok: failed.length === 0, error: failed.map((s) => s.name).join('; ') || undefined, ua: a.ua, width: a.width, deckBytes: deck.bytes.length, arms, steps };
+}
+
+/**
+ * The gallery reopen probe (PROBE=gallery-memory, #3441): the Add slide gallery opened and closed GALLERY_CYCLES times
+ * (default 6) in real Mobile Safari, MR-3's steps each time (gallery-memory-probe.js), at each tier in GALLERY_TIERS
+ * (default `lite,full`, each pinned with `?tier=`: the leak was a LITE pool's). After every close the runner reads the
+ * simulator's WebKit footprint on the Mac (photo-memory.mjs); the verdict counts documents and rewrites
+ * (gallery-memory.mjs `galleryChecks`), never time or memory (HARD RULE #32).
+ *
+ * With GALLERY_BASELINE_URL set (the production site, which is `main` without this change until it deploys), each tier
+ * also runs there. The baseline is REPORTED, never judged, so its own red is the failing arm: the same probe, the code
+ * before the fix. Each baseline arm has a time budget, GALLERY_BASELINE_BUDGET_MS (default 6 minutes), as present-memory's.
+ */
+async function runGalleryMemoryProbe(id) {
+	const { galleryChecks, gallerySummary, totalMB } = await import('./gallery-memory.mjs');
+	const { simulatorWebContentMB } = await import('./photo-memory.mjs');
+	const source = fs.readFileSync(path.join(here, 'gallery-memory-probe.js'), 'utf8');
+	const seed = fs.readFileSync(path.join(here, 'seed-settings.js'), 'utf8');
+	const CYCLES = Math.max(3, Number(process.env.GALLERY_CYCLES || 6));
+	const TIERS = (process.env.GALLERY_TIERS || 'lite,full').split(',').map((s) => s.trim()).filter(Boolean);
+	const mac = UDID === 'mac';
+	const call = (expr) => wd('POST', `/session/${id}/execute/async`, { script: `${source}\nconst done = arguments[arguments.length - 1];\nPromise.resolve().then(() => ${expr}).then(done, (e) => done({ ok: false, error: String(e) }));`, args: [] });
+	const arm = async (name, base, tier) => {
+		const out = { arm: name, base, tier, cycles: [], memoryMB: [] };
+		try {
+			await wd('POST', `/session/${id}/url`, { url: `${base}/` });
+			await wd('POST', `/session/${id}/execute/sync`, { script: seed, args: [] });
+			await wd('POST', `/session/${id}/url`, { url: `${base}/studio/?tier=${tier}` });
+			const installed = await call('latticeGalleryInstall()');
+			out.ua = installed?.ua;
+			out.width = installed?.width;
+			for (let i = 0; i < CYCLES; i++) {
+				const c = await call(`latticeGalleryCycle(${i})`);
+				out.cycles.push(c);
+				if (!c?.ok) break;
+				out.memoryMB.push(mac ? null : totalMB(await simulatorWebContentMB()));
+			}
+			// (e) MR-8's shape, on the same page: three opens closed at the top, each read for blank tiles.
+			out.shows = [];
+			for (let i = 0; i < 3 && out.cycles.every((c) => c?.ok); i++) out.shows.push(await call(`latticeGalleryShows(${i})`));
+		} catch (e) {
+			out.error = String(e.message || e).slice(0, 300);
+		}
+		out.steps = out.error ? [{ name: 'the arm ran', pass: false, detail: out.error }] : galleryChecks(out);
+		console.log(`${LABEL}: ${gallerySummary(name, out)}`);
+		return out;
+	};
+	// The Mac half (SIM_UDID=mac) is the wide shape: MR-3 met the leak at 1440x900, where a LITE pool's twelve frames are
+	// all on screen at once. A phone shows about three tiles and an iPad about nine.
+	if (mac) await wd('POST', `/session/${id}/window/rect`, { width: 1440, height: 900 }).catch((e) => console.log(`${LABEL}: no window resize (${e.message})`));
+	const arms = [];
+	for (const tier of TIERS) arms.push(await arm(`this build (${tier})`, BASE, tier));
+	const baseline = process.env.GALLERY_BASELINE_URL;
+	const BUDGET_MS = Number(process.env.GALLERY_BASELINE_BUDGET_MS || 6 * 60_000);
+	if (baseline) {
+		for (const tier of TIERS) {
+			const name = `baseline (${tier})`;
+			const b = await Promise.race([arm(name, baseline.replace(/\/$/, ''), tier), sleep(BUDGET_MS).then(() => ({ arm: name, tier, error: `over its ${BUDGET_MS / 1000} s budget`, steps: [] }))]);
+			b.reported = true;
+			arms.push(b);
+		}
+	}
+	const judged = arms.filter((a) => !a.reported);
+	const steps = judged.flatMap((a) => a.steps.map((s) => ({ ...s, name: `${a.arm} · ${s.name}` })));
+	// The baseline's steps are listed for the record, marked as reported: they never fail the run.
+	for (const a of arms.filter((x) => x.reported)) for (const s of a.steps || []) console.log(`  ${s.pass ? 'ok  ' : 'red '} [reported] ${a.arm} · ${s.name}${s.detail ? ` (${s.detail})` : ''}`);
+	const failed = steps.filter((s) => !s.pass);
+	return { ok: failed.length === 0, error: failed.map((s) => s.name).join('; ') || undefined, ua: judged[0]?.ua, width: judged[0]?.width, arms, steps };
 }
 
 /**

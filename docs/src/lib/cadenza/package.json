@@ -2,7 +2,7 @@
   "name": "@laticent/cadenza",
   "version": "0.1.0",
   "description": "Framework-free caption + timeline engine — text in, a timed caption track + a clock→word cursor + WebVTT/SRT out. No dependency except `@laticent/ltt` (the timing-track format it produces), no DOM, no audio.",
-  "license": "AGPL-3.0-only",
+  "license": "Apache-2.0",
   "author": "Sharmarke Aden (Laticent) <sharmarke.aden@gmail.com>",
   "repository": {
     "type": "git",
@@ -35,6 +35,7 @@
     "!*.test.ts",
     "README.md",
     "LICENSE",
+    "NOTICE",
     "CHANGELOG.md"
   ],
   "publishConfig": {

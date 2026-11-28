@@ -272,68 +272,206 @@ export function RoomCards({ playgroundHref, layoutCount }: { playgroundHref: str
 
 // ── Drift picture ───────────────────────────────────────────────────────────
 // The blank-canvas problem SHOWN, not described: four slides four people made on
-// blank canvases (each picks its own font, size, alignment and shade of the brand
-// color), beside the same four slides from one Lattice palette. Both scoring
+// blank canvases, beside the same four slides from one Lattice palette. Both scoring
 // reviewers in the third round found the contrast with blank-canvas tools told in
-// prose only. An illustration, drawn in CSS from the page's own tokens so it
-// follows the palette and light/dark like everything else; no hex (HARD RULE #3's
-// spirit on a docs surface), no typed glyphs (#29).
-type MiniSlide = { title: string; font: string; size: string; align: string; bar: string; weight: string };
+// prose only, and the 2026-11 polish pass found the first drawing too polite: both
+// rows read as the same beige cards. So the drifted row now drifts the way real
+// decks do, loud enough to see in a second: the title face, size and alignment, the
+// brand color (a second hue, a washed-out tint), the rule's weight and edge, the
+// logo's corner, the background, and the page number all wander. The aligned row
+// holds every one of them still.
+// An illustration, drawn in CSS from the page's own tokens so it follows the palette
+// and light/dark like everything else; no hex (HARD RULE #3's spirit on a docs
+// surface), no typed glyphs (#29): the logo is a drawn diamond.
+type Corner = 'tl' | 'tr' | 'bl' | 'br' | 'none';
+type MiniSlide = {
+	title: string;
+	/** The page number, so the row reads as one deck: pages 4 to 7. */
+	page: number;
+	font: string;
+	size: string;
+	align: 'left' | 'center' | 'right';
+	weight: string;
+	upper?: boolean;
+	/** The brand rule: its color, which edge it sits on, and how thick it is. */
+	rule: { color: string; edge: 'top' | 'left' | 'bottom' | 'none'; px: number };
+	bg: string;
+	/** The color the body marks are drawn in. */
+	ink: string;
+	body: 'chart' | 'list';
+	bodyAlign: 'start' | 'center';
+	logo: Corner;
+	logoPx: number;
+	pageAt: Corner;
+};
 
+// Two of the wrong colors are the palette's own second and fifth chart hues, so the
+// drift is a different hue in every palette, never one fixed off-brand color.
 const DRIFTED: MiniSlide[] = [
-	{ title: 'Q3 revenue', font: 'var(--font-display)', size: '15px', align: 'left', bar: 'var(--accent)', weight: '700' },
 	{
-		title: 'PIPELINE UPDATE',
+		title: 'Q3 revenue',
+		page: 4,
+		font: 'var(--font-display)',
+		size: '15px',
+		align: 'left',
+		weight: '700',
+		rule: { color: 'var(--accent)', edge: 'top', px: 3 },
+		bg: 'var(--bg)',
+		ink: 'var(--accent)',
+		body: 'chart',
+		bodyAlign: 'start',
+		logo: 'tr',
+		logoPx: 9,
+		pageAt: 'br',
+	},
+	{
+		title: 'Pipeline update',
+		page: 5,
 		font: 'var(--font-body)',
-		size: '11px',
+		size: '10.5px',
 		align: 'center',
-		bar: 'color-mix(in srgb, var(--accent) 55%, var(--text-heading))',
 		weight: '600',
+		upper: true,
+		rule: { color: 'var(--chart-cat2)', edge: 'top', px: 8 },
+		bg: 'var(--bg-alt)',
+		ink: 'var(--chart-cat2)',
+		body: 'chart',
+		bodyAlign: 'center',
+		logo: 'bl',
+		logoPx: 13,
+		pageAt: 'none',
 	},
 	{
 		title: 'Hiring Plan',
+		page: 6,
 		font: 'ui-serif, Georgia, serif',
-		size: '17px',
+		size: '18px',
 		align: 'left',
-		bar: 'color-mix(in srgb, var(--accent) 45%, var(--bg-alt))',
 		weight: '400',
+		rule: { color: 'var(--chart-cat5)', edge: 'left', px: 5 },
+		bg: 'var(--accent-soft)',
+		ink: 'var(--text-muted)',
+		body: 'list',
+		bodyAlign: 'start',
+		logo: 'tl',
+		logoPx: 7,
+		pageAt: 'bl',
 	},
 	{
 		title: 'risks & next steps',
+		page: 7,
 		font: 'ui-monospace, monospace',
-		size: '12px',
+		size: '11.5px',
 		align: 'right',
-		bar: 'color-mix(in srgb, var(--accent) 70%, var(--bg))',
 		weight: '500',
+		rule: { color: 'color-mix(in srgb, var(--accent) 35%, var(--bg))', edge: 'bottom', px: 2 },
+		bg: 'var(--bg)',
+		ink: 'color-mix(in srgb, var(--accent) 45%, var(--bg))',
+		body: 'list',
+		bodyAlign: 'center',
+		logo: 'none',
+		logoPx: 0,
+		pageAt: 'tr',
 	},
 ];
-const ALIGNED: MiniSlide[] = ['Q3 revenue', 'Pipeline update', 'Hiring plan', 'Risks and next steps'].map((title) => ({
-	title,
+const ALIGNED: MiniSlide[] = DRIFTED.map((m, i) => ({
+	...m,
+	title: ['Q3 revenue', 'Pipeline update', 'Hiring plan', 'Risks and next steps'][i],
 	font: 'var(--font-display)',
 	size: '14px',
 	align: 'left',
-	bar: 'var(--accent)',
 	weight: '700',
+	upper: false,
+	rule: { color: 'var(--accent)', edge: 'top', px: 3 },
+	bg: 'var(--bg)',
+	ink: 'var(--accent)',
+	bodyAlign: 'start',
+	logo: 'tr',
+	logoPx: 9,
+	pageAt: 'br',
 }));
 
-function MiniSlideRow({ slides, label }: { slides: MiniSlide[]; label: string }) {
+// The chart's four bar heights, as a share of the body box. The same data on both
+// rows: only the drawing drifts, never the numbers.
+const MINI_BARS = [38, 56, 47, 82];
+
+function MiniBody({ m }: { m: MiniSlide }) {
+	if (m.body === 'chart') {
+		return (
+			<span aria-hidden="true" className="drift-chart" data-align={m.bodyAlign}>
+				{MINI_BARS.map((h, i) => (
+					<span
+						key={h}
+						className="drift-col"
+						// The last bar is the one the title is about, so it carries the full ink;
+						// the others are a tint of it, as a real chart slide would draw them.
+						style={{
+							height: `${h}%`,
+							background: i === MINI_BARS.length - 1 ? m.ink : `color-mix(in srgb, ${m.ink} 45%, transparent)`,
+						}}
+					/>
+				))}
+			</span>
+		);
+	}
+	return (
+		<span aria-hidden="true" className="drift-list" data-align={m.bodyAlign}>
+			{[72, 58, 64].map((w) => (
+				<span key={w} className="drift-item">
+					<span className="drift-dot" style={{ background: m.ink }} />
+					<span className="drift-line" style={{ width: `${w}%` }} />
+				</span>
+			))}
+		</span>
+	);
+}
+
+// Each row is introduced before it is shown: its label, then one line naming what to
+// look at, then the pictures (owner, 2026-11-28: "introduce, then look at the row").
+function MiniSlideRow({ slides, label, caption }: { slides: MiniSlide[]; label: string; caption: string }) {
 	return (
 		<div className="min-w-0">
-			<p className="m-0 mb-2.5 font-mono text-[11.5px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+			<p className="m-0 mb-1 font-mono text-[11.5px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
 				{label}
 			</p>
+			<p className="m-0 mb-3 text-[14px] text-foreground">{caption}</p>
 			<ul className="m-0 grid list-none grid-cols-2 gap-2.5 p-0 sm:grid-cols-4">
 				{slides.map((m) => (
-					<li key={m.title} className="drift-mini">
-						<span aria-hidden="true" className="drift-bar" style={{ background: m.bar }} />
+					<li key={m.page} className="drift-mini" style={{ background: m.bg }} data-rule={m.rule.edge}>
+						{m.rule.edge !== 'none' && (
+							<span
+								aria-hidden="true"
+								className="drift-rule"
+								data-edge={m.rule.edge}
+								style={{ background: m.rule.color, ['--drift-rule' as string]: `${m.rule.px}px` }}
+							/>
+						)}
+						{m.logo !== 'none' && (
+							<span
+								aria-hidden="true"
+								className="drift-logo"
+								data-at={m.logo}
+								style={{ ['--drift-logo' as string]: `${m.logoPx}px` }}
+							/>
+						)}
 						<span
 							className="drift-title"
-							style={{ fontFamily: m.font, fontSize: m.size, fontWeight: m.weight, textAlign: m.align as 'left' }}
+							style={{
+								fontFamily: m.font,
+								fontSize: m.size,
+								fontWeight: m.weight,
+								textAlign: m.align,
+								textTransform: m.upper ? 'uppercase' : undefined,
+							}}
 						>
 							{m.title}
 						</span>
-						<span aria-hidden="true" className="drift-line" />
-						<span aria-hidden="true" className="drift-line" />
+						<MiniBody m={m} />
+						{m.pageAt !== 'none' && (
+							<span aria-hidden="true" className="drift-page" data-at={m.pageAt}>
+								{m.page}
+							</span>
+						)}
 					</li>
 				))}
 			</ul>
@@ -343,12 +481,20 @@ function MiniSlideRow({ slides, label }: { slides: MiniSlide[]; label: string })
 
 export function DriftDemo() {
 	return (
-		<figure className="lx-ui m-0 flex flex-col gap-6 rounded-xl border border-border bg-muted p-[clamp(16px,2.5vw,28px)]">
-			<MiniSlideRow slides={DRIFTED} label="Four people, four blank canvases" />
-			<MiniSlideRow slides={ALIGNED} label="The same four slides, one Lattice palette" />
-			<figcaption className="m-0 text-[13px] text-muted-foreground">
-				An illustration: the same deck, made twice.
-			</figcaption>
+		<figure
+			className="lx-ui m-0 flex flex-col gap-7 rounded-xl border border-border bg-muted p-[clamp(16px,2.5vw,28px)]"
+			aria-label="An illustration: the same four slides made on blank canvases, then in Lattice"
+		>
+			<MiniSlideRow
+				slides={DRIFTED}
+				label="Four people, four blank canvases"
+				caption="Each author picks the title font, the brand color, the logo's corner and the page number, so no two slides match."
+			/>
+			<MiniSlideRow
+				slides={ALIGNED}
+				label="The same four slides, made in Lattice"
+				caption="Your palette, your logo, your layouts: Lattice applies them the same way on every slide, whoever writes it."
+			/>
 		</figure>
 	);
 }

@@ -58,4 +58,11 @@ test('a Studio Marp export opens as a VS Code project, with tasks and a step-by-
 	expect(readme).toContain('## Quick start: command line');
 	expect(readme, 'and names the deck this bundle actually carries').toContain(`Click \`${deckFile}\` in the Explorer`);
 	expect(readme).toContain('**The name decides the format**');
+
+	// #3598 (owner D3): Lattice's own terms travel with the engine code, byte for byte. The Studio
+	// fetches each file by name from its staged export/ folder, so a missing stage drops one silently.
+	for (const f of ['LICENSE', 'LICENSE-EXCEPTIONS']) {
+		expect(await read(`/${f}`), `${f} in the Studio's bundle matches the repo's`).toBe(fs.readFileSync(new URL(`../../${f}`, import.meta.url), 'utf8'));
+	}
+	expect(readme).toContain('`LICENSE`, `LICENSE-EXCEPTIONS`');
 });

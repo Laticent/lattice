@@ -126,9 +126,9 @@ section.form.list-steps.capsule .cell-masthead .masthead-lede {
 /* The centered group reads as one editorial block, so the full-width masthead
  * hairline under a centered title fights it — capsule drops it by default
  * instead of making every author remember `no-heading-rule`. Scoped so the explicit
- * `rule-full` modifier can still put it back; `rule-short`/`rule-accent`
+ * `heading-rule-full` modifier can still put it back; `heading-rule-short`/`heading-rule-accent`
  * already clear the border themselves. */
-section.form.list-steps.capsule:not(.rule-full) .cell-masthead { border-bottom: none; }
+section.form.list-steps.capsule:not(.heading-rule-full) .cell-masthead { border-bottom: none; }
 section.list-steps.capsule > .cell-stage { justify-content: safe center; }
 /* A slide-proportional cap so three cards stay a readable centered group
  * rather than stretching the full frame width. */
@@ -142,12 +142,12 @@ section.list-steps.capsule ol:where(.cell-stage > *) > li {
   text-align: center;
 }
 /* The pill IS the card tag at the `inline` placement, centered, with a pill radius —
- * `capsule` means `tag-inline tag-center tag-color` plus that radius
+ * `capsule` means `card-tag-inline card-tag-center card-tag-color` plus that radius
  * (engineering/decisions/2026-09-27-card-tag-register.md §3.3, §6 phase 4). So it takes the
  * kernel's padding (in em, so it follows venue and size), the equal-size shims
  * (lib/core/card-tag-equalize.js) and the register: the cards below set the categorical pair
- * as tokens, and `tag-plain` / `tag-bare` / `tag-small|large` / `tag-start|end` re-point them.
- * A placement word (`tag-foot`, …) moves it like any other step tag (base.card-tag.css). */
+ * as tokens, and `card-tag-plain` / `card-tag-bare` / `card-tag-small|large` / `card-tag-start|end` re-point them.
+ * A placement word (`card-tag-foot`, …) moves it like any other step tag (base.card-tag.css). */
 section.capsule:where(.list-steps) { --card-tag-lead: 0.5; }
 section.list-steps.capsule ol:where(.cell-stage > *) > li::before {
   display: inline-block;
@@ -211,20 +211,20 @@ section.list-steps.capsule ol:where(.cell-stage > *) > li:nth-child(8n) { --card
  * + arrow-connector chrome. Merged from the standalone timeline on 2026-06-07.
  * Lifted to <strong> by the timeline token in the shared slot-label-lift paths. */
 section.list-steps.timeline > .cell-stage { display:flex; flex-direction:column; justify-content:safe center; align-items:center; }
-/* The heading is framing text — it follows the headline-alignment seam (`headline:`) via its
+/* The heading is framing text — it follows the headline-alignment seam (`headline-align:`) via its
  * own align-self, leaving the centered timeline body below untouched. `auto` → center (byte-
  * identical). */
 section.list-steps.timeline h2 { text-align:var(--headline-align, center); align-self:var(--headline-justify, center); }
 /* CONSISTENT-DEFAULTS: the timeline centers its heading + spine, so its WHOLE masthead framing
  * centers to match. The lede is a flex column (masthead-lede.css); override its fallbacks to
  * `center` so the eyebrow, heading, and heading-rule <hr> center as one cluster by default.
- * Per-selector fallback → `headline: left` still overrides. The rule <hr> follows the cluster
+ * Per-selector fallback → `headline-align: left` still overrides. The rule <hr> follows the cluster
  * automatically (flex child) — no per-component rule handling, no bay-drift. */
 section.form.list-steps.timeline .cell-masthead .masthead-lede { text-align:var(--headline-align, center); align-items:var(--headline-justify, center); }
 /* The optional dek/subtitle sits in the centered stage; it's framing text too, so wire it to the
  * seam (align-self, since the stage is a flex column — its `align-items:center` would otherwise
- * strand it centered under `headline: left` while the heading + eyebrow move). `auto` → the
- * fallback `center`, byte-identical; `head-left` moves it left with the rest of the cluster. */
+ * strand it centered under `headline-align: left` while the heading + eyebrow move). `auto` → the
+ * fallback `center`, byte-identical; `headline-align-left` moves it left with the rest of the cluster. */
 section.list-steps.timeline > .cell-stage > p { text-align:var(--headline-align, center); align-self:var(--headline-justify, center); }
 /* EQUAL COLUMNS, one per stage. Each stage used to be a fixed 14cqi column with its text at
  * the chrome size (--fs-meta), so at a larger venue a three-word line wrapped to a word a line

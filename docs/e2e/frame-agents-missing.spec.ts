@@ -1,4 +1,4 @@
-import { expect, gotoStudio, test } from './studio-fixture';
+import { expect, gotoStudio, recordToasts, test } from './studio-fixture';
 
 // The preview frames' agents ride in one fetched file (lib/core/frame-agents.mjs). Before it, they
 // were inline and ran whatever else failed to load; a file that 404s after a deploy, or a load the
@@ -22,16 +22,7 @@ test('a Stage whose agents file is missing shows the deck and tells the presente
 	await gotoStudio(page);
 	await missing(context);
 	// Accumulated, not sampled: a toast leaves the DOM after a few seconds (stage-window.spec.ts, §12).
-	await page.evaluate(() => {
-		const w = window as unknown as { __toastLog: string[] };
-		w.__toastLog = [];
-		new MutationObserver(() => {
-			for (const el of document.querySelectorAll('[data-sonner-toast]')) {
-				const t = (el.textContent ?? '').trim();
-				if (t && !w.__toastLog.includes(t)) w.__toastLog.push(t);
-			}
-		}).observe(document.body, { childList: true, subtree: true });
-	});
+	const toasts = await recordToasts(page);
 	await page.getByRole('button', { name: 'Present', exact: true }).click();
 	const dialog = page.getByRole('dialog', { name: 'Present' });
 	await expect(dialog).toBeVisible();
@@ -44,11 +35,11 @@ test('a Stage whose agents file is missing shows the deck and tells the presente
 	// the opener's deadline (stage-window.js AGENTS_DEADLINE_MS, 10 s) is what answers.
 	await expect(stage.locator('#latt-stage')).toBeVisible({ timeout: 20_000 });
 	await expect
-		.poll(() => page.evaluate(() => (window as unknown as { __toastLog: string[] }).__toastLog), { timeout: 20_000 })
+		.poll(toasts, { timeout: 20_000 })
 		.toContainEqual(expect.stringMatching(/could not load its player/));
 	// The Stage stays open on the unfitted deck, so the console shows the captions and the rail again (#3465).
 	await expect(dialog.getByRole('group', { name: /Deck progress/ })).toBeVisible();
 	// And says one thing: past the ready deadline, no second notice contradicts the advice to reload.
 	await page.clock.runFor(25_000);
-	expect(await page.evaluate(() => (window as unknown as { __toastLog: string[] }).__toastLog)).not.toContainEqual(expect.stringMatching(/has not started/));
+	expect(await toasts()).not.toContainEqual(expect.stringMatching(/has not started/));
 });

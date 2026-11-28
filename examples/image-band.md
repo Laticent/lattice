@@ -95,7 +95,7 @@ A thin backing needs a matching ink. The line under the heading takes no space.
 
 <!-- @meta{layout=image, class=statement image-card-bottom no-heading-rule} -->
 
-## rule: none drops the hairline.
+## heading-rule: none drops the hairline.
 
 The same stacked statement with no line under the heading.
 

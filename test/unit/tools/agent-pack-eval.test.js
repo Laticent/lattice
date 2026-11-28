@@ -80,3 +80,360 @@ test(
     assert.ok(fs.statSync(path.join(out, 'deck.pdf')).size > 0, 'the PDF is in --out');
   },
 );
+
+// --- The paid run's harness, with the network stubbed (HARD RULE #32) and no key read (#24). ---
+// `run` takes its network (`fetchImpl` for the price list, `complete` for a chat call), its judge and its
+// clock as `deps`, so these tests count calls and dollars without a socket, a browser or OUR key.
+
+// Two providers: the cap must use the dearer one (1e-6 in, 1e-5 out), never the cheap listing.
+const ENDPOINTS = {
+  data: {
+    endpoints: [
+      { pricing: { prompt: '0.0000001', completion: '0.000001' } },
+      { pricing: { prompt: '0.000001', completion: '0.00001' } },
+    ],
+  },
+};
+const pricesFetch = async (url) => (String(url).endsWith('/models/test/cheap/endpoints') ? { ok: true, json: async () => ENDPOINTS } : { ok: false, status: 404 });
+const kitDir = (t) => {
+  const dir = tmpDir(t);
+  fs.mkdirSync(path.join(dir, 'components'));
+  fs.writeFileSync(path.join(dir, 'start.md'), 'NEW START: see [layouts](./layouts.md).\n');
+  fs.writeFileSync(path.join(dir, 'layouts.md'), 'LAYOUTS BODY\n');
+  fs.writeFileSync(path.join(dir, 'secret.txt'), 'x');
+  return dir;
+};
+const deckReply = '---\ntheme: indaco\n---\n\n<!-- _class: title -->\n\n# A deck\n';
+/** A stub `complete`: records each call, answers from `script(call)`, reports `cost` USD. */
+const stubComplete = (calls, { cost = 0.001, reported = true, script = () => deckReply } = {}) =>
+  async (req) => {
+    calls.push(req);
+    return { text: script(req, calls.length), finish: 'stop', tokensIn: 100, tokensOut: 50, cost: reported ? cost : 0, costReported: reported, latencyMs: 0 };
+  };
+const passJudge = () => ({ slides: 8, layouts: ['a', 'b', 'c', 'd'], errors: 0, warnings: 0, suggestions: 0, problems: [] });
+const deps = (t, calls, extra = {}) => ({
+  fetchImpl: pricesFetch,
+  complete: stubComplete(calls, extra),
+  judgeFn: passJudge,
+  now: () => 0,
+  log: () => {},
+  kitDir: extra.kit ?? kitDir(t),
+  allowSpend: true,
+  hasKey: true,
+});
+
+test('nightlyModel alternates Haiku and DeepSeek day by day, across the year end too', async () => {
+  const { nightlyModel, MODELS } = await load();
+  const days = ['2026-12-30', '2026-12-31', '2027-01-01', '2027-01-02'].map((d) => nightlyModel(new Date(`${d}T03:17:00Z`)));
+  for (let i = 1; i < days.length; i++) assert.notEqual(days[i], days[i - 1], `${i}: two nights in a row on ${days[i]}`);
+  assert.deepEqual(new Set(days), new Set([MODELS.haiku, MODELS.deepseek]));
+});
+
+test('parseArgs: the small arm defaults to Haiku 5.5, --model nightly resolves, bad options throw', async () => {
+  const { parseArgs, ARMS, nightlyModel } = await load();
+  assert.equal(ARMS.small.model, process.env.AGENT_PACK_SMALL_MODEL || 'anthropic/claude-haiku-5.5');
+  const when = new Date('2026-11-27T03:17:00Z');
+  const o = parseArgs(['--arm', 'retrieval', '--model', 'nightly', '--repeat', '3', '--max-usd', '0.5'], when);
+  assert.deepEqual([o.arms, o.model, o.repeat, o.maxUsd, o.limit], [['retrieval'], nightlyModel(when), 3, 0.5, 10]);
+  assert.equal(parseArgs([]).maxUsd, 1, 'a cap is always set');
+  assert.throws(() => parseArgs(['--arm', 'small', '--old', 'x.md']), /compares start\.md/);
+  assert.throws(() => parseArgs(['--max-usd', '0']), /out of range/);
+  assert.throws(() => parseArgs(['--repeat', '1.5']), /out of range/);
+  assert.throws(() => parseArgs(['--arm', 'nope']), /unknown arm/);
+});
+
+test('ten fixed briefs, unique slugs, the first three unchanged so nights compare', async () => {
+  const { BRIEFS } = await load();
+  assert.deepEqual(
+    BRIEFS.map((b) => b.slug),
+    ['board-ask', 'teaching', 'data-review', 'postmortem', 'launch', 'investor-update', 'architecture', 'research', 'all-hands-policy', 'fundraising'],
+  );
+  assert.match(BRIEFS[0].text, /^Write a deck for a board meeting\. Our company wants approval to open a second warehouse in Rotterdam\./);
+});
+
+test('readRequests takes READ lines only from a reply that holds no deck; serveKitFiles stays inside the kit', async (t) => {
+  const { readRequests, serveKitFiles } = await load();
+  assert.deepEqual(readRequests('READ: ./layouts.md#cards\nREAD: `../secret.txt`'), ['./layouts.md#cards', '../secret.txt']);
+  assert.deepEqual(readRequests(`${deckReply}\nREAD: ./layouts.md`), [], 'a deck with a stray READ line is a deck');
+  const root = kitDir(t);
+  fs.writeFileSync(path.join(root, 'components', 'cards.md'), 'CARDS\n');
+  const kit = path.join(root, 'components');
+  // The kit is components/ here, so ../secret.txt is a real file one level up: it must still be refused.
+  const { served, text } = serveKitFiles(['./cards.md#x', '../secret.txt', '/etc/passwd', 'missing.md'], kit);
+  assert.deepEqual(served, ['cards.md']);
+  assert.match(text, /CARDS/);
+  assert.match(text, /\.\.\/secret\.txt\n\n\(not served: outside the kit\)/);
+  assert.match(text, /\/etc\/passwd\n\n\(not served: outside the kit\)/);
+  assert.match(text, /missing\.md\n\n\(not served: no such file in the kit\)/);
+});
+
+test('a dry run prices the plan and makes no chat call', async (t) => {
+  const { run, parseArgs } = await load();
+  const calls = [];
+  const d = { ...deps(t, calls), allowSpend: false };
+  const logs = [];
+  d.log = (s) => logs.push(s);
+  const code = await run(parseArgs(['--arm', 'retrieval', '--model', 'test/cheap', '--out', tmpDir(t)]), d);
+  assert.equal(code, 0);
+  assert.equal(calls.length, 0);
+  assert.match(logs.join('\n'), /10 deck\(s\) on test\/cheap.*Dry run/s);
+});
+
+test('--max-usd stops before the call that could cross it, and exits 3', async (t) => {
+  const { run, parseArgs } = await load();
+  const calls = [];
+  const out = tmpDir(t);
+  // Each call's ceiling here is about USD 0.0603 (6000 tokens out at 1e-5, ~300 in at 1e-6); each reports USD 0.05.
+  // Cap 0.2: after three calls USD 0.15 is spent, and 0.15 + 0.0603 > 0.2, so the fourth never goes.
+  const code = await run(parseArgs(['--arm', 'start', '--model', 'test/cheap', '--repeat', '2', '--max-usd', '0.2', '--out', out]), deps(t, calls, { cost: 0.05 }));
+  assert.equal(code, 3);
+  assert.equal(calls.length, 3);
+  const summary = JSON.parse(fs.readFileSync(path.join(out, 'summary.json'), 'utf8'));
+  assert.equal(summary.stoppedAtCap, true);
+  assert.ok(summary.cost <= 0.2, `spent ${summary.cost}`);
+  assert.equal(summary.rows.length, 3);
+  assert.match(fs.readFileSync(path.join(out, 'summary.md'), 'utf8'), /STOPPED at the cap after 3 of \d+/);
+});
+
+test('a cost OpenRouter does not report counts at its worst case, so the cap still holds', async (t) => {
+  const { run, parseArgs } = await load();
+  const calls = [];
+  const out = tmpDir(t);
+  const code = await run(parseArgs(['--arm', 'start', '--model', 'test/cheap', '--repeat', '2', '--max-usd', '0.2', '--out', out]), deps(t, calls, { reported: false }));
+  assert.equal(code, 3);
+  assert.equal(calls.length, 3, 'three ceilings of ~0.0602 fit under 0.2, a fourth does not');
+  assert.ok(JSON.parse(fs.readFileSync(path.join(out, 'summary.json'), 'utf8')).cost <= 0.2);
+});
+
+test('paired mode runs old then new on the SAME model for each brief and repeat, and counts the pairs', async (t) => {
+  const { run, parseArgs } = await load();
+  const calls = [];
+  const kit = kitDir(t);
+  const old = path.join(tmpDir(t), 'old-start.md');
+  fs.writeFileSync(old, 'OLD START\n');
+  const out = tmpDir(t);
+  let n = 0;
+  // The old start.md's decks fail, the new one's pass: the pair counts must say "new only".
+  const judgeFn = (deckPath) => ({ ...passJudge(), problems: path.basename(deckPath).includes('-old-') ? ['x'] : [] });
+  const code = await run(parseArgs(['--arm', 'start', '--model', 'test/cheap', '--limit', '2', '--repeat', '2', '--temperature', '0.7', '--old', old, '--out', out]), {
+    ...deps(t, calls, { kit }),
+    judgeFn,
+    now: () => n++,
+  });
+  assert.equal(code, 10, 'a failed deck is DECKS_FAILED, the result code');
+  assert.equal(calls.length, 8);
+  assert.deepEqual(new Set(calls.map((c) => c.model)), new Set(['test/cheap']));
+  assert.deepEqual(calls.map((c) => c.messages[0].content.startsWith('OLD') ? 'old' : 'new'), ['old', 'new', 'old', 'new', 'old', 'new', 'old', 'new']);
+  assert.deepEqual(calls.map((c) => c.seed), [0, 0, 1, 1, 0, 0, 1, 1]);
+  assert.ok(calls.every((c) => c.temperature === 0.7));
+  const s = JSON.parse(fs.readFileSync(path.join(out, 'summary.json'), 'utf8'));
+  assert.deepEqual(s.aggregate.paired, { pairs: 4, both: 0, oldOnly: 0, newOnly: 4, neither: 0 });
+  assert.deepEqual(s.aggregate.table.map((g) => [g.variant, g.n, g.passed]), [['old', 4, 0], ['new', 4, 4]]);
+  const row = s.rows[0];
+  for (const k of ['model', 'arm', 'variant', 'brief', 'repeat', 'errors', 'warnings', 'pass', 'tokensIn', 'tokensOut', 'cost', 'latencyMs']) assert.ok(k in row, `row has ${k}`);
+});
+
+test('the retrieval arm serves the files the model names, then judges the deck from the second turn', async (t) => {
+  const { run, parseArgs } = await load();
+  const calls = [];
+  const out = tmpDir(t);
+  const script = (req) => (req.messages.length === 2 ? 'READ: ./layouts.md' : deckReply);
+  const code = await run(parseArgs(['--arm', 'retrieval', '--model', 'test/cheap', '--limit', '1', '--out', out]), deps(t, calls, { script }));
+  assert.equal(code, 0);
+  assert.equal(calls.length, 2);
+  assert.match(calls[0].messages[1].content, /READ: <path as start\.md links it>/);
+  assert.deepEqual(calls[1].messages.map((m) => m.role), ['system', 'user', 'assistant', 'user']);
+  assert.match(calls[1].messages[3].content, /LAYOUTS BODY/);
+  const s = JSON.parse(fs.readFileSync(path.join(out, 'summary.json'), 'utf8'));
+  assert.deepEqual([s.rows[0].calls, s.rows[0].fetched, s.rows[0].pass], [2, ['layouts.md'], true]);
+  assert.equal(fs.readFileSync(path.join(out, 'retrieval-board-ask-r0.md'), 'utf8'), deckReply);
+});
+
+test('a reply cut off at max_tokens fails as truncated, and its cost still counts', async (t) => {
+  const { run, parseArgs } = await load();
+  const out = tmpDir(t);
+  const d = deps(t, []);
+  d.complete = async () => ({ text: deckReply, finish: 'length', tokensIn: 1, tokensOut: 6000, cost: 0.01, costReported: true, latencyMs: 0 });
+  assert.equal(await run(parseArgs(['--arm', 'start', '--model', 'test/cheap', '--limit', '1', '--out', out]), d), 10);
+  const s = JSON.parse(fs.readFileSync(path.join(out, 'summary.json'), 'utf8'));
+  assert.match(s.rows[0].problems[0], /hit max_tokens/);
+  assert.equal(s.cost, 0.01);
+});
+
+test('the cap is checked again before a retrieval second turn, and a capped deck carries no verdict', async (t) => {
+  const { run, parseArgs } = await load();
+  const calls = [];
+  const out = tmpDir(t);
+  const script = (req) => (req.messages.length === 2 ? 'READ: ./layouts.md' : deckReply);
+  // The first call fits (0 + ~0.0603 <= 0.105) and reports 0.05; the second's ceiling (~0.0604) would cross 0.105.
+  const code = await run(parseArgs(['--arm', 'retrieval', '--model', 'test/cheap', '--max-usd', '0.105', '--out', out]), deps(t, calls, { cost: 0.05, script }));
+  assert.equal(code, 3);
+  assert.equal(calls.length, 1, 'the second turn never went');
+  const s = JSON.parse(fs.readFileSync(path.join(out, 'summary.json'), 'utf8'));
+  assert.deepEqual([s.rows.length, s.rows[0].capped, s.rows[0].pass, s.failed, s.aggregate.table.length], [1, true, null, 0, 0]);
+});
+
+test('a READ of a folder is answered with a note, not a crash that books a failed deck', async (t) => {
+  const { serveKitFiles } = await load();
+  const kit = kitDir(t);
+  const { served, text } = serveKitFiles(['./components/', 'components', '.'], kit);
+  assert.deepEqual(served, []);
+  assert.equal(text.match(/not served: no such file in the kit/g).length, 3);
+});
+
+test('the cap is priced from the dearest provider, and a price that could void it stops the run before any call', async (t) => {
+  const { loadPrice, run, parseArgs } = await load();
+  assert.deepEqual(await loadPrice('test/cheap', pricesFetch), { in: 0.000001, out: 0.00001 });
+  for (const bad of ['-1', 'n/a', undefined]) {
+    const calls = [];
+    const d = deps(t, calls);
+    d.fetchImpl = async () => ({ ok: true, json: async () => ({ data: { endpoints: [{ pricing: { prompt: bad, completion: '0.00001' } }] } }) });
+    assert.equal(await run(parseArgs(['--arm', 'start', '--model', 'test/cheap', '--out', tmpDir(t)]), d), 2, `price ${bad}`);
+    assert.equal(calls.length, 0);
+  }
+});
+
+test('a call that fails counts its ceiling, since the provider may have billed it, so the cap still holds', async (t) => {
+  const { run, parseArgs } = await load();
+  const calls = [];
+  const out = tmpDir(t);
+  const failing = async (req) => {
+    calls.push(req);
+    throw new Error('The operation was aborted due to timeout');
+  };
+  const code = await run(parseArgs(['--arm', 'start', '--model', 'test/cheap', '--repeat', '2', '--max-usd', '0.2', '--out', out]), { ...deps(t, calls), complete: failing });
+  assert.equal(code, 3);
+  assert.equal(calls.length, 3, 'three failed ceilings of ~0.0602 fit under 0.2, a fourth does not');
+  const summary = JSON.parse(fs.readFileSync(path.join(out, 'summary.json'), 'utf8'));
+  assert.ok(summary.cost > 0.18 && summary.cost <= 0.2, `spent ${summary.cost}`);
+});
+
+test('the token ceiling counts ASCII at half a token and every other byte at a whole one', async () => {
+  const { tokenCeiling } = await load();
+  assert.equal(tokenCeiling('abcd'), 2);
+  assert.equal(tokenCeiling('abc'), 2);
+  assert.equal(tokenCeiling('日本'), 6, 'two 3-byte characters');
+  assert.equal(tokenCeiling('ab日'), 4);
+});
+
+test('a probe makes one max_tokens-1 call, judges nothing, and the table shows no pass count', async (t) => {
+  const { run, parseArgs } = await load();
+  const calls = [];
+  const out = tmpDir(t);
+  const code = await run(parseArgs(['--arm', 'retrieval', '--model', 'test/cheap', '--probe', '--max-usd', '0.05', '--out', out]), deps(t, calls));
+  assert.equal(code, 0);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].maxTokens, 1);
+  const summary = JSON.parse(fs.readFileSync(path.join(out, 'summary.json'), 'utf8'));
+  assert.equal(summary.aggregate.table[0].passed, null);
+  assert.match(fs.readFileSync(path.join(out, 'summary.md'), 'utf8'), /\| test\/cheap \| retrieval \| current \| 1 \| — \|/);
+});
+
+test('complete sends the effort it is given, none by default, and reads the reasoning tokens back', async () => {
+  const { complete, parseArgs } = await load();
+  const bodies = [];
+  const fetchImpl = async (_url, init) => {
+    bodies.push(JSON.parse(init.body));
+    return {
+      ok: true,
+      json: async () => ({
+        choices: [{ message: { content: '' }, finish_reason: 'length' }],
+        usage: { prompt_tokens: 10, completion_tokens: 6000, completion_tokens_details: { reasoning_tokens: 5990 }, cost: 0.001 },
+      }),
+    };
+  };
+  const r = await complete({ model: 'test/cheap', messages: [{ role: 'user', content: 'x' }], reasoning: { effort: 'low' } }, { fetchImpl, now: () => 0 });
+  assert.deepEqual(bodies[0].reasoning, { effort: 'low' });
+  assert.equal(r.reasoningTokens, 5990);
+  await complete({ model: 'test/cheap', messages: [{ role: 'user', content: 'x' }] }, { fetchImpl, now: () => 0 });
+  assert.equal('reasoning' in bodies[1], false, 'no effort given sends no reasoning object');
+  assert.equal(parseArgs([]).reasoning, 'auto');
+  assert.equal(parseArgs(['--reasoning', 'high']).reasoning, 'high');
+  assert.equal(parseArgs(['--reasoning', 'none']).reasoning, 'none', 'none is an explicit opt-in, never the default');
+  assert.throws(() => parseArgs(['--reasoning', 'off']), /one of auto, none/);
+});
+
+test('a reply that reasoned through the whole budget fails as "no deck was written", and the run passes its effort on', async (t) => {
+  const { run, parseArgs } = await load();
+  const calls = [];
+  const out = tmpDir(t);
+  const empty = async (req) => {
+    calls.push(req);
+    return { text: '', finish: 'length', tokensIn: 100, tokensOut: 6000, reasoningTokens: 6000, cost: 0.001, costReported: true, latencyMs: 0 };
+  };
+  const code = await run(parseArgs(['--arm', 'start', '--model', 'test/cheap', '--limit', '1', '--reasoning', 'medium', '--out', out]), { ...deps(t, calls), complete: empty });
+  assert.equal(code, 10);
+  assert.deepEqual(calls[0].reasoning, { effort: 'medium' });
+  const summary = JSON.parse(fs.readFileSync(path.join(out, 'summary.json'), 'utf8'));
+  assert.equal(summary.reasoning, 'medium');
+  assert.equal(summary.rows[0].reasoningTokens, 6000);
+  assert.match(summary.rows[0].problems[0], /reasoning spent the whole max_tokens budget \(6000 of 6000 tokens\): no deck was written/);
+});
+
+test('auto bounds reasoning the way each provider honors it, and a probe never asks for reasoning', async (t) => {
+  const { reasoningFor, REASONING_BUDGET, MODELS, run, parseArgs } = await load();
+  assert.deepEqual(reasoningFor(MODELS.haiku, 'auto'), { effort: 'none' }, 'Haiku fetched kit files on 10 of 10 decks with reasoning off');
+  assert.deepEqual(reasoningFor(MODELS.sonnet, 'auto'), { max_tokens: REASONING_BUDGET }, 'an unmeasured Anthropic model takes an exact budget');
+  assert.deepEqual(reasoningFor(MODELS.deepseek, 'auto'), { effort: 'none' }, 'DeepSeek was measured to accept none and to fetch kit files with it');
+  assert.deepEqual(reasoningFor('openai/some-model', 'auto'), { effort: 'minimal' }, 'an unmeasured model never gets none: one that must reason rejects it');
+  assert.ok(REASONING_BUDGET >= 1024 && REASONING_BUDGET <= 3000, 'Anthropic needs 1,024; the deck needs the rest of max_tokens');
+  assert.deepEqual(reasoningFor(MODELS.haiku, 'high'), { effort: 'high' });
+  assert.equal(reasoningFor(MODELS.haiku, 'default'), null);
+  assert.equal(reasoningFor(MODELS.deepseek, 'high', true), null, 'a probe allows 1 output token');
+  // The stub prices every model like test/cheap, so the run reaches its calls.
+  const anyPrice = async () => ({ ok: true, json: async () => ENDPOINTS });
+  const calls = [];
+  await run(parseArgs(['--arm', 'start', '--model', MODELS.haiku, '--limit', '1', '--out', tmpDir(t)]), { ...deps(t, calls), fetchImpl: anyPrice });
+  assert.deepEqual(calls[0].reasoning, { effort: 'none' });
+  const probe = [];
+  await run(parseArgs(['--arm', 'retrieval', '--model', MODELS.deepseek, '--probe', '--out', tmpDir(t)]), { ...deps(t, probe), fetchImpl: anyPrice });
+  assert.equal(probe[0].reasoning, null);
+});
+
+test('a reasoning budget goes to a Claude model without a temperature; an effort keeps it', async () => {
+  const { complete, REASONING_BUDGET } = await load();
+  const bodies = [];
+  const fetchImpl = async (_url, init) => {
+    bodies.push(JSON.parse(init.body));
+    return { ok: true, json: async () => ({ choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }], usage: { cost: 0 } }) };
+  };
+  const msg = [{ role: 'user', content: 'x' }];
+  await complete({ model: 'anthropic/claude-haiku-5.5', messages: msg, reasoning: { max_tokens: REASONING_BUDGET } }, { fetchImpl, now: () => 0 });
+  await complete({ model: 'deepseek/deepseek-v4.1-flash', messages: msg, reasoning: { effort: 'minimal' } }, { fetchImpl, now: () => 0 });
+  await complete({ model: 'anthropic/claude-haiku-5.5', messages: msg }, { fetchImpl, now: () => 0 });
+  assert.equal('temperature' in bodies[0], false, 'Anthropic refuses a temperature change while thinking');
+  assert.equal(bodies[1].temperature, 0);
+  assert.equal(bodies[2].temperature, 0);
+});
+
+test('a request with no reply exits 5 and a broken judge 6; only a deck the model wrote badly exits 10', async (t) => {
+  const { run, parseArgs } = await load();
+  const calls = [];
+  const dead = async (req) => {
+    calls.push(req);
+    throw new Error('OpenRouter 401: no auth');
+  };
+  const out = tmpDir(t);
+  const code = await run(parseArgs(['--arm', 'start', '--model', 'test/cheap', '--limit', '2', '--max-usd', '5', '--out', out]), { ...deps(t, calls), complete: dead });
+  assert.equal(calls.length, 2, 'the cap was high enough that it did not stop the run first');
+  assert.equal(code, 5);
+  const lintFail = () => ({ slides: 8, layouts: ['a'], errors: 1, warnings: 0, suggestions: 0, problems: ['slide 2: error x'] });
+  const code1 = await run(parseArgs(['--arm', 'start', '--model', 'test/cheap', '--limit', '1', '--out', tmpDir(t)]), { ...deps(t, []), judgeFn: lintFail });
+  assert.equal(code1, 10, 'a deck the model wrote badly is the one result: DECKS_FAILED');
+  const renderBroke = () => ({ slides: 0, layouts: [], errors: 0, warnings: 0, suggestions: 0, problems: ['render failed: Could not find Chrome'] });
+  const code6 = await run(parseArgs(['--arm', 'start', '--model', 'test/cheap', '--limit', '2', '--out', tmpDir(t)]), { ...deps(t, []), judgeFn: renderBroke });
+  assert.equal(code6, 6, 'no deck rendered: our judge broke, a red run');
+  const lintCrash = () => ({ slides: 8, layouts: ['a'], errors: 1, warnings: 0, suggestions: 0, problems: ['slide 0: error lint-crashed'] });
+  const code6b = await run(parseArgs(['--arm', 'start', '--model', 'test/cheap', '--limit', '1', '--out', tmpDir(t)]), { ...deps(t, []), judgeFn: lintCrash });
+  assert.equal(code6b, 6, 'a lint crash is our bug, never a result');
+  // One deck cut off at max_tokens (never rendered) and the rest failing to render: still our judge.
+  let n = 0;
+  const cutThenOk = async (req) => {
+    n++;
+    return n === 1
+      ? { text: '', finish: 'length', tokensIn: 100, tokensOut: 6000, reasoningTokens: 6000, cost: 0.001, costReported: true, latencyMs: 0 }
+      : { text: deckReply, finish: 'stop', tokensIn: 100, tokensOut: 50, cost: 0.001, costReported: true, latencyMs: 0 };
+  };
+  const code6c = await run(parseArgs(['--arm', 'start', '--model', 'test/cheap', '--limit', '3', '--out', tmpDir(t)]), { ...deps(t, []), complete: cutThenOk, judgeFn: renderBroke });
+  assert.equal(code6c, 6, 'a cut-off deck never reached the renderer, so it cannot hide a broken one');
+});

@@ -22,16 +22,16 @@ const { roleOpenTag } = require('../../../lib/core/split-envelope');
 const { splitDoc } = require('../../../lib/core/auto-split');
 const { applyBackdropToHtml } = require('../../../lib/core/backdrop');
 const { MODE_TOKENS } = require('../../../lib/core/resolve-mode');
-const { STAMP_STYLE_TOKENS } = require('../../../lib/core/resolve-stamp');
+const { STAMP_SHAPE_TOKENS } = require('../../../lib/core/resolve-stamp-shape');
 const { TONE_STYLE_TOKENS } = require('../../../lib/core/resolve-tone-style');
 const spectrum = require('../../../lib/core/resolve-spectrum');
-const { CORNERS_TOKENS } = require('../../../lib/core/resolve-corners');
+const { SLIDE_CORNERS_TOKENS } = require('../../../lib/core/resolve-slide-corners');
 const { FIT_TOKENS } = require('../../../lib/core/resolve-fit');
-const { RULE_TOKENS } = require('../../../lib/core/resolve-rule');
+const { HEADING_RULE_TOKENS } = require('../../../lib/core/resolve-heading-rule');
 const { EYEBROW_TOKENS } = require('../../../lib/core/resolve-eyebrow');
 const { INLINE_CODE_TOKENS } = require('../../../lib/core/resolve-inline-code');
-const { HEADLINE_TOKENS } = require('../../../lib/core/resolve-headline');
-const { LIFT_TOKENS } = require('../../../lib/core/resolve-lift');
+const { HEADLINE_ALIGN_TOKENS } = require('../../../lib/core/resolve-headline-align');
+const { CARD_LIFT_TOKENS } = require('../../../lib/core/resolve-card-lift');
 const { CLAIM_TOKENS } = require('../../../lib/core/resolve-claim');
 const { ALIGN_TOKENS } = require('../../../lib/core/resolve-align');
 const { COLOR_MODE_TOKENS } = require('../../../lib/core/color-mode');
@@ -44,12 +44,12 @@ describe('core: which registers ride a split page', () => {
   // Read off each register's OWN list, so a value added to a register is covered without an
   // edit here — and a register that should ride but is missing from the kernel fails by name.
   const riding = {
-    mode: MODE_TOKENS, stamp: STAMP_STYLE_TOKENS, tone: TONE_STYLE_TOKENS,
+    mode: MODE_TOKENS, 'stamp-shape': STAMP_SHAPE_TOKENS, tone: TONE_STYLE_TOKENS,
     spectrum: spectrum.SPECTRUM_REGISTER.TOKENS, 'card-spectrum': spectrum.CARD_SPECTRUM_REGISTER.TOKENS,
-    'trim-spectrum': spectrum.TRIM_SPECTRUM_REGISTER.TOKENS, corners: CORNERS_TOKENS, fit: FIT_TOKENS,
-    rule: RULE_TOKENS, eyebrow: EYEBROW_TOKENS, 'inline-code': INLINE_CODE_TOKENS,
-    headline: HEADLINE_TOKENS, lift: LIFT_TOKENS,
-    tag: require('../../../lib/core/resolve-card-tag').CARD_TAG_TOKENS,
+    'trim-spectrum': spectrum.TRIM_SPECTRUM_REGISTER.TOKENS, 'slide-corners': SLIDE_CORNERS_TOKENS, fit: FIT_TOKENS,
+    'heading-rule': HEADING_RULE_TOKENS, eyebrow: EYEBROW_TOKENS, 'inline-code': INLINE_CODE_TOKENS,
+    'headline-align': HEADLINE_ALIGN_TOKENS, 'card-lift': CARD_LIFT_TOKENS,
+    'card-tag': require('../../../lib/core/resolve-card-tag').CARD_TAG_TOKENS,
   };
 
   test('every token of every surface register rides', () => {
@@ -77,19 +77,19 @@ describe('core: which registers ride a split page', () => {
 });
 
 describe('core: roleOpenTag keeps the surface registers across the class swap', () => {
-  const tag = '<section id="s1" class="split-panel cat-3 finish finish-atrium stamp-seal corners-rounded claim-hero align-top dark form" data-lattice-slide="4">';
+  const tag = '<section id="s1" class="split-panel cat-3 finish finish-atrium stamp-shape-seal slide-corners-rounded claim-hero align-top dark form" data-lattice-slide="4">';
   const out = roleOpenTag(tag, 'content split-panel-split split-panel-cover form', true, 'cover', 'split-panel');
 
   test('the finish and the other surface registers ride as CLASSES', () => {
     const cls = classOf(out);
-    for (const t of ['finish', 'finish-atrium', 'stamp-seal', 'corners-rounded', 'dark']) assert.ok(cls.includes(t), `${t} missing: ${cls.join(' ')}`);
+    for (const t of ['finish', 'finish-atrium', 'stamp-shape-seal', 'slide-corners-rounded', 'dark']) assert.ok(cls.includes(t), `${t} missing: ${cls.join(' ')}`);
     assert.ok(cls.includes('split-panel-cover'), 'the role class still replaces the layout');
     assert.ok(!cls.includes('split-panel'), 'the layout token is still the class being replaced');
   });
 
   test('they are NOT also stamped as data — one channel per token', () => {
     const mods = modsOf(out);
-    for (const t of ['finish', 'finish-atrium', 'stamp-seal', 'corners-rounded']) assert.ok(!mods.includes(t), `${t} in data: ${mods}`);
+    for (const t of ['finish', 'finish-atrium', 'stamp-shape-seal', 'slide-corners-rounded']) assert.ok(!mods.includes(t), `${t} in data: ${mods}`);
   });
 
   test('the layout registers stay behind as data, like any other authored modifier', () => {

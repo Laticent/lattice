@@ -37,9 +37,13 @@ up any rights. Full background:
   that's not a judgment of the work, it's how the ownership model stays
   honest.
 
-Contributions, when accepted, are licensed inbound = outbound under
-AGPL-3.0-only with the additional permissions in
-[LICENSE-EXCEPTIONS](LICENSE-EXCEPTIONS).
+Contributions, when accepted, are licensed inbound = outbound: under the
+license of the part they change, as [LICENSING.md](LICENSING.md) maps it.
+A change to an Apache-2.0 library comes in under Apache-2.0; a change to a
+specification or its conformance cases (CC-BY-4.0 in LICENSING.md, including
+the LTT fixtures inside `docs/src/lib/ltt/conformance/`) comes in under
+CC-BY-4.0; a change to anything else comes in under AGPL-3.0-only with the
+additional permissions in [LICENSE-EXCEPTIONS](LICENSE-EXCEPTIONS).
 
 ## Development setup
 

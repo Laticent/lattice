@@ -99,7 +99,8 @@ export type PlaygroundData = {
 	palettes: string[];
 	finishes: string[];
 	// Deck-grammar lint vocabulary for the editor's inline validation (optional so
-	// the test harness can omit it). Passed straight to EditorHost → createEditor.
+	// the test harness can omit it). The page passes it as one JSON string (playground.astro: a structured prop
+	// costs ~8KB of raw HTML in Astro's per-value wrapping); a harness may pass the object. → EditorHost → createEditor.
 	lintVocab?: unknown;
 	starter: string;
 	// Base URL of the staged plans/<name>.json walk plans (Explore surface).
@@ -313,7 +314,8 @@ function adoptBootSeed(view: 'read' | 'edit', pane: 'edit' | 'preview') {
  * the config panel (DeckSetupSheet). None are reimplemented.
  */
 export function PlaygroundApp({ data }: { data: PlaygroundData }) {
-	const { catalog, components, lenses, galleryGroups, themeBase, runtimeUrl, engineUrl, dagreUrl, katexUrl, palettes, finishes, lintVocab, starter, plansBase, galleriesBase, bakeCaption } = data;
+	const { catalog, components, lenses, galleryGroups, themeBase, runtimeUrl, engineUrl, dagreUrl, katexUrl, palettes, finishes, lintVocab: lintVocabProp, starter, plansBase, galleriesBase, bakeCaption } = data;
+	const lintVocab = React.useMemo(() => (typeof lintVocabProp === 'string' ? JSON.parse(lintVocabProp) : lintVocabProp), [lintVocabProp]);
 
 	// Two component states, one rule each (2026-07-05 decision §4): `draftComponent`
 	// is DERIVED — what detectComponent reads out of the live editor, possibly '' when
@@ -329,6 +331,23 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			return resolveComponent(catalog, null).name;
 		}
 	});
+	// The pointer as last written, for a pick to hand its walk: a pick writes the pointer before the plan loads, so a
+	// plan that fails to load puts back the one the pick replaced (`startWalk`'s `revertTo`).
+	const pointerRef = React.useRef(readerComponent);
+	// The component whose walk LANDED last (or the boot's): what a failed pick puts back. Not `pointerRef`, which an earlier
+	// pick still loading has already moved to a component nobody is reading, and not the walk on screen, which is a deck
+	// and names no component when a gallery is open.
+	const settledRef = React.useRef(readerComponent);
+	/** Point the persisted pointer at `name`: the label the picker shows in Explore, and the key a reload reads. */
+	const rememberComponent = React.useCallback((name: string) => {
+		pointerRef.current = name;
+		setReaderComponent(name);
+		try {
+			localStorage.setItem(COMPONENT_KEY, name);
+		} catch {
+			/* private mode */
+		}
+	}, []);
 	// The status line's FIRST value has to be true at first paint, not merely true later
 	// (#1563). It said "Ready." — which nothing was: the island had not hydrated, the engine
 	// bundle had not been requested, and nothing had rendered. A person watched it read
@@ -498,7 +517,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	 *  to about:blank and then silently declines to rebind for the rest of the session. */
 	const boundFrameDocRef = React.useRef<Document | null>(null);
 	const bindDeckInputRef = React.useRef<() => void>(() => {});
-	const startWalkRef = React.useRef<(name: string, step: string | null, opts?: { warm?: boolean; keepEditedDraft?: boolean }) => Promise<boolean>>(async () => false);
+	const startWalkRef = React.useRef<(name: string, step: string | null, opts?: { warm?: boolean; keepEditedDraft?: boolean; revertTo?: string }) => Promise<boolean>>(async () => false);
 	// Mobile error reveal: ≤560px hides .pg-status, so the badge expands it inline.
 	const [errorOpen, setErrorOpen] = React.useState(false);
 	// The variant-sync discriminator: the last seen `_class` token line. The
@@ -1682,21 +1701,18 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			// deck under the new component's name. A no-op when the preview is already open; when
 			// it was collapsed, the expand's `onExpand` runs the one deferred render.
 			split.expand('b');
-			// THE PICK IS DURABLE THE MOMENT IT IS MADE. `startWalk` records the component too, but only after its
-			// plan fetch lands, so a reader who picked and then reloaded while that fetch was still on the wire came
-			// back to the component they had left: the reload aborted the fetch before anything was written
-			// (playground-state.spec.ts, "actors" after the reload at 390px under load). Writing here, synchronously,
-			// leaves no window. A later pick still wins: it writes over this one, and `startWalk`'s sequence counter
-			// drops the earlier walk.
-			setReaderComponent(name);
-			try {
-				localStorage.setItem(COMPONENT_KEY, name);
-			} catch {
-				/* private mode */
-			}
-			void startWalkRef.current(name, null);
+			// THE PICK IS REMEMBERED WHEN IT IS MADE, not when its plan lands. The walk below fetches the component's plan,
+			// and until it resolves the picker went on naming the component before, and a reload in that window forgot the
+			// pick (playground-state.spec.ts:52, red under load on a phone). The pointer changes only on a pick, so the pick
+			// is the moment to write it; a plan that lands after a newer pick still returns before it writes anything. A
+			// plan that fails to load puts the previous pointer back, so the picker never names a component nobody is reading.
+			// What goes back is the component last SETTLED (`settledRef`), not the pointer as last written: an earlier pick
+			// whose plan has not landed already moved the pointer to a component nobody is reading.
+			const revertTo = settledRef.current;
+			rememberComponent(name);
+			void startWalkRef.current(name, null, { revertTo });
 		},
-		[catalog, split.expand],
+		[catalog, split.expand, rememberComponent],
 	);
 
 	// Open a deck's source in Explore. Shared by the curated decks (looked up in the page's props)
@@ -2132,7 +2148,11 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		async (
 			name: string,
 			step: string | null,
-			{ warm = false, keepEditedDraft = false }: { warm?: boolean; keepEditedDraft?: boolean } = {},
+			{
+				warm = false,
+				keepEditedDraft = false,
+				revertTo,
+			}: { warm?: boolean; keepEditedDraft?: boolean; revertTo?: string } = {},
 		): Promise<boolean> => {
 			const seq = ++deckPickSeqRef.current;
 			const plan = await fetchPlan(name);
@@ -2143,6 +2163,17 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			// 390px, red under load).
 			if (seq !== deckPickSeqRef.current) return false;
 			if (!plan) {
+				// A PICK THE SERVER SAID IS NOT THERE puts the pointer back. A pick wrote the pointer before its plan loaded
+				// (`onPickComponent`), so it goes back to the component last settled: a reload then opens it, and the picker
+				// names it. A newer pick already returned above, so this never undoes one. When NO walk is on screen (the pick
+				// came before the boot's own walk landed, and superseded it), that component is walked again, so the reader is
+				// not left with an empty Explore and an address that lost its `?c=`. ONLY on an answer (`planMissingRef`): a
+				// fetch that threw is most often the reload itself aborting it, and putting the pointer back then would write
+				// the old component as the page unloads, the very race the early write closes (playground-state.spec.ts, #3586).
+				if (revertTo !== undefined && revertTo !== name && planMissingRef.current.has(name)) {
+					rememberComponent(revertTo);
+					if (walkRef.current === null) void startWalkRef.current(revertTo, null, { warm: viewRef.current !== 'read' });
+				}
 				// The designed 404 path: the staged tree was rewritten by a deploy while
 				// this tab sat open — never a dead Next button. (Silent when the walk is
 				// only warming up behind the editor.)
@@ -2151,30 +2182,11 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 					// serving stale code until someone reloads. Its own slot, so nothing evicts it.
 					notifySticky('This page is out of date — the site was updated while it sat open.', { label: 'Reload', onClick: () => window.location.reload() });
 				}
-				// A PICK THE SERVER SAID IS NOT THERE hands the component back to the walk still on screen. `onPickComponent`
-				// records the pick before this fetch (so a reload cannot beat it); when the plan is missing, the picker label,
-				// the stored pick and the address bar would otherwise name a component the screen never showed, and the URL
-				// sync would treat the pick as in flight for good, dropping the slide position on every step. ONLY on an
-				// answer: a fetch that threw is most often the reload itself aborting it, and handing back then would write
-				// the old component as the page unloads — the very race the early write closes (playground-state.spec.ts).
-				const shown = walkRef.current;
-				if (planMissingRef.current.has(name) && shown?.kind === 'plan' && shown.plan.name !== name) {
-					setReaderComponent(shown.plan.name);
-					try {
-						localStorage.setItem(COMPONENT_KEY, shown.plan.name);
-					} catch {
-						/* private mode */
-					}
-				}
 				return false;
 			}
 			const planSource = plan.slides.map((s) => s.md).join('\n\n---\n\n');
-			setReaderComponent(name);
-			try {
-				localStorage.setItem(COMPONENT_KEY, name);
-			} catch {
-				/* private mode */
-			}
+			rememberComponent(name);
+			settledRef.current = name;
 			// EXPLORE ENTERED BEFORE ANY WALK HAD LANDED shows what the editor holds when it is not the plan, the same
 			// answer `setViewMode` gives once a walk exists (its save-back). Without this the answer to one click on
 			// Explore depended on how fast a plan fetch was: the draft, or the component's gallery.
@@ -2205,7 +2217,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			if (next) void fetchPlan(next);
 			return true;
 		},
-		[fetchPlan, freshRender, walkOrder, getSource],
+		[fetchPlan, freshRender, walkOrder, getSource, rememberComponent],
 	);
 	startWalkRef.current = startWalk;
 	const stepWalk = React.useCallback(
@@ -2527,6 +2539,10 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		if (url.c) {
 			const r = resolveComponent(catalog, url.c);
 			target = r.name;
+			// The address outranks the stored pointer at boot, so it is the pointer now: a pick whose plan then fails puts
+			// back the component the address opened, not the one storage held before.
+			pointerRef.current = r.name;
+			settledRef.current = r.name;
 			setReaderComponent(r.name);
 			if (r.fallback) setWalkNotice(`“${url.c}” is not a component any more — showing ${r.name}.`);
 		}

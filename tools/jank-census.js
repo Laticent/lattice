@@ -178,7 +178,7 @@ function catalog() {
 // Read out of the BUILT BUNDLE rather than a list kept here, for the same reason the
 // component list is read from the manifests: a mark added tomorrow is swept tomorrow.
 // The catalog census cannot reach these — they are base MODIFIERS (`mark-orbit`,
-// `stamp-seal`), not manifest variants — which is exactly how the archetype this whole
+// `stamp-shape-seal`), not manifest variants — which is exactly how the archetype this whole
 // tool exists for went unmeasured while 272 component classes were swept clean.
 //
 // A component's OWN class is excluded: the bookend rules are component chrome and are
@@ -203,13 +203,13 @@ const NOT_A_MODIFIER = Object.freeze({
 
 // A MODIFIER THAT PAINTS NOTHING ON ITS OWN NEEDS ITS COMPANION, or the census reports
 // "none" for a mark that is simply not on the page — the false clean this whole tool is
-// built against, reproduced one level up. `stamp-*` picks the SHAPE of a state marker; the
+// built against, reproduced one level up. `stamp-shape-*` picks the SHAPE of a state marker; the
 // LABEL and color come from the state class (`confidential`, `wip`, `draft`, …), so
-// `content stamp-seal` really does draw nothing while `content confidential stamp-seal`
+// `content stamp-shape-seal` really does draw nothing while `content confidential stamp-shape-seal`
 // draws a 98.8x98.8 seal. Measured both ways before this table existed.
-// base.registers.docs.md § "The `stamp:` / `tone:` front-matter registers".
+// base.registers.docs.md § "The `stamp-shape:` / `tone:` front-matter registers".
 const MARK_COMPANIONS = Object.freeze([
-  { prefix: 'stamp-', companion: 'confidential' },
+  { prefix: 'stamp-shape-', companion: 'confidential' },
 ]);
 
 const companionFor = (mod) => MARK_COMPANIONS.find((c) => mod.startsWith(c.prefix))?.companion || null;

@@ -97,6 +97,63 @@ async function continues(page: Page): Promise<void> {
 	await expect.poll(() => deckEditorText(page)).toContain('> quoted\n> more\n');
 }
 
+/** The editor's parse state, read through the view: its tree, how far that tree is complete, and the document length. */
+type ParseState = { treeLen: number; docLen: number };
+const parseState = (page: Page): Promise<ParseState> =>
+	page.evaluate(() => {
+		// biome-ignore lint/suspicious/noExplicitAny: CodeMirror's language field, found by shape in the state's values.
+		const handle = document.querySelector('[aria-label="Deck source"]') as any;
+		const view = handle.cmTile?.root?.view ?? handle.cmView?.rootView?.view;
+		// biome-ignore lint/suspicious/noExplicitAny: as above.
+		const field = view.state.values.find((v: any) => v?.context && typeof v.context.treeLen === 'number');
+		return { treeLen: field.context.treeLen, docLen: view.state.doc.length };
+	});
+
+/**
+ * A keystroke whose parse runs out of CodeMirror's 20 ms budget (deck-language.ts §ONE KEYSTROKE, ONE DECK UPDATE). A
+ * `Date.now` that jumps 1 s per read, for one dispatch, spends the budget after the first step, so the transaction keeps
+ * a tree cut at the front matter's YAML and the idle-time worker finishes it. The finished tree must be the one the deck
+ * built for that keystroke, not a second assembly: its top node shares the cut tree's child list, which a rebuilt root
+ * would not. And the editor still paints what the model's tree says.
+ */
+async function slicedKeystroke(page: Page): Promise<void> {
+	await openEditor(page);
+	await expect.poll(async () => { const s = await parseState(page); return s.treeLen === s.docLen; }).toBe(true);
+	const cut = await page.evaluate(() => {
+		// biome-ignore lint/suspicious/noExplicitAny: as in parseState.
+		const handle = document.querySelector('[aria-label="Deck source"]') as any;
+		const view = handle.cmTile?.root?.view ?? handle.cmView?.rootView?.view;
+		const at = view.state.doc.toString().indexOf('Area ') + 'Area '.length;
+		const realNow = Date.now;
+		let clock = realNow();
+		Date.now = () => (clock += 1000);
+		try {
+			view.dispatch({ changes: { from: at, insert: 'x' } });
+		} finally {
+			Date.now = realNow;
+		}
+		// biome-ignore lint/suspicious/noExplicitAny: as in parseState.
+		const cx = view.state.values.find((v: any) => v?.context && typeof v.context.treeLen === 'number').context;
+		(window as unknown as { __cutChildren: unknown }).__cutChildren = cx.tree.children;
+		return { treeLen: cx.treeLen, docLen: view.state.doc.length };
+	});
+	// The split happened: the transaction's tree stops short of the document.
+	expect(cut.treeLen).toBeLessThan(cut.docLen);
+	await expect.poll(async () => { const s = await parseState(page); return s.treeLen === s.docLen; }).toBe(true);
+	const sameRoot = await page.evaluate(() => {
+		// biome-ignore lint/suspicious/noExplicitAny: as in parseState.
+		const handle = document.querySelector('[aria-label="Deck source"]') as any;
+		const view = handle.cmTile?.root?.view ?? handle.cmView?.rootView?.view;
+		// biome-ignore lint/suspicious/noExplicitAny: as in parseState.
+		const cx = view.state.values.find((v: any) => v?.context && typeof v.context.treeLen === 'number').context;
+		return cx.tree.children === (window as unknown as { __cutChildren: unknown }).__cutChildren;
+	});
+	expect(sameRoot).toBe(true);
+	await expect.poll(() => deckEditorText(page)).toContain('Area x$a*b*c$');
+	expect(Number((await styleOf(page, 'The plan'))?.weight)).toBeGreaterThanOrEqual(600);
+	expect((await styleOf(page, '_class: lead'))?.style).toBe('italic');
+}
+
 for (const [width, height] of [
 	[1440, 900],
 	[820, 1180],
@@ -106,6 +163,7 @@ for (const [width, height] of [
 		test.use({ viewport: { width, height } });
 		test('the model’s tree paints the heading spine, the front matter’s YAML keys and the directive comment', ({ page }) => paints(page));
 		test('Enter continues a list and a quote: the keymap reads the model’s ListItem and Blockquote', ({ page }) => continues(page));
+		test('a keystroke whose parse runs out of time is finished from the tree the deck built, and still paints', ({ page }) => slicedKeystroke(page));
 	});
 }
 
@@ -113,4 +171,5 @@ for (const [width, height] of [
 test.describe('in WebKit and Gecko', () => {
 	test('the model’s tree is painted @webkit-phone @webkit-tablet @gecko', ({ page }) => paints(page));
 	test('Enter continues a list and a quote @webkit-phone @webkit-tablet @gecko', ({ page }) => continues(page));
+	test('a keystroke whose parse runs out of time is finished from the tree the deck built @webkit-phone @webkit-tablet @gecko', ({ page }) => slicedKeystroke(page));
 });

@@ -72,6 +72,13 @@ test('a hostile workspace backup restores everything else and names what it refu
 	await page.getByRole('button', { name: 'Workspace settings', exact: true }).first().click();
 	await expect(page.getByRole('dialog', { name: /Workspace/ })).toBeVisible();
 	await openSection(page, 'Data');
+	// The restore reloads the Studio 1.1 s after its toast (WorkspaceSheet.tsx `restoreBackup`), so
+	// the wait for that reload is armed BEFORE the restore starts. Armed after the toast reads
+	// below, it missed the reload under load and hung (3 red in 40 at --workers=4 with CPU burners
+	// on main 2ead5e1d; the failure's page already showed the restored Studio's toast). The test's
+	// own timeout is the deadline: the restore itself takes most of it on a slow runner.
+	const reloaded = page.waitForEvent('load', { timeout: 0 });
+	reloaded.catch(() => {}); // An earlier failure closes the page; that rejection is not this test's.
 	await page.getByLabel('Restore a workspace backup').setInputFiles({ name: 'lattice-workspace.zip', mimeType: 'application/zip', buffer: await hostileBackup() });
 
 	const toast = page.locator('[data-sonner-toast]').filter({ hasText: 'Workspace restored' }).first();
@@ -82,9 +89,9 @@ test('a hostile workspace backup restores everything else and names what it refu
 	expect(toastText).not.toContain('Probe clean theme');
 	expect(toastText).toMatch(/1 deck \+ 2 library assets in/);
 
-	// The restore reloads at once; what it refused rides the reload and is shown again on the
-	// restored Studio, until dismissed. The Library read afterwards is what is really stored.
-	await page.waitForEvent('load', { timeout: 15_000 });
+	// What the restore refused rides the reload and is shown again on the restored Studio, until
+	// dismissed. The Library read afterwards is what is really stored.
+	await reloaded;
 	const after = page.locator('[data-sonner-toast]').filter({ hasText: 'Some items were not restored' }).first();
 	await expect(after).toContainText('Probe beacon theme', { timeout: 15_000 });
 	await after.getByRole('button', { name: 'OK' }).click();

@@ -16,6 +16,7 @@
     "dashboard",
     "status"
   ],
+  "searchTerms": ["rows", "top and bottom", "stacked"],
   "skeleton": "<!-- @meta{layout=rows} -->\n\n## The slide's point, in one line.\n\n### Top pane\n\n- A point\n- Another point\n\n### Bottom pane\n\n- A point\n- Another point\n",
   "sample": "<!-- @meta{layout=rows} -->\n\n## Hiring kept pace with the plan through Q3.\n\n<!-- @meta{pane=progress} -->\n### Hired against plan\n\n- Engineering `98%`\n- Sales `92%` `at-risk`\n\n<!-- @meta{pane=table} -->\n### By function\n\n| Function | Plan | Hired |\n|---|---|---|\n| Engineering | 120 | 118 |\n| Sales | 60 | 55 |\n",
   "variants": [

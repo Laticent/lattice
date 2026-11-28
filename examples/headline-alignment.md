@@ -11,7 +11,7 @@ header: "Lattice · Headline alignment"
 
 # Headline alignment
 
-The alignment of a slide's **framing text** — eyebrow, heading, rule, subtitle, below-note, key insight, caption — is no longer baked into each layout. One register, `headline:`, sets it. `auto` keeps each component's own default; `left`, `center`, and `right` pin the whole cluster — even on a layout whose default is the other way.
+The alignment of a slide's **framing text** — eyebrow, heading, rule, subtitle, below-note, key insight, caption — is no longer baked into each layout. One register, `headline-align:`, sets it. `auto` keeps each component's own default; `left`, `center`, and `right` pin the whole cluster — even on a layout whose default is the other way.
 
 ---
 
@@ -21,25 +21,25 @@ The alignment of a slide's **framing text** — eyebrow, heading, rule, subtitle
 
 ## The component keeps its default
 
-By default the register emits nothing and each layout renders exactly as before — a content masthead sits **left**, a title stays **centered**. `headline:` only moves when you ask, so no existing deck shifts a pixel.
+By default the register emits nothing and each layout renders exactly as before — a content masthead sits **left**, a title stays **centered**. `headline-align:` only moves when you ask, so no existing deck shifts a pixel.
 
 > Left by default here — the eyebrow, heading, and this Key Insight already share one axis on a content slide.
 
 ---
 
-<!-- @meta{layout=title, class=head-left} -->
+<!-- @meta{layout=title, class=headline-align-left} -->
 
-`Same title · head-left`
+`Same title · headline-align-left`
 
 # Left-aligned, on demand
 
-A title centers by default. `class=head-left` pins its eyebrow, heading, and subtitle to the left margin together — the whole framing cluster, not one piece.
+A title centers by default. `class=headline-align-left` pins its eyebrow, heading, and subtitle to the left margin together — the whole framing cluster, not one piece.
 
 ---
 
-<!-- @meta{layout=stats, class=head-left} -->
+<!-- @meta{layout=stats, class=headline-align-left} -->
 
-`Metrics · head-left`
+`Metrics · headline-align-left`
 
 ## Even a centered layout follows
 
@@ -54,13 +54,13 @@ A title centers by default. `class=head-left` pins its eyebrow, heading, and sub
 
 ---
 
-<!-- @meta{layout=content, class=head-center} -->
+<!-- @meta{layout=content, class=headline-align-center} -->
 
-`Register · head-center`
+`Register · headline-align-center`
 
 ## The missing lever — center a left-default layout
 
-A content masthead lefts by default, so before this there was no way to center it. `class=head-center` centers the whole framing cluster — the eyebrow, this heading (as a *box*, so it centers on the frame even when it wraps), and the rule — while the body keeps its own axis.
+A content masthead lefts by default, so before this there was no way to center it. `class=headline-align-center` centers the whole framing cluster — the eyebrow, this heading (as a *box*, so it centers on the frame even when it wraps), and the rule — while the body keeps its own axis.
 
 > The register centers the framing; the body is yours to align separately. That separation is the point.
 
@@ -72,18 +72,18 @@ A content masthead lefts by default, so before this there was no way to center i
 
 ## Set it once, or per slide
 
-Add `headline: left` to the front matter and every slide left-aligns its framing — the title and closing bookends included. Or leave the deck on `auto` and pin just the slides that need it.
+Add `headline-align: left` to the front matter and every slide left-aligns its framing — the title and closing bookends included. Or leave the deck on `auto` and pin just the slides that need it.
 
 - Deck-wide
-  - `headline: left` in the `---` block.
+  - `headline-align: left` in the `---` block.
 - Per slide
-  - `class=head-left` on one slide.
+  - `class=headline-align-left` on one slide.
 
 ---
 
-<!-- @meta{layout=content, class=head-right} -->
+<!-- @meta{layout=content, class=headline-align-right} -->
 
-`Register · head-right`
+`Register · headline-align-right`
 
 ## Right-align, the rare escape hatch
 
@@ -93,10 +93,10 @@ The full set now ships — `auto`, `left`, `center`, `right`. `right` pins the w
 
 ---
 
-<!-- @meta{layout=closing, class=head-left} -->
+<!-- @meta{layout=closing, class=headline-align-left} -->
 
 `Wrap`
 
 ## One axis, every framing piece
 
-Set `headline:` deck-wide or per slide, and the framing text stops disagreeing with itself. `auto` respects each component; `left` / `center` / `right` make them all agree, whichever way you choose.
+Set `headline-align:` deck-wide or per slide, and the framing text stops disagreeing with itself. `auto` respects each component; `left` / `center` / `right` make them all agree, whichever way you choose.

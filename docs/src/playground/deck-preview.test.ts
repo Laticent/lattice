@@ -47,7 +47,7 @@ describe('buildSrcdoc — the slide edge', () => {
 	});
 
 	it('never shapes the slide: no radius, border or box-shadow on the section', () => {
-		// The engine owns the corner (`corners:`). A frame radius here rounded every slide
+		// The engine owns the corner (`slide-corners:`). A frame radius here rounded every slide
 		// of a square deck, and a section box-shadow is clipped away by a rounded slide's
 		// own clip-path.
 		const doc = buildSrcdoc({ ...base, html, slideEdge: 'rgb(1,2,3)' });

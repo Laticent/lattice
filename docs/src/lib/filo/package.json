@@ -2,7 +2,7 @@
   "name": "@laticent/filo",
   "version": "0.1.0",
   "description": "One undo history for every way a document changes. Every writer (an editor, a settings panel, an AI action, a drag) commits a change to one history per document; Filo stores each as a reversible patch and hands back the one change to apply on undo or redo. Coalesced typing, batches, drag groups, marks with restore, stale-commit refusal, outside-change gap steps, and step and byte caps. Text only, zero dependencies.",
-  "license": "AGPL-3.0-only",
+  "license": "Apache-2.0",
   "author": "Sharmarke Aden (Laticent) <sharmarke.aden@gmail.com>",
   "repository": {
     "type": "git",
@@ -31,7 +31,8 @@
     "*.ts",
     "!*.test.ts",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "NOTICE"
   ],
   "publishConfig": {
     "access": "public"

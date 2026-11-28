@@ -28,6 +28,16 @@ const DECK = [
 	'## Retention held\n\n- 94% of accounts renewed.\n\n<!-- @note{Open with the retention number.} -->',
 ].join('\n\n---\n\n');
 
+/** A PowerPoint made elsewhere: one slide of text and no Lattice deck inside, so the Library keeps it as reference text. */
+async function foreignPptx(): Promise<Buffer> {
+	const zip = new JSZip();
+	zip.file('[Content_Types].xml', '<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="xml" ContentType="application/xml"/></Types>');
+	zip.file('_rels/.rels', '<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/></Relationships>');
+	zip.file('ppt/presentation.xml', '<p:presentation xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"/>');
+	zip.file('ppt/slides/slide1.xml', '<p:sld><p:txBody><a:p><a:r><a:t>Opening agenda</a:t></a:r></a:p></p:txBody></p:sld>');
+	return zip.generateAsync({ type: 'nodebuffer' });
+}
+
 /** A `.lattice` from the kernel both writers use (lib/core/reopenable.js), as a recipient would get it. */
 async function latticeBytes(): Promise<Buffer> {
 	const root = resolve(import.meta.dirname, '..', '..');
@@ -94,10 +104,10 @@ async function importsADeck(page: Page, testInfo: TestInfo) {
 	await page.getByRole('button', { name: 'Import files', exact: true }).click();
 	await (await chooser).setFiles({ name: 'Halcyon.lattice', mimeType: 'application/octet-stream', buffer: bytes });
 
-	// It lands on Files as a deck, with the action to open it.
+	// It lands on Decks, with the action to open it (followups.d/3356-p1).
 	const open = page.getByRole('button', { name: 'Open Halcyon.lattice as a deck' });
 	await expect(open).toBeVisible({ timeout: 30_000 });
-	await expect(page.getByRole('tablist', { name: 'Library sections' }).getByRole('tab', { name: 'Files', exact: true })).toHaveAttribute('aria-selected', 'true');
+	await expect(page.getByRole('tablist', { name: 'Library sections' }).getByRole('tab', { name: 'Decks', exact: true })).toHaveAttribute('aria-selected', 'true');
 
 	await page.screenshot({ path: testInfo.outputPath('library-deck-card.png') });
 
@@ -112,11 +122,11 @@ async function importsADeck(page: Page, testInfo: TestInfo) {
 	await expect.poll(() => activeSource(page), { timeout: 30_000 }).toBe(DECK);
 }
 
-test('a .lattice imported through the Library lands on Files and opens as a deck @gecko', async ({ page }, testInfo) => {
+test('a .lattice imported through the Library lands on Decks and opens as a deck @gecko', async ({ page }, testInfo) => {
 	await importsADeck(page, testInfo);
 });
 
-test('a .lattice imported through the Library lands on Files and opens as a deck, at an iPhone\'s size and user agent @webkit-phone', async ({ page }, testInfo) => {
+test('a .lattice imported through the Library lands on Decks and opens as a deck, at an iPhone\'s size and user agent @webkit-phone', async ({ page }, testInfo) => {
 	// This project reports an iPhone, the case the old sniff already answered with no `accept`: so this arm checks the
 	// Library flow in WebKit, not the picker fix (the `@gecko` arm is the one the old code fails).
 	expect(await page.evaluate(() => navigator.userAgent)).toContain('iPhone');
@@ -175,7 +185,7 @@ test('a deck attached to the chat is kept like a Library import, and opens as a 
 	// Both wait in the Library with the action to open them; the .lattice opens as itself.
 	await page.keyboard.press('Escape');
 	await openLibrary(page);
-	await page.getByRole('tablist', { name: 'Library sections' }).getByRole('tab', { name: 'Files', exact: true }).click();
+	await page.getByRole('tablist', { name: 'Library sections' }).getByRole('tab', { name: 'Decks', exact: true }).click();
 	await expect(page.getByRole('button', { name: 'Open Halcyon.md as a deck' })).toBeVisible({ timeout: 30_000 });
 	await page.getByRole('button', { name: 'Open Halcyon.lattice as a deck' }).click();
 	await expect.poll(() => activeSource(page), { timeout: 30_000 }).toBe(DECK);
@@ -186,7 +196,22 @@ test('a deck attached to the chat is kept like a Library import, and opens as a 
  * context, its own empty IndexedDB), brings the deck back on Files, and "Open as deck" opens it as itself, speaker note
  * and all. The deck's file rides in the backup's own binary lane (`refdoc-decks/`), never as base64 in `refdocs.json`.
  */
-async function backsUpAndRestoresADeck(page: Page, browser: import('@playwright/test').Browser) {
+/** Where the backup controls are opened from: Workspace settings (Data), or the Library's own Backup and restore dialog
+ *  (design §7, slice 4). Both mount BackupRestore.tsx, so both routes must pack and restore the same workspace. */
+async function openBackup(page: Page, via: 'workspace' | 'library') {
+	if (via === 'library') {
+		// A docked Library stays open through Escape, and its toolbar button would collapse it: open it only if it is shut.
+		if (!(await page.getByRole('tablist', { name: 'Library sections' }).isVisible())) await openLibrary(page);
+		await page.getByRole('button', { name: 'Backup and restore', exact: true }).click();
+		await expect(page.getByRole('dialog', { name: 'Backup and restore' })).toBeVisible();
+		return;
+	}
+	await page.getByRole('button', { name: 'Workspace settings', exact: true }).first().click();
+	await expect(page.getByRole('dialog', { name: /Workspace/ })).toBeVisible();
+	await openSection(page, 'Data');
+}
+
+async function backsUpAndRestoresADeck(page: Page, browser: import('@playwright/test').Browser, via: 'workspace' | 'library' = 'workspace') {
 	const bytes = await latticeBytes();
 	await gotoStudio(page);
 	await openLibrary(page);
@@ -199,10 +224,8 @@ async function backsUpAndRestoresADeck(page: Page, browser: import('@playwright/
 	for (let i = 0; i < 3 && (await page.getByRole('dialog').count()) > 0; i++) await page.keyboard.press('Escape');
 	await expect(page.getByRole('dialog')).toHaveCount(0);
 
-	// Back up through the real sheet, and look inside: the deck's file is its own entry, the text lane stays text.
-	await page.getByRole('button', { name: 'Workspace settings', exact: true }).first().click();
-	await expect(page.getByRole('dialog', { name: /Workspace/ })).toBeVisible();
-	await openSection(page, 'Data');
+	// Back up through the real controls, and look inside: the deck's file is its own entry, the text lane stays text.
+	await openBackup(page, via);
 	const pending = page.waitForEvent('download', { timeout: 120_000 });
 	await page.getByRole('button', { name: 'Download backup' }).click();
 	const backupPath = (await (await pending).path()) as string;
@@ -216,9 +239,7 @@ async function backsUpAndRestoresADeck(page: Page, browser: import('@playwright/
 	try {
 		const fresh = await ctx.newPage();
 		await gotoStudio(fresh);
-		await fresh.getByRole('button', { name: 'Workspace settings', exact: true }).first().click();
-		await expect(fresh.getByRole('dialog', { name: /Workspace/ })).toBeVisible();
-		await openSection(fresh, 'Data');
+		await openBackup(fresh, via);
 		await fresh.getByLabel('Restore a workspace backup').setInputFiles(backupPath);
 		await expect(fresh.locator('[data-sonner-toast]').filter({ hasText: 'Workspace restored' }).first()).toBeVisible({ timeout: 60_000 });
 		await fresh.waitForLoadState('load');
@@ -240,4 +261,81 @@ test('a deck kept in the Library survives a workspace backup and opens as itself
 
 test('a deck kept in the Library survives a workspace backup, at an iPhone\'s size and user agent @webkit-phone', async ({ page, browser }) => {
 	await backsUpAndRestoresADeck(page, browser);
+});
+
+test('the Library\'s Backup and restore dialog backs up and restores the same workspace as Workspace settings @gecko', async ({ page, browser }) => {
+	await backsUpAndRestoresADeck(page, browser, 'library');
+});
+
+test('the Library\'s Backup and restore dialog, at an iPhone\'s size and user agent @webkit-phone', async ({ page, browser }) => {
+	await backsUpAndRestoresADeck(page, browser, 'library');
+});
+
+/**
+ * DECKS IS ITS OWN SECTION (followups.d/3356-p1). A `.lattice` and a Markdown deck, imported through the one Import
+ * button, both list under Decks and open as decks; neither shows under Files. A Markdown file with no slides is notes:
+ * it stays under Files and never under Decks (the owner's call on #3356). The Import button still takes any file.
+ */
+async function decksSection(page: Page, testInfo: TestInfo) {
+	const bytes = await latticeBytes();
+	await gotoStudio(page);
+	await openLibrary(page);
+	const tabs = page.getByRole('tablist', { name: 'Library sections' });
+	// One standing listener keeps Playwright's picker interception on for the page's whole life. Without it, Firefox can
+	// open a real picker on the third import that a headless browser never answers (measured: 1 in 10 on `gecko`, on the
+	// third import). The same race and fix as library-single-import.spec.ts `importFiles`.
+	page.on('filechooser', () => {});
+	const importFiles = async (files: { name: string; mimeType: string; buffer: Buffer }[]) => {
+		const chooser = page.waitForEvent('filechooser');
+		await page.getByRole('button', { name: 'Import files', exact: true }).click();
+		await (await chooser).setFiles(files);
+	};
+
+	// An empty Decks section says how to keep one.
+	await tabs.getByRole('tab', { name: 'Decks', exact: true }).click();
+	await expect(page.getByText('No decks kept yet')).toBeVisible();
+
+	// A PowerPoint not made in Lattice is kept as reference text, not a deck: the import guesses Decks from the
+	// extension, then lands on Files, where the file is, never on an empty Decks (checker finding on #3588).
+	await importFiles([{ name: 'talk.pptx', mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation', buffer: await foreignPptx() }]);
+	await expect(tabs.getByRole('tab', { name: 'Files', exact: true })).toHaveAttribute('aria-selected', 'true', { timeout: 30_000 });
+	// The card itself (its Delete control names it; the import toast names the file too).
+	await expect(page.getByRole('button', { name: 'Delete talk.pptx', exact: true })).toBeVisible();
+	await expect(page.getByText('No decks kept yet')).toHaveCount(0);
+	// Its toast explains what was kept and stays up to be read; on a phone toasts stand at the top (ui/sonner.tsx), over
+	// the header's Import button. Wait for it to leave before the next import. Sonner pauses a toast while the pointer
+	// is over it, and the emulated tap leaves the pointer where Import was, under the toast: move it off, as a finger lifts.
+	await page.mouse.move(1, (page.viewportSize()?.height ?? 600) - 1);
+	await expect(page.locator('[data-sonner-toast]')).toHaveCount(0, { timeout: 30_000 });
+
+	await importFiles([{ name: 'Halcyon.lattice', mimeType: 'application/octet-stream', buffer: bytes }]);
+	await expect(page.getByRole('button', { name: 'Open Halcyon.lattice as a deck' })).toBeVisible({ timeout: 30_000 });
+	// A Markdown deck lands on Files until it is read, then on Decks once it is known to have slides.
+	await importFiles([{ name: 'Halcyon.md', mimeType: 'text/markdown', buffer: Buffer.from(DECK) }]);
+	await expect(page.getByRole('button', { name: 'Open Halcyon.md as a deck' })).toBeVisible({ timeout: 30_000 });
+	await expect(tabs.getByRole('tab', { name: 'Decks', exact: true })).toHaveAttribute('aria-selected', 'true');
+	await importFiles([{ name: 'notes.md', mimeType: 'text/markdown', buffer: Buffer.from('# Notes\n\nNo slides here.\n') }]);
+	await expect(tabs.getByRole('tab', { name: 'Files', exact: true })).toHaveAttribute('aria-selected', 'true');
+	await expect(page.getByText('notes.md')).toBeVisible({ timeout: 30_000 });
+	// Files holds the notes and no deck.
+	await expect(page.getByRole('button', { name: /^Open Halcyon\.(md|lattice) as a deck$/ })).toHaveCount(0);
+
+	// Decks holds both decks and not the notes.
+	await tabs.getByRole('tab', { name: 'Decks', exact: true }).click();
+	await expect(page.getByRole('button', { name: 'Open Halcyon.lattice as a deck' })).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Open Halcyon.md as a deck' })).toBeVisible();
+	await expect(page.getByText('notes.md')).toHaveCount(0);
+	await page.screenshot({ path: testInfo.outputPath('library-decks-section.png') });
+
+	// The Markdown deck opens as itself.
+	await page.getByRole('button', { name: 'Open Halcyon.md as a deck' }).click();
+	await expect.poll(() => activeSource(page), { timeout: 30_000 }).toBe(DECK);
+}
+
+test('Decks lists a .lattice and a Markdown deck, and Files keeps only the notes @smoke @gecko', async ({ page }, testInfo) => {
+	await decksSection(page, testInfo);
+});
+
+test('Decks lists a .lattice and a Markdown deck, at an iPhone\'s size and user agent @webkit-phone', async ({ page }, testInfo) => {
+	await decksSection(page, testInfo);
 });

@@ -2,7 +2,7 @@
   "name": "@laticent/squadra",
   "version": "0.1.0",
   "description": "A general-purpose lint-and-fix library that refuses a rule it cannot prove works: every rule must fire on its own bad example, stay quiet on its good one, and its fix must converge and keep the document's shape. One fix driver for every engine: spans, not line text; no overlapping edits; no edits inside code fences; a shape check that refuses a fix that deletes a slide. Framework-free, zero-dependency, no DOM, no fs.",
-  "license": "AGPL-3.0-only",
+  "license": "Apache-2.0",
   "author": "Sharmarke Aden (Laticent) <sharmarke.aden@gmail.com>",
   "repository": {
     "type": "git",
@@ -47,6 +47,7 @@
     "!*.test.ts",
     "README.md",
     "LICENSE",
+    "NOTICE",
     "CHANGELOG.md"
   ],
   "publishConfig": {

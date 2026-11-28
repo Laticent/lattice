@@ -45,7 +45,7 @@ that the splitter leaves whole. A marker is tooling's, never a speaker note.
 | Field | Takes | Writes |
 |---|---|---|
 | `layout`, `variant`, `universal`, `modifiers`, `class` | class words | the slide's class |
-| `finish`, `headline`, `rule`, `eyebrow`, `spectrum`, `spectrum-edge`, `spectrum-card`, `spectrum-card-edge`, `spectrum-trim`, `lift`, `stamp`, `tone`, `corners` | the values its front-matter register takes | the word one slide would carry (`@meta{headline=left}` is `head-left`; a default is its restore word, `@meta{lift=off}` is `flat`). Derived from each register's resolver by `tools/lib/record-registers.js` |
+| `finish`, `headline-align`, `heading-rule`, `eyebrow`, `spectrum`, `spectrum-edge`, `spectrum-card`, `spectrum-card-edge`, `spectrum-trim`, `card-lift`, `stamp-shape`, `tone`, `slide-corners` | the values its front-matter register takes | the word one slide would carry (`@meta{headline-align=left}` is `headline-align-left`; a default is its restore word, `@meta{card-lift=off}` is `card-lift-off`). Derived from each register's resolver by `tools/lib/record-registers.js` |
 | a plugin's register (`icon`, `spark`, …) | its axis words | `icon-bare`, `icon-etch`, …; `with-<key>` / `no-<key>` for a register with an on/off axis (`callout`) |
 | every other field above, kebab-case (`focus-style`, `background-color`) | its type | the same `data-*` attribute its directive writes |
 | `note`, `reader`, `say`, `describe` | text; a long one on `key: \|` lines | the note channels |

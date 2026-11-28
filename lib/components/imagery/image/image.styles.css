@@ -719,7 +719,7 @@ section.image[data-img-composition="statement"]:not([data-orientation="portrait"
 /* ── Dividers ── Two hairlines, both drawn by a pseudo-element and neither one takes space,
  * so adding or removing one moves nothing. Both paint `--spectrum-structure`, the token every
  * other structural rule reads: a quiet accent tint by default, the theme's fill under a
- * `trim-spectrum:` style. The vertical divider reads the same style's -v fill, below. `rule: none` drops them.
+ * `trim-spectrum:` style. The vertical divider reads the same style's -v fill, below. `heading-rule: none` drops them.
  *   · a stacked card (heading above body) gets a line in the heading's own bottom padding;
  *   · a band gets a vertical line down the gap between its two columns. */
 section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]) {

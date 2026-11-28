@@ -122,5 +122,7 @@ fails if it is stale. Tests: `cd docs && npx vitest run src/lib/segno-markdown`,
 
 ## License
 
-AGPL-3.0-only. Its parsing rules are ported from markdown-it (MIT, Copyright (c) 2014 Vitaly Puzrin, Alex
-Kocharin); its license text ships beside this file as `LICENSE.markdown-it.md`.
+Apache-2.0. The full text ships as `LICENSE` in the package, and the copyright notice as `NOTICE`.
+Its parsing rules are ported from markdown-it (MIT, Copyright (c) 2014 Vitaly Puzrin, Alex Kocharin); its license
+text ships beside this file as `LICENSE.markdown-it.md`. Which part of Lattice is under which license:
+[`LICENSING.md`](https://github.com/Laticent/lattice/blob/main/LICENSING.md).

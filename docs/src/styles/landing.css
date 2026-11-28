@@ -473,16 +473,66 @@ html[data-device-tier='lite'] *::after {
 	position: relative;
 	display: flex;
 	flex-direction: column;
-	gap: 7px;
+	gap: 6px;
 	aspect-ratio: 16 / 9;
 	overflow: hidden;
 	border: 1px solid var(--border);
 	border-radius: 3px;
-	padding: 10px 12px;
-	background: var(--bg-alt);
+	padding: 12px 14px 14px;
 	box-shadow: 0 1px 2px color-mix(in srgb, var(--text-heading) 10%, transparent);
 }
-.drift-bar { position: absolute; top: 0; right: 0; left: 0; height: 3px; }
-.drift-title { color: var(--text-heading); }
-.drift-line { height: 5px; width: 70%; border-radius: 999px; background: var(--border); }
-.drift-line + .drift-line { width: 55%; }
+/* A left rule pushes the content in, the way a sidebar accent does on a real slide. */
+.drift-mini[data-rule='left'] { padding-left: 20px; }
+.drift-rule { --drift-rule: 3px; position: absolute; }
+.drift-rule[data-edge='top'] { top: 0; right: 0; left: 0; height: var(--drift-rule); }
+.drift-rule[data-edge='bottom'] { right: 0; bottom: 0; left: 0; height: var(--drift-rule); }
+.drift-rule[data-edge='left'] { top: 0; bottom: 0; left: 0; width: var(--drift-rule); }
+/* The logo: a drawn diamond (HARD RULE #29 — never a typed glyph). */
+.drift-logo {
+	--drift-logo: 9px;
+	position: absolute;
+	width: var(--drift-logo);
+	height: var(--drift-logo);
+	border: 1.5px solid var(--text-heading);
+	transform: rotate(45deg);
+}
+.drift-logo[data-at='tr'] { top: 9px; right: 10px; }
+.drift-logo[data-at='tl'] { top: 9px; left: 12px; }
+.drift-logo[data-at='bl'] { bottom: 9px; left: 10px; }
+/* The title clears the logo's corner so the two never touch. */
+.drift-mini:has(.drift-logo[data-at='tr']) .drift-title { padding-right: 18px; }
+.drift-mini:has(.drift-logo[data-at='tl']) .drift-title { padding-left: 16px; }
+.drift-mini:has(.drift-page[data-at='tr']) .drift-title { padding-right: 16px; }
+.drift-title { color: var(--text-heading); line-height: 1.15; }
+.drift-chart {
+	display: flex;
+	flex: 1;
+	align-items: flex-end;
+	gap: 5px;
+	min-height: 0;
+	width: 62%;
+	padding-bottom: 6px;
+}
+.drift-chart[data-align='center'] { align-self: center; }
+.drift-col { flex: 1; border-radius: 1px; }
+.drift-list { display: flex; flex-direction: column; gap: 6px; padding-top: 4px; }
+.drift-list[data-align='center'] { align-items: center; }
+.drift-item { display: flex; align-items: center; gap: 6px; width: 78%; }
+.drift-list[data-align='center'] .drift-item { justify-content: center; }
+.drift-dot { flex: none; width: 5px; height: 5px; border-radius: 999px; }
+.drift-line { height: 5px; border-radius: 999px; background: var(--border); }
+.drift-page {
+	position: absolute;
+	font-family: var(--font-mono);
+	font-size: 9px;
+	line-height: 1;
+	color: var(--text-muted);
+}
+.drift-page[data-at='br'] { right: 10px; bottom: 8px; }
+.drift-page[data-at='bl'] { bottom: 8px; left: 12px; }
+.drift-page[data-at='tr'] { top: 8px; right: 10px; }
+/* At two columns on a phone a slide is about 170px wide, and a two-line title
+ * ("Risks and next steps") leaves room for two list lines, not three. */
+@media (max-width: 639px) {
+	.drift-item:nth-child(3) { display: none; }
+}

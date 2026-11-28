@@ -8,12 +8,12 @@ const { buildSchema } = require('../../../tools/build-front-matter-schema.js');
 const validate = new Ajv({ allErrors: true, strict: false }).compile(buildSchema());
 
 test('a deck using registers, flags, a map and a plugin register validates', () => {
-  const ok = validate({ marp: true, theme: 'cuoio', size: '4K', finish: 'halo', backdrop: 40, tag: 'plain band center', lift: 'on', paginate: true, lexicon: { SQL: 'sequel' }, icon: 'bare', plugins: ['icons'] });
+  const ok = validate({ marp: true, theme: 'cuoio', size: '4K', finish: 'halo', backdrop: 40, 'card-tag': 'plain band center', 'card-lift': 'on', pagination: true, lexicon: { SQL: 'sequel' }, icon: 'bare', plugins: ['icons'] });
   assert.ok(ok, JSON.stringify(validate.errors));
 });
 
 test('each probe is refused', () => {
-  for (const bad of [{ finsh: 'halo' }, { themee: 'x' }, { size: 'huge' }, { lift: 'maybe' }, { tag: 'plain sideways' }]) {
+  for (const bad of [{ finsh: 'halo' }, { themee: 'x' }, { size: 'huge' }, { 'card-lift': 'maybe' }, { 'card-tag': 'plain sideways' }]) {
     assert.equal(validate(bad), false, JSON.stringify(bad));
   }
 });

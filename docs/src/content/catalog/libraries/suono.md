@@ -13,7 +13,7 @@ facts:
   - { k: Status, v: Coming to npm with Lattice 1.0 }
   - { k: Runs in, v: The browser (helpers run in Node) }
   - { k: Dependencies, v: None }
-  - { k: License, v: AGPL-3.0 }
+  - { k: License, v: Apache-2.0 }
 reference:
   - label: The README
     href: https://github.com/Laticent/lattice/blob/main/docs/src/lib/suono/README.md

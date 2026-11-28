@@ -1,0 +1,9 @@
+@laticent/ltt
+Copyright 2026 Sharmarke Aden, doing business as Laticent.
+
+Licensed under the Apache License, Version 2.0. The full text ships in this
+package as LICENSE.
+
+This package is the reference implementation of the Lattice Timing Track
+format. The format's specification, spec/LTT-1.0.md in the Lattice
+repository, is licensed separately under CC-BY-4.0.

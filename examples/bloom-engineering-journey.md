@@ -180,7 +180,7 @@ The verb is one axis — how you think. **Reach** is the other — how far what 
 
 ---
 
-<!-- @meta{layout=matrix-grid, class=head-center, footer=The matrix · matrix-grid} -->
+<!-- @meta{layout=matrix-grid, class=headline-align-center, footer=The matrix · matrix-grid} -->
 
 
 ## Your level is a cell, not a rung.

@@ -1,0 +1,13 @@
+@laticent/lastra
+Copyright 2026 Sharmarke Aden, doing business as Laticent.
+
+Licensed under the Apache License, Version 2.0. The full text ships in this
+package as LICENSE.
+
+The JPEG decoder in decode/ and the JPEG encoder in jpeg.ts are based in part
+on libjpeg-turbo and on the work of the Independent JPEG Group.
+
+This software is based in part on the work of the Independent JPEG Group.
+
+Their terms ship in this package as decode/LICENSE.libjpeg-turbo.md and
+decode/README.ijg.txt.

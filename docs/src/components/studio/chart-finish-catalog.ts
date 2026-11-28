@@ -1,5 +1,5 @@
 // The Studio chart-finish catalog — DISPLAY metadata for the `chart-finish:` key (how
-// every chart on the deck spends its color). Sibling of corners-catalog.ts / rule-catalog.ts.
+// every chart on the deck spends its color). Sibling of slide-corners-catalog.ts / heading-rule-catalog.ts.
 // The engine's single source of truth is CHART_FINISH_NAMES (lib/core/resolve-chart-finish.js);
 // THIS file adds only the human layer the picker needs. Rot-guard: chart-finish-catalog.test.ts.
 //

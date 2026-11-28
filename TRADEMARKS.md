@@ -2,8 +2,9 @@
 
 "Lattice" (as the name of this slide-deck engine) and
 "Laticent," together with the project logos, are trademarks of Sharmarke
-Aden, doing business as Laticent. The AGPL-3.0 license covers the code; it
-does not grant any right to use these names or logos (see AGPL-3.0 §7(e)).
+Aden, doing business as Laticent. The licenses cover the code (AGPL-3.0 for
+the engine, Apache-2.0 for most libraries; see LICENSING.md); neither grants
+any right to use these names or logos (see AGPL-3.0 §7(e) and Apache-2.0 §6).
 
 ## You may, without asking
 

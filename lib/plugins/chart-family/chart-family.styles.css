@@ -704,7 +704,7 @@ section.chart-frame,
  * framing boxes below their band and cost 30 of them an extra line.
  *
  * How a chart's framing behaves is the DECK's call, not this file's, and the lever is
- * alignment — the `headline:` register (`head-left` / `head-center` / `head-right`,
+ * alignment — the `headline-align:` register (`headline-align-left` / `headline-align-center` / `headline-align-right`,
  * base.accent-finish.css), which the lede reads as `--headline-align` /
  * `--headline-justify`. Do not reintroduce a width here; a component does not compose its
  * own chrome. (Fit is autosplit + atomization's job, not a cap's.) */
@@ -1100,7 +1100,7 @@ section.chart-frame .chart-caption {
    * at x=64 (was 1024 at x=128) — the same box the chart it captions occupies,
    * which is the point; it moved WITH the chart, not away from it. */
   padding-block: var(--sp-sm);
-  /* The caption is framing text — it follows the headline-alignment seam (`headline:`).
+  /* The caption is framing text — it follows the headline-alignment seam (`headline-align:`).
    * `auto`/no register → the fallback `center` (today's centered caption). */
   text-align: var(--headline-align, center);
   font-family: var(--font-label);

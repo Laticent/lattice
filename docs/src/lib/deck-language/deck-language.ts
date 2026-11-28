@@ -82,8 +82,11 @@ function inlineParser(): InlineParser {
 	return parser;
 }
 
-/** What building trees has cost, for the tests and the editor census: counted, never timed. */
-export const deckTreeStats = { models: 0, updates: 0, slidesBuilt: 0, slidesReused: 0, nodes: 0 };
+/**
+ * What building trees has cost, for the tests and the editor census: counted, never timed. `repeats` counts a parse
+ * that found the text its fragments' model already read, and so did no deck work (`DeckParse.advance`).
+ */
+export const deckTreeStats = { models: 0, updates: 0, repeats: 0, slidesBuilt: 0, slidesReused: 0, nodes: 0 };
 
 // The support `markdown()` gives (keymap, heading folds, HTML tag completion, URL paste), with GFM's node set so
 // tables and strikethrough have names. Its grammar is never run: `deckLanguage` below replaces it.
@@ -642,8 +645,7 @@ export function deckTree(m: DeckModel, length = m.source.length): Tree {
 }
 
 /** The model of `text`, updated from the one an earlier tree carries when there is one. */
-function modelFor(text: string, fragments: readonly TreeFragment[]): DeckModel {
-	const prev = fragments.length ? fragments[0].tree.prop(MODEL) : undefined;
+function modelFor(text: string, prev: DeckModel | undefined): DeckModel {
 	if (prev) {
 		deckTreeStats.updates++;
 		return updateModel(prev, text);
@@ -652,6 +654,18 @@ function modelFor(text: string, fragments: readonly TreeFragment[]): DeckModel {
 	return buildModel(text);
 }
 
+/** The top node each model's parse returned, and the inline parser it read with, so a parse of the same text under the
+ *  same plugin rules returns it again. A change in the admitted plugins builds a new inline parser, and so misses. */
+const rootOf = /* @__PURE__ */ new WeakMap<DeckModel, { tree: Tree; parser: InlineParser }>();
+
+// ONE KEYSTROKE, ONE DECK UPDATE, HOWEVER CODEMIRROR SLICES THE PARSE. CodeMirror gives a transaction's parse 20 ms
+// (`Work.Apply`). When the deck update spends it, `takeTree` cuts the tree at the parse's `parsedPos`: 0 while the HTML
+// wrapper still has a nested parse to run, else where the front matter's YAML starts (4 in the gallery, whose front
+// matter tree is built afresh each time and so is always parsed again). The next slice (`ensureSyntaxTree`, or the
+// idle-time worker) starts a new parse from the fragments, and so calls this parser again on text the fragments' model
+// has already read. That call returns the top node the first one built: no update counted, no slide counted twice.
+// The nested HTML and YAML regions are still parsed again by that slice; only the deck work is saved. Before this, a
+// slow machine paid the deck update's bookkeeping twice per keystroke (#3593's queue run: 2 updates for 1 keystroke).
 class DeckParse implements PartialParse {
 	parsedPos = 0;
 	stoppedAt: number | null = null;
@@ -661,7 +675,17 @@ class DeckParse implements PartialParse {
 	) {}
 	advance(): Tree {
 		const text = this.input.read(0, this.input.length);
-		const tree = deckTree(modelFor(text, this.fragments), this.input.length);
+		const prev = this.fragments.length ? this.fragments[0].tree.prop(MODEL) : undefined;
+		const root = prev && prev.source === text ? rootOf.get(prev) : undefined;
+		let tree: Tree;
+		if (root && root.parser === inlineParser() && root.tree.length === this.input.length) {
+			deckTreeStats.repeats++;
+			tree = root.tree;
+		} else {
+			const m = modelFor(text, prev);
+			tree = deckTree(m, this.input.length);
+			rootOf.set(m, { tree, parser: inlineParser() });
+		}
 		this.parsedPos = this.input.length;
 		return tree;
 	}

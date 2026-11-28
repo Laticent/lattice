@@ -87,6 +87,7 @@
     "workflow",
     "overview"
   ],
+  "searchTerms": ["process", "workflow", "flow", "decision tree", "steps"],
   "description": "A free-form flowchart: shapes, groups and lines, written as a list.",
   "purpose": "Use for a process or decision flow, an org chart, a data flow or a system map: any set of boxes where the lines between them are the point. Every list item is a shape; a sub-list of shapes makes its parent a group; an arrow in a row connects shapes by name. Nothing implies order, so the same grammar draws a tree, a pipeline or a few disconnected boxes.",
   "variants": [

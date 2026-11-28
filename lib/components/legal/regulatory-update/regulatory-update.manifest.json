@@ -56,6 +56,7 @@
     "compliance",
     "regulation"
   ],
+  "searchTerms": ["regulation", "rules", "compliance", "policy changes", "law changes"],
   "description": "Change log against a baseline — numbered list of statutes/cases/rules with citation, summary, and effective date.",
   "purpose": "Use when a quarter's regulatory motion needs a single-slide digest. Each row carries the change name, the citation (inline code), the summary, and the effective-date marker (inline code).",
   "excludes": [

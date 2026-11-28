@@ -475,8 +475,8 @@ section.mark-seeds {
 
 section.mark-seeds:not(
   .confidential, .wip, .draft, .tbd, .redacted, .archived, .pinned, .revised,
-  .stamp-tab, .stamp-notch, .stamp-pill, .stamp-bracket, .stamp-seal, .stamp-ribbon, .stamp-flag,
-  .stamp-underline, .stamp-dot, .stamp-mark, .stamp-veil, .stamp-bar, .stamp-pin,
+  .stamp-shape-tab, .stamp-shape-notch, .stamp-shape-pill, .stamp-shape-bracket, .stamp-shape-seal, .stamp-shape-ribbon, .stamp-shape-flag,
+  .stamp-shape-underline, .stamp-shape-dot, .stamp-shape-mark, .stamp-shape-veil, .stamp-shape-bar, .stamp-shape-pin,
   .title.spectrum, .closing.spectrum
 )::before {
   content: '';
@@ -493,8 +493,8 @@ section.mark-seeds:not(
  * mode and nothing on a dark slide, exactly as before this change. */
 section.mark-seeds:is(
   .confidential, .wip, .draft, .tbd, .redacted, .archived, .pinned, .revised,
-  .stamp-tab, .stamp-notch, .stamp-pill, .stamp-bracket, .stamp-seal, .stamp-ribbon, .stamp-flag,
-  .stamp-underline, .stamp-dot, .stamp-mark, .stamp-veil, .stamp-bar, .stamp-pin,
+  .stamp-shape-tab, .stamp-shape-notch, .stamp-shape-pill, .stamp-shape-bracket, .stamp-shape-seal, .stamp-shape-ribbon, .stamp-shape-flag,
+  .stamp-shape-underline, .stamp-shape-dot, .stamp-shape-mark, .stamp-shape-veil, .stamp-shape-bar, .stamp-shape-pin,
   .title.spectrum, .closing.spectrum
 ) {
   --_bg-radial: var(--_seeds);

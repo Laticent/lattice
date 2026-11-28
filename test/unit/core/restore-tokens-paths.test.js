@@ -3,7 +3,7 @@
  *
  * A deck value writes no token when it is the default, so one slide inside a deck that set
  * another value needs the default's own token to ask for it back: `with-spectrum`,
- * `spectrum-top`, `card-spectrum-left`, `rule-auto`, `eyebrow-plain`, `head-auto`.
+ * `spectrum-top`, `card-spectrum-left`, `heading-rule-auto`, `eyebrow-plain`, `headline-align-auto`.
  * Each sits in its register's override set, so the engine drops the deck's token on that axis
  * for that slide, and the slide renders as the default. markdown-it-plugins.test.js pins the
  * same contract on the plugin; this pins it where decks are actually rendered. The last test pins
@@ -25,14 +25,14 @@ const RESTORES = [
   ['spectrum-regular', 'spectrum-band'],
   ['card-spectrum-regular', 'card-spectrum-hairline'],
   ['trim-spectrum-quiet', 'trim-spectrum-mono'],
-  ['rule-auto', 'rule-accent'],
+  ['heading-rule-auto', 'heading-rule-accent'],
   ['eyebrow-plain', 'eyebrow-dot'],
-  ['head-auto', 'head-center'],
+  ['headline-align-auto', 'headline-align-center'],
 ];
 const DECK = [
   '---', 'theme: indaco',
   'spectrum: solid left band', 'card-spectrum: rainbow top hairline', 'trim-spectrum: mono',
-  'rule: accent', 'eyebrow: dot', 'headline: center',
+  'heading-rule: accent', 'eyebrow: dot', 'headline-align: center',
   '---', '', '## Follows the deck',
   ...RESTORES.flatMap(([own]) => ['', '---', '', `<!-- @meta{class=content ${own}} -->`, '', `## ${own}`]),
 ].join('\n');
@@ -60,7 +60,9 @@ test('the runtime evicts the deck token on a restore token\'s axis too', async (
   const fs = require('node:fs');
   const { frontMatterBlock } = require(path.join(ROOT, 'lib/core/deck-front-matter.js'));
   const bundle = fs.readFileSync(path.join(ROOT, 'dist', 'lattice-runtime.js'), 'utf8');
-  assert.ok(bundle.includes('card-spectrum-left'),
+  // A restore word the record table spells out (an irregular class), so it survives the compact table in
+  // lib/plugins/meta.generated.mjs, where a `<key>-<value>` class such as `card-spectrum-left` is written 0.
+  assert.ok(bundle.includes('with-card-spectrum'),
     'dist/lattice-runtime.js predates the restore tokens — run `npm run runtime:build` and re-run.');
   const markup = ['<section class="content"><h2>Deck</h2></section>',
     ...RESTORES.map(([own]) => `<section class="content ${own}"><h2>${own}</h2></section>`)].join('');

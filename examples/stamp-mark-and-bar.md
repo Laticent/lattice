@@ -9,13 +9,13 @@ header: "Lattice · Stamps"
 
 # Two stamps that now say what they mean.
 
-`stamp-mark` is a faint diagonal watermark again, and `stamp-bar` names its state on the bar.
+`stamp-shape-mark` is a faint diagonal watermark again, and `stamp-shape-bar` names its state on the bar.
 
 ---
 
-<!-- @meta{layout=cards-grid, class=stamp-mark draft} -->
+<!-- @meta{layout=cards-grid, class=stamp-shape-mark draft} -->
 
-`stamp-mark · draft`
+`stamp-shape-mark · draft`
 
 ## The watermark sits over the content without hiding it.
 
@@ -30,9 +30,9 @@ header: "Lattice · Stamps"
 
 ---
 
-<!-- @meta{layout=cards-grid, class=stamp-mark confidential} -->
+<!-- @meta{layout=cards-grid, class=stamp-shape-mark confidential} -->
 
-`stamp-mark · confidential`
+`stamp-shape-mark · confidential`
 
 ## A long state shrinks to fit, so CONFIDENTIAL stays on the slide.
 
@@ -43,9 +43,9 @@ header: "Lattice · Stamps"
 
 ---
 
-<!-- @meta{layout=cards-grid, class=stamp-bar draft} -->
+<!-- @meta{layout=cards-grid, class=stamp-shape-bar draft} -->
 
-`stamp-bar · draft`
+`stamp-shape-bar · draft`
 
 ## The redaction bar now names its state.
 
@@ -60,9 +60,9 @@ header: "Lattice · Stamps"
 
 ---
 
-<!-- @meta{layout=cards-grid, class=stamp-bar confidential} -->
+<!-- @meta{layout=cards-grid, class=stamp-shape-bar confidential} -->
 
-`stamp-bar · confidential`
+`stamp-shape-bar · confidential`
 
 ## A longer state widens the bar instead of clipping the word.
 

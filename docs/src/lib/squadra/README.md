@@ -287,3 +287,8 @@ first reader is `lattice-deck`'s front-matter island (Segno pipeline P3, not lan
 CSS, the JS/TS adapter, project rules (`collect` and `decide`), the cache and workers. M4 adds the
 declarative selector language and rule manifests, inline suppressions, and the SARIF, GitHub and LSP
 reporters. The Learn and demo pages, first planned for M4, are built: `/libraries/squadra/`.
+
+## License
+
+Apache-2.0. The full text ships as `LICENSE` in the package, and the copyright notice as `NOTICE`.
+Which part of Lattice is under which license: [`LICENSING.md`](https://github.com/Laticent/lattice/blob/main/LICENSING.md).

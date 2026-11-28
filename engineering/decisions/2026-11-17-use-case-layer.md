@@ -476,46 +476,35 @@ Step 1 shipped as planned, with these differences, each found while building it:
 
 How to work in the folder: `lib/use-cases/README.md`.
 
-## 11. What this note does not do
+### 10.2 Step 2, as built (2026-11-28)
 
-- It builds nothing and settles nothing the spine owns.
-- It does not design the desktop app's host (Appendix A) or a remote HTTP server; authorization and
-  multi-user state are their own decision, and nothing here assumes a transport.
+Step 2 shipped the validators of §7, enforced on every use case. Lattice is not generally available, so no
+caller's existing behavior is held: the contract is the schema, the validator enforces it, and the handler
+trusts what reaches it. Where a schema was wrong about what a tool should accept, the schema was fixed.
 
-## Appendix A. What a future desktop MCP host must meet
-
-- **Transport:** localhost Streamable HTTP bound to `127.0.0.1`, with `Origin` validation (the spec's
-  MUST against DNS rebinding), and a per-client **pairing token** issued in the Studio.
-- **Identity:** cards and events carry the paired identity, passed through `visibleTitle` and prefixed
-  "External client:"; `clientInfo.name` is never trusted.
-- **Commit:** a draft or act call returns `staged` at once; the outcome arrives on the status
-  resource. No call is held open waiting for a person.
-- **Approval:** only the local author may approve; a live-session guest may not approve on the host's
-  machine.
-
-## Appendix B. How the trio changed the first draft
-
-The first draft (commit bfdbe07, "the action manifest and the bridge layer") went to a red team, a
-Munger inversion and an independent checker.
-
-- **Changed:** per-host wording (inversion); semantic reads as the core (owner, answering the
-  inversion's "oracle" alternative); ops owned by the spine, atomic, with index-keyed fix-ups in the
-  applier and `AMBIGUOUS` for duplicates (all three); stage-then-submit with the `autoHold` predicates
-  on the file host (red team, owner); a confirm no client can answer, signed single-use `requestState`
-  (red team, checker); `humanGated` lens approval (red team, reproduced); file-host confinement,
-  history and write safety (red team, reproduced); explicit per-host annotations and the result
-  envelope as `outputSchema` (checker); the legacy list for the chat's tools (checker, inversion);
-  `@laticent/*` packages for workspace libraries (checker, inversion); `unicode: false` validators
-  (checker, measured); the token budget made a report, not a gate (inversion); the desktop host moved
-  to Appendix A and the public CLI host cut (inversion); the corrected 145-token figure and the
-  example manifest that now passes its own gate (checker).
-- **A second checker on the rewrite (commit 032ebad)** found nine wording faults and no design fault,
-  all fixed: §6.4's rule now names its one stated exception; the confirm page carries a token the
-  client never sees; §6.3's submit check now includes a clean check and counts moves, copies and
-  destructive use cases; §10 schedules the spine's implementation (0b); §5.2 splits spine ops from
-  this layer's ops and states addressing as a requirement to the spine; older clients get
-  `CONFIRM_UNAVAILABLE`; the example bounds its term length and requires an expansion; §7 notes that
-  lengths count UTF-16 units.
-- **Kept against a finding:** a JSON manifest rather than a TypeScript record (inversion). The MCP
-  server and the generated docs read it without running code, and per-host wording plus `enumFrom`
-  answer the runtime-list objection.
+- **One standalone validator per use case,** `lib/use-cases/<id>/<id>.validate.mjs`, and an index,
+  `validators.generated.mjs`, both written by `tools/build-use-cases.js`. All 19 import nothing. Each file also
+  exports the schema it checks.
+- **A keyword whose value the Studio computes at runtime is left out.** Five manifests name one: the theme,
+  finish, chart-kind and guide `enum`s, and `view_asset`'s `maxItems`. A build-time validator cannot know
+  them, so they stay the handler's check. Each file's header names what it left out. Descriptions are left
+  out too: they are text for the model, not rules.
+- **Every use case is enforced.** A call that does not fit is refused with `BAD_ARGS`, the JSON Pointer of the
+  first failing field and the reason ("/edits/0/slide must be integer"); it never reaches the handler, and a
+  refused deck edit is marked refused. A use case with no validator is `UNKNOWN`: the dispatcher fails closed.
+- **One rule for all tools: a null in an optional field means it was left out.** Models fill unused optional
+  parameters with null as often as they omit them. The dispatcher drops such a null, at any depth, before it
+  validates (`dropNullOptionals`, reading the exported schema), rather than every schema saying "or null". A null
+  the schema allows (`set_front_matter`'s `value: null` removes a key) and a null in a required field are kept,
+  so the first means what it says and the second is refused.
+- **Two schemas were wrong, and were fixed** (a model-visible change; the golden fixture moved by exactly
+  these): `chart_from_data`'s row and part `value` take a string or a number, and `set_front_matter`'s `value`
+  takes a string, number, boolean or null. Their handlers always accepted both; a model sending 42 or `true`
+  was right, and refusing it would have cost a round for nothing.
+- **What the schema says, the model must send.** A required field (`summary` on `edit_slides`, `replace_text`,
+  `set_terms` and `set_front_matter`; `from` on `read_slides`), a list where one is asked for (`view_asset`'s `names`), a boolean or an integer, a value in
+  range: each is refused, by name, where a handler used to guess. A handler's private leniency is now dead code
+  for the validated shapes, and goes when the tool gets its kernel.
+- **The schemas are still open and unbounded** (`additionalProperties` unset, no `maxLength`), so an unknown
+  field passes and no string has a limit. Closing and bounding them is the kernel migration's step for each tool
+  (`lib/use-cases/README.md` §Legacy), and every new use case is closed and bounded by `checkUseCaseManifests`.

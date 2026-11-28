@@ -81,7 +81,7 @@ for (const vw of [1440, 820, 390]) {
 			await gotoStudio(page);
 			await openLibrary(page, vw);
 			// The same control on every section.
-			for (const label of ['All', 'Design', 'Media', 'Files']) {
+			for (const label of ['All', 'Decks', 'Design', 'Media', 'Files']) {
 				await page.getByRole('tablist', { name: 'Library sections' }).getByRole('tab', { name: label, exact: true }).click();
 				await expect(page.getByRole('button', { name: 'Import files', exact: true })).toBeVisible();
 			}

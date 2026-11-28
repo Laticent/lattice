@@ -52,6 +52,8 @@ export type PickerItem = {
 	form?: string;
 	substance?: string;
 	tags?: string[];
+	/** The everyday words an author types to find it (manifest `searchTerms`). */
+	searchTerms?: string[];
 	/** Detail-rail prose. */
 	purpose?: string;
 	/** A local component's own CSS → preview `extraCss` so its tile renders STYLED. */
@@ -133,6 +135,7 @@ function toCatalogItem(it: PickerItem): CatalogItem {
 		description: it.description || '',
 		purpose: it.purpose || '',
 		tags: it.tags ?? [],
+		searchTerms: it.searchTerms ?? [],
 		variants: it.variants ?? [],
 	};
 }
@@ -456,7 +459,7 @@ function SlidePickerImpl({ open, onOpenChange, items, options, frontMatter, pale
 				    and minting a fresh set when the query matched again. Measured: 11 frames → 1 → 11 per
 				    empty-search bounce, which on WebKit is ~100MB never given back, reachable by any typo.
 				    The pool outlives what it is showing; that is the whole idea. */}
-				<PreviewPool>
+				<PreviewPool tileCss>
 					{searching && flat.length === 0 ? (
 						<Empty query={query} />
 					) : (

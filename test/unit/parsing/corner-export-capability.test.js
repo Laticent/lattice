@@ -2,7 +2,7 @@
  * Unit: which export targets can hold a rounded corner
  * (lib/core/corner-export-capability.mjs).
  *
- * The register (resolve-corners.js) says what the DECK asked for; this says what the
+ * The register (resolve-slide-corners.js) says what the DECK asked for; this says what the
  * ARTIFACT can hold. A rounded corner is a hole, so it only reads where the target can
  * carry "nothing" — an alpha channel, or a live document whose host paints behind.
  *

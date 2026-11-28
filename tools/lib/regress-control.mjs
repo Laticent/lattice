@@ -79,6 +79,19 @@ export function renderEnvOverrides(env) {
   return Object.keys(env).filter((k) => (k.startsWith('LATTICE_') && !INERT_ENV.has(k)) || k === 'NODE_TEST_CONTEXT').sort();
 }
 
+// Host state the render reads from outside the repo, which reaches both control renders alike:
+// packages installed in the user's store (lattice.js embeds an installed component whose name a
+// deck uses as a class, and the store is ~/.lattice/packages unless LATTICE_HOME says otherwise),
+// and an untracked lattice-plugins.json at this checkout's root, which a tree under .scratch/
+// finds by walking up, since the tree has no .git of its own to stop the walk (the fifth review
+// of #3589, findings 2 and 3). Returns the reasons to refuse, empty when there are none.
+export function hostStateRefusals({ installed, untrackedPluginList }) {
+  const out = [];
+  if (installed.length) out.push(`packages are installed in your store (${installed.slice(0, 3).join(', ')}${installed.length > 3 ? ', …' : ''}), and they reach both renders`);
+  if (untrackedPluginList) out.push('an untracked lattice-plugins.json at the repo root reaches both renders');
+  return out;
+}
+
 // The gitignored builds a PDF render loads, as the tools/ scripts that write them, in build order:
 // the Segno grammar, every workspace library (@laticent/*, each into its own dist/), the CSS bundle
 // and the default bundle built from it, the dagre and callout-placer bundles, and the PDF writer.

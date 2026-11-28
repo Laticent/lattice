@@ -26,7 +26,7 @@ const { rowValues, deckFor, readRecipe } = require(path.join(ROOT, 'tools', 'pre
 const BUCKETS = ['anchor', 'statement', 'inventory', 'comparison', 'progression', 'evidence', 'imagery',
   'chart', 'diagram', 'math', 'code', 'legal', 'connect', 'layout'];
 const LOOK_KEYS = ['theme', 'color-mode', 'preset', 'finish', 'backdrop', 'typography', 'chart-finish', 'color-intensity', 'mode',
-  'spectrum', 'rule', 'eyebrow', 'headline', 'lift', 'corners', 'class', 'style'];
+  'spectrum', 'heading-rule', 'eyebrow', 'headline-align', 'card-lift', 'slide-corners', 'class', 'style'];
 
 /** The bucket a `_class` (or `_pane`) component lives in, from where its directory is. */
 function bucketOf(name) {

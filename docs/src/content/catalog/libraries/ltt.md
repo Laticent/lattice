@@ -13,7 +13,7 @@ facts:
   - { k: Status, v: Coming to npm with Lattice 1.0 }
   - { k: Runs in, v: 'The browser, a worker and Node' }
   - { k: Dependencies, v: None }
-  - { k: License, v: 'AGPL-3.0 (spec: CC-BY-4.0)' }
+  - { k: License, v: 'Apache-2.0 (spec: CC-BY-4.0)' }
 reference:
   - label: The spec
     href: /spec/ltt/
