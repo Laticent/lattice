@@ -86,6 +86,20 @@ async function openStudioDeck(page: Page, source: string = deck) {
 	await expect(slideTitle(page)).toHaveText('First slide', { timeout: 15_000 });
 	await page.setViewportSize(target);
 	await expect(livePreview(page).locator('.collage-tile')).toHaveCount(4, { timeout: 30_000 });
+	// Click only a collage that has packed. While its photos load, the list is `data-collage="measuring"` and
+	// `visibility: hidden` (collage.styles.css), yet each tile keeps a box in the unpacked grid: a point read then
+	// holds still across the reads below, the click lands on a photo nobody can see, `tapCollageAt`'s
+	// `elementFromPoint` skips it, and the pack then moves every tile. It failed 2 of 5 on main 2ead5e1d while a
+	// full 4-worker suite kept the preview server busy (CPU load alone did not slow the photos enough), and every
+	// time once the photos answered 3.5 s late. The measure always ends, at the latest at measure-kit's 4 s cap,
+	// as `packed` or `fallback`.
+	await expect
+		.poll(() => page.evaluate(() => {
+			const doc = (document.querySelector('iframe.live') as HTMLIFrameElement | null)?.contentDocument;
+			const lists = Array.from(doc?.querySelectorAll('ul.collage-list') ?? []);
+			return lists.length > 0 && lists.every((l) => /^(packed|fallback)$/.test(l.getAttribute('data-collage') ?? ''));
+		}), { timeout: 30_000, message: 'the collage never finished measuring its photos' })
+		.toBe(true);
 	// Click only a frame a reader can see. A resize to a phone mounts a fresh preview frame, which holds itself hidden
 	// (opacity 0, no pointer events) until its fonts land and it reveals; under load that is seconds after its tiles are
 	// in the DOM, and `tapCollageAt` rightly ignores a tap on a hidden frame. Clicking before the reveal failed 3 of 24
@@ -99,18 +113,25 @@ async function openStudioDeck(page: Page, source: string = deck) {
 	// The resize re-fits the scaled frame; click only once its box has stopped moving, and only a frame laid out for THIS
 	// viewport. Right after a resize to a phone the desktop frame can still be the live one: revealed, steady across two
 	// reads, and with its photos off the phone's screen. A loaded run tapped x 833 on a 393 px phone and nothing opened.
+	// The two equal reads must both see the collage packed, in the frame that is live then: the wait above may have
+	// read a frame the resize is about to replace, and a point read while measuring holds still too.
 	let last = '';
 	await expect
 		.poll(async () => {
-			const now = JSON.stringify(await photoPoint(page, 0));
-			const same = now !== 'null' && now === last;
-			last = now;
-			const onScreen = await page.evaluate(() => {
+			const point = await photoPoint(page, 0);
+			const { onScreen, packed } = await page.evaluate(() => {
 				const fr = document.querySelector('iframe.live') as HTMLIFrameElement | null;
 				const r = fr?.getBoundingClientRect();
-				return !!r && r.width > 0 && r.left >= 0 && r.right <= window.innerWidth + 1;
+				const lists = Array.from(fr?.contentDocument?.querySelectorAll('ul.collage-list') ?? []);
+				return {
+					onScreen: !!r && r.width > 0 && r.left >= 0 && r.right <= window.innerWidth + 1,
+					packed: lists.length > 0 && lists.every((l) => /^(packed|fallback)$/.test(l.getAttribute('data-collage') ?? '')),
+				};
 			});
-			const p = now === 'null' ? null : (JSON.parse(now) as { x: number; y: number });
+			const now = point && packed ? JSON.stringify(point) : 'null';
+			const same = now !== 'null' && now === last;
+			last = now;
+			const p = point;
 			return same && onScreen && !!p && p.x >= 0 && p.x <= target.width && p.y >= 0 && p.y <= target.height;
 		}, { intervals: [250], timeout: 15_000, message: 'the preview never settled on screen at this viewport' })
 		.toBe(true);
