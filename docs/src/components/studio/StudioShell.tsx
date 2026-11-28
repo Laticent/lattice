@@ -2907,12 +2907,16 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Each axis's Auto is NOT any one word (each component decides), so Auto drops that word, and
 	// both Autos remove the key.
 	const deckAlign = readAlign(getFrontMatter(source, 'align'));
+	// The other axis is read from the text the write lands on, not from this render's `deckAlign`: a pick that
+	// lands before the render of the previous pick would otherwise drop that pick's word.
 	const setAlignAxis = (axis: 'v' | 'h') => (value: string) => {
 		const pick = value === AUTO_VALUE ? null : value;
-		const v = axis === 'v' ? pick : (deckAlign.v?.name ?? null);
-		const h = axis === 'h' ? pick : (deckAlign.h?.name ?? null);
-		const next = writeAlign(v, h);
-		settingsWrite(next ? `Align → ${next}` : 'Align → auto', (s) => writeFrontMatterLine(s, 'align', next));
+		const alignFor = (s: string) => {
+			const now = readAlign(getFrontMatter(s, 'align'));
+			return writeAlign(axis === 'v' ? pick : (now.v?.name ?? null), axis === 'h' ? pick : (now.h?.name ?? null));
+		};
+		const next = alignFor(sourceRef.current);
+		settingsWrite(next ? `Align → ${next}` : 'Align → auto', (s) => writeFrontMatterLine(s, 'align', alignFor(s)));
 	};
 	// Fit (`fit:`) — what the engine may do to make a slide fit: pack / heal / trim / report.
 	// lib/core/resolve-fit.js `fitPacks`; `pack` (measure and split) is the DEFAULT and writes no
