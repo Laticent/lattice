@@ -4,7 +4,7 @@ import type { Browser, Page } from '@playwright/test';
 import JSZip from 'jszip';
 import { PDFDict, PDFDocument, PDFName, PDFRawStream } from 'pdf-lib';
 import { confirmPhotoFormat } from './photo-format';
-import { CHROME, expect, gotoStudio, setEditorContent, shareExport, test } from './studio-fixture';
+import { CHROME, expect, gotoStudio, recordToasts, setEditorContent, shareExport, test } from './studio-fixture';
 
 // A Library photo has to survive every way a deck LEAVES the browser, because `asset:<name>` means
 // nothing anywhere else and the preview's `blob:` URL dies with the tab
@@ -125,8 +125,11 @@ async function greenShareOfPageImage(page: Page, pdf: Uint8Array): Promise<numbe
 	return best;
 }
 
-async function setUp(page: Page) {
+/** Opens the Share sheet on a deck that names one Library photo, and returns the toast log, started before any
+ *  export: a "… ready." pill lives 2.6 s, so a test that reads it after downloading and parsing the file can miss it. */
+async function setUp(page: Page): Promise<() => Promise<string[]>> {
 	await gotoStudio(page);
+	const toasts = await recordToasts(page);
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await page.getByRole('button', { name: CHROME.library }).click();
 	await page.getByRole('tab', { name: 'Media', exact: true }).click();
@@ -138,6 +141,13 @@ async function setUp(page: Page) {
 	await expect(page.locator('[aria-label="Live deck preview"] iframe.live').contentFrame().locator('img[alt="A green probe"]').first()).toHaveAttribute('src', /^blob:/, { timeout: 30_000 });
 	await page.getByRole('button', { name: 'Share', exact: true }).click();
 	await expect(page.getByRole('dialog')).toBeVisible();
+	return toasts;
+}
+
+/** Wait until some toast said `ready`, then assert none said `warning`. Both read the log, never the live pill. */
+async function expectToasts(toasts: () => Promise<string[]>, ready: RegExp, warning?: RegExp, why = '', timeout = 30_000) {
+	await expect.poll(toasts, { message: `a toast matching ${ready}`, timeout }).toContainEqual(expect.stringMatching(ready));
+	if (warning) expect(await toasts(), why || `no toast matching ${warning}`).not.toContainEqual(expect.stringMatching(warning));
 }
 
 async function download(page: Page, format: Parameters<typeof shareExport>[1]): Promise<string> {
@@ -174,13 +184,12 @@ onEveryEngine('@smoke the webpage export carries the photo as pixels, with no bl
 });
 
 onEveryEngine('@smoke the PDF export draws the photo on the page, and does not report a missing image', async ({ page }) => {
-	await setUp(page);
+	const toasts = await setUp(page);
 	const path = await download(page, 'pdf');
 	const doc = await PDFDocument.load(new Uint8Array(readFileSync(path)), { updateMetadata: false });
 	expect(doc.getPageCount()).toBe(1);
 	// Anchor first: "no warning" passes on a page with no toast at all, so wait for the export's own toast.
-	await expect(page.locator('[data-sonner-toast]').filter({ hasText: /PDF ready/ }).first()).toBeVisible({ timeout: 60_000 });
-	await expect(page.locator('[data-sonner-toast]').filter({ hasText: /could not load every image/i })).toHaveCount(0);
+	await expectToasts(toasts, /PDF ready/, /could not load every image|stand-in/i, '', 60_000);
 	// The page is one raster of the slide (an image-per-page PDF), so the page's own image is what a viewer shows.
 	// Read it from the file rather than shelling out to poppler, which the per-PR `studio-smoke` job does not install.
 	expect(await greenShareOfPageImage(page, new Uint8Array(readFileSync(path))), 'the photo is painted on the PDF page').toBeGreaterThan(0.02);
@@ -194,11 +203,10 @@ onEveryEngine('@smoke the PowerPoint export carries the photo, and does not repo
 	page.on('console', (m) => {
 		if (m.text().startsWith('[deck-export]')) exportLog.push(m.text());
 	});
-	await setUp(page);
+	const toasts = await setUp(page);
 	const path = await download(page, 'pptx');
-	// The message carries the toast text and the capture's log, so a failure names which image was lost and why.
-	const toasts = (await page.locator('[data-sonner-toast]').allInnerTexts()).join(' | ');
-	expect(toasts, `the PowerPoint toast; the capture logged: ${exportLog.join(' | ') || 'nothing'}`).not.toMatch(/could not load every image/i);
+	// The message carries the capture's log, so a failure names which image was lost and why.
+	await expectToasts(toasts, /PowerPoint ready/, /could not load every image|stand-in/i, `the PowerPoint toast; the capture logged: ${exportLog.join(' | ') || 'nothing'}`);
 	const zip = await JSZip.loadAsync(readFileSync(path));
 	// PNG or JPEG: a photographic slide is written as a JPEG when that is much smaller (canvasToPictureBlob), and which
 	// one wins depends on the engine's encoder. Firefox writes this deck's slide as a JPEG; a PNG-only filter found no picture.
@@ -213,6 +221,7 @@ onEveryEngine('@smoke the PowerPoint export carries the photo, and does not repo
 // stand-in rather than a dead link. Without it "no warning" in the tests above could mean "never warns".
 onEveryEngine('@smoke a photo deleted before export is named in the toast and drawn as the stand-in, never a dead link', async ({ page }) => {
 	await gotoStudio(page);
+	const toasts = await recordToasts(page);
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await page.getByRole('button', { name: CHROME.library }).click();
 	await page.getByRole('tab', { name: 'Media', exact: true }).click();
@@ -231,7 +240,7 @@ onEveryEngine('@smoke a photo deleted before export is named in the toast and dr
 	await page.getByRole('button', { name: 'Share', exact: true }).click();
 	await expect(page.getByRole('dialog')).toBeVisible();
 	const path = await download(page, 'webpage');
-	await expect(page.locator('[data-sonner-toast]').filter({ hasText: /“soon-gone” could not be shown/ }).first()).toBeVisible({ timeout: 30_000 });
+	await expectToasts(toasts, /“soon-gone” could not be shown/);
 	const html = readFileSync(path, 'utf8');
 	const tag = [...html.matchAll(/<img\b[^>]*>/g)].map((m) => m[0]).find((t) => /alt="A green probe"/.test(t));
 	expect(tag, 'an <img> for the missing photo').toBeTruthy();
@@ -243,7 +252,7 @@ onEveryEngine('@smoke a photo deleted before export is named in the toast and dr
 // photos/<name>.png, with the reference rewritten to that path. The oracle is the downloaded archive: the photo
 // bytes are the PNG the probe drew, and the .md names that path and leaves no `asset:` behind.
 onEveryEngine('@smoke a Markdown export of a deck that names a photo carries the photo beside the .md', async ({ page }) => {
-	await setUp(page);
+	const toasts = await setUp(page);
 	const path = await download(page, 'markdown');
 	const zip = await JSZip.loadAsync(readFileSync(path));
 	const files = Object.keys(zip.files).filter((p) => !zip.files[p].dir);
@@ -254,8 +263,7 @@ onEveryEngine('@smoke a Markdown export of a deck that names a photo carries the
 	expect(md).not.toContain('asset:');
 	const png = await zip.file('photos/export-probe.png')!.async('nodebuffer');
 	expect(await greenShare(page, png), 'the carried photo is the probe').toBeGreaterThan(0.9);
-	await expect(page.locator('[data-sonner-toast]').filter({ hasText: /Markdown ready/ }).first()).toBeVisible({ timeout: 30_000 });
-	await expect(page.locator('[data-sonner-toast]').filter({ hasText: /stand-in|not inside/i })).toHaveCount(0);
+	await expectToasts(toasts, /Markdown ready/, /stand-in|not inside/i);
 });
 
 // The Marp bundle already has an photos/ folder for Lattice's sample art; the photo goes in the same one.
@@ -277,13 +285,13 @@ onEveryEngine('@smoke a Marp bundle carries the photo in photos/ and names it in
 // Library opening the downloaded file and drawing the photo; a unit test of the zip would pass with the
 // photo in the wrong place.
 onEveryEngine('@smoke a .lattice carries the photo, and a fresh browser profile opens it with the picture', async ({ page, browser }) => {
-	await setUp(page);
+	const toasts = await setUp(page);
 	const path = await download(page, 'lattice');
 	const zip = await JSZip.loadAsync(readFileSync(path));
 	expect(Object.keys(zip.files), 'the photo rides inside the file').toEqual(expect.arrayContaining(['media.json', 'media/export-probe.png']));
 	// Anchor on the export's own toast, then say what must be absent: no stand-in warning when every photo went in.
-	await expect(page.locator('[data-sonner-toast]').filter({ hasText: /Lattice project ready/ }).first()).toBeVisible({ timeout: 30_000 });
-	await expect(page.locator('[data-sonner-toast]').filter({ hasText: /stand-in|not inside this file/i })).toHaveCount(0);
+	// Every .lattice photo note (share-export.ts latticePhotoNote) names a stand-in or says the photo is "not inside".
+	await expectToasts(toasts, /Lattice project ready/, /stand-in|not inside/i);
 
 	const other = await browser.newContext({ baseURL: new URL(page.url()).origin, acceptDownloads: true });
 	try {
@@ -314,7 +322,7 @@ onEveryEngine('@smoke a .lattice carries the photo, and a fresh browser profile 
 // A re-openable PDF embeds the same `.lattice`, photos included (up to MAX_EMBEDDED_MEDIA_BYTES). The oracle is a
 // SECOND browser profile with an empty Library importing the PDF and drawing the photo.
 onEveryEngine('@smoke a re-openable PDF carries the photo, and a fresh browser profile opens it with the picture', async ({ page, browser }) => {
-	await setUp(page);
+	const toasts = await setUp(page);
 	const dialog = page.getByRole('dialog');
 	await dialog.getByRole('button', { name: /^PDF/ }).click();
 	const sw = dialog.getByRole('switch', { name: 'Re-openable in Lattice' });
@@ -323,8 +331,10 @@ onEveryEngine('@smoke a re-openable PDF carries the photo, and a fresh browser p
 	const pending = page.waitForEvent('download', { timeout: 240_000 });
 	await dialog.getByRole('button', { name: /^Download PDF/ }).click();
 	const path = (await (await pending).path()) as string;
-	await expect(page.locator('[data-sonner-toast]').filter({ hasText: /PDF ready/ }).first()).toBeVisible({ timeout: 60_000 });
-	await expect(page.locator('[data-sonner-toast]').filter({ hasText: /not inside the re-openable copy/i })).toHaveCount(0);
+	// A re-openable PDF warns three ways: the capture lost an image (deck-export.js missingImageReason), a photo is a
+	// stand-in, or a photo is "not inside" the embedded copy (share-export.ts). This deck has no fences, so the
+	// off-fences note cannot arise.
+	await expectToasts(toasts, /PDF ready/, /could not load every image|stand-in|not inside/i, '', 60_000);
 
 	const other = await browser.newContext({ baseURL: new URL(page.url()).origin, acceptDownloads: true });
 	try {
@@ -342,7 +352,7 @@ onEveryEngine('@smoke a re-openable PDF carries the photo, and a fresh browser p
 
 // The switch is real: turned off, the file keeps the name only and the toast says the photo is not inside it.
 onEveryEngine('@smoke turning "Include photos" off leaves the photo out of the .lattice and says so', async ({ page }) => {
-	await setUp(page);
+	const toasts = await setUp(page);
 	const dialog = page.getByRole('dialog');
 	await dialog.getByRole('button', { name: /^Lattice project/ }).click();
 	const sw = dialog.getByRole('switch', { name: 'Include photos' });
@@ -353,5 +363,5 @@ onEveryEngine('@smoke turning "Include photos" off leaves the photo out of the .
 	await dialog.getByRole('button', { name: /^Download project/ }).click();
 	const zip = await JSZip.loadAsync(readFileSync((await (await pending).path()) as string));
 	expect(Object.keys(zip.files).filter((n) => n.startsWith('media'))).toEqual([]);
-	await expect(page.locator('[data-sonner-toast]').filter({ hasText: /“export-probe”\) is not inside this file/ }).first()).toBeVisible({ timeout: 30_000 });
+	await expectToasts(toasts, /“export-probe”\) is not inside this file/);
 });
