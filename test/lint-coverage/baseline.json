@@ -471,6 +471,82 @@
       "class": "vendor"
     },
     {
+      "path": "lib/use-cases/caption_asset/caption_asset.validate.mjs",
+      "class": "generated"
+    },
+    {
+      "path": "lib/use-cases/chart_from_data/chart_from_data.validate.mjs",
+      "class": "generated"
+    },
+    {
+      "path": "lib/use-cases/check_deck/check_deck.validate.mjs",
+      "class": "generated"
+    },
+    {
+      "path": "lib/use-cases/create_deck/create_deck.validate.mjs",
+      "class": "generated"
+    },
+    {
+      "path": "lib/use-cases/edit_slides/edit_slides.validate.mjs",
+      "class": "generated"
+    },
+    {
+      "path": "lib/use-cases/find_text/find_text.validate.mjs",
+      "class": "generated"
+    },
+    {
+      "path": "lib/use-cases/list_assets/list_assets.validate.mjs",
+      "class": "generated"
+    },
+    {
+      "path": "lib/use-cases/preview_speech/preview_speech.validate.mjs",
+      "class": "generated"
+    },
+    {
+      "path": "lib/use-cases/read_component/read_component.validate.mjs",
+      "class": "generated"
+    },
+    {
+      "path": "lib/use-cases/read_front_matter/read_front_matter.validate.mjs",
+      "class": "generated"
+    },
+    {
+      "path": "lib/use-cases/read_guide/read_guide.validate.mjs",
+      "class": "generated"
+    },
+    {
+      "path": "lib/use-cases/read_slides/read_slides.validate.mjs",
+      "class": "generated"
+    },
+    {
+      "path": "lib/use-cases/render_slide/render_slide.validate.mjs",
+      "class": "generated"
+    },
+    {
+      "path": "lib/use-cases/replace_text/replace_text.validate.mjs",
+      "class": "generated"
+    },
+    {
+      "path": "lib/use-cases/set_finish/set_finish.validate.mjs",
+      "class": "generated"
+    },
+    {
+      "path": "lib/use-cases/set_front_matter/set_front_matter.validate.mjs",
+      "class": "generated"
+    },
+    {
+      "path": "lib/use-cases/set_terms/set_terms.validate.mjs",
+      "class": "generated"
+    },
+    {
+      "path": "lib/use-cases/set_theme/set_theme.validate.mjs",
+      "class": "generated"
+    },
+    {
+      "path": "lib/use-cases/view_asset/view_asset.validate.mjs",
+      "class": "generated"
+    },
+    {
       "path": "package-lock.json",
       "class": "not-code"
     },
