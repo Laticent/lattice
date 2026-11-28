@@ -313,12 +313,31 @@ subcommands, every option above, the closed-set values (palettes, `--size`,
 `--overflow-marker`, plugin names) and installed package names, and leaves
 paths to the shell, narrowed by extension.
 
-| Shell | Install (one line) |
-|---|---|
-| `bash` | `eval "$(lattice completion bash)"` in `~/.bashrc` (bash 3.2 or newer) |
-| `zsh` | `source <(lattice completion zsh)` in `~/.zshrc`, after `compinit` |
-| `fish` | `mkdir -p ~/.config/fish/completions && lattice completion fish > ~/.config/fish/completions/lattice.fish` |
-| `powershell` | `lattice completion powershell \| Out-String \| Invoke-Expression` in `$PROFILE` |
+Install it with the line for your shell:
+
+- **bash**, in `~/.bashrc` (bash 3.2 or newer):
+
+  ```sh wrap
+  eval "$(lattice completion bash)"
+  ```
+
+- **zsh**, in `~/.zshrc`, after `compinit`:
+
+  ```sh wrap
+  source <(lattice completion zsh)
+  ```
+
+- **fish**, once:
+
+  ```sh wrap
+  mkdir -p ~/.config/fish/completions && lattice completion fish > ~/.config/fish/completions/lattice.fish
+  ```
+
+- **PowerShell**, in `$PROFILE`:
+
+  ```powershell wrap
+  lattice completion powershell | Out-String | Invoke-Expression
+  ```
 
 The script calls the installed `lib/cli/complete.js` directly, so a Tab press
 costs one Node start (about 50 ms here), not a load of the CLI bundle. If that file
@@ -327,14 +346,12 @@ serves the candidates. cmd.exe has no programmable completion.
 
 ## Environment variables
 
-| Variable | What it sets |
-|---|---|
-| `LATTICE_PALETTE` | The palette, below the command line and above the deck's `theme:` |
-| `LATTICE_OVERFLOW_MARKER` | The standing `--overflow-marker` level (`reader` or `author`; `off` is per render only) |
-| `LATTICE_KEEP_HTML` | `1` keeps the `<output>.html` sidecar beside a non-HTML export, same as `--keep-html` |
-| `LATTICE_HOME` | The folder that holds the package store, `<dir>/packages` |
-| `CHROME_PATH` | The Chrome or Chromium binary to render with. `PUPPETEER_EXECUTABLE_PATH` wins when both are set |
-| `LATTICE_RENDER_WATCHDOG_MS` | How long one render step may take before it is stopped. Default `90000` |
+- `LATTICE_PALETTE`: The palette, below the command line and above the deck's `theme:`.
+- `LATTICE_OVERFLOW_MARKER`: The standing `--overflow-marker` level (`reader` or `author`; `off` is per render only).
+- `LATTICE_KEEP_HTML`: `1` keeps the `<output>.html` sidecar beside a non-HTML export, same as `--keep-html`.
+- `LATTICE_HOME`: The folder that holds the package store, `<dir>/packages`.
+- `CHROME_PATH`: The Chrome or Chromium binary to render with. `PUPPETEER_EXECUTABLE_PATH` wins when both are set.
+- `LATTICE_RENDER_WATCHDOG_MS`: How long one render step may take before it is stopped. Default `90000`.
 
 ## Exit codes
 
