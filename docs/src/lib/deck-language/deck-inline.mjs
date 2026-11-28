@@ -14,8 +14,11 @@
  */
 
 import { boundaryRulesGeneration, boundaryParser as md } from '../../../../lib/core/boundary-parser.mjs';
-import { linkOk } from '../../../../lib/core/deck-model.mjs';
 import { PLUGIN_GRAMMAR } from '../../../../lib/plugins/grammar.generated.mjs';
+
+/** A destination holding an entity, judged as the block pass judges it (lib/core/deck-model.mjs), by markdown-it's own
+ *  functions. Not imported from there: an export the eager outline does not read still costs its chunk bytes. */
+const linkOk = (dest) => md.validateLink(md.normalizeLink(md.utils.unescapeAll(dest)));
 
 /**
  * Whether `&name;` is a named entity to markdown-it's entity rule, which is stricter than `unescapeAll` (that one also
