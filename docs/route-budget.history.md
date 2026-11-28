@@ -6,6 +6,16 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-28 — raise the studio eagerJsGz ceiling by 1,024 B (644,780 → 645,804), by hand, for PR 3588, at the owner's direction
+
+Owner OK 2026-11-28, in the storage desk's session: "Raise ceiling ~1 KB", in its own PR. The owner chose it over giving bytes back and over holding PR 3588. Written by hand, as the entries below are; soft stays 571,778.
+
+Why: vault slice 2 (#3582) left `main` 75 B under the old ceiling (644,705 B, measured on `origin/main` after #3582 with `measure-route-base.sh`). PR 3588 (Library slice 4) adds 722 B, declared in `docs/route-budget.d/3588-library-icon-pills.md`: the Library's section icons and the Backup and restore button in the pre-paint shell, and the icon-only pill mode with its More pill. Merged with `main` it measures 645,427 B (630.3 KB), about 647 B over the old ceiling. Giving back the icons already eager elsewhere saves at most about 400 B; the rest would cut the icon-only pills that fit six sections at 320–480 px. About 377 B of headroom stays after PR 3588.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | eagerJsGz | 571778 | 571778 | +0 | 645804 |
+
 ### 2026-11-28 — raise the studio lintCoreGz ceiling by 1,024 B (174,022 → 175,046), by hand, for PR 3572, at the owner's direction
 
 Owner OK 2026-11-28, in PR #3572's session: "Raise ceiling 1 KB", in its own PR. Written by hand, as the 2026-11-24 lintCoreGz entry below is; soft stays 152,151.
