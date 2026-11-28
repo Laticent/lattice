@@ -9,6 +9,12 @@ import { createSingleSlideRenderer } from '@/playground/single-slide-render';
 // Behavior preserved from the old inline IIFE: 2.6s auto-cycle, pause on hover,
 // stop on manual select / focus, respect prefers-reduced-motion, lazy start when
 // scrolled into view, and re-render on the global mode (light/dark) change.
+// The 2026-11 polish pass added what the heading promises but the demo never showed:
+// the LINE. A front-matter strip above the slide names the `theme:` value as it
+// changes, so "change one line" is visible rather than claimed. A per-slide Light/Dark
+// switch and a `color-mode:` chip were tried and cut: together they cost about 0.5KB gz
+// on a home route already at its eagerJsGz ceiling (check:route-budget); the site
+// header's light/dark toggle re-renders this slide instead.
 
 const CYCLE_MS = 2600;
 
@@ -39,6 +45,7 @@ export default function RestyleShowcase({ data }: { data: RestyleData }) {
 
 	const idxRef = React.useRef(idx);
 	idxRef.current = idx;
+
 	const startedRef = React.useRef(false); // lazy: don't render/cycle until in view
 	const pausedRef = React.useRef(false); // hover-pause (keeps the timer, skips ticks)
 	const timerRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
@@ -160,6 +167,19 @@ export default function RestyleShowcase({ data }: { data: RestyleData }) {
 
 	return (
 		<div className="lx-ui mx-auto max-w-[860px]">
+			{/* The front-matter strip. Its theme chip reserves the width of the longest line,
+			    "theme: a11y-achromatopsia" (25ch of text plus the chip's padding and border),
+			    so the chip never changes width as the cycle advances. */}
+			<div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+				<span className="font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+					Front matter
+				</span>
+				<code
+					className="min-w-[calc(25ch+18px)] rounded-md border border-border bg-card px-2 py-1 font-mono text-[13px] text-foreground"
+				>
+					theme: <span className="font-semibold text-primary">{active?.name ?? ''}</span>
+				</code>
+			</div>
 			<figure
 				ref={stageRef}
 				role="img"
@@ -180,7 +200,7 @@ export default function RestyleShowcase({ data }: { data: RestyleData }) {
 			    with its height reserved, nothing moves whatever the name's length. */}
 			<div className="mt-[18px] flex flex-col items-start gap-3">
 				<div
-					className="flex flex-wrap gap-[9px]"
+					className="flex flex-wrap items-center gap-[9px]"
 					role="tablist"
 					aria-label="Choose a palette"
 					onFocusCapture={stop}
@@ -188,19 +208,29 @@ export default function RestyleShowcase({ data }: { data: RestyleData }) {
 					onMouseLeave={resume}
 				>
 					{palettes.map((p, i) => (
-						<button
-							key={p.name}
-							type="button"
-							role="tab"
-							aria-label={p.label}
-							aria-selected={i === idx}
-							title={p.label}
-							onClick={() => select(i)}
-							style={{ background: p.accent }}
-							className={`size-[22px] cursor-pointer rounded-full border-2 transition-transform hover:scale-110 ${
-								i === idx ? 'scale-[1.2] border-[var(--text-heading)]' : 'border-border'
-							}`}
-						/>
+						<React.Fragment key={p.name}>
+							{/* The color-blind-safe palettes come last (index.astro orders them), and this
+							    label opens their run. */}
+							{p.a11y && !palettes[i - 1]?.a11y && (
+								<span aria-hidden="true" className="ml-3 mr-1 text-[12.5px] font-medium text-muted-foreground">
+									Color-blind safe
+								</span>
+							)}
+							<button
+								type="button"
+								role="tab"
+								aria-label={p.label}
+								aria-selected={i === idx}
+								title={p.label}
+								onClick={() => select(i)}
+								// `fill` is built in index.astro: three of the palette's own colors, because
+								// ten palettes share a near-black accent. A fixture without one shows the accent.
+								style={{ background: p.fill ?? p.accent }}
+								className={`size-[22px] cursor-pointer rounded-full border-2 transition-transform hover:scale-110 ${
+									i === idx ? 'scale-[1.2] border-[var(--text-heading)]' : 'border-border'
+								}`}
+							/>
+						</React.Fragment>
 					))}
 				</div>
 				<p

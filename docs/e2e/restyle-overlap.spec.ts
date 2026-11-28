@@ -1,4 +1,4 @@
-import { expect, type Page, test } from '@playwright/test';
+import { expect, type Locator, type Page, test } from '@playwright/test';
 
 // TWO OVERLAPPING RENDERS ON ONE REAL FRAME (#2916).
 //
@@ -25,9 +25,12 @@ import { expect, type Page, test } from '@playwright/test';
 
 const FRAME = '[aria-label="A slide re-rendered through the selected palette"] iframe.live';
 const SLOW_THEME = '**/themes/a11y-achromatopsia.css';
-const INDACO = 0;
-const CUOIO = 1;
-const SLOW = 2;
+// By NAME, not position: the rail lists the brand palettes first and the four color-blind-safe ones
+// last (index.astro, PR #3621), so "the third tab" stopped being the slow palette the day the order
+// changed, and the test then waited on a theme file nobody fetched.
+const INDACO = 'Indaco';
+const CUOIO = 'Cuoio';
+const SLOW = 'Color-blind safe (grayscale)';
 
 async function accentInFrame(page: Page): Promise<string> {
 	return page.evaluate((sel) => {
@@ -50,17 +53,18 @@ async function open(page: Page) {
 	// clicks palettes by hand must not have a timer clicking them too.
 	await page.emulateMedia({ reducedMotion: 'reduce' });
 	await page.goto('/');
-	const tabs = page.getByRole('tablist', { name: 'Choose a palette' }).getByRole('tab');
-	await tabs.first().scrollIntoViewIfNeeded();
+	const list = page.getByRole('tablist', { name: 'Choose a palette' });
+	await list.getByRole('tab').first().scrollIntoViewIfNeeded();
 	await expect(page.locator(FRAME)).toBeVisible({ timeout: 30_000 });
-	expect(await tabs.count(), 'the picker needs three palettes').toBeGreaterThanOrEqual(3);
-	return tabs;
+	const tab = (name: string) => list.getByRole('tab', { name, exact: true });
+	for (const name of [INDACO, CUOIO, SLOW]) await expect(tab(name), `the picker needs the ${name} palette`).toHaveCount(1);
+	return tab;
 }
 
 /** Click a palette and wait until the frame shows IT: the accent has left `from`, and one sheet is attached. */
-async function settle(page: Page, tabs: ReturnType<Page['getByRole']>, tab: number, from = '') {
-	await tabs.nth(tab).click();
-	await expect(tabs.nth(tab)).toHaveAttribute('aria-selected', 'true');
+async function settle(page: Page, tabs: (name: string) => Locator, tab: string, from = '') {
+	await tabs(tab).click();
+	await expect(tabs(tab)).toHaveAttribute('aria-selected', 'true');
 	// The accent is kept FROM the poll, and only once it is a real one. The poll used to return '' while two sheets
 	// were attached (a swap in flight), which passed `not.toBe(from)`; the read after it then caught the frame
 	// mid-swap, still on the old palette, and two palettes "looked alike" (7 of 48 loaded runs once a palette change
@@ -100,9 +104,9 @@ async function run(page: Page) {
 	await expect.poll(() => accentInFrame(race), { timeout: 30_000 }).toBe(indaco);
 	// The signal the late render is waiting on: its held-back theme file finishing.
 	const slowLoaded = race.waitForEvent('requestfinished', { predicate: (r) => r.url().includes('a11y-achromatopsia.css'), timeout: 30_000 });
-	await raceTabs.nth(SLOW).click();
-	await raceTabs.nth(CUOIO).click();
-	await expect(raceTabs.nth(CUOIO)).toHaveAttribute('aria-selected', 'true');
+	await raceTabs(SLOW).click();
+	await raceTabs(CUOIO).click();
+	await expect(raceTabs(CUOIO)).toHaveAttribute('aria-selected', 'true');
 
 	// The newer render lands while the older one is still waiting on its file: the race, by construction.
 	await expect.poll(() => sheetLinks(race), { timeout: 20_000, message: 'two stylesheets are still attached' }).toBe(1);
