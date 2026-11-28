@@ -7245,6 +7245,12 @@ const SANCTIONED_EOL_BOUNDARIES = [
        + 'over, at the ninth ingest, because the gate that was supposed to catch it did not exist.',
   },
   {
+    file: 'tools/vscode-harness/kit-deck.mjs',
+    why: 'the deck read that turns a repo deck into a kit deck for the VS Code harness. It rewrites `theme:` in '
+       + 'the front matter it anchors on `^---`, so a BOM\'d or CRLF deck would keep its own palette and reach the '
+       + 'preview unstyled: the harness would then measure the wrong surface.',
+  },
+  {
     file: 'tools/export-chart-svg.js',
     why: 'the deck read in main(). The TENTH ingest, and the one that proves arm 6 earns its '
        + 'place: it had no fold for the other five arms to inspect, so it was invisible to them '

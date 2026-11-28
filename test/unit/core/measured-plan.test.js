@@ -117,6 +117,28 @@ test('a folded key insight lands after the stage and before the page chrome, onc
   assert.equal((out.match(/cell-footer/g) || []).length, 1);
 });
 
+// A run's beats fold onto its last page in source order: the key insight, then the note. A page with no `.cell-stage`
+// (split-panel's feature-cover body page at portrait) puts every cell at the same point, so folding the cells one by one
+// in reverse printed the note ABOVE the insight (measured on tools/vscode-harness/decks/coda-split-widths.md at
+// `size: portrait`, 2026-11-28).
+const KEY = '<div class="cell-coda" data-dock="row"><blockquote><p>KEY</p></blockquote></div>';
+const NOTE = '<div class="cell-coda" data-dock="row"><div class="below-note"><p>NOTE</p></div></div>';
+test('folded coda cells keep source order on a page with no stage', () => {
+  const { foldBeats } = require('../../../lib/core/split-envelope');
+  const page = '<section class="split-panel" data-split-role="body"><div class="split-runhead">H</div><ul class="split-pts"><li>a</li></ul><div class="cell-footer">F</div></section>';
+  const out = foldBeats(page, [KEY, NOTE]);
+  assert.ok(out.indexOf('KEY') < out.indexOf('NOTE'), out);
+  assert.equal(out.split('KEY').length - 1, 1);
+  assert.equal(out.split('NOTE').length - 1, 1);
+});
+test('folded coda cells keep source order after a stage, too', () => {
+  const { foldBeats } = require('../../../lib/core/split-envelope');
+  const page = '<section class="list" data-split-role="body"><div class="cell-stage"><ul><li>a</li></ul></div><div class="cell-footer">F</div></section>';
+  const out = foldBeats(page, [KEY, NOTE]);
+  const order = [...out.matchAll(/KEY|NOTE|cell-stage|cell-footer/g)].map((m) => m[0]);
+  assert.deepEqual(order, ['cell-stage', 'KEY', 'NOTE', 'cell-footer']);
+});
+
 test('a split content page with no align: choice resolves to middle on the runtime path too (§17)', () => {
   const { resolveAlign } = require('../../../lib/core/resolve-align');
   assert.equal(resolveAlign({ classes: ['q-and-a'], family: 'square', splitBody: true }), 'middle');

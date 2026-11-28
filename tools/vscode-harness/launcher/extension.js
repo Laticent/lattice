@@ -22,6 +22,14 @@ exports.activate = async () => {
 		await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(uri), vscode.ViewColumn.One);
 		await vscode.commands.executeCommand('markdown.showPreviewToSide', uri);
 		log('preview opened');
+		// LATTICE_PROBE_WIDE=1: give the preview the whole window (no sidebar, its group maximized), so a probe's
+		// screenshots show each slide at a readable size. Off by default, so other probes see the usual side-by-side.
+		if (process.env.LATTICE_PROBE_WIDE) {
+			await vscode.commands.executeCommand('workbench.action.closeSidebar');
+			await vscode.commands.executeCommand('workbench.action.focusSecondEditorGroup');
+			await vscode.commands.executeCommand('workbench.action.toggleMaximizeEditorGroup');
+			log('preview maximized');
+		}
 		setInterval(async () => {
 			if (!fs.existsSync(trigger)) return;
 			const cmd = fs.readFileSync(trigger, 'utf8').trim();
