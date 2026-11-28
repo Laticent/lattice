@@ -119,7 +119,14 @@ export async function probe({ page, frame, sleep }) {
 	for (let i = 0; i < 20; i++) {
 		const a = await live(page);
 		await sleep(1000);
-		if (a && a === (await live(page)) && (await a.evaluate(() => true).catch(() => false))) break;
+		// try/await, not `.catch`: puppeteer throws on a detached frame synchronously.
+		let ok = false;
+		try {
+			ok = !!a && a === (await live(page)) && (await a.evaluate(() => true));
+		} catch {
+			/* re-created mid-check: go round again */
+		}
+		if (ok) break;
 	}
 	const mismatches = [];
 	if (expect && expect.length !== slides.length) mismatches.push({ note: 'slide counts differ; paired by heading', engine: expect.length, vscode: slides.length });

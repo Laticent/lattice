@@ -157,7 +157,9 @@ async function previewFrame(page, timeout = 90_000) {
 	throw new Error('no marp-vscode preview frame');
 }
 
-const runtimeState = (frame) =>
+// `async`, so a detached frame REJECTS: puppeteer throws "Attempted to use detached Frame" synchronously, which a
+// caller's `.catch` never sees (it ended runs on a frame VS Code re-created; coda-parity probe, 2026-11-28).
+const runtimeState = async (frame) =>
 	frame.evaluate(() => ({
 		runtime: document.documentElement.getAttribute('data-lattice-runtime'),
 		settle: [...document.querySelectorAll('pre[data-lattice-settle]')].map((p) => p.getAttribute('data-lattice-settle')),
