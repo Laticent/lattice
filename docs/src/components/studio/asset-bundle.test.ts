@@ -17,7 +17,7 @@ const theme: StudioTheme = {
 	overrides: null,
 	rampStrategy: null,
 };
-const comp: StudioComponent = { id: 'c1', name: 'callout', bucket: 'statement', css: 'section.callout { color: var(--accent); }', skeleton: '<!-- _class: callout -->\n\n## Hi', meta: { bucket: 'statement' } };
+const comp: StudioComponent = { id: 'c1', name: 'callout', bucket: 'statement', css: 'section.callout { color: var(--accent); }', skeleton: '<!-- @meta{class=callout} -->\n\n## Hi', meta: { bucket: 'statement' } };
 const finish: StudioFinish = { id: 'f1', name: 'mybrand', label: 'My Brand', css: 'section.finish.finish-mybrand { --fin-wash: none; }', recipe: { ...DEFAULT_RECIPE, mark: { type: 'monogram', placement: 'bottom-right', glyph: 'AB' } } };
 const builtSpec = { source: 'built', duration: 6000, hero: 0.4, elements: [{ id: 'rotor', shape: 'cone', color: 'var(--accent)', motion: [{ verb: 'spin', axis: 'y', period: 6000 }] }] } as unknown as Scene;
 const svgSpec = { source: 'svg', duration: 4000, hero: 1, asset: 'route.svg', elements: [{ id: 'p', pathRef: 'p1', color: 'var(--accent)', motion: [{ verb: 'draw', span: 1 }] }] } as unknown as Scene;
@@ -150,7 +150,7 @@ describe('asset-bundle — pack/unpack roundtrip', () => {
 	it('normalizes a CRLF skeleton at the unpack — CSS is deliberately left alone', async () => {
 		const { default: JSZip } = await import('jszip');
 		const z = new JSZip();
-		const skeletonCRLF = '<!-- _class: callout -->\r\n\r\n# Heads up\r\n\r\nBody.\r\n';
+		const skeletonCRLF = '<!-- @meta{class=callout} -->\r\n\r\n# Heads up\r\n\r\nBody.\r\n';
 		const cssCRLF = 'section.callout {\r\n  color: var(--text);\r\n}\r\n';
 		z.file('callout.skeleton.md', skeletonCRLF);
 		z.file('callout.css', cssCRLF);
@@ -161,7 +161,7 @@ describe('asset-bundle — pack/unpack roundtrip', () => {
 		}));
 		const round = await unpackBundle(await z.generateAsync({ type: 'blob' }));
 		expect(round.components).toHaveLength(1);
-		expect(round.components[0].skeleton).toBe('<!-- _class: callout -->\n\n# Heads up\n\nBody.\n');
+		expect(round.components[0].skeleton).toBe('<!-- @meta{class=callout} -->\n\n# Heads up\n\nBody.\n');
 		expect(/\r/.test(round.components[0].skeleton)).toBe(false);
 		// CSS is NOT normalized — it is never spliced into markdown and the browser is
 		// indifferent to its line endings. Pinned so the asymmetry is deliberate, not an oversight.
@@ -171,7 +171,7 @@ describe('asset-bundle — pack/unpack roundtrip', () => {
 	it('a lone-CR skeleton is covered too, which a reader-style `\\r?\\n` could not be', async () => {
 		const { default: JSZip } = await import('jszip');
 		const z = new JSZip();
-		z.file('callout.skeleton.md', '<!-- _class: callout -->\r\r# Heads up\r');
+		z.file('callout.skeleton.md', '<!-- @meta{class=callout} -->\r\r# Heads up\r');
 		z.file('callout.css', 'section.callout { color: var(--text); }');
 		z.file('manifest.json', JSON.stringify({
 			format: 'lattice-asset/1',
@@ -179,7 +179,7 @@ describe('asset-bundle — pack/unpack roundtrip', () => {
 			items: [{ kind: 'component', name: 'callout', bucket: 'statement', css: 'callout.css', skeleton: 'callout.skeleton.md' }],
 		}));
 		const round = await unpackBundle(await z.generateAsync({ type: 'blob' }));
-		expect(round.components[0].skeleton).toBe('<!-- _class: callout -->\n\n# Heads up\n');
+		expect(round.components[0].skeleton).toBe('<!-- @meta{class=callout} -->\n\n# Heads up\n');
 	});
 
 	it('showcase deck exercises the engine range', () => {
@@ -307,7 +307,7 @@ describe('asset-bundle — package zips from elsewhere', () => {
 			const zip = new JSZip();
 			zip.file('bar/bar.manifest.json', JSON.stringify({ name: 'bars', type: 'component', format: 1, ...manifest }));
 			zip.file('bar/bar.styles.css', 'section.bars{}');
-			zip.file('bar/bar.gallery.md', '<!-- _class: bars -->');
+			zip.file('bar/bar.gallery.md', '<!-- @meta{class=bars} -->');
 			zip.file('bar/bar.transform.js', transform);
 			return zip.generateAsync({ type: 'blob' });
 		};
@@ -505,7 +505,7 @@ describe('asset-bundle — package import edge cases', () => {
 		const zip = new JSZip();
 		zip.file('wall/wall.manifest.json', JSON.stringify({ name: 'wall', type: 'component', format: 1 }));
 		zip.file('wall/wall.styles.css', 'section.wall{}');
-		zip.file('wall/wall.gallery.md', '<!-- _class: wall -->');
+		zip.file('wall/wall.gallery.md', '<!-- @meta{class=wall} -->');
 		zip.file('wall/acme.svg', '<svg/>');
 		const round = await unpackBundle(await zip.generateAsync({ type: 'blob' }));
 		expect(round.components).toHaveLength(1);

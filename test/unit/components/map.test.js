@@ -175,18 +175,18 @@ describe('map kernel', () => {
           .filter((t) => (t.attrs.class || '').split(/\s+/).includes('map-region--hl'))
           .map((t) => (/--region-hue:var\(--chart-cat-(\d)-hue\)/.exec(t.raw) || [])[1])
           .filter(Boolean);
-      const labeled = '---\nmarp: true\n---\n\n<!-- _class: map -->\n\n## Where\n\n- Brazil `Latin America`\n- Peru `Latin America`\n- Kenya `East Africa`\n';
+      const labeled = '---\nmarp: true\n---\n\n<!-- @meta{layout=map} -->\n\n## Where\n\n- Brazil `Latin America`\n- Peru `Latin America`\n- Kenya `East Africa`\n';
       const h = hues(labeled);
       assert.equal(new Set(h).size, 2, `two labels, two colors: ${h.join(',')}`);
-      const bare = '---\nmarp: true\n---\n\n<!-- _class: map -->\n\n## Where\n\n- Brazil\n- Peru\n- Kenya\n';
+      const bare = '---\nmarp: true\n---\n\n<!-- @meta{layout=map} -->\n\n## Where\n\n- Brazil\n- Peru\n- Kenya\n';
       assert.deepEqual([...new Set(hues(bare))], ['1'], 'a set of names is one color');
     });
     test('a labeled map renders category solids with no class at all, and lint calls `highlight` redundant', () => {
       const engine = require('../../../lib/engine');
       const { lintText } = require('../../../lib/authoring/lint');
-      const md = '---\nmarp: true\n---\n\n<!-- _class: map -->\n\n## Where\n\n- Kenya `East Africa`\n- India `South Asia`\n';
+      const md = '---\nmarp: true\n---\n\n<!-- @meta{layout=map} -->\n\n## Where\n\n- Kenya `East Africa`\n- India `South Asia`\n';
       assert.match(engine.render(md).html, /map-region--hl/);
-      const hl = md.replace('_class: map', '_class: map highlight');
+      const hl = md.replace('@meta{layout=map}', '@meta{layout=map, class=highlight}');
       assert.ok(lintText(hl).some((f) => f.rule === 'map-highlight-implied'));
       assert.ok(!lintText(hl.replace('`East Africa`', '`1`').replace('`South Asia`', '`2`')).some((f) => f.rule === 'map-highlight-implied'));
     });
@@ -318,7 +318,7 @@ describe('map kernel', () => {
     const vocab = buildMapVocab();
 
     test('flags an unresolved country with the nearest suggestion', () => {
-      const deck = '<!-- _class: map world -->\n\n## x\n\n- Brasil `3`\n- United States `4`\n';
+      const deck = '<!-- @meta{layout=map, class=world} -->\n\n## x\n\n- Brasil `3`\n- United States `4`\n';
       const f = findUnknownMapRegions(deck, vocab);
       assert.equal(f.length, 1);
       assert.equal(f[0].rule, 'unknown-map-region');
@@ -326,19 +326,19 @@ describe('map kernel', () => {
     });
 
     test('resolves valid names, codes, aliases, and groups silently', () => {
-      const deck = '<!-- _class: map world -->\n\n## x\n\n- Brazil `1`\n- BR `2`\n- Burma `3`\n- European Union `4`\n';
+      const deck = '<!-- @meta{layout=map, class=world} -->\n\n## x\n\n- Brazil `1`\n- BR `2`\n- Burma `3`\n- European Union `4`\n';
       assert.equal(findUnknownMapRegions(deck, vocab).length, 0);
     });
 
     test('uses the basemap the slide selects (world default, us opt-in)', () => {
       // Bare `map` is a world map: a misspelled country resolves against world.
-      const world = '<!-- _class: map -->\n\n## x\n\n- Brazl `1`\n';
+      const world = '<!-- @meta{layout=map} -->\n\n## x\n\n- Brazl `1`\n';
       const fw = findUnknownMapRegions(world, vocab);
       assert.equal(fw.length, 1);
       assert.match(fw[0].message, /country the world basemap/);
       assert.match(fw[0].message, /Brazil/);
       // `map us` selects the US states: a misspelled state resolves against US.
-      const us = '<!-- _class: map us -->\n\n## x\n\n- Califrnia `1`\n';
+      const us = '<!-- @meta{layout=map, class=us} -->\n\n## x\n\n- Califrnia `1`\n';
       const fu = findUnknownMapRegions(us, vocab);
       assert.equal(fu.length, 1);
       assert.match(fu[0].message, /state the us basemap/);
@@ -346,20 +346,20 @@ describe('map kernel', () => {
     });
 
     test('an unrecognizable name gets flagged without a bogus suggestion', () => {
-      const deck = '<!-- _class: map world -->\n\n## x\n\n- Wakanda `9`\n';
+      const deck = '<!-- @meta{layout=map, class=world} -->\n\n## x\n\n- Wakanda `9`\n';
       const f = findUnknownMapRegions(deck, vocab);
       assert.equal(f.length, 1);
       assert.doesNotMatch(f[0].message, /did you mean/);
     });
 
     test('non-map slides are never touched', () => {
-      assert.equal(findUnknownMapRegions('<!-- _class: list -->\n\n- Brasil\n', vocab).length, 0);
+      assert.equal(findUnknownMapRegions('<!-- @meta{layout=list} -->\n\n- Brasil\n', vocab).length, 0);
     });
 
     test('nested per-region detail bullets are NOT linted as regions', () => {
       // The mark-detail feature lets a region carry an indented sublist; those
       // bullets are prose, not country names, and must not trip the linter.
-      const deck = '<!-- _class: map world -->\n\n## x\n\n' +
+      const deck = '<!-- @meta{layout=map, class=world} -->\n\n## x\n\n' +
         '- Kenya `4.2`\n' +
         '  - Anchor market, 3 hubs\n' +
         '  - Up 28% YoY\n' +
@@ -368,7 +368,7 @@ describe('map kernel', () => {
     });
 
     test('a genuinely wrong top-level region is still caught alongside detail', () => {
-      const deck = '<!-- _class: map world -->\n\n## x\n\n' +
+      const deck = '<!-- @meta{layout=map, class=world} -->\n\n## x\n\n' +
         '- Wakanda `9`\n' +
         '  - fictional nation\n';
       const f = findUnknownMapRegions(deck, vocab);

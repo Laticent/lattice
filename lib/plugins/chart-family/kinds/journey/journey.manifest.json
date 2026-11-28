@@ -76,11 +76,7 @@
     "data": true
   },
   "stage": "canvas",
-  "coda": {
-    "claims": [
-      "trailing-paragraph"
-    ]
-  },
+  "coda": { "claims": [], "caption": true },
   "labelSet": {
     "aria": "Mood scale",
     "members": [

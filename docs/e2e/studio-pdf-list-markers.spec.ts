@@ -24,7 +24,7 @@ theme: indaco
 
 ---
 
-<!-- _class: dark -->
+<!-- @meta{class=dark} -->
 
 ## Markers dark
 

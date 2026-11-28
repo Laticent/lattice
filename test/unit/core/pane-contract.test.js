@@ -20,7 +20,7 @@ const BY_NAME = Object.fromEntries(MANIFESTS.map((m) => [m.name, m]));
 const CATALOG = require('../../../lib/forms/cell/pane/pane-catalog.generated.js');
 
 const paneRules = (md) => lintText(md).filter((f) => f.rule.startsWith('pane-') && f.rule !== 'pane-syntax');
-const slide = (a, b, layout = '') => `## T\n\n${layout ? `<!-- panes: ${layout} -->\n\n` : ''}<!-- pane: ${a.cls} -->\n\n${a.body}\n\n<!-- pane: ${b.cls} -->\n\n${b.body}\n`;
+const slide = (a, b, layout = '') => `## T\n\n${layout ? `<!-- @meta{panes="${layout}"} -->\n\n` : ''}<!-- @meta{pane=${a.cls}} -->\n\n${a.body}\n\n<!-- @meta{pane=${b.cls}} -->\n\n${b.body}\n`;
 const items = (n) => Array.from({ length: n }, (_, i) => `- Point ${i + 1}`).join('\n');
 
 test('every built-in component decides how it behaves in a pane', () => {
@@ -83,12 +83,12 @@ test('the carve and the linter read one layout parser', () => {
 });
 
 test('splitPaneMarkdown finds the two panes, and never a marker inside a fence', () => {
-  const md = '## T\n\n<!-- pane: list -->\n\n- a\n\n```md\n<!-- pane: table -->\n```\n\n<!-- pane: content -->\n\nx\n\n<!-- pane: quote -->\n\ny\n';
+  const md = '## T\n\n<!-- @meta{pane=list} -->\n\n- a\n\n```md\n<!-- @meta{pane=table} -->\n```\n\n<!-- @meta{pane=content} -->\n\nx\n\n<!-- @meta{pane=quote} -->\n\ny\n';
   const out = spec.splitPaneMarkdown(md);
   assert.deepEqual(out.panes.map((p) => p.cls), ['list', 'content']);
   // A third marker folds into the second pane, as the carve folds it.
   assert.match(out.panes[1].markdown, /y/);
-  assert.equal(spec.splitPaneMarkdown('## T\n\n<!-- pane: list -->\n\n- a\n'), null);
+  assert.equal(spec.splitPaneMarkdown('## T\n\n<!-- @meta{pane=list} -->\n\n- a\n'), null);
 });
 
 // The carve reads markdown-it's parsed tokens; the linter reads lines, running the part of
@@ -111,8 +111,8 @@ test('the linter finds exactly the panes the carve renders: every edge case the 
   // paragraph a type-7 tag cannot interrupt, or a list that ended is.
   const agree = paneAgreement();
   const it = '- a\n- b\n- c';
-  const P = '<!-- pane: list -->';
-  const Q = '<!-- pane: content -->';
+  const P = '<!-- @meta{pane=list} -->';
+  const Q = '<!-- @meta{pane=content} -->';
   const cases = {
  ord1paren:`1) lead\n   ${P}\n\n${it}\n\n${Q}\n\nx`,
  ord10:`10. lead\n    ${P}\n\n${it}\n\n${Q}\n\nx`,
@@ -142,8 +142,8 @@ test('the linter finds exactly the panes the carve renders: every edge case the 
  fenceInListClosed:`- a\n  \`\`\`\n  ${P}\n  \`\`\`\n\n${P}\n\n${it}\n\n${Q}\n\nx`,
  fenceListEnd:`- a\n\n  \`\`\`\n  x\n\n${P}\n\n${it}\n\n${Q}\n\nx`,
  blockquoteFence:`> \`\`\`\n${P}\n\n${it}\n\n${Q}\n\nx`,
- panesInHtml:`<div>\n<!-- panes: stack -->\n</div>\n\n${P}\n\n${it}\n\n${Q}\n\nx`,
- panesInPre:`<pre>\n\n<!-- panes: stack -->\n</pre>\n\n${P}\n\n${it}\n\n${Q}\n\nx`,
+ panesInHtml:`<div>\n<!-- @meta{panes=stack} -->\n</div>\n\n${P}\n\n${it}\n\n${Q}\n\nx`,
+ panesInPre:`<pre>\n\n<!-- @meta{panes=stack} -->\n</pre>\n\n${P}\n\n${it}\n\n${Q}\n\nx`,
  htmlThenListItem:`<div>\n- a\n\n  ${P}\n\n${it}\n\n${Q}\n\nx`,
  unclosedFence:`\`\`\`\n${P}\n\n${it}\n\n${Q}\n\nx`,
  fenceCloseIndent4:`\`\`\`\n    \`\`\`\n${P}\n\`\`\`\n\n${P}\n\n${it}\n\n${Q}\n\nx`,
@@ -177,8 +177,8 @@ test('the linter finds exactly the panes the carve renders: 400 seeded random sl
   const frags = ['', '', 'text line', '- item', '  - nested', '1. first', '2) second', '10. ten', '-', '*    wide',
     '  continued', '```', '~~~', '````md', '  ```', '<div>', '</div>', '<pre>', '</pre>', '<!-- note', '-->', '<?php',
     '?>', '<custom-el>', '<span>x</span> y', '<b>b</b>', '> quote', '    indented', '\tTabbed', '  \ttab2', '***',
-    '<!-- pane: list -->', '<!-- pane: list -->', '  <!-- pane: list -->', '    <!-- pane: kpi -->', '<!-- pane: content -->',
-    '<!-- pane: content -->', '<!-- panes: stack -->', '<![CDATA[', ']]>', '<script>', '</script>', '| a | b |', '|---|---|'];
+    '<!-- @meta{pane=list} -->', '<!-- @meta{pane=list} -->', '  <!-- @meta{pane=list} -->', '    <!-- @meta{pane=kpi} -->', '<!-- @meta{pane=content} -->',
+    '<!-- @meta{pane=content} -->', '<!-- @meta{panes=stack} -->', '<![CDATA[', ']]>', '<script>', '</script>', '| a | b |', '|---|---|'];
   let withPanes = 0;
   for (let t = 0; t < 400; t++) {
     const lines = Array.from({ length: 4 + Math.floor(rnd() * 10) }, () => frags[Math.floor(rnd() * frags.length)]);
@@ -259,7 +259,7 @@ test('lint: pane-layout names a ratio off the grid and a third marker', () => {
   const bad = lintText(slide({ cls: 'list', body: items(2) }, { cls: 'content', body: 'x' }, '80/20')).filter((f) => f.rule === 'pane-layout');
   assert.equal(bad.length, 1);
   assert.match(bad[0].message, /25\/75/);
-  const three = lintText(`${slide({ cls: 'list', body: items(2) }, { cls: 'content', body: 'x' })}\n<!-- pane: quote -->\n\n> y\n`).filter((f) => f.rule === 'pane-layout');
+  const three = lintText(`${slide({ cls: 'list', body: items(2) }, { cls: 'content', body: 'x' })}\n<!-- @meta{pane=quote} -->\n\n> y\n`).filter((f) => f.rule === 'pane-layout');
   assert.match(three[0].message, /3 panes/);
 });
 
@@ -330,15 +330,15 @@ test('the engine, the source-side slide map and the lint agree on when a slide s
   // Each shape of fit: both ways, side only, stack only, neither, and a component with no row.
   const bodies = { list: '- One\n- Two', bar: '- A `4`\n- B `7`', kpi: '1. 42%\n   - Margin', code: '```js\nconst x = 1;\n```',
     table: '| a | b |\n|---|---|\n| 1 | 2 |', pricing: '- Basic\n  - $9', content: 'Prose.', 'no-such-thing': 'Text.' };
-  const layouts = ['', '<!-- panes: 25/75 -->\n', '<!-- panes: 65/35 -->\n', '<!-- panes: stack -->\n', '<!-- panes: stack 30/70 -->\n', '<!-- panes: 30/60 -->\n'];
-  const spots = ['', '<!-- _class: dark -->\n', '<!-- _class: glossary -->\n'];
+  const layouts = ['', '<!-- @meta{panes=25/75} -->\n', '<!-- @meta{panes=65/35} -->\n', '<!-- @meta{panes=stack} -->\n', '<!-- @meta{panes=stack 30/70} -->\n', '<!-- @meta{panes=30/60} -->\n'];
+  const spots = ['', '<!-- @meta{class=dark} -->\n', '<!-- @meta{layout=glossary} -->\n'];
   const counts = { 1: 0, 2: 0 };
   for (let t = 0; t < 120; t++) {
     const [a, b] = [pick(Object.keys(bodies)), pick(Object.keys(bodies))];
     const size = pick(['hd', 'hd', 'hd', 'portrait', 'square']);
     const spot = pick(spots);
-    const tail = rnd() < 0.3 ? `\n${spot || '<!-- _footer: F -->\n'}` : '';
-    const slide = `${rnd() < 0.5 ? spot : ''}## T\n\n${pick(layouts)}<!-- pane: ${a} -->\n\n${bodies[a]}\n\n<!-- pane: ${b} -->\n\n${bodies[b]}\n${tail}`;
+    const tail = rnd() < 0.3 ? `\n${spot || '<!-- @meta{footer=F} -->\n'}` : '';
+    const slide = `${rnd() < 0.5 ? spot : ''}## T\n\n${pick(layouts)}<!-- @meta{pane=${a}} -->\n\n${bodies[a]}\n\n<!-- @meta{pane=${b}} -->\n\n${bodies[b]}\n${tail}`;
     const src = `---\nsize: ${size}\n---\n\n${slide}`;
     const label = JSON.stringify(src);
     const rendered = [...e.render(src).html.matchAll(/<section\b[^>]*class="([^"]*)"/g)].map((m) => m[1].split(/\s+/));

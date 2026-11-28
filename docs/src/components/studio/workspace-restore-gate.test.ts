@@ -36,8 +36,8 @@ async function hostileBackup(): Promise<Blob> {
 	// A measured false positive of the css-scheme rule (import-gate.ts): it must still restore.
 	await saveStudioTheme({ name: 'code', label: 'Code', essentials: {}, css: theme('code', ':root { --code-javascript: #f0db4f; }') });
 	await saveStudioTheme({ name: 'beacon', label: 'Beacon', essentials: {}, css: theme('beacon', ':root { --leak: url(https://evil.example/?deck); }') });
-	await saveStudioComponent({ name: 'card', css: 'section.card { gap: 2px; }', skeleton: '<!-- _class: card -->\n\n## Card' });
-	await saveStudioComponent({ name: 'pixel', css: 'section.pixel { gap: 2px; }', skeleton: '<!-- _class: pixel -->\n\n![x](https://evil.example/p.png)' });
+	await saveStudioComponent({ name: 'card', css: 'section.card { gap: 2px; }', skeleton: '<!-- @meta{class=card} -->\n\n## Card' });
+	await saveStudioComponent({ name: 'pixel', css: 'section.pixel { gap: 2px; }', skeleton: '<!-- @meta{class=pixel} -->\n\n![x](https://evil.example/p.png)' });
 	const blob = await packWorkspace(T0);
 	for (const a of await listAssets()) await deleteAsset(a.id);
 	localStorage.clear();
@@ -62,7 +62,7 @@ describe('restoreWorkspace — the import gates, per item', () => {
 
 	it('a clean backup restores in full with nothing refused', async () => {
 		await saveStudioTheme({ name: 'brand', label: 'Brand', essentials: {}, css: theme('brand') });
-		await saveStudioComponent({ name: 'card', css: 'section.card { gap: 2px; }', skeleton: '<!-- _class: card -->\n\n## Card' });
+		await saveStudioComponent({ name: 'card', css: 'section.card { gap: 2px; }', skeleton: '<!-- @meta{class=card} -->\n\n## Card' });
 		const blob = await packWorkspace(T0);
 		for (const a of await listAssets()) await deleteAsset(a.id);
 

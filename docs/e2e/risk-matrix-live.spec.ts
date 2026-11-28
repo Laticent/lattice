@@ -19,7 +19,7 @@ theme: indaco
 delivery: expressive
 ---
 
-<!-- _class: risk-matrix -->
+<!-- @meta{class=risk-matrix} -->
 
 \`Enterprise risk register · Q4 2026\`
 

@@ -11,7 +11,7 @@ logo: sample:logo-acme-mark.svg
 
 # Seven ways to compose a cover.
 
-`cover: <surface> <composition>`
+`cover-layout: <surface> <composition>`
 
 Each composition reads on the dark panel and on the light canvas.
 
@@ -19,7 +19,7 @@ Each composition reads on the dark panel and on the light canvas.
 
 ## The register gains a second word
 
-- `cover: light column`
+- `cover-layout: light column`
   - The first word picks the surface, the second the composition. Either may come alone, in either order.
 - Seven compositions
   - `masthead`, `ledger`, `column`, `label`, `stage`, `frame` and `poster`, on title and closing alike.

@@ -15,7 +15,7 @@ const DECK = `---
 theme: indaco
 ---
 
-<!-- _class: statement finish-loom -->
+<!-- @meta{class=statement finish-loom} -->
 
 ## A glow under a weave
 
@@ -23,7 +23,7 @@ The lattice is lines, and the glow under it is smooth.
 
 ---
 
-<!-- _class: statement finish-nimbus dark -->
+<!-- @meta{class=statement finish-nimbus dark} -->
 
 ## Blooms on a dark canvas
 
@@ -31,7 +31,7 @@ Four soft blooms and an edge vignette.
 
 ---
 
-<!-- _class: statement finish-atrium backdrop-clear -->
+<!-- @meta{class=statement finish-atrium backdrop-clear} -->
 
 ## A clear panel
 

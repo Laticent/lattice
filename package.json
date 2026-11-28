@@ -218,6 +218,7 @@
     "check:chart-fit": "node tools/check-chart-fit.js",
     "check:chart-finish-reach": "node tools/chart-finish-reach.mjs --check",
     "check:jank": "node tools/check-jank.js",
+    "fit:grace": "node tools/fit-grace.js",
     "check:edge-shift": "node tools/check-edge-shift.js",
     "check:render:bless": "node tools/check-viz-render.js --bless",
     "fonts:check": "node tools/check-fonts.js",
@@ -360,7 +361,7 @@
     "html-to-image": "^1.11.13",
     "js-yaml": "^4.3.2",
     "jscpd": "^5.0.11",
-    "katex": "0.16.46",
+    "katex": "0.18.2",
     "knip": "^6.24.0",
     "lefthook": "^2.1.6",
     "lib0": "0.2.119",
@@ -389,17 +390,28 @@
     "@mermaid-js/mermaid-cli": {
       "puppeteer": "$puppeteer"
     },
+    "@marp-team/marp-core": {
+      "katex": "$katex"
+    },
     "marp-core-4.0.1": {
-      "@marp-team/marpit": "3.1.2"
+      "@marp-team/marpit": "3.1.2",
+      "katex": "$katex"
     },
     "marp-core-4.1.0": {
-      "@marp-team/marpit": "3.1.3"
+      "@marp-team/marpit": "3.1.3",
+      "katex": "$katex"
     },
     "marp-core-4.3.0": {
-      "@marp-team/marpit": "3.2.1"
+      "@marp-team/marpit": "3.2.1",
+      "katex": "$katex"
     },
     "marp-core-4.4.0": {
-      "@marp-team/marpit": "3.2.2"
+      "@marp-team/marpit": "3.2.2",
+      "katex": "$katex"
+    },
+    "test-exclude": {
+      "glob": "14.0.6",
+      "minimatch": "11.0.9"
     }
   }
 }

@@ -1,13 +1,13 @@
 ---
 name: component
-description: "Use when adding a new `_class:` layout to the catalog: manifest, palette-blind CSS, optional transform, generated docs."
+description: "Use when adding a new layout to the catalog: manifest, palette-blind CSS, optional transform, generated docs."
 kind: make
 studio: false
 ---
 
 # Skill — Create a component
 
-> Add a new `<!-- _class: X -->` layout to the catalog: a manifest, palette-blind
+> Add a new `<!-- @meta{layout=X} -->` layout to the catalog: a manifest, palette-blind
 > CSS, an optional transform, and the generated docs/galleries that flow from them.
 
 **Read this when** an existing component can't express a slide's shape and you
@@ -170,7 +170,7 @@ The manifest is the single source of truth. Required fields: `name`, `function`,
                 "description": "Each list item is one card. Top bullet = title; nested bullet = body." },
     "insight":{ "selector": "blockquote", "required": false, "description": "Key-insight panel." }
   },
-  "skeleton": "<!-- _class: cards-grid -->\n\n## Slide heading.\n\n- First card title\n  - Body text, one sentence.\n",
+  "skeleton": "<!-- @meta{layout=cards-grid} -->\n\n## Slide heading.\n\n- First card title\n  - Body text, one sentence.\n",
   "sample":   "…a real prose demo slide…",
   "stressDoc":{ "summary": "at the hard budget", "sample": "…four dense cards…" },
   "variants": ["four", "three"],   // layout-specific ONLY — never universal ones

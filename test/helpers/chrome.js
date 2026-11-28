@@ -82,4 +82,147 @@ function skipUnlessCI(missing, reason) {
   return reason;
 }
 
-module.exports = { resolveChrome, skipWithoutChrome, skipUnlessCI, flag };
+/**
+ * What the machine looked like when a Chrome launch failed, as one line of `key=value` pairs.
+ *
+ * Why it exists: `calco-chips.test.js` once failed in its `before` hook with puppeteer's "Timed out after
+ * 30000 ms while waiting for the WS endpoint URL", under a loaded run, and the hunt for the cause
+ * (engineering/decisions/2026-11-27-shared-chrome-for-tests.md, and PR #3577) could not reproduce it in
+ * 4,469 timed launches. Puppeteer's error says only that the endpoint never appeared. This records the
+ * state a cause would leave a trace in: how long the launch waited, load, free memory, how many Chrome
+ * processes were alive, free space where puppeteer writes its temp profile, the kernel's pressure-stall
+ * share for CPU, I/O and memory, and the cgroup's process count against its limit. `stalled`, when
+ * `launchOrExplain` took it, adds what the launching test's own child processes were doing part-way
+ * through the wait (`describeDescendants`).
+ *
+ * Every field is best effort: a reading that fails on this platform is left out, never thrown.
+ */
+function launchDiagnostics(elapsedMs, stalled = null) {
+  const os = require('node:os');
+  const parts = [`waited=${Math.round(elapsedMs)}ms`];
+  const tryAdd = (fn) => {
+    try {
+      const v = fn();
+      if (v) parts.push(v);
+    } catch {}
+  };
+  tryAdd(() => `load=${os.loadavg().map((n) => n.toFixed(2)).join('/')} cpus=${os.cpus().length}`);
+  tryAdd(() => `mem_free=${Math.round(os.freemem() / 2 ** 20)}MiB/${Math.round(os.totalmem() / 2 ** 20)}MiB`);
+  tryAdd(() => {
+    let n = 0;
+    for (const d of fs.readdirSync('/proc')) {
+      if (!/^\d+$/.test(d)) continue;
+      try {
+        if (/chrom/i.test(fs.readFileSync(`/proc/${d}/comm`, 'utf8'))) n++;
+      } catch {}
+    }
+    return `chrome_procs=${n}`;
+  });
+  tryAdd(() => {
+    const st = fs.statfsSync(os.tmpdir());
+    return `tmp_free=${Math.round((st.bavail * st.bsize) / 2 ** 20)}MiB`;
+  });
+  // Pressure stall information (Linux): the share of the last 10 s that some task waited on each resource.
+  tryAdd(() =>
+    ['cpu', 'io', 'memory']
+      .map((r) => `psi_${r}=${parsePsiAvg10(fs.readFileSync(`/proc/pressure/${r}`, 'utf8'))}`)
+      .join(' '),
+  );
+  tryAdd(() => {
+    // This process's own pids cgroup: `pids:<path>` on cgroup v1, `0::<path>` on v2.
+    const lines = fs.readFileSync('/proc/self/cgroup', 'utf8').split('\n');
+    const v1 = lines.find((l) => /^\d+:pids:/.test(l));
+    const v2 = lines.find((l) => l.startsWith('0::'));
+    const dir = v1 ? `/sys/fs/cgroup/pids${v1.split(':')[2]}` : v2 ? `/sys/fs/cgroup${v2.slice(3)}` : null;
+    if (!dir) return null;
+    const read = (f) => fs.readFileSync(`${dir}/${f}`, 'utf8').trim();
+    return `pids=${read('pids.current')}/${read('pids.max')}`;
+  });
+  if (stalled) parts.push(`at_${stalled.atMs}ms: ${stalled.procs || 'no child processes'}`);
+  return `launch diagnostics: ${parts.join(' ')}`;
+}
+
+/** `some avg10=…` from a /proc/pressure file, as a percentage string ("12.30%"), or "?" when absent. */
+function parsePsiAvg10(text) {
+  const m = /^some avg10=([\d.]+)/m.exec(text);
+  return m ? `${m[1]}%` : '?';
+}
+
+/**
+ * The processes descended from `rootPid`, each as `comm:STATE(wchan)`. STATE is the kernel's one-letter
+ * state from /proc/<pid>/stat (R running, S sleeping, D waiting on I/O, T stopped, Z zombie), and wchan
+ * the kernel function a sleeping process waits in. Shown on PR #3577: a Chrome frozen by SIGSTOP reads
+ * `chrome:T(do_signal_stop)`, and a stand-in that never prints its endpoint reads `sleep:S(hrtimer_nanosleep)`.
+ * Expected but not shown: a Chrome stuck on a disk read would read `D(…)`, one starved of CPU `R`.
+ * Chrome processes come first, so `limit` (which caps the list) never crowds them out. Linux only;
+ * elsewhere it returns ''.
+ */
+function describeDescendants(rootPid, limit = 12) {
+  const parent = new Map();
+  const info = new Map();
+  for (const d of fs.readdirSync('/proc')) {
+    if (!/^\d+$/.test(d)) continue;
+    try {
+      const stat = fs.readFileSync(`/proc/${d}/stat`, 'utf8');
+      const close = stat.lastIndexOf(')');
+      const comm = stat.slice(stat.indexOf('(') + 1, close);
+      const [state, ppid] = stat.slice(close + 2).split(' ');
+      parent.set(Number(d), Number(ppid));
+      info.set(Number(d), { comm, state });
+    } catch {}
+  }
+  const out = [];
+  for (const [pid, { comm, state }] of info) {
+    let p = parent.get(pid);
+    while (p && p !== rootPid && p !== 1) p = parent.get(p);
+    if (p !== rootPid) continue;
+    let wchan = '';
+    try {
+      wchan = fs.readFileSync(`/proc/${pid}/wchan`, 'utf8').trim();
+    } catch {}
+    out.push({ chrome: /chrom/i.test(comm), text: `${comm}:${state}${wchan && wchan !== '0' ? `(${wchan})` : ''}` });
+  }
+  // Stable sort: Chrome first, the rest in /proc order.
+  return out
+    .sort((a, b) => Number(b.chrome) - Number(a.chrome))
+    .slice(0, limit)
+    .map((p) => p.text)
+    .join(',');
+}
+
+/**
+ * `puppeteer.launch(opts)`, and on failure the same error with `launchDiagnostics` appended to its
+ * message. It adds no retry and no timeout of its own (HARD RULE #33): it changes what a failure says,
+ * never whether one happens.
+ */
+async function launchOrExplain(puppeteer, opts) {
+  const t0 = process.hrtime.bigint();
+  // Puppeteer kills a browser that timed out before it rejects, so what that browser was doing has to be
+  // read while it still runs: one snapshot at two thirds of the launch timeout. The timer only reads /proc;
+  // it never delays, retries or decides anything, and it is cleared as soon as the launch settles.
+  const budget = opts?.timeout ?? 30000;
+  let stalled = null;
+  const snap = // flaky-ok: a read-only diagnostic snapshot, not a wait; the launch's outcome never depends on it
+    budget > 0
+      ? setTimeout(() => {
+          try {
+            stalled = { atMs: Math.round(Number(process.hrtime.bigint() - t0) / 1e6), procs: describeDescendants(process.pid) };
+          } catch {}
+        }, (budget * 2) / 3)
+      : null;
+  snap?.unref?.();
+  try {
+    return await puppeteer.launch(opts);
+  } catch (e) {
+    const note = launchDiagnostics(Number(process.hrtime.bigint() - t0) / 1e6, stalled);
+    if (e && typeof e === 'object' && typeof e.message === 'string') {
+      e.message = `${e.message}\n${note}`;
+      throw e;
+    }
+    throw new Error(`${String(e)}\n${note}`);
+  } finally {
+    if (snap) clearTimeout(snap);
+  }
+}
+
+module.exports = { resolveChrome, skipWithoutChrome, skipUnlessCI, flag, launchDiagnostics, launchOrExplain, parsePsiAvg10, describeDescendants };

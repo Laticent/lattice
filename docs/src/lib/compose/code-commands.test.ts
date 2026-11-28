@@ -28,7 +28,7 @@ const DECK = [
 	'theme: indaco',
 	'---',
 	'',
-	'<!-- _class: diagram -->',
+	'<!-- @meta{layout=diagram} -->',
 	'',
 	'## A diagram slide',
 	'',
@@ -39,7 +39,7 @@ const DECK = [
 	'',
 	'---',
 	'',
-	'<!-- _class: content -->',
+	'<!-- @meta{layout=content} -->',
 	'',
 	'## Prose',
 	'',
@@ -185,7 +185,7 @@ describe('inserting a fence', () => {
 			['list item', '- one\n- two', '- two'],
 			['blockquote', '> quoted', '> quoted'],
 		] as const) {
-			const deck = ['<!-- _class: content -->', '', body, ''].join('\n');
+			const deck = ['<!-- @meta{layout=content} -->', '', body, ''].join('\n');
 			const state = stateFor(deck);
 			// Caret one character into the last text block.
 			let pos = -1;
@@ -205,7 +205,7 @@ describe('inserting a fence', () => {
 	});
 
 	it('refuses inside a GFM table cell, whose content cannot hold a block', () => {
-		const withTable = ['<!-- _class: compare-table -->', '', '## T', '', '| A | B |', '| --- | --- |', '| 1 | 2 |', ''].join('\n');
+		const withTable = ['<!-- @meta{class=compare-table} -->', '', '## T', '', '| A | B |', '| --- | --- |', '| 1 | 2 |', ''].join('\n');
 		const state = stateFor(withTable);
 		let pos = -1;
 		state.doc.descendants((node, p) => {
@@ -315,19 +315,19 @@ describe('getting back out of a fence', () => {
 describe('which layouts get the door', () => {
 	it('is permissive by default and for an unrecognized class', () => {
 		expect(slideTakesCode([])).toBe(true);
-		expect(slideTakesCode(['<!-- _class: content -->'])).toBe(true);
-		expect(slideTakesCode(['<!-- _class: not-a-component -->'])).toBe(true);
+		expect(slideTakesCode(['<!-- @meta{layout=content} -->'])).toBe(true);
+		expect(slideTakesCode(['<!-- @meta{class=not-a-component} -->'])).toBe(true);
 	});
 
 	it('stands down where a fence would mis-set the slide', () => {
-		expect(slideTakesCode(['<!-- _class: title -->'])).toBe(false);
-		expect(slideTakesCode(['<!-- _class: quote -->'])).toBe(false);
+		expect(slideTakesCode(['<!-- @meta{layout=title} -->'])).toBe(false);
+		expect(slideTakesCode(['<!-- @meta{layout=quote} -->'])).toBe(false);
 	});
 
 	it('reads EVERY token of the payload, not just the leading one', () => {
 		// `<!-- _class: dark quote -->` is ordinary authoring; matching only the first
 		// token resolved it to `dark`, found nothing, and offered the door.
-		expect(slideTakesCode(['<!-- _class: dark quote -->'])).toBe(false);
+		expect(slideTakesCode(['<!-- @meta{class=dark quote} -->'])).toBe(false);
 	});
 
 	it('names components that still exist', () => {
@@ -343,12 +343,12 @@ describe('the tag the door writes', () => {
 	const FENCES = { diagram: 'mermaid', code: 'js', 'compare-code': 'js', scene: 'anima', math: 'functionplot' };
 
 	it('takes the layout s own fence when the class declares one', () => {
-		expect(defaultFenceTag(['<!-- _class: diagram -->'], FENCES, [])).toBe('mermaid');
-		expect(defaultFenceTag(['<!-- _class: code -->'], FENCES, [])).toBe('js');
+		expect(defaultFenceTag(['<!-- @meta{layout=diagram} -->'], FENCES, [])).toBe('mermaid');
+		expect(defaultFenceTag(['<!-- @meta{layout=code} -->'], FENCES, [])).toBe('js');
 	});
 
 	it('falls back to the deck s own habit', () => {
-		expect(defaultFenceTag(['<!-- _class: content -->'], FENCES, ['python', 'js', 'python'])).toBe('python');
+		expect(defaultFenceTag(['<!-- @meta{layout=content} -->'], FENCES, ['python', 'js', 'python'])).toBe('python');
 	});
 
 	it('falls back to plain text when there is nothing to go on', () => {
@@ -356,30 +356,30 @@ describe('the tag the door writes', () => {
 	});
 
 	it('cannot be walked up the prototype chain by a hostile class name', () => {
-		expect(defaultFenceTag(['<!-- _class: constructor -->'], FENCES, [])).toBe('text');
+		expect(defaultFenceTag(['<!-- @meta{class=constructor} -->'], FENCES, [])).toBe('text');
 	});
 
 	it('reads a real deck s habit through the catalog', () => {
-		expect(defaultFenceTag(['<!-- _class: content -->'], undefined, deckFenceTags(DECK))).toBe('mermaid');
+		expect(defaultFenceTag(['<!-- @meta{layout=content} -->'], undefined, deckFenceTags(DECK))).toBe('mermaid');
 	});
 });
 
 describe('the layout hint', () => {
 	it('says when an engine fence sits on the wrong layout', () => {
-		expect(fenceClassHint('mermaid', ['<!-- _class: content -->'])).toMatch(/_class: diagram/);
+		expect(fenceClassHint('mermaid', ['<!-- @meta{layout=content} -->'])).toMatch(/_class: diagram/);
 	});
 
 	it('stays quiet when they agree, and for an ordinary language', () => {
-		expect(fenceClassHint('mermaid', ['<!-- _class: diagram -->'])).toBeNull();
-		expect(fenceClassHint('js', ['<!-- _class: content -->'])).toBeNull();
+		expect(fenceClassHint('mermaid', ['<!-- @meta{layout=diagram} -->'])).toBeNull();
+		expect(fenceClassHint('js', ['<!-- @meta{layout=content} -->'])).toBeNull();
 	});
 
 	it('reads EVERY class token, so a modifier before the component does not misfire', () => {
 		// `<!-- _class: dark diagram -->` is ordinary authoring. Reading only the leading
 		// token told the author their correctly-placed mermaid fence belonged on a `dark`
 		// slide — coaching that is worse than none.
-		expect(fenceClassHint('mermaid', ['<!-- _class: dark diagram -->'])).toBeNull();
-		expect(fenceClassHint('mermaid', ['<!-- class: diagram -->'])).toBeNull(); // running-global spelling
-		expect(fenceClassHint('mermaid', ['<!-- _class: dark quote -->'])).toMatch(/_class: diagram/);
+		expect(fenceClassHint('mermaid', ['<!-- @meta{class=dark diagram} -->'])).toBeNull();
+		expect(fenceClassHint('mermaid', ['<!-- @meta{layout=diagram, carry} -->'])).toBeNull(); // running-global spelling
+		expect(fenceClassHint('mermaid', ['<!-- @meta{class=dark quote} -->'])).toMatch(/_class: diagram/);
 	});
 });

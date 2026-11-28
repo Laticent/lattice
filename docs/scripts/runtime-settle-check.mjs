@@ -68,7 +68,7 @@ const SLIDES = {
 	minimal: '# A short slide\n\nJust a heading and a line.\n',
 	denseOverflow: `## An overstuffed slide\n\n${Array.from({ length: 40 }, (_, i) => `- Point ${i + 1} with enough words to push the box past its bound and trip the overflow watcher.`).join('\n')}\n`,
 	borderline: `## Borderline height\n\n${Array.from({ length: 13 }, (_, i) => `- Line ${i + 1} sized to sit right at the overflow tolerance edge.`).join('\n')}\n`,
-	piechart: '<!-- _class: piechart -->\n\n## Revenue by segment.\n\n- Enterprise `45`\n- Mid-market `30`\n- SMB `25`\n',
+	piechart: '<!-- @meta{class=piechart} -->\n\n## Revenue by segment.\n\n- Enterprise `45`\n- Mid-market `30`\n- SMB `25`\n',
 	mermaid: '## A flow\n\n```mermaid\nflowchart LR\n  A[Start] --> B{Choice}\n  B -->|yes| C[Do]\n  B -->|no| D[Skip]\n  C --> E[End]\n  D --> E\n```\n',
 	wideCode: '## Wide code\n\n```js\nconst aVeryLongLine = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";\n```\n',
 	// #1186 regression guard: `denseOverflow`/`borderline` above are a BARE list with no
@@ -79,7 +79,7 @@ const SLIDES = {
 	// highlight — the exact case that, pre-fix, redrew the highlight box+tab from scratch
 	// on every animation frame forever (confirmed via object-identity tracking: 0/19
 	// frames kept the same DOM nodes). This is the one that would have caught it.
-	overflowWithCulprit: `<!-- _class: list-tabular -->\n\n## A ledger with too many rows.\n\n${Array.from({ length: 14 }, (_, i) => `${i + 1}. Row ${i + 1}\n   - A description long enough to add real height to every row in this ledger.`).join('\n')}\n`,
+	overflowWithCulprit: `<!-- @meta{class=list-tabular} -->\n\n## A ledger with too many rows.\n\n${Array.from({ length: 14 }, (_, i) => `${i + 1}. Row ${i + 1}\n   - A description long enough to add real height to every row in this ledger.`).join('\n')}\n`,
 };
 
 async function measure(browser, base, deck, windowMs) {

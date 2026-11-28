@@ -10,7 +10,7 @@ import { type BrowserContext, test as base, expect, type Page } from '@playwrigh
 // ephemeral session (`getDirectory()` throws UnknownError; IndexedDB still works). Measured 2026-11-22 on
 // Playwright's Linux WebKit; a persistent profile has OPFS. So each test launches its own persistent
 // context in its own output folder (fresh state per test), and the ephemeral `page` fixture is kept for
-// the one assertion about it: the vault refuses there with a typed `unavailable`, never a hang.
+// the one assertion about it: there WebKit's vault keeps its bytes in IndexedDB (slice 2, D1 on #3442).
 //
 // `webkit-phone` is Linux WebKit at an iPhone's size, NOT iOS: iOS Safari stays UNVERIFIED until the iOS
 // Simulator suite or a real device covers it.
@@ -51,6 +51,7 @@ type Harness = {
 	recovery(): Promise<{ verified: number; damaged: string[]; orphans: number }>;
 	writePaths(): Promise<Record<string, number>>;
 	probe(): Promise<string>;
+	backing(): Promise<string>;
 	settled(): Promise<void>;
 };
 
@@ -62,6 +63,14 @@ declare global {
 
 async function open(page: Page): Promise<void> {
 	await page.goto(HARNESS);
+	await waitOpen(page);
+}
+
+/** Wait for the harness's vault to open, WITHOUT navigating. After a reload, call this and not `open`: a second
+ *  navigation loads the page twice, and when the reload's load runs the startup scan before the `goto` replaces it
+ *  (more likely under load), the scan the test asserts on has already run (`verified: 0`, seen once in a loaded
+ *  run on `desktop`). */
+async function waitOpen(page: Page): Promise<void> {
 	await expect(page.locator('body')).toHaveAttribute('data-ready', /yes|failed/);
 	await expect(page.locator('#status')).toHaveText('ready');
 }
@@ -85,7 +94,7 @@ test.describe('storage vault @crosswidth @webkit-phone @gecko', () => {
 		const deviceId = await page.evaluate(() => window.vaultHarness.deviceId());
 
 		await page.reload();
-		await open(page);
+		await waitOpen(page);
 		const after = await page.evaluate(async () => {
 			const h = window.vaultHarness;
 			return {
@@ -126,7 +135,7 @@ test.describe('storage vault @crosswidth @webkit-phone @gecko', () => {
 			await h.settled();
 		});
 		await page.reload();
-		await open(page);
+		await waitOpen(page);
 		const state = await page.evaluate(async () => ({
 			paths: (await window.vaultHarness.list('')).map((e) => e.path),
 			a: await window.vaultHarness.readText('Decks/a.md'),
@@ -150,10 +159,16 @@ test.describe('storage vault @crosswidth @webkit-phone @gecko', () => {
 		expect(await other.evaluate(() => window.vaultHarness.readText('Decks/shared.md'))).toBe('from tab one');
 	});
 
-	test('an ephemeral session: WebKit refuses OPFS and the vault says unavailable; the others open', async ({ page, browserName }) => {
-		await page.goto(HARNESS);
-		await expect(page.locator('body')).toHaveAttribute('data-ready', /yes|failed/);
-		if (browserName === 'webkit') await expect(page.locator('body')).toHaveAttribute('data-code', 'unavailable');
-		else await expect(page.locator('#status')).toHaveText('ready');
+	test('an ephemeral session: WebKit refuses OPFS and the vault keeps its bytes in IndexedDB; the others keep OPFS', async ({ page, browserName }) => {
+		// D1 on #3442, option B. Before slice 2 this session refused with `unavailable`.
+		await open(page);
+		expect(await page.evaluate(() => window.vaultHarness.backing())).toBe(browserName === 'webkit' ? 'indexeddb' : 'opfs');
+		const big = await page.evaluate(() => window.vaultHarness.writeBytes('Library/Videos/clip.mp4', 1024 * 1024, 3));
+		await page.evaluate(() => window.vaultHarness.write('Decks/Q3.md', '# Q3'));
+		await page.reload();
+		await waitOpen(page);
+		expect(await page.evaluate(() => window.vaultHarness.readText('Decks/Q3.md'))).toBe('# Q3');
+		expect(await page.evaluate(() => window.vaultHarness.readSize('Library/Videos/clip.mp4'))).toBe(big.bytes);
+		expect(await page.evaluate(() => window.vaultHarness.recovery())).toMatchObject({ damaged: [], orphans: 0 });
 	});
 });

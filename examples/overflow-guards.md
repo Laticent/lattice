@@ -83,4 +83,4 @@ That is the shape of the feature: the blocks that most often cause overflow are 
 
 # Nothing changes unless you ask for it.
 
-A deck that omits the key renders exactly as it did before. Per-slide, `<!-- _class: fit-heal -->` takes one slide back out.
+A deck that omits the key renders exactly as it did before. Per-slide, `<!-- @meta{class=fit-heal} -->` takes one slide back out.

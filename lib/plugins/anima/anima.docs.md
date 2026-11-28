@@ -12,7 +12,7 @@ around it and declares `"plugins": { "requires": ["anima"] }`; author scenes thr
 ## Authoring
 
 ````markdown
-<!-- _class: scene -->
+<!-- @meta{layout=scene} -->
 
 ## The request path.
 

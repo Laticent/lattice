@@ -54,7 +54,7 @@ describe('the phone box estimate matches the laid-out box', () => {
     for (const [size, height] of Object.entries(SIZES)) {
       const md = path.join(dir, `${size}.md`);
       const html = path.join(dir, `${size}.html`);
-      const body = SLIDES.map(([, head, tail]) => `<!-- _class: bar -->\n\n${head}\n\n${LIST}\n${tail ? `\n${tail}\n` : ''}`);
+      const body = SLIDES.map(([, head, tail]) => `<!-- @meta{layout=bar} -->\n\n${head}\n\n${LIST}\n${tail ? `\n${tail}\n` : ''}`);
       fs.writeFileSync(md, ['---', 'theme: indaco', `size: ${size}`, '---', '', body.join('\n---\n\n'), ''].join('\n'));
       const r = spawnSync(process.execPath, [CLI, md, html, '-q'], { cwd: ROOT, encoding: 'utf8', timeout: 240000 });
       assert.equal(r.status, 0, `${size}: ${r.stderr}`);

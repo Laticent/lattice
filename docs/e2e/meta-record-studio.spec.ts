@@ -10,7 +10,7 @@ const DECK = `---
 theme: indaco
 ---
 
-<!-- {layout=list-steps, footer="Record footer"}
+<!-- @meta{layout=list-steps, footer="Record footer"}
 note: |
   A private speaker note that must not show.
 reader: |
@@ -24,17 +24,17 @@ reader: |
 
 ---
 
-<!-- {layout=columns} -->
+<!-- @meta{layout=columns} -->
 
 ## Two panes from records.
 
-<!-- {pane=list, footer="Pane footer"} -->
+<!-- @meta{pane=list, footer="Pane footer"} -->
 ### Left
 
 - One
 - Two
 
-<!-- {pane=list} -->
+<!-- @meta{pane=list} -->
 ### Right
 
 - Three
@@ -42,7 +42,7 @@ reader: |
 
 ---
 
-<!-- {layout=list-steps, focus-steps="item 1 | item 2"} -->
+<!-- @meta{layout=list-steps, focus-steps="item 1 | item 2"} -->
 
 ## Focus steps walk.
 

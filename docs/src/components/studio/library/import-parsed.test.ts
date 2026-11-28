@@ -51,19 +51,19 @@ describe('importParsedBundle — keepMine (opening a .lattice)', () => {
 	});
 
 	it('a component taking a shipped name is saved as <name>-custom and the deck follows it', async () => {
-		const t = await importParsedBundle(bundle({ components: [{ name: 'kpi', bucket: null, css: 'section.kpi { outline: 1px solid red; }', skeleton: '<!-- _class: kpi -->\n\n## K' }] }), { keepMine: true });
+		const t = await importParsedBundle(bundle({ components: [{ name: 'kpi', bucket: null, css: 'section.kpi { outline: 1px solid red; }', skeleton: '<!-- @meta{layout=kpi} -->\n\n## K' }] }), { keepMine: true });
 		const saved = (await listStudioComponents()).map((c) => c.name);
 		expect(saved).toEqual(['kpi-custom']);
-		expect(applyImportRenames('<!-- _class: kpi -->\n\n## K\n', t.renames)).toContain('<!-- @meta{class=kpi-custom} -->');
+		expect(applyImportRenames('<!-- @meta{layout=kpi} -->\n\n## K\n', t.renames)).toContain('<!-- @meta{layout=kpi-custom} -->');
 	});
 
 	it('a component named for an engine class (`finish`) is reserved too', async () => {
-		await importParsedBundle(bundle({ components: [{ name: 'finish', bucket: null, css: 'section.finish { outline: 1px solid red; }', skeleton: '<!-- _class: finish -->' }] }), { keepMine: true });
+		await importParsedBundle(bundle({ components: [{ name: 'finish', bucket: null, css: 'section.finish { outline: 1px solid red; }', skeleton: '<!-- @meta{class=finish} -->' }] }), { keepMine: true });
 		expect((await listStudioComponents()).map((c) => c.name)).toEqual(['finish-custom']);
 	});
 
 	it('a component whose sample slide loads a remote image is refused, on both doors', async () => {
-		const c = { name: 'beacon', bucket: null, css: 'section.beacon { gap: 2px; }', skeleton: '<!-- _class: beacon -->\n\n![x](https://evil.test/b.png)' };
+		const c = { name: 'beacon', bucket: null, css: 'section.beacon { gap: 2px; }', skeleton: '<!-- @meta{class=beacon} -->\n\n![x](https://evil.test/b.png)' };
 		for (const keepMine of [true, false]) {
 			const t = await importParsedBundle(bundle({ components: [c] }), { keepMine });
 			expect(t.components).toBe(0);
@@ -73,9 +73,9 @@ describe('importParsedBundle — keepMine (opening a .lattice)', () => {
 	});
 
 	it('two carried components that land on one name get two names, not one overwritten', async () => {
-		await saveStudioComponent({ name: 'card', css: 'section.card { gap: 1px; }', skeleton: '<!-- _class: card -->' });
+		await saveStudioComponent({ name: 'card', css: 'section.card { gap: 1px; }', skeleton: '<!-- @meta{class=card} -->' });
 		const t = await importParsedBundle(
-			bundle({ components: [{ name: 'card', bucket: null, css: 'section.card { gap: 2px; }', skeleton: '<!-- _class: card -->' }] }),
+			bundle({ components: [{ name: 'card', bucket: null, css: 'section.card { gap: 2px; }', skeleton: '<!-- @meta{class=card} -->' }] }),
 			{ keepMine: true },
 		);
 		expect((await listStudioComponents()).map((c) => c.name).sort()).toEqual(['card', 'card-2']);

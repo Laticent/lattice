@@ -36,7 +36,7 @@ pagination: true
 header: "Pasted deck"
 ---
 
-<!-- _class: quadrant -->
+<!-- @meta{class=quadrant} -->
 
 ## A quadrant that should be reachable.
 

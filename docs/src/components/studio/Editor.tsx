@@ -48,7 +48,9 @@ let keepInkTooltip: ((tr: Transaction, from: number, to: number) => boolean | nu
 // #562 inline validation (underline + Quick fix). Degrades to a <textarea> if
 // CodeMirror can't construct (e.g. jsdom), so it never breaks tests.
 
-const CLASS_RE = /<!--\s*_class:\s*([A-Za-z0-9-]+)\s*-->/g;
+// The slide's component is the first word of its record's layout (`<!-- @meta{layout=kpi, …} -->`): since the cut an old
+// `<!-- _class: kpi -->` comment sets nothing (record note §15), and the lint core names it with its own fix.
+const CLASS_RE = /<!--\s*@meta\{\s*(?:layout|class)\s*=\s*"?([A-Za-z0-9-]+)/g;
 
 // The "did you mean" for an unknown component: the known name sharing the longest
 // prefix, else one that is a prefix of the typo, else `kpi`. Shared by the inline
@@ -981,7 +983,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 				});
 				return;
 			}
-			// Fallback: swap each unknown `_class` for its nearest known suggestion.
+			// Fallback: swap each unknown record layout for its nearest known suggestion.
 			let text = docString(v.state.doc);
 			CLASS_RE.lastIndex = 0;
 			text = text.replace(CLASS_RE, (full, name: string) =>

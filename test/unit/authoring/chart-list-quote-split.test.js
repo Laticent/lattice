@@ -20,7 +20,7 @@ const { readChartRows } = require('../../../lib/core/chart-row-source.js');
 
 const manifests = loadAll(path.join(__dirname, '../../../lib/components'));
 const vocab = buildVocab(manifests);
-const deck = (cls, body) => `---\nmarp: true\n---\n\n<!-- _class: ${cls} -->\n\n## A\n\n${body}\n`;
+const deck = (cls, body) => `---\nmarp: true\n---\n\n<!-- @meta{class=${cls}} -->\n\n## A\n\n${body}\n`;
 const findings = (src, rule) => lintCore.lintTextWith(src, vocab).filter((f) => f.rule === rule);
 const splits = (src) => findings(src, 'chart-list-split-quote');
 // A drawn mark carries `data-mark`; so does its hover-detail <template>, which is not a mark.
@@ -210,7 +210,7 @@ describe('a description cannot break the slide, the narration or the card', () =
 
   test('an unclosed raw tag stays inside the row: every bar draws and the next slide survives', () => {
     for (const q of ['> <!-- hmm', '> <textarea>', '> <title>', '> <xmp>', '> <plaintext>', '> <div>', '> <template>x', '- <!-- hmm']) {
-      const src = `<!-- _class: bar -->\n\n## T\n\n- Alpha \`10\`\n  ${q}\n- Beta \`20\`\n\n---\n\n## Next slide\n`;
+      const src = `<!-- @meta{layout=bar} -->\n\n## T\n\n- Alpha \`10\`\n  ${q}\n- Beta \`20\`\n\n---\n\n## Next slide\n`;
       const h = html(src);
       assert.equal((h.match(/<section\b/g) || []).length, 2, `${q}: the next slide survives`);
       assert.equal(marks(h), 2, `${q}: both bars draw`);

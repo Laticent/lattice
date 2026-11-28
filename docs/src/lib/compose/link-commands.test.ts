@@ -4,7 +4,7 @@ import { deckToDoc, docToDeck } from './deck-doc';
 import { entitySafeHref } from './deck-markdown';
 import { LINK_PLACEHOLDER, linkAt, linkBlocker, normalizeHref, removeLink, selectedLink, setLink, startLink } from './link-commands';
 
-const DECK = ['<!-- _class: content -->', '', '## Links', '', 'Read the [launch notes](https://example.com/notes "Notes") today.', '', 'Plain words here.', '', '```text', 'code', '```', '', '---', '', '<!-- _class: content -->', '', '## Locked', '', 'This has ~~strike~~ and [a link](https://x.io).'].join('\n');
+const DECK = ['<!-- @meta{layout=content} -->', '', '## Links', '', 'Read the [launch notes](https://example.com/notes "Notes") today.', '', 'Plain words here.', '', '```text', 'code', '```', '', '---', '', '<!-- @meta{layout=content} -->', '', '## Locked', '', 'This has ~~strike~~ and [a link](https://x.io).'].join('\n');
 
 /** The document position just before the first occurrence of `text` (inside a text node). */
 function posOf(state: EditorState, text: string, nth = 0): number {
@@ -72,7 +72,7 @@ describe('normalizeHref', () => {
 		for (const h of ['https://ex.com/é', 'https://x.io/50%off', 'https://x.io/[x]', "https://x.io/Ender's", 'example.com/a b', 'https://x.io/(a)', 'https://x.io/a&amp;b', 'https://x.io/?a=1&b=2', 'https://x.io/a%26amp;b', 'https://x.io/?a=1&b;c', 'https://x.io/?a&amp;lt;b']) {
 			const first = normalizeHref(h);
 			if (!('href' in first)) throw new Error(h);
-			const deck = docToDeck(deckToDoc(`<!-- _class: content -->\n\n## L\n\n[t](${entitySafeHref(first.href)})`));
+			const deck = docToDeck(deckToDoc(`<!-- @meta{layout=content} -->\n\n## L\n\n[t](${entitySafeHref(first.href)})`));
 			expect(deck, h).toContain(`[t](${entitySafeHref(first.href)})`);
 			expect(docToDeck(deckToDoc(deck)), h).toBe(deck);
 		}
@@ -82,7 +82,7 @@ describe('normalizeHref', () => {
 describe('a link the author wrote by hand', () => {
 	it('keeps its address over two saves when the address holds an entity', () => {
 		for (const src of ['[t](https://x.io/?a&amp;lt;b)', '[t](https://x.io/?a=1&b;c)', '[t](https://x.io/?q=&copy=2)']) {
-			const deck = `<!-- _class: content -->\n\n## L\n\n${src}`;
+			const deck = `<!-- @meta{layout=content} -->\n\n## L\n\n${src}`;
 			const once = docToDeck(deckToDoc(deck));
 			const twice = docToDeck(deckToDoc(once));
 			expect(twice, src).toBe(once);

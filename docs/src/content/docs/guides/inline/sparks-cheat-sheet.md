@@ -74,7 +74,7 @@ The most specific wins, one setting at a time.
 | Scope | Write |
 |---|---|
 | One spark | `` `~{1 3 2, etch, rounded}` `` |
-| One slide | `<!-- _class: table spark-bare -->` — any word with `spark-` in front |
+| One slide | `<!-- @meta{layout=table, class=spark-bare} -->` — any word with `spark-` in front |
 | The whole deck | `spark: etch rounded` in front matter |
 
 The deck-level words are frame, look and corners: `framed` · `bare` · `pigment` · `etch` ·

@@ -8,7 +8,7 @@ import { CommentView, commentRunPlugin, structuralGuard } from './ComposeView';
 // A note opens in its panel and its words edit in place. followups.d/2846-p5.
 // The bytes outside the words (the opener, the closer, a note's `@name{…}` frame) are the author's, and a note that is opened and left is never written.
 
-const DECK = ['<!-- _class: content -->', '', '## Heading', '', 'First paragraph.', '', '<!-- @say{the slide reads as this.} -->', '', '<!-- a plain note. -->', '', 'Second paragraph.'].join('\n');
+const DECK = ['<!-- @meta{layout=content} -->', '', '## Heading', '', 'First paragraph.', '', '<!-- @say{the slide reads as this.} -->', '', '<!-- a plain note. -->', '', 'Second paragraph.'].join('\n');
 
 let view: EditorView | null = null;
 afterEach(() => {
@@ -399,7 +399,7 @@ describe('leaving the panel', () => {
 	});
 
 	it('Escape and Remove put the caret at the note, not at the old selection', () => {
-		const v = mount(['<!-- _class: content -->', '', '## Plan', '', 'First paragraph.', '', '---', '', '<!-- _class: content -->', '', '## Two', '', 'Slide two text.', '', '<!-- a plain note. -->', '', 'After the note.'].join('\n'));
+		const v = mount(['<!-- @meta{layout=content} -->', '', '## Plan', '', 'First paragraph.', '', '---', '', '<!-- @meta{layout=content} -->', '', '## Two', '', 'Slide two text.', '', '<!-- a plain note. -->', '', 'After the note.'].join('\n'));
 		pills()[0].click();
 		(field() as HTMLTextAreaElement).dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
 		expect(v.state.doc.textBetween(v.state.selection.from, v.state.selection.to + 5, ' ')).toMatch(/^After/);
@@ -411,7 +411,7 @@ describe('leaving the panel', () => {
 
 // The seventh check: the caret that Escape and Remove return to must be a text position, in the note's own slide, never a selected note.
 describe('where the caret goes after Escape and Remove', () => {
-	const TWO_SLIDES = ['<!-- _class: content -->', '', '## Plan', '', 'Para one.', '', '<!-- @say{first note.} -->', '', '<!-- a second note. -->', '', '---', '', '<!-- _class: content -->', '', '## Second', '', 'Body two.', '', '<!-- last note. -->'].join('\n');
+	const TWO_SLIDES = ['<!-- @meta{layout=content} -->', '', '## Plan', '', 'Para one.', '', '<!-- @say{first note.} -->', '', '<!-- a second note. -->', '', '---', '', '<!-- @meta{layout=content} -->', '', '## Second', '', 'Body two.', '', '<!-- last note. -->'].join('\n');
 	const slideIndexOf = (v: EditorView) => v.state.selection.$from.index(0);
 	const isTextCaret = (v: EditorView) => v.state.selection instanceof TextSelection;
 

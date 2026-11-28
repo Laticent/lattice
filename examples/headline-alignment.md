@@ -33,7 +33,7 @@ By default the register emits nothing and each layout renders exactly as before 
 
 # Left-aligned, on demand
 
-A title centers by default. `_class: head-left` pins its eyebrow, heading, and subtitle to the left margin together — the whole framing cluster, not one piece.
+A title centers by default. `class=head-left` pins its eyebrow, heading, and subtitle to the left margin together — the whole framing cluster, not one piece.
 
 ---
 
@@ -60,7 +60,7 @@ A title centers by default. `_class: head-left` pins its eyebrow, heading, and s
 
 ## The missing lever — center a left-default layout
 
-A content masthead lefts by default, so before this there was no way to center it. `_class: head-center` centers the whole framing cluster — the eyebrow, this heading (as a *box*, so it centers on the frame even when it wraps), and the rule — while the body keeps its own axis.
+A content masthead lefts by default, so before this there was no way to center it. `class=head-center` centers the whole framing cluster — the eyebrow, this heading (as a *box*, so it centers on the frame even when it wraps), and the rule — while the body keeps its own axis.
 
 > The register centers the framing; the body is yours to align separately. That separation is the point.
 
@@ -77,7 +77,7 @@ Add `headline: left` to the front matter and every slide left-aligns its framing
 - Deck-wide
   - `headline: left` in the `---` block.
 - Per slide
-  - `_class: head-left` on one slide.
+  - `class=head-left` on one slide.
 
 ---
 

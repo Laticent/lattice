@@ -21,13 +21,13 @@ describe('hide / show a slide (2026-11-06-hidden-slides.md)', () => {
 	});
 
 	it('Show removes every hide line, either spelling', () => {
-		const out = withHidden('<!-- _hide: true -->\n<!-- _class: content -->\n<!-- hide -->\n# Two', false);
-		expect(out).toBe('<!-- _class: content -->\n# Two');
+		const out = withHidden('<!-- @meta{hide=true} -->\n<!-- @meta{layout=content} -->\n<!-- @meta{hide} -->\n# Two', false);
+		expect(out).toBe('<!-- @meta{layout=content} -->\n# Two');
 		expect(slideSourceHidden(out)).toBe(false);
 	});
 
 	it('a hide shown in a code sample is not a directive and survives Show', () => {
-		const sample = '# Teaching\n\n```md\n<!-- hide -->\n```';
+		const sample = '# Teaching\n\n```md\n<!-- @meta{hide} -->\n```';
 		expect(slideSourceHidden(sample)).toBe(false);
 		expect(withHidden(sample, false)).toBe(sample);
 		const hidden = withHidden(sample, true);
@@ -49,40 +49,40 @@ describe('hide / show a slide (2026-11-06-hidden-slides.md)', () => {
 	});
 
 	it('a `hide:` note survives Hide then Show, and a hide in indented code is left alone', () => {
-		const note = '<!-- hide: if short on time -->\n## A';
+		const note = '<!-- @meta{hide=if short on time} -->\n## A';
 		const hidden = withHidden(note, true);
 		expect(slideSourceHidden(hidden)).toBe(true);
 		expect(withHidden(hidden, false)).toBe(note);
-		const code = '## A\n\n    <!-- hide -->';
+		const code = '## A\n\n    <!-- @meta{hide} -->';
 		expect(withHidden(withHidden(code, true), false)).toBe(code);
 	});
 
 	it('Hide wins over an older `_hide: false` on the slide', () => {
-		const shown = '## A\n\nbody\n\n<!-- _hide: false -->';
+		const shown = '## A\n\nbody\n\n<!-- @meta{hide=false} -->';
 		const hidden = withHidden(shown, true);
 		expect(slideSourceHidden(hidden)).toBe(true);
 		expect(hidden).toBe('<!-- @meta{hide} -->\n## A\n\nbody');
 	});
 
 	it('a hide comment that is not top level (a list item, an HTML block) is the author\'s, kept by Hide and Show', () => {
-		const list = '- item\n  <!-- hide -->\n\nbody';
+		const list = '- item\n  <!-- @meta{hide} -->\n\nbody';
 		expect(withHidden(list, true)).toBe(`<!-- @meta{hide} -->\n${list}`);
 		expect(withHidden(withHidden(list, true), false)).toBe(list);
-		const block = '## A\n\n<div>\n<!-- hide -->\n</div>';
+		const block = '## A\n\n<div>\n<!-- @meta{hide} -->\n</div>';
 		expect(withHidden(withHidden(block, true), false)).toBe(block);
 	});
 
 	it('removing a hide line in the middle of a slide leaves no extra blank line', () => {
-		const mid = '## A\n\n<!-- _hide: false -->\n\nbody';
+		const mid = '## A\n\n<!-- @meta{hide=false} -->\n\nbody';
 		const hidden = withHidden(mid, true);
 		expect(hidden).toBe('<!-- @meta{hide} -->\n## A\n\nbody');
 		expect(withHidden(hidden, false)).toBe('## A\n\nbody');
 	});
 
 	it('never takes a blank line that keeps two blocks apart', () => {
-		expect(withHidden('Para one.\n\n<!-- hide -->\nPara two.', false)).toBe('Para one.\n\nPara two.');
-		expect(withHidden('Para one.\n<!-- hide -->\n\nPara two.', false)).toBe('Para one.\n\nPara two.');
-		expect(withHidden('- a\n- b\n\n<!-- _hide: false -->\nNext para.', true)).toBe('<!-- @meta{hide} -->\n- a\n- b\n\nNext para.');
+		expect(withHidden('Para one.\n\n<!-- @meta{hide} -->\nPara two.', false)).toBe('Para one.\n\nPara two.');
+		expect(withHidden('Para one.\n<!-- @meta{hide} -->\n\nPara two.', false)).toBe('Para one.\n\nPara two.');
+		expect(withHidden('- a\n- b\n\n<!-- @meta{hide=false} -->\nNext para.', true)).toBe('<!-- @meta{hide} -->\n- a\n- b\n\nNext para.');
 	});
 });
 
@@ -99,7 +99,7 @@ describe('Show slide keeps the block\'s first line as written (the third checker
 	});
 
 	it('an indented code block that follows the hide stays code', () => {
-		const deck = '# A\n\n---\n\n<!-- hide -->\n    code line\n\n---\n\n# C\n';
+		const deck = '# A\n\n---\n\n<!-- @meta{hide} -->\n    code line\n\n---\n\n# C\n';
 		expect(setHiddenAt(deck, { unit: 1, part: 0 }, false).source).toBe('# A\n\n---\n\n    code line\n\n---\n\n# C\n');
 	});
 });

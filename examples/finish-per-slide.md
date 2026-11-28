@@ -19,7 +19,7 @@ Write one class. The finish paints on that slide alone.
 
 ## One class activates the whole finish.
 
-`_class: finish-atrium` — no deck-wide `finish:`, no second `finish` token. The backdrop paints on this slide alone.
+`class=finish-atrium` — no deck-wide `finish:`, no second `finish` token. The backdrop paints on this slide alone.
 
 ---
 
@@ -35,7 +35,7 @@ A `finish-<name>` class carries the whole finish: the engine adds the `finish` l
 
 ## Same on a dark canvas.
 
-`_class: finish-gallery dark` — the finish is palette-blind, so it tracks light and dark from the one class.
+`class=finish-gallery dark` — the finish is palette-blind, so it tracks light and dark from the one class.
 
 ---
 

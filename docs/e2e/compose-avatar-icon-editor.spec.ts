@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 import { insertVia, openDeckInCompose, savedDeck } from './compose-insert';
 import { expect, studioUndo, test } from './studio-fixture';
+import { witnessTap } from './tap-witness';
 
 /**
  * COMPOSE — the avatar and icon editors.
@@ -12,7 +13,7 @@ import { expect, studioUndo, test } from './studio-fixture';
  * Design: engineering/decisions/2026-10-21-compose-point-and-click.md §3.
  */
 
-const DECK = ['<!-- _class: content -->', '', '## Team', '', 'Lead `!{Ada Okafor, c3}` works with `^{database, lg}` on the `{LIVE, c2}` store.', '', 'Plain line here.'].join('\n');
+const DECK = ['<!-- @meta{layout=content} -->', '', '## Team', '', 'Lead `!{Ada Okafor, c3}` works with `^{database, lg}` on the `{LIVE, c2}` store.', '', 'Plain line here.'].join('\n');
 
 const editor = (page: Page) => page.locator('[data-slot="popover-content"]');
 const avatarButton = (page: Page) => page.getByRole('button', { name: 'Edit avatar Ada Okafor' });
@@ -119,18 +120,23 @@ test.describe('compose avatar and icon editors', () => {
 	// `desktop`). On a touch project the avatar is opened with a real touch tap and the pick is a tap: the editor that opens (a
 	// popover, or a bottom sheet on a phone) and the one word it writes are what a phone author depends on. That is touch
 	// EMULATION in Chromium, not a device: it claims the event path and the layout, not a phone's keyboard or iOS.
+	// It failed once on mobile-touch with no trace (the editor never showed after the tap) and could not be reproduced in
+	// about 250 runs, so a witness records what each tap hit and what the editor did; a failure here prints that timeline.
 	test('@parity a touch tap on an avatar opens the editor, and a pick writes only the word that was picked', async ({ page }) => {
 		await openDeckInCompose(page, DECK);
 		const touch = await page.evaluate(() => navigator.maxTouchPoints > 0);
+		const panelSelector = '[data-slot="popover-content"], [role="dialog"]';
+		const witness = await witnessTap(page, { target: 'button[aria-label="Edit avatar Ada Okafor"]', panel: panelSelector });
 		const target = avatarButton(page);
+		await witness.aim();
 		if (touch) await target.tap();
 		else await target.click();
-		const panel = page.locator('[data-slot="popover-content"], [role="dialog"]').last();
-		await expect(panel).toBeVisible();
+		const panel = page.locator(panelSelector).last();
+		await expect(panel).toBeVisible().catch(witness.explain);
 		const pick = panel.getByRole('radio', { name: 'Shape: Square' });
 		if (touch) await pick.tap();
 		else await pick.click();
-		await expect.poll(() => savedDeck(page)).toBe(DECK.replace('!{Ada Okafor, c3}', '!{Ada Okafor, c3, square}'));
+		await expect.poll(() => savedDeck(page)).toBe(DECK.replace('!{Ada Okafor, c3}', '!{Ada Okafor, c3, square}')).catch(witness.explain);
 		await expect(page.locator('.cs-npill .lat-avatar')).toHaveAttribute('data-shape', 'square');
 	});
 

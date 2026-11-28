@@ -27,7 +27,7 @@ stays off the slide — exactly the way Marp has always treated it.
 - Genuine note
   - `<!-- Pause here. Ask the room. -->` rides to the PDF and HTML.
 - Directives
-  - `<!-- _class: … -->` still configures the slide, never a note.
+  - `<!-- @meta{…} -->` configures the slide, never a note.
 - Tooling pragmas
   - `<!-- markdownlint-disable -->` is ignored, exactly as Marp ignores it.
 

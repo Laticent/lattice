@@ -92,7 +92,7 @@ describe('mermaid-slide-class-forms', () => {
       'diagram 1 precedes every directive in the deck — if it goes dark, the fix over-reached');
   });
 
-  test('a GLOBAL `<!-- class: … -->` reaches the bake on its own slide', { timeout: TIMEOUT }, () => {
+  test('a GLOBAL `<!-- @meta{class="…", carry} -->` reaches the bake on its own slide', { timeout: TIMEOUT }, () => {
     assertScheme(2, DARK,
       'Marp has two class forms and only the spot `_class` one was read, so a deck that '
       + 'switches canvas mid-way baked every later diagram for the canvas it left');
@@ -106,7 +106,7 @@ describe('mermaid-slide-class-forms', () => {
 
   test('a directive quoted as prose does not override the slide', { timeout: TIMEOUT }, () => {
     assertScheme(4, DARK,
-      '`<!-- _class: kpi -->` inside inline code is a `code_inline` token, not a directive — '
+      '`<!-- @meta{layout=kpi} -->` inside inline code is a `code_inline` token, not a directive — '
       + 'a deck documenting its own syntax must not be re-classed by its own examples');
   });
 

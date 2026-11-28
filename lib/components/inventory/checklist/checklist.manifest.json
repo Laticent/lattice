@@ -24,7 +24,8 @@
     "escalateTo": [
       "split across slides"
     ],
-    "note": "past eight items the checklist overflows"
+    "note": "past eight items the checklist overflows",
+    "withClaim": {"quiet":{"soft":9,"hard":10},"hero":{"soft":11,"hard":12}}
   },
   "density": {
     "axis": "item",

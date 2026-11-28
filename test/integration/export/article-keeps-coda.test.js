@@ -25,8 +25,8 @@ describe('export: the reading article keeps each slide\'s Key Insight and below-
 	const DECK = [
 		'---\ntheme: indaco\n---',
 		'## A plain slide\n\n- EMEA leads\n- APAC holds\n\n> Plain insight line.\n\nA plain below-note.\n',
-		'## A panes slide\n\n<!-- panes: 50/50 -->\n<!-- pane: list -->\n\n- Left item\n\n<!-- pane: table -->\n\n| A | B |\n|---|---|\n| 1 | 2 |\n\n> Panes insight line.\n',
-		'<!-- _class: contact -->\n\n## A claiming layout\n\n- Ada\n  - ada@example.com\n\n> Claimed insight line.\n',
+		'## A panes slide\n\n<!-- @meta{panes=50/50} -->\n<!-- @meta{pane=list} -->\n\n- Left item\n\n<!-- @meta{pane=table} -->\n\n| A | B |\n|---|---|\n| 1 | 2 |\n\n> Panes insight line.\n',
+		'<!-- @meta{layout=contact} -->\n\n## A claiming layout\n\n- Ada\n  - ada@example.com\n\n> Claimed insight line.\n',
 	].join('\n\n---\n\n');
 
 	test('each coda block reaches the article once, after its slide\'s body', { timeout: TIMEOUT }, () => {

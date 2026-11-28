@@ -235,7 +235,7 @@ the engine's only plugin point.
 
 | Substance     | Author writes…                              | Renderer                                            |
 |---------------|---------------------------------------------|-----------------------------------------------------|
-| **prose**     | Headings, paragraphs, inline emphasis       | Marp markdown → semantic HTML; CSS does everything  |
+| **prose**     | Headings, paragraphs, inline emphasis       | Markdown → semantic HTML; CSS does everything       |
 | **structure** | Headings + nested lists with conventions    | `lib/*.js` post-processor rewrites lists into purpose-built DOM |
 | **series**    | Tabular DSL (axes + datapoints as bullets)  | `lib/plugins/chart-family/chart-family.dispatch.js` + per-chart kernel |
 | **graph**     | External graph language (Mermaid today)     | External tool (mmdc) → SVG, palette injected        |
@@ -368,12 +368,12 @@ Lattice follows the same pattern. The four-layer model organizes
 authoring grammar. Authors write:
 
 ```markdown
-<!-- _class: cards-grid compact dark -->
+<!-- @meta{layout=cards-grid, class=compact dark} -->
 ```
 
-The first token is the **component name** (the layout). The rest are
-**modifiers** (the variants). This is exactly how it has always
-worked. Nothing to migrate.
+`layout=` names the **component** (the layout). The `class=` words are
+**modifiers** (the variants). A deck in the old `<!-- _class: cards-grid compact dark -->`
+form, where the first word was the component, migrates with `lattice migrate meta`.
 
 ### What's new
 
@@ -398,7 +398,7 @@ lib/components/cards-grid.json
     "cards":  { "selector": "ul > li",    "required": true,  "description": "Each list item becomes one card. A top-level bullet is the card title (renders bold); an indented bullet underneath carries the body text." },
     "insight":{ "selector": "blockquote", "required": false, "description": "Optional key-insight panel above the cards." }
   },
-  "skeleton": "<!-- _class: cards-grid -->\n\n## Slide heading.\n\n- First card title\n  - Body text for the first card, one sentence.\n- Second card title\n  - Body text for the second card, one sentence.\n- Third card title\n  - Body text for the third card, one sentence.\n- Fourth card title\n  - Body text for the fourth card, one sentence.\n",
+  "skeleton": "<!-- @meta{layout=cards-grid} -->\n\n## Slide heading.\n\n- First card title\n  - Body text for the first card, one sentence.\n- Second card title\n  - Body text for the second card, one sentence.\n- Third card title\n  - Body text for the third card, one sentence.\n- Fourth card title\n  - Body text for the fourth card, one sentence.\n",
   "example": "examples/snippets/cards-grid.md",
   "anatomyBlock": "T7-card-grid-2x2"
 }
@@ -472,7 +472,7 @@ are the author surface of the `claim:` register (`design/concepts.md`;
 `engineering/decisions/2026-07-03-claim-content-claims-the-stage.md`).
 
 **Chrome control is per-slide OR deck-wide.** The Chrome tokens above are
-per-slide (`<!-- _class: no-footer -->`). Each chrome element also has a
+per-slide (`<!-- @meta{class=no-footer} -->`). Each chrome element also has a
 deck-wide control in the front-matter, so an author can set the baseline once
 and opt individual slides out:
 
@@ -486,11 +486,11 @@ and opt individual slides out:
 
 Every one is a SWITCH (lib/core/switches.mjs): `no-X` turns the band off, `with-X`
 brings it back on one slide. A deck-wide `class:` reaches every slide, including
-one that names its own `_class` (the slide's classes ADD to the deck's, never
+one that names its own `class=` in its `@meta` record (the slide's classes ADD to the deck's, never
 replace them), and the slide's `with-X` wins over the deck's `no-X`. `silent`
 turns the header, footer, page number and rail off together for one slide; each
 `with-X` beats it too, so a clean slide can keep its page number with
-`<!-- _class: content silent with-pagination -->`. The full list of switches,
+`<!-- @meta{layout=content, class=silent with-pagination} -->`. The full list of switches,
 chrome and beyond, is `lib/base/base.docs.md` § Switches; the Studio controls
 that emit them are in the authoring guide (`docs/src/content/docs/guides/authoring.md`).
 
@@ -583,9 +583,10 @@ shape and lives in the engine (`lib/core/bleed-frames.js`). Generated into
 deliberately ignores a modifier on (`claim-bleed` on a dense table). It takes a
 group name or a single token, and the validator rejects anything else.
 
-**How the editor completes a `_class:` line.** By position, the way a shell
-completes a command line: the first word is a component, and every later word is
-only what THAT component accepts. The menu lists, in order:
+**How the editor completes a slide's record.** Inside `<!-- @meta{…} -->`, a field
+name completes after `{` or `, `, and a value after `field=`: `layout=` offers the
+components, and `class=` completes by position, the way a shell completes a command
+line: every word is only what THE SLIDE'S component accepts. The menu lists, in order:
 
 1. the dependents of a token just typed (`tint-corner` → `at-tl` …)
 2. the component's own variants
@@ -600,8 +601,8 @@ A table, heading or eyebrow in its body turns that surface on, unless the proof
 measured it inert on this component. Inside
 each section, modifiers are ranked by how often the example decks use them. A token
 already on the line drops out, and so does every other member of an exclusive axis
-once you pick one. Once the first word names no component, it completes as the default `content`
-slide, so `_class: dark` keeps working. A bare space opens no menu: the
+once you pick one. With no `layout=`, `class=` completes as the default `content`
+slide, so `class=dark` works. A bare space opens no menu: the
 default look is the component with nothing after it, so Enter there stays a newline.
 The menu opens on the first letter, or on Ctrl-Space. The kernel is
 `classTokenResult` in `docs/src/playground/slide-context.js` (the options plus the
@@ -637,7 +638,8 @@ VS Code inserts them as written. The same file ships in the copy-and-go Marp kit
 Export-to-Marp bundle (`.vscode/lattice.code-snippets`). Generated from the manifests; never
 hand-edited.
 
-Layout NAMES complete as you type inside `<!-- _class: ` through a small VS Code extension,
+In the Marp kit and an Export-to-Marp bundle, which use Marp's own comment form, layout NAMES
+complete as you type inside `<!-- _class: ` through a small VS Code extension,
 `lattice-layouts.vsix`, which the Marp kit ships and the bundle's README links to. Its completion
 provider answers only inside a class directive, so prose never opens a menu
 (`kit/vscode/`, `engineering/decisions/2026-11-11-vscode-layout-completions.md`).
@@ -765,8 +767,9 @@ npm run new:slide -- compare-prose    # generate the skeleton
 to use) lives in `design/skill.md` and the visual gallery; it is not
 encoded in the directive name.
 
-Existing authors continue to write `<!-- _class: cards-grid -->` as
-they always have. Nothing breaks. Nothing changes.
+Authors write `<!-- @meta{layout=cards-grid} -->`. The engine no longer
+reads the old `<!-- _class: cards-grid -->` comment: it is a lint error, and
+`lattice migrate meta` rewrites a whole deck.
 
 ### 8.2 Theme designers — Finish ownership
 
@@ -893,7 +896,7 @@ The bucket layout is reflected in three places only:
 - the filesystem path
 - `groupByBucket()` in `lib/components/index.js`
 
-Everything else — including the `<!-- _class: name -->` invocation —
+Everything else — including the `<!-- @meta{layout=name} -->` invocation —
 is unchanged. Authors never type a bucket name.
 
 ### Per-bucket survey galleries
@@ -1076,11 +1079,11 @@ which sits in `@layer components` alongside the migrated files.
 | **Short component names + variant props** (this proposal) | shadcn, Chakra, Mantine, Slidev, Notion blocks | Terse author syntax. Familiar pattern. Discovery via tooling. | Two namespaces (components + variants) to learn. |
 | Dotted/categorical names (`inventory.grid.cards`) | none in practice — was tried in commit `0ec93da`, reverted | Self-documenting at the call site. | Verbose. Authors learn ~70 path combinations vs ~35 names. Implementation surfaces (e.g. `evidence.canvas.chart.progress` for what used to be `progress`). |
 | Atomic utility classes | Tailwind | Maximal composability. | Wrong layer — Lattice is at the slide level, not the property level. |
-| HTML/JSX components | Spectacle, MDX decks | Slot semantics are explicit. Type-checkable. | Loses the Marp markdown-first contract. |
+| HTML/JSX components | Spectacle, MDX decks | Slot semantics are explicit. Type-checkable. | Loses the Markdown-first contract. |
 | Visual layout picker | PowerPoint, Keynote | Best discovery. | Requires a GUI; can't ship in a CLI tool. |
 
 The short-name + manifest approach is the lowest-friction model that
-keeps Marp markdown as the source format. The manifest layer adds the
+keeps Markdown as the source format. The manifest layer adds the
 discovery story that markdown alone can't provide.
 
 ---

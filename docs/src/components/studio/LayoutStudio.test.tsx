@@ -64,7 +64,7 @@ describe('LayoutStudio — controlled component body', () => {
 		render(<LayoutStudio options={options} name="callout" css={STARTER_CSS} skeleton={STARTER_SKELETON} onCss={onCss} onSkeleton={onSkeleton} findings={[]} nameOk />);
 		fireEvent.change(screen.getByLabelText('Component CSS'), { target: { value: 'section.callout{color:var(--accent)}' } });
 		expect(onCss).toHaveBeenCalledWith('section.callout{color:var(--accent)}');
-		fireEvent.change(screen.getByLabelText('Component skeleton'), { target: { value: '<!-- _class: callout -->' } });
-		expect(onSkeleton).toHaveBeenCalledWith('<!-- _class: callout -->');
+		fireEvent.change(screen.getByLabelText('Component skeleton'), { target: { value: '<!-- @meta{class=callout} -->' } });
+		expect(onSkeleton).toHaveBeenCalledWith('<!-- @meta{class=callout} -->');
 	});
 });

@@ -134,7 +134,7 @@ test('preview tracks an edit that FLIPS the deck-context gate', async ({ page })
 	await expect.poll(previewText.bind(null, page), { timeout: 15_000 }).toContain('Heading 5');
 	await page.getByLabel('Deck source').click();
 	await page.keyboard.press('ControlOrMeta+End');
-	await page.keyboard.type('\n\nGATEFLIP <!-- footer: flipped -->', { delay: 15 });
+	await page.keyboard.type('\n\nGATEFLIP <!-- @meta{footer=flipped} -->', { delay: 15 });
 	await expect.poll(previewText.bind(null, page), { timeout: 20_000 }).toContain('GATEFLIP');
 });
 

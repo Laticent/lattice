@@ -16,7 +16,7 @@ vi.mock('@/components/DeckPreview', () => ({ default: () => <div data-testid="dp
 vi.mock('./studio-stage', () => ({ buildStageDocument: vi.fn(async () => ({ doc: '', total: 0 })) }));
 
 const options = { themeBase: '', runtimeUrl: '', engineUrl: '' };
-const slides = ['<!-- _class: title -->\n\n# One\n\nThe first slide.', '<!-- _class: kpi -->\n\n# Two\n\nThe second slide.'];
+const slides = ['<!-- @meta{layout=title} -->\n\n# One\n\nThe first slide.', '<!-- @meta{layout=kpi} -->\n\n# Two\n\nThe second slide.'];
 
 /** Install a Fullscreen API on jsdom's document. `element` seeds the CURRENT state. */
 function withFullscreenApi({ element = null as Element | null } = {}) {

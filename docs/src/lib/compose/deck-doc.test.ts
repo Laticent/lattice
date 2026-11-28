@@ -18,7 +18,7 @@ describe('deck round-trip (one document)', () => {
 			'theme: indaco',
 			'---',
 			'',
-			'<!-- _class: title -->',
+			'<!-- @meta{layout=title} -->',
 			'',
 			'# Q4 board review',
 			'',
@@ -26,7 +26,7 @@ describe('deck round-trip (one document)', () => {
 			'',
 			'---',
 			'',
-			'<!-- _class: kpi -->',
+			'<!-- @meta{layout=kpi} -->',
 			'',
 			'## Revenue ahead of plan.',
 			'',
@@ -38,7 +38,7 @@ describe('deck round-trip (one document)', () => {
 			'',
 			'---',
 			'',
-			'<!-- _class: content -->',
+			'<!-- @meta{layout=content} -->',
 			'',
 			'## Closing',
 			'',
@@ -47,23 +47,23 @@ describe('deck round-trip (one document)', () => {
 		].join('\n');
 		const out = rt(source);
 		expect(out).toContain('theme: indaco'); // front-matter kept
-		expect(out).toContain('<!-- _class: title -->');
-		expect(out).toContain('<!-- _class: kpi -->');
-		expect(out).toContain('<!-- _class: content -->');
+		expect(out).toContain('<!-- @meta{layout=title} -->');
+		expect(out).toContain('<!-- @meta{layout=kpi} -->');
+		expect(out).toContain('<!-- @meta{layout=content} -->');
 		expect(/1\.\s+\$2\.4B\n\s+-\s+Total revenue/.test(out)).toBe(true); // KPI nesting kept
-		expect((out.match(/<!-- _class:/g) || []).length).toBe(3); // three slides, order preserved
+		expect((out.match(/<!-- @meta\{/g) || []).length).toBe(3); // three slides, order preserved
 		expect(norm(out)).toBe(norm(source));
 	});
 
 	it('a directive-only / empty slide does not crash and keeps its directive', () => {
-		const source = '<!-- _class: divider -->\n\n# Section\n\n---\n\n<!-- _class: content -->';
+		const source = '<!-- @meta{layout=divider} -->\n\n# Section\n\n---\n\n<!-- @meta{layout=content} -->';
 		const out = rt(source);
-		expect(out).toContain('<!-- _class: divider -->');
-		expect(out).toContain('<!-- _class: content -->');
+		expect(out).toContain('<!-- @meta{layout=divider} -->');
+		expect(out).toContain('<!-- @meta{layout=content} -->');
 	});
 
 	it('a single-slide deck round-trips', () => {
-		const source = '<!-- _class: statement -->\n\n## One thing to remember.';
+		const source = '<!-- @meta{class=statement} -->\n\n## One thing to remember.';
 		expect(norm(rt(source))).toBe(norm(source));
 	});
 
@@ -82,19 +82,19 @@ describe('deck round-trip (one document)', () => {
 		// The round-trip now models the split, which CANONICALIZES the separator: a deck
 		// written with `***` comes back with `---`. Same render, different bytes; recorded in
 		// the CHANGELOG rather than hidden.
-		const source = '<!-- _class: content -->\n\n## A\n\nfoo\n\n***\n\nbar';
+		const source = '<!-- @meta{layout=content} -->\n\n## A\n\nfoo\n\n***\n\nbar';
 		const out = rt(source);
-		expect(out).toContain('<!-- _class: content -->');
+		expect(out).toContain('<!-- @meta{layout=content} -->');
 		expect((out.match(/\n---\n/g) || []).length).toBe(1);
 		expect(out).toContain('bar');
 		// The second slide carries no directive, exactly as the engine renders it.
-		expect((out.match(/<!-- _class:/g) || []).length).toBe(1);
+		expect((out.match(/<!-- @meta\{/g) || []).length).toBe(1);
 	});
 
 	it('a thematic break INSIDE a container is not a slide split', () => {
 		// Where a horizontal rule can still live in prose: below a container's content column,
 		// where the engine emits it under level 0. One slide, rule intact.
-		const source = '<!-- _class: content -->\n\n## A\n\n> foo\n>\n> ***\n>\n> bar';
+		const source = '<!-- @meta{layout=content} -->\n\n## A\n\n> foo\n>\n> ***\n>\n> bar';
 		const out = rt(source);
 		expect((out.match(/\n---\n/g) || []).length).toBe(0);
 	});
@@ -105,8 +105,8 @@ describe('edit-local emit — untouched slides re-emit their bytes verbatim', ()
 	// degrade from a keystroke made elsewhere. A GFM table is now a MODELED construct (real
 	// schema nodes, round-trippable), so it survives even a full re-serialize — but the
 	// raw-bytes path still guarantees untouched slides keep their exact source spacing.
-	const TABLE = '<!-- _class: content -->\n\n## Data\n\n| A | B |\n| --- | --- |\n| 1 | 2 |';
-	const source = ['<!-- _class: title -->\n\n# Deck', TABLE, '<!-- _class: content -->\n\n## End'].join('\n\n---\n\n');
+	const TABLE = '<!-- @meta{layout=content} -->\n\n## Data\n\n| A | B |\n| --- | --- |\n| 1 | 2 |';
+	const source = ['<!-- @meta{layout=title} -->\n\n# Deck', TABLE, '<!-- @meta{layout=content} -->\n\n## End'].join('\n\n---\n\n');
 
 	it('a full re-serialize (docToDeck) now PRESERVES the table (modeled nodes, not flattened)', () => {
 		// The Compose parser models the table as real nodes and the serializer re-emits the
@@ -148,7 +148,7 @@ describe('edit-local emit — untouched slides re-emit their bytes verbatim', ()
 		const merged = deckSchema.nodes.doc.create({ frontMatter: doc.attrs.frontMatter }, kept);
 		const out = emitDeck(merged, baseline);
 		expect(out).toContain('| A | B |\n| --- | --- |\n| 1 | 2 |'); // table grid survived the count change
-		expect((out.match(/<!-- _class:/g) || []).length).toBe(2);
+		expect((out.match(/<!-- @meta\{/g) || []).length).toBe(2);
 	});
 
 	it('a plain GFM table slide is NOT locked (tables are modeled + round-trippable now)', () => {
@@ -159,13 +159,13 @@ describe('edit-local emit — untouched slides re-emit their bytes verbatim', ()
 	});
 
 	it('a table cell that holds inline math is editable: math is modeled now (raw-block.ts)', () => {
-		const mathCell = '<!-- _class: content -->\n\n## Areas\n\n| Shape | Area |\n| --- | --- |\n| Circle | $\\pi r^2$ |';
-		const doc = deckToDoc(['<!-- _class: title -->\n\n# Deck', mathCell].join('\n\n---\n\n'));
+		const mathCell = '<!-- @meta{layout=content} -->\n\n## Areas\n\n| Shape | Area |\n| --- | --- |\n| Circle | $\\pi r^2$ |';
+		const doc = deckToDoc(['<!-- @meta{layout=title} -->\n\n# Deck', mathCell].join('\n\n---\n\n'));
 		expect(doc.child(1).attrs.locked).toBe(false);
 	});
 	it('a table whose cell holds an unmodeled construct (inline HTML) STILL locks the whole slide', () => {
-		const cell = '<!-- _class: content -->\n\n## Areas\n\n| Shape | Area |\n| --- | --- |\n| Circle | <b>big</b> |';
-		const doc = deckToDoc(['<!-- _class: title -->\n\n# Deck', cell].join('\n\n---\n\n'));
+		const cell = '<!-- @meta{layout=content} -->\n\n## Areas\n\n| Shape | Area |\n| --- | --- |\n| Circle | <b>big</b> |';
+		const doc = deckToDoc(['<!-- @meta{layout=title} -->\n\n# Deck', cell].join('\n\n---\n\n'));
 		expect(doc.child(1).attrs.locked).toBe(true); // HTML in a cell → safe degradation to lock
 	});
 });
@@ -177,7 +177,7 @@ describe('inline code in the editor', () => {
 	});
 
 	it('still parses and emits inline code unchanged', () => {
-		const src = '<!-- _class: content -->\n\n## Status\n\nShipped `{SHIPPED, c2}` today.\n';
+		const src = '<!-- @meta{layout=content} -->\n\n## Status\n\nShipped `{SHIPPED, c2}` today.\n';
 		expect(norm(rt(src))).toBe(norm(src));
 	});
 });

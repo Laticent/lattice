@@ -44,18 +44,18 @@ function deck() {
     for (const size of SIZES) {
       const pills = ANSWERS.map(([id, word]) => `\`@check{${id}, label=${word}, ${size}}\``).join(' ');
       const bare = ANSWERS.map(([id, word]) => `${word} \`@check{${id}, ${size}}\``).join(' ');
-      slides.push(`<!-- _class: content ${style} -->\n\n## ${style || 'default'} ${size}\n\nPills ${pills} \`{Icon, icon=database, ${size}}\`\n\nBare ${bare} end`);
+      slides.push(`<!-- @meta{class=content ${style}} -->\n\n## ${style || 'default'} ${size}\n\nPills ${pills} \`{Icon, icon=database, ${size}}\`\n\nBare ${bare} end`);
     }
     // The containers a component composes: verdict-grid's pills, pricing's rows, obligation-matrix's cells and pills.
     const items = ANSWERS.map(([, word], i) => `  - [${'x-!? /'[i]}] ${word}`).join('\n');
     const cells = ANSWERS.map((_, i) => `[${'x-!? /'[i]}]`).join(' | ');
-    slides.push(`<!-- _class: verdict-grid ${style} -->\n\n## ${style || 'default'} grid\n\n- One\n${items}\n  - Body.\n- Two\n  - [x] Pass\n  - Body.`);
-    slides.push(`<!-- _class: pricing ${style} -->\n\n## ${style || 'default'} pricing\n\n- Plan \`$1\`\n${items}\n  - Note.`);
+    slides.push(`<!-- @meta{class=verdict-grid ${style}} -->\n\n## ${style || 'default'} grid\n\n- One\n${items}\n  - Body.\n- Two\n  - [x] Pass\n  - Body.`);
+    slides.push(`<!-- @meta{class=pricing ${style}} -->\n\n## ${style || 'default'} pricing\n\n- Plan \`$1\`\n${items}\n  - Note.`);
     // The base recipe's two other hosts: checklist rows (an `li::before` disc) and any table with `state-cells`.
-    slides.push(`<!-- _class: checklist ${style} -->\n\n## ${style || 'default'} checklist\n\n${ANSWERS.map(([, word], i) => `- [${'x-!? /'[i]}] ${word}`).join('\n')}`);
-    slides.push(`<!-- _class: table state-cells ${style} -->\n\n## ${style || 'default'} cells\n\n| R | A | B | C | D | E | F |\n| --- | --- | --- | --- | --- | --- | --- |\n| X | ${cells} |`);
+    slides.push(`<!-- @meta{class=checklist ${style}} -->\n\n## ${style || 'default'} checklist\n\n${ANSWERS.map(([, word], i) => `- [${'x-!? /'[i]}] ${word}`).join('\n')}`);
+    slides.push(`<!-- @meta{class=table state-cells ${style}} -->\n\n## ${style || 'default'} cells\n\n| R | A | B | C | D | E | F |\n| --- | --- | --- | --- | --- | --- | --- |\n| X | ${cells} |`);
     for (const v of ['', ' pills']) {
-      slides.push(`<!-- _class: obligation-matrix${v} ${style} -->\n\n## ${style || 'default'} matrix${v}\n\n| R | A | B | C | D | E | F |\n| --- | :-: | :-: | :-: | :-: | :-: | :-: |\n| X | ${cells} |`);
+      slides.push(`<!-- @meta{class=obligation-matrix${v} ${style}} -->\n\n## ${style || 'default'} matrix${v}\n\n| R | A | B | C | D | E | F |\n| --- | :-: | :-: | :-: | :-: | :-: | :-: |\n| X | ${cells} |`);
     }
   }
   return `---\ntheme: indaco\n---\n\n${slides.join('\n\n---\n\n')}\n`;

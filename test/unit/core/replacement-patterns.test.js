@@ -100,7 +100,7 @@ describe('author text is used as written, never as a replacement pattern', () =>
   ]) {
     test(`a \`_class:\` token on ${name} (${cls})`, async () => {
       const { render } = require('../../../lib/engine/index.js');
-      await readsAsWritten(async (t) => (await render(`---\ntheme: indaco\n---\n\n<!-- _class: ${cls} ${t} -->\n\n${body}`)).html, { text: TOKEN, at: cls });
+      await readsAsWritten(async (t) => (await render(`---\ntheme: indaco\n---\n\n<!-- @meta{class=${cls} ${t}} -->\n\n${body}`)).html, { text: TOKEN, at: cls });
     });
   }
 

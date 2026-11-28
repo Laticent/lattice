@@ -5,7 +5,7 @@ import { photoMatches, sameSlide } from './card-ink-sampler';
 
 describe('thin spotlight card: when the backing slider should pick an ink', () => {
 	const deck = (fm: string) => `---\ntitle: T\n${fm}---\n\n`;
-	const slide = (cls: string) => `<!-- _class: ${cls} -->\n\n## A photo.\n\nWords.\n\n![A lake](sample:photo-wide.svg)\n`;
+	const slide = (cls: string) => `<!-- @meta{class=${cls}} -->\n\n## A photo.\n\nWords.\n\n![A lake](sample:photo-wide.svg)\n`;
 
 	it('asks for an ink only for a thin card with none, from the slide or the deck', () => {
 		expect(slideNeedsInk(slide('image spotlight image-card-35'), deck(''))).toBe(true);
@@ -22,7 +22,7 @@ describe('thin spotlight card: when the backing slider should pick an ink', () =
 
 	it('heading: the slide\'s own first heading, for the preview identity check', () => {
 		expect(headingOf(slide('image spotlight'))).toBe('A photo.');
-		expect(headingOf('<!-- _class: image -->\n\nno heading')).toBeNull();
+		expect(headingOf('<!-- @meta{layout=image} -->\n\nno heading')).toBeNull();
 	});
 
 	it('a thin step writes the backing AND the ink the photo needs, in one edit', () => {
@@ -127,7 +127,7 @@ describe('thin spotlight card: when the backing slider should pick an ink', () =
 	});
 
 	it('reading the slide\'s photo reference: spaces, angle brackets, parentheses, titles, modifiers', () => {
-		const on = (line: string) => `<!-- _class: image -->\n\n## T\n\n${line}\n`;
+		const on = (line: string) => `<!-- @meta{layout=image} -->\n\n## T\n\n${line}\n`;
 		expect(photoRefOf(on('![A](<a b.jpg>)'))).toBe('a b.jpg');
 		expect(photoRefOf(on('![A](img/(1).jpg)'))).toBe('img/(1).jpg');
 		// A title ends the address, and an unclosed one reads as nothing. A bare space inside the address is not a picture to
@@ -175,28 +175,28 @@ describe('thin spotlight card: when the backing slider should pick an ink', () =
 
 describe('photoAt: the slide\'s photo however it is written (2026-11-10)', () => {
 	it('finds a lone record and the shortcut on an image or bleed slide, and no longer an old `![bg]`', () => {
-		expect(photoAt('<!-- _class: image -->\n\n## T\n\n![bg right](a.jpg)\n')).toBeNull();
-		expect(photoAt('<!-- _class: image -->\n\n## T\n\n`@image{"b c.jpg", title="x"}`\n')).toMatchObject({ ref: 'b c.jpg' });
-		expect(photoAt('<!-- _class: content -->\n\n## T\n\n`@image{asset:harbor}`\n')).toMatchObject({ ref: 'asset:harbor' });
-		expect(photoAt('<!-- _class: image mirror -->\n\n## T\n\n![A lake](sample:photo-wide.jpg "Dawn")\n')).toMatchObject({ ref: 'sample:photo-wide.jpg' });
-		expect(photoAt('<!-- _class: content bleed -->\n\n## T\n\n![A lake](<a b.jpg>)\n')).toMatchObject({ ref: 'a b.jpg' });
+		expect(photoAt('<!-- @meta{layout=image} -->\n\n## T\n\n![bg right](a.jpg)\n')).toBeNull();
+		expect(photoAt('<!-- @meta{layout=image} -->\n\n## T\n\n`@image{"b c.jpg", title="x"}`\n')).toMatchObject({ ref: 'b c.jpg' });
+		expect(photoAt('<!-- @meta{layout=content} -->\n\n## T\n\n`@image{asset:harbor}`\n')).toMatchObject({ ref: 'asset:harbor' });
+		expect(photoAt('<!-- @meta{layout=image, class=mirror} -->\n\n## T\n\n![A lake](sample:photo-wide.jpg "Dawn")\n')).toMatchObject({ ref: 'sample:photo-wide.jpg' });
+		expect(photoAt('<!-- @meta{layout=content, class=bleed} -->\n\n## T\n\n![A lake](<a b.jpg>)\n')).toMatchObject({ ref: 'a b.jpg' });
 	});
 
 	it('a picture with words after it on the same line stays in the text, as the engine leaves it', () => {
-		expect(photoAt('<!-- _class: image -->\n\n## T\n\n![A lake](x.jpg) at dawn\n')).toBeNull();
+		expect(photoAt('<!-- @meta{layout=image} -->\n\n## T\n\n![A lake](x.jpg) at dawn\n')).toBeNull();
 	});
 
 	it('a plain picture on a slide that does not place it is not the slide\'s photo', () => {
-		expect(photoAt('<!-- _class: content -->\n\n## T\n\n![A lake](sample:photo-wide.jpg)\n')).toBeNull();
+		expect(photoAt('<!-- @meta{layout=content} -->\n\n## T\n\n![A lake](sample:photo-wide.jpg)\n')).toBeNull();
 	});
 
 	it('two pictures, or a collage, have no single photo, as the engine places neither (inversion, F10)', () => {
-		expect(photoAt('<!-- _class: image -->\n\n## T\n\n![A](a.jpg)\n\n![B](b.jpg)\n')).toBeNull();
-		expect(photoAt('<!-- _class: collage bleed -->\n\n## T\n\n![A](a.jpg)\n')).toBeNull();
+		expect(photoAt('<!-- @meta{layout=image} -->\n\n## T\n\n![A](a.jpg)\n\n![B](b.jpg)\n')).toBeNull();
+		expect(photoAt('<!-- @meta{layout=collage, class=bleed} -->\n\n## T\n\n![A](a.jpg)\n')).toBeNull();
 	});
 
 	it('its index is the start of the photo\'s line', () => {
-		const chunk = '<!-- _class: image -->\n\n## T\n\n![A lake](x.jpg)\n';
+		const chunk = '<!-- @meta{layout=image} -->\n\n## T\n\n![A lake](x.jpg)\n';
 		expect(chunk.slice(photoAt(chunk)?.index)).toMatch(/^!\[A lake\]/);
 	});
 });

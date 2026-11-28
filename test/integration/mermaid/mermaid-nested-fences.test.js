@@ -95,7 +95,7 @@ test('a caption line straight under a fence renders as markdown, flat, quoted an
 test('a fence indented under a bullet on a diagram slide still fills the stage', { timeout: 180000 }, () => {
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-nested-fences-'));
 	const md = path.join(dir, 'deck.md');
-	fs.writeFileSync(md, '---\ntheme: indaco\n---\n\n<!-- _class: diagram -->\n\n## Flow\n\n- The flow:\n\n  ```mermaid\n  flowchart LR\n    DiagA --> DiagB\n  ```\n');
+	fs.writeFileSync(md, '---\ntheme: indaco\n---\n\n<!-- @meta{layout=diagram} -->\n\n## Flow\n\n- The flow:\n\n  ```mermaid\n  flowchart LR\n    DiagA --> DiagB\n  ```\n');
 	const r = spawnSync(process.execPath, [path.join(ROOT, 'lattice.js'), md, path.join(dir, 'deck.pdf'), '--quiet', '--keep-html'], { cwd: ROOT, encoding: 'utf8', timeout: 170000 });
 	assert.equal(r.status, 0, `the CLI failed: ${r.stderr}`);
 	const html = fs.readFileSync(path.join(dir, 'deck.html'), 'utf8');

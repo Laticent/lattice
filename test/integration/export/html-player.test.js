@@ -541,7 +541,7 @@ describe('html-player export — a baked diagram follows the toggle', () => {
 // stayed on-dark — white on white, 1.00:1, in the as-exported view.
 //
 // Then it grew `:not(.cover-light)`, on the pin arm and on both bookend arms: a light cover
-// (`cover: light`, lib/core/resolve-cover.js) paints the light canvas, so it is pinned light, and
+// (`cover-layout: light`, lib/core/resolve-cover-layout.js) paints the light canvas, so it is pinned light, and
 // a `title cover-light dark` slide is not a dark panel.
 // THE SCOPE IS THREE ARMS, AND THIS FILE MUST CHECK ALL THREE. An earlier cut pinned the
 // single-compound `:where(:not(.light):not(.color-light), .title, .closing)` spelling. That
@@ -816,7 +816,7 @@ describe('html-player export — a MULTI-LINE note on a CHART slide (the leak th
 	const DECK = [
 		'---', 'theme: indaco', '---', '',
 		'# Cover', '', 'Opening body text for the cover slide.', '',
-		'---', '<!-- _class: funnel -->', '# Signup funnel', '',
+		'---', '<!-- @meta{layout=funnel} -->', '# Signup funnel', '',
 		'<!-- @note{', 'PRIVATELEAK churn is forty percent and legal has not cleared it', '} -->', '',
 		'- Visitors `1000`', '- Signups `500`', '- Paid `100`', '',
 	].join('\n');
@@ -881,7 +881,7 @@ describe('html-player export — a slide link opens a new tab, the deck stays', 
 	test.before(async () => {
 		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-link-'));
 		const deck = path.join(dir, 'deck.md');
-		fs.writeFileSync(deck, `---\nmarp: true\n---\n\n<!-- _class: video -->\n\n## Watch the tour.\n\n\`@video{"${WATCH}"}\`\n`);
+		fs.writeFileSync(deck, `---\nmarp: true\n---\n\n<!-- @meta{layout=video} -->\n\n## Watch the tour.\n\n\`@video{"${WATCH}"}\`\n`);
 		const out = path.join(dir, 'deck.pdf');
 		const r = spawnSync(process.execPath, [EMULATOR, deck, out, '--quiet', '--player'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT });
 		assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);

@@ -376,20 +376,38 @@ runs before the rest of the deck exists. \`${DECK}\` does this — copy the patt
 default, which turns the deck's \`<script>\` tags into visible text and leaves
 every chart and diagram unbuilt. Both config files here set it.
 
-**Dark mode is \`class: dark\`, not \`color-mode:\`.** \`class:\` is Marp's own
-front-matter key and it stamps every slide, which is exactly what Lattice's dark
-styling keys off. Lattice's richer deck registers (\`color-mode:\`, \`finish:\`,
-\`logo:\`, …) are read from a block that only the full export pipeline writes, so
-in a hand-authored deck like this one they do nothing. Set one or the other, never
-both: in Lattice's own pipeline \`color-mode:\` supersedes the \`class:\` alias and
-drops it, so a deck carrying both renders differently on the two sides.
+**Deck-wide Lattice settings go in a settings block, not the front matter.**
+Marp drops every front-matter key it does not know (\`claim:\`, \`color-mode:\`,
+\`finish:\`, \`mode:\`, …), and a slide's own \`_class:\` REPLACES a \`class:\` set
+at the top, so \`class: dark\` up there misses every slide that names a layout. Put
+them in a block directly under the front matter instead; the runtime reads it and
+applies it to every slide, including the ones with their own \`_class:\`:
+
+\`\`\`markdown
+---
+marp: true
+theme: cuoio
+---
+<script type="application/lattice-settings">
+class: dark
+claim: quiet
+</script>
+\`\`\`
+
+Measured in this kit with \`claim: hero\`, \`color-mode: dark\` and \`class: dark\`.
+It is the runtime that reads the block, so it works wherever the runtime runs (see
+Fidelity below) and nowhere else.
 
 ## Fidelity
 
 **The runtime is what makes this deck complete, and it only runs in a browser.**
-Four of the thirteen slides are assembled by \`lattice-runtime-min.js\`, not by
-CSS: the Mermaid diagram, the chart, the matrix grid, and the split panel. Where
-that script runs, the deck is whole. Where it does not, those four are raw.
+Most Lattice layouts are assembled by \`lattice-runtime-min.js\`, not by CSS: cards,
+KPI rows, lists, the split panels, every chart and diagram, the Key Insight panel and
+below-note, and the \`claim-*\` presets. Measured over all 80 layouts, 63 change by
+more than 5% of their pixels when it runs. Without it only the title, closing,
+divider and topic slides, \`code\`, \`compare-code\`, \`table\`, \`agenda\`,
+\`list-tabular\`, \`list-steps\` and \`premise\` keep their shape. Where the script
+runs, the deck is whole.
 
 - **\`marp --pdf\`** drives real headless Chrome, so the runtime runs and the PDF
   is complete. This is the path \`${DECK}\` is verified on, and the one to trust.
@@ -400,14 +418,14 @@ that script runs, the deck is whole. Where it does not, those four are raw.
 - **The VS Code preview pane** runs marp-core directly, without Lattice's
   markdown-it plugins, and runs the deck's \`<script>\` tags at one preview
   security level only. At VS Code's default (*Strict*) the preview shows *"Some
-  content has been disabled in this document"* and those four slides stay raw;
-  click that message and choose **Disable** (*"Allow all content and script
-  execution"*) and they draw. VS Code remembers the choice per folder. The folder
+  content has been disabled in this document"*, most slides stay raw, and a notice
+  across the top of the preview says so. Click that message and choose
+  **Disable** (*"Allow all content and script execution"*) and they draw. VS Code remembers the choice per folder. The folder
   must be trusted first (the *Restricted Mode* banner → **Manage** → **Trust**).
   Measured on VS Code 1.142.0 and 1.145.2 with Marp for VS Code 3.6.1.
 
-Everything CSS does — layout, palette, typography, every purely-CSS layout —
-holds on all three. Render the deck for anything you need to trust.
+Palette and typography hold on all three; layout holds only where the runtime runs.
+Render the deck for anything you need to trust.
 
 **A video** is written as a record on a line of its own,
 \`@video{"<the clip's address>", title="…"}\`, and draws as a poster that links to

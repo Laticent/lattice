@@ -144,8 +144,10 @@ export type RawKind = 'html' | 'math';
 
 /** A line of three or more `-`, `*` or `_`: a slide boundary or a rule. No raw block may write one on a line of its own. */
 const RULE_LINE = /^[ \t]*([-*_])[ \t]*(?:\1[ \t]*){2,}$/m;
-/** A `_`-prefixed directive comment: attributes are not content, and a foreign page must not set them (comment-block.ts). */
-const DIRECTIVE_COMMENT = /<!--\s*_[A-Za-z]/;
+/** A settings comment: an `@meta{…}` record (the one the engine reads since the cut, record note §15), the retired bare
+ *  `{…}` record, or an old `_`-prefixed directive comment. Attributes are not content, and a foreign page must not set
+ *  them (comment-block.ts). */
+const DIRECTIVE_COMMENT = /<!--\s*(?:_[A-Za-z]|@meta\{|\{)/;
 
 /** May `text` be a raw block of this kind? The SAFETY check for the one path where text arrives from outside: a paste. */
 export function isRawBlockText(kind: unknown, text: unknown): text is string {

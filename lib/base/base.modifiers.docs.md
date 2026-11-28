@@ -8,7 +8,7 @@ Every class word a slide accepts without a component declaring it, by group, and
 
 | Kind | The test |
 |---|---|
-| component | The first `_class` word: a key of the component catalog (`kpi`, `cards-grid`). |
+| component | The first word of the slide's class (`@meta{layout=…}`): a key of the component catalog (`kpi`, `cards-grid`). |
 | variant | In this component's own `variants`; legal only after that component (`kpi spotlight`). |
 | modifier | In a group of this manifest; it acts on a surface, and is offered where the component has that surface (`dark`, `rule-accent`). |
 | switch | A modifier spelled `no-X` or `with-X`, X a name in lib/core/switches.mjs (`no-footer`, `with-period`). |
@@ -497,7 +497,7 @@ A register is a front-matter key. It stamps its value as class words on every sl
 | `color-mode:` | — | Stamps the engine's `color-*` classes, which an author never types; a slide uses `dark` or `light` (mood). |
 | `finish:` | — | Stamps `finish finish-<name>`, an open vocabulary: a saved finish is any name. |
 | `image-card:` | — | Stamps the image card's classes, which the image-card register owns (lib/core/resolve-image-card.js). |
-| `cover:` | — | Stamps `cover-*` on title and closing slides only, which the cover register owns (lib/core/resolve-cover.js). |
+| `cover-layout:` | — | Stamps `cover-*` on title and closing slides only, which the cover-layout register owns (lib/core/resolve-cover-layout.js). |
 | `player-motion:` | — | Read by the player, not stamped on a slide. |
 | `pace:` | — | Read by the narrated guide, not stamped on a slide. |
 | `delivery:` | — | Read by the narrated guide, not stamped on a slide. |

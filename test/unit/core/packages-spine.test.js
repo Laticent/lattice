@@ -25,7 +25,7 @@ const { readPackage, writePackage, createRegistry, buildIndex, KINDS, TYPES } = 
 const componentFiles = (name = 'probe-card', prefix = name) => ({
   [`${prefix}.manifest.json`]: JSON.stringify({ name, function: 'statement' }),
   [`${prefix}.styles.css`]: `section.${name} { display: grid; }`,
-  [`${prefix}.gallery.md`]: `<!-- _class: ${name} -->\n\n## Probe`,
+  [`${prefix}.gallery.md`]: `<!-- @meta{class=${name}} -->\n\n## Probe`,
   [`${prefix}.gallery.light.pdf`]: null,
   'portrait.svg': '<svg/>',
 });

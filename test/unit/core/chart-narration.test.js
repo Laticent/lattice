@@ -27,7 +27,7 @@ const { mulberry32 } = require('../../helpers/regex-differential');
 
 // ── narrateFunnel ─────────────────────────────────────────────────────────────
 const funnelSkeleton = [
-  '<!-- _class: funnel -->',
+  '<!-- @meta{layout=funnel} -->',
   '',
   '## Where the flow drops off.',
   '',
@@ -37,11 +37,11 @@ const funnelSkeleton = [
 ].join('\n');
 
 test('narrateFunnel: returns null for a non-funnel slide', () => {
-  assert.equal(narrateFunnel('<!-- _class: kpi -->\n\n## Revenue\n\n- A `1`\n- B `2`'), null);
+  assert.equal(narrateFunnel('<!-- @meta{layout=kpi} -->\n\n## Revenue\n\n- A `1`\n- B `2`'), null);
 });
 
 test('narrateFunnel: returns null with fewer than two stages (mirrors the transform bailout)', () => {
-  assert.equal(narrateFunnel('<!-- _class: funnel -->\n\n## One stage\n\n- Visitors `12,000`'), null);
+  assert.equal(narrateFunnel('<!-- @meta{layout=funnel} -->\n\n## One stage\n\n- Visitors `12,000`'), null);
 });
 
 test('narrateFunnel: speaks the heading, each stage value, and the computed conversion %', () => {
@@ -56,7 +56,7 @@ test('narrateFunnel: speaks the heading, each stage value, and the computed conv
 
 test('narrateFunnel: does not treat an indented detail sublist line as a stage, and reads it right after its stage', () => {
   const md = [
-    '<!-- _class: funnel -->',
+    '<!-- @meta{layout=funnel} -->',
     '',
     '## Stages.',
     '',
@@ -71,7 +71,7 @@ test('narrateFunnel: does not treat an indented detail sublist line as a stage, 
 
 test('narrateFunnel: skips a fenced code block that happens to contain stage-like syntax', () => {
   const md = [
-    '<!-- _class: funnel -->',
+    '<!-- @meta{layout=funnel} -->',
     '',
     '## Stages.',
     '',
@@ -87,18 +87,18 @@ test('narrateFunnel: skips a fenced code block that happens to contain stage-lik
 
 test('narrateFunnel: recognizes a funnel slide combined with a base modifier', () => {
   for (const cls of ['funnel dark', 'funnel compact', 'funnel accent']) {
-    const md = `<!-- _class: ${cls} -->\n\n## Stages.\n\n- A \`100\`\n- B \`50\``;
+    const md = `<!-- @meta{class=${cls}} -->\n\n## Stages.\n\n- A \`100\`\n- B \`50\``;
     assert.ok(narrateFunnel(md).includes('fifty percent'), cls);
   }
 });
 
 test('narrateFunnel: does not mistake a substring class for funnel', () => {
-  assert.equal(narrateFunnel('<!-- _class: funnel-detail -->\n\n## Stages.\n\n- A `100`\n- B `50`'), null);
+  assert.equal(narrateFunnel('<!-- @meta{class=funnel-detail} -->\n\n## Stages.\n\n- A `100`\n- B `50`'), null);
 });
 
 test('narrateFunnel: ignores a heading inside a fenced code block', () => {
   const md = [
-    '<!-- _class: funnel -->',
+    '<!-- @meta{layout=funnel} -->',
     '',
     '```',
     '## Not the real heading',
@@ -116,12 +116,12 @@ test('narrateFunnel: ignores a heading inside a fenced code block', () => {
 
 test('narrateFunnel: ignores a fenced _class: funnel directive shown as a doc example', () => {
   const md = [
-    '<!-- _class: kpi -->',
+    '<!-- @meta{layout=kpi} -->',
     '',
     '## How to author a funnel',
     '',
     '```',
-    '<!-- _class: funnel -->',
+    '<!-- @meta{layout=funnel} -->',
     '- A `100`',
     '- B `50`',
     '```',
@@ -133,7 +133,7 @@ test('narrateFunnel: ignores a fenced _class: funnel directive shown as a doc ex
 });
 
 test('narrateFunnel: strips a Markdown link label from a stage name', () => {
-  const md = '<!-- _class: funnel -->\n\n## Stages.\n\n- [Visitors](https://x.example/report) `100`\n- Signups `50`';
+  const md = '<!-- @meta{layout=funnel} -->\n\n## Stages.\n\n- [Visitors](https://x.example/report) `100`\n- Signups `50`';
   const out = narrateFunnel(md);
   assert.ok(out.includes('Visitors: one hundred'));
   // Assert the target's own text is absent, by substring, not a `https?:` scheme scrape
@@ -143,14 +143,14 @@ test('narrateFunnel: strips a Markdown link label from a stage name', () => {
 });
 
 test('narrateFunnel: recovers the FIRST numeric run from a range-style stage value instead of dropping the stage', () => {
-  const md = ['<!-- _class: funnel -->', '', '## Stages.', '', '- Estimated `1,200-1,500`', '- Signups `600`'].join('\n');
+  const md = ['<!-- @meta{layout=funnel} -->', '', '## Stages.', '', '- Estimated `1,200-1,500`', '- Signups `600`'].join('\n');
   const out = narrateFunnel(md);
   assert.notEqual(out, null);
   assert.ok(out.includes('Signups: six hundred, fifty percent of the prior stage.'));
 });
 
 test('narrateFunnel: does not splice the chain across a broken middle stage', () => {
-  const md = ['<!-- _class: funnel -->', '', '## Stages.', '', '- Visitors `10,000`', '- Mid-funnel `2,000-2,500`', '- Purchases `1,000`'].join('\n');
+  const md = ['<!-- @meta{layout=funnel} -->', '', '## Stages.', '', '- Visitors `10,000`', '- Mid-funnel `2,000-2,500`', '- Purchases `1,000`'].join('\n');
   const out = narrateFunnel(md);
   assert.ok(out.includes('Mid-funnel:'));
   assert.ok(out.includes('twenty percent of the prior stage'));
@@ -160,7 +160,7 @@ test('narrateFunnel: does not splice the chain across a broken middle stage', ()
 
 // ── narrateJourneyWeighted ────────────────────────────────────────────────────
 const weightedSample = [
-  '<!-- _class: journey weighted -->',
+  '<!-- @meta{layout=journey, class=weighted} -->',
   '',
   '## weighted sizes the stages by importance.',
   '',
@@ -176,11 +176,11 @@ const weightedSample = [
 ].join('\n');
 
 test('narrateJourneyWeighted: returns null for a non-journey slide', () => {
-  assert.equal(narrateJourneyWeighted('<!-- _class: kpi -->\n\n## X\n\n- A\n  - B `volume=1`'), null);
+  assert.equal(narrateJourneyWeighted('<!-- @meta{layout=kpi} -->\n\n## X\n\n- A\n  - B `volume=1`'), null);
 });
 
 test('narrateJourneyWeighted: returns null for journey without the weighted modifier', () => {
-  assert.equal(narrateJourneyWeighted(weightedSample.replace('journey weighted', 'journey heatmap')), null);
+  assert.equal(narrateJourneyWeighted(weightedSample.replace('class=weighted', 'class=heatmap')), null);
 });
 
 test('narrateJourneyWeighted: speaks each task share of the total volume', () => {
@@ -192,7 +192,7 @@ test('narrateJourneyWeighted: speaks each task share of the total volume', () =>
 });
 
 test('narrateJourneyWeighted: defaults an unweighted task to volume 1', () => {
-  const md = ['<!-- _class: journey weighted -->', '', '## Mixed.', '', '- Stage', '  - Weighted `{who=me, mood=3, volume=9}`', '  - Unweighted `{who=me, mood=3}`'].join('\n');
+  const md = ['<!-- @meta{layout=journey, class=weighted} -->', '', '## Mixed.', '', '- Stage', '  - Weighted `{who=me, mood=3, volume=9}`', '  - Unweighted `{who=me, mood=3}`'].join('\n');
   const out = narrateJourneyWeighted(md);
   assert.ok(out.includes('Weighted, ninety percent'));
   assert.ok(out.includes('Unweighted, ten percent'));
@@ -200,7 +200,7 @@ test('narrateJourneyWeighted: defaults an unweighted task to volume 1', () => {
 
 test('narrateJourneyWeighted: does not treat a per-task detail sublist line as a task, and reads it right after its task', () => {
   const md = [
-    '<!-- _class: journey weighted -->',
+    '<!-- @meta{layout=journey, class=weighted} -->',
     '',
     '## Weighted flow.',
     '',
@@ -216,7 +216,7 @@ test('narrateJourneyWeighted: does not treat a per-task detail sublist line as a
 
 test('narrateJourneyWeighted: keeps a qualifying phrase authored AFTER a task tokens', () => {
   const md = [
-    '<!-- _class: journey weighted -->',
+    '<!-- @meta{layout=journey, class=weighted} -->',
     '',
     '## Flow.',
     '',
@@ -229,13 +229,13 @@ test('narrateJourneyWeighted: keeps a qualifying phrase authored AFTER a task to
 });
 
 test('narrateJourneyWeighted: accepts a `+.5`-style fractional volume with no leading digit', () => {
-  const md = ['<!-- _class: journey weighted -->', '', '## Flow.', '', '- Stage', '  - A `{who=me, mood=2}` `+.5`', '  - B `{who=me, mood=2}` `+.5`'].join('\n');
+  const md = ['<!-- @meta{layout=journey, class=weighted} -->', '', '## Flow.', '', '- Stage', '  - A `{who=me, mood=2}` `+.5`', '  - B `{who=me, mood=2}` `+.5`'].join('\n');
   assert.ok(narrateJourneyWeighted(md).includes('Stage, two steps. A, fifty percent of the traffic. B, fifty percent of the traffic.'));
 });
 
 test('narrateJourneyWeighted: tolerates ordinary indentation variance between sibling task lines', () => {
   const md = [
-    '<!-- _class: journey weighted -->',
+    '<!-- @meta{layout=journey, class=weighted} -->',
     '',
     '## X.',
     '',
@@ -247,25 +247,25 @@ test('narrateJourneyWeighted: tolerates ordinary indentation variance between si
 });
 
 test('narrateJourneyWeighted: accepts a unit on a volume (`volume=45%`)', () => {
-  const md = ['<!-- _class: journey weighted -->', '', '## X.', '', '- Stage', '  - Task `{who=me, mood=3, volume=45%}`', '  - Filler `{who=me, mood=3, volume=1}`'].join('\n');
+  const md = ['<!-- @meta{layout=journey, class=weighted} -->', '', '## X.', '', '- Stage', '  - Task `{who=me, mood=3, volume=45%}`', '  - Filler `{who=me, mood=3, volume=1}`'].join('\n');
   assert.equal(narrateJourneyWeighted(md), 'X. Stage, two steps. Task, ninety-eight percent of the traffic. Filler, two percent of the traffic.');
 });
 
 test('narrateJourneyWeighted: recognizes an h1 heading, not just h2', () => {
-  const md = ['<!-- _class: journey weighted -->', '', '# Flow', '', '- Stage', '  - A `{who=me, mood=3, volume=9}`', '  - B `{who=me, mood=3, volume=1}`'].join('\n');
+  const md = ['<!-- @meta{layout=journey, class=weighted} -->', '', '# Flow', '', '- Stage', '  - A `{who=me, mood=3, volume=9}`', '  - B `{who=me, mood=3, volume=1}`'].join('\n');
   assert.equal(narrateJourneyWeighted(md), 'Flow. Stage, two steps. A, ninety percent of the traffic. B, ten percent of the traffic.');
 });
 
 // ── narrateRadar ──────────────────────────────────────────────────────────────
 test('narrateRadar: returns null for a non-radar slide', () => {
-  assert.equal(narrateRadar('<!-- _class: kpi -->\n\n## X\n\n- A\n  - B `9`'), null);
+  assert.equal(narrateRadar('<!-- @meta{layout=kpi} -->\n\n## X\n\n- A\n  - B `9`'), null);
 });
 
 // The axis line pins the scale and is lifted off the slide, so the scale sentence SAYS the
 // pinned range — and the line itself is never read as an eyebrow (Segno phase 2, row 27).
 test('narrateRadar: says the range the axis line pins, and never reads the line aloud', () => {
   const md = [
-    '<!-- _class: radar -->',
+    '<!-- @meta{layout=radar} -->',
     '',
     '`[{Scale, 0..10}]`',
     '',
@@ -286,7 +286,7 @@ test('narrateRadar: says the range the axis line pins, and never reads the line 
 });
 
 test('narrateRadar: narrates the auto-fit scale and every series when no eyebrow is authored', () => {
-  const md = ['<!-- _class: radar -->', '', '## How we stack up.', '', '- Lattice', '  - Performance `9`', '  - Pricing `7`', '- Rival North', '  - Performance `7`', '  - Pricing `8`'].join('\n');
+  const md = ['<!-- @meta{layout=radar} -->', '', '## How we stack up.', '', '- Lattice', '  - Performance `9`', '  - Pricing `7`', '- Rival North', '  - Performance `7`', '  - Pricing `8`'].join('\n');
   const out = narrateRadar(md);
   assert.ok(out.includes('On a scale of zero to ten.'));
   assert.ok(out.includes('Lattice is strongest on Performance, at nine. Lattice is weakest on Pricing, at seven.'), out);
@@ -294,22 +294,22 @@ test('narrateRadar: narrates the auto-fit scale and every series when no eyebrow
 });
 
 test('narrateRadar: still auto-computes the scale when the eyebrow is present but not a parseable number', () => {
-  const md = ['<!-- _class: radar -->', '', '`Buying criteria`', '', '## X.', '', '- Lattice', '  - Performance `9`'].join('\n');
+  const md = ['<!-- @meta{layout=radar} -->', '', '`Buying criteria`', '', '## X.', '', '- Lattice', '  - Performance `9`'].join('\n');
   assert.ok(narrateRadar(md).includes('On a scale of zero to ten.'));
 });
 
 test('narrateRadar: recognizes a radar slide combined with a base modifier', () => {
-  const md = ['<!-- _class: radar dark -->', '', '## X.', '', '- Lattice', '  - Performance `9`'].join('\n');
+  const md = ['<!-- @meta{layout=radar, class=dark} -->', '', '## X.', '', '- Lattice', '  - Performance `9`'].join('\n');
   assert.ok(narrateRadar(md).includes('scale of zero to ten'));
 });
 
 test('narrateRadar: returns null with no axis data', () => {
-  assert.equal(narrateRadar('<!-- _class: radar -->\n\n## X.\n\n- Lattice'), null);
+  assert.equal(narrateRadar('<!-- @meta{layout=radar} -->\n\n## X.\n\n- Lattice'), null);
 });
 
 test('narrateRadar: reads the `quadrant` variant with all three levels — series, sector, axis', () => {
   const md = [
-    '<!-- _class: radar quadrant -->',
+    '<!-- @meta{layout=radar, class=quadrant} -->',
     '',
     '## quadrant shades the compass quarters.',
     '',
@@ -330,7 +330,7 @@ test('narrateRadar: reads the `quadrant` variant with all three levels — serie
 
 test('narrateRadar: does not treat a per-axis detail sublist line as an axis, and reads it after the sentence naming its axis', () => {
   const md = [
-    '<!-- _class: radar -->',
+    '<!-- @meta{layout=radar} -->',
     '',
     '## How we stack up.',
     '',
@@ -346,23 +346,23 @@ test('narrateRadar: does not treat a per-axis detail sublist line as an axis, an
 });
 
 test('narrateRadar: tolerates ordinary indentation variance between sibling axis lines', () => {
-  const md = ['<!-- _class: radar -->', '', '## How we stack up.', '', '- Lattice', '  - Performance `9`', '   - Pricing `95`'].join('\n');
+  const md = ['<!-- @meta{layout=radar} -->', '', '## How we stack up.', '', '- Lattice', '  - Performance `9`', '   - Pricing `95`'].join('\n');
   assert.equal(narrateRadar(md), 'How we stack up. Each spoke is one axis, and a rating further from the center is higher. On a scale of zero to one hundred. Lattice is strongest on Pricing, at ninety-five. Lattice is weakest on Performance, at nine.');
 });
 
 test('narrateRadar: tolerates trailing non-numeric text on an axis value pill', () => {
-  const md = ['<!-- _class: radar -->', '', '## X.', '', '- Lattice', '  - Performance `9 pts`'].join('\n');
+  const md = ['<!-- @meta{layout=radar} -->', '', '## X.', '', '- Lattice', '  - Performance `9 pts`'].join('\n');
   assert.equal(narrateRadar(md), 'X. Each spoke is one axis, and a rating further from the center is higher. On a scale of zero to ten. Lattice scores nine on Performance.');
 });
 
 test('narrateRadar: speaks a leading eyebrow FIRST, in its authored position, properly punctuated', () => {
-  const md = ['<!-- _class: radar -->', '', '`Buying criteria`', '', '## X.', '', '- Lattice', '  - Performance `9`'].join('\n');
+  const md = ['<!-- @meta{layout=radar} -->', '', '`Buying criteria`', '', '## X.', '', '- Lattice', '  - Performance `9`'].join('\n');
   assert.equal(narrateRadar(md), 'Buying criteria. X. Each spoke is one axis, and a rating further from the center is higher. On a scale of zero to ten. Lattice scores nine on Performance.');
 });
 
 // ── narrateQuadrant ───────────────────────────────────────────────────────────
 test('narrateQuadrant: returns null for a non-quadrant slide', () => {
-  assert.equal(narrateQuadrant('<!-- _class: kpi -->\n\n## X\n\n- A\n  - B `{1, 2}`'), null);
+  assert.equal(narrateQuadrant('<!-- @meta{layout=kpi} -->\n\n## X\n\n- A\n  - B `{1, 2}`'), null);
 });
 
 // The axis list is DATA: spoken as one sentence per axis, never read out with its
@@ -370,7 +370,7 @@ test('narrateQuadrant: returns null for a non-quadrant slide', () => {
 // ("Effort 0–10 → Reach 0–100."), arrow and all.
 test('narrateQuadrant: speaks the axis list as a sentence per axis, never the brackets', () => {
   const md = [
-    '<!-- _class: quadrant -->',
+    '<!-- @meta{layout=quadrant} -->',
     '',
     '`[{Effort, 0..10}, {Reach, 0..100}]`',
     '',
@@ -391,14 +391,14 @@ test('narrateQuadrant: speaks the axis list as a sentence per axis, never the br
 });
 
 test('narrateQuadrant: a threshold is spoken with the axis it belongs to', () => {
-  const md = ['<!-- _class: quadrant threshold -->', '', '`[{Effort, 0..10, 5}, {Reach, 0..100, 50}]`', '', '## X.', '', '- Group', '  - Item `{5, 85}`'].join('\n');
+  const md = ['<!-- @meta{layout=quadrant, class=threshold} -->', '', '`[{Effort, 0..10, 5}, {Reach, 0..100, 50}]`', '', '## X.', '', '- Group', '  - Item `{5, 85}`'].join('\n');
   const out = narrateQuadrant(md);
   assert.ok(out.includes('The horizontal axis, Effort, runs zero to ten, with a threshold at five.'), out);
   assert.ok(out.includes('The vertical axis, Reach, runs zero to one hundred, with a threshold at fifty.'), out);
 });
 
 test('narrateQuadrant: narrates both axis scales and every item when no eyebrow is authored', () => {
-  const md = ['<!-- _class: quadrant -->', '', '## Where to invest.', '', '- Strategic Bets', '  - Scoring model v2 `{3, 70}`', '  - Per-team calibration `{5, 85}`', '- Quick Wins', '  - Weekly signal brief `{8, 80}`'].join('\n');
+  const md = ['<!-- @meta{layout=quadrant} -->', '', '## Where to invest.', '', '- Strategic Bets', '  - Scoring model v2 `{3, 70}`', '  - Per-team calibration `{5, 85}`', '- Quick Wins', '  - Weekly signal brief `{8, 80}`'].join('\n');
   const out = narrateQuadrant(md);
   assert.ok(out.includes('The horizontal axis runs zero to ten.'));
   assert.ok(out.includes('The vertical axis runs zero to one hundred.'));
@@ -409,19 +409,19 @@ test('narrateQuadrant: narrates both axis scales and every item when no eyebrow 
 test('narrateQuadrant: one threshold draws BOTH lines, so both are spoken', () => {
   // resolveScale puts the unnamed axis's line at its midpoint; the voice states
   // the line the picture draws, not only the number the author typed.
-  const md = ['<!-- _class: quadrant threshold -->', '', '`[{Effort, 0..10, 5}, {Reach, 0..100}]`', '', '## X.', '', '- G', '  - I `{5, 85}`'].join('\n');
+  const md = ['<!-- @meta{layout=quadrant, class=threshold} -->', '', '`[{Effort, 0..10, 5}, {Reach, 0..100}]`', '', '## X.', '', '- G', '  - I `{5, 85}`'].join('\n');
   assert.ok(narrateQuadrant(md).includes('The vertical axis, Reach, runs zero to one hundred, with a threshold at fifty.'));
 });
 
 test('narrateQuadrant: an axis list inside an HTML comment is not the axis', () => {
-  const md = ['<!-- _class: quadrant -->', '', '<!--', '`[{Effort, 0..50}, {Reach, 0..500}]`', '-->', '', '## X.', '', '- G', '  - I `{5, 85}`'].join('\n');
+  const md = ['<!-- @meta{layout=quadrant} -->', '', '<!--', '`[{Effort, 0..50}, {Reach, 0..500}]`', '-->', '', '## X.', '', '- G', '  - I `{5, 85}`'].join('\n');
   const out = narrateQuadrant(md);
   assert.ok(!out.includes('Effort'), out);
   assert.ok(out.includes('The vertical axis runs zero to one hundred.'));
 });
 
 test('narrateQuadrant: an axis with no authored domain speaks the data-derived one', () => {
-  const md = ['<!-- _class: quadrant -->', '', '`[{Effort, 0..10}, Reach]`', '', '## X.', '', '- Group', '  - Item `{5, 85}`'].join('\n');
+  const md = ['<!-- @meta{layout=quadrant} -->', '', '`[{Effort, 0..10}, Reach]`', '', '## X.', '', '- Group', '  - Item `{5, 85}`'].join('\n');
   const out = narrateQuadrant(md);
   assert.ok(out.includes('The horizontal axis, Effort, runs zero to ten.'));
   assert.ok(out.includes('The vertical axis, Reach, runs zero to one hundred.'));
@@ -429,7 +429,7 @@ test('narrateQuadrant: an axis with no authored domain speaks the data-derived o
 
 test('narrateQuadrant: correctly parses the `trail` variant two-pill item instead of garbling the label', () => {
   const md = [
-    '<!-- _class: quadrant trail -->',
+    '<!-- @meta{layout=quadrant, class=trail} -->',
     '',
     '## trail shows where each point moved from.',
     '',
@@ -447,20 +447,20 @@ test('narrateQuadrant: correctly parses the `trail` variant two-pill item instea
 });
 
 test('narrateQuadrant: handles a negative-extreme axis', () => {
-  const md = ['<!-- _class: quadrant -->', '', '## X.', '', '- Group', '  - A `{-20, 5}`', '  - B `{8, 3}`'].join('\n');
+  const md = ['<!-- @meta{layout=quadrant} -->', '', '## X.', '', '- Group', '  - A `{-20, 5}`', '  - B `{8, 3}`'].join('\n');
   const out = narrateQuadrant(md);
   assert.ok(out.includes('The horizontal axis runs negative twenty to twenty.'));
   assert.ok(out.includes('The vertical axis runs zero to five.'));
 });
 
 test('narrateQuadrant: bails when the `radar` token is also present', () => {
-  const md = ['<!-- _class: radar quadrant -->', '', '## X.', '', '- Group', '  - Sub', '    - Item `4`'].join('\n');
+  const md = ['<!-- @meta{layout=radar, class=quadrant} -->', '', '## X.', '', '- Group', '  - Sub', '    - Item `4`'].join('\n');
   assert.equal(narrateQuadrant(md), null);
 });
 
 test('narrateQuadrant: does not treat a per-item detail sublist line as an item, and reads it right after its item', () => {
   const md = [
-    '<!-- _class: quadrant -->',
+    '<!-- @meta{layout=quadrant} -->',
     '',
     '## Where to invest.',
     '',
@@ -478,7 +478,7 @@ test('narrateQuadrant: does not treat a per-item detail sublist line as an item,
 
 test('narrateQuadrant: speaks an intro paragraph between the heading and the groups', () => {
   const md = [
-    '<!-- _class: quadrant -->',
+    '<!-- @meta{layout=quadrant} -->',
     '',
     '## Where to invest.',
     '',
@@ -496,7 +496,7 @@ test('narrateQuadrant: speaks an intro paragraph between the heading and the gro
 
 test('narrateQuadrant: an unreadable threshold is not spoken, and the domain still is', () => {
   const md = [
-    '<!-- _class: quadrant -->',
+    '<!-- @meta{layout=quadrant} -->',
     '',
     '`[{Effort, 0..10, tbd}, Reach]`',
     '',
@@ -515,7 +515,7 @@ test('narrateQuadrant: an unreadable threshold is not spoken, and the domain sti
 
 test('narrateQuadrant: tolerates ordinary indentation variance between sibling item lines', () => {
   const md = [
-    '<!-- _class: quadrant -->',
+    '<!-- @meta{layout=quadrant} -->',
     '',
     '## Where to invest.',
     '',
@@ -530,26 +530,26 @@ test('narrateQuadrant: tolerates ordinary indentation variance between sibling i
 });
 
 test('narrateQuadrant: speaks a leading eyebrow FIRST, in its authored position, properly punctuated', () => {
-  const md = ['<!-- _class: quadrant -->', '', '`Portfolio review`', '', '`[Effort, Reach]`', '', '## X.', '', '- Group', '  - Item `{5, 85}`'].join('\n');
+  const md = ['<!-- @meta{layout=quadrant} -->', '', '`Portfolio review`', '', '`[Effort, Reach]`', '', '## X.', '', '- Group', '  - Item `{5, 85}`'].join('\n');
   assert.equal(narrateQuadrant(md), 'Portfolio review. X. Each item sits at its two scores, so which quadrant it lands in is the read. The horizontal axis, Effort, runs zero to five. The vertical axis, Reach, runs zero to one hundred. Group, one item. Item is high on both Effort and Reach: Effort five, Reach eighty-five.');
 });
 
 test('narrateQuadrant: reads a point with the chart\'s reader — `{.5, 80}` is `{0.5, 80}`', () => {
   // The old comma pill counted a coordinate only when it began with a digit, so `.5` fell to 0.
   // A point record reads both with Segno's number type, as the chart does (chart-point.js).
-  const md = (pill) => ['<!-- _class: quadrant -->', '', '## X.', '', '- Group', `  - Item \`${pill}\``].join('\n');
+  const md = (pill) => ['<!-- @meta{layout=quadrant} -->', '', '## X.', '', '- Group', `  - Item \`${pill}\``].join('\n');
   assert.equal(narrateQuadrant(md('{.5, 80}')), narrateQuadrant(md('{0.5, 80}')));
   assert.ok(narrateQuadrant(md('{.5, 80}')).includes('zero point five across, eighty up'));
 });
 
 // ── narrateStateChartInference ─────────────────────────────────────────────────
 test('narrateStateChartInference: returns null for a non-state-chart slide', () => {
-  assert.equal(narrateStateChartInference('<!-- _class: kpi -->\n\n## X\n\n1. A\n2. B'), null);
+  assert.equal(narrateStateChartInference('<!-- @meta{layout=kpi} -->\n\n## X\n\n1. A\n2. B'), null);
 });
 
 test('narrateStateChartInference: returns null when start AND end are both already explicit', () => {
   const md = [
-    '<!-- _class: state-chart -->',
+    '<!-- @meta{layout=state-chart} -->',
     '',
     '## Document approval flow.',
     '',
@@ -573,7 +573,7 @@ test('narrateStateChartInference: returns null when start AND end are both alrea
 
 test('narrateStateChartInference: infers only the terminal state when start is explicit but end is not', () => {
   const md = [
-    '<!-- _class: state-chart lr -->',
+    '<!-- @meta{layout=state-chart, class=lr} -->',
     '',
     '## States connect; the arrows carry the rules.',
     '',
@@ -593,27 +593,27 @@ test('narrateStateChartInference: infers only the terminal state when start is e
 });
 
 test('narrateStateChartInference: infers both start and terminal states when neither is tagged', () => {
-  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '- Draft', '  - -submit-> Review', '- Review', '  - -approve-> Done', '- Done'].join('\n');
+  const md = ['<!-- @meta{layout=state-chart} -->', '', '## Flow.', '', '- Draft', '  - -submit-> Review', '- Review', '  - -approve-> Done', '- Done'].join('\n');
   assert.equal(narrateStateChartInference(md), 'This flow starts at Draft. It ends at Done.');
 });
 
 test('narrateStateChartInference: lists multiple inferred terminal states with "and"', () => {
-  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '- Start `start`', '  - -go-> Branch A', '  - -go-> Branch B', '- Branch A', '- Branch B'].join('\n');
+  const md = ['<!-- @meta{layout=state-chart} -->', '', '## Flow.', '', '- Start `start`', '  - -go-> Branch A', '  - -go-> Branch B', '- Branch A', '- Branch B'].join('\n');
   assert.equal(narrateStateChartInference(md), 'It ends at Branch A and Branch B.');
 });
 
 test('narrateStateChartInference: does not let an out-of-range transition target suppress terminal inference', () => {
-  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '- Draft `start`', '  > Unresolved in v1: submit => 9', '- Review', '- Done'].join('\n');
+  const md = ['<!-- @meta{layout=state-chart} -->', '', '## Flow.', '', '- Draft `start`', '  > Unresolved in v1: submit => 9', '- Review', '- Done'].join('\n');
   assert.equal(narrateStateChartInference(md), 'It ends at Draft, Review, and Done.');
 });
 
 test('narrateStateChartInference: keeps an unrelated trailing annotation in an inferred state spoken label', () => {
-  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '- Config `port 8080` `#config`', '  - -next-> Done', '- Done'].join('\n');
+  const md = ['<!-- @meta{layout=state-chart} -->', '', '## Flow.', '', '- Config `port 8080` `#config`', '  - -next-> Done', '- Done'].join('\n');
   assert.equal(narrateStateChartInference(md), 'This flow starts at Config port 8080. It ends at Done.');
 });
 
 test('narrateStateChartInference: does not include a status keyword pill in the spoken label', () => {
-  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '- Submitted `on-track`', '  - -go-> Done', '- Done'].join('\n');
+  const md = ['<!-- @meta{layout=state-chart} -->', '', '## Flow.', '', '- Submitted `on-track`', '  - -go-> Done', '- Done'].join('\n');
   assert.equal(narrateStateChartInference(md), 'This flow starts at Submitted. It ends at Done.');
 });
 
@@ -624,7 +624,7 @@ test('narrateStateChartInference: does not include a status keyword pill in the 
 // only on one whose author left the roles untagged — the case the old sentence covered
 // was the rarer one, and every shipped sample got nothing from it.
 test('narrateStateChart: leads with the heading, then the machine SHAPE, then the rest', () => {
-  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '- Draft', '  - -submit-> Review', '- Review', '  - -approve-> Done', '- Done'].join('\n');
+  const md = ['<!-- @meta{layout=state-chart} -->', '', '## Flow.', '', '- Draft', '  - -submit-> Review', '- Review', '  - -approve-> Done', '- Done'].join('\n');
   const out = narrateStateChart(md);
   assert.ok(out.startsWith('Flow. A three-state machine from Draft to Done'), out);
   assert.ok(!out.includes('This flow starts at'), 'the shape sentence subsumes it — saying both is the duplication this pass removes');
@@ -639,7 +639,7 @@ test('narrateStateChart: leads with the heading, then the machine SHAPE, then th
 // and a bare index where the slide draws an arrow to a named state
 // (2026-09-20-narration-audit.md Finding 5).
 test('narrateStateChart: reads the machine by name even when nothing is inferred', () => {
-  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '- Draft `start`', '  - -submit-> Done', '- Done `end`'].join('\n');
+  const md = ['<!-- @meta{layout=state-chart} -->', '', '## Flow.', '', '- Draft `start`', '  - -submit-> Done', '- Done `end`'].join('\n');
   const out = narrateStateChart(md);
   assert.ok(out.includes('From Draft, submit goes to Done.'), out);
   assert.ok(!out.includes('=>'), 'the raw pill must not also be read');
@@ -653,19 +653,19 @@ test('narrateStateChart: reads the machine by name even when nothing is inferred
 test('narrateStateChart: still returns null when there is no machine and no inference', () => {
   // A state-chart slide with no resolvable transitions has nothing this narrator can add
   // over the flattener, so it falls through exactly as before.
-  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '- Draft `start`', '- Done `end`'].join('\n');
+  const md = ['<!-- @meta{layout=state-chart} -->', '', '## Flow.', '', '- Draft `start`', '- Done `end`'].join('\n');
   assert.equal(narrateStateChart(md), null);
 });
 
 test('narrateStateChart: reads a self-loop as staying put, not as its own name twice', () => {
-  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '- Draft `start`', '  - -revise-> Draft', '  - -submit-> Done', '- Done `end`'].join('\n');
+  const md = ['<!-- @meta{layout=state-chart} -->', '', '## Flow.', '', '- Draft `start`', '  - -revise-> Draft', '  - -submit-> Done', '- Done `end`'].join('\n');
   const out = narrateStateChart(md);
   assert.ok(out.includes('revise stays here'), out);
 });
 
 test('narrateStateChart: does not speak a fenced doc-example heading as the title, and does not lose the real heading', () => {
   const md = [
-    '<!-- _class: state-chart -->',
+    '<!-- @meta{layout=state-chart} -->',
     '',
     '```',
     '## Not the real heading (doc example)',
@@ -686,21 +686,21 @@ test('narrateStateChart: does not speak a fenced doc-example heading as the titl
 
 // ── narrateChart (dispatcher) ─────────────────────────────────────────────────
 test('narrateChart: recognizes a funnel slide', () => {
-  assert.ok(narrateChart('<!-- _class: funnel -->\n\n## Stages.\n\n- A `100`\n- B `50`').includes('fifty percent'));
+  assert.ok(narrateChart('<!-- @meta{layout=funnel} -->\n\n## Stages.\n\n- A `100`\n- B `50`').includes('fifty percent'));
 });
 
 test('narrateChart: recognizes a weighted journey slide', () => {
-  const md = ['<!-- _class: journey weighted -->', '', '## X.', '', '- Stage', '  - A `{who=me, mood=3, volume=9}`', '  - B `{who=me, mood=3, volume=1}`'].join('\n');
+  const md = ['<!-- @meta{layout=journey, class=weighted} -->', '', '## X.', '', '- Stage', '  - A `{who=me, mood=3, volume=9}`', '  - B `{who=me, mood=3, volume=1}`'].join('\n');
   assert.ok(narrateChart(md).includes('ninety percent'));
 });
 
 test('narrateChart: recognizes a state-chart slide and reads its shape', () => {
-  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '- Draft', '  - -submit-> Done', '- Done'].join('\n');
+  const md = ['<!-- @meta{layout=state-chart} -->', '', '## Flow.', '', '- Draft', '  - -submit-> Done', '- Done'].join('\n');
   assert.ok(narrateChart(md).includes('A two-state machine from Draft to Done'));
 });
 
 test('narrateChart: returns null for a slide no narrator recognizes', () => {
-  assert.equal(narrateChart('<!-- _class: kpi -->\n\n## Revenue\n\nWe grew.'), null);
+  assert.equal(narrateChart('<!-- @meta{layout=kpi} -->\n\n## Revenue\n\nWe grew.'), null);
 });
 
 // ── narrateDiagram (Mermaid flowchart) ────────────────────────────────────────
@@ -710,7 +710,7 @@ test('narrateChart: returns null for a slide no narrator recognizes', () => {
 // (2026-07-13-mermaid-diagram-narration.md §8.3).
 
 const diagramSkeleton = [
-  '<!-- _class: diagram -->',
+  '<!-- @meta{layout=diagram} -->',
   '',
   '`01 · Flowchart`',
   '',
@@ -731,11 +731,11 @@ const diagramSkeleton = [
 ].join('\n');
 
 test('narrateDiagram: returns null for a non-diagram slide', () => {
-  assert.equal(narrateDiagram('<!-- _class: kpi -->\n\n## Revenue\n\n1. `$2.4B`\n- Total'), null);
+  assert.equal(narrateDiagram('<!-- @meta{layout=kpi} -->\n\n## Revenue\n\n1. `$2.4B`\n- Total'), null);
 });
 
 test('narrateDiagram: returns null for a diagram slide with no mermaid fence', () => {
-  assert.equal(narrateDiagram('<!-- _class: diagram -->\n\n## Just a heading.\n\nSome prose.'), null);
+  assert.equal(narrateDiagram('<!-- @meta{layout=diagram} -->\n\n## Just a heading.\n\nSome prose.'), null);
 });
 
 test('narrateDiagram: speaks eyebrow, heading, the flowchart frame, and the FLOW (chain + labeled hops + terminal)', () => {
@@ -767,14 +767,14 @@ test('narrateDiagram: speaks authored prose outside the fence (never say less), 
 });
 
 test('narrateDiagram: frame has no title when the mermaid front matter omits one', () => {
-  const md = ['<!-- _class: diagram -->', '', '## Plain.', '', '```mermaid', 'flowchart LR', '  A[One] --> B[Two]', '```'].join('\n');
+  const md = ['<!-- @meta{layout=diagram} -->', '', '## Plain.', '', '```mermaid', 'flowchart LR', '  A[One] --> B[Two]', '```'].join('\n');
   const out = narrateDiagram(md);
   assert.ok(out.includes('A flowchart. One leads to Two.'));
   assert.ok(!out.includes('A flowchart,'));
 });
 
 test('narrateDiagram: coalesces a linear chain into one flowing sentence', () => {
-  const md = ['<!-- _class: diagram -->', '', '## Chain.', '', '```mermaid', 'flowchart LR', '  A[One] --> B[Two] --> C[Three]', '```'].join('\n');
+  const md = ['<!-- @meta{layout=diagram} -->', '', '## Chain.', '', '```mermaid', 'flowchart LR', '  A[One] --> B[Two] --> C[Three]', '```'].join('\n');
   const out = narrateDiagram(md);
   assert.ok(out.includes('One leads to Two, then Three.'));
   assert.ok(out.includes('The flow ends at Three.'));
@@ -782,7 +782,7 @@ test('narrateDiagram: coalesces a linear chain into one flowing sentence', () =>
 
 test('narrateDiagram: groups a fan-out and closes at the terminals', () => {
   const md = [
-    '<!-- _class: diagram -->', '', '## Fan.', '',
+    '<!-- @meta{layout=diagram} -->', '', '## Fan.', '',
     '```mermaid', 'flowchart TD',
     '  Gateway["API Gateway"] --> A["Auth"]', '  Gateway --> B["Orders"]', '  Gateway --> C["Search"]', '```',
   ].join('\n');
@@ -793,7 +793,7 @@ test('narrateDiagram: groups a fan-out and closes at the terminals', () => {
 
 test('narrateDiagram: a decision node binds each branch label to its target unambiguously', () => {
   const md = [
-    '<!-- _class: diagram -->', '', '## Gate.', '',
+    '<!-- @meta{layout=diagram} -->', '', '## Gate.', '',
     '```mermaid', 'flowchart TD',
     '  S["New request"] --> C{"Within policy?"}', '  C -->|"yes"| Y["Approve"]', '  C -->|"no"| N["Review"]', '```',
   ].join('\n');
@@ -804,7 +804,7 @@ test('narrateDiagram: a decision node binds each branch label to its target unam
 });
 
 test('narrateDiagram: a feedback edge narrates as a loop, not a whole-graph grouped collapse', () => {
-  const md = ['<!-- _class: diagram -->', '', '## Loop.', '', '```mermaid', 'flowchart LR', '  I[Ingest] --> V[Validate] --> T[Transform] --> L[Load]', '  V -->|retry| I', '```'].join('\n');
+  const md = ['<!-- @meta{layout=diagram} -->', '', '## Loop.', '', '```mermaid', 'flowchart LR', '  I[Ingest] --> V[Validate] --> T[Transform] --> L[Load]', '  V -->|retry| I', '```'].join('\n');
   const out = narrateDiagram(md);
   assert.ok(out.includes('Ingest leads to Validate, then Transform, then Load.'), out); // forward flow survives
   assert.ok(out.includes('Validate, retry, loops back to Ingest.'), out); // the back-edge is a loop (appositive label)
@@ -812,29 +812,29 @@ test('narrateDiagram: a feedback edge narrates as a loop, not a whole-graph grou
 });
 
 test('narrateDiagram: a pure cycle narrates a flow plus a loop-back (cycle signal preserved)', () => {
-  const md = ['<!-- _class: diagram -->', '', '## Loop.', '', '```mermaid', 'flowchart LR', '  A[Draft] --> B[Review]', '  B --> C[Publish]', '  C --> A', '```'].join('\n');
+  const md = ['<!-- @meta{layout=diagram} -->', '', '## Loop.', '', '```mermaid', 'flowchart LR', '  A[Draft] --> B[Review]', '  B --> C[Publish]', '  C --> A', '```'].join('\n');
   const out = narrateDiagram(md);
   assert.ok(out.includes('Draft leads to Review, then Publish.'), out);
   assert.ok(out.includes('Publish loops back to Draft.'), out);
 });
 
 test('narrateDiagram: an orphan node is not a false flow terminal, and parallel edges de-dup', () => {
-  const orphan = ['<!-- _class: diagram -->', '', '## O.', '', '```mermaid', 'flowchart TD', '  A[A] --> B[B]', '  Z[Legend only]', '```'].join('\n');
+  const orphan = ['<!-- @meta{layout=diagram} -->', '', '## O.', '', '```mermaid', 'flowchart TD', '  A[A] --> B[B]', '  Z[Legend only]', '```'].join('\n');
   const oo = narrateDiagram(orphan);
   assert.ok(oo.includes('The flow ends at B.'), oo);
   assert.ok(!oo.includes('Legend only'), oo); // an in=out=0 orphan is never a terminal
-  const par = ['<!-- _class: diagram -->', '', '## P.', '', '```mermaid', 'flowchart TD', '  A[A] --> B[B]', '  A --> B', '```'].join('\n');
+  const par = ['<!-- @meta{layout=diagram} -->', '', '## P.', '', '```mermaid', 'flowchart TD', '  A[A] --> B[B]', '  A --> B', '```'].join('\n');
   assert.ok(!narrateDiagram(par).includes('B and B'), narrateDiagram(par)); // deduped, not "fans out to B and B"
 });
 
 test('narrateDiagram: reads a dotted inline-text edge label', () => {
-  const md = ['<!-- _class: diagram -->', '', '## Loop.', '', '```mermaid', 'flowchart LR', '  A[Calibration] -.adjust weights.-> B[Score]', '```'].join('\n');
+  const md = ['<!-- @meta{layout=diagram} -->', '', '## Loop.', '', '```mermaid', 'flowchart LR', '  A[Calibration] -.adjust weights.-> B[Score]', '```'].join('\n');
   assert.ok(narrateDiagram(md).includes('Calibration, adjust weights, leads to Score.'));
 });
 
 test('narrateDiagram: narrates edges inside and across subgraphs (subgraph lines skipped)', () => {
   const md = [
-    '<!-- _class: diagram -->', '', '## Groups.', '',
+    '<!-- @meta{layout=diagram} -->', '', '## Groups.', '',
     '```mermaid', 'flowchart LR',
     '  subgraph Ingest', '    A["Collect"] --> B["Normalize"]', '  end',
     '  B --> C["Score"]', '```',
@@ -848,7 +848,7 @@ test('narrateDiagram: BAILS to null on a not-yet-supported Mermaid type', () => 
   // sequenceDiagram is now narrated (slice #1); the rest still fall back to heading+caption
   // until their own first-wave slice lands (design 2026-07-14).
   for (const type of ['classDiagram', 'stateDiagram-v2', 'erDiagram', 'gantt', 'pie', 'mindmap', 'C4Context']) {
-    const md = `<!-- _class: diagram -->\n\n## T\n\n\`\`\`mermaid\n${type}\n  A->>B: x\n\`\`\``;
+    const md = `<!-- @meta{layout=diagram} -->\n\n## T\n\n\`\`\`mermaid\n${type}\n  A->>B: x\n\`\`\``;
     assert.equal(narrateDiagram(md), null, type);
   }
 });
@@ -864,20 +864,20 @@ test('narrateDiagram: BAILS to null on unrecognized edge grammar — never confi
     'class shorthand': '  A[X]:::hot --> B[Y]',
   };
   for (const [name, edge] of Object.entries(cases)) {
-    const md = `<!-- _class: diagram -->\n\n## T\n\n\`\`\`mermaid\nflowchart LR\n${edge}\n\`\`\``;
+    const md = `<!-- @meta{layout=diagram} -->\n\n## T\n\n\`\`\`mermaid\nflowchart LR\n${edge}\n\`\`\``;
     assert.equal(narrateDiagram(md), null, name);
   }
 });
 
 test('narrateDiagram: BAILS to null on a flowchart with no readable edges (node-only)', () => {
-  const md = ['<!-- _class: diagram -->', '', '## Nodes.', '', '```mermaid', 'flowchart LR', '  A["Alone"]', '  B["Also"]', '```'].join('\n');
+  const md = ['<!-- @meta{layout=diagram} -->', '', '## Nodes.', '', '```mermaid', 'flowchart LR', '  A["Alone"]', '  B["Also"]', '```'].join('\n');
   assert.equal(narrateDiagram(md), null);
 });
 
 test('narrateDiagram: a fenced doc-example heading never masquerades as the slide heading', () => {
   // The real heading is outside the fence; a `#`/`flowchart` inside a nested example must not win.
   const md = [
-    '<!-- _class: diagram -->', '', '## The real heading.', '',
+    '<!-- @meta{layout=diagram} -->', '', '## The real heading.', '',
     '```mermaid', 'flowchart LR', '  A[Start] --> B[End]', '```',
   ].join('\n');
   const out = narrateDiagram(md);
@@ -890,7 +890,7 @@ test('narrateChart: routes a diagram slide through narrateDiagram', () => {
 });
 
 test('narrateDiagram: does not double-punctuate a node label that already ends in ? or .', () => {
-  const md = ['<!-- _class: diagram -->', '', '## Gate.', '', '```mermaid', 'flowchart TD', '  A[New request] --> C{"Within policy?"}', '  C -->|yes| D[Approve]', '```'].join('\n');
+  const md = ['<!-- @meta{layout=diagram} -->', '', '## Gate.', '', '```mermaid', 'flowchart TD', '  A[New request] --> C{"Within policy?"}', '  C -->|yes| D[Approve]', '```'].join('\n');
   const out = narrateDiagram(md);
   assert.ok(out.includes('New request leads to Within policy?'));
   assert.ok(!out.includes('Within policy?.')); // no doubled ?.
@@ -898,7 +898,7 @@ test('narrateDiagram: does not double-punctuate a node label that already ends i
 
 test('narrateDiagram: reads a DOT-lengthened dotted arrow with no fabricated label (never leaks the arrow dots)', () => {
   for (const arrow of ['-.->', '-..->', '-...->', '-....->']) {
-    const md = ['<!-- _class: diagram -->', '', '## D.', '', '```mermaid', 'flowchart LR', `  A[X] ${arrow} B[Y]`, '```'].join('\n');
+    const md = ['<!-- @meta{layout=diagram} -->', '', '## D.', '', '```mermaid', 'flowchart LR', `  A[X] ${arrow} B[Y]`, '```'].join('\n');
     const out = narrateDiagram(md);
     assert.ok(out.includes('X leads to Y.'), `${arrow} -> ${out}`);
     assert.ok(!/,\s*\.+,\s*leads/.test(out), `${arrow} fabricated a dot label: ${out}`);
@@ -907,7 +907,7 @@ test('narrateDiagram: reads a DOT-lengthened dotted arrow with no fabricated lab
 
 test('narrateDiagram: keeps the REAL label on a dotted arrow (base and dot-lengthened), not the dots', () => {
   for (const arrow of ['-. yes .->', '-. yes ..->']) {
-    const md = ['<!-- _class: diagram -->', '', '## D.', '', '```mermaid', 'flowchart LR', `  A[X] ${arrow} B[Y]`, '```'].join('\n');
+    const md = ['<!-- @meta{layout=diagram} -->', '', '## D.', '', '```mermaid', 'flowchart LR', `  A[X] ${arrow} B[Y]`, '```'].join('\n');
     // "yes" is a branch condition, so it reads "on yes, leads to Y" — the point is the real
     // label survives (never the arrow's dots).
     assert.ok(narrateDiagram(md).includes('X, on yes, leads to Y.'), arrow);
@@ -918,7 +918,7 @@ test('narrateDiagram: inline-text solid/thick edges bail (ReDoS-safe scope) — 
   // These forms are intentionally unrecognized (their ReDoS-safe regex would bar
   // hyphens/`=` from the label); an edge using them bails to the heading-only projection.
   for (const edge of ['  A[X] -- go --> B[Y]', '  A[X] == go ==> B[Y]']) {
-    const md = `<!-- _class: diagram -->\n\n## T\n\n\`\`\`mermaid\nflowchart LR\n${edge}\n\`\`\``;
+    const md = `<!-- @meta{layout=diagram} -->\n\n## T\n\n\`\`\`mermaid\nflowchart LR\n${edge}\n\`\`\``;
     assert.equal(narrateDiagram(md), null, edge);
   }
 });
@@ -929,7 +929,7 @@ test('narrateDiagram: a pathological connector line does not hang (no super-line
   // 2,000 spaces, 21 s at 4,000. No clock (HARD RULE #32): every regex the narration runs on it must be one recheck calls
   // linear (test/helpers/regex-trace.js). The three markdown-it patterns are a dependency's, so the census does not hold
   // them; each is named with recheck's verdict (`npm run regex:census -- --check`).
-  const md = `<!-- _class: diagram -->\n\n## T\n\n\`\`\`mermaid\nflowchart LR\n  A[X] --${' '.repeat(4000)}x\n\`\`\``;
+  const md = `<!-- @meta{layout=diagram} -->\n\n## T\n\n\`\`\`mermaid\nflowchart LR\n  A[X] --${' '.repeat(4000)}x\n\`\`\``;
   const allow = {
     '/\\r\\n?|\\n/g': 'markdown-it normalize: recheck 4.6.2 safe',
     '/^<(script|pre|style|textarea)(?=(\\s|>|$))/i': 'markdown-it html_block: recheck 4.6.2 safe',
@@ -957,7 +957,7 @@ test('the narration\'s link and directive readers answer as the regexes they rep
 });
 
 // ── label GRAMMAR: verb vs. noun vs. condition (the trio's central inversion) ──────────────
-const diagram = (body, opts = 'flowchart LR') => `<!-- _class: diagram -->\n\n## H.\n\n\`\`\`mermaid\n${opts}\n${body}\n\`\`\``;
+const diagram = (body, opts = 'flowchart LR') => `<!-- @meta{layout=diagram} -->\n\n## H.\n\n\`\`\`mermaid\n${opts}\n${body}\n\`\`\``;
 
 test('narrateDiagram: a recognized VERB label reads AS the connective ("A calls B")', () => {
   assert.ok(narrateDiagram(diagram('  A["Web App"] -->|calls| B["API"]')).includes('Web App calls API.'));
@@ -1097,7 +1097,7 @@ test('narrateDiagram: the GIST flags a loop when the graph also branches and cyc
 });
 
 // ── narrateSequence (Mermaid sequenceDiagram — first-wave slice #1) ────────────
-const seqSlide = (body) => `<!-- _class: diagram -->\n\n## Auth handshake.\n\n\`\`\`mermaid\n${body}\n\`\`\``;
+const seqSlide = (body) => `<!-- @meta{layout=diagram} -->\n\n## Auth handshake.\n\n\`\`\`mermaid\n${body}\n\`\`\``;
 
 test('narrateSequence: reads participants (display label), messages in order, notes, and a single-level block', () => {
   const out = narrateChart(seqSlide('sequenceDiagram\n  participant A as Alice\n  participant B as Bob\n  A->>+B: Request auth token\n  Note right of B: Validates credentials\n  B-->>-A: Return signed token\n  alt Token expired\n    A->>B: Refresh token\n  end'));
@@ -1152,7 +1152,7 @@ test('narrateSequence: §14 faithfulness — NO round-trip "returns/back to", NO
   // A B→A message after A→B is NOT necessarily a reply (only the banned glyph would say so); it reads
   // plainly as its own message. And no relay/hub/request-response/polling shape is ever asserted.
   // Neutral heading (the shared helper's "Auth handshake" would be authored content, not invented).
-  const slide = '<!-- _class: diagram -->\n\n## The flow.\n\n```mermaid\nsequenceDiagram\n  Client->>Server: login\n  Server->>Client: promo banner\n```';
+  const slide = '<!-- @meta{layout=diagram} -->\n\n## The flow.\n\n```mermaid\nsequenceDiagram\n  Client->>Server: login\n  Server->>Client: promo banner\n```';
   const out = narrateChart(slide);
   assert.ok(out.includes('Server sends to Client: promo banner.'), out);
   assert.ok(!/back to|returns|responds|replies|request-response|orchestrat|polling|relay|handshake/i.test(out), out);
@@ -1240,7 +1240,7 @@ test('narrateSequence: reads the in-fence title and speaks a bare (text-less) me
 // speak the Mermaid-DEFINED symbol as a faithful verb (§2, the authored-verb asymmetry) — the
 // opposite of the flowchart's neutral arrow. Each narrator self-bails on constructs a flat reading
 // would misstate.
-const mdiag = (body) => `<!-- _class: diagram -->\n\n## Diagram.\n\n\`\`\`mermaid\n${body}\n\`\`\``;
+const mdiag = (body) => `<!-- @meta{layout=diagram} -->\n\n## Diagram.\n\n\`\`\`mermaid\n${body}\n\`\`\``;
 
 // pie — read the DERIVED % the way Mermaid derives it (§3.5).
 test('narratePie: reads each slice with its derived percent; showData adds the raw value', () => {
@@ -1584,7 +1584,7 @@ test('narrateXychart: accessibility statements and comments carry nothing; negat
 // onboarding. Pain. 1. 2. 3. 4. 5. Delight." — the legend and the mood axis read as a list,
 // with no step attached to any score.
 test('narrateJourneyMood: reads each task with its actors and its mood, by section', () => {
-  const md = ['<!-- _class: journey -->', '', '## The path.', '', '- Evaluate', '  - Read case study `{who=prospect, mood=5}`', '  - Live demo `{who=prospect}` `{who=sales, mood=4}`', '- Trial', '  - Signup `{who=user, mood=3}`'].join('\n');
+  const md = ['<!-- @meta{layout=journey} -->', '', '## The path.', '', '- Evaluate', '  - Read case study `{who=prospect, mood=5}`', '  - Live demo `{who=prospect}` `{who=sales, mood=4}`', '- Trial', '  - Signup `{who=user, mood=3}`'].join('\n');
   const out = narrateJourneyMood(md);
   // The scale once, in its own words; a stage by its size; a step per sentence, naming who.
   assert.ok(out.includes('Each step is scored for how it feels, from one, pain, to five, delight.'), out);
@@ -1598,32 +1598,32 @@ test('narrateJourneyMood: reads each task with its actors and its mood, by secti
 });
 
 test('narrateJourneyMood: stands down for the weighted variant, which has its own narrator', () => {
-  const md = ['<!-- _class: journey weighted -->', '', '## X.', '', '- Discover', '  - Search `{who=prospect, mood=4, volume=45}`'].join('\n');
+  const md = ['<!-- @meta{layout=journey, class=weighted} -->', '', '## X.', '', '- Discover', '  - Search `{who=prospect, mood=4, volume=45}`'].join('\n');
   assert.equal(narrateJourneyMood(md), null);
 });
 
 test('narrateJourneyMood: leaves an omitted mood UNSAID rather than reporting the plotted default', () => {
   // journey.docs.md: an omitted `:N` silently defaults to a neutral 3 and still plots.
   // Narrating that default would state an affect the author never claimed.
-  const md = ['<!-- _class: journey -->', '', '## X.', '', '- Evaluate', '  - Read case study `{who=prospect}`'].join('\n');
+  const md = ['<!-- @meta{layout=journey} -->', '', '## X.', '', '- Evaluate', '  - Read case study `{who=prospect}`'].join('\n');
   const out = narrateJourneyMood(md);
   assert.ok(out.includes('Read case study, by the prospect.'), out);
   assert.ok(!out.includes('out of five'), out);
 });
 
 test('narrateJourneyMood: stands down when no task carries a mood or an actor', () => {
-  const md = ['<!-- _class: journey -->', '', '## X.', '', '- Evaluate', '  - Read case study', '  - Book demo'].join('\n');
+  const md = ['<!-- @meta{layout=journey} -->', '', '## X.', '', '- Evaluate', '  - Read case study', '  - Book demo'].join('\n');
   assert.equal(narrateJourneyMood(md), null);
 });
 
 test('narrateJourneyMood: the dispatcher reaches it for a plain journey slide', () => {
-  const md = ['<!-- _class: journey -->', '', '## X.', '', '- Evaluate', '  - Read case study `{who=prospect, mood=5}`'].join('\n');
+  const md = ['<!-- @meta{layout=journey} -->', '', '## X.', '', '- Evaluate', '  - Read case study `{who=prospect, mood=5}`'].join('\n');
   assert.ok(narrateChart(md).includes('five out of five'));
 });
 
 // ── Regressions the maker-checker caught before merge ───────────────────────────────
 test('narrateStateChart: a heavy arrow and a self-loop read by name, never as glyphs', () => {
-  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '- Draft `start`', '  - =submit=> Done', '  - -hold-> Draft', '- Done `end`'].join('\n');
+  const md = ['<!-- @meta{layout=state-chart} -->', '', '## Flow.', '', '- Draft `start`', '  - =submit=> Done', '  - -hold-> Draft', '- Done `end`'].join('\n');
   const out = narrateStateChart(md);
   assert.ok(out.includes('submit goes to Done'), out);
   assert.ok(out.includes('hold stays here'), out);
@@ -1631,7 +1631,7 @@ test('narrateStateChart: a heavy arrow and a self-loop read by name, never as gl
 });
 
 test('narrateStateChart: a state\'s hidden detail (a blockquote) is narrated with the state', () => {
-  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '- Draft `start`', '  - -submit-> Review', '- Review `at-risk`', '  - -approve-> Done', '  > Two reviewers must sign off.', '- Done `end`'].join('\n');
+  const md = ['<!-- @meta{layout=state-chart} -->', '', '## Flow.', '', '- Draft `start`', '  - -submit-> Review', '- Review `at-risk`', '  - -approve-> Done', '  > Two reviewers must sign off.', '- Done `end`'].join('\n');
   const out = narrateStateChart(md);
   assert.ok(out.includes('Review is at risk. Two reviewers must sign off.'), out);
 });
@@ -1640,7 +1640,7 @@ test('narrateJourneyMood: mirrors the transform’s clampMood, so it cannot stat
   // journey.transform.js clamps to 1..5 with Math.round and ignores a bare `@`. The narrator
   // once did none of those: a mood of 99 read "ninety-nine out of five", 0 read "zero", and `@`
   // produced an empty actor and a double comma. Both now read through lib/core/journey-step.js.
-  const md = ['<!-- _class: journey -->', '', '## X.', '', '- Stage', '  - High `{who=prospect, mood=99}`', '  - Low `@` `{mood=0}`', '  - Odd `{who=user, mood=4x}`', '  - Half `{who=user, mood=2.5}`'].join('\n');
+  const md = ['<!-- @meta{layout=journey} -->', '', '## X.', '', '- Stage', '  - High `{who=prospect, mood=99}`', '  - Low `@` `{mood=0}`', '  - Odd `{who=user, mood=4x}`', '  - Half `{who=user, mood=2.5}`'].join('\n');
   const out = narrateJourneyMood(md);
   assert.ok(out.includes('High, by the prospect, scores five out of five'), out); // 99 clamps to 5
   assert.ok(out.includes('Low scores one out of five'), out); // 0 clamps to 1, bare @ dropped
@@ -1671,15 +1671,15 @@ function manifestSample(name) {
 test('narrateDataSeries: returns null for a component that is not picture-bound data', () => {
   // `list` keeps its substance in HTML, so the speech walker already reads it and a
   // full-replacement narrator here would only take that away.
-  assert.equal(narrateDataSeries('<!-- _class: list -->\n\n## Heading\n\n- A `1`\n- B `2`'), null);
-  assert.equal(narrateDataSeries('<!-- _class: roadmap -->\n\n## Heading\n\n- A `1`\n- B `2`'), null);
+  assert.equal(narrateDataSeries('<!-- @meta{layout=list} -->\n\n## Heading\n\n- A `1`\n- B `2`'), null);
+  assert.equal(narrateDataSeries('<!-- @meta{layout=roadmap} -->\n\n## Heading\n\n- A `1`\n- B `2`'), null);
   assert.equal(narrateDataSeries('## No class directive at all\n\n- A `1`\n- B `2`'), null);
 });
 
 test('narrateDataSeries: returns null when the roster component carries no data rows', () => {
-  assert.equal(narrateDataSeries('<!-- _class: bar -->\n\n## Just a heading.'), null);
+  assert.equal(narrateDataSeries('<!-- @meta{layout=bar} -->\n\n## Just a heading.'), null);
   // One row is not a series — the same floor narrateFunnel holds.
-  assert.equal(narrateDataSeries('<!-- _class: bar -->\n\n## One.\n\n- North America `$4.2M`'), null);
+  assert.equal(narrateDataSeries('<!-- @meta{layout=bar} -->\n\n## One.\n\n- North America `$4.2M`'), null);
 });
 
 test('narrateDataSeries: reads a flat one-pill series — the audit\'s own bar counter-example', () => {
@@ -1773,7 +1773,7 @@ test('narrateDataSeries: does not read a DEEPER detail line that ends in a numbe
   // The confidently-wrong-number failure class classifyDepth exists for: a detail line
   // ending in a year would otherwise become a phantom row.
   const md = [
-    '<!-- _class: bar -->',
+    '<!-- @meta{layout=bar} -->',
     '',
     '## Growth.',
     '',
@@ -1800,7 +1800,7 @@ const once = (out, text) => assert.equal(out.split(text).length, 2, `"${text}" i
 
 test('detail order: bar reads each row\'s detail right after that row', () => {
   const md = [
-    '<!-- _class: bar -->',
+    '<!-- @meta{layout=bar} -->',
     '',
     '## Growth is concentrated in two regions.',
     '',
@@ -1824,7 +1824,7 @@ test('detail order: bar reads each row\'s detail right after that row', () => {
 
 test('detail order: stacked-bar reads a category\'s detail after its parts, before the next category', () => {
   const md = [
-    '<!-- _class: stacked-bar -->',
+    '<!-- @meta{layout=stacked-bar} -->',
     '',
     '## Services became a real line of business.',
     '',
@@ -1853,7 +1853,7 @@ test('detail order: stacked-bar reads a category\'s detail after its parts, befo
 
 test('detail order: slope dumbbell reads a row\'s detail right after its move', () => {
   const md = [
-    '<!-- _class: slope dumbbell -->',
+    '<!-- @meta{layout=slope, class=dumbbell} -->',
     '',
     '## Two teams moved, one slipped.',
     '',
@@ -1881,7 +1881,7 @@ test('detail order: slope dumbbell reads a row\'s detail right after its move', 
 
 test('detail order: line reads a category\'s detail once, after that point in the first series', () => {
   const md = [
-    '<!-- _class: line -->',
+    '<!-- @meta{layout=line} -->',
     '',
     '## Pipeline recovered after Feb.',
     '',
@@ -1903,7 +1903,7 @@ test('detail order: line reads a category\'s detail once, after that point in th
 });
 
 test('detail order: a flat line reads each point\'s detail after that point', () => {
-  const out = narrateDataSeries('<!-- _class: line -->\n\n## Flat.\n\n- Jan `4`\n  - Launch month\n- Feb `5`\n- Mar `3`\n  - Outage');
+  const out = narrateDataSeries('<!-- @meta{layout=line} -->\n\n## Flat.\n\n- Jan `4`\n  - Launch month\n- Feb `5`\n- Mar `3`\n  - Outage');
   assert.ok(out.endsWith('Jan, four. Launch month. Feb, five. Mar, three. Outage.'), out);
 });
 
@@ -1911,7 +1911,7 @@ test('detail order: a summarized line names a skipped category before its detail
   const months = ['M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'M8', 'M9', 'M10'];
   const vals = [5, 6, 9, 7, 7, 6, 6, 2, 4, 5];
   const rows = months.flatMap((m, i) => [`- ${m} \`${vals[i]}\``, ...(m === 'M5' ? ['  - Pricing change'] : [])]);
-  const out = narrateDataSeries(['<!-- _class: line -->', '', '## Long.', '', ...rows].join('\n'));
+  const out = narrateDataSeries(['<!-- @meta{layout=line} -->', '', '## Long.', '', ...rows].join('\n'));
   // Ten points is past LINE_EVERY_POINT, so M5 is never read. Attached to M3's sentence, its note
   // was heard as a remark about M3; named, it says which category it is about.
   assert.ok(out.includes('M3, nine, the high. M8, two, the low.'), out);
@@ -1921,7 +1921,7 @@ test('detail order: a summarized line names a skipped category before its detail
 
 test('detail order: a line reads a category\'s note after the first series that HAS a point there', () => {
   const md = [
-    '<!-- _class: line -->',
+    '<!-- @meta{layout=line} -->',
     '',
     '## Two regions.',
     '',
@@ -1950,14 +1950,14 @@ test('detail order: scatter, map, piechart and waterfall read each detail after 
     ['waterfall', '## Bridge.\n\n- Start `100`\n- Price `+20`\n  - List price rose\n- End `120`', 'Price, twenty. List price rose. End, one hundred twenty.'],
   ];
   for (const [cls, body, want] of cases) {
-    const out = narrateDataSeries(`<!-- _class: ${cls} -->\n\n${body}`);
+    const out = narrateDataSeries(`<!-- @meta{class=${cls}} -->\n\n${body}`);
     assert.ok(out.endsWith(want), `${cls}: ${out}`);
   }
 });
 
 test('detail order: radar quadrant reads an axis detail after its sector, where it used to drop it', () => {
   const md = [
-    '<!-- _class: radar quadrant -->',
+    '<!-- @meta{layout=radar, class=quadrant} -->',
     '',
     '## Capability.',
     '',
@@ -1976,7 +1976,7 @@ test('detail order: radar quadrant reads an axis detail after its sector, where 
 
 test('detail order: journey reads a task\'s detail right after the task', () => {
   const md = [
-    '<!-- _class: journey -->',
+    '<!-- @meta{layout=journey} -->',
     '',
     '## Onboarding.',
     '',
@@ -1992,7 +1992,7 @@ test('detail order: journey reads a task\'s detail right after the task', () => 
 
 test('narrateDataSeries: ignores a fenced doc example of its own syntax', () => {
   const md = [
-    '<!-- _class: bar -->',
+    '<!-- @meta{layout=bar} -->',
     '',
     '## How to author a bar chart.',
     '',
@@ -2005,10 +2005,10 @@ test('narrateDataSeries: ignores a fenced doc example of its own syntax', () => 
 });
 
 test('narrateDataSeries: recognizes a roster component combined with a base modifier', () => {
-  const md = '<!-- _class: bar dark -->\n\n## Growth.\n\n- A `1`\n- B `2`';
+  const md = '<!-- @meta{layout=bar, class=dark} -->\n\n## Growth.\n\n- A `1`\n- B `2`';
   assert.match(narrateDataSeries(md), /A, one\. B, two\./);
   // …and does NOT match a hyphenated class that merely contains the token.
-  assert.equal(narrateDataSeries('<!-- _class: bar-detail -->\n\n## X.\n\n- A `1`\n- B `2`'), null);
+  assert.equal(narrateDataSeries('<!-- @meta{class=bar-detail} -->\n\n## X.\n\n- A `1`\n- B `2`'), null);
 });
 
 test('narrateChart: the generic floor is actually WIRED to the dispatcher', () => {
@@ -2057,7 +2057,7 @@ test('narrateDataSeries: speaks every row EXACTLY once — nothing consumed is a
 test('narrateDataSeries: an axis legend binds only when EVERY row matches its pill count', () => {
   // `>=` instead of `===` would bind a two-name legend to a three-pill row and silently
   // mislabel the third value.
-  const md = (rows) => `<!-- _class: scatter -->\n\n\`Cost\` \`Reach\`\n\n## H.\n\n${rows}`;
+  const md = (rows) => `<!-- @meta{layout=scatter} -->\n\n\`Cost\` \`Reach\`\n\n## H.\n\n${rows}`;
   assert.match(narrateDataSeries(md('- A `{1, 2}`\n- B `{3, 4}`')), /A: Cost, one; Reach, two\./);
   // Three pills against two names: the legend cannot bind, so it is spoken as a caption and
   // the values read in order rather than being labeled wrongly.
@@ -2072,20 +2072,20 @@ test('narrateDataSeries: an eyebrow is never deleted, whether or not it is a leg
   // on the real --captions export: "Tooling spend review" was on the slide and in no .vtt,
   // because one regex spanned both lines and consumed only the first.
   const out = narrateDataSeries(
-    '<!-- _class: scatter -->\n\n`Tooling spend review`\n\n`Annual cost` `Teams adopting`\n\n## H.\n\n- Atlas `{$420k, 18%}`\n- Borealis `{$310k, 24%}`',
+    '<!-- @meta{layout=scatter} -->\n\n`Tooling spend review`\n\n`Annual cost` `Teams adopting`\n\n## H.\n\n- Atlas `{$420k, 18%}`\n- Borealis `{$310k, 24%}`',
   );
   assert.match(out, /^Tooling spend review\./, out.slice(0, 80));
   assert.match(out, /Atlas: Annual cost, four hundred twenty thousand dollars; Teams adopting, eighteen percent\./);
   // A legend that binds is not ALSO read as a sentence — that is the duplication radar dropped.
   assert.equal(out.split('Annual cost').length - 1, 2, 'once per row, never as its own sentence');
   // And a legend that does NOT bind is spoken rather than swallowed.
-  assert.match(narrateDataSeries('<!-- _class: bar -->\n\n`Plan` `Actual`\n\n## H.\n\n- A `1`\n- B `2`'), /^Plan, Actual\./);
+  assert.match(narrateDataSeries('<!-- @meta{layout=bar} -->\n\n`Plan` `Actual`\n\n## H.\n\n- A `1`\n- B `2`'), /^Plan, Actual\./);
 });
 
 test('narrateDataSeries: a row whose label is inside the code span is not deleted', () => {
   // `stripTrailingPills` peels BOTH spans, leaving an empty label. Consuming the line and then
   // filtering the row dropped the author's words outright.
-  const out = narrateDataSeries('<!-- _class: word-cloud -->\n\n## Weight is meaning.\n\n- time-to-value `5`\n- `residency` `1`\n- security `4`');
+  const out = narrateDataSeries('<!-- @meta{layout=word-cloud} -->\n\n## Weight is meaning.\n\n- time-to-value `5`\n- `residency` `1`\n- security `4`');
   assert.match(out, /time-to-value, five\./);
   assert.match(out, /security, four\./);
   assert.match(out, /residency/, 'left to the flattener rather than deleted');
@@ -2096,12 +2096,12 @@ test('narrateDataSeries: bails on a three-level list rather than flattening the 
   // these terms; the floor used to read it as "G: Axis, nine. H: Axis, seven. Sub. Sub.",
   // tearing every sub-group name off its data.
   assert.equal(
-    narrateDataSeries('<!-- _class: radar -->\n\n## R.\n\n- G\n  - Sub\n    - Axis `9`\n- H\n  - Sub\n    - Axis `7`'),
+    narrateDataSeries('<!-- @meta{layout=radar} -->\n\n## R.\n\n- G\n  - Sub\n    - Axis `9`\n- H\n  - Sub\n    - Axis `7`'),
     null,
   );
   // …while a two-level list with an ordinary pill-less DETAIL line under it still narrates.
   assert.match(
-    narrateDataSeries('<!-- _class: bar -->\n\n## S.\n\n- Atlas `$420k`\n  - Renewal lands in March\n- Borealis `$310k`'),
+    narrateDataSeries('<!-- @meta{layout=bar} -->\n\n## S.\n\n- Atlas `$420k`\n  - Renewal lands in March\n- Borealis `$310k`'),
     /Atlas, four hundred twenty thousand dollars\./,
   );
 });
@@ -2109,15 +2109,15 @@ test('narrateDataSeries: bails on a three-level list rather than flattening the 
 test('narrateDataSeries: the class gate reads the COMPONENT, not a modifier that shares its name', () => {
   // Three shipped shapes put a roster name in a modifier slot. Firing there replaced the
   // walker on a component this narrator does not model.
-  assert.equal(narrateDataSeries('<!-- _class: list principles bullet -->\n\n## W.\n\n- Latency `p95`\n  - Down from 400 ms.\n- Cost `-12%`\n  - From storage.'), null);
-  assert.equal(narrateDataSeries('<!-- _class: journey heatmap -->\n\n## J.\n\n- Evaluate\n  - Read case study `+5`\n  - Book demo `+2`'), null);
-  assert.equal(narrateDataSeries('<!-- _class: radar quadrant -->\n\n## R.\n\n- G\n  - Sub\n    - Axis `9`\n- H\n  - Sub\n    - Axis `7`'), null);
+  assert.equal(narrateDataSeries('<!-- @meta{layout=list, class=principles bullet} -->\n\n## W.\n\n- Latency `p95`\n  - Down from 400 ms.\n- Cost `-12%`\n  - From storage.'), null);
+  assert.equal(narrateDataSeries('<!-- @meta{layout=journey, class=heatmap} -->\n\n## J.\n\n- Evaluate\n  - Read case study `+5`\n  - Book demo `+2`'), null);
+  assert.equal(narrateDataSeries('<!-- @meta{layout=radar, class=quadrant} -->\n\n## R.\n\n- G\n  - Sub\n    - Axis `9`\n- H\n  - Sub\n    - Axis `7`'), null);
   // …and the ordinary "component then modifiers" form still fires.
-  assert.match(narrateDataSeries('<!-- _class: bar dark -->\n\n## G.\n\n- A `1`\n- B `2`'), /A, one\./);
+  assert.match(narrateDataSeries('<!-- @meta{layout=bar, class=dark} -->\n\n## G.\n\n- A `1`\n- B `2`'), /A, one\./);
 });
 
 test('narrateDataSeries: the table reader narrates the grid markdown-it BUILDS', () => {
-  const t = (rows, header = '| | M0 | M1 |\n| --- | --: | --: |') => narrateDataSeries(`<!-- _class: heatmap -->\n\n## H.\n\n${header}\n${rows}`);
+  const t = (rows, header = '| | M0 | M1 |\n| --- | --: | --: |') => narrateDataSeries(`<!-- @meta{layout=heatmap} -->\n\n## H.\n\n${header}\n${rows}`);
   // A cell PAST the header count is dropped by markdown-it, so the chart never draws it.
   // Narrating it announced a value, under an invented column name, that is not on the slide.
   const extra = t('| Jan | 1 | 2 | 3 |');
@@ -2134,14 +2134,14 @@ test('narrateDataSeries: the table reader narrates the grid markdown-it BUILDS',
 });
 
 test('narrateDataSeries: a nested line with no pill is prose, not a value-less item', () => {
-  const out = narrateDataSeries('<!-- _class: line -->\n\n## L.\n\n- Q1\n  - Enterprise `4.1`\n  - A note with no value\n- Q2\n  - Enterprise `4.4`');
+  const out = narrateDataSeries('<!-- @meta{layout=line} -->\n\n## L.\n\n- Q1\n  - Enterprise `4.1`\n  - A note with no value\n- Q2\n  - Enterprise `4.4`');
   assert.match(out, /Enterprise rose zero point three overall, from four point one to four point four\. Q1, four point one\./);
   assert.doesNotMatch(out, /A note with no value,/, 'not read as an item');
   assert.match(out, /A note with no value/, 'but still spoken');
 });
 
 test('narrateDataSeries: strips the markdown a label carries rather than reading it aloud', () => {
-  const out = narrateDataSeries('<!-- _class: bar -->\n\n## G.\n\n- **North** America `1`\n- [EMEA](https://x.test) `2`');
+  const out = narrateDataSeries('<!-- @meta{layout=bar} -->\n\n## G.\n\n- **North** America `1`\n- [EMEA](https://x.test) `2`');
   assert.match(out, /North America, one\./);
   assert.match(out, /EMEA, two\./);
   assert.doesNotMatch(out, /\*\*|https/);
@@ -2166,7 +2166,7 @@ test('narrateDataSeries: exactly the declared picture-data components narrate, a
   const rows = '\n\n## Heading.\n\n- A `1`\n- B `2`';
   // A scatter row is one point record (Segno phase 2); every other member reads one value.
   const pointRows = '\n\n## Heading.\n\n- A `{1, 2}`\n- B `{2, 3}`';
-  const fires = Object.keys(PROJECTION).filter((n) => narrateDataSeries(`<!-- _class: ${n} -->${n === 'scatter' ? pointRows : rows}`) !== null);
+  const fires = Object.keys(PROJECTION).filter((n) => narrateDataSeries(`<!-- @meta{class=${n}} -->${n === 'scatter' ? pointRows : rows}`) !== null);
   assert.deepEqual(fires.sort(), [...PICTURE_DATA_ROSTER].sort());
   // Every member really does declare BOTH halves — so the snapshot above is the derivation's
   // output and not a list someone typed.
@@ -2194,16 +2194,16 @@ test('narrateDataSeries: the roster needs data:true, not merely a declared proje
   const rows = '\n\n## Heading.\n\n- A `1`\n- B `2`';
   for (const [name, p] of Object.entries(PROJECTION)) {
     if (p.data === true || !p.figure) continue;
-    assert.equal(narrateDataSeries(`<!-- _class: ${name} -->${rows}`), null, `${name} declares no data`);
+    assert.equal(narrateDataSeries(`<!-- @meta{class=${name}} -->${rows}`), null, `${name} declares no data`);
   }
 });
 
 test('narrateDataSeries: a delimiter row needs a DASH — colons alone are not a table', () => {
   // `| : | : |` is not a markdown table and markdown-it renders no table for it. Treating it as
   // one would narrate a prose line's pipes as a data grid.
-  assert.equal(narrateDataSeries('<!-- _class: heatmap -->\n\n## H.\n\n| A | B |\n| : | : |\n| 1 | 2 |'), null);
+  assert.equal(narrateDataSeries('<!-- @meta{layout=heatmap} -->\n\n## H.\n\n| A | B |\n| : | : |\n| 1 | 2 |'), null);
   assert.match(
-    narrateDataSeries('<!-- _class: heatmap -->\n\n## H.\n\n| | A | B |\n| --- | --- | --- |\n| Jan | 1 | 2 |'),
+    narrateDataSeries('<!-- @meta{layout=heatmap} -->\n\n## H.\n\n| | A | B |\n| --- | --- | --- |\n| Jan | 1 | 2 |'),
     /Jan is highest at B, two\. Jan is lowest at A, one\./,
   );
 });
@@ -2217,7 +2217,7 @@ test('scrubLabel keeps its comma for a Mermaid label — the two breaks mean dif
   // Pinning the ASYMMETRY, so "consistency" does not quietly collapse it. examples/
   // mermaid-sketch-labels.md authors `Booking received<br/>(EDI 204 / portal)`, where the
   // break separates a name from its qualifier.
-  const md = ['<!-- _class: diagram -->', '', '## Flow.', '', '```mermaid', 'flowchart LR', '  A["Booking received<br/>(EDI 204 / portal)"] --> B["Hold"]', '```'].join('\n');
+  const md = ['<!-- @meta{layout=diagram} -->', '', '## Flow.', '', '```mermaid', 'flowchart LR', '  A["Booking received<br/>(EDI 204 / portal)"] --> B["Hold"]', '```'].join('\n');
   assert.match(narrateDiagram(md), /Booking received, \(EDI 204/);
 });
 
@@ -2227,7 +2227,7 @@ test('narrateDataSeries: only a component that OWNS an axis expands a bracketed 
   // bracketed caption above its rows must stay a CAPTION — spoken as itself,
   // with the values left unbound — exactly as the slide renders it.
   const bullet = [
-    '<!-- _class: bullet -->', '', '`[Confidential, internal]`', '', '## Rows', '',
+    '<!-- @meta{layout=bullet} -->', '', '`[Confidential, internal]`', '', '## Rows', '',
     '- New ARR `4.2M` `5.0M`', '- Expansion `2.1M` `3.0M`',
   ].join('\n');
   const spoken = narrateDataSeries(bullet);
@@ -2243,7 +2243,7 @@ test('narrateDataSeries: a bracketed list cannot invent more axes than the compo
 
 test('an unnamed axis (a `[, y]` placeholder) binds its value with no dangling comma', () => {
   const { narrateChart: narrate } = require('../../../lib/core/chart-narration.js');
-  const md = ['<!-- _class: scatter -->', '', '`[, Teams adopting]`', '', '## Cost against adoption.', '',
+  const md = ['<!-- @meta{layout=scatter} -->', '', '`[, Teams adopting]`', '', '## Cost against adoption.', '',
     '- Atlas `{$420k, 18%}`', '- Borealis `{$310k, 24%}`', '- Cardinal `{$180k, 52%}`'].join('\n');
   const out = narrate(md);
   assert.ok(out.includes('Atlas: four hundred twenty thousand dollars; Teams adopting, eighteen percent.'), out);
@@ -2253,29 +2253,29 @@ test('an unnamed axis (a `[, y]` placeholder) binds its value with no dangling c
 // ── Round two, from the independent checker ──────────────────────────────────────
 test('narrateDataSeries: a map region authored by its code is spelled, so "GA" is never "general availability"', () => {
   // `map.docs.md` sanctions postal and ISO codes; GA is Georgia on `map us` and Gabon on the world map.
-  const out = narrateDataSeries('<!-- _class: map us -->\n\n## States.\n\n- GA `42`\n- TX `30`\n- California `12`');
+  const out = narrateDataSeries('<!-- @meta{layout=map, class=us} -->\n\n## States.\n\n- GA `42`\n- TX `30`\n- California `12`');
   assert.match(out, /G A, forty-two\. T X, thirty\. California, twelve\./);
 });
 
 test('narrateQuadrant: high and low are against the line the chart DRAWS — the midpoint unless the variant is `threshold`', () => {
-  const md = (cls) => `<!-- _class: ${cls} -->\n\n\`[{Effort, 0..10, 3}, {Reach, 0..100}]\`\n\n## X.\n\n- G\n  - Item one \`{4, 70}\``;
+  const md = (cls) => `<!-- @meta{class=${cls}} -->\n\n\`[{Effort, 0..10, 3}, {Reach, 0..100}]\`\n\n## X.\n\n- G\n  - Item one \`{4, 70}\``;
   assert.match(narrateQuadrant(md('quadrant')), /Item one is low on Effort and high on Reach/);
   assert.match(narrateQuadrant(md('quadrant threshold')), /Item one is high on both Effort and Reach/);
 });
 
 test('narrateDataSeries: a line point reads its LAST pill as the value, as the transform plots it', () => {
-  const out = narrateDataSeries('<!-- _class: line -->\n\n## L.\n\n- Jan `est` `8.2`\n- Feb `7.6`\n- Mar `6.9`');
+  const out = narrateDataSeries('<!-- @meta{layout=line} -->\n\n## L.\n\n- Jan `est` `8.2`\n- Feb `7.6`\n- Mar `6.9`');
   assert.match(out, /The line fell one point three overall, from eight point two to six point nine\. Jan est, eight point two\./);
 });
 
 test('narrateMatrixGrid: every drawn cell is said — a second placed level and a plain-text cell included', () => {
-  const out = narrateChart('<!-- _class: matrix-grid -->\n\n## T\n\n| Verb | Self | Team |\n| --- | :-: | :-: |\n| Lead | [x] Head | [x] Coach |\n| Build | Pair only | [!] Blocked |');
+  const out = narrateChart('<!-- @meta{layout=matrix-grid} -->\n\n## T\n\n| Verb | Self | Team |\n| --- | :-: | :-: |\n| Lead | [x] Head | [x] Coach |\n| Build | Pair only | [!] Blocked |');
   assert.match(out, /Head sits at Lead and Self\. Coach sits at Lead and Team\./);
   assert.match(out, /Build at Self: Pair only\. Build at Team: Blocked\./);
 });
 
 test('narrateMatrixGrid reads a cell as parseCell draws it: a wide gap still places, words after [-] are not said', () => {
-  const out = narrateChart('<!-- _class: matrix-grid -->\n\n## T\n\n| Verb | Self | Team |\n| --- | :-: | :-: |\n| Lead | [x]            Head | [-] stray |\n| Build | [ ] gone | [x] |');
+  const out = narrateChart('<!-- @meta{layout=matrix-grid} -->\n\n## T\n\n| Verb | Self | Team |\n| --- | :-: | :-: |\n| Lead | [x]            Head | [-] stray |\n| Build | [ ] gone | [x] |');
   assert.match(out, /Build sits at Team\. Head sits at Lead and Self\. Head: Team is reachable\. The other cells are not applicable\.$/);
   assert.ok(!out.includes('gone'), out);
   assert.ok(!out.includes('stray'), out);
@@ -2283,19 +2283,19 @@ test('narrateMatrixGrid reads a cell as parseCell draws it: a wide gap still pla
 
 // ── Segno phase 2: the trio's narrator findings ───────────────────────────────
 test('narrateRadar (quadrant): the axis line is never read aloud; the pinned scale is said', () => {
-  const md = ['<!-- _class: radar quadrant -->', '', '`[{Scale, 0..5}]`', '', '## Q.', '', '- Us', '  - People', '    - Hiring `4`', '    - Retention `3`', '  - Process', '    - Speed `5`', '    - Quality `4`'].join('\n');
+  const md = ['<!-- @meta{layout=radar, class=quadrant} -->', '', '`[{Scale, 0..5}]`', '', '## Q.', '', '- Us', '  - People', '    - Hiring `4`', '    - Retention `3`', '  - Process', '    - Speed `5`', '    - Quality `4`'].join('\n');
   const out = narrateRadar(md);
   assert.ok(!out.includes('[{') && !out.includes('0..5'), out);
   assert.ok(out.includes('On a scale of zero to five.'), out);
 });
 
 test('narrateRadar: an eyebrow kept under the axis line is still said first', () => {
-  const md = ['<!-- _class: radar -->', '', '`[{Scale, 0..10}]`', '', '`Scale · 0–10, on the criteria we wrote`', '', '## Tools.', '', '- A', '  - X `3`', '  - Y `5`', '  - Z `7`'].join('\n');
+  const md = ['<!-- @meta{layout=radar} -->', '', '`[{Scale, 0..10}]`', '', '`Scale · 0–10, on the criteria we wrote`', '', '## Tools.', '', '- A', '  - X `3`', '  - Y `5`', '  - Z `7`'].join('\n');
   assert.ok(narrateRadar(md).startsWith('Scale · 0–10, on the criteria we wrote.'), narrateRadar(md));
 });
 
 test('scatter narration says only the rows the chart draws: a point comes from its record', () => {
-  const md = ['<!-- _class: scatter -->', '', '`Cost` `Adoption`', '', '## S.', '', '- Alpha `{4, 62}`', '- Beta `3` `40`', '- Gamma `{2, 30}`'].join('\n');
+  const md = ['<!-- @meta{layout=scatter} -->', '', '`Cost` `Adoption`', '', '## S.', '', '- Alpha `{4, 62}`', '- Beta `3` `40`', '- Gamma `{2, 30}`'].join('\n');
   const out = narrateChart(md);
   assert.match(out, /Alpha/);
   assert.match(out, /Gamma/);

@@ -33,7 +33,7 @@ examples:
     label: A clip beside its claim
     caption: The heading and a sentence lead on the left, and the poster sits on the right. The qr word adds a code the room can scan.
     sample: |
-      <!-- _class: video companion qr -->
+      <!-- @meta{layout=video, class=companion qr} -->
 
       ## Onboarding that sticks — watch a customer do it live.
 
@@ -44,7 +44,7 @@ examples:
     label: An exhibit on its matte
     caption: The gallery slide frames the poster on a matte, and the provider's name sits on the frame whatever shape the picture is.
     sample: |
-      <!-- _class: video gallery -->
+      <!-- @meta{layout=video, class=gallery} -->
 
       ## Exhibit 1 — the onboarding flow, end to end.
 
@@ -53,7 +53,7 @@ examples:
     label: No poster yet
     caption: Leave the poster off and a drawn stand-in holds the place, so the slide still reads as a video.
     sample: |
-      <!-- _class: video gallery -->
+      <!-- @meta{layout=video, class=gallery} -->
 
       ## The launch film goes here.
 
@@ -83,7 +83,7 @@ What you want is a picture that says "this is a video", names where it plays, an
 Put the record on a line of its own, with a blank line above and below it. A `video` slide lays it out beside its claim; on any other slide it sits among your words as a figure:
 
 ```markdown
-<!-- _class: video companion qr -->
+<!-- @meta{layout=video, class=companion qr} -->
 
 ## The 90-second tour.
 

@@ -50,7 +50,7 @@ Under a variant, a slot changes shape:
 - **Under `proof`, omitting the lede paragraph between the heading and the `### signal` label.** Always write a lede under `proof` — omitting it lets the extractor mistake the signal paragraph for the lede, hoisting it into the left panel and leaving the right zone's label empty.
 - **Under `proof`, authoring more or fewer than exactly two checkpoint items.** The two-column card grid assumes a pair. One item leaves an empty column; three crowds a third card half-width.
 - **Applying the same `cat-N` to every slide in a sequence, or picking numbers out of order (`cat-1`, `cat-4`, `cat-2`).** The point of `cat-1`…`cat-8` is that each slide in the SET reads as its own step — assign them in order, one number per slide, not the same number repeated or shuffled.
-- **Setting a long deck-level `header:` or `footer:` on a deck that uses this layout.** The running header and footer stay on the field they start on — the panel, or the supporting zone under `mirror`. Each holds one line; past that it ends in an ellipsis and the export reports it as a chrome cut (author-only, no reader pill). Measured at 16:9, the default panel holds about 46 characters of header and 49 of footer; `steps` about 37 and 39, `pullquote` about 61 and 65, and `mirror`'s supporting zone about 63 and 67. Shorten it, or set a shorter one on these slides with `<!-- @meta{header="…"} -->` / `<!-- @meta{footer="…"} -->`. On a portrait deck the panels stack: the header takes the top field's ink and the footer the bottom field's, so each stays legible whichever field it lands on. The portrait footer spans the page and still holds one line: about 48 characters at the `portrait` size, and fewer on a page split into a run, where it stops before the k-of-N pills (about 41 beside a three-page rail).
+- **Setting a long deck-level `header:` or `footer:` on a deck that uses this layout.** The running header and footer stay on the field they start on — the panel, or the supporting zone under `mirror`. Each holds one line; past that it ends in an ellipsis and the export reports it as a chrome cut (author-only, no reader pill). Measured at 16:9, the default panel holds about 46 characters of header and 49 of footer; `steps` about 37 and 39, `pullquote` about 61 and 65, and `mirror`'s supporting zone about 63 and 67. The width modifiers scale the panel, and its chrome with it: `panel-narrow` holds about 39 of each (a 54-character confidentiality line loses its date), `panel-wide` about 63 and 64. Shorten it, or set a shorter one on these slides with `<!-- @meta{header="…"} -->` / `<!-- @meta{footer="…"} -->`. On a portrait deck the panels stack: the header takes the top field's ink and the footer the bottom field's, so each stays legible whichever field it lands on. The portrait footer spans the page and still holds one line: about 48 characters at the `portrait` size, and fewer on a page split into a run, where it stops before the k-of-N pills (about 41 beside a three-page rail).
 - **Expecting a split-panel slide to drop the deck's `finish:`, or to show it on one side only.** The finish covers both sides. The supporting side has no fill, so the slide's finish shows under its content, as on any other slide. The feature panel is finished like an anchor slide: it keeps its solid field (dark, accent or category color) and the finish is painted on it, mixed for that field, in screen and PDF alike. On `metric` the finished field is the dark right-hand panel. `backdrop: clear` clears behind the content on both sides and leaves the finish in their margins (a `pullquote` panel keeps its finish, since its opening quote holds that layer). The finish's corner mark is left off, since a split slide has no frame margin for it. A finish whose CSS a deck wrote itself before this change shows on the supporting side and leaves the panel plain. `no-finish` keeps both sides plain.
 
 ## When to use
@@ -390,6 +390,42 @@ Override: pins this slide to the theme's categorical slot #8 — the claim panel
   - If it lives in your head, it isn't sustained yet.
 - Hand off the decision, not just the task
   - Ownership transfers when someone else can say no.
+```
+
+### `panel-narrow` — panel-narrow
+
+Narrows the panel to 0.8 of the variant's width; the supporting column takes the room.
+
+```markdown
+<!-- @meta{layout=split-panel, class=panel-narrow} -->
+
+`split-panel panel-narrow`
+
+## A narrower panel gives the support more room.
+
+The panel still carries the claim; the column carries the detail.
+
+- Four points fit
+  - The supporting column widens as the panel narrows.
+- The claim stays short
+  - A narrow panel wraps a long heading early.
+```
+
+### `panel-wide` — panel-wide
+
+Widens the panel to 1.3 of the variant's width (at most 62%); for a claim that is the argument.
+
+```markdown
+<!-- @meta{layout=split-panel, class=panel-wide} -->
+
+`split-panel panel-wide`
+
+## A wider panel lets the claim breathe.
+
+Use it when the heading is the argument and the support is brief.
+
+- Two points at most
+  - The supporting column narrows as the panel widens.
 ```
 
 ## Universal modifiers

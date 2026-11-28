@@ -95,4 +95,4 @@ When the scene already matches the canvas, **spotlight** lets it own the frame â
 
 ## One markdown. Six compositions. Recolors to any theme.
 
-`<!-- _class: scene -->` + an inline poster SVG. The layout reads its shape and does the rest; the live animation waits in the HTML deck.
+`<!-- @meta{layout=scene} -->` + an inline poster SVG. The layout reads its shape and does the rest; the live animation waits in the HTML deck.

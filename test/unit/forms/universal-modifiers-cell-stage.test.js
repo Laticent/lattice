@@ -74,7 +74,7 @@ describe('Key Insight panel reaches through .cell-stage', () => {
   });
 
   test('a real Form-default cards-grid render nests the blockquote in .cell-stage', () => {
-    const md = `---\ntheme: indaco\n---\n\n<!-- _class: cards-grid -->\n\n## Insight.\n\n- Row\n  - detail\n\n> The takeaway.\n`;
+    const md = `---\ntheme: indaco\n---\n\n<!-- @meta{layout=cards-grid} -->\n\n## Insight.\n\n- Row\n  - detail\n\n> The takeaway.\n`;
     const out = html(md);
     assert.match(out, /<div class="cell-stage">[\s\S]*<blockquote>[\s\S]*<\/blockquote>[\s\S]*<\/div>/);
   });
@@ -89,7 +89,7 @@ describe('Universal Heat Overlay reaches through .cell-stage', () => {
   });
 
   test('a real Form-default checklist+heat render wraps its <ul> in .cell-stage', () => {
-    const md = '---\ntheme: indaco\n---\n\n<!-- _class: checklist heat -->\n\n## Readiness.\n\n- [x] Done.\n- [ ] Open.\n';
+    const md = '---\ntheme: indaco\n---\n\n<!-- @meta{layout=checklist, class=heat} -->\n\n## Readiness.\n\n- [x] Done.\n- [ ] Open.\n';
     const out = html(md);
     assert.match(out, /<div class="cell-stage">\s*<ul>[\s\S]*li class="state/);
   });
@@ -104,7 +104,7 @@ describe('Annotation (raw-form) reaches through .cell-stage', () => {
   });
 
   test('a real Form-default cards-grid render keeps the annotation reachable', () => {
-    const md = '---\ntheme: indaco\n---\n\n<!-- _class: cards-grid -->\n\n## Insight.\n\n- Row\n  - detail\n\n*Source: pilot.*\n';
+    const md = '---\ntheme: indaco\n---\n\n<!-- @meta{layout=cards-grid} -->\n\n## Insight.\n\n- Row\n  - detail\n\n*Source: pilot.*\n';
     const out = html(md);
     assert.match(out, /<div class="cell-stage">[\s\S]*<p><em>Source: pilot\.<\/em><\/p>\s*<\/div>/);
   });

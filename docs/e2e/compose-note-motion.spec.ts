@@ -5,7 +5,7 @@ import { expect, test } from './studio-fixture';
 // A note edits in its panel, and the Insert menu's Motion item opens the Library on its scenes.
 // followups.d/2846-p5; engineering/decisions/2026-10-21-compose-point-and-click.md §7.
 
-const DECK = ['<!-- _class: content -->', '', '## Plan', '', 'First paragraph.', '', '<!-- @say{the slide reads as this.} -->', '', '<!-- @note{a plain note.} -->', '', 'Second paragraph.'].join('\n');
+const DECK = ['<!-- @meta{layout=content} -->', '', '## Plan', '', 'First paragraph.', '', '<!-- @say{the slide reads as this.} -->', '', '<!-- @note{a plain note.} -->', '', 'Second paragraph.'].join('\n');
 
 const pill = (page: Page, name: RegExp) => page.locator('.cs-host .cs-comment', { hasText: name });
 

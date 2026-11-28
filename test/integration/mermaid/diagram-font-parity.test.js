@@ -48,7 +48,7 @@ const DIAGRAM = '```mermaid\nflowchart LR\n  A["Alpha node"] --> B["Beta node"]\
 /** A deck whose every slide carries a diagram and a distinct mode answer. */
 function deck(frontMatterExtra, slideClasses) {
   const slides = slideClasses.map((cls) =>
-    `${cls ? `<!-- _class: diagram ${cls} -->\n\n` : ''}## Slide\n\n${DIAGRAM}`);
+    `${cls ? `<!-- @meta{class=diagram ${cls}} -->\n\n` : ''}## Slide\n\n${DIAGRAM}`);
   return `---\nmarp: true\ntheme: indaco\n${frontMatterExtra}\n---\n\n${slides.join('\n\n---\n\n')}\n`;
 }
 

@@ -10,7 +10,7 @@ test.describe.configure({ timeout: 120_000 });
 
 const DECK = [
 	'---', 'marp: true', 'theme: indaco', '---', '',
-	'<!-- _class: bar -->', '', '## EMEA is where the quarter was won.', '',
+	'<!-- @meta{layout=bar} -->', '', '## EMEA is where the quarter was won.', '',
 	'- North America `$4.1M`', '  - Flat on last year.',
 	'- LATAM `$1.2M`', '  - Two new logos.',
 	'- EMEA `$6.8M`', '  - Three renewals landed.', '',

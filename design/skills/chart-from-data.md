@@ -123,7 +123,7 @@ Other kinds exist for narrower jobs (`radar`, `quadrant`, `risk-matrix`, `tower`
 **Comparison (long names, so `row`):**
 
 ```markdown
-<!-- _class: bar row -->
+<!-- @meta{layout=bar, class=row} -->
 
 `Revenue by region · Q2 2026`
 
@@ -138,7 +138,7 @@ Other kinds exist for narrower jobs (`radar`, `quadrant`, `risk-matrix`, `tower`
 **Trend, with one detail note that paints nothing:**
 
 ```markdown
-<!-- _class: line -->
+<!-- @meta{layout=line} -->
 
 `On-time delivery · monthly`
 
@@ -156,7 +156,7 @@ Other kinds exist for narrower jobs (`radar`, `quadrant`, `risk-matrix`, `tower`
 **Part-to-whole across categories:**
 
 ```markdown
-<!-- _class: stacked-bar -->
+<!-- @meta{layout=stacked-bar} -->
 
 `Cost per shipment · by component`
 
@@ -198,7 +198,7 @@ magnitude suffix and unit (`$4.2M`, `12,400`, `68%`, `-3.1`). The suffix is scal
 | Several measures per option | `table` | Mixed units cannot share an axis. |
 
 ```markdown
-<!-- _class: big-number -->
+<!-- @meta{layout=big-number} -->
 
 `Peak-week capacity gap`
 

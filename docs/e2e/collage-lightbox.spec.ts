@@ -31,7 +31,7 @@ const deck = `---
 marp: true
 ---
 
-<!-- _class: collage -->
+<!-- @meta{class=collage} -->
 
 ## First slide
 
@@ -39,7 +39,7 @@ ${grid}
 
 ---
 
-<!-- _class: collage bleed -->
+<!-- @meta{class=collage bleed} -->
 
 ## Second slide
 
@@ -238,7 +238,7 @@ test('@smoke @gecko the photo under the mouse in the Studio preview pops, its ne
 // A slide change moves no pointer. The slide under a still mouse changes, so the cursor and the marker have to
 // follow the slide, not the last mouse move: wheel from a collage onto a text slide with the mouse where it is.
 test('@smoke the zoom cursor and the marker leave with the slide when the wheel changes it under a still mouse', async ({ page }) => {
-	const planDeck = ['---', 'marp: true', '---', '', '<!-- _class: collage -->', '', '## First slide', '', '- ![Tall portrait](sample:photo-tall.jpg)', '- ![Wide landscape](sample:photo-wide.jpg)', '- ![Square](sample:photo-square.jpg)', '- ![Panorama](sample:photo-pano.jpg)', '', '---', '', '## Second slide', '', 'Only words here.'].join('\n');
+	const planDeck = ['---', 'marp: true', '---', '', '<!-- @meta{layout=collage} -->', '', '## First slide', '', '- ![Tall portrait](sample:photo-tall.jpg)', '- ![Wide landscape](sample:photo-wide.jpg)', '- ![Square](sample:photo-square.jpg)', '- ![Panorama](sample:photo-pano.jpg)', '', '---', '', '## Second slide', '', 'Only words here.'].join('\n');
 	await openStudioDeck(page, planDeck);
 	const holderCursor = () =>
 		page.evaluate(() => {
@@ -264,7 +264,7 @@ test('@smoke the zoom cursor and the marker leave with the slide when the wheel 
 test('@smoke the zoom cursor leaves with the slide even when the render of the next slide is held back', async ({ page, browserName }) => {
 	test.skip(browserName !== 'chromium', 'the CPU throttle is a Chromium DevTools command');
 	const collage = ['- ![Tall portrait](sample:photo-tall.jpg)', '- ![Wide landscape](sample:photo-wide.jpg)', '- ![Square](sample:photo-square.jpg)', '- ![Panorama](sample:photo-pano.jpg)'];
-	const planDeck = ['---', 'marp: true', '---', '', '<!-- _class: collage -->', '', '## First slide', '', ...collage, '', '---', '', '<!-- _class: collage -->', '', '## Second slide', '', ...collage, '', '---', '', '## Third slide', '', 'Only words here.'].join('\n');
+	const planDeck = ['---', 'marp: true', '---', '', '<!-- @meta{layout=collage} -->', '', '## First slide', '', ...collage, '', '---', '', '<!-- @meta{layout=collage} -->', '', '## Second slide', '', ...collage, '', '---', '', '## Third slide', '', 'Only words here.'].join('\n');
 	await openStudioDeck(page, planDeck);
 	const holderCursor = () =>
 		page.evaluate(() => {
@@ -342,7 +342,7 @@ marp: true
 size: standard
 ---
 
-<!-- _class: collage bleed -->
+<!-- @meta{class=collage bleed} -->
 
 ## First slide
 
@@ -731,7 +731,7 @@ test('@parity a two-finger pinch zooms the open photo and does not step; one fin
 // in 52 under load; it is the likely cause of :254's flake (1 in 55), which never failed locally (PR #3218).
 // Here the photos are held until the mouse is in place, so the hit-test runs before the pack on every run.
 test('@smoke @gecko a photo that packs under a still mouse gets the zoom cursor', async ({ page }) => {
-	const photosDeck = ['---', 'marp: true', '---', '', '## Words first', '', 'Nothing to measure here.', '', '---', '', '<!-- _class: collage -->', '', '## Photos', '', grid].join('\n');
+	const photosDeck = ['---', 'marp: true', '---', '', '## Words first', '', 'Nothing to measure here.', '', '---', '', '<!-- @meta{layout=collage} -->', '', '## Photos', '', grid].join('\n');
 	const holderCursor = () =>
 		page.evaluate(() => {
 			for (let e = document.querySelector('iframe.live')?.parentElement ?? null; e; e = e.parentElement) if (e.style.cursor) return e.style.cursor;

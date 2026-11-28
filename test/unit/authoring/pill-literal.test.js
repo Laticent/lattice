@@ -80,7 +80,7 @@ describe('author text in a string replacement — the rest of finding 3\'s class
 describe('author class words in a string replacement', () => {
   test('a split-panel slide whose class words hold `$&` keeps one well-formed class attribute', () => {
     const { createEngine } = require('../../../lib/engine/index.js');
-    const out = createEngine().render(deck('<!-- _class: split-panel proof x$&y -->\n\n## A\n\n- a\n- b'));
+    const out = createEngine().render(deck('<!-- @meta{layout=split-panel, class="proof x$&y"} -->\n\n## A\n\n- a\n- b'));
     const html = String(out.html || out);
     const open = html.match(/<section[^>]*split-panel[^>]*>/)[0];
     assert.equal(open.match(/\sclass="/g).length, 1, open);
@@ -124,7 +124,7 @@ describe('author text in a string replacement — a class escaped once, and the 
   const render = (body) => engine.render(deck(body)).html;
 
   test('a chart slide whose class words hold `$&` keeps one well-formed open tag', () => {
-    const html = render('<!-- _class: funnel x$&y -->\n\n## T\n\n- A `40`\n- B `20`');
+    const html = render('<!-- @meta{layout=funnel, class="x$&y"} -->\n\n## T\n\n- A `40`\n- B `20`');
     const open = html.match(/<section\b[^>]*>/)[0];
     assert.equal((open.match(/\sclass="/g) || []).length, 1, open);
     // `$&` survives as written, and its `&` is escaped once (it used to be `&amp;amp;`: the

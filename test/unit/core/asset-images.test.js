@@ -66,11 +66,11 @@ describe('asset: — every engine path that paints a picture', () => {
   const render = (md, assetUrls = URLS) => engine.render(md, 'indaco', { assetUrls }).html;
 
   test('an image slide\'s photo panel', () => {
-    assert.match(render('<!-- _class: image -->\n\n## T\n\n![Hero](asset:hero)\n'), new RegExp(`url\\('${B}1111'\\)`));
+    assert.match(render('<!-- @meta{layout=image} -->\n\n## T\n\n![Hero](asset:hero)\n'), new RegExp(`url\\('${B}1111'\\)`));
   });
 
   test('a bleed slide\'s background', () => {
-    assert.match(render('<!-- _class: content bleed -->\n\n## T\n\n![Hero](asset:hero)\n'), new RegExp(`url\\('${B}1111'\\)`));
+    assert.match(render('<!-- @meta{layout=content, class=bleed} -->\n\n## T\n\n![Hero](asset:hero)\n'), new RegExp(`url\\('${B}1111'\\)`));
   });
 
   test('a prose image', () => {
@@ -78,17 +78,17 @@ describe('asset: — every engine path that paints a picture', () => {
   });
 
   test('a collage photo list: every photo resolves, so the packer is never handed a dead scheme', () => {
-    const out = render('<!-- _class: collage -->\n\n## T\n\n- ![One](asset:a)\n- ![Two](asset:b)\n- ![Three](asset:c)\n- ![Four](asset:d)\n');
+    const out = render('<!-- @meta{layout=collage} -->\n\n## T\n\n- ![One](asset:a)\n- ![Two](asset:b)\n- ![Three](asset:c)\n- ![Four](asset:d)\n');
     for (const k of ['a', 'b', 'c', 'd']) assert.match(out, new RegExp(`${B}${k}"`), k);
     assert.doesNotMatch(out, /asset:/);
   });
 
   test('a logo-wall mark', () => {
-    assert.match(render('<!-- _class: logo-wall -->\n\n## T\n\n- ![Acme](asset:logo)\n- ![Globex](asset:hero)\n'), new RegExp(`${B}3333`));
+    assert.match(render('<!-- @meta{layout=logo-wall} -->\n\n## T\n\n- ![Acme](asset:logo)\n- ![Globex](asset:hero)\n'), new RegExp(`${B}3333`));
   });
 
   test('a team-profile portrait', () => {
-    assert.match(render('<!-- _class: team-profile -->\n\n## T\n\n- Ada Okafor\n  - ![](asset:hero)\n  - `Sponsor`\n'), new RegExp(`class="person-photo" src="${B}1111"`));
+    assert.match(render('<!-- @meta{layout=team-profile} -->\n\n## T\n\n- Ada Okafor\n  - ![](asset:hero)\n  - `Sponsor`\n'), new RegExp(`class="person-photo" src="${B}1111"`));
   });
 
   test('a deck logo', () => {
@@ -96,7 +96,7 @@ describe('asset: — every engine path that paints a picture', () => {
   });
 
   test('no `asset:` survives a render that has a map, found or not', () => {
-    const out = render('<!-- _class: image -->\n\n## T\n\n![bg](asset:hero)\n\n---\n\n## U\n\n![A](asset:gone)\n');
+    const out = render('<!-- @meta{layout=image} -->\n\n## T\n\n![bg](asset:hero)\n\n---\n\n## U\n\n![A](asset:gone)\n');
     assert.doesNotMatch(out, /asset:/);
     assert.match(out, /data:image\/svg\+xml/, 'the missing one is the drawn stand-in');
   });
@@ -127,7 +127,7 @@ describe('asset: — an empty alt is filled from the photo description', () => {
   });
 
   test('a collage tile sees the description, so its lightbox caption and narration do too', () => {
-    const out = render('<!-- _class: collage -->\n\n## T\n\n- ![](asset:a)\n- ![](asset:b)\n- ![](asset:c)\n- ![](asset:d)\n');
+    const out = render('<!-- @meta{layout=collage} -->\n\n## T\n\n- ![](asset:a)\n- ![](asset:b)\n- ![](asset:c)\n- ![](asset:d)\n');
     for (const alt of ['First', 'Second', 'Third', 'Fourth']) assert.match(out, new RegExp(`alt="${alt}"`), alt);
   });
 
@@ -142,7 +142,7 @@ describe('asset: — an empty alt is filled from the photo description', () => {
   });
 
   test('a background directive is not an empty alt', () => {
-    assert.doesNotMatch(render('<!-- _class: image -->\n\n## T\n\n![bg](asset:hero)\n'), /The team on the roof/);
+    assert.doesNotMatch(render('<!-- @meta{layout=image} -->\n\n## T\n\n![bg](asset:hero)\n'), /The team on the roof/);
   });
 
   test('a description that reads like a directive stays a picture, never the slide background', () => {
@@ -153,7 +153,7 @@ describe('asset: — an empty alt is filled from the photo description', () => {
     }
     // And on an `image` slide the picture is still the slide's photo: the description the engine filled in is the author's words,
     // never Marp's keyword (lib/core/placed-picture.mjs `isMarpKeywordPicture`).
-    assert.match(render('<!-- _class: image -->\n\n## T\n\n![](asset:hero)\n', { hero: 'bg contain' }), new RegExp(`url\\('${B}1111'\\)`));
+    assert.match(render('<!-- @meta{layout=image} -->\n\n## T\n\n![](asset:hero)\n', { hero: 'bg contain' }), new RegExp(`url\\('${B}1111'\\)`));
   });
 
   test('a name with no description, a missing photo and a non-string value leave alt empty', () => {

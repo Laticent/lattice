@@ -23,7 +23,7 @@ marp: true
 
 ---
 
-<!-- _class: logo-wall -->
+<!-- @meta{class=logo-wall} -->
 
 ## Four shapes, one weight.
 

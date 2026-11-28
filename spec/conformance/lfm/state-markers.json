@@ -1,6 +1,7 @@
 {
   "title": "Six state markers, one answer each; a capital [X] stays literal",
   "spec": "LFM-1.0",
+  "until": "LFM-2.0",
   "section": "3.2",
   "L0": { "visible": ["[-] Docs half written", "[!] Load test failed", "[?] Legal review unclear", "[/] Hardware out of scope"] },
   "L1": {

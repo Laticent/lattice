@@ -73,7 +73,7 @@ a state mark, so they belong to the first meaning.
 
 | Term | What it means |
 |---|---|
-| **Component** | A named arrangement for one slide, selected with `<!-- _class: name -->`. |
+| **Component** | A named arrangement for one slide, selected with `<!-- @meta{layout=name} -->`. |
 | **Frame** | The cut that divides a slide — into columns, a grid, a band over a body. |
 | **Cell** | One piece the cut leaves. An empty, sized box. |
 | **Tile** | What fills a Cell — your heading, your list, your quote. |

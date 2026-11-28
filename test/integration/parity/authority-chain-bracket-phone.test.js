@@ -32,7 +32,7 @@ theme: indaco
 size: square
 ---
 
-<!-- _class: authority-chain bracket -->
+<!-- @meta{class=authority-chain bracket} -->
 
 ## bracket groups the tiers by actor.
 

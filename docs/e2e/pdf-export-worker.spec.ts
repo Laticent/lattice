@@ -27,7 +27,7 @@ test.describe.configure({ timeout: 240_000 });
 
 const DECK = Array.from(
 	{ length: 8 },
-	(_, i) => `<!-- _class: big-number -->\n\n\`Slide ${i + 1}\`\n\n- ${i + 1}\n  - of eight, each visually distinct so a transposed page is visible.`,
+	(_, i) => `<!-- @meta{layout=big-number} -->\n\n\`Slide ${i + 1}\`\n\n- ${i + 1}\n  - of eight, each visually distinct so a transposed page is visible.`,
 ).join('\n\n---\n\n');
 
 /** Count the export workers a run constructs — an arm claiming a lane must prove it. */

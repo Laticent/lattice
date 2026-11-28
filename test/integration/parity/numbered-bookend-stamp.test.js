@@ -55,37 +55,37 @@ header: "Deck header"
 footer: "Deck footer"
 ---
 
-<!-- _class: divider -->
+<!-- @meta{class=divider} -->
 
 ## Control.
 
 ---
 
-<!-- _class: divider numbered -->
+<!-- @meta{class=divider numbered} -->
 
 ## Stamped.
 
 ---
 
-<!-- _class: divider silent numbered -->
+<!-- @meta{class=divider silent numbered} -->
 
 ## Stamped under silent.
 
 ---
 
-<!-- _class: divider light numbered -->
+<!-- @meta{class=divider light numbered} -->
 
 ## Stamped on the light canvas.
 
 ---
 
-<!-- _class: closing numbered -->
+<!-- @meta{class=closing numbered} -->
 
 ## A closing does not take the modifier.
 
 ---
 
-<!-- _class: divider silent -->
+<!-- @meta{class=divider silent} -->
 
 ## Silent, unstamped.
 `;
@@ -297,7 +297,7 @@ describe('numbered bookend stamp — both render paths', { skip: skipWithoutChro
   // rule measured the h2 alone and read a line late as a result.
   const BAND_DECK = ['---', 'marp: true', 'theme: indaco', 'pagination: true', '---'].join('\n') +
     [3, 6, 9, 12, 15, 18, 24, 30]
-      .map((n) => `\n\n<!-- _class: divider numbered -->\n\n\`section\`\n\n## ${'model '.repeat(n).trim()}\n\n---`)
+      .map((n) => `\n\n<!-- @meta{layout=divider, class=numbered} -->\n\n\`section\`\n\n## ${'model '.repeat(n).trim()}\n\n---`)
       .join('')
       .replace(/\n---$/, '');
 
