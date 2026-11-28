@@ -67,7 +67,18 @@ export const TAP_RECORDER = `(() => {
 	const L = (window.__engineRetryTap = { events: [] });
 	const t0 = performance.now();
 	for (const type of ['touchstart', 'touchend', 'touchcancel', 'click'])
-		window.addEventListener(type, () => L.events.push({ type, t: Math.round(performance.now() - t0) }), { capture: true });
+		window.addEventListener(
+			type,
+			(e) => {
+				// The event's OWN time, never when its listener ran (tap-guard.mjs \`tapHold\`, as run.mjs records): a main thread
+				// stalled mid-gesture must not turn a tap into a long press. A timeStamp the page's clock cannot place (0, or
+				// ahead of it) falls back to now.
+				const now = performance.now();
+				const at = e.timeStamp > 0 && e.timeStamp <= now ? e.timeStamp : now;
+				L.events.push({ type, t: Math.round(at - t0) });
+			},
+			{ capture: true, passive: true },
+		);
 })()`;
 
 /**
