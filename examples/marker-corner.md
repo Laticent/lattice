@@ -51,13 +51,13 @@ The panel can no longer hold the copy it was handed, so the export tags the slid
 
 ---
 
-<!-- @meta{layout=split-panel, class=confidential stamp-notch} -->
+<!-- @meta{layout=split-panel, class=confidential stamp-shape-notch} -->
 
 `Two ends of the frame`
 
 ## Quarterly program review for the regional distribution network and its downstream partners across four operating territories, with a trailing clause that pushes this heading well past what the panel can hold
 
-`stamp-notch` paints a band across the top edge and the capsule berths at the bottom, so the last shape that used to reserve a row now moves the marker by nothing. No stamp shares a band with it, so none of them reserves anything.
+`stamp-shape-notch` paints a band across the top edge and the capsule berths at the bottom, so the last shape that used to reserve a row now moves the marker by nothing. No stamp shares a band with it, so none of them reserves anything.
 
 - Throughput
   - Median order-to-dock time fell from 41 hours to 26 hours.
@@ -78,7 +78,7 @@ Two segments in one flex row cannot collide with each other, and a single center
 
 ---
 
-<!-- @meta{layout=content, class=confidential stamp-notch} -->
+<!-- @meta{layout=content, class=confidential stamp-shape-notch} -->
 
 `The whole stamp vocabulary`
 

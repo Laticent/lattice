@@ -19,22 +19,22 @@ const { frontMatterName, frontMatterValue } = require(path.join(ROOT, 'lib/core/
 const {
   PRESETS, PRESET_NAMES, PRESET_KEYS, PRESET_DEFAULTS, presetEffective, readFrontMatterPreset,
 } = require(path.join(ROOT, 'lib/core/resolve-preset.js'));
-const { RULE_NAMES } = require(path.join(ROOT, 'lib/core/resolve-rule.js'));
+const { HEADING_RULE_NAMES } = require(path.join(ROOT, 'lib/core/resolve-heading-rule.js'));
 const { FINISH_NAMES } = require(path.join(ROOT, 'lib/core/resolve-finish.js'));
 const { EYEBROW_NAMES } = require(path.join(ROOT, 'lib/core/resolve-eyebrow.js'));
-const { HEADLINE_NAMES } = require(path.join(ROOT, 'lib/core/resolve-headline.js'));
-const { LIFT_NAMES } = require(path.join(ROOT, 'lib/core/resolve-lift.js'));
-const { CORNERS_NAMES } = require(path.join(ROOT, 'lib/core/resolve-corners.js'));
+const { HEADLINE_ALIGN_NAMES } = require(path.join(ROOT, 'lib/core/resolve-headline-align.js'));
+const { CARD_LIFT_NAMES } = require(path.join(ROOT, 'lib/core/resolve-card-lift.js'));
+const { SLIDE_CORNERS_NAMES } = require(path.join(ROOT, 'lib/core/resolve-slide-corners.js'));
 const { TYPOGRAPHY_NAMES } = require(path.join(ROOT, 'lib/core/resolve-typography.js'));
 const { SPECTRUM_REGISTER, CARD_SPECTRUM_REGISTER, TRIM_SPECTRUM_REGISTER } = require(path.join(ROOT, 'lib/core/resolve-spectrum.js'));
 
 const VOCAB = {
   finish: FINISH_NAMES,
-  rule: RULE_NAMES,
+  'heading-rule': HEADING_RULE_NAMES,
   eyebrow: EYEBROW_NAMES,
-  headline: HEADLINE_NAMES,
-  lift: LIFT_NAMES,
-  corners: CORNERS_NAMES,
+  'headline-align': HEADLINE_ALIGN_NAMES,
+  'card-lift': CARD_LIFT_NAMES,
+  'slide-corners': SLIDE_CORNERS_NAMES,
   typography: TYPOGRAPHY_NAMES,
 };
 
@@ -91,41 +91,41 @@ test('every value a preset sets is one its register accepts, and every default i
 
 test('an absent preset key reads as the preset value; an explicit key wins', () => {
   // Control: without a preset, the key is simply absent.
-  assert.equal(frontMatterName('theme: indaco', 'rule'), null);
-  assert.equal(frontMatterName('preset: editorial', 'rule'), 'short');
-  assert.equal(frontMatterName('preset: editorial\nrule: auto', 'rule'), 'auto');
+  assert.equal(frontMatterName('theme: indaco', 'heading-rule'), null);
+  assert.equal(frontMatterName('preset: editorial', 'heading-rule'), 'short');
+  assert.equal(frontMatterName('preset: editorial\nheading-rule: auto', 'heading-rule'), 'auto');
   // A trailing comment and quoting read through the one shared scalar rule.
   assert.equal(frontMatterValue('preset: "brand"  # client look', 'spectrum'), 'solid');
   // Case-insensitive preset name, like every other register's lint.
-  assert.equal(frontMatterName('preset: Minimal', 'corners'), 'rounded');
+  assert.equal(frontMatterName('preset: Minimal', 'slide-corners'), 'rounded');
   // The backdrop is in the family; the rendering hand and the frame claim are not.
   assert.equal(frontMatterName('preset: brand', 'finish'), 'strata');
   assert.equal(frontMatterName('preset: brand\nfinish: none', 'finish'), 'none');
   assert.equal(frontMatterName('preset: brand', 'mode'), null);
   assert.equal(frontMatterName('preset: brand', 'claim'), null);
   // An unknown preset resolves to nothing, not to a guess.
-  assert.equal(frontMatterName('preset: editorail', 'rule'), null);
+  assert.equal(frontMatterName('preset: editorail', 'heading-rule'), null);
   // A preset that leaves a key at its default answers null, so the reader's own default runs.
-  assert.equal(frontMatterName('preset: editorial', 'corners'), null);
-  assert.equal(presetEffective('editorial', 'corners'), 'square');
+  assert.equal(frontMatterName('preset: editorial', 'slide-corners'), null);
+  assert.equal(presetEffective('editorial', 'slide-corners'), 'square');
   assert.equal(readFrontMatterPreset('---\npreset: brand\n---\n# x'), 'brand');
 });
 
 test('the engine stamps a preset on every slide, and an explicit key overrides it', () => {
   const none = sectionClasses(render([]));
   const brand = sectionClasses(render(['preset: brand']));
-  const override = sectionClasses(render(['preset: brand', 'rule: none']));
+  const override = sectionClasses(render(['preset: brand', 'heading-rule: none']));
   assert.equal(brand.length, 2);
   for (const cls of none) {
     // THE CONTROL: none of these tokens ships on a deck with no preset.
-    for (const t of ['spectrum-solid', 'card-spectrum-solid', 'trim-spectrum-solid', 'rule-accent', 'eyebrow-dot', 'lifted', 'typography-poster']) assert.ok(!cls.has(t), t);
+    for (const t of ['spectrum-solid', 'card-spectrum-solid', 'trim-spectrum-solid', 'heading-rule-accent', 'eyebrow-dot', 'card-lift-on', 'typography-poster']) assert.ok(!cls.has(t), t);
   }
   for (const cls of brand) {
-    for (const t of ['spectrum-solid', 'card-spectrum-solid', 'trim-spectrum-solid', 'rule-accent', 'eyebrow-dot', 'lifted', 'typography-poster']) assert.ok(cls.has(t), t);
+    for (const t of ['spectrum-solid', 'card-spectrum-solid', 'trim-spectrum-solid', 'heading-rule-accent', 'eyebrow-dot', 'card-lift-on', 'typography-poster']) assert.ok(cls.has(t), t);
   }
   for (const cls of override) {
     assert.ok(cls.has('no-heading-rule'));
-    assert.ok(!cls.has('rule-accent'));
+    assert.ok(!cls.has('heading-rule-accent'));
     assert.ok(cls.has('spectrum-solid'), 'the rest of the preset still applies');
   }
 });
@@ -136,11 +136,11 @@ test('classic is the house default, named — it renders byte-identical to no pr
 
 test('an empty or comment-only key says nothing, so the preset applies; a nested preset: does not', () => {
   // Control: an explicit value still wins.
-  assert.equal(frontMatterName('preset: editorial\nrule: none', 'rule'), 'none');
-  assert.equal(frontMatterName('preset: editorial\nrule:', 'rule'), 'short');
-  assert.equal(frontMatterName('preset: editorial\nrule: # todo', 'rule'), 'short');
+  assert.equal(frontMatterName('preset: editorial\nheading-rule: none', 'heading-rule'), 'none');
+  assert.equal(frontMatterName('preset: editorial\nheading-rule:', 'heading-rule'), 'short');
+  assert.equal(frontMatterName('preset: editorial\nheading-rule: # todo', 'heading-rule'), 'short');
   // A malformed value is still the deck speaking: it renders the default, not the preset.
-  assert.equal(frontMatterName('preset: editorial\nrule: foo bar', 'rule'), null);
+  assert.equal(frontMatterName('preset: editorial\nheading-rule: foo bar', 'heading-rule'), null);
   // `preset:` is read top-level only — the Studio's picker writes column 0, so a nested key
   // would drive a render the picker can neither see nor change.
   assert.equal(frontMatterName('pptx:\n  preset: brand', 'spectrum'), null);
@@ -161,11 +161,11 @@ test('a preset renders its backdrop and alignment, and an explicit finish: none 
   const ed = sectionClasses(render(['preset: editorial']));
   const none = sectionClasses(render(['preset: editorial', 'finish: none']));
   const plain = sectionClasses(render([]));
-  for (const cls of plain) assert.ok(!cls.has('finish-ledger') && !cls.has('head-left')); // control
-  for (const cls of ed) assert.ok(cls.has('finish-ledger') && cls.has('head-left'));
+  for (const cls of plain) assert.ok(!cls.has('finish-ledger') && !cls.has('headline-align-left')); // control
+  for (const cls of ed) assert.ok(cls.has('finish-ledger') && cls.has('headline-align-left'));
   for (const cls of none) {
     assert.ok(!cls.has('finish-ledger'));
-    assert.ok(cls.has('head-left'), 'the rest of the preset still applies');
+    assert.ok(cls.has('headline-align-left'), 'the rest of the preset still applies');
   }
 });
 

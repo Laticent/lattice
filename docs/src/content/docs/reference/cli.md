@@ -23,7 +23,7 @@ project: the unscoped `lat` package on npm is someone else's, just like `lattice
 
 ## Command shapes
 
-```sh
+```sh wrap hangingIndent=4
 npx lattice <deck.md> <output> [palette] [options]
 npx lattice <deck.md> <layouts.css> <output> [palette] [options]
 npx lattice -o <output> [-p palette] [-c layouts.css] <deck.md>
@@ -33,6 +33,7 @@ npx lattice lint <deck.md> [more.md …] [options]
 npx lattice fmt <deck.md> [more.md …] [options]
 npx lattice migrate notes <deck.md> [more.md …] [options]
 npx lattice completion <bash | zsh | fish | powershell>
+npx lattice mcp
 ```
 
 Named flags win over positional arguments when you give both. Flags that take
@@ -277,7 +278,7 @@ a `.vtt` beside it.
   the optional voice install; the first run downloads its model (about 80 MB)
   once:
 
-  ```sh
+  ```sh wrap hangingIndent=4
   npm i --no-save kokoro-js@1.2.1 @breezystack/lamejs@1.2.7
   ```
 
@@ -298,6 +299,14 @@ a `.vtt` beside it.
 It needs a Chromium that encodes H.264 with WebCodecs, such as Chrome or
 Chrome for Testing. Set `CHROME_PATH` to choose one.
 
+## `lattice mcp`
+
+The verb is reserved for an MCP server, which is not available in this version.
+`lattice mcp` prints one line saying so, with a link to this section, and exits
+`1`. It renders nothing.
+
+To render a deck file named `mcp`, write its path: `lattice ./mcp out.pdf`.
+
 ## `lattice completion`
 
 Prints a Tab-completion script for one shell to stdout. It completes the
@@ -306,12 +315,31 @@ subcommands, every option above, the closed-set values (palettes, `--size`,
 `--overflow-marker`, plugin names) and installed package names, and leaves
 paths to the shell, narrowed by extension.
 
-| Shell | Install (one line) |
-|---|---|
-| `bash` | `eval "$(lattice completion bash)"` in `~/.bashrc` (bash 3.2 or newer) |
-| `zsh` | `source <(lattice completion zsh)` in `~/.zshrc`, after `compinit` |
-| `fish` | `mkdir -p ~/.config/fish/completions && lattice completion fish > ~/.config/fish/completions/lattice.fish` |
-| `powershell` | `lattice completion powershell \| Out-String \| Invoke-Expression` in `$PROFILE` |
+Install it with the line for your shell:
+
+- **bash**, in `~/.bashrc` (bash 3.2 or newer):
+
+  ```sh wrap hangingIndent=4
+  eval "$(lattice completion bash)"
+  ```
+
+- **zsh**, in `~/.zshrc`, after `compinit`:
+
+  ```sh wrap hangingIndent=4
+  source <(lattice completion zsh)
+  ```
+
+- **fish**, once:
+
+  ```sh wrap hangingIndent=4
+  mkdir -p ~/.config/fish/completions && lattice completion fish > ~/.config/fish/completions/lattice.fish
+  ```
+
+- **PowerShell**, in `$PROFILE`:
+
+  ```powershell wrap hangingIndent=4
+  lattice completion powershell | Out-String | Invoke-Expression
+  ```
 
 The script calls the installed `lib/cli/complete.js` directly, so a Tab press
 costs one Node start (about 50 ms here), not a load of the CLI bundle. If that file
@@ -320,21 +348,19 @@ serves the candidates. cmd.exe has no programmable completion.
 
 ## Environment variables
 
-| Variable | What it sets |
-|---|---|
-| `LATTICE_PALETTE` | The palette, below the command line and above the deck's `theme:` |
-| `LATTICE_OVERFLOW_MARKER` | The standing `--overflow-marker` level (`reader` or `author`; `off` is per render only) |
-| `LATTICE_KEEP_HTML` | `1` keeps the `<output>.html` sidecar beside a non-HTML export, same as `--keep-html` |
-| `LATTICE_HOME` | The folder that holds the package store, `<dir>/packages` |
-| `CHROME_PATH` | The Chrome or Chromium binary to render with. `PUPPETEER_EXECUTABLE_PATH` wins when both are set |
-| `LATTICE_RENDER_WATCHDOG_MS` | How long one render step may take before it is stopped. Default `90000` |
+- `LATTICE_PALETTE`: the palette, below the command line and above the deck's `theme:`.
+- `LATTICE_OVERFLOW_MARKER`: the standing `--overflow-marker` level (`reader` or `author`; `off` is per render only).
+- `LATTICE_KEEP_HTML`: `1` keeps the `<output>.html` sidecar beside a non-HTML export, same as `--keep-html`.
+- `LATTICE_HOME`: the folder that holds the package store, `<dir>/packages`.
+- `CHROME_PATH`: the Chrome or Chromium binary to render with. `PUPPETEER_EXECUTABLE_PATH` wins when both are set.
+- `LATTICE_RENDER_WATCHDOG_MS`: how long one render step may take before it is stopped. Default `90000`.
 
 ## Exit codes
 
 | Code | Meaning |
 |---|---|
 | `0` | Success |
-| `1` | A usage error, a missing file, an unknown palette, or a failed render |
+| `1` | A usage error, a missing file, an unknown palette, a failed render, or `lattice mcp` |
 
 ## Helper scripts in the repository
 

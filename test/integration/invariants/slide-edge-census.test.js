@@ -54,7 +54,7 @@ const REGISTER_SLIDES = [
 	'<!-- @meta{layout=big-number, class=claim-bleed} -->\n\n`Bleed`\n\n- 42\n  - a claim that bleeds',
 	'<!-- @meta{layout=content, class=tone-fail} -->\n\n## A tone rail\n\n- one',
 	'<!-- @meta{layout=content, class=tone-warn tone-glow} -->\n\n## A tone glow\n\n- one',
-	'<!-- @meta{layout=content, class=corners-rounded} -->\n\n## A rounded slide\n\n- one',
+	'<!-- @meta{layout=content, class=slide-corners-rounded} -->\n\n## A rounded slide\n\n- one',
 ];
 const REGISTERS = ['', 'spectrum: off', 'spectrum: left', 'spectrum: right', 'spectrum: bottom', 'spectrum: left band', 'spectrum: solid'];
 

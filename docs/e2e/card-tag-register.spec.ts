@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 import { CHROME, expect, gotoStudio, openInspector, persistedSource, setEditorContent, test } from './studio-fixture';
 
-// The `tag:` register's two Studio surfaces (engineering/decisions/2026-09-27-card-tag-register.md
+// The `card-tag:` register's two Studio surfaces (engineering/decisions/2026-09-27-card-tag-register.md
 // §6 phase 5): the deck Card tags rows in deck settings, and the per-slide Tag rows in Slide
 // settings on a tagged layout. Asserted on the persisted source, which is what the engine reads.
 // Modeled on backdrop-register.spec.ts.
@@ -25,12 +25,12 @@ for (const tag of ['', ' @webkit-tablet']) {
 	test(`deck settings: the Card tags rows write one \`tag:\` line from four selects${tag}`, async ({ page }) => {
 		await openInspector(page);
 		await choose(page, 'Tag color', 'Plain');
-		await expect.poll(() => persistedSource(page)).toContain('\\ntag: plain\\n');
+		await expect.poll(() => persistedSource(page)).toContain('\\ncard-tag: plain\\n');
 		await choose(page, 'Tag placement', 'Band');
 		await choose(page, 'Tag text', 'Center');
 		// The Studio writer quotes a value with a space; the engine unquotes it (resolve-card-tag.js
 		// reads through the top-level front-matter scalar), so either spelling is the same register.
-		await expect.poll(() => persistedSource(page)).toMatch(/\\ntag: (\\"plain band center\\"|plain band center)\\n/);
+		await expect.poll(() => persistedSource(page)).toMatch(/\\ncard-tag: (\\"plain band center\\"|plain band center)\\n/);
 		// Every axis back to Auto removes the key rather than writing an empty value.
 		for (const label of ['Tag color', 'Tag placement', 'Tag text']) await choose(page, label, "Auto — Component's own");
 		await expect.poll(() => persistedSource(page)).not.toContain('tag:');
@@ -39,9 +39,9 @@ for (const tag of ['', ' @webkit-tablet']) {
 	test(`slide settings: the Tag rows write \`tag-*\` tokens on a tagged slide${tag}`, async ({ page }, info) => {
 		await page.getByRole('button', { name: CHROME.slideSettings }).first().click();
 		await choose(page, 'Tag placement', 'Bottom corner');
-		await expect.poll(() => persistedSource(page)).toContain('layout=decision, class=tag-foot');
+		await expect.poll(() => persistedSource(page)).toContain('layout=decision, class=card-tag-foot');
 		await choose(page, 'Tag size', 'Large');
-		await expect.poll(() => persistedSource(page)).toContain('tag-large');
+		await expect.poll(() => persistedSource(page)).toContain('card-tag-large');
 		await page.getByRole('combobox', { name: 'Tag placement' }).filter({ visible: true }).first().scrollIntoViewIfNeeded();
 		await page.screenshot({ path: info.outputPath('card-tag-slide-desktop.png') });
 	});
@@ -71,7 +71,7 @@ for (const [label, width, height] of [
 	['mobile', 390, 844],
 ] as const) {
 	test(`@crosswidth the deck Card tags rows at ${label} (${width}px)`, async ({ page }, info) => {
-		await setEditorContent(page, DECK.replace('title: Tags', 'title: Tags\ntag: plain band center'));
+		await setEditorContent(page, DECK.replace('title: Tags', 'title: Tags\ncard-tag: plain band center'));
 		await page.setViewportSize({ width, height });
 		await openDeckSettingsAt(page, width);
 		const placement = page.getByRole('combobox', { name: 'Tag placement' }).filter({ visible: true }).first();

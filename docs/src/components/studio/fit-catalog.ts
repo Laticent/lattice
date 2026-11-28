@@ -1,5 +1,5 @@
 // The Studio fit catalog — DISPLAY metadata for the `fit:` register:
-// what the engine may do to make a slide fit. Sibling of corners-catalog.ts /
+// what the engine may do to make a slide fit. Sibling of slide-corners-catalog.ts /
 // claim-catalog.ts. The engine's single source of truth is FIT_NAMES
 // (lib/core/resolve-fit.js); THIS file adds only the human layer the picker needs.
 // Rot-guard: fit-catalog.test.ts. Design record:

@@ -155,7 +155,7 @@ Visibility pass (2026-10-11): brackets, threads, ticks, seeds and asterisks grew
 
 ## Layer composability
 
-Every tint writes to one of two custom property slots, assembled by a single compositor rule:
+Every tint writes to one of two custom property slots, assembled by a single compositor heading-rule:
 
 ```css
 section:where([class*="tint-"], [class*="mark-"]) {

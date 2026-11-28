@@ -63,6 +63,7 @@
     "kickoff",
     "pitch"
   ],
+  "searchTerms": ["team", "people", "staff", "employees", "bios", "headshots", "students", "members"],
   "description": "A roster of named people, each under a portrait, with the role they own.",
   "purpose": "Use for the people slide — 'meet the leaders', 'your account team', the QBR roll-call. Each person is a portrait, a name, a role and one line. Anyone with no photo gets a monogram of their initials instead, so a half-photographed roster still reads as one designed wall rather than a set of holes: the monogram stays quiet beside real faces, and takes a categorical hue only when nobody in the roster has a photo.",
   "variants": [

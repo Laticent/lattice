@@ -30,7 +30,7 @@
  *
  * DECLARED VARIANTS are re-probed for the surfaces the component's own rendering
  * owns (card row, card lift, card rail): `kpi` reads the card lift only under
- * `ops`, so `lifted` is offered after `kpi ops` and not after plain `kpi`.
+ * `ops`, so `card-lift-on` is offered after `kpi ops` and not after plain `kpi`.
  *
  * The result is committed as lib/core/modifier-effects.generated.json, and it is the
  * SOURCE for the probed surfaces: tools/build-docs-portal.js publishes it to the

@@ -138,9 +138,9 @@ describe('--fin-canvas resolves to the painted surface, on every bookend × canv
  * So this arm crosses the canvas-owning frames against EVERY modifier class the bundle
  * uses in a section-subject painting rule, WITH and WITHOUT `dark`. The list is read out
  * of `dist/lattice.css` at run time (see `deriveModifiers`), which is the part that
- * matters: a register added later — a new `spectrum-*`, a new `stamp-*`, a `corners-*` —
+ * matters: a register added later — a new `spectrum-*`, a new `stamp-shape-*`, a `corners-*` —
  * enters this cross on its own. A hand-written list is exactly how (2) and (3) shipped,
- * and a mutant adding `.corners-rounded` to the exclusions passed a hand-listed version
+ * and a mutant adding `.slide-corners-rounded` to the exclusions passed a hand-listed version
  * of this file while breaking seven real rows.
  *
  * THE PINNED SET RECORDS COLORS, NOT NAMES. An earlier revision compared only `cls`, so
@@ -185,8 +185,8 @@ function deriveModifiers(css) {
     visit: 'Rule',
     enter(node) {
       // EVERY section-subject rule, not only the ones that PAINT. Deriving from
-      // painting rules alone was the obvious cut and it is wrong: `corners-rounded`
-      // (the `corners:` register) never appears in a background rule, so a mutant
+      // painting rules alone was the obvious cut and it is wrong: `slide-corners-rounded`
+      // (the `slide-corners:` register) never appears in a background rule, so a mutant
       // excluding it from `--fin-canvas` passed that version of this gate while
       // breaking seven real rows. What matters is whether the engine can stamp the
       // class on a section, not whether that class happens to paint.

@@ -35,7 +35,7 @@ describe('recordCompletion: where the cursor sits in a record', () => {
 describe('recordOptions: what it offers', () => {
 	it('fields: the typed class fields, the registers, the directive keys and the pane fields, minus those set', () => {
 		const all = labels(recordOptions(recordCompletion('<!-- @meta{'), CATALOG, []));
-		for (const f of ['layout', 'variant', 'finish', 'headline', 'icon', 'footer', 'focus-style', 'pane', 'carry']) expect(all).toContain(f);
+		for (const f of ['layout', 'variant', 'finish', 'headline-align', 'icon', 'footer', 'focus-style', 'pane', 'carry']) expect(all).toContain(f);
 		// A record holds settings only; the notes are their own comments (engineering/decisions/2026-11-20-four-notes.md).
 		for (const f of ['note', 'say', 'describe', 'reader', 'alt', 'handout']) expect(all).not.toContain(f);
 		expect(labels(recordOptions(recordCompletion('<!-- @meta{layout=cards, '), CATALOG, []))).not.toContain('layout');
@@ -44,7 +44,7 @@ describe('recordOptions: what it offers', () => {
 	it('values: components for layout, that layout’s variants, a register’s own words', () => {
 		expect(labels(recordOptions(recordCompletion('<!-- @meta{layout='), CATALOG, []))).toEqual(expect.arrayContaining(['cards', 'kpi']));
 		expect(labels(recordOptions(recordCompletion('<!-- @meta{layout=cards, variant='), CATALOG, []))).toEqual(['compact', 'wide']);
-		expect(labels(recordOptions(recordCompletion('<!-- @meta{headline='), CATALOG, []))).toEqual((RECORD_VALUES as Record<string, string[]>).headline);
+		expect(labels(recordOptions(recordCompletion('<!-- @meta{headline-align='), CATALOG, []))).toEqual((RECORD_VALUES as Record<string, string[]>)['headline-align']);
 		expect(labels(recordOptions(recordCompletion('<!-- @meta{focus-style=ri'), CATALOG, []))).toContain('ring');
 		expect(recordOptions(recordCompletion('<!-- @meta{footer=Q'), CATALOG, [])).toEqual([]);
 	});

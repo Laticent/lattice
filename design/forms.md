@@ -484,7 +484,7 @@ planes**, and `z` is which one a noun lives on. The model has always said so; as
 
 **Mark sits ABOVE alarm, and that order is load-bearing.** It reads backwards — an
 authoring alarm feels like it should beat everything — and it was briefly written that
-way. It breaks delivered PDFs: `stamp-veil` is a redaction wash over the whole slide, and
+way. It breaks delivered PDFs: `stamp-shape-veil` is a redaction wash over the whole slide, and
 with the alarm above it a reader-mode overflow pill punched straight through the
 redaction. Full-bleed stamps are `inset: 0` and reserve nothing for the marker (there is no reserve token any more — the capsule berths one bar width above the slide's bottom edge and no stamp shares its band), so
 geometry does not save it either. The alarm tabs are authoring-only and never reach a

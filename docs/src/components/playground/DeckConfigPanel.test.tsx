@@ -119,7 +119,7 @@ describe('DeckConfigPanel — every select row is the Studio picker', () => {
 	});
 
 	it('a value the list does not name shows as itself, on every row', () => {
-		mount('---\nmarp: true\nheadline: diagonal\ncolor-mode: sepia\nfinish: foo\nmode: woodcut\n---\n\n# Deck\n');
+		mount('---\nmarp: true\nheadline-align: diagonal\ncolor-mode: sepia\nfinish: foo\nmode: woodcut\n---\n\n# Deck\n');
 		expect(screen.getByRole('combobox', { name: 'Choose headline alignment' })).toHaveTextContent('diagonal — not recognized');
 		expect(screen.getByRole('combobox', { name: 'Choose color mode' })).toHaveTextContent('sepia — not recognized');
 		expect(screen.getByRole('combobox', { name: 'Choose finish' })).toHaveTextContent('foo — not recognized');

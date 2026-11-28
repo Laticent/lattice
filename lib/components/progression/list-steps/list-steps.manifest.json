@@ -54,6 +54,7 @@
     "walkthrough",
     "planning"
   ],
+  "searchTerms": ["steps", "how to", "process", "instructions", "procedure", "phases"],
   "description": "Horizontal row of ordered step cards, each with a full description body (the `vertical` variant stacks them instead).",
   "purpose": "Use for richer sequential processes where each step needs a paragraph rather than a label. More verbose than timeline; more structured than a plain ordered list.",
   "variants": [
@@ -266,7 +267,7 @@
   "variantDecisionRule": [
     {
       "variant": "capsule",
-      "useWhen": "The tone is warmer and more editorial than an ops checklist — a personal or reflective process (a practice, a ritual, a habit). One class carries the whole look: centered masthead and cards, a pill badge per step in its own categorical hue, a serif title, no connector arrows, and no masthead hairline. Add `rule-full` if you want the hairline back. Its pill is the card tag at the `inline` placement, centered, in the categorical `--cat-N-mark` tier, so the `tag:` words (`tag-plain`, `tag-bare`, `tag-large`, `tag-foot`) restyle it."
+      "useWhen": "The tone is warmer and more editorial than an ops checklist — a personal or reflective process (a practice, a ritual, a habit). One class carries the whole look: centered masthead and cards, a pill badge per step in its own categorical hue, a serif title, no connector arrows, and no masthead hairline. Add `heading-rule-full` if you want the hairline back. Its pill is the card tag at the `inline` placement, centered, in the categorical `--cat-N-mark` tier, so the `card-tag:` words (`card-tag-plain`, `card-tag-bare`, `card-tag-large`, `card-tag-foot`) restyle it."
     },
     {
       "variant": "vertical",

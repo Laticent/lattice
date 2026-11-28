@@ -163,15 +163,15 @@ describe('both shared readers route through the one rule', () => {
 
 // A `style: |` body is CSS, not keys (followups.d/2391-p3-engine-reader-reads-block-scalar-lines).
 // The Studio's reader skips it (docs/src/lib/front-matter.test.ts § block scalars,
-// the same deck); the engine read `  lift: on` as the `lift` register, and `parseFrontMatter`
+// the same deck); the engine read `  card-lift: on` as the `lift` register, and `parseFrontMatter`
 // read a rule's `    color: #c00;` as the deck-wide `color` directive.
 describe('block scalars — the body is never a key', () => {
-  const DECK = '---\ntheme: indaco\nstyle: |\n  lift: on\n  rule: short\n\n  section { color: red; }\nfooter: Q4\n---\n\n# Hi\n';
+  const DECK = '---\ntheme: indaco\nstyle: |\n  card-lift: on\n  heading-rule: short\n\n  section { color: red; }\nfooter: Q4\n---\n\n# Hi\n';
   const FM = DECK.split('---\n')[1];
 
   test('frontMatterValue skips the body and still reads the header and the keys after it', () => {
-    assert.equal(frontMatterValue(FM, 'lift'), null);
-    assert.equal(frontMatterValue(FM, 'rule'), null);
+    assert.equal(frontMatterValue(FM, 'card-lift'), null);
+    assert.equal(frontMatterValue(FM, 'heading-rule'), null);
     assert.equal(frontMatterValue(FM, 'style'), '|');
     assert.equal(frontMatterValue(FM, 'footer'), 'Q4');
   });
@@ -185,19 +185,19 @@ describe('block scalars — the body is never a key', () => {
 
   test('the other indicators, a trailing comment, CRLF and a nested header', () => {
     for (const head of ['>', '|-', '>+2', '|  # deck css']) {
-      assert.equal(frontMatterValue(FM.replace('style: |', `style: ${head}`), 'lift'), null, head);
+      assert.equal(frontMatterValue(FM.replace('style: |', `style: ${head}`), 'card-lift'), null, head);
     }
-    assert.equal(frontMatterValue(FM.replace(/\n/g, '\r\n'), 'lift'), null);
+    assert.equal(frontMatterValue(FM.replace(/\n/g, '\r\n'), 'card-lift'), null);
     assert.equal(frontMatterValue(FM.replace(/\n/g, '\r\n'), 'footer'), 'Q4');
     // An indented header's body is the lines deeper than IT; a sibling at its own depth is a key.
-    const nested = 'pptx:\n  notes: |\n    lift: on\n  lift: off\n';
-    assert.equal(frontMatterValue(nested, 'lift'), 'off');
+    const nested = 'pptx:\n  notes: |\n    card-lift: on\n  card-lift: off\n';
+    assert.equal(frontMatterValue(nested, 'card-lift'), 'off');
   });
 
   test('a `|` inside a plain value is not a block scalar', () => {
-    const fm = 'footer: a | b\n  lift: on\n';
+    const fm = 'footer: a | b\n  card-lift: on\n';
     assert.equal(frontMatterValue(fm, 'footer'), 'a | b');
-    assert.equal(frontMatterValue(fm, 'lift'), 'on');
+    assert.equal(frontMatterValue(fm, 'card-lift'), 'on');
   });
 });
 
@@ -205,7 +205,7 @@ describe('block-scalar header — linear on a long run of spaces', () => {
   // `(?:[ \t]+#.*)?[ \t]*\r?$` let `.*` and `[ \t]*` split a run of spaces every way before
   // failing on a character `.` cannot cross, so the header test was quadratic: 1.9 s per read
   // at 40K spaces, ~50 s per render. 4x the input is ~4x the time when linear, ~16x when not.
-  const fm = (n) => `style: | #${' '.repeat(n)}\u2028x\nlift: on\n`;
+  const fm = (n) => `style: | #${' '.repeat(n)}\u2028x\ncard-lift: on\n`;
   test('a header ending in U+2028 after a long run of spaces reads in linear time', () => {
     // In place of a ratio of two timings that ejected #2953, then a 5 s hang guard. Backtracking inside one regex has no
     // count to read (the old pattern, on 200K spaces, was still going when killed at 60 s), so every regex the read runs
@@ -215,13 +215,13 @@ describe('block-scalar header — linear on a long run of spaces', () => {
       '/^lift[ \\t]*:/': 'built from the key name; `npm run regex:census -- --check` (recheck 4.6.2): safe',
       '/^[ \\t]*lift[ \\t]*:[ \\t]*(.*)$/m': 'built from the key name; `npm run regex:census -- --check` (recheck 4.6.2): safe',
     };
-    assertLinearRegexes(() => assert.equal(frontMatterValue(`${fm(2000)}k: v\n`, 'lift'), 'on', 'the hostile line is not a header, so the next line is a key'), { allow });
-    assert.equal(frontMatterValue(fm(10), 'lift'), 'on', 'the hostile line is not a header, so the next line is a key');
+    assertLinearRegexes(() => assert.equal(frontMatterValue(`${fm(2000)}k: v\n`, 'card-lift'), 'on', 'the hostile line is not a header, so the next line is a key'), { allow });
+    assert.equal(frontMatterValue(fm(10), 'card-lift'), 'on', 'the hostile line is not a header, so the next line is a key');
   });
 
   test('a header with trailing blanks or a comment still reads as a header', () => {
     for (const head of ['|   ', '|  # css   ', '>-\t', '|\r']) {
-      assert.equal(frontMatterValue(`style: ${head}\n  lift: on\nfooter: Q4\n`, 'lift'), null, JSON.stringify(head));
+      assert.equal(frontMatterValue(`style: ${head}\n  card-lift: on\nfooter: Q4\n`, 'card-lift'), null, JSON.stringify(head));
     }
   });
 });

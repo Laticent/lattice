@@ -135,7 +135,7 @@ allows 95. The `wall-of-text` message names whichever budget tripped.
 
 For a rule not listed here, the `fix:` line is the instruction. Grep
 `lib/authoring/lint-core.js` or `lib/authoring/review-core.js` for
-`rule: '<id>'` to read the check itself.
+the rule's id in quotes (`'<id>'`) to read the check itself.
 
 ---
 

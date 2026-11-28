@@ -60,6 +60,7 @@
     "strategy",
     "risk"
   ],
+  "searchTerms": ["two by two", "matrix", "prioritization", "effort impact"],
   "description": "Static 2×2 quadrant grid with author-placed items per cell.",
   "purpose": "Use for categorical 2×2 reasoning when the items are fixed and you control which cell each lands in. For data-plotted scatter on continuous axes, use quadrant instead.",
   "lists": "neutral",

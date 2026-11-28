@@ -239,15 +239,15 @@ describe('deck linter', () => {
       .filter((x) => x.rule === 'deck-wide-component').length, 0);
   });
 
-  test('warns on an unrecognized `stamp:` (state-marker shape) value; accepts the shapes', () => {
-    const bad = lintText('---\ntheme: indaco\nstamp: sael\n---\n\n## H.\n', { vocab }).find((x) => x.rule === 'unknown-stamp');
+  test('warns on an unrecognized `stamp-shape:` (state-marker shape) value; accepts the shapes', () => {
+    const bad = lintText('---\ntheme: indaco\nstamp-shape: sael\n---\n\n## H.\n', { vocab }).find((x) => x.rule === 'unknown-stamp-shape');
     assert.ok(bad, 'unknown stamp should warn');
     assert.equal(bad.severity, 'warning');
     assert.equal(bad.classToken, 'sael');
     assert.match(bad.fix, /tab, notch, bracket, seal, pill/);
     for (const v of ['tab', 'seal', 'ribbon', 'PILL']) {
-      const src = `---\ntheme: indaco\nstamp: ${v}\n---\n\n## H.\n`;
-      assert.equal(lintText(src, { vocab }).filter((x) => x.rule === 'unknown-stamp').length, 0, v);
+      const src = `---\ntheme: indaco\nstamp-shape: ${v}\n---\n\n## H.\n`;
+      assert.equal(lintText(src, { vocab }).filter((x) => x.rule === 'unknown-stamp-shape').length, 0, v);
     }
   });
 
@@ -335,13 +335,13 @@ describe('deck linter', () => {
     assert.equal(applyAllFixes(deck('class: spectrum-edge-left'), vocab), deck('class: spectrum-left'));
   });
 
-  test('warns on an unrecognized `rule:` value; accepts auto/full/short/accent/none', () => {
-    const bad = lintText('---\ntheme: indaco\nrule: fulll\n---\n\n## H.\n', { vocab }).find((x) => x.rule === 'unknown-rule');
+  test('warns on an unrecognized `heading-rule:` value; accepts auto/full/short/accent/none', () => {
+    const bad = lintText('---\ntheme: indaco\nheading-rule: fulll\n---\n\n## H.\n', { vocab }).find((x) => x.rule === 'unknown-heading-rule');
     assert.ok(bad, 'unknown rule should warn');
     assert.equal(bad.classToken, 'fulll');
     for (const v of ['auto', 'full', 'short', 'accent', 'none']) {
-      const src = `---\ntheme: indaco\nrule: ${v}\n---\n\n## H.\n`;
-      assert.equal(lintText(src, { vocab }).filter((x) => x.rule === 'unknown-rule').length, 0, v);
+      const src = `---\ntheme: indaco\nheading-rule: ${v}\n---\n\n## H.\n`;
+      assert.equal(lintText(src, { vocab }).filter((x) => x.rule === 'unknown-heading-rule').length, 0, v);
     }
   });
 
@@ -356,7 +356,7 @@ describe('deck linter', () => {
   });
 
   test('per-slide accent tokens (spectrum-*, card-spectrum-*, trim-spectrum-*, rule-*, eyebrow-*) are known classes', () => {
-    for (const t of ['spectrum-duo', 'spectrum-left', 'no-spectrum', 'with-spectrum', 'spectrum-band', 'spectrum-hairline', 'spectrum-regular', 'spectrum-top', 'no-heading-rule', 'with-heading-rule', 'with-card-spectrum', 'card-spectrum-band', 'card-spectrum-solid', 'no-card-spectrum', 'card-spectrum-top', 'trim-spectrum-rainbow', 'trim-spectrum-mono', 'trim-spectrum-quiet', 'rule-short', 'eyebrow-dot']) {
+    for (const t of ['spectrum-duo', 'spectrum-left', 'no-spectrum', 'with-spectrum', 'spectrum-band', 'spectrum-hairline', 'spectrum-regular', 'spectrum-top', 'no-heading-rule', 'with-heading-rule', 'with-card-spectrum', 'card-spectrum-band', 'card-spectrum-solid', 'no-card-spectrum', 'card-spectrum-top', 'trim-spectrum-rainbow', 'trim-spectrum-mono', 'trim-spectrum-quiet', 'heading-rule-short', 'eyebrow-dot']) {
       const src = `---\ntheme: indaco\n---\n\n<!-- @meta{class=${t}} -->\n\n## H.\n`;
       assert.equal(lintText(src, { vocab }).filter((x) => x.rule === 'unknown-class').length, 0, t);
     }

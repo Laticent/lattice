@@ -13,7 +13,7 @@ section.form .cell-masthead .masthead-lede {
   grid-column: masthead-lede;
   /* A flex COLUMN, so the whole framing cluster — eyebrow, heading, subtitle, and the heading-rule
    * <hr> — are flex siblings that align as ONE unit via `align-items`. Headline-alignment seam
-   * (`headline:` register, base.accent-finish.css): `align-items` positions each box and `text-align`
+   * (`headline-align:` register, base.accent-finish.css): `align-items` positions each box and `text-align`
    * handles multi-line wrapping; both read the seam and fall back to the component's baked default
    * (`flex-start` / `left` here — overridden to center on stats/list-steps.timeline). This is why the
    * rule no longer needs a hand-placed `::after`: as a flex child it simply rides `align-items`, so it

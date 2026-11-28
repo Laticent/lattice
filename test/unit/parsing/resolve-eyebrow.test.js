@@ -2,7 +2,7 @@
  * Unit: the `eyebrow:` register resolver (lib/core/resolve-eyebrow.js) — the EYEBROW accent
  * finish. Maps the deck front-matter `eyebrow:` value to the `eyebrow-<value>` class token
  * both render paths append to every section. `plain` is the default and carries NO token;
- * only dot / bar / arrow / underline do. Sibling of resolve-rule / resolve-spectrum / resolve-lift.
+ * only dot / bar / arrow / underline do. Sibling of resolve-heading-rule / resolve-spectrum / resolve-card-lift.
  */
 
 const { test, describe } = require('node:test');

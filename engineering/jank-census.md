@@ -107,19 +107,19 @@ LEAD, not a verdict: `--anchors` cannot fail a run. Re-sweep with `--anchor` for
 | `content mark-slashes` | `section.content.mark-slashes.form::before` | 1 | 0px |
 | `content mark-threads` | `section.content.mark-threads.form::before` | 1 | 0px |
 | `content mark-ticks` | `section.content.mark-ticks.form::before` | 1 | 0px |
-| `content confidential stamp-bar` | `section.content.confidential.stamp-bar.form::before` | 1 | 0px |
-| `content confidential stamp-bracket` | `section.content.confidential.stamp-bracket.form::before` | 1 | 0px |
-| `content confidential stamp-dot` | `section.content.confidential.stamp-dot.form::before` | 1 | 0px |
-| `content confidential stamp-flag` | `section.content.confidential.stamp-flag.form::before` | 1 | 0px |
-| `content confidential stamp-mark` | `section.content.confidential.stamp-mark.form::before` | 1 | 0px |
-| `content confidential stamp-notch` | `section.content.confidential.stamp-notch.form::before` | 1 | 0px |
-| `content confidential stamp-pill` | `section.content.confidential.stamp-pill.form::before` | 1 | 0px |
-| `content confidential stamp-pin` | `section.content.confidential.stamp-pin.form::before` | 1 | 0px |
-| `content confidential stamp-ribbon` | `section.content.confidential.stamp-ribbon.form::before` | 1 | 0px |
-| `content confidential stamp-seal` | `section.content.confidential.stamp-seal.form::before` | 1 | 0px |
-| `content confidential stamp-tab` | `section.content.confidential.stamp-tab.form::before` | 1 | 0px |
-| `content confidential stamp-underline` | `section.content.confidential.stamp-underline.form::before` | 1 | 0px |
-| `content confidential stamp-veil` | `section.content.confidential.stamp-veil.form::before` | 1 | 0px |
+| `content confidential stamp-shape-bar` | `section.content.confidential.stamp-shape-bar.form::before` | 1 | 0px |
+| `content confidential stamp-shape-bracket` | `section.content.confidential.stamp-shape-bracket.form::before` | 1 | 0px |
+| `content confidential stamp-shape-dot` | `section.content.confidential.stamp-shape-dot.form::before` | 1 | 0px |
+| `content confidential stamp-shape-flag` | `section.content.confidential.stamp-shape-flag.form::before` | 1 | 0px |
+| `content confidential stamp-shape-mark` | `section.content.confidential.stamp-shape-mark.form::before` | 1 | 0px |
+| `content confidential stamp-shape-notch` | `section.content.confidential.stamp-shape-notch.form::before` | 1 | 0px |
+| `content confidential stamp-shape-pill` | `section.content.confidential.stamp-shape-pill.form::before` | 1 | 0px |
+| `content confidential stamp-shape-pin` | `section.content.confidential.stamp-shape-pin.form::before` | 1 | 0px |
+| `content confidential stamp-shape-ribbon` | `section.content.confidential.stamp-shape-ribbon.form::before` | 1 | 0px |
+| `content confidential stamp-shape-seal` | `section.content.confidential.stamp-shape-seal.form::before` | 1 | 0px |
+| `content confidential stamp-shape-tab` | `section.content.confidential.stamp-shape-tab.form::before` | 1 | 0px |
+| `content confidential stamp-shape-underline` | `section.content.confidential.stamp-shape-underline.form::before` | 1 | 0px |
+| `content confidential stamp-shape-veil` | `section.content.confidential.stamp-shape-veil.form::before` | 1 | 0px |
 | `divider numbered` | `h2::after` | 1 | 0px |
 | `image split` | `div.image-text::after` | 1 | 0px |
 | `redline annotated` | `li::before` | 1 | 0px |

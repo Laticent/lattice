@@ -404,11 +404,11 @@ replacement.
 **Registers** set one deck-wide choice from a list of values. Each value is a word, matched
 without regard to case (`mode: Sketch` is `sketch`). A renderer applies the register to every
 slide. A single-word register whose value is not in the list MUST NOT change the render. A
-register that takes one word per axis (`backdrop:`, `tag:`, `spark:`, `icon:`) applies each word
-it knows and ignores the rest, so `tag: corner foot` places tags in the corner. Either way, an L2
+register that takes one word per axis (`backdrop:`, `card-tag:`, `spark:`, `icon:`) applies each word
+it knows and ignores the rest, so `card-tag: corner foot` places tags in the corner. Either way, an L2
 tool reports an unknown word, or a second word for one axis, as `unknown-<key>` (the registry names the rule ID for each register).
 
-Many registers also have a per-slide token a slide's `class` field can carry (`lifted`, `corners-rounded`,
+Many registers also have a per-slide token a slide's `class` field can carry (`card-lift-on`, `slide-corners-rounded`,
 `inline-code-literal`). Those tokens are listed in `lib/base/base.registers.docs.md`; the registry lists them, and `split:` and `preset:` have none.
 
 **`header` and `footer` are set for every slide only in front matter.** In a slide's record (`header=`,

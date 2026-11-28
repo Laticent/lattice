@@ -55,6 +55,8 @@ for (const tag of ['@gecko', '@webkit-tablet']) test.describe(`version history s
 		await page.getByRole('button', { name: 'Version history' }).click();
 		await page.getByRole('button', { name: 'Save a version' }).click();
 		await expect(toastText(page)).toContainText("Couldn't save this version: this browser's storage is full.");
+		// Read once, now (see the quota test below): a retrying check waits out the success pill and passes on the bug.
+		expect(await toastText(page).textContent(), 'a failed save never says it was saved').not.toContain('Version saved');
 		// Still listed for this session, as the notice promises.
 		await expect(page.getByText('Saved version').first()).toBeVisible();
 	});
@@ -64,18 +66,26 @@ for (const tag of ['@gecko', '@webkit-tablet']) test.describe(`version history s
 // protocol, so the browser itself refuses the write and aborts the transaction, which is the
 // path a real full disk takes. (WebKit and Firefox have no equivalent switch, so this one runs on
 // Chromium; the faked failure above covers their notice.)
-test('a save the browser refuses for quota says so, and nothing half-written survives', async ({ page, browserName }) => {
+//
+// THE QUOTA IS SET BEFORE THE STUDIO LOADS, as for a person whose storage is already full. Chromium's
+// IndexedDB reads the space it has left once, at the origin's first write, and keeps that figure: an
+// override made after the Studio's startup writes is never seen, and even a quota of 1 byte admits the
+// save. This test used to set it after `gotoStudio`, so it passed only when it beat those writes (5 red in
+// 8 at 4 workers). The quota is 1 byte, not 0: a `quotaSize` of 0 leaves writes unlimited.
+test('a save the browser refuses for quota says so, and nothing half-written survives', async ({ page, browserName, baseURL }) => {
 	test.skip(browserName !== 'chromium', 'quota override is a Chromium DevTools feature');
-	await gotoStudio(page);
-	const before = await persistedCheckpoints(page);
-	const origin = new URL(page.url()).origin;
-	const usage = await page.evaluate(async () => (await navigator.storage.estimate()).usage ?? 0);
+	const origin = new URL(baseURL ?? '').origin;
 	const cdp = await page.context().newCDPSession(page);
-	await cdp.send('Storage.overrideQuotaForOrigin', { origin, quotaSize: usage + 256 });
+	await cdp.send('Storage.overrideQuotaForOrigin', { origin, quotaSize: 1 });
 	try {
+		await gotoStudio(page);
+		const before = await persistedCheckpoints(page);
 		await page.getByRole('button', { name: 'Version history' }).click();
 		await page.getByRole('button', { name: 'Save a version' }).click();
 		await expect(toastText(page)).toContainText("Couldn't save this version: this browser's storage is full.");
+		// Read once, now, on purpose: a retrying `not.toContainText` waits out the success pill's 2.6 s dwell and
+		// passes on the bug. "Saved" used to be raised at the click, so it is on screen before the refusal is.
+		expect(await toastText(page).textContent(), 'a refused save never says it was saved').not.toContain('Version saved');
 		expect(await persistedCheckpoints(page), 'the refused version did not land').toEqual(before);
 	} finally {
 		await cdp.send('Storage.overrideQuotaForOrigin', { origin });

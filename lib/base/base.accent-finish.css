@@ -1,4 +1,4 @@
-/* ── ACCENT FINISHES ── heading-rule + eyebrow — the `rule:` / `eyebrow:` registers.
+/* ── ACCENT FINISHES ── heading-rule + eyebrow — the `heading-rule:` / `eyebrow:` registers.
  *
  * The Finish axis's ACCENT sub-family: small, palette-blind marks on chrome that already
  * exists (the masthead hairline, the mono-caps kicker), selected deck-wide or per slide and
@@ -11,7 +11,7 @@
  * hex (HARD RULE #3 — every color is a `var(--token)`); nothing full-bleed, so no export
  * dual is needed. See engineering/decisions/2026-07-15-accent-finish-consolidation.md. */
 
-/* ── HEADING RULE (`rule:`) ── the underline beneath a slide's heading ───────────────────
+/* ── HEADING RULE (`heading-rule:`) ── the underline beneath a slide's heading ───────────────────
  * Governs the canonical heading underline: the `form` masthead hairline
  * (lib/forms/cell/masthead/masthead.css) and the split-panel right-column kicker rule
  * (lib/components/statement/split-panel/split-panel.styles.css). `auto` (the default, no
@@ -19,7 +19,7 @@
  * no-op. */
 
 /* full — an explicit full-width hairline (also the masthead default; stated for parity). */
-section.rule-full.form .cell-masthead { border-bottom: var(--rule-w, 1px) var(--rule-style, solid) var(--rule-mark, var(--border)); }
+section.heading-rule-full.form .cell-masthead { border-bottom: var(--rule-w, 1px) var(--rule-style, solid) var(--rule-mark, var(--border)); }
 
 /* none — drop the heading underline entirely. */
 section.no-heading-rule.form .cell-masthead { border-bottom: none; }
@@ -33,8 +33,8 @@ section.no-heading-rule.split-panel .panel-right h3 { border-bottom: none; }
  * border-bottom (or nothing) is the rule there. The `padding-top` restores the band's title↔rule
  * gap the old bottom-edge segment got from the masthead padding (margin is barred — HARD RULE #20). */
 section.form .cell-masthead .masthead-rule { display: none; }
-section:is(.rule-short, .rule-accent).form .cell-masthead { border-bottom: none; }
-section:is(.rule-short, .rule-accent).form .cell-masthead .masthead-rule {
+section:is(.heading-rule-short, .heading-rule-accent).form .cell-masthead { border-bottom: none; }
+section:is(.heading-rule-short, .heading-rule-accent).form .cell-masthead .masthead-rule {
   display: block;
   align-self: auto;
   box-sizing: content-box;
@@ -53,10 +53,10 @@ section:is(.rule-short, .rule-accent).form .cell-masthead .masthead-rule {
   background: var(--rule-mark, var(--border));
   background-clip: content-box;
 }
-section.rule-accent.form .cell-masthead .masthead-rule { background: var(--accent); background-clip: content-box; }
+section.heading-rule-accent.form .cell-masthead .masthead-rule { background: var(--accent); background-clip: content-box; }
 
 /* accent — recolor the split-panel kicker rule to match; none already handled above. */
-section.rule-accent.split-panel .panel-right h3 { border-bottom-color: var(--accent); }
+section.heading-rule-accent.split-panel .panel-right h3 { border-bottom-color: var(--accent); }
 
 /* ── EYEBROW (`eyebrow:`) ── decoration on the mono-caps kicker ───────────────────────────
  * Targets the eyebrow `<code>` — a code-only `<p>` that precedes a heading/list (the same
@@ -116,7 +116,7 @@ section.eyebrow-underline
   padding-bottom: 0.2em;
 }
 
-/* ── HEADLINE ALIGNMENT (`headline:`) ── the framing-text cluster's horizontal axis ──────────
+/* ── HEADLINE ALIGNMENT (`headline-align:`) ── the framing-text cluster's horizontal axis ──────────
  * Hoists alignment OUT of the components and onto an author register (deck-wide or per slide).
  * The framing-text cluster — eyebrow, heading, heading rule, subtitle, below-note, key-insight,
  * caption — used to bake its own alignment at each paint site, so the pieces disagreed (the
@@ -138,9 +138,9 @@ section.eyebrow-underline
  * center/right machinery a recurring source of edge cases). `left` needs none of it: every
  * framing box is already left-pinned in plain block flow, so it's a pure seam read. See
  * engineering/decisions/2026-07-20-mass-head-alignment.md § "Scoped to auto + left". */
-section.head-left { --headline-align: left; --headline-justify: flex-start; }
+section.headline-align-left { --headline-align: left; --headline-justify: flex-start; }
 
-/* head-center — the missing lever: center the framing CLUSTER on a layout that lefts by default.
+/* headline-align-center — the missing lever: center the framing CLUSTER on a layout that lefts by default.
  * The masthead-lede is ALWAYS a flex column (masthead-lede.css) that reads --headline-justify, so
  * its eyebrow + heading + heading-rule <hr> center as one unit automatically; here we only flex the
  * OTHER capped framing containers (the trailing key-insight panel, below-note) so their boxes
@@ -148,22 +148,22 @@ section.head-left { --headline-align: left; --headline-justify: flex-start; }
  * box would stack its text runs and `<code>` spans as separate lines; it is full-width, so
  * `--headline-align` alone places its text and hairline (chart-family.styles.css). `text-align:center` (via --headline-align) only
  * centers TEXT within a box — flexing centers the BOX. The key-insight blockquote carries the SAME
- * body-exclusion guard as its base rule (base.modifiers.css) so head-center never centers a BODY
+ * body-exclusion guard as its base rule (base.modifiers.css) so headline-align-center never centers a BODY
  * blockquote (quote / math / citation-card / redline / inventory / policy-recommendation / layout-*).
  * No margin (HARD RULE #20); no hex (#3). The slide body keeps its own align-* axis (issue-527) —
  * the register moves framing only. */
-section.head-center { --headline-align: center; --headline-justify: center; }
-/* head-right — the rare escape hatch; the same box machinery as head-center, just the far edge. */
-section.head-right { --headline-align: right; --headline-justify: flex-end; }
+section.headline-align-center { --headline-align: center; --headline-justify: center; }
+/* headline-align-right — the rare escape hatch; the same box machinery as headline-align-center, just the far edge. */
+section.headline-align-right { --headline-align: right; --headline-justify: flex-end; }
 /* Flex the OTHER capped framing containers (the masthead-lede is already a flex column) so their
  * boxes ride --headline-justify too — for BOTH center and right. The key-insight blockquote carries
  * the same body-exclusion guard as its base rule (base.modifiers.css). */
-section:is(.head-center, .head-right):not(.quote):not(.math):not(.citation-card):not(.policy-recommendation):not([class*="layout-"]) > blockquote,
-section:is(.head-center, .head-right):not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not(.policy-recommendation):not([class*="layout-"]) > .cell-stage > blockquote,
+section:is(.headline-align-center, .headline-align-right):not(.quote):not(.math):not(.citation-card):not(.policy-recommendation):not([class*="layout-"]) > blockquote,
+section:is(.headline-align-center, .headline-align-right):not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not(.policy-recommendation):not([class*="layout-"]) > .cell-stage > blockquote,
 /* The coda Cell arm — a trailing key insight is harvested into `.cell-coda`, which the
    frame seats beside the stage, so neither arm above reaches it any more. */
-section:is(.head-center, .head-right):not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not(.policy-recommendation):not([class*="layout-"]) > .cell-coda > blockquote,
-section:is(.head-center, .head-right) .below-note {
+section:is(.headline-align-center, .headline-align-right):not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not(.policy-recommendation):not([class*="layout-"]) > .cell-coda > blockquote,
+section:is(.headline-align-center, .headline-align-right) .below-note {
   display: flex; flex-direction: column; align-items: var(--headline-justify, flex-start);
 }
 
