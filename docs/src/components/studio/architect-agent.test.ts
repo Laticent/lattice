@@ -672,7 +672,7 @@ describe('the loop', () => {
 		const complete: AgentComplete = async (_m, { onToken }) => {
 			n++;
 			onToken('Tightened slide 3.');
-			return { text: 'Tightened slide 3.', toolCalls: [call('a', 'edit_slides', { edits: [{ action: 'replace', slide: 3, body: '<!-- @meta{layout=content} -->\n## Next\n\n- Hire' }], summary: 'Test edit' })], truncated: false };
+			return { text: 'Tightened slide 3.', toolCalls: [call('a', 'edit_slides', { edits: [{ action: 'replace', slide: 3, body: '<!-- @meta{layout=content} -->\n## Next\n\n- Hire' }], summary: 'Tightened slide 3.' })], truncated: false };
 		};
 		const turn = await runAgentLoop({ complete, messages: [{ role: 'user', content: 'u' }], toolbox: tb });
 		expect(n).toBe(1);
@@ -725,7 +725,8 @@ describe('the loop', () => {
 			const complete: AgentComplete = async () => {
 				n++;
 				if (n > 1) return { text: 'Done.', toolCalls: [], truncated: false };
-				return { text: c.text, toolCalls: [call('a', 'edit_slides', { edits: [{ action: 'replace', slide: c.slide ?? 3, body: '<!-- @meta{layout=content} -->\n## Next\n\n- Hire' }], summary: 'Test edit' })], truncated: false };
+				// The last case writes neither prose nor a summary: its schema requires one, so the edit is refused (use-case-layer.md §7) and the turn goes on, as it did when the edit ran unsummarized.
+				return { text: c.text, toolCalls: [call('a', 'edit_slides', { edits: [{ action: 'replace', slide: c.slide ?? 3, body: '<!-- @meta{layout=content} -->\n## Next\n\n- Hire' }], ...(c.text ? { summary: 'Test edit' } : {}) })], truncated: false };
 			};
 			const turn = await runAgentLoop({ complete, messages: [{ role: 'user', content: 'u' }], toolbox: tb });
 			expect(n).toBe(2);
