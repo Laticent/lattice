@@ -6,15 +6,20 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
-### 2026-11-28 — raise the studio eagerJsGz ceiling by 1,024 B (644,780 → 645,804), by hand, for PR 3588, at the owner's direction
+### 2026-11-28 — raise the studio eagerJsGz ceiling by 3,072 B (644,780 → 647,852), by hand, for PRs 3588 and slice 3, at the owner's direction
 
-Owner OK 2026-11-28, in the storage desk's session: "Raise ceiling ~1 KB", in its own PR. The owner chose it over giving bytes back and over holding PR 3588. Written by hand, as the entries below are; soft stays 571,778.
+Owner OK 2026-11-28, in the storage desk's session: "One raise of 3 KB in #3610" (04:00 UTC), chosen over two raises (+1 KB, then +2 KB), over giving bytes back first, and over making deck reads async. It replaces the owner's earlier "Raise ceiling ~1 KB" (03:07 UTC), which covered slice 4 alone. Written by hand, as the entries below are; soft stays 571,778. The rebaseline tool's `--ceiling` would put the ceiling 10% above the measured weight (about 64 KB) and move soft as well.
 
-Why: vault slice 2 (#3582) left `main` 75 B under the old ceiling (644,705 B, measured on `origin/main` after #3582 with `measure-route-base.sh`). PR 3588 (Library slice 4) adds 722 B, declared in `docs/route-budget.d/3588-library-icon-pills.md`: the Library's section icons and the Backup and restore button in the pre-paint shell, and the icon-only pill mode with its More pill. Merged with `main` it measures 645,427 B (630.3 KB), about 647 B over the old ceiling. Giving back the icons already eager elsewhere saves at most about 400 B; the rest would cut the icon-only pills that fit six sections at 320–480 px. About 377 B of headroom stays after PR 3588.
+Why: vault slice 2 (#3582) left `main` 75 B under the old ceiling (644,705 B, measured on `origin/main` after #3582 with `measure-route-base.sh`). Two storage slices each add eager bytes that stay eager:
+
+- PR 3588 (Library slice 4) adds a declared 722 B (`docs/route-budget.d/3588-library-icon-pills.md`): the Library's section icons and the Backup and restore button in the pre-paint shell, and the icon-only pill mode with its More pill. Merged with `main` it measures 645,427 B (630.3 KB). Giving back the icons already eager elsewhere would save at most about 400 B; the rest would cut the icon-only pills that fit six sections at 320–480 px.
+- Slice 3 (decks into the vault), measured by its worker on ec4f34ac: 631.3 KB, about 1.6 KB over the old ceiling, after moving everything it could to load on first use (632.1 → 631.3 KB). What stays eager is the instant deck read and save path about 18 callers use, and the guard that stops an early save from blanking a deck.
+
+Together they need about 2.4 KB; 3 KB leaves about 0.6 KB of slack after both.
 
 | Route | Metric | Soft before | Soft after | Change | Ceiling after |
 |---|---|---|---|---|---|
-| studio | eagerJsGz | 571778 | 571778 | +0 | 645804 |
+| studio | eagerJsGz | 571778 | 571778 | +0 | 647852 |
 
 ### 2026-11-28 — raise the studio lintCoreGz ceiling by 1,024 B (174,022 → 175,046), by hand, for PR 3572, at the owner's direction
 
