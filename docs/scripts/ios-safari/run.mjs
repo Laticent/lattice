@@ -11,7 +11,8 @@
  * on a deck of phone photos (PROBE=present-memory, present-memory.mjs and present-memory-probe.js), plays Present with
  * narration (PROBE=present-narration, present-narration.mjs and present-narration-probe.js), or chart detail cards in an
  * exported HTML player, opened and closed by real taps (PROBE=player-charts, player-charts.mjs), or the storage vault's
- * write, reload and read on /proto/vault/ (PROBE=vault, vault-probe.js). SIM_UDID=mac drives the
+ * write, reload and read on /proto/vault/ (PROBE=vault, vault-probe.js), or the Studio's own photo move into the vault and
+ * its move-back, across two reloads (PROBE=media-vault, media-vault-probe.js). SIM_UDID=mac drives the
  * Mac's own Safari instead (the undo probe's desktop half: the WebKit undo command, and a real ⌘Z key).
  * Plain WebDriver over fetch: no client library, so nothing new to install on the macOS runner.
  *
@@ -164,7 +165,7 @@ try {
 	console.log(`${LABEL}: session on ${caps.platformName} ${caps.platformVersion || ''}, Safari ${caps.browserVersion || '?'}`);
 	// The script limit must outlast a probe's own cold-start waits (150 s each since 2026-11-04, D3 on #3034) plus its steps.
 	await wd('POST', `/session/${id}/timeouts`, { script: 360000, pageLoad: 180000 });
-	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'playground-scroll' ? await runPlaygroundScrollProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : PROBE === 'chat-storage' ? await runChatStorageProbe(id) : PROBE === 'photo-memory' ? await runPhotoMemoryProbe(id) : PROBE === 'present-keepalive' ? await runPresentKeepaliveProbe(id) : PROBE === 'present-memory' ? await runPresentMemoryProbe(id) : PROBE === 'present-landscape' ? await runPresentLandscapeProbe(id) : PROBE === 'present-narration' ? await runPresentNarrationProbe(id) : PROBE === 'codec-support' ? await runCodecProbe(id) : PROBE === 'font-cache' ? await runFontCacheProbe(id) : PROBE === 'player-charts' ? await runPlayerChartsProbe(id) : PROBE === 'vault' ? await runVaultProbe(id) : await runStudioProbe(id);
+	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'playground-scroll' ? await runPlaygroundScrollProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : PROBE === 'chat-storage' ? await runChatStorageProbe(id) : PROBE === 'photo-memory' ? await runPhotoMemoryProbe(id) : PROBE === 'present-keepalive' ? await runPresentKeepaliveProbe(id) : PROBE === 'present-memory' ? await runPresentMemoryProbe(id) : PROBE === 'present-landscape' ? await runPresentLandscapeProbe(id) : PROBE === 'present-narration' ? await runPresentNarrationProbe(id) : PROBE === 'codec-support' ? await runCodecProbe(id) : PROBE === 'font-cache' ? await runFontCacheProbe(id) : PROBE === 'player-charts' ? await runPlayerChartsProbe(id) : PROBE === 'vault' ? await runVaultProbe(id) : PROBE === 'media-vault' ? await runMediaVaultProbe(id) : await runStudioProbe(id);
 	result.session = { platformName: caps.platformName, platformVersion: caps.platformVersion, browserVersion: caps.browserVersion, label: LABEL };
 	console.log(`${LABEL}: ${result.ok ? 'PASS' : `FAIL (${result.error})`} at ${result.width}px — ${result.ua}`);
 	for (const s of result.steps) console.log(`  ${s.pass ? 'ok  ' : 'FAIL'} ${s.name}${s.detail ? ` (${s.detail})` : ''}`);
@@ -1567,6 +1568,31 @@ async function runVaultProbe(id) {
 	const second = await call(`latticeVaultAfterReload(${JSON.stringify(first.seed)})`);
 	const steps = [...first.steps, ...(second.steps || []).map((s) => ({ ...s, name: `after reload · ${s.name}` }))];
 	return { ok: !!second.ok, error: second.error, ua: second.ua ?? first.ua, width: first.width, steps };
+}
+
+/**
+ * The Studio's photo move into the vault and its move-back on real Mobile Safari (PROBE=media-vault, media-vault-probe.js,
+ * vault slice 2): plant two photos the pre-slice-2 way, reload so the move runs, check the vault files and the backup and
+ * turn the way back on, reload so the move-back runs, check the rows. Run it with the warm harness or by hand; it has no
+ * suite entry.
+ */
+async function runMediaVaultProbe(id) {
+	const source = fs.readFileSync(path.join(here, 'media-vault-probe.js'), 'utf8');
+	const call = (expr) =>
+		wd('POST', `/session/${id}/execute/async`, {
+			script: `${source}\nconst done = arguments[arguments.length - 1];\nPromise.resolve(${expr}).then(done, (e) => done({ ok: false, error: String(e), steps: [] }));`,
+			args: [],
+		});
+	const first = await studioPage(id, 'media-vault-probe.js', 'latticeMediaVaultProbe');
+	if (!first.ok) return { ok: false, error: first.error, ua: first.ua, width: first.width, steps: first.steps || [] };
+	await wd('POST', `/session/${id}/refresh`, {});
+	const second = await call(`latticeMediaVaultAfterMove(${JSON.stringify(first.seed)})`);
+	const steps = [...first.steps, ...(second.steps || []).map((s) => ({ ...s, name: `after reload · ${s.name}` }))];
+	if (!second.ok) return { ok: false, error: second.error, ua: second.ua ?? first.ua, width: first.width, steps };
+	await wd('POST', `/session/${id}/refresh`, {});
+	const third = await call(`latticeMediaVaultAfterMoveBack(${JSON.stringify(first.seed)})`);
+	steps.push(...(third.steps || []).map((s) => ({ ...s, name: `after the second reload · ${s.name}` })));
+	return { ok: !!third.ok, error: third.error, ua: third.ua ?? first.ua, width: first.width, steps };
 }
 
 /**

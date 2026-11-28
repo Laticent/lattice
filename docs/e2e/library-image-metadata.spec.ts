@@ -315,9 +315,10 @@ test('@smoke a photo\'s own description, artist and date are read at import; its
 			r.onsuccess = () => res(r.result as Record<string, unknown>[]);
 		});
 		const a = rows.find((x) => x.kind === 'image') as Record<string, unknown>;
-		const buf = a.blob ? new Uint8Array(await (a.blob as Blob).arrayBuffer()) : new Uint8Array(a.data as ArrayBuffer);
+		const buf = new Uint8Array(await (await (window as unknown as { __latticeRowBlob: (row: unknown) => Promise<Blob> }).__latticeRowBlob(a)).arrayBuffer());
 		const head = new TextDecoder('latin1').decode(buf.subarray(0, 65536));
-		const { blob: _b, data: _d, ...rest } = a;
+		// `vault` and `vaultId` name where the bytes live (vault slice 2): random ids, not metadata, so they stay out of the coordinate check.
+		const { blob: _b, data: _d, vault: _v, vaultId: _vi, ...rest } = a;
 		return { rest, exifInBytes: head.includes('Exif\u0000\u0000') };
 	});
 	expect(row.rest).toMatchObject({ credit: 'Ada Lovelace', taken: '2024-08-15', fileCaption: 'The team on the roof at sunset', hadLocation: true });
@@ -821,7 +822,7 @@ async function storedPixels(page: Page): Promise<{ w: number; h: number; left: s
 		const row = rows.find((x) => x.kind === 'image');
 		if (!row) return null;
 		try {
-			const blob = row.blob ?? new Blob([row.data as ArrayBuffer], { type: row.mime });
+			const blob = await (window as unknown as { __latticeRowBlob: (row: unknown) => Promise<Blob> }).__latticeRowBlob(row);
 			const bmp = await createImageBitmap(blob);
 			const c = document.createElement('canvas');
 			c.width = bmp.width;
