@@ -585,7 +585,7 @@ async function runJob(job, opts, deps, spent) {
       };
     }
     const verdict = deps.judgeFn(`${base}.md`, `${base}.pdf`);
-    return { ...row, ...verdict, pass: verdict.problems.length === 0 };
+    return { ...row, ...verdict, judged: true, pass: verdict.problems.length === 0 };
   } catch (e) {
     // A capped deck is not a failed one: it carries no verdict, and the run stops after it.
     if (e instanceof CapStop) return { ...row, slides: 0, layouts: [], errors: 0, warnings: 0, suggestions: 0, pass: null, capped: true, problems: [`stopped at the cap: ${e.message}`] };
@@ -760,8 +760,9 @@ export async function run(opts, deps = {}) {
   // A deck whose request failed got no reply: a dead key, an outage, a timeout. That is a broken
   // run, not a result, so it must not read like a deck the model wrote badly (exit 1).
   if (rows.some((r) => r.problems?.[0]?.startsWith('request failed:'))) return 5;
-  // Our own judge broke, not the model: the linter crashed on a deck, or no judged deck rendered.
-  const judged = rows.filter((r) => !r.capped && r.pass !== null);
+  // Our own judge broke, not the model: the linter crashed on a deck, or no deck the judge saw rendered.
+  // Only decks that reached the judge count: one cut off at max_tokens was never rendered.
+  const judged = rows.filter((r) => r.judged);
   const has = (r, re) => (r.problems ?? []).some((p) => re.test(p));
   if (judged.some((r) => has(r, /lint-crashed/)) || (judged.length && judged.every((r) => has(r, /^render failed/)))) return 6;
   return summary.failed ? DECKS_FAILED : 0;

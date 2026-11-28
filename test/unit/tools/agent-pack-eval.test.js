@@ -426,4 +426,14 @@ test('a request with no reply exits 5 and a broken judge 6; only a deck the mode
   const lintCrash = () => ({ slides: 8, layouts: ['a'], errors: 1, warnings: 0, suggestions: 0, problems: ['slide 0: error lint-crashed'] });
   const code6b = await run(parseArgs(['--arm', 'start', '--model', 'test/cheap', '--limit', '1', '--out', tmpDir(t)]), { ...deps(t, []), judgeFn: lintCrash });
   assert.equal(code6b, 6, 'a lint crash is our bug, never a result');
+  // One deck cut off at max_tokens (never rendered) and the rest failing to render: still our judge.
+  let n = 0;
+  const cutThenOk = async (req) => {
+    n++;
+    return n === 1
+      ? { text: '', finish: 'length', tokensIn: 100, tokensOut: 6000, reasoningTokens: 6000, cost: 0.001, costReported: true, latencyMs: 0 }
+      : { text: deckReply, finish: 'stop', tokensIn: 100, tokensOut: 50, cost: 0.001, costReported: true, latencyMs: 0 };
+  };
+  const code6c = await run(parseArgs(['--arm', 'start', '--model', 'test/cheap', '--limit', '3', '--out', tmpDir(t)]), { ...deps(t, []), complete: cutThenOk, judgeFn: renderBroke });
+  assert.equal(code6c, 6, 'a cut-off deck never reached the renderer, so it cannot hide a broken one');
 });
