@@ -5,21 +5,21 @@ import { describe, expect, it } from 'vitest';
 import { getClassTokens } from '../../lib/slide-directives';
 import {
 	canvasProvenance,
+	drawingProvenance,
 	eyebrowProvenance,
 	finishProvenance,
 	headlineProvenance,
 	marksProvenance,
-	modeProvenance,
 	motionPlayProvenance,
 	motionSpeedProvenance,
 	motionStyleProvenance,
 	ruleProvenance,
 	setCanvas,
+	setDrawing,
 	setEyebrow,
 	setFinish,
 	setHeadline,
 	setMarks,
-	setMode,
 	setMotionPlay,
 	setMotionSpeed,
 	setMotionStyle,
@@ -94,23 +94,24 @@ describe('finish provenance + override', () => {
 	});
 });
 
-describe('mode provenance + opt-out', () => {
-	it('inherited from deck sketch mode', () => {
-		const src = deck('mode: sketch', '<!-- @meta{layout=kpi} -->');
-		expect(modeProvenance('<!-- @meta{layout=kpi} -->', src)).toMatchObject({ state: 'inherited', value: 'sketch' });
+describe('drawing provenance + opt-out', () => {
+	it('inherited from deck sketch drawing', () => {
+		const src = deck('drawing: sketch', '<!-- @meta{layout=kpi} -->');
+		expect(drawingProvenance('<!-- @meta{layout=kpi} -->', src)).toMatchObject({ state: 'inherited', value: 'sketch' });
 	});
-	it('off via boardroom opt-out', () => {
-		const src = deck('mode: sketch', '<!-- @meta{layout=kpi, class=boardroom} -->');
-		expect(modeProvenance('<!-- @meta{layout=kpi, class=boardroom} -->', src).state).toBe('off');
+	it('off via the clean opt-out', () => {
+		const src = deck('drawing: sketch', '<!-- @meta{layout=kpi, class=no-sketch} -->');
+		expect(drawingProvenance('<!-- @meta{layout=kpi, class=no-sketch} -->', src).state).toBe('off');
 	});
-	it('reads sketch-clean back correctly regardless of token order', () => {
-		expect(modeProvenance('<!-- @meta{layout=kpi, class=sketch sketch-clean-body} -->', '')).toMatchObject({ state: 'on', value: 'sketch-clean' });
-		expect(modeProvenance('<!-- @meta{layout=kpi, class=sketch} -->', '')).toMatchObject({ state: 'on', value: 'sketch' });
+	it('reads sketch-headings back, even beside a stray sketch', () => {
+		expect(drawingProvenance('<!-- @meta{layout=kpi, class=sketch-headings} -->', '')).toMatchObject({ state: 'on', value: 'sketch-headings' });
+		expect(drawingProvenance('<!-- @meta{layout=kpi, class=sketch sketch-headings} -->', '')).toMatchObject({ state: 'on', value: 'sketch-headings' });
+		expect(drawingProvenance('<!-- @meta{layout=kpi, class=sketch} -->', '')).toMatchObject({ state: 'on', value: 'sketch' });
 	});
-	it('setMode writes the right tokens', () => {
-		expect(getClassTokens(setMode('<!-- @meta{layout=kpi} -->', 'sketch-clean'))).toEqual(['kpi', 'sketch', 'sketch-clean-body']);
-		expect(getClassTokens(setMode('<!-- @meta{layout=kpi, class=sketch} -->', 'boardroom'))).toEqual(['kpi', 'boardroom']);
-		expect(getClassTokens(setMode('<!-- @meta{layout=kpi, class=sketch sketch-clean-body} -->', null))).toEqual(['kpi']);
+	it('setDrawing writes one token', () => {
+		expect(getClassTokens(setDrawing('<!-- @meta{layout=kpi} -->', 'sketch-headings'))).toEqual(['kpi', 'sketch-headings']);
+		expect(getClassTokens(setDrawing('<!-- @meta{layout=kpi, class=sketch} -->', 'clean'))).toEqual(['kpi', 'no-sketch']);
+		expect(getClassTokens(setDrawing('<!-- @meta{layout=kpi, class=sketch-headings} -->', null))).toEqual(['kpi']);
 	});
 });
 

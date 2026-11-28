@@ -510,7 +510,7 @@ describe('gantt — portrait geometry', () => {
 });
 
 // ── Tick face selection (#1663) ────────────────────────────────────────────
-// `.gantt-tick` is --font-label, which `mode: sketch` re-points at the hand sans.
+// `.gantt-tick` is --font-label, which `drawing: sketch` re-points at the hand sans.
 // The tick's wrap budget and collision cull are computed from a STATIC
 // per-character advance, so the builder takes a `hand` flag and selects the
 // matching constant. These lock the two halves that must never desync: the mono
@@ -629,7 +629,7 @@ describe('gantt — tick advance follows the painted face', () => {
 
 // The section dispatcher is the seam where the slide's class reaches the builder.
 // It keys on the `sketch` TOKEN because that is what the CSS keys on, so a
-// per-slide `_class: boardroom` opt-out lands on both sides at once.
+// per-slide `_class: no-sketch` opt-out lands on both sides at once.
 describe('gantt — the sketch token reaches the builder', () => {
   const { transformChartSection } = engine;
   const section = `<h2>Plan</h2>
@@ -646,16 +646,16 @@ describe('gantt — the sketch token reaches the builder', () => {
       'the sketch token must reach the tick math, not just the CSS');
   });
 
-  test('a per-slide boardroom opt-out returns the mono axis', () => {
-    // `_class: boardroom` suppresses the deck-wide `sketch` token, so the CSS
+  test('a per-slide no-sketch opt-out returns the mono axis', () => {
+    // `_class: no-sketch` suppresses the deck-wide `sketch` token, so the CSS
     // paints mono here — and the math has to follow it back.
-    assert.equal(tickCount('gantt boardroom'), tickCount('gantt'));
+    assert.equal(tickCount('gantt no-sketch'), tickCount('gantt'));
   });
 
-  test('`sketch-clean-body` alone is not the hand signal', () => {
-    // MODE_REGISTER never emits it without `sketch` beside it, and base.sketch.css
-    // keys every rule on section.sketch — the same trap diagram-look.js documents.
-    assert.equal(tickCount('gantt sketch-clean-body'), tickCount('gantt'));
+  test('`sketch-headings` alone is the hand signal: its labels are hand-drawn too', () => {
+    // `drawing: sketch-headings` stamps one class (Q5), and every sketch rule names it, so the
+    // tick labels (`--font-label`) paint in the hand face exactly as under `sketch`.
+    assert.equal(tickCount('gantt sketch-headings'), tickCount('gantt sketch'));
   });
 });
 

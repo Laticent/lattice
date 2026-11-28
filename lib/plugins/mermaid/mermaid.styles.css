@@ -359,7 +359,7 @@ section.diagram :is(pre, marp-pre):not([data-lattice-settle="rendered"]) > code,
  *
  * It surfaced when tools/check-diagram-labels.js started comparing each label
  * against its own slide's --font-body instead of a denylist of famous default face
- * names: two labels per autonumbered sequence on a `mode: sketch` deck were in
+ * names: two labels per autonumbered sequence on a `drawing: sketch` deck were in
  * generic sans-serif while every other word on the slide was hand-drawn. */
 :is(section, figure) text.sequenceNumber { font-family: var(--font-body); }
 
@@ -654,7 +654,7 @@ section.diagram :is(pre, marp-pre):not([data-lattice-settle="rendered"]) > code,
 :is(section, figure) svg.mindmapDiagram .mindmap-node.section-9 > :is(rect, circle, polygon, path) { fill: var(--cat-10-texture, var(--cat-10-fill)) !important; }
 :is(section, figure) svg.mindmapDiagram .mindmap-node.section-10 > :is(rect, circle, polygon, path) { fill: var(--cat-11-texture, var(--cat-11-fill)) !important; }
 :is(section, figure) svg.mindmapDiagram .mindmap-node.section-11 > :is(rect, circle, polygon, path) { fill: var(--cat-12-texture, var(--cat-12-fill)) !important; }
-/* The same branch map under `mode: sketch` (Mermaid's `look: 'handDrawn'`).
+/* The same branch map under `drawing: sketch` (Mermaid's `look: 'handDrawn'`).
  * Every shape except the default rounded bar becomes `g.rough-node >
  * g:first-of-type > path, path`: a stroked hachure bundle, then the outline.
  * As in §ROUGH NODE FILL below, the palette goes on with `stroke` (a `fill`
@@ -683,7 +683,7 @@ section.diagram :is(pre, marp-pre):not([data-lattice-settle="rendered"]) > code,
  * curated per-theme AA pair (gated in test/unit/palette/contrast.test.js), and a
  * solid accent hub stands apart from the pale branch tints in both modes.
  *
- * Under `mode: sketch` the root stays SOLID: its hachure takes the accent as
+ * Under `drawing: sketch` the root stays SOLID: its hachure takes the accent as
  * both fill and stroke. A hachure of lines behind --on-accent text would put
  * white ink on a mostly white canvas.
  */
@@ -978,7 +978,7 @@ section.diagram :is(pre, marp-pre):not([data-lattice-settle="rendered"]) > code,
 :is(section, figure) :where(svg:not(.mindmapDiagram)) g.nodes > g.node:nth-of-type(9)  > rect { fill: var(--cat-1-texture, var(--cat-1-fill))  !important; stroke: var(--diagram-stroke) !important; }
 :is(section, figure) :where(svg:not(.mindmapDiagram)) g.nodes > g.node:nth-of-type(10) > rect { fill: var(--cat-2-texture, var(--cat-2-fill))  !important; stroke: var(--diagram-stroke) !important; }
 /* ── ROUGH NODE FILL — the same categorical cycle, under the hand-drawn look ──
- * `mode: sketch` bakes Mermaid's `look: 'handDrawn'` (lib/core/diagram-look.js),
+ * `drawing: sketch` bakes Mermaid's `look: 'handDrawn'` (lib/core/diagram-look.js),
  * which swaps the node renderer: `g.node > rect` becomes
  * `g.rough-node > g.basic.label-container > path`, drawn by rough.js.
  *

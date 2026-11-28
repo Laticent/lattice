@@ -8,7 +8,7 @@ const { modifierGroups } = require('../../../lib/base/base-manifest.js');
 const { MODIFIER_GROUPS, UNIVERSAL_MODIFIER_TOKENS } = require('../../../lib/components');
 const { DECK_SETTINGS } = require('../../../lib/core/deck-settings');
 const { SWITCH_TOKENS } = require('../../../lib/core/switches');
-const { MODE_TOKENS } = require('../../../lib/core/resolve-mode');
+const { DRAWING_TOKENS } = require('../../../lib/core/resolve-drawing');
 const { TINTS, MARKS, TINT_PLACEMENTS, PLACEMENT_REQUIRED } = require('../../../lib/base/treatments');
 
 const accepted = new Set(UNIVERSAL_MODIFIER_TOKENS);
@@ -20,7 +20,7 @@ describe('every word the engine accepts on any slide is in a group', () => {
   // with no group fails here.
   const owners = {
     'switches (lib/core/switches.mjs)': SWITCH_TOKENS,
-    'modes (lib/core/resolve-mode.js)': MODE_TOKENS,
+    'modes (lib/core/resolve-drawing.js)': DRAWING_TOKENS,
     'tints (lib/base/treatments.js)': TINTS,
     'marks (lib/base/treatments.js)': MARKS,
     'tint placements (lib/base/treatments.js)': TINT_PLACEMENTS,

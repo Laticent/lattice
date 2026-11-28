@@ -45,10 +45,10 @@ const FIELD_DEFAULTS = {
   // `finish` is the deck-wide BACKDROP register (lib/core/resolve-finish.js):
   // '' / 'none' is the baseline (omitted), 'atrium' … 'gallery' opt in a backdrop.
   finish: '',
-  // `mode` is the deck-wide rendering-MODE register (lib/core/resolve-mode.js):
-  // '' / 'boardroom' is the baseline (omitted), 'sketch' / 'sketch-clean' opt in.
+  // `drawing` is the deck-wide DRAWING register (lib/core/resolve-drawing.js):
+  // '' / 'clean' is the baseline (omitted), 'sketch' / 'sketch-headings' opt in.
   // Orthogonal to `finish:` — the two compose.
-  mode: '',
+  drawing: '',
   // `color-mode` is the deck-wide COLOR-MODE key (lib/core/resolve-color-mode.js):
   // '' (theme default) is the baseline (omitted); light/dark PIN a side, `system`
   // follows the viewer's OS, `inherited` adopts the host (site) mode. The first-class
@@ -122,7 +122,7 @@ export const PRESET_OPTIONS = frontMatterKey.PRESET_NAMES.map((name) => ({
 }));
 // Emit order for known keys; any unmanaged keys we preserved trail in their
 // original order. `marp` leads (it's what tells marp-cli to render the deck).
-const EMIT_ORDER = ['marp', 'theme', 'preset', 'mode', 'color-mode', 'finish', 'headline-align', 'heading-rule', 'eyebrow', 'slide-corners', 'split', 'glossary', 'card-lift', 'size', 'venue', 'pagination', 'header', 'footer', 'class', 'validate', 'lang'];
+const EMIT_ORDER = ['marp', 'theme', 'preset', 'drawing', 'color-mode', 'finish', 'headline-align', 'heading-rule', 'eyebrow', 'slide-corners', 'split', 'glossary', 'card-lift', 'size', 'venue', 'pagination', 'header', 'footer', 'class', 'validate', 'lang'];
 
 const TRUEY = /^(true|yes|on|1)$/i;
 const FALSEY = /^(false|no|off|0)$/i;
@@ -189,7 +189,7 @@ export function readFrontMatter(source) {
     theme: scalarOf(entries, 'theme'),
     // A preset may RECOMMEND a hand (engineering/decisions/2026-11-20-deck-preset-study.md §5 D1); like every
     // look row, the row shows what renders.
-    mode: map.mode || (lookBaseline(map.preset, 'mode') === 'boardroom' ? '' : lookBaseline(map.preset, 'mode')),
+    drawing: map.drawing || (lookBaseline(map.preset, 'drawing') === 'clean' ? '' : lookBaseline(map.preset, 'drawing')),
     'color-mode': scalarOf(entries, 'color-mode'),
     // What the preset RECOMMENDS for the two author keys the deck leaves unset, or ''. Auto FOLLOWS the preset,
     // so the sheet's Auto choice names this value rather than hiding what renders. The color mode yields to a
@@ -264,8 +264,8 @@ function isDefault(key, value) {
   // 'none' is the named backdrop baseline — the same no-class result as omitting
   // finish, so it's treated as the default and dropped from the block.
   if (key === 'finish') { const f = (value == null ? '' : String(value)).trim().toLowerCase(); return f === '' || f === 'none'; }
-  // 'boardroom' is the named style (mode) baseline — dropped from the block.
-  if (key === 'mode') { const s = (value == null ? '' : String(value)).trim().toLowerCase(); return s === '' || s === 'boardroom'; }
+  // 'clean' is the named drawing baseline — dropped from the block.
+  if (key === 'drawing') { const s = (value == null ? '' : String(value)).trim().toLowerCase(); return s === '' || s === 'clean'; }
   // 'headings' is the default — same render as omitting split, so it's dropped
   // from the block; only the explicit 'rule' opt-out is written.
   if (key === 'split') { const s = (value == null ? '' : String(value)).trim().toLowerCase(); return s === '' || s === 'headings'; }
@@ -295,9 +295,9 @@ function normalize(key, value, preset) {
   // none = backdrop baseline → omit (same no-class render as no key at all).
   // Under a preset with a backdrop, `none` is the override that gets written.
   if (key === 'finish') { const f = v.toLowerCase(); return f === '' || f === lookBaseline(preset, 'finish') ? null : f; }
-  // boardroom = style (mode) baseline → omit. Under a preset that recommends another hand, the preset's
-  // hand is the baseline and `boardroom` is the override that gets written — the rule the look rows follow.
-  if (key === 'mode') { const s = v.toLowerCase(); return s === '' || s === lookBaseline(preset, 'mode') ? null : s; }
+  // clean = drawing baseline → omit. Under a preset that recommends another hand, the preset's
+  // hand is the baseline and `clean` is the override that gets written — the rule the look rows follow.
+  if (key === 'drawing') { const s = v.toLowerCase(); return s === '' || s === lookBaseline(preset, 'drawing') ? null : s; }
   if (key === 'split') { return v.toLowerCase() === 'rule' ? 'rule' : null; }
   // A look register at the value the deck's preset already gives it is omitted; any other
   // value is the override, written — the same rule `finish` and `lift` follow above.

@@ -173,7 +173,7 @@ section p:has(> code:only-child):not(:where([data-prose])):has(+ pre) > code {
   /* THE EYEBROW IS CONTENT, so it speaks in the content's type, not the chrome's: the heading
    * face's italic, in the author's case, a size step above the mono-caps header and meta line
    * it shares a corner with (type-hierarchy-study §4 rules 2–4). Every value is a voice token
-   * (lib/base/base.typography.css), so a `typography:` set or `mode: sketch` re-points it in one
+   * (lib/base/base.typography.css), so a `typography:` set or `drawing: sketch` re-points it in one
    * place. The size follows the chrome by `--eyebrow-scale` and never drops under the meta role,
    * which keeps the venue's label lift at hall. The style is set, never inherited, so a
    * component that italicizes its `> p` (stats' framing line) cannot change it. */

@@ -21,7 +21,7 @@ const MarkdownIt = require('markdown-it');
 
 const ROOT = path.join(__dirname, '..');
 const CASES_DIR = path.join(ROOT, 'spec', 'conformance', 'lfm');
-const MODES = ['sketch-clean', 'sketch'];
+const DRAWINGS = ['sketch-headings', 'sketch'];
 
 let engine;
 let lint;
@@ -150,7 +150,7 @@ function l1(source) {
   const logo = first?.querySelector(':scope > img.deck-logo')?.getAttribute('src') ?? null;
   return {
     deck: {
-      mode: (first && MODES.find((m) => first.classList.contains(m))) || 'boardroom',
+      drawing: (first && DRAWINGS.find((m) => first.classList.contains(m))) || 'clean',
       finish,
       logo,
     },

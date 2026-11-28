@@ -186,7 +186,7 @@ describe('buildMatrixGridSection', () => {
 // `--canvas-scale` raises the type as the box narrows and the content stops
 // fitting inside equal columns. Square was the expensive lesson: it was left on
 // `fixed` in the first cut and "Distinguished" painted 25.2px straight through
-// its own pill (44.5px under `mode: sketch`) — silently, because `.cell` is
+// its own pill (44.5px under `drawing: sketch`) — silently, because `.cell` is
 // `overflow: visible` and the spill lands inside `.chart-body`, so neither the
 // clip probe nor any golden caught it.
 //

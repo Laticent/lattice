@@ -270,7 +270,7 @@
    *                  Write a `px` length; a bare `cqi` resolves against the CARD's container
    *                  when the card is one, not the slide.
    *
-   * Where they do NOT show: `mode: sketch` redraws the `form` MASTHEAD rule in rough ink at its
+   * Where they do NOT show: `drawing: sketch` redraws the `form` MASTHEAD rule in rough ink at its
    * own width and makes its border transparent (base.sketch.css § masthead divider), so there
    * the rule hooks reserve space but draw nothing visible; the split-panel kicker and the
    * runheads still draw them. The CLI PDF writer leaves any non-solid border (`double`,
@@ -1937,7 +1937,7 @@ section[data-align-coda="spread"]:has(> .cell-coda)  { --align-v: space-evenly; 
  * (base.modifiers.css) cannot reach it: a `class: print` split page painted its runhead the
  * theme's screen blue on an otherwise all-gray paper page — measured, #455C7A against the
  * #3D3D3D that element's own `--text-secondary` resolves to. Naming `section` too re-resolves
- * every entry per section, which is where the print band, `mode: sketch`'s `--font-body`
+ * every entry per section, which is where the print band, `drawing: sketch`'s `--font-body`
  * re-point, and any future section-scoped remap all live. The typography generator has emitted
  * `:root, section` for exactly this reason since #1375, which is why `--pill-fs` survives the
  * same laundering and these four did not.
@@ -1963,7 +1963,7 @@ section[data-align-coda="spread"]:has(> .cell-coda)  { --align-v: space-evenly; 
  * price `--fs-meta` already pays two paragraphs down, for the same kind of reason.
  *
  * THE FACE STAYS A PLAIN `:root` DECLARATION, and it is the one entry that does not need the
- * fallback trick. Its only per-section hazard was `mode: sketch` re-pointing `--font-body` — and
+ * fallback trick. Its only per-section hazard was `drawing: sketch` re-pointing `--font-body` — and
  * a split page never carries the `sketch` class, measured across all 24 runheads of a
  * sketch-mode render of `examples/read-across-carousel.md`, every one of which takes the clean
  * face. So freezing it at `:root` changes nothing, a theme's `:root` override still works

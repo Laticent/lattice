@@ -1,5 +1,5 @@
 /**
- * Integration: a deck-wide `mode:` register reaches the runtime's transforms on
+ * Integration: a deck-wide `drawing:` register reaches the runtime's transforms on
  * their FIRST pass, so a transform whose GEOMETRY keys on the mode measures the
  * same face the CSS will paint (HARD RULE #1 — the two render paths agree).
  *
@@ -13,11 +13,11 @@
  *
  * Harmless while no transform keyed on a deck token. It stopped being harmless when
  * the gantt tick's wrap budget and collision cull started selecting their
- * per-character advance from the `sketch` class (#1663): a `mode: sketch` export
+ * per-character advance from the `sketch` class (#1663): a `drawing: sketch` export
  * built its axis with MONO advances and then painted it in the HAND face — the CSS
  * and the measurement naming different faces, which is the exact desync that
- * feature exists to prevent. `mode:` is the register that breaks, because Marp
- * stamps a native `class:` itself but has never heard of `mode:`.
+ * feature exists to prevent. `drawing:` is the register that breaks, because Marp
+ * stamps a native `class:` itself but has never heard of `drawing:`.
  *
  * The assertion is a TICK COUNT, because that is where the two advances diverge
  * observably: on a 15-month axis the hand's wider setting culls to alternate months
@@ -211,15 +211,15 @@ const countTransformPasses = async (fmLines, baked) => {
   return { passes, ticks };
 };
 
-describe('runtime mode-geometry parity — `mode:` reaches the transforms on pass 1', () => {
+describe('runtime mode-geometry parity — `drawing:` reaches the transforms on pass 1', () => {
   test('sanity: the two advances DO produce different tick counts on this axis', () => {
     assert.notEqual(engineTicks(true), engineTicks(false),
       'the fixture must be a span where the hand and mono advances cull differently, '
       + 'or the assertions below cannot detect which advance was used');
   });
 
-  test('`mode: sketch`: the runtime builds the axis with the HAND advance the CSS will paint', async () => {
-    const r = await runRuntime(['mode: sketch']);
+  test('`drawing: sketch`: the runtime builds the axis with the HAND advance the CSS will paint', async () => {
+    const r = await runRuntime(['drawing: sketch']);
     assert.equal(r.fetchCalls, 0, 'the baked block is read from the DOM — no network');
     assert.ok(r.sketch, 'the deck-wide mode token reached the section (so CSS paints the hand)');
     assert.equal(r.ticks, engineTicks(true),
@@ -227,9 +227,9 @@ describe('runtime mode-geometry parity — `mode:` reaches the transforms on pas
       + 'in a different face than the one being painted (HARD RULE #1)');
   });
 
-  test('`mode: sketch-clean` carries the hand too — it is `sketch` plus a body opt-out', async () => {
-    const r = await runRuntime(['mode: sketch-clean']);
-    assert.ok(r.sketch, 'sketch-clean still stamps `sketch`');
+  test('`drawing: sketch-headings` carries the hand too — it is `sketch` plus a body opt-out', async () => {
+    const r = await runRuntime(['drawing: sketch-headings']);
+    assert.ok(r.sketch, 'sketch-headings still stamps `sketch`');
     assert.equal(r.ticks, engineTicks(true));
   });
 
@@ -250,12 +250,12 @@ describe('runtime mode-geometry parity — the FETCH FALLBACK converges too (#16
   test('the fixture really does take the fetch path', async () => {
     // Guards every assertion below: if the runtime found a baked block after all,
     // it would pass for the reason #1664 already covers and prove nothing here.
-    const r = await runRuntimeFetched(['mode: sketch']);
+    const r = await runRuntimeFetched(['drawing: sketch']);
     assert.ok(r.fetchCalls > 0, 'no baked block, http(s) origin — the source .md must be fetched');
   });
 
-  test('`mode: sketch` over fetch: the axis ends up measured in the face it is painted in', async () => {
-    const r = await runRuntimeFetched(['mode: sketch']);
+  test('`drawing: sketch` over fetch: the axis ends up measured in the face it is painted in', async () => {
+    const r = await runRuntimeFetched(['drawing: sketch']);
     assert.ok(r.sketch, 'the deck-wide mode token reached the section, so CSS paints the hand');
     assert.equal(r.ticks, engineTicks(true),
       `runtime built ${r.ticks} ticks, engine builds ${engineTicks(true)} — the axis was measured `
@@ -266,7 +266,7 @@ describe('runtime mode-geometry parity — the FETCH FALLBACK converges too (#16
   });
 
   test('the rebuild replaces the figure rather than stacking a second one', async () => {
-    const r = await runRuntimeFetched(['mode: sketch']);
+    const r = await runRuntimeFetched(['drawing: sketch']);
     // Counted INSIDE the section, on the structures a second build would
     // duplicate. An earlier cut of this test counted `.chart-frame`, which is a
     // class on the `<section>` itself — so it was always exactly 1 and could not
@@ -289,7 +289,7 @@ describe('runtime mode-geometry parity — the FETCH FALLBACK converges too (#16
     // brought the next pass round, and the finish popped in late on chart slides
     // only. Found by the checker on this diff; the fix re-injects after the
     // registry rather than teaching chart-family what a finish is.
-    const r = await runRuntimeFetched(['mode: sketch', 'finish: atrium']);
+    const r = await runRuntimeFetched(['drawing: sketch', 'finish: atrium']);
     assert.equal(r.backdrop, 1, 'the chart section ended without its finish backdrop');
     assert.equal(r.backdropGap, false,
       'the chart painted with no finish backdrop for part of startup — the rebuild '
@@ -314,16 +314,16 @@ describe('runtime mode-geometry parity — the FETCH FALLBACK converges too (#16
   });
 
   test('the baked path runs exactly ONE transform pass — the gate still gates', async () => {
-    const r = await countTransformPasses(['mode: sketch'], true);
+    const r = await countTransformPasses(['drawing: sketch'], true);
     assert.equal(r.ticks, engineTicks(true), 'sanity: the baked path still converges');
     assert.equal(r.passes, 1,
-      `baked + mode: sketch ran ${r.passes} transform passes — the re-run gate has stopped `
+      `baked + drawing: sketch ran ${r.passes} transform passes — the re-run gate has stopped `
       + 'gating and every Export-to-Marp bundle now pays for a second full pass. This is the '
       + 'property the clear-point in runAllContentTransforms exists for.');
   });
 
   test('the fetch fallback buys the correction pass it needs, and does not loop', async () => {
-    const r = await countTransformPasses(['mode: sketch'], false);
+    const r = await countTransformPasses(['drawing: sketch'], false);
     assert.ok(r.passes >= 2, `fetch fallback ran ${r.passes} passes — it needs a correction pass`);
     assert.ok(r.passes <= 3, `fetch fallback ran ${r.passes} passes — that is a re-run loop`);
     assert.equal(r.ticks, engineTicks(true));

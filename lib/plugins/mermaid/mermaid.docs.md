@@ -63,7 +63,7 @@ every install layout. Each package's `LICENSE` sits
 beside its copy (`vendor/*.LICENSE`), recorded the same way.
 
 Each diagram is drawn for the band of **its own slide** — light, dark or print — and in the
-slide's look (a `mode: sketch` deck draws hand-drawn nodes). A portrait deck, or a tall pane,
+slide's look (a `drawing: sketch` deck draws hand-drawn nodes). A portrait deck, or a tall pane,
 turns a left-to-right flowchart top-to-bottom.
 
 ## Failure behavior

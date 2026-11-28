@@ -136,7 +136,7 @@ A few things worth knowing:
 | A decision diamond | `B{Check}` |
 | A frame around some steps | `subgraph Intake … end` |
 | The diagram to build in | `motion: on` in the deck's front matter |
-| A hand-drawn look | `mode: sketch` in the deck's front matter |
+| A hand-drawn look | `drawing: sketch` in the deck's front matter |
 
 A portrait deck turns a left-to-right flowchart top to bottom on its own, so it fits the page.
 

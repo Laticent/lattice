@@ -46,7 +46,7 @@ const sectionClasses = (html) => [...new JSDOM(html).window.document.querySelect
 // The RECOMMENDATION keys (D1, engineering/decisions/2026-11-20-deck-preset-study.md): each is checked by
 // its own register's parser, because two take more than one word and `theme` names a palette file.
 const { COLOR_MODE_NAMES } = require(path.join(ROOT, 'lib/core/resolve-color-mode.js'));
-const { MODE_NAMES } = require(path.join(ROOT, 'lib/core/resolve-mode.js'));
+const { DRAWING_NAMES } = require(path.join(ROOT, 'lib/core/resolve-drawing.js'));
 const { parseChartFinish, CHART_FINISH_DEFAULT, COLOR_INTENSITIES, COLOR_INTENSITY_DEFAULT } = require(path.join(ROOT, 'lib/core/resolve-chart-finish.js'));
 const { parseBackdrop } = require(path.join(ROOT, 'lib/core/resolve-backdrop.js'));
 const fs = require('node:fs');
@@ -54,7 +54,7 @@ const clean = (p) => p.unknown.length === 0 && p.duplicate.length === 0;
 const ACCEPTS = {
   theme: (v) => v === '' || fs.existsSync(path.join(ROOT, 'themes', v, `${v}.css`)),
   'color-mode': (v) => v === '' || COLOR_MODE_NAMES.includes(v),
-  mode: (v) => MODE_NAMES.includes(v),
+  drawing: (v) => DRAWING_NAMES.includes(v),
   'chart-finish': (v) => { const p = parseChartFinish(v); return clean(p) && !p.intensity; },
   'color-intensity': (v) => COLOR_INTENSITIES.includes(v),
   backdrop: (v) => v === '' || clean(parseBackdrop(v)),

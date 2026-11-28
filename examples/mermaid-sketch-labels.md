@@ -2,7 +2,7 @@
 marp: true
 theme: indaco
 pagination: true
-mode: sketch
+drawing: sketch
 header: "Meridian Freight · platform review"
 ---
 
@@ -177,7 +177,7 @@ gantt
 
 ---
 
-<!-- @meta{layout=diagram, class=boardroom, header=Meridian Freight · platform review · opted out} -->
+<!-- @meta{layout=diagram, class=no-sketch, header=Meridian Freight · platform review · opted out} -->
 
 
 `Per-slide opt-out`

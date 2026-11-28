@@ -57,15 +57,15 @@ describe('the front-matter register family', () => {
     assert.deepEqual(found.map((f) => f.rule), ['deck/unknown-finish']);
     assert.equal(fixDeck(src, { vocab }).text, deck('finish: halo  # note'));
     // Mismatched quotes: the engine reads no name and keeps the default; lint-core named the word, and so does the port.
-    assert.deepEqual(lintDeck(deck(`mode: "sketchy'`), { vocab }).map((f) => f.rule), ['deck/unknown-mode']);
+    assert.deepEqual(lintDeck(deck(`drawing: "sketchy'`), { vocab }).map((f) => f.rule), ['deck/unknown-drawing']);
     // A value that is not a bare name still reads as none.
     assert.deepEqual(lintDeck(deck('finish: two words'), { vocab }), []);
   });
 
   test('`key :` is the key, and an indented line stands in only for a loose register', () => {
-    assert.deepEqual(lintDeck(deck('mode : sketchy'), { vocab }).map((f) => f.rule), ['deck/unknown-mode']);
+    assert.deepEqual(lintDeck(deck('drawing : sketchy'), { vocab }).map((f) => f.rule), ['deck/unknown-drawing']);
     assert.deepEqual(lintDeck(deck('pptx:\n  color-mode: darrk'), { vocab }).map((f) => f.rule), []);
-    assert.deepEqual(lintDeck(deck('pptx:\n  mode: sketchy'), { vocab }).map((f) => f.rule), ['deck/unknown-mode']);
+    assert.deepEqual(lintDeck(deck('pptx:\n  drawing: sketchy'), { vocab }).map((f) => f.rule), ['deck/unknown-drawing']);
   });
 
   test('a bundle deck\'s settings block is front matter, as the engine and lint-core read it', () => {

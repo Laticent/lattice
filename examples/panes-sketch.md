@@ -1,6 +1,6 @@
 ---
 theme: indaco
-mode: sketch
+drawing: sketch
 pagination: true
 header: "Lattice · panes"
 footer: "Panes under a sketch finish"

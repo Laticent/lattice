@@ -71,7 +71,7 @@ function toStudioFinish(a: FinishAssetRecord): StudioFinish {
 export const RESERVED_FINISH_NAMES: ReadonlySet<string> = new Set([
 	// every shipped preset, from the finish packages (lib/finishes/) — no longer retyped here
 	...FINISH_PRESETS.map((p) => p.name),
-	'boardroom', 'sketch', 'sketch-clean', 'none', 'preview', // register + engine reserved
+	'clean', 'sketch', 'sketch-headings', 'none', 'preview', // register + engine reserved
 ]);
 
 /** Turn arbitrary text into a valid finish slug, or '' when nothing usable remains. */

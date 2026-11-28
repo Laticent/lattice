@@ -240,15 +240,15 @@ describe('writeFrontMatter', () => {
     assert.equal(writeFrontMatter(atrium, 'finish', 'none'), CLEAN);
   });
 
-  test('mode (rendering hand): sketch / sketch-clean are written; boardroom + empty omitted', async () => {
+  test('drawing (rendering hand): sketch / sketch-headings are written; clean + empty omitted', async () => {
     const { writeFrontMatter, readFrontMatter } = await import(MOD);
-    assert.ok(writeFrontMatter(CLEAN, 'mode', 'sketch').includes('mode: sketch'));
-    assert.ok(writeFrontMatter(CLEAN, 'mode', 'sketch-clean').includes('mode: sketch-clean'));
-    assert.equal(writeFrontMatter(CLEAN, 'mode', 'boardroom'), CLEAN, 'boardroom is the baseline → no key');
-    assert.equal(writeFrontMatter(CLEAN, 'mode', ''), CLEAN);
-    const sketched = writeFrontMatter(CLEAN, 'mode', 'sketch');
-    assert.equal(readFrontMatter(sketched).mode, 'sketch');
-    assert.equal(writeFrontMatter(sketched, 'mode', 'boardroom'), CLEAN);
+    assert.ok(writeFrontMatter(CLEAN, 'drawing', 'sketch').includes('drawing: sketch'));
+    assert.ok(writeFrontMatter(CLEAN, 'drawing', 'sketch-headings').includes('drawing: sketch-headings'));
+    assert.equal(writeFrontMatter(CLEAN, 'drawing', 'clean'), CLEAN, 'clean is the baseline → no key');
+    assert.equal(writeFrontMatter(CLEAN, 'drawing', ''), CLEAN);
+    const sketched = writeFrontMatter(CLEAN, 'drawing', 'sketch');
+    assert.equal(readFrontMatter(sketched).drawing, 'sketch');
+    assert.equal(writeFrontMatter(sketched, 'drawing', 'clean'), CLEAN);
   });
 
   test('color-mode: light/dark/system/inherited are written; theme-default (empty) omitted', async () => {
@@ -313,11 +313,11 @@ describe('writeFrontMatter', () => {
   test('a bespoke finish/mode counts as "configured"; the baselines do not', async () => {
     const { readFrontMatter } = await import(MOD);
     assert.equal(readFrontMatter('---\nmarp: true\nfinish: atrium\n---\n\n# Deck\n').configured, true);
-    assert.equal(readFrontMatter('---\nmarp: true\nmode: sketch\n---\n\n# Deck\n').configured, true);
+    assert.equal(readFrontMatter('---\nmarp: true\ndrawing: sketch\n---\n\n# Deck\n').configured, true);
     assert.equal(readFrontMatter('---\nmarp: true\nfinish: none\n---\n\n# Deck\n').configured, false,
       'none is the finish baseline — not a bespoke-setup signal');
-    assert.equal(readFrontMatter('---\nmarp: true\nmode: boardroom\n---\n\n# Deck\n').configured, false,
-      'boardroom is the mode baseline — not a bespoke-setup signal');
+    assert.equal(readFrontMatter('---\nmarp: true\ndrawing: clean\n---\n\n# Deck\n').configured, false,
+      'clean is the drawing baseline — not a bespoke-setup signal');
   });
 
   test('preserves unmanaged keys (style, backgroundColor) on write-back', async () => {

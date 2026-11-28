@@ -8,7 +8,7 @@ import { activeFit, FIT } from './fit-catalog';
 
 // Rot-guard: the Studio display catalog MUST stay in step with the engine register.
 // Without it, a register change silently drifts the picker — a value that renders but
-// isn't offered, or a catalog entry pointing at a dead name. Mirrors mode-catalog.test.ts.
+// isn't offered, or a catalog entry pointing at a dead name. Mirrors drawing-catalog.test.ts.
 describe('fit-catalog ↔ FIT_NAMES', () => {
 	const names = new Set<string>(FIT_NAMES);
 

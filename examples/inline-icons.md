@@ -101,7 +101,7 @@ A deck sets the same thing for every slide with `icon: bare` in its front matter
 
 Framed icons `^{database, c1}` `^{bucket, c4, etch}` `^{shield, c3, tone}` and a spark `~{12 14 13 17 16 21 24}` share one hand.
 
-The drawing inside stays crisp, and a bare icon `^{rocket, c5, bare}` has no tile to ink. `mode: sketch` does the same for a whole deck.
+The drawing inside stays crisp, and a bare icon `^{rocket, c5, bare}` has no tile to ink. `drawing: sketch` does the same for a whole deck.
 
 ---
 

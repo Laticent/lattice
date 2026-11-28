@@ -217,7 +217,7 @@ Markdown hands raw HTML through untouched, so the rule never sees these rows. Th
 
 <!-- @meta{layout=table, class=sketch} -->
 
-`mode: sketch`
+`drawing: sketch`
 
 ## The same table in the drawn hand.
 

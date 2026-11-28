@@ -160,12 +160,14 @@ describe('rough-ink — the structure registry', () => {
   });
 
   test('every selector is scoped to the sketch finish', () => {
-    // A selector that escaped `section.sketch` would ink structures on decks
+    // A selector that escaped the sketch scope would ink structures on decks
     // that never asked for the finish — and would do it only in the browser,
     // where nothing in the CSS gates could see it.
+    // Split at top-level commas only: the scope itself, `:is(.sketch, .sketch-headings)`, holds one.
+    const arms = (sel) => sel.split(/,(?![^()]*\))/);
     for (const s of ROUGH_INK_STRUCTURES) {
-      for (const arm of s.sel.split(',')) {
-        assert.match(arm.trim(), /^section\.sketch\b/, `${s.id}: unscoped arm "${arm.trim()}"`);
+      for (const arm of arms(s.sel)) {
+        assert.match(arm.trim(), /^section:is\(\.sketch, \.sketch-headings\)/, `${s.id}: unscoped arm "${arm.trim()}"`);
       }
     }
   });
@@ -280,7 +282,7 @@ describe('rough-ink — shiftPath', () => {
 describe('rough ink reaches a pane', () => {
   const { JSDOM } = require('jsdom');
   const { render } = require('../../../lib/engine/index.js');
-  const md = '---\nmode: sketch\n---\n\n## T\n\n<!-- @meta{pane=list} -->\n\n- a\n\n<!-- @meta{pane=table} -->\n\n| x | y |\n|---|---|\n| 1 | 2 |\n';
+  const md = '---\ndrawing: sketch\n---\n\n## T\n\n<!-- @meta{pane=list} -->\n\n- a\n\n<!-- @meta{pane=table} -->\n\n| x | y |\n|---|---|\n| 1 | 2 |\n';
   const doc = new JSDOM(render(md, 'lattice').html).window.document;
   const sel = (id) => ROUGH_INK_STRUCTURES.find((s) => s.id === id).sel;
   test('the table entry selects the table pane\'s table, and the painter positions against the host', () => {

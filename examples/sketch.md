@@ -55,7 +55,7 @@ Turn it on once with `class: sketch` in the front matter and it propagates to ev
 - PDF-safe by design
   - Type, border geometry, and real rough.js strokes — plain SVG paths. No SVG *filter*, which is the thing that collapses print scaling.
 - Opt body back to clean
-  - Add `sketch-clean-body` to keep the hand headings and boxes while prose stays crisp.
+  - Add `sketch-headings` to keep the hand headings and boxes while prose stays crisp.
 
 ---
 
@@ -164,7 +164,7 @@ The words were always hand-drawn; the small print was not. The
 
 ---
 
-<!-- @meta{layout=diagram, footer="Diagrams — mode: sketch bakes Mermaid's own hand-drawn renderer"} -->
+<!-- @meta{layout=diagram, footer="Diagrams — drawing: sketch bakes Mermaid's own hand-drawn renderer"} -->
 
 
 `Diagrams under sketch`

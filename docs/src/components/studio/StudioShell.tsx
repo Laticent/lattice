@@ -69,8 +69,8 @@ import { paginateOn } from '../../../../lib/core/meta-keys.mjs';
 import { math as MATH } from '../../../../lib/plugins/detect.generated.mjs';
 import { isBlankDeck } from '../../lib/deck-empty';
 import { type PresentLens, presentationIndices, slideTitle, splitSlides, unknownComponents, usedComponents } from '../../lib/deck-lint';
+import { activeDrawing, DRAWINGS } from '../../lib/drawing-catalog';
 import { frontMatterBlock, getFrontMatter, getFrontMatterName, innerFrontMatter, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatterTerms, stripFrontMatter, type TermEntry, writeFrontMatterLine } from '../../lib/front-matter';
-import { activeMode, MODES } from '../../lib/mode-catalog';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from '../../lib/motion-catalog';
 import { attachPreviewZoom, type PreviewZoomHandle } from '../../lib/preview-zoom';
 import { canEditClass, getClassTokens } from '../../lib/slide-directives';
@@ -2835,11 +2835,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// through the single `finish-override:` front-matter map, which deep-merges into the
 	// finish's recipe and regenerates its CSS (see `finishExtraCss`).
 	const setFinish = (value: string) => settingsWrite(`Finish → ${value}`, (s) => writeRegister(s, 'finish', value));
-	// The `mode:` axis (rendering mode — boardroom / sketch), a sibling of finish.
-	// (The key can't be `style:` — that's Marp's built-in inline-CSS directive.)
-	// Named `renderMode` locally to avoid clashing with the light/dark `mode` below.
-	const renderMode = getFrontMatter(source, 'mode') || 'boardroom';
-	const setRenderMode = (value: string) => settingsWrite(`Mode → ${value}`, (s) => writeFrontMatterLine(s, 'mode', value === 'boardroom' ? null : value));
+	// The `drawing:` axis (how the slides are drawn — clean / sketch / sketch-headings), a sibling of finish.
+	const drawing = getFrontMatter(source, 'drawing') || 'clean';
+	const setDrawing = (value: string) => settingsWrite(`Mode → ${value}`, (s) => writeFrontMatterLine(s, 'drawing', value === 'clean' ? null : value));
 	// Chart motion — the deck-wide `motion:` default (off is the baseline; clears the key). A slide
 	// overrides it with a `motion-*` class in the slide drawer. Preview-only; export is untouched.
 	// Chart motion — three deck-wide axes (Play / Style / Speed), full parity with the front matter.
@@ -6868,7 +6866,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		</Field>
 	);
 	const typographyField = (
-		<Field label="Typography" desc="The type set: faces, eyebrow and chart text." find="type typography font fonts face typeface serif sans heading body eyebrow ledger poster festival classic" help={<>A curated set chooses the heading and body faces, the eyebrow&apos;s voice and the chart&apos;s text together, so the layers stay apart. Classic is the default; a preset picks one, and this choice wins. <code>mode: sketch</code> keeps its own hand type.</>}>
+		<Field label="Typography" desc="The type set: faces, eyebrow and chart text." find="type typography font fonts face typeface serif sans heading body eyebrow ledger poster festival classic" help={<>A curated set chooses the heading and body faces, the eyebrow&apos;s voice and the chart&apos;s text together, so the layers stay apart. Classic is the default; a preset picks one, and this choice wins. <code>drawing: sketch</code> keeps its own hand type.</>}>
 			<CatalogSelect
 				ariaLabel="Choose deck typography"
 				className="w-full"
@@ -6902,11 +6900,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				{sizeField}
 				{venueField}
 				{typographyField}
-				<Field label="Mode" desc="Crisp, or hand-drawn." find="sketch boardroom hand drawn" help={<>The rendering hand: <strong>Boardroom</strong> is the clean default; <strong>Sketch</strong> draws headings, boxes and rules by hand. Separate from Finish — the two combine.</>}>
-					{/* The rendering MODE (boardroom / sketch) — a separate axis from Finish
-					    (the backdrop). The two compose. Front-matter key `mode:` (Marp already
-					    owns `style:` for inline CSS, so the axis is named "mode"). */}
-					<CatalogSelect ariaLabel="Choose mode" className="w-full" {...autoField(activeMode(renderMode).name, 'boardroom', setRenderMode, [{ options: catalogOptions(MODES) }])} />
+				<Field label="Mode" desc="Crisp, or hand-drawn." find="drawing sketch clean hand drawn" help={<>The rendering hand: <strong>Clean</strong> is the default; <strong>Sketch</strong> draws headings, boxes and rules by hand. Separate from Finish — the two combine.</>}>
+					{/* How the slides are DRAWN (clean / sketch / sketch-headings) — a separate axis
+					    from Finish (the backdrop). The two compose. Front-matter key `drawing:`. */}
+					<CatalogSelect ariaLabel="Choose mode" className="w-full" {...autoField(activeDrawing(drawing).name, 'clean', setDrawing, [{ options: catalogOptions(DRAWINGS) }])} />
 				</Field>
 				<Field label="Finish" desc="A backdrop behind every slide." find="background texture gradient grain wash" help={<>A palette-blind layer stack — a soft gradient, wash or grain — painted behind the content. It follows whatever palette the deck is on, so it never fights the theme. Tune one in Fabricate to save your own.</>}>
 					<CatalogSelect

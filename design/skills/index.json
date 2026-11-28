@@ -62,7 +62,7 @@
       "description": "Use when writing a whole deck from a blank file: narrative arc, front matter, picking layouts, the 10/10 bar and the ship checklist.",
       "kind": "make",
       "studio": true,
-      "tokens": 3275
+      "tokens": 3278
     },
     {
       "name": "diagram",
@@ -89,7 +89,7 @@
       "description": "Use when creating or choosing a finish: backdrop — the layered, palette-blind atmosphere painted behind slide content.",
       "kind": "make",
       "studio": true,
-      "tokens": 3946
+      "tokens": 3950
     },
     {
       "name": "fix-findings",
@@ -134,7 +134,7 @@
       "description": "Use when changing how a deck looks without changing what it says: theme, color mode, preset, finish, mode, registers, per-slide modifiers, or a better-fitting layout.",
       "kind": "operate",
       "studio": true,
-      "tokens": 3239
+      "tokens": 3244
     },
     {
       "name": "speaker-notes",

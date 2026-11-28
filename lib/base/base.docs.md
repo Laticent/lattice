@@ -13,7 +13,7 @@ that any component can opt into.
 | `base.modifiers.css` | Auto-detected chrome — eyebrow, subtitle, key-insight panel, below-note, annotation. Triggered by markdown patterns the author writes (no class needed). |
 | `base.variants.css` | Universal opt-in variants — `dark`, `mirror`, `numbered`, `silent`, state markers, tone tokens. Composed via a slide's `@meta{class=…}`. |
 | `base.treatments.css` | 27 treatment utility classes — 12 tints (`tint-corner at-tl`, `tint-vignette`, etc.) and 11 marks (`mark-orbit`, `mark-seeds`, etc.) plus `no-treatment` — for peripheral atmospheric accents. |
-| `base.sketch.css` | The `sketch` **mode** (rendering hand) — a deck-wide hand-drawn skin (handwriting type, drawn boxes, and rough.js-drawn lines). Palette-blind; set via `mode:` or `class:` / a slide's `@meta{class=sketch}`. |
+| `base.sketch.css` | The `sketch` **mode** (rendering hand) — a deck-wide hand-drawn skin (handwriting type, drawn boxes, and rough.js-drawn lines). Palette-blind; set via `drawing:` or `class:` / a slide's `@meta{class=sketch}`. |
 | `base.finish.css` | The `field` zone of the Finish family — 9 premium **stacked-layer** finish presets (`finish-atrium/meridian/strata/halo/ledger/nimbus/loom/savile/gallery`) on a per-role custom-property compositor (`--fin-wash`/`--fin-texture`/`--fin-mark`/`--fin-edge`), so layers combine by z-index instead of being either/or. `no-finish` (or back-compat `no-backdrop`) opts a slide out. **Rich-on-screen / safe-on-export:** each preset's slot DEFAULT is the richer "dissolving" screen look (directional fades to `transparent` — alpha the browser composites cleanly), with an `--fin-*-opaque` mirror holding the PDF-clean opaque value (every full-bleed fade ends on `var(--fin-canvas)`). One guarded block flips the slots to the opaque mirror for BOTH export paths — `@media print` (CLI vector PDF) and `.lattice-exporting` (the Studio html-to-image raster tags each section before capture) — so the screen is rich while every PDF/PPTX stays opaque-clean (an alpha area-fade bakes to a gray cloud in print-to-PDF). Both faces are palette-blind (`color-mix(var(--accent)/var(--fin-canvas))`), no masks, no `url()`; only the screen face uses alpha. **`--fin-canvas` is the surface THIS SLIDE paints** — `var(--bg)` by default, `--surface-inverse` on the frames that paint an inverse panel (`title`/`closing`/`divider`/`topic`), `var(--accent)` on the six accent covers (the five the splitter emits plus the shared `lat-split-cover`) in **every** mode, `var(--panel-fill)` on a `split-panel` cover carrying a category, and `var(--img-matte)`/`var(--scene-matte)` on the `image` and `scene` compositions that paint the matte — which is what keeps a finish from washing out a frame that paints its own canvas (#1656). It follows the frame **only where the frame actually keeps that canvas**, and after #2291 that is a question about `print` alone: `print` remaps the consumed tokens and `section.print` resets the surface, so a frame that loses the surface to it excludes it. `accent` / `no-spectrum` / `spectrum-<edge>` used to out-specify a frame's own rule and every arm here carried a mode-scoped group excluding them; none of the three was painting a canvas (each draws or removes a *bar* and restated the color while doing it), so they say `background-image` now and the exclusions are gone with them. The accent covers are **not** scoped to `dark` (they were until #2294): a cover paints `var(--accent)` in every mode, and the two arms differ only on print — `section.print` is bundled after the five component sheets and takes their field, while `section.lat-split-cover` is bundled after `section.print` and keeps it. Print has a **fourth** answer: `section.print[data-split-role="cover"]` de-floods any role-stamped cover to `var(--surface-inverse)`, so `--fin-canvas` mirrors it on the same stamp rather than on a frame class. `topic` differs by DOM shape AND by variant, so it takes three arms: `section.topic:not(:has(> ul.tile-track))` restates its canvas at (0,2,2), so a trackless topic holds it under everything, print included, and carries no condition at all; a topic carrying its track is back at (0,1,1) and loses it as `title` does; but `section.topic.fact` (0,2,1) restates it again and out-specifies `section.print` (0,1,1), so a **fact** slide keeps its inverse panel under print even when tracked — measured, `topic fact print` with the track is rgb(236,236,236) while the plain tracked arm was sending `--fin-canvas` to white. Selected deck-wide via the `finish:` register or per-slide via `@meta{class=finish finish-<name>}`. See `engineering/decisions/2026-06-30-finish-the-surface-layer.md`. |
 
 ---
@@ -1183,7 +1183,7 @@ token (`SILENCED_NAMES` in `lib/core/switches.mjs`).
 
 ### `sketch`
 
-The hand-drawn **mode** (`mode: sketch` in front matter, or the `sketch` class on one slide) — a deck-wide skin that swaps Lattice into a
+The hand-drawn **mode** (`drawing: sketch` in front matter, or the `sketch` class on one slide) — a deck-wide skin that swaps Lattice into a
 hand-drawn register: felt-tip headings (`--sketch-font-display`, Caveat),
 a legible hand-sans for prose (`--sketch-font-body`, Shantell Sans), and
 the card surface of
@@ -1230,7 +1230,7 @@ diagram stays mono, a pre-existing divergence in the diagram theme-variable
 path (`engineering/mermaid.md` §5.3), not something the finish can reach from
 CSS.
 
-It is the **`mode:` axis** — the deck's rendering *mode* (its typographic
+It is the **`drawing:` axis** — the deck's rendering *mode* (its typographic
 hand), a sibling of the `finish:` backdrop within the Function · Form · Substance
 · Finish model: it changes type and box geometry, never color. Every stroke
 resolves through a palette token, so the style is **palette-blind** — pair it
@@ -1240,7 +1240,7 @@ palette is the blessed pairing.
 ```yaml
 ---
 theme: carta      # paper + ink; any palette works
-mode: sketch     # deck-wide rendering mode — propagates to every slide
+drawing: sketch     # deck-wide rendering mode — propagates to every slide
 ---
 ```
 
@@ -1248,14 +1248,14 @@ Or per slide: `<!-- @meta{layout=cards-grid, class=sketch} -->`.
 
 ### Front-matter registers — moved
 
-The deck-level registers that used to live here — **`mode:`, `finish:`, `split:`,
+The deck-level registers that used to live here — **`drawing:`, `finish:`, `split:`,
 `stamp-shape:` / `tone:`, `spectrum:` / `card-spectrum:` / `trim-spectrum:`, `heading-rule:`, `eyebrow:`,
 `headline-align:`, `card-lift:`** and **`slide-corners:`** — are in
 **[`base.registers.docs.md`](base.registers.docs.md)**, with a table at the top
 naming what each one selects and its default.
 
 Nine of them were nested under `### sketch` above, which is a per-slide variant:
-`mode: sketch` is how you turn sketch on deck-wide, so the first register landed
+`drawing: sketch` is how you turn sketch on deck-wide, so the first register landed
 there fairly, and eight more followed it. Nothing about `headline-align:` or `card-lift:`
 belongs under a section on handwriting, and the heading structure gave a reader
 no way to find them.
@@ -1268,7 +1268,7 @@ register it belongs to. Each is documented in
 
 | Register | Per-slide `class=` tokens |
 |---|---|
-| `mode:` | `sketch-clean-body` |
+| `drawing:` | `sketch-headings` |
 | `finish:` | `finish-atrium` · `finish-gallery` · `finish-halo` · `finish-ledger` · `finish-loom` · `finish-meridian` · `finish-nimbus` · `no-finish` · `finish-savile` · `finish-strata` |
 | `stamp-shape:` | `stamp-shape-bar` · `stamp-shape-bracket` · `stamp-shape-dot` · `stamp-shape-flag` · `stamp-shape-mark` · `stamp-shape-notch` · `stamp-shape-pill` · `stamp-shape-pin` · `stamp-shape-ribbon` · `stamp-shape-seal` · `stamp-shape-tab` · `stamp-shape-underline` · `stamp-shape-veil` |
 | `spectrum:` | `with-card-spectrum` · `no-card-spectrum` · `card-spectrum-duo` · `card-spectrum-bottom` · `card-spectrum-left` · `card-spectrum-right` · `card-spectrum-top` · `card-spectrum-mono` · `card-spectrum-solid` · `spectrum-duo` · `spectrum-bottom` · `spectrum-left` · `no-spectrum` · `with-spectrum` · `spectrum-right` · `spectrum-top` · `spectrum-mono` · `spectrum-solid` · `spectrum-regular` · `spectrum-hairline` · `spectrum-band` · `card-spectrum-regular` · `card-spectrum-hairline` · `card-spectrum-band` · `trim-spectrum-quiet` · `trim-spectrum-rainbow` · `trim-spectrum-solid` · `trim-spectrum-duo` · `trim-spectrum-mono` |
@@ -1313,7 +1313,7 @@ style: |
 default. Pills keep `--radius-full`. Quote and callout panels, and diagram-like tiles
 (`matrix-2x2` quadrants, `cycle`, `authority-chain`, `regulatory-update`), keep `--radius-md`.
 
-**Two limits.** Under `mode: sketch` the `form` masthead rule is redrawn in rough ink at its own
+**Two limits.** Under `drawing: sketch` the `form` masthead rule is redrawn in rough ink at its own
 width, so the three rule hooks have no visible effect on it; the `split-panel` kicker and the
 runheads still follow them. The CLI PDF writer leaves a `double` or `dashed` rule in the page's
 background photo instead of drawing it as a vector. It still prints, as a raster.
@@ -2001,7 +2001,7 @@ always removed): `engineering/decisions/2026-10-12-library-media-assets.md` § E
 ## Related
 
 - `base.registers.docs.md` — the ten deck-level front-matter registers
-  (`mode:` `finish:` `split:` `stamp-shape:`/`tone:` `spectrum:` `heading-rule:` `eyebrow:`
+  (`drawing:` `finish:` `split:` `stamp-shape:`/`tone:` `spectrum:` `heading-rule:` `eyebrow:`
   `headline-align:` `card-lift:` `slide-corners:`) and their per-slide tokens.
 
 - `design/design-system.md §6.5` — the variant tier system (universal,

@@ -82,7 +82,7 @@ The deck-level words are frame, look and corners: `framed` · `bare` · `pigment
 
 ## Sketch mode
 
-With `mode: sketch`, sparks are drawn by hand like the tables around them: the tile's edge, the
+With `drawing: sketch`, sparks are drawn by hand like the tables around them: the tile's edge, the
 line, the bars' outlines, the bullet's tick and the ring. Nothing to write. Sparks in the header
 or footer stay clean.
 

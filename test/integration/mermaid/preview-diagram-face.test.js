@@ -32,12 +32,12 @@
  * THREE CASES, because two of them were regressions found by a checker after the first
  * cut of this gate passed green:
  *
- *   1. `mode: sketch`       — every label in the hand face (the #1674 fix).
- *   2. `mode: sketch-clean` — every label in the CLEAN face. This is not symmetry for its
+ *   1. `drawing: sketch`       — every label in the hand face (the #1674 fix).
+ *   2. `drawing: sketch-headings` — every label in the CLEAN face. This is not symmetry for its
  *      own sake: `--font-body` resolved to the EMPTY STRING here, because the export
  *      restored the clean face from a `--font-body-clean` alias snapshotted at `:root`
  *      while the preview rescopes `:lattice-root` onto the section — putting the alias
- *      and the override on ONE element, a custom-property cycle. Every sketch-clean slide
+ *      and the override on ONE element, a custom-property cycle. Every sketch-headings slide
  *      previewed its prose AND its diagrams in Times New Roman.
  *   3. per-diagram font blocks — c4 / journey / sequence / timeline take their type from
  *      their OWN config block, not the global theme variable, so `perDiagramFonts` writes
@@ -117,7 +117,7 @@ async function previewFaces(deckSource, theme) {
       const faces = {};
       // Bucketed by what the SLIDE asked for, because a deck may opt one slide out:
       // `hand` = a .sketch section, `clean` = anything else (including a
-      // .sketch-clean-body one). A face is only foreign relative to its own bucket.
+      // .sketch-headings one). A face is only foreign relative to its own bucket.
       const byBucket = { hand: {}, clean: {} };
       let diagrams = 0;
       document.querySelectorAll('section svg').forEach((svg) => {
@@ -125,7 +125,7 @@ async function previewFaces(deckSource, theme) {
         diagrams++;
         const section = svg.closest('section');
         const bucket = section?.classList.contains('sketch')
-          && !section.classList.contains('sketch-clean-body') ? 'hand' : 'clean';
+          && !section.classList.contains('sketch-headings') ? 'hand' : 'clean';
         svg.querySelectorAll('text, tspan, .nodeLabel, .edgeLabel, foreignObject span, foreignObject p')
           .forEach((el) => {
             if (!(el.textContent || '').trim()) return;
@@ -176,14 +176,14 @@ function assertNoForeignFace(census, label) {
 }
 
 /**
- * The four families whose type comes from their OWN config block. `mode: sketch` so the
+ * The four families whose type comes from their OWN config block. `drawing: sketch` so the
  * expected face is the hand one; each fence is minimal on purpose — the question is the
  * FACE, not the diagram.
  */
 const PER_BLOCK_DECK = `---
 marp: true
 theme: indaco
-mode: sketch
+drawing: sketch
 ---
 
 <!-- @meta{class=diagram} -->
@@ -249,15 +249,15 @@ describe('preview diagram face', { skip: skipWithoutChrome(CHROME) }, () => {
   test('a sketch deck previews every diagram label in the hand face', { timeout: TIMEOUT }, async () => {
     const src = fs.readFileSync(path.join(ROOT, 'examples', 'mermaid-sketch-labels.md'), 'utf8');
     const census = await previewFaces(src, 'indaco');
-    assertAllRendered(census, fenceCount(src), 'mode: sketch');
-    assertNoForeignFace(census, 'mode: sketch');
-    // Bucketed, because slide 8 of this deck is `_class: diagram boardroom` — the
+    assertAllRendered(census, fenceCount(src), 'drawing: sketch');
+    assertNoForeignFace(census, 'drawing: sketch');
+    // Bucketed, because slide 8 of this deck is `_class: diagram no-sketch` — the
     // per-slide opt-out. A flat "no Outfit anywhere" assertion would call that a defect.
     assert.deepEqual(Object.keys(census.byBucket.hand).sort(), ['Shantell Sans'],
       'every label on a sketch SLIDE previews in the hand face: '
       + JSON.stringify(census.byBucket));
     assert.deepEqual(Object.keys(census.byBucket.clean).sort(), ['Outfit'],
-      'and the deck\'s `_class: diagram boardroom` opt-out slide previews clean — that '
+      'and the deck\'s `_class: diagram no-sketch` opt-out slide previews clean — that '
       + 'per-slide escape hatch is half of what #1674 shipped: '
       + JSON.stringify(census.byBucket));
   });
@@ -273,17 +273,17 @@ describe('preview diagram face', { skip: skipWithoutChrome(CHROME) }, () => {
     assert.deepEqual(census.byBucket.clean, {}, 'every slide in this fixture is a sketch slide');
   });
 
-  test('a sketch-clean deck previews every diagram label in the CLEAN face', { timeout: TIMEOUT }, async () => {
+  test('a sketch-headings deck previews every diagram label in the CLEAN face', { timeout: TIMEOUT }, async () => {
     const src = fs.readFileSync(path.join(ROOT, 'examples', 'mermaid-sketch-labels.md'), 'utf8')
-      .replace(/^mode: sketch$/m, 'mode: sketch-clean');
-    assert.ok(src.includes('mode: sketch-clean'), 'the fixture rewrite must take');
+      .replace(/^drawing: sketch$/m, 'drawing: sketch-headings');
+    assert.ok(src.includes('drawing: sketch-headings'), 'the fixture rewrite must take');
     const census = await previewFaces(src, 'indaco');
-    assertAllRendered(census, fenceCount(src), 'mode: sketch-clean');
-    assertNoForeignFace(census, 'mode: sketch-clean');
+    assertAllRendered(census, fenceCount(src), 'drawing: sketch-headings');
+    assertNoForeignFace(census, 'drawing: sketch-headings');
     assert.deepEqual(census.byBucket.hand, {},
-      'a sketch-clean deck has no hand-TYPE slide — only the opted-out one is not clean-body');
+      'a sketch-headings deck has no hand-TYPE slide — only the opted-out one is not clean-body');
     assert.deepEqual(Object.keys(census.byBucket.clean).sort(), ['Outfit'],
-      'sketch-clean keeps the hand SHAPES and the CLEAN body face, so every label is Outfit. '
+      'sketch-headings keeps the hand SHAPES and the CLEAN body face, so every label is Outfit. '
       + 'An empty --font-body (the :root-alias cycle, see the header) shows up here as '
       + 'Times New Roman: ' + JSON.stringify(census.byBucket));
   });

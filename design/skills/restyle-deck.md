@@ -50,14 +50,14 @@ A slide's look is a stack of independent choices, and each has one home:
 | **Canvas** | light or dark | `color-mode:` `light` · `dark` · `system` · `inherited` · `print` |
 | **Look preset** | several registers at once | `preset:` `classic` · `editorial` · `brand` · `minimal` |
 | **Backdrop** | atmosphere behind content | `finish:` `none` · `atrium` · `meridian` · `strata` · `halo` · `ledger` · `nimbus` · `loom` · `savile` · `gallery` |
-| **Hand** | clean or hand-drawn | `mode:` `boardroom` · `sketch` · `sketch-clean` |
+| **Hand** | clean or hand-drawn | `drawing:` `clean` · `sketch` · `sketch-headings` |
 | **Room** | how big type renders | `venue:` `laptop` · `huddle` · `conference` · `hall` |
 | **Details** | heading rule, kicker, alignment, card lift, corners | `heading-rule:` · `eyebrow:` · `headline-align:` · `card-lift:` · `slide-corners:` |
 | **Layout** | the slide's shape | the component in `<!-- @meta{layout=name} -->` |
 | **Slide exceptions** | one slide differs | modifiers in that slide's `@meta{class=…}` |
 
 They compose: `theme: cuoio` + `color-mode: dark` + `finish: atrium` +
-`mode: sketch` is a hand-drawn dark deck on a glow backdrop in the cuoio
+`drawing: sketch` is a hand-drawn dark deck on a glow backdrop in the cuoio
 palette.
 
 **A preset is a starting point; an explicit key beats it.** `preset: editorial`
@@ -77,7 +77,7 @@ for that slide.
 - **Front matter**: the leading `---` block of the deck. Every key is a row of
   `lib/core/deck-settings.js`; `lint:deck` warns on a key that is not there
   (`unknown-key`) and on a value outside a register's list (`unknown-finish`,
-  `unknown-mode`, `unknown-preset`, `unknown-color-mode`, `unknown-theme`, …).
+  `unknown-drawing`, `unknown-preset`, `unknown-color-mode`, `unknown-theme`, …).
 - **Palettes**: `themes/<name>/`. The lint message for `unknown-theme` lists
   every valid name.
 - **Register reference**: `lib/base/base.registers.docs.md` — every register,
@@ -267,7 +267,7 @@ We recommend a monthly cap before renewals open in March.
   spelling; the warning lists the valid names.
 - `theme: gaia` carried over from another tool — `unknown-theme`. The CLI stops
   with "palette not found". Pick a name the warning lists.
-- `mode: dark` — `mode:` is the hand (`boardroom`, `sketch`, `sketch-clean`),
+- `drawing: dark` — `drawing:` is the hand (`clean`, `sketch`, `sketch-headings`),
   not the canvas. Fix: `color-mode: dark`.
 - `preset: brand` plus five explicit registers that undo it. Fix: pick the
   preset closest to the goal and override one or two keys, or drop the preset.
@@ -297,7 +297,7 @@ We recommend a monthly cap before renewals open in March.
 
 1. **Restyling slide by slide.** Reach for the deck key; per-slide is the
    exception.
-2. **Confusing `mode:` with `color-mode:`.** `mode:` is the drawing hand;
+2. **Confusing `drawing:` with `color-mode:`.** `drawing:` is the drawing hand;
    `color-mode:` is light or dark.
 3. **Assuming the Studio's light/dark toggle changed the deck.** It changes the
    Studio's display preference and writes nothing to the file. Write
@@ -319,7 +319,7 @@ We recommend a monthly cap before renewals open in March.
 ## Canonical sources
 
 - `lib/base/base.registers.docs.md` — every front-matter register: `preset:`,
-  `mode:`, `finish:`, `fit:`, `split:`, `heading-rule:`, `eyebrow:`, `headline-align:`,
+  `drawing:`, `finish:`, `fit:`, `split:`, `heading-rule:`, `eyebrow:`, `headline-align:`,
   `card-lift:`, `venue:`, `slide-corners:` and the rest.
 - `lib/base/base.docs.md` § Common modifiers and § Switches — per-slide modifiers.
 - `design/theming.md` — palettes and the four ways to a dark canvas.

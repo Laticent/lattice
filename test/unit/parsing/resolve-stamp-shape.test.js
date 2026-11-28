@@ -3,7 +3,7 @@
  *
  * Pure mapping from the deck front-matter `stamp-shape:` value (the state-marker SHAPE —
  * tab / seal / notch / …) to the `stamp-shape-<name>` class token the three render paths
- * append to every section. The sibling of resolve-finish / resolve-mode; orthogonal to
+ * append to every section. The sibling of resolve-finish / resolve-drawing; orthogonal to
  * WHICH state marker shows (that's the semantic `confidential`/`wip`/… token).
  */
 
@@ -86,7 +86,7 @@ describe('resolve-stamp-shape', () => {
 
   // Rot-guard: every style token the register knows must have a real CSS rule in
   // base.variants.css — keeps the vocabulary in lock-step with the stylesheet the same
-  // way resolve-finish guards base.finish.css and resolve-mode guards base.sketch.css.
+  // way resolve-finish guards base.finish.css and resolve-drawing guards base.sketch.css.
   test('every stamp style token resolves to a real CSS rule in base.variants.css', () => {
     const css = fs.readFileSync(path.join(__dirname, '../../../lib/base/base.variants.css'), 'utf8');
     for (const cls of STAMP_SHAPE_TOKENS) {

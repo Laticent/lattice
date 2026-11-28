@@ -89,7 +89,7 @@ footer: "Four curated sets, one front-matter word"
 
 - The warmest of the four; Fraunces has no tabular figures, so chart data labels stay in Inter
 - The quote credit before this slide is in tracked capitals, in every set
-- `mode: sketch` keeps its own hand type whatever set a deck names
+- `drawing: sketch` keeps its own hand type whatever set a deck names
 
 ---
 

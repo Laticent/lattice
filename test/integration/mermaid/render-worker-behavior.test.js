@@ -121,7 +121,7 @@ describe('render worker: behavior', { skip: skipWithoutChrome(CHROME) }, () => {
 
   test('config does not leak between diagrams in the shared page', () => {
     // The worker reuses ONE page for the batch, and `mermaid.initialize` is global. A
-    // sketch deck with one `_class: boardroom` slide is exactly the case that would break
+    // sketch deck with one `_class: no-sketch` slide is exactly the case that would break
     // if `initialize` accumulated: the opted-out slide would inherit the previous
     // diagram's hand-drawn renderer. Asserted rather than assumed — the failure is
     // invisible except as one slide silently wearing the wrong finish.

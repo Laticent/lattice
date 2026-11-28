@@ -141,7 +141,7 @@ Every look keeps the edge: no fill clears the 3:1 graphical floor on its own, an
 The CSS is `sparks.styles.css`; the four parts are `--spark-tile`,
 `--spark-edge`, `color` and `--spark-body`, all derived from `--spark-hue`.
 
-**In `mode: sketch`** a spark is drawn by hand like the tables around it: the rough ink
+**In `drawing: sketch`** a spark is drawn by hand like the tables around it: the rough ink
 (`lib/core/rough-ink.js`, `kind: 'spark'`) redraws the tile's edge, the line, each bar's outline,
 a bullet's tick and a ring's arc, in each part's own color. Fills keep their look, and the zero
 baseline stays clean. Nothing to write — the finish does it.

@@ -1,6 +1,6 @@
 ---
 theme: indaco
-mode: boardroom
+drawing: clean
 pagination: true
 ---
 

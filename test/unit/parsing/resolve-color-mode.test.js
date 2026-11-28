@@ -80,7 +80,7 @@ describe('resolve-color-mode', () => {
   });
 
   // Rot-guard: every token the register maps to must have a real CSS rule in
-  // base.modifiers.css (mirrors resolve-mode's guard against base.sketch.css).
+  // base.modifiers.css (mirrors resolve-drawing's guard against base.sketch.css).
   test('every register token resolves to a real section CSS rule in base.modifiers.css', () => {
     const css = fs.readFileSync(path.join(__dirname, '../../../lib/base/base.modifiers.css'), 'utf8');
     for (const token of Object.values(COLOR_MODE_REGISTER)) {

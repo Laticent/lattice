@@ -436,7 +436,7 @@ describe('radar', () => {
   });
 
   // The dispatcher seam — the same contract the quadrant and the gantt axis
-  // use. `.radar-sector-label` is `--font-body`, which `mode: sketch` re-points
+  // use. `.radar-sector-label` is `--font-body`, which `drawing: sketch` re-points
   // at the hand sans, and its wrap + de-collision boxes are estimated at build
   // time; if the token stops reaching buildRadar the labels still render, just
   // measured for the wrong face. `MAXIMUM COMMITMENT` is chosen because the two

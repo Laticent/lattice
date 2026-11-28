@@ -23,10 +23,11 @@ const path = require('node:path');
 
 const {
   resolveDiagramLook,
+  resolveDiagramHandType,
   paletteUsesTextureChannel,
   deckWantsHandDrawn,
 } = require('../../../lib/core/diagram-look');
-const { MODE_REGISTER } = require('../../../lib/core/resolve-mode');
+const { DRAWING_REGISTER, drawsByHand } = require('../../../lib/core/resolve-drawing');
 
 const REPO = path.join(__dirname, '..', '..', '..');
 const THEMES = path.join(REPO, 'themes');
@@ -34,7 +35,7 @@ const THEMES = path.join(REPO, 'themes');
 // THE EMULATOR'S REAL SLICE. The Mermaid bake (`mermaid.bake.js`) passes
 // `source.match(/^---\r?\n[\s\S]*?\r?\n---/)[0]`, which ENDS at the closing `---`
 // with NO trailing newline. The first cut of these tests appended one, so every
-// case exercised an input the engine never produces — and `mode: sketch` shipped
+// case exercised an input the engine never produces — and `drawing: sketch` shipped
 // reaching no diagram at all, green. Both shapes are asserted below.
 const fm = (body) => `---\nmarp: true\n${body}\n---`;
 const fmNl = (body) => `${fm(body)}\n`;
@@ -44,12 +45,12 @@ describe('resolveDiagramLook — rule 3, inherit the deck', () => {
     assert.equal(resolveDiagramLook({ frontMatter: fm('theme: carta'), slideClass: 'diagram' }), 'classic');
   });
 
-  test('`mode: sketch` bakes hand-drawn', () => {
-    assert.equal(resolveDiagramLook({ frontMatter: fm('mode: sketch'), slideClass: 'diagram' }), 'handDrawn');
+  test('`drawing: sketch` bakes hand-drawn', () => {
+    assert.equal(resolveDiagramLook({ frontMatter: fm('drawing: sketch'), slideClass: 'diagram' }), 'handDrawn');
   });
 
-  test('`mode: sketch-clean` bakes hand-drawn too — clean BODY, not clean shapes', () => {
-    assert.equal(resolveDiagramLook({ frontMatter: fm('mode: sketch-clean'), slideClass: 'diagram' }), 'handDrawn');
+  test('`drawing: sketch-headings` bakes hand-drawn too — clean BODY, not clean shapes', () => {
+    assert.equal(resolveDiagramLook({ frontMatter: fm('drawing: sketch-headings'), slideClass: 'diagram' }), 'handDrawn');
   });
 
   test('the legacy deck-wide `class: sketch` spelling is honored', () => {
@@ -57,9 +58,9 @@ describe('resolveDiagramLook — rule 3, inherit the deck', () => {
     assert.equal(resolveDiagramLook({ frontMatter: fm('class: sketch'), slideClass: 'diagram' }), 'handDrawn');
   });
 
-  test('`mode:` wins over a leftover `class:` on a half-migrated deck', () => {
+  test('`drawing:` wins over a leftover `class:` on a half-migrated deck', () => {
     assert.equal(
-      resolveDiagramLook({ frontMatter: fm('mode: boardroom\nclass: sketch'), slideClass: 'diagram' }),
+      resolveDiagramLook({ frontMatter: fm('drawing: clean\nclass: sketch'), slideClass: 'diagram' }),
       'classic',
     );
   });
@@ -78,9 +79,9 @@ describe('resolveDiagramLook — rule 2, the slide owns its look', () => {
     );
   });
 
-  test('`_class: boardroom` opts ONE slide out of a sketch deck', () => {
+  test('`_class: no-sketch` opts ONE slide out of a sketch deck', () => {
     assert.equal(
-      resolveDiagramLook({ frontMatter: fm('mode: sketch'), slideClass: 'boardroom' }),
+      resolveDiagramLook({ frontMatter: fm('drawing: sketch'), slideClass: 'no-sketch' }),
       'classic',
     );
   });
@@ -89,7 +90,7 @@ describe('resolveDiagramLook — rule 2, the slide owns its look', () => {
     // The #1340 shape: `_class: diagram` says nothing about mode, so it must not be
     // read as "this slide pinned something".
     assert.equal(
-      resolveDiagramLook({ frontMatter: fm('mode: sketch'), slideClass: 'diagram dark' }),
+      resolveDiagramLook({ frontMatter: fm('drawing: sketch'), slideClass: 'diagram dark' }),
       'handDrawn',
     );
   });
@@ -98,7 +99,7 @@ describe('resolveDiagramLook — rule 2, the slide owns its look', () => {
 describe('resolveDiagramLook — rule 1, the texture channel outranks the finish', () => {
   test('a texture palette bakes classic even when the DECK asks for sketch', () => {
     assert.equal(
-      resolveDiagramLook({ frontMatter: fm('mode: sketch'), slideClass: 'diagram', paletteUsesTexture: true }),
+      resolveDiagramLook({ frontMatter: fm('drawing: sketch'), slideClass: 'diagram', paletteUsesTexture: true }),
       'classic',
     );
   });
@@ -145,7 +146,7 @@ describe('paletteUsesTextureChannel — read the real theme files', () => {
 
 describe('deckWantsHandDrawn', () => {
   test('reads the deck half on its own', () => {
-    assert.equal(deckWantsHandDrawn(fm('mode: sketch')), true);
+    assert.equal(deckWantsHandDrawn(fm('drawing: sketch')), true);
     assert.equal(deckWantsHandDrawn(fm('class: sketch')), true);
     assert.equal(deckWantsHandDrawn(fm('theme: carta')), false);
     assert.equal(deckWantsHandDrawn(''), false);
@@ -155,19 +156,19 @@ describe('deckWantsHandDrawn', () => {
 describe('resolveDiagramLook — the front-matter slice the emulator actually passes', () => {
   // Regression: `readFrontMatterMode` re-extracts the fence with a pattern that
   // requires a newline AFTER the closing `---`. Fed the emulator's slice it returned
-  // null, so a `mode:` deck fell through to the legacy `class:` fallback and
-  // `mode: sketch` never reached a diagram on the export path.
+  // null, so a `drawing:` deck fell through to the legacy `class:` fallback and
+  // `drawing: sketch` never reached a diagram on the export path.
   for (const [label, make] of [['no trailing newline (the engine slice)', fm], ['with trailing newline', fmNl]]) {
-    test(`mode: sketch resolves hand-drawn — ${label}`, () => {
-      assert.equal(resolveDiagramLook({ frontMatter: make('mode: sketch'), slideClass: 'diagram' }), 'handDrawn');
+    test(`drawing: sketch resolves hand-drawn — ${label}`, () => {
+      assert.equal(resolveDiagramLook({ frontMatter: make('drawing: sketch'), slideClass: 'diagram' }), 'handDrawn');
     });
-    test(`mode: boardroom resolves classic — ${label}`, () => {
-      assert.equal(resolveDiagramLook({ frontMatter: make('mode: boardroom'), slideClass: 'diagram' }), 'classic');
+    test(`drawing: clean resolves classic — ${label}`, () => {
+      assert.equal(resolveDiagramLook({ frontMatter: make('drawing: clean'), slideClass: 'diagram' }), 'classic');
     });
   }
 
   test('the full deck source works too — callers pass either', () => {
-    const source = `${fmNl('mode: sketch')}\n## A slide\n`;
+    const source = `${fmNl('drawing: sketch')}\n## A slide\n`;
     assert.equal(resolveDiagramLook({ frontMatter: source, slideClass: 'diagram' }), 'handDrawn');
   });
 });
@@ -180,7 +181,7 @@ describe('resolveDiagramLook — the PRINT band is a texture band for every them
   // preview reads computed style and DOES see section.print.
   test('print forces classic even on a hue-carried palette asking for sketch', () => {
     assert.equal(
-      resolveDiagramLook({ frontMatter: fm('mode: sketch'), slideClass: 'diagram', band: 'print' }),
+      resolveDiagramLook({ frontMatter: fm('drawing: sketch'), slideClass: 'diagram', band: 'print' }),
       'classic',
     );
   });
@@ -195,7 +196,7 @@ describe('resolveDiagramLook — the PRINT band is a texture band for every them
   test('light and dark bands do not change the answer', () => {
     for (const band of ['light', 'dark', '']) {
       assert.equal(
-        resolveDiagramLook({ frontMatter: fm('mode: sketch'), slideClass: 'diagram', band }),
+        resolveDiagramLook({ frontMatter: fm('drawing: sketch'), slideClass: 'diagram', band }),
         'handDrawn',
         `band ${band || '(unset)'} should not suppress the hand look`,
       );
@@ -210,33 +211,33 @@ describe('resolveDiagramLook — the PRINT band is a texture band for every them
   });
 });
 
-describe('MODE_WANTS_HAND is derived, not listed', () => {
-  test('every mode register whose classes include `sketch` resolves hand-drawn', () => {
-    // Derived from MODE_REGISTER so a new register cannot be left behind. If this
-    // fails, a mode was added whose class string says sketch but which resolves clean.
-    for (const [name, classes] of Object.entries(MODE_REGISTER)) {
-      const wantsHand = String(classes).split(/\s+/).includes('sketch');
+describe('DRAWING_WANTS_HAND is derived, not listed', () => {
+  test('every drawing register whose classes draw by hand resolves hand-drawn', () => {
+    // Derived from DRAWING_REGISTER so a new register cannot be left behind. If this
+    // fails, a drawing was added whose class string draws by hand but which resolves clean.
+    for (const [name, classes] of Object.entries(DRAWING_REGISTER)) {
+      const wantsHand = drawsByHand(String(classes).split(/\s+/));
       assert.equal(
-        resolveDiagramLook({ frontMatter: fm(`mode: ${name}`), slideClass: 'diagram' }),
+        resolveDiagramLook({ frontMatter: fm(`drawing: ${name}`), slideClass: 'diagram' }),
         wantsHand ? 'handDrawn' : 'classic',
-        `mode: ${name} (classes "${classes}")`,
+        `drawing: ${name} (classes "${classes}")`,
       );
     }
   });
 });
 
-describe('resolveDiagramLook — sketch-clean-body is a modifier, not a signal', () => {
-  // base.sketch.css keys every rule on `section.sketch`, and MODE_REGISTER never emits
-  // `sketch-clean-body` without `sketch` beside it. Treating it as a hand signal baked
-  // hand-drawn diagrams onto a deck whose slides carried no hand styling at all.
-  test('the token alone does NOT turn the hand on', () => {
-    assert.equal(resolveDiagramLook({ frontMatter: fm('class: sketch-clean-body'), slideClass: 'diagram' }), 'classic');
-    assert.equal(resolveDiagramLook({ frontMatter: fm('theme: carta'), slideClass: 'sketch-clean-body' }), 'classic');
+describe('resolveDiagramLook — sketch-headings is a hand signal (one class since Q5)', () => {
+  // `drawing: sketch-headings` stamps `sketch-headings` alone, and every sketch rule names it,
+  // so the class on its own draws the shapes by hand. Its TYPE stays clean.
+  test('the token alone turns the hand on, deck-wide or per slide', () => {
+    assert.equal(resolveDiagramLook({ frontMatter: fm('class: sketch-headings'), slideClass: 'diagram' }), 'handDrawn');
+    assert.equal(resolveDiagramLook({ frontMatter: fm('theme: carta'), slideClass: 'sketch-headings' }), 'handDrawn');
+    assert.equal(resolveDiagramLook({ frontMatter: fm('drawing: sketch-headings'), slideClass: 'diagram' }), 'handDrawn');
   });
 
-  test('but the pair the register actually emits does', () => {
-    // MODE_REGISTER['sketch-clean'] === 'sketch sketch-clean-body'
-    assert.equal(resolveDiagramLook({ frontMatter: fm('theme: carta'), slideClass: MODE_REGISTER['sketch-clean'] }), 'handDrawn');
-    assert.equal(resolveDiagramLook({ frontMatter: fm('mode: sketch-clean'), slideClass: 'diagram' }), 'handDrawn');
+  test('but its body type stays clean', () => {
+    assert.equal(resolveDiagramHandType({ frontMatter: fm('drawing: sketch-headings'), slideClass: 'diagram' }), false);
+    assert.equal(resolveDiagramHandType({ frontMatter: fm('theme: carta'), slideClass: 'sketch-headings' }), false);
+    assert.equal(resolveDiagramHandType({ frontMatter: fm('drawing: sketch'), slideClass: 'diagram' }), true);
   });
 });

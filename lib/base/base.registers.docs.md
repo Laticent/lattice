@@ -12,7 +12,7 @@ kicker, whether inline code draws pills and marks, the framing alignment, the ca
 elevation, where a card row puts its spare height, and the slide's own corner.
 
 **Why this file exists.** Nine of these ten lived under `### sketch` in
-`base.docs.md` — a per-slide *variant* — because `mode: sketch` is how you turn
+`base.docs.md` — a per-slide *variant* — because `drawing: sketch` is how you turn
 sketch on deck-wide, and each new register arrived as "a sibling of the one
 above it". A reader looking for `headline-align:` had no reason to open a section
 about handwriting, and the heading structure gave them no way to find it. The
@@ -35,7 +35,7 @@ model, see `design/concepts.md`.
 | Register | What it selects | Default |
 |---|---|---|
 | [`preset:`](#the-preset-front-matter-register-a-named-look) | A named look that sets the backdrop, alignment and accent registers below at once | `classic` |
-| [`mode:`](#the-mode-front-matter-register-rendering-mode) | The deck's rendering hand — clean, sketch, sketch-clean | `boardroom` |
+| [`drawing:`](#the-drawing-front-matter-register-rendering-mode) | The deck's rendering hand — clean, sketch, sketch-headings | `clean` |
 | [`finish:`](#the-finish-front-matter-register-backdrop) | The palette-blind backdrop layer painted behind content | `none` |
 | [`backdrop:`](#restraining-a-finish--backdrop) | Dims or masks whatever finish is applied, deck-wide or per slide | *(none)* |
 | [`split:`](#the-split-front-matter-divider) | How the deck is divided into slides | `headings` (and `---`) |
@@ -112,7 +112,7 @@ reader answers with the preset's value, and `preset:` itself is read top-level o
 `class=` overrides work unchanged (`no-finish` keeps a slide clean), and the CLI, the export
 and the Studio agree by construction.
 
-**A preset may also recommend** `theme:` (the palette), `color-mode:`, `mode:` (the rendering
+**A preset may also recommend** `theme:` (the palette), `color-mode:`, `drawing:` (the rendering
 hand), `chart-finish:`, `color-intensity:` and `backdrop:`. None of the four shipped presets does yet; the presets that
 use them arrive with the deck-preset work
 (`engineering/decisions/2026-11-20-deck-preset-study.md`). A recommendation is weaker than
@@ -135,24 +135,24 @@ the four live on one sample slide, in the deck's theme and color mode, at the to
 panel, with a count of the keys that differ from the chosen preset and a Reset. See
 `engineering/decisions/2026-09-26-deck-presets-and-settings-tiers.md`.
 
-## The `mode:` front-matter register (rendering mode)
+## The `drawing:` front-matter register (rendering mode)
 
-`mode:` is the **deck-wide rendering-mode selector** — a Lattice front-matter
+`drawing:` is the **deck-wide rendering-mode selector** — a Lattice front-matter
 extension (Marpit has no native key) that names the whole-deck hand in one
 readable token, orthogonal to `theme:` (palette) and `finish:` (backdrop). It
 resolves to the same CSS classes you'd otherwise hand-spell on `class:`, and
 **composes** with any per-slide `class=` (the same append-not-replace semantic
-as the deck-wide `class:` key), so `mode: sketch` + `<!-- @meta{layout=cards-grid} -->`
-renders `class="cards-grid sketch"`. A per-slide `<!-- @meta{class=boardroom} -->`
-opts one slide back to clean. Use `mode:` rather than `class:
+as the deck-wide `class:` key), so `drawing: sketch` + `<!-- @meta{layout=cards-grid} -->`
+renders `class="cards-grid sketch"`. A per-slide `<!-- @meta{class=no-sketch} -->`
+opts one slide back to clean. Use `drawing:` rather than `class:
 sketch` when the intent is "this whole deck is sketch" — it reads as a register,
-and a typo is caught by the deck linter (`unknown-mode`).
+and a typo is caught by the deck linter (`unknown-drawing`).
 
-| `mode:` value | Resolves to | Effect |
+| `drawing:` value | Resolves to | Effect |
 |---|---|---|
-| `boardroom` | *(no class)* | The baseline — clean type, square boxes. The default when `mode:` is omitted. |
+| `clean` | *(no class)* | The baseline — clean type, square boxes. The default when `drawing:` is omitted. |
 | `sketch` | `sketch` | Full handwriting (headings **and** body) + drawn boxes. |
-| `sketch-clean` | `sketch sketch-clean-body` | Keep hand headings + boxes; return prose to the clean `--font-body` for text-dense slides. |
+| `sketch-headings` | `sketch-headings` | Keep hand headings + boxes; return prose to the clean `--font-body` for text-dense slides. |
 
 ## The `fit:` front-matter register (what the engine may do to make a slide fit)
 
@@ -275,8 +275,8 @@ asymmetry above already commits us to.
 ## The `finish:` front-matter register (backdrop)
 
 `finish:` is the sibling **backdrop selector** — the palette-blind gradient layer
-stack painted *behind* content. It composes with `mode:` and `theme:`
-(`mode: sketch` + `finish: atrium` = a hand-drawn deck on an atrium backdrop).
+stack painted *behind* content. It composes with `drawing:` and `theme:`
+(`drawing: sketch` + `finish: atrium` = a hand-drawn deck on an atrium backdrop).
 `none` is the baseline (omitting the key renders it); a typo is caught as
 `unknown-finish`.
 
@@ -305,7 +305,7 @@ layer. Take one slide out of a deck-wide finish with `<!-- @meta{class=no-finish
 **A split run keeps the finish on every page.** When a slide splits (a cover, then
 one member per page — or a carousel's re-authored pages), the splitter replaces the
 page's layout class. The canvas axis and the deck's **surface registers** survive that
-swap as classes: `finish`/`finish-*`/`no-finish`, `mode:`, `stamp-shape:`/`tone:`, every
+swap as classes: `finish`/`finish-*`/`no-finish`, `drawing:`, `stamp-shape:`/`tone:`, every
 `spectrum*` register, `slide-corners:`, `fit:`, `heading-rule:`, `eyebrow:`, `inline-code:`,
 `headline-align:`, `card-lift:` and `backdrop:`. Two registers stay behind, because they describe how ONE
 layout composes and the cover is a different layout: `claim:` and `align:`. They reach
@@ -384,10 +384,10 @@ multi-line `backdrop:` map form is retired and earns `retired-backdrop-key`. Ker
 `engineering/decisions/2026-09-26-backdrop-register.md`.
 
 Both registers are **open** (`lib/core/resolve-finish.js` for backdrops,
-`lib/core/resolve-mode.js` for the mode) and read by all three render paths.
-An unrecognized value (e.g. `finish: atriumm` or `mode: sketchh`) resolves to no
+`lib/core/resolve-drawing.js` for the mode) and read by all three render paths.
+An unrecognized value (e.g. `finish: atriumm` or `drawing: sketchh`) resolves to no
 classes — so it would silently ship the baseline — which is why `npm run
-lint:deck` flags it (`unknown-finish` / `unknown-mode`).
+lint:deck` flags it (`unknown-finish` / `unknown-drawing`).
 
 **Reserved finish classes — do not author by hand.** `lattice-exporting` is an
 **engine-reserved class**: the Studio raster export (`studio/export/deck-export.js`)
@@ -437,7 +437,7 @@ path we keep in lockstep. See `engineering/decisions/2026-06-13-export-to-marp.m
 ## The `stamp-shape:` / `tone:` front-matter registers (marker shape)
 
 `stamp-shape:` and `tone:` are the **deck-wide marker-SHAPE selectors** — siblings of
-`finish:` / `mode:` that pick the *shape* the status markers render in, once, for
+`finish:` / `drawing:` that pick the *shape* the status markers render in, once, for
 the whole deck. They are **orthogonal to which marker shows**: a state marker
 (`confidential` / `wip` / `draft` / …) sets its own *label + color*; a tone marker
 (`tone-pass` / `tone-warn` / …) sets its own *color*; these registers only choose
@@ -932,7 +932,7 @@ typography: ledger
 ```
 
 A preset carries a set — `editorial` → `ledger`, `brand` → `poster` — and an explicit
-`typography:` wins. `mode: sketch` owns its own hand type and wins over any set. The faces ship
+`typography:` wins. `drawing: sketch` owns its own hand type and wins over any set. The faces ship
 in `dist/fonts/` like every engine face: a browser fetches a set's faces only when a slide draws them, and an
 export inlines only the faces of the sets the deck names (`lattice.js` filters by the deck),
 and the PDF embeds only the glyphs it uses. In the Studio: **Look → Typography**.
@@ -1650,7 +1650,7 @@ Record, with the per-format measurements on both exporters:
 | Token / class | Effect |
 |---|---|
 | `sketch` | Full handwriting (headings **and** body) + drawn boxes. The default. |
-| `sketch sketch-clean-body` | Keep hand headings + boxes; return prose to the clean `--font-body` for text-dense slides. |
+| `sketch-headings` | Keep hand headings + boxes; return prose to the clean `--font-body` for text-dense slides. |
 | `--sketch-ink` | The ink the boxes are drawn in (defaults to `--text-heading`); a theme override seam. |
 | `--sketch-font-display` / `--sketch-font-body` | The hand fonts; swap either to re-flavor the whole finish in one line. |
 | `--pill-font` | Re-pointed at the hand body face under `sketch` so label chips/badges read hand-drawn; override per theme to restore a clean label font. |

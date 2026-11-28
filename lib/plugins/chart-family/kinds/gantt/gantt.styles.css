@@ -124,7 +124,7 @@
 /* ── Axis ─────────────────────────────────────────────────────────────────── */
 :is(section.gantt, figure.gantt) .gantt-tick {
   fill: var(--text-label);
-  /* The label voice — so a `mode: sketch` axis reads hand-drawn like the rest of
+  /* The label voice — so a `drawing: sketch` axis reads hand-drawn like the rest of
    * the chart. This tick is MEASURED GEOMETRY: its wrap budget and collision cull
    * come from a static per-character advance in chart-family/shared/svg-label.js, and a
    * static advance cannot describe two faces. So the builder selects the constant

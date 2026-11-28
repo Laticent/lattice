@@ -66,7 +66,7 @@ deck) that wants nothing at the top. The rest of this deck keeps the solid accen
 
 ## Where it lives
 
-`spectrum:` is a deck front-matter register — a sibling of `finish:` / `mode:` /
+`spectrum:` is a deck front-matter register — a sibling of `finish:` / `drawing:` /
 `stamp-shape:` / `tone:`. A typo is caught as `unknown-spectrum`; a per-slide `spectrum-*`
 token overrides the deck. It composes with `accent` and `tone: edge`, the per-slide
 brand-bar recolors.

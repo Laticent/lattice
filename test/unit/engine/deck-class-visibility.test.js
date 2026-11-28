@@ -3,7 +3,7 @@
  * the slides that name their own `_class:` too.
  *
  * The absence of this test is why #1358 shipped. Every deck-wide register
- * (`class:`, `finish:`, `mode:`, …) is merged into the section's class list by
+ * (`class:`, `finish:`, `drawing:`, …) is merged into the section's class list by
  * `deckClassPropagate` at the markdown-it TOKEN stage, i.e. before a single
  * HTML-stage transform runs — so a transform keyed on a class token is entitled
  * to read the resolved list and get the deck's answer. Nothing pinned that, and

@@ -158,8 +158,8 @@ describe('deck linter', () => {
     assert.match(f.fix, /none, atrium/);
   });
 
-  test('a former finish (sketch/boardroom) is now an UNKNOWN finish — it moved to `mode:`', () => {
-    for (const v of ['sketch', 'boardroom', 'sketch-clean']) {
+  test('a former finish (sketch/boardroom) is now an UNKNOWN finish — it moved to `drawing:`', () => {
+    for (const v of ['sketch', 'boardroom', 'sketch-headings']) {
       const src = `---\nmarp: true\ntheme: indaco\nfinish: ${v}\n---\n\n## H.\n`;
       assert.equal(lintText(src, { vocab }).filter((x) => x.rule === 'unknown-finish').length, 1, `finish: ${v} should now be flagged`);
     }
@@ -172,14 +172,14 @@ describe('deck linter', () => {
     }
   });
 
-  test('warns on an unrecognized `mode:` value; accepts boardroom/sketch/sketch-clean', () => {
-    const bad = lintText('---\ntheme: indaco\nmode: sketchh\n---\n\n## H.\n', { vocab }).find((x) => x.rule === 'unknown-mode');
-    assert.ok(bad, 'unknown mode should warn');
+  test('warns on an unrecognized `drawing:` value; accepts clean/sketch/sketch-headings', () => {
+    const bad = lintText('---\ntheme: indaco\ndrawing: sketchh\n---\n\n## H.\n', { vocab }).find((x) => x.rule === 'unknown-drawing');
+    assert.ok(bad, 'unknown drawing should warn');
     assert.equal(bad.classToken, 'sketchh');
-    assert.match(bad.fix, /boardroom, sketch, sketch-clean/);
-    for (const v of ['boardroom', 'sketch', 'sketch-clean', 'SKETCH']) {
-      const src = `---\ntheme: indaco\nmode: ${v}\n---\n\n## H.\n`;
-      assert.equal(lintText(src, { vocab }).filter((x) => x.rule === 'unknown-mode').length, 0, v);
+    assert.match(bad.fix, /clean, sketch, sketch-headings/);
+    for (const v of ['clean', 'sketch', 'sketch-headings', 'SKETCH']) {
+      const src = `---\ntheme: indaco\ndrawing: ${v}\n---\n\n## H.\n`;
+      assert.equal(lintText(src, { vocab }).filter((x) => x.rule === 'unknown-drawing').length, 0, v);
     }
   });
 

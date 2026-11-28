@@ -1927,7 +1927,7 @@ on it. Two ways to earn it:
   `autofixable: true`, `didYouMean`, and a structured `replace: { from, to }`
   that `fixReplacement` applies with `replaceToken` (whole token, never a
   substring). This is what every `unknown-<register>` validator uses, so a typo'd
-  `finish:` / `mode:` / `_class:` value is one click rather than a list to read.
+  `finish:` / `drawing:` / `_class:` value is one click rather than a list to read.
   Nothing close enough → the finding is returned untouched and keeps its prose.
 
 The suggestion rides on `didYouMean`, NOT folded into `message`: the message is

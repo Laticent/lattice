@@ -204,7 +204,7 @@ section .lat-spark[data-c='c12'] { --spark-hue:var(--cat-12-mark); --spark-ink:v
  * `border-color`, never `stroke: none` / `border: none`: the measurer re-reads each mark's
  * `stroke` on every re-measure, and the box must not move under it. The zero baseline is not
  * redrawn and stays visible — its dashes are part of what it says. */
-section.sketch .lat-spark {
+section:is(.sketch, .sketch-headings) .lat-spark {
   --rough-ink-stroke: var(--spark-edge);
   --rough-ink-width: 0.9;
 }
@@ -213,5 +213,5 @@ section.sketch .lat-spark {
  * trade, stated: a mark whose paint an author's `<style>` sets to something that is not a color
  * (`url(…)`) is dropped by the measurer's validation AND hidden here, so it disappears rather
  * than reaching an SVG attribute (HARD RULE #22). */
-section.sketch:has(> svg[data-lattice-rough-ink]) .lat-spark:not(:is(header, footer) .lat-spark)::before { border-color: transparent; }
-section.sketch:has(> svg[data-lattice-rough-ink]) .lat-spark:not(:is(header, footer) .lat-spark) > svg > :is(.s-line, .s-target, .s-arc, rect:not(.s-track)) { stroke-opacity: 0; }
+section:is(.sketch, .sketch-headings):has(> svg[data-lattice-rough-ink]) .lat-spark:not(:is(header, footer) .lat-spark)::before { border-color: transparent; }
+section:is(.sketch, .sketch-headings):has(> svg[data-lattice-rough-ink]) .lat-spark:not(:is(header, footer) .lat-spark) > svg > :is(.s-line, .s-target, .s-arc, rect:not(.s-track)) { stroke-opacity: 0; }

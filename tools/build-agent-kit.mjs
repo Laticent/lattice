@@ -384,7 +384,7 @@ function pluginDocs() {
  * deck-level front-matter register. They are `lib/base/base.docs.md` and
  * `lib/base/base.registers.docs.md`, the repo's own references for the parts no single layout
  * owns: the eyebrow, the subtitle, the key insight, the below-note, annotations, corner tags,
- * tables, switches, `numbered`, `mirror`, focus, builds, and the `mode:`/`finish:`/`venue:`/…
+ * tables, switches, `numbered`, `mirror`, focus, builds, and the `drawing:`/`finish:`/`venue:`/…
  * registers. The pack carried neither until 2026-11-17, so an agent learned the key insight
  * from one rule's passing mention and the registers not at all. Links are flattened the same
  * way the plugin docs' are.
