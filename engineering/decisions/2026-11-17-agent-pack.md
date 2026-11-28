@@ -382,9 +382,10 @@ whole effort, and real evidence over claims. So `tools/agent-pack-eval.mjs` chan
   that failed did so on lint errors and overflow, the defects this eval exists to find.
 
 The nightly now runs only the retrieval arm, Haiku on even days since the epoch and DeepSeek on odd
-ones, capped at USD 0.25. It goes red only when the run breaks: a cap stop, a config error or a
-crash. A failed deck is the result, not a fault, so the workflow reads the tool's exit 1 as green and
-leaves the deck table in the step summary (owner's D2, 2026-11-28). The small arm's default model is Haiku 5.5 (it was gpt-4o-mini). A capable
+ones, capped at USD 0.25. It goes red only when the run breaks: a config error (exit 2), a cap
+stop (3), a crash (4) or a request that got no reply (5). A deck the model wrote that fails its checks
+is the result, not a fault, so the workflow reads the tool's exit 1, kept for that case alone, as
+green and leaves the deck table in the step summary (owner's D2, 2026-11-28). The small arm's default model is Haiku 5.5 (it was gpt-4o-mini). A capable
 model (Sonnet 5.5) runs once per release by dispatch (RELEASE.md). These runs are exploratory: ten
 briefs and a few repeats show a direction, they do not prove that the new `start.md` is no worse.
 

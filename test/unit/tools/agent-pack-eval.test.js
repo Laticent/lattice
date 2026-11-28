@@ -405,3 +405,19 @@ test('a reasoning budget goes to a Claude model without a temperature; an effort
   assert.equal(bodies[1].temperature, 0);
   assert.equal(bodies[2].temperature, 0);
 });
+
+test('a request with no reply exits 5, a broken run, never 1, which the nightly reads as a result', async (t) => {
+  const { run, parseArgs } = await load();
+  const calls = [];
+  const dead = async (req) => {
+    calls.push(req);
+    throw new Error('OpenRouter 401: no auth');
+  };
+  const out = tmpDir(t);
+  const code = await run(parseArgs(['--arm', 'start', '--model', 'test/cheap', '--limit', '2', '--max-usd', '5', '--out', out]), { ...deps(t, calls), complete: dead });
+  assert.equal(calls.length, 2, 'the cap was high enough that it did not stop the run first');
+  assert.equal(code, 5);
+  const lintFail = () => ({ slides: 8, layouts: ['a'], errors: 1, warnings: 0, suggestions: 0, problems: ['slide 2: error x'] });
+  const code1 = await run(parseArgs(['--arm', 'start', '--model', 'test/cheap', '--limit', '1', '--out', tmpDir(t)]), { ...deps(t, []), judgeFn: lintFail });
+  assert.equal(code1, 1, 'a deck the model wrote badly is the one result that exits 1');
+});

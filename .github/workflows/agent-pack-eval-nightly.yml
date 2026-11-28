@@ -142,9 +142,10 @@ jobs:
           PROBE: ${{ inputs.probe }}
         # A schedule run has no inputs, so every one falls back to the nightly default here.
         # Red means the run broke, not that a deck failed (owner's D2, 2026-11-28). The tool exits 1
-        # when a deck fails, which pass rates of 5 to 9 in 10 make nearly every night, so the step
-        # reads 1 as green and the deck table lives in the step summary. A cap stop (3), a config
-        # error (2) or a crash stays red. PIPESTATUS[0] is the tool's own code, not tee's.
+        # only when a deck the model wrote fails its checks, which pass rates of 5 to 9 in 10 make
+        # nearly every night, so the step reads 1 as green and the deck table lives in the step
+        # summary. A config error (2), a cap stop (3), a crash (4) or a request with no reply (5)
+        # stays red. PIPESTATUS[0] is the tool's own code, not tee's.
         run: |
           set -uo pipefail
           args=(--out eval-out --arm "${ARM:-retrieval}" --model "${MODEL:-nightly}" --repeat "${REPEAT:-1}"

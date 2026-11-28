@@ -54,8 +54,10 @@
  * .github/workflows/agent-pack-eval-nightly.yml, a sanctioned nightly + dispatch workflow.
  * Writes every deck, its PDF, summary.json (one row per deck) and summary.md (the table) to --out.
  *
- * Exit: 0 every deck passed (or a dry run), 1 a deck failed, 2 no key, no built kit or a bad option,
- * 3 stopped at the --max-usd cap before the plan finished.
+ * Exit: 0 every deck passed (or a dry run), 1 a deck the model wrote failed its checks, 2 no key, no
+ * built kit or a bad option, 3 stopped at the --max-usd cap before the plan finished, 4 the tool
+ * crashed, 5 a request got no reply (a dead key, an outage, a timeout). Only 1 is a result rather
+ * than a fault: the nightly workflow reads it as green.
  */
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
@@ -746,6 +748,9 @@ export async function run(opts, deps = {}) {
   writeFileSync(path.join(opts.out, 'summary.md'), md);
   d.log(`\n${md}\nDecks, PDFs, summary.json and summary.md in ${path.relative(ROOT, opts.out) || opts.out}.`);
   if (stoppedAtCap) return 3;
+  // A deck whose request failed got no reply: a dead key, an outage, a timeout. That is a broken
+  // run, not a result, so it must not read like a deck the model wrote badly (exit 1).
+  if (rows.some((r) => r.problems?.[0]?.startsWith('request failed:'))) return 5;
   return summary.failed ? 1 : 0;
 }
 
@@ -776,6 +781,15 @@ if (isMain && process.argv.includes('--nightly-model')) {
 }
 
 if (isMain) {
+  // A crash exits 4, never 1: the workflow reads 1 as "a deck failed", which is a result, not a fault.
+  process.on('uncaughtException', (e) => {
+    console.error(e);
+    process.exit(4);
+  });
+  process.on('unhandledRejection', (e) => {
+    console.error(e);
+    process.exit(4);
+  });
   let opts;
   try {
     opts = parseArgs(process.argv.slice(2));
@@ -787,7 +801,7 @@ if (isMain) {
     (code) => process.exit(code),
     (e) => {
       console.error(e);
-      process.exit(1);
+      process.exit(4);
     },
   );
 }
