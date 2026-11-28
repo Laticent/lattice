@@ -8,14 +8,13 @@ Copyright 2025-2026 Sharmarke Aden, doing business as Laticent.
 
 ## Apache-2.0: the public libraries
 
-These 17 libraries are licensed under the [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0).
+These 15 libraries are licensed under the [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0).
 Each one keeps its own `LICENSE` (the Apache text) and `NOTICE` in its folder, and both ship in
 its npm package.
 
 | Package | Folder |
 |---|---|
 | `@laticent/cadenza` | `docs/src/lib/cadenza/` |
-| `@laticent/calco` | `docs/src/lib/calco/` |
 | `@laticent/filo` | `docs/src/lib/filo/` |
 | `@laticent/fluido` | `docs/src/lib/fluido/` |
 | `@laticent/fuoco` | `docs/src/lib/fuoco/` |
@@ -28,7 +27,6 @@ its npm package.
 | `@laticent/squadra` | `docs/src/lib/squadra/` |
 | `@laticent/suono` | `docs/src/lib/suono/` |
 | `@laticent/tavola` | `docs/src/lib/tavola/` |
-| `@laticent/trama` | `docs/src/lib/trama/` |
 | `@laticent/veduta` | `docs/src/lib/veduta/` |
 | `@laticent/vetrina` | `docs/src/lib/vetrina/` |
 
@@ -56,6 +54,9 @@ under the [GNU Affero General Public License, version 3 only](LICENSE). That inc
   (`packages/lattice/`);
 - the plugins in `lib/plugins/`;
 - Lattice Studio, the docs site and the Playground (`docs/`, outside the library folders above);
+- `@laticent/calco` (`docs/src/lib/calco/`) and `@laticent/trama` (`docs/src/lib/trama/`): editable
+  PowerPoint and OpenDocument export, and graph-chart layout and routing, are product features the
+  owner keeps under the AGPL (2026-11-28);
 - `@laticent/lente` (`docs/src/lib/lente/`). Its suggestion rules (`suggest.ts`) encode which
   Lattice components belong in which reader lens, which is Lattice's own design policy;
 - `@laticent/cenno` (`docs/src/lib/cenno/`), which is private and not published.

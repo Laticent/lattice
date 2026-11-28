@@ -212,5 +212,5 @@ Design, measurements and the LibreOffice behaviors the writers work around:
 
 ## License
 
-Apache-2.0. The full text ships as `LICENSE` in the package, and the copyright notice as `NOTICE`.
-Which part of Lattice is under which license: [`LICENSING.md`](https://github.com/Laticent/lattice/blob/main/LICENSING.md).
+AGPL-3.0-only. The full text ships as `LICENSE` in the package. Which part of Lattice is under which license:
+[`LICENSING.md`](https://github.com/Laticent/lattice/blob/main/LICENSING.md).

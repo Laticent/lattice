@@ -18,18 +18,19 @@ const LIBS = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')
 const APACHE_TEXT = fs.readFileSync(path.join(ROOT, 'docs', 'src', 'lib', 'ltt', 'LICENSE'));
 const AGPL_TEXT = fs.readFileSync(path.join(ROOT, 'LICENSE'));
 
-// The libraries that stay AGPL-3.0-only: Cenno is private, and Lente's suggestion rules carry
-// Lattice's component-selection policy (docs/src/lib/lente/suggest.ts). LICENSING.md says why.
-const STAY_AGPL = ['docs/src/lib/cenno', 'docs/src/lib/lente'];
+// The libraries that stay AGPL-3.0-only: Calco and Trama are product features the owner keeps
+// (2026-11-28), Cenno is private, and Lente's suggestion rules carry Lattice's component-selection
+// policy (docs/src/lib/lente/suggest.ts). LICENSING.md says why.
+const STAY_AGPL = ['docs/src/lib/calco', 'docs/src/lib/cenno', 'docs/src/lib/lente', 'docs/src/lib/trama'];
 
 const read = (dir) => JSON.parse(fs.readFileSync(path.join(ROOT, dir, 'package.json'), 'utf8'));
 
-test('every library except Cenno and Lente is Apache-2.0, and each one is ready to pack', () => {
+test('every library except Calco, Cenno, Lente and Trama is Apache-2.0, and each one is ready to pack', () => {
   const apache = LIBS.filter((dir) => read(dir).license === 'Apache-2.0');
   const agpl = LIBS.filter((dir) => read(dir).license === 'AGPL-3.0-only');
   assert.deepEqual([...apache, ...agpl].sort(), [...LIBS].sort(), 'a library names a license that is neither Apache-2.0 nor AGPL-3.0-only');
   assert.deepEqual(agpl.sort(), STAY_AGPL);
-  assert.equal(apache.length, 17);
+  assert.equal(apache.length, 15);
   // stageLicense on an Apache folder only reads, so running it on the real tree changes nothing.
   for (const dir of apache) assert.equal(stageLicense(path.join(ROOT, dir)), null, dir);
 });

@@ -12,8 +12,8 @@ source: https://github.com/Laticent/lattice/pull/2556
 
 why now   — the inversion on #2556: `exports.types` points at TypeScript source, so a consumer
             type-checks Calco under its own settings; and a host must bring its own HarfBuzz
-            pinner. The license half is settled: Calco is Apache-2.0 since 2026-11-28 (#3542,
-            LICENSING.md), so closed web apps can use it.
+            pinner. The license half is settled: Calco stays AGPL-3.0-only as a product feature
+            (owner, 2026-11-28, #3542, LICENSING.md).
 where     — docs/src/lib/calco/package.json, README.md; followups 2360 covers npm publishing.
 done when — the package ships `.d.ts` types and either a reference pinner or a documented
             recipe.

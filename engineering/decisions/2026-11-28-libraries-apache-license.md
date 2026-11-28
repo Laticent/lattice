@@ -1,6 +1,6 @@
 ---
 status: in-progress
-summary: 17 of the 18 public libraries move from AGPL-3.0-only to Apache-2.0 before any first publish, on the owner's word; the rights and policy-leakage evidence behind it, and why Lente stays AGPL.
+summary: 15 of the 18 public libraries move from AGPL-3.0-only to Apache-2.0 before any first publish, on the owner's word; the rights and policy-leakage evidence behind it; Calco and Trama stay AGPL as product features, and Lente as Lattice design policy.
 ---
 
 # The public libraries move to Apache-2.0
@@ -17,6 +17,12 @@ start a desk or session to switch the libraries to apache". That approves the re
 counsel review, and it replaces the initiative's "counsel/owner approval" for this step. Nothing
 is on npm yet (D1 in the map's §0 holds npm 1.0.0), so each library's first public version is
 Apache-2.0.
+
+**The owner narrowed it** in the same desk session's question tool at 03:24 UTC: "16 Apache; Calco,
+Trama stay AGPL". The question called Calco (editable PowerPoint) and Trama (diagram layout) "real
+product features" and the other 16 "generic building blocks". So Calco and Trama stay
+AGPL-3.0-only. The question did not raise Lente's policy finding (§3), so Lente also stays
+AGPL-3.0-only until the owner answers that separately, and 15 libraries move.
 
 This note is evidence, not legal advice.
 
@@ -66,8 +72,8 @@ first; the other 13 were swept for component names, catalog taxonomy and venue t
 | Library | Verdict | Evidence |
 |---|---|---|
 | **Lente** | **Carries policy: stays AGPL-3.0-only** | `docs/src/lib/lente/suggest.ts` lines 32–97: the `SUGGESTERS` table names Lattice components (`kpi`, `stats`, `big-number`, `closing`, `decision`) and Lattice's catalog taxonomy (`anchor`/`bookend`, `statement`/`connect`, `progression`, `imagery`, `divider`) and decides which lens each belongs in. That is component selection |
-| Calco | Mechanism | Office export of rendered slides. The host passes its palette (`capture.ts` 487–491) and its picture policy (`picture.ts` line 3 names Lattice's `choosePicture` in `lib/core/image-policy.js` as the host's). `reader.ts` line 56 reads Lattice's `data-frame` attribute when a page has one, a host convention, not a rule |
-| Trama | Mechanism | Graph layout and routing. `pipeline.ts` uses host hook names (`__latticeGraphFlush`, `data-lattice-live-layout`, `__latticeDagre`): plumbing, not policy |
+| Calco | Mechanism; **stays AGPL** by the owner's product call (§1) | Office export of rendered slides. The host passes its palette (`capture.ts` 487–491) and its picture policy (`picture.ts` line 3 names Lattice's `choosePicture` in `lib/core/image-policy.js` as the host's). `reader.ts` line 56 reads Lattice's `data-frame` attribute when a page has one, a host convention, not a rule |
+| Trama | Mechanism; **stays AGPL** by the owner's product call (§1) | Graph layout and routing. `pipeline.ts` uses host hook names (`__latticeGraphFlush`, `data-lattice-live-layout`, `__latticeDagre`): plumbing, not policy |
 | Squadra | Mechanism | A lint engine that proves its rules; Lattice's rules live in `lib/authoring/`. `markdown.ts` takes the deck model from the host |
 | Fluido | Mechanism, one judgment call | Pagination decisions over facts the host reads (`types.ts` line 6: Lattice's connector is `lib/core/auto-split.js`). `plan.ts` carries defaults that came from Lattice decisions: a `wide` box never paginates (line 28), one member per page, a 64-page cap. They are generic pagination rules with no Lattice component, theme or venue in them, so Fluido moves to Apache. If the owner reads them as protected policy, Fluido can stay AGPL before this merges |
 | the other 13 | Mechanism | No component, catalog, theme or venue rule. Cadenza's lexicon targets business vocabulary ("the house domain"), a speech default, not design policy |
@@ -76,13 +82,13 @@ Cenno is private and stays AGPL-3.0-only, as E2 says.
 
 ## 4. What changed
 
-- 17 libraries: `license: "Apache-2.0"`, a tracked `LICENSE` (the Apache text, byte for byte as
+- 15 libraries: `license: "Apache-2.0"`, a tracked `LICENSE` (the Apache text, byte for byte as
   `https://www.apache.org/licenses/LICENSE-2.0.txt`, sha256 `cfc7749b…3d30`) and `NOTICE` in each
   folder, and `NOTICE` in each `files` list.
 - `tools/library-prepack.js` no longer copies the root `LICENSE` into every library. An Apache-2.0
   library must hold the exact Apache text, a `NOTICE` and both in `files`, or the pack fails; an
   AGPL-3.0-only library still gets the root copy; any other value fails.
-  `test/unit/tools/library-prepack.test.js` pins the set (Cenno and Lente AGPL, 17 Apache) and each
+  `test/unit/tools/library-prepack.test.js` pins the set (Calco, Cenno, Lente and Trama AGPL, 15 Apache) and each
   refusal.
 - `LICENSING.md` at the root says which part is Apache, AGPL or CC-BY.
 - `spec/` keeps CC-BY-4.0. `spec/LTT-1.0.md` line 11 now says its reference implementation is
