@@ -86,6 +86,27 @@ a test:
 `lattice-deck-move-backed-up` marks the device once the rewrite has happened. The test "the rewritten zip still holds
 a photo slice 2 moved into the vault" runs the real `packWorkspace`.
 
+### A closed page is not a dead move (found by the bench, 2026-11-28)
+
+The move counts each start it has not finished (`lattice-deck-move-attempt`) and stops for good after three
+(`MAX_DEAD_ATTEMPTS`), so a pack that runs out of memory does not pack the whole workspace on every start (C5). The
+refresh packs every photo too, so with a big library it takes seconds. On the real build, `storage-bench`
+`everything` (40 decks, 58 MB of photos, CPU ×4) reloaded inside that window, counted three deaths and kept all 40
+decks in localStorage for good.
+
+Now a page that closes while a move runs (`pagehide`: a reload, a closed tab) puts the count back, in both moves
+(`forgiveAttemptOnLeave`, `media-vault-move.ts`). A crash or an out-of-memory kill fires no `pagehide`, so it still
+counts. Measured on the same run: after 8 short visits the count is 1, and the decks move the first time the page
+stays up for about 20 s. The price: until the move lands, every start packs the backup again. In the bench's loop
+(a reload every 7 s at CPU ×4) that adds about 0.4 s to `everything`'s median first slide. A device where slice 2's
+photo move already gave up keeps its count; this does not reset it.
+
+What the cap no longer catches: a pack that is slow but never crashes, on a device where the person always leaves
+before it ends, now packs again on every start with no cap (the deck move has no size gate like the media move's
+`MAX_MOVE_BYTES`). And some leaves still count as deaths: an OS that kills a background tab (iOS Safari, an Android
+discard) fires no `pagehide`. A page restored from the back-forward cache keeps the handed-back count for the rest of
+that attempt.
+
 ## Where it departs from the design, and why
 
 - **Paths are ids** (`Decks/<id>.md`), as slice 2's media are (storage desk D2). The design's human names arrive with
@@ -126,8 +147,8 @@ read, and the next move takes it in as a replacing save.
   - outside-edit adoption: 200 trials, 0 divergence on the fork; the live-doc control diverges;
   - a seeded many-tab convergence run.
 
-  `deck-vault.test.ts` has 18 tests: the move, the guard, D1, saving, the pending file, outside edits, a full disk,
-  the cut-off save, and the move-back. The full docs unit suite is green.
+  `deck-vault.test.ts` has 32 tests: the move, the guard, D1, a closed page during the move, saving, the pending
+  file, outside edits, a full disk, the cut-off save, and the move-back. The full docs unit suite is green.
 - **e2e.** `docs/e2e/deck-vault.spec.ts` has 4 tests × `desktop` (Chromium), `webkit-phone` (persistent profile) and
   `gecko` = 12 of 12 green. Each test uses a persistent profile, and each wait is on a signal; the vault holding the
   text is read from the index record's SHA-256.

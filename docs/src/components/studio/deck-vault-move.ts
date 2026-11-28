@@ -18,7 +18,7 @@ import { normalizeSourceText } from '@/lib/normalize-source-text';
 import { sha256 } from '@/lib/vault/path';
 import { legacyDecks, returnDeckToLocal, shelfEngine, takeDeckIntoVault, vaultDecks } from './deck-shelf-io';
 import { studioVault, withMediaLock } from './media-vault';
-import { BACKED_UP_KEY, BACKUP_PATH, MAX_DEAD_ATTEMPTS } from './media-vault-move';
+import { BACKED_UP_KEY, BACKUP_PATH, forgiveAttemptOnLeave, MAX_DEAD_ATTEMPTS } from './media-vault-move';
 import { deckDirection, decksReady } from './studio-store';
 
 const ATTEMPT_KEY = 'lattice-deck-move-attempt';
@@ -98,47 +98,53 @@ export function moveDecksIntoVault(deps: DeckMoveDeps = {}): Promise<DeckMoveRep
 		if (!pending.length) return report;
 		const dead = Number(ls.get(ATTEMPT_KEY)) || 0;
 		if (dead >= MAX_DEAD_ATTEMPTS) return { ...report, stopped: 'gave-up' };
+		// A reload or a closed tab while the backup packs is not a death: only a crash keeps the attempt counted.
+		const stopForgiving = forgiveAttemptOnLeave(ATTEMPT_KEY, dead);
 		ls.set(ATTEMPT_KEY, String(dead + 1));
-		if (ls.get(DECK_BACKUP_KEY) !== '1') {
-			// A listing that fails says nothing about the backup: stop, rather than read it as "the person deleted it" and
-			// never write one (the checker's C5).
-			const listed = await vault.list('.lattice/backups').catch(() => null);
-			if (!listed) return { ...report, stopped: 'backup-failed' };
-			const have = listed.some((e) => e.path === BACKUP_PATH);
-			const deletedByPerson = !have && ls.get(BACKED_UP_KEY) === '1';
-			if (!deletedByPerson) {
-				if (!(await refreshBackup(vault, deps))) {
-					// The attempt stays counted, so a refresh that keeps failing (no memory to pack, say) stops after
-					// MAX_DEAD_ATTEMPTS instead of packing the whole workspace on every start (C5).
-					return { ...report, stopped: 'backup-failed' };
-				}
-				report.backup = 'rewritten';
-				ls.set(BACKED_UP_KEY, '1');
+		try {
+			if (ls.get(DECK_BACKUP_KEY) !== '1') {
+				// A listing that fails says nothing about the backup: stop, rather than read it as "the person deleted it" and
+				// never write one (the checker's C5).
+				const listed = await vault.list('.lattice/backups').catch(() => null);
+				if (!listed) return { ...report, stopped: 'backup-failed' };
+				const have = listed.some((e) => e.path === BACKUP_PATH);
+				const deletedByPerson = !have && ls.get(BACKED_UP_KEY) === '1';
+				if (!deletedByPerson) {
+					if (!(await refreshBackup(vault, deps))) {
+						// The attempt stays counted, so a refresh that keeps failing (no memory to pack, say) stops after
+						// MAX_DEAD_ATTEMPTS instead of packing the whole workspace on every start (C5).
+						return { ...report, stopped: 'backup-failed' };
+					}
+					report.backup = 'rewritten';
+					ls.set(BACKED_UP_KEY, '1');
+				} else report.backup = 'kept';
+				ls.set(DECK_BACKUP_KEY, '1');
 			} else report.backup = 'kept';
-			ls.set(DECK_BACKUP_KEY, '1');
-		} else report.backup = 'kept';
-		const dv = await shelfEngine();
-		if (!dv) return { ...report, stopped: 'no-vault' };
-		for (const { id, raw } of legacyDecks()) {
-			let text: string;
-			try {
-				const parsed = JSON.parse(raw);
-				if (typeof parsed !== 'string') throw new Error('not a deck');
-				text = normalizeSourceText(parsed);
-			} catch {
-				report.failed++; // a corrupt key stays where it is; the Studio reads it as it always has
-				continue;
+			const dv = await shelfEngine();
+			if (!dv) return { ...report, stopped: 'no-vault' };
+			for (const { id, raw } of legacyDecks()) {
+				let text: string;
+				try {
+					const parsed = JSON.parse(raw);
+					if (typeof parsed !== 'string') throw new Error('not a deck');
+					text = normalizeSourceText(parsed);
+				} catch {
+					report.failed++; // a corrupt key stays where it is; the Studio reads it as it always has
+					continue;
+				}
+				try {
+					const back = await dv.moveIn(id, text);
+					if (back === text && takeDeckIntoVault(id, raw, text)) report.moved++;
+					else report.failed++;
+				} catch {
+					report.failed++;
+				}
 			}
-			try {
-				const back = await dv.moveIn(id, text);
-				if (back === text && takeDeckIntoVault(id, raw, text)) report.moved++;
-				else report.failed++;
-			} catch {
-				report.failed++;
-			}
+			ls.set(ATTEMPT_KEY, null);
+			return report;
+		} finally {
+			stopForgiving();
 		}
-		ls.set(ATTEMPT_KEY, null);
-		return report;
 	});
 }
 

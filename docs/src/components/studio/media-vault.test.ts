@@ -201,6 +201,45 @@ describe('the one move into the vault', () => {
 		expect(await vaultFiles()).toEqual([mediaPath('m_a', 'image', 'image/png')]);
 	});
 
+	it('a page closed while the move runs hands its attempt back; only a crash counts toward the cap', async () => {
+		const page = new EventTarget();
+		const g = globalThis as { addEventListener?: unknown; removeEventListener?: unknown };
+		Object.assign(g, { addEventListener: page.addEventListener.bind(page), removeEventListener: page.removeEventListener.bind(page) });
+		let finish = () => {};
+		let move: Promise<unknown> = Promise.resolve();
+		try {
+			await put(legacy('m_a', 'one', bytes(10, 18), 'blob'));
+			localStorage.setItem('lattice-media-move-attempt', String(MAX_DEAD_ATTEMPTS - 1)); // two earlier crashes
+			let packing!: () => void;
+			const started = new Promise<void>((r) => {
+				packing = r;
+			});
+			move = moveMediaIntoVault({
+				pack: () => {
+					packing();
+					return new Promise<Blob>((ok) => {
+						finish = () => ok(new Blob(['zip']));
+					});
+				},
+			});
+			await started;
+			expect(localStorage.getItem('lattice-media-move-attempt')).toBe(String(MAX_DEAD_ATTEMPTS));
+			page.dispatchEvent(new Event('pagehide')); // a reload, not a third crash
+			expect(localStorage.getItem('lattice-media-move-attempt')).toBe(String(MAX_DEAD_ATTEMPTS - 1));
+			finish();
+			expect(await move).toMatchObject({ moved: 1 });
+			expect(localStorage.getItem('lattice-media-move-attempt')).toBeNull();
+			page.dispatchEvent(new Event('pagehide')); // after the move ends nothing listens: no stale count comes back
+			expect(localStorage.getItem('lattice-media-move-attempt')).toBeNull();
+		} finally {
+			finish(); // a failed assertion must not leave the lock held for the next test
+			await move;
+			localStorage.removeItem('lattice-media-move-attempt');
+			delete g.addEventListener;
+			delete g.removeEventListener;
+		}
+	});
+
 	it('a backup delete during a move waits for it, so no fresh backup is left behind', async () => {
 		await put(legacy('m_a', 'one', bytes(10, 17), 'blob'));
 		let release!: () => void;

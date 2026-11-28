@@ -10,7 +10,7 @@ import { DeckVault, deckPath } from './deck-vault';
 import { DECK_BACKUP_KEY, moveDecksIntoVault, moveDecksOutOfVault } from './deck-vault-move';
 import { LIBRARY_SCOPE, type NewMedia, saveMedia } from './media-store';
 import { pinStudioVault } from './media-vault';
-import { BACKED_UP_KEY, BACKUP_PATH } from './media-vault-move';
+import { BACKED_UP_KEY, BACKUP_PATH, MAX_DEAD_ATTEMPTS } from './media-vault-move';
 import { BOOT_SRC_LS, DECK_DIRECTION_KEY, deckLoaded, decksReady, deckVaultSettled, loadSource, onDeckMerged, onSourceWriteError, resetShelfForTests, SRC_PREFIX, saveActiveDeck, saveSource } from './studio-store';
 
 // A whole Storage (studio-store walks keys), installed once.
@@ -151,6 +151,66 @@ describe('the backup (storage desk D1)', () => {
 		const stops = [];
 		for (let i = 0; i < 4; i++) stops.push((await moveDecksIntoVault({ pack: fail })).stopped);
 		expect(stops).toEqual(['backup-failed', 'backup-failed', 'backup-failed', 'gave-up']);
+	});
+	it('three visits closed while the backup packs do not switch the move off: a closed page is not a dead one', async () => {
+		// Measured on the real build (storage-bench `everything`, 58 MB of photos): the refresh packs the whole workspace,
+		// three reloads inside that window counted as three deaths, and the 40 decks stayed in localStorage for good.
+		const page = new EventTarget();
+		const g = globalThis as { addEventListener?: unknown; removeEventListener?: unknown };
+		Object.assign(g, { addEventListener: page.addEventListener.bind(page), removeEventListener: page.removeEventListener.bind(page) });
+		let cut: (e: Error) => void = () => {};
+		let move: Promise<unknown> = Promise.resolve();
+		try {
+			await vault.write(BACKUP_PATH, new Blob(['zip:slice-2']));
+			seedLegacy();
+			for (let visit = 0; visit < MAX_DEAD_ATTEMPTS; visit++) {
+				let packing!: () => void;
+				const started = new Promise<void>((r) => {
+					packing = r;
+				});
+				move = moveDecksIntoVault({
+					pack: () => {
+						packing();
+						return new Promise<Blob>((_, no) => {
+							cut = no;
+						});
+					},
+				});
+				await started;
+				expect(mem.get('lattice-deck-move-attempt')).toBe('1'); // counted while it runs, so a crash still counts
+				page.dispatchEvent(new Event('pagehide')); // the person reloads
+				expect(mem.has('lattice-deck-move-attempt')).toBe(false);
+				cut(new Error('the page went away')); // stands in for the page's end: frees the lock for the next visit
+				await move;
+				reload();
+			}
+			expect(await moveDecksIntoVault({ pack: pack('today') })).toMatchObject({ backup: 'rewritten', moved: 2 });
+			expect(mem.has(SRC_PREFIX + 'deck-a')).toBe(false);
+		} finally {
+			cut(new Error('test over')); // a failed assertion must not leave the lock held for the next test
+			await move;
+			delete g.addEventListener;
+			delete g.removeEventListener;
+		}
+	});
+	it('a refresh that failed stays counted when the page closes later: the listener ends with the attempt (C5)', async () => {
+		const page = new EventTarget();
+		const g = globalThis as { addEventListener?: unknown; removeEventListener?: unknown };
+		Object.assign(g, { addEventListener: page.addEventListener.bind(page), removeEventListener: page.removeEventListener.bind(page) });
+		try {
+			await vault.write(BACKUP_PATH, new Blob(['zip:slice-2']));
+			seedLegacy();
+			const fail = async () => {
+				throw new Error('out of memory');
+			};
+			expect((await moveDecksIntoVault({ pack: fail })).stopped).toBe('backup-failed');
+			expect(mem.get('lattice-deck-move-attempt')).toBe('1');
+			page.dispatchEvent(new Event('pagehide'));
+			expect(mem.get('lattice-deck-move-attempt')).toBe('1');
+		} finally {
+			delete g.addEventListener;
+			delete g.removeEventListener;
+		}
 	});
 	it('writes none when the person deleted the slice 2 backup', async () => {
 		mem.set(BACKED_UP_KEY, '1');
