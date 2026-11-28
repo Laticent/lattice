@@ -140,15 +140,24 @@ jobs:
           MAX_USD: ${{ inputs.max_usd }}
           OLD_REF: ${{ inputs.old_ref }}
           PROBE: ${{ inputs.probe }}
-        # pipefail: without it the step takes tee's exit code, and a failed deck goes green.
         # A schedule run has no inputs, so every one falls back to the nightly default here.
+        # Red means the run broke, not that a deck failed (owner's D2, 2026-11-28). The tool exits 1
+        # when a deck fails, which pass rates of 5 to 9 in 10 make nearly every night, so the step
+        # reads 1 as green and the deck table lives in the step summary. A cap stop (3), a config
+        # error (2) or a crash stays red. PIPESTATUS[0] is the tool's own code, not tee's.
         run: |
-          set -euo pipefail
+          set -uo pipefail
           args=(--out eval-out --arm "${ARM:-retrieval}" --model "${MODEL:-nightly}" --repeat "${REPEAT:-1}"
                 --temperature "${TEMPERATURE:-0}" --reasoning "${REASONING:-auto}" --max-usd "${MAX_USD:-0.25}")
           if [ -n "${OLD_REF:-}" ]; then args+=(--old "$RUNNER_TEMP/old-start.md"); fi
           if [ "${PROBE:-false}" = 'true' ]; then args+=(--probe); fi
           node tools/agent-pack-eval.mjs "${args[@]}" | tee -a "$GITHUB_STEP_SUMMARY"
+          code=${PIPESTATUS[0]}
+          if [ "$code" -eq 1 ]; then
+            echo "::notice title=Decks failed::at least one deck failed; the table above is the result, and the run itself is sound"
+            exit 0
+          fi
+          exit "$code"
       - name: Upload the decks, PDFs and summary
         if: always()
         uses: actions/upload-artifact@v4
