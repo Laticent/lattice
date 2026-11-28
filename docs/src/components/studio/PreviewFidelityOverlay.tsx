@@ -336,20 +336,18 @@ function Overlay() {
 // ─── Readout body pieces (see the KNOWN DUPLICATION note at the top of this file) ──────
 type Tone = 'pass' | 'fail' | 'warn' | 'muted';
 
-// A verdict chip — one computed answer. The status tones are FILLED solid pills with white text,
-// backed by the dedicated `--pass-fill/--warn-fill/--fail-fill` chrome tokens: a white-text fill
-// needs a color dark enough for white text in BOTH modes, which the FOREGROUND `--pass/--warn/
-// --fail` are NOT (they go bright in dark mode). The -fill tokens clear AA on white and are
-// emitted identically into both mode blocks, so the chip never flips color — and an a11y palette
-// gets blue/amber/gray rather than red/green. Verbatim from ViewportDebugOverlay's Chip.
+// A verdict chip — one computed answer. The status tones are FILLED pills drawn the way a deck
+// draws a status pill: the theme's `--X-mark` under its `--X-on-mark` (2026-11-16-status-triplets.md),
+// AA on every palette and mode (tools/check-shadcn-bridge-contrast.js), so an a11y palette gets
+// its own blue/amber/gray. Verbatim from ViewportDebugOverlay's Chip.
 function Chip({ label, value, tone }: { label: string; value: string; tone: Tone }) {
 	const filled =
 		tone === 'pass'
-			? 'border-transparent bg-[var(--pass-fill,#1f7a3d)] text-white'
+			? 'border-transparent bg-[var(--pass-mark)] text-[var(--pass-on-mark)]'
 			: tone === 'fail'
-				? 'border-transparent bg-[var(--fail-fill,#b3261e)] text-white'
+				? 'border-transparent bg-[var(--fail-mark)] text-[var(--fail-on-mark)]'
 				: tone === 'warn'
-					? 'border-transparent bg-[var(--warn-fill,#8a6100)] text-white'
+					? 'border-transparent bg-[var(--warn-mark)] text-[var(--warn-on-mark)]'
 					: 'border-border text-muted-foreground';
 	return (
 		<span className={`inline-flex items-baseline gap-1 rounded-md border px-1.5 py-0.5 text-[10px] ${filled}`}>

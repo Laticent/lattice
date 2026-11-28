@@ -126,7 +126,9 @@ export default function NavActions({
 				</Button>
 			</Tip>
 
-			<Button asChild variant="ghost" size="icon-sm" aria-label="GitHub repository" className="hidden lg:inline-flex">
+			{/* `text-inherit`: the docs zone (Starlight) gives a bare <a> no color, so the glyph fell to the
+			    browser's default link blue there. Inherit the header ink, as the sibling icon buttons do. */}
+			<Button asChild variant="ghost" size="icon-sm" aria-label="GitHub repository" className="hidden text-inherit lg:inline-flex">
 				<a href={githubUrl} target="_blank" rel="noreferrer noopener">
 					<GithubIcon className="size-4" />
 				</a>

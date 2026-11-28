@@ -19,12 +19,13 @@ import type { RenderStats } from '@/lib/render-metrics';
 import { cn } from '@/lib/utils';
 import { bandLabel, formatValue, type MetricMeta, type Rating, REGIME_WORD, type Regime } from './perf-metrics';
 
-const RATING_COLOR: Record<string, string> = {
-	good: '#16a34a',
-	'needs-improvement': '#d97706',
-	poor: '#dc2626',
-};
-const GRAY = '#52525b';
+// A rating IS a status: good is done, needs-improvement is at risk, poor is blocked, and no
+// rating is deferred. Each paints from the theme's own triplet (2026-11-16-status-triplets.md):
+// the INK where it is words, the MARK where it is a dot or a fill, and the ink drawn ON that mark.
+const RATING_KIND: Record<string, string> = { good: 'pass', 'needs-improvement': 'warn', poor: 'fail' };
+const ink = (rating?: string | null) => `var(--${(rating && RATING_KIND[rating]) || 'mute'})`;
+const mark = (rating?: string | null) => `var(--${(rating && RATING_KIND[rating]) || 'mute'}-mark)`;
+const onMark = (rating: string) => `var(--${RATING_KIND[rating]}-on-mark)`;
 const RATING_WORD: Record<string, string> = { good: 'Good', 'needs-improvement': 'Needs work', poor: 'Poor' };
 
 /** Live matchMedia hook (client-only island, but guarded for safety). */
@@ -62,7 +63,7 @@ export type MetricDatum = {
 // pads the header right so the value clears the sheet's top-right close button.
 function DetailBody({ meta, datum, reserveClose }: { meta: MetricMeta; datum: MetricDatum; reserveClose?: boolean }) {
 	const { value, rating, raw, regime } = datum;
-	const color = rating ? RATING_COLOR[rating] : GRAY;
+	const color = ink(rating);
 	const band = bandLabel(meta, regime);
 	const zones: { key: Rating; label: string }[] = [
 		{ key: 'good', label: 'Good' },
@@ -77,7 +78,7 @@ function DetailBody({ meta, datum, reserveClose }: { meta: MetricMeta; datum: Me
 					<div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">{meta.label}</div>
 				</div>
 				<div className="flex shrink-0 items-center gap-1.5 font-mono text-[15px] font-semibold tabular-nums" style={{ color }}>
-					<span className="inline-block size-2 rounded-full" style={{ background: color }} />
+					<span className="inline-block size-2 rounded-full" style={{ background: mark(rating) }} />
 					{value == null ? '–' : formatValue(meta, value)}
 				</div>
 			</div>
@@ -102,9 +103,9 @@ function DetailBody({ meta, datum, reserveClose }: { meta: MetricMeta; datum: Me
 									key={z.key}
 									className={cn(
 										'flex-1 rounded-md border px-1.5 py-1 text-center text-[10px] font-semibold uppercase tracking-wide transition-colors',
-										active ? 'text-white' : 'border-border text-muted-foreground',
+										!active && 'border-border text-muted-foreground',
 									)}
-									style={active ? { background: RATING_COLOR[z.key], borderColor: RATING_COLOR[z.key] } : undefined}
+									style={active ? { background: mark(z.key), borderColor: mark(z.key), color: onMark(z.key) } : undefined}
 								>
 									{z.label}
 								</span>
@@ -151,7 +152,7 @@ function EngineBreakdown({ stats }: { stats: RenderStats }) {
 				<div key={name} className="flex items-center gap-2">
 					<span className="w-16 shrink-0 text-[11px] text-muted-foreground">{name}</span>
 					<span className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
-						<span className="block h-full rounded-full bg-[var(--accent,#6366f1)]" style={{ width: `${Math.max(2, (ms / max) * 100)}%` }} />
+						<span className="block h-full rounded-full bg-[var(--accent)]" style={{ width: `${Math.max(2, (ms / max) * 100)}%` }} />
 					</span>
 					<span className="w-10 shrink-0 text-right font-mono text-[11px] tabular-nums text-foreground">{Math.round(ms)}ms</span>
 				</div>
@@ -189,7 +190,7 @@ function DeckContext({ stats }: { stats: RenderStats }) {
 				{chips.map((c) => (
 					<span
 						key={c.label}
-						className={cn('rounded border px-1.5 py-0.5 text-[10.5px]', c.warn ? 'border-transparent bg-[#dc2626] text-white' : 'border-border text-muted-foreground')}
+						className={cn('rounded border px-1.5 py-0.5 text-[10.5px]', c.warn ? 'border-transparent bg-[var(--fail-mark)] text-[var(--fail-on-mark)]' : 'border-border text-muted-foreground')}
 					>
 						{c.label}
 					</span>
@@ -202,7 +203,6 @@ function DeckContext({ stats }: { stats: RenderStats }) {
 // The row button — the trigger. Compact HUD styling; the whole row is tappable.
 const Row = React.forwardRef<HTMLButtonElement, { meta: MetricMeta; datum: MetricDatum } & React.ButtonHTMLAttributes<HTMLButtonElement>>(
 	({ meta, datum, className, ...props }, ref) => {
-		const color = datum.rating ? RATING_COLOR[datum.rating] : GRAY;
 		return (
 			<button
 				ref={ref}
@@ -215,7 +215,7 @@ const Row = React.forwardRef<HTMLButtonElement, { meta: MetricMeta; datum: Metri
 				{...props}
 			>
 				<span className="flex items-center gap-[7px] text-muted-foreground">
-					<span className="size-2 shrink-0 rounded-full" style={{ background: color }} />
+					<span className="size-2 shrink-0 rounded-full" style={{ background: mark(datum.rating) }} />
 					{meta.label}
 					{meta.approximate && <span className="text-[10px] opacity-70">≈</span>}
 				</span>

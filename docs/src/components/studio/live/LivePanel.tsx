@@ -387,7 +387,7 @@ function MicMeter({ actions, active }: { actions: LiveActions; active: boolean }
 	return (
 		// biome-ignore lint/a11y/useSemanticElements: a styled bar; a native <meter> cannot be skinned the same in every engine, and role="meter" carries the same value to assistive tech.
 		<div role="meter" aria-label="Microphone level" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} className="h-2 w-full overflow-hidden rounded-full bg-border" data-live-meter>
-			<div className={cn('h-full rounded-full bg-primary', shown > 0.9 && 'bg-destructive')} style={{ width: `${pct}%` }} />
+			<div className={cn('h-full rounded-full bg-primary', shown > 0.9 && 'bg-destructive-mark')} style={{ width: `${pct}%` }} />
 		</div>
 	);
 }

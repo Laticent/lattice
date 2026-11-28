@@ -803,6 +803,6 @@ const STYLE = `
 .pod-ghost:not(:disabled):hover{border-color:var(--accent);background:var(--accent-soft);}
 .pod-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
 .pod-plat{font-size:10.5px;color:var(--text-muted);text-align:center;line-height:1.5;}
-.pod-dot{color:#4bbd8b;}
+.pod-dot{color:var(--pass-mark);}
 @media(prefers-reduced-motion:reduce){.pod-bar i{animation:none;width:100%;}.pod-sheet,.pod-frame{transition:none;}}
 `;

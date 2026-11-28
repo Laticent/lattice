@@ -3,9 +3,10 @@
 // chrome to match the app.
 //
 // The browser shows a blank canvas while the render-blocking stylesheets download, and a
-// blank canvas defaults to WHITE unless the page declares `color-scheme`. Since #962 the
-// only `color-scheme` lives inside the per-palette token CSS (`html[data-palette][data-mode]`),
-// which is exactly that late-loading render-blocking CSS — so during the cold-load window the
+// blank canvas defaults to WHITE unless the page declares `color-scheme`. Since #962 every
+// stylesheet `color-scheme` lives inside the generated token CSS (the per-palette
+// `html[data-palette][data-mode]` blocks and, since 2026-11-28, the bare-`:root` first-paint
+// fallback), which is exactly that late-loading render-blocking CSS — so during the cold-load window the
 // browser has no dark signal and paints white. (The on-demand engine load widened that window,
 // which is why it became visible.)
 //

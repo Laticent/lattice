@@ -54,12 +54,11 @@ export default function StorageOverlay() {
 	return <Overlay />;
 }
 
-// The value-rating palette, mirrored from the performance overlay (MetricDetail's
-// RATING_COLOR) so the two debug popups read the same. Hardcoded hexes are the
-// established convention for these docs-site diagnostic islands (HARD RULE #3
-// governs engine/theme CSS, not React chrome); NEUTRAL is the neutral / no-rating dot.
-const RATING_COLOR: Record<Rating, string> = { good: '#16a34a', 'needs-improvement': '#d97706', poor: '#dc2626' };
-const NEUTRAL = '#52525b';
+// The value-rating colors, the same as the performance overlay's (MetricDetail), so the debug
+// popups read alike: each rating is a status, painted with the theme's own status MARK (every use
+// here is a dot). NEUTRAL is the no-rating dot: the deferred status.
+const RATING_COLOR: Record<Rating, string> = { good: 'var(--pass-mark)', 'needs-improvement': 'var(--warn-mark)', poor: 'var(--fail-mark)' };
+const NEUTRAL = 'var(--mute-mark)';
 const colorFor = (r: Rating | null) => (r ? RATING_COLOR[r] : NEUTRAL);
 
 // The mounted overlay — scans storage only while shown (mount = poll, unmount =

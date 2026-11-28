@@ -102,8 +102,9 @@ const Toaster = ({ ...props }: ToasterProps) => {
         {
           // (2) the inverse pill, via the CSS vars Sonner reads for a default toast.
           "--normal-bg": "var(--surface-inverse)",
-          "--normal-text": "#fff",
-          "--normal-border": "color-mix(in srgb, #fff 16%, transparent)",
+          // The engine's on-dark ink: --surface-inverse is dark on every palette and mode.
+          "--normal-text": "var(--on-dark-primary)",
+          "--normal-border": "color-mix(in srgb, var(--on-dark-primary) 16%, transparent)",
           "--border-radius": "9999px",
           // (3) Tappable over a modal. A Radix dialog sets `pointer-events: none` on <body>
           // while it is open, and the toaster lives in <body>, so a toast's button showed

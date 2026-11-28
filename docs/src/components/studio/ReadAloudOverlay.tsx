@@ -21,11 +21,11 @@ import { onCalibrationChange, resetCalibration } from '@/playground/readaloud-ca
 import { setReadAloudOverlayEnabled } from '@/playground/readaloud-overlay-prefs';
 import type { ReadAloudDebugEvent, ReadAloudDebugLive } from './read-aloud';
 
-// The SAME rating palette the perf overlay's MetricDetail uses, so green/amber/red
-// mean the same thing across both overlays. Inline style (not CSS) — a diagnostics
-// aid, not layout — mirroring PerfOverlay's own approach.
-const TONE: Record<string, string> = { good: '#16a34a', warn: '#d97706', bad: '#dc2626' };
-const GRAY = '#8b949e';
+// The SAME rating colors the perf overlay's MetricDetail uses, so good / at risk / bad mean the
+// same thing across both overlays: the theme's own status MARKS (a dot is a mark, not text).
+// Inline style (not CSS) — a diagnostics aid, not layout — mirroring PerfOverlay's own approach.
+const TONE: Record<string, string> = { good: 'var(--pass-mark)', warn: 'var(--warn-mark)', bad: 'var(--fail-mark)' };
+const GRAY = 'var(--mute-mark)';
 
 type Tone = 'good' | 'warn' | 'bad' | 'none';
 

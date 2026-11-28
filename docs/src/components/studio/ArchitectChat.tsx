@@ -1338,7 +1338,7 @@ export function ArchitectChat({ costSlot, deckId, source, aiReady, grounding, on
 					)}
 					</div>
 					{busy ? (
-						<button type="button" onClick={stop} aria-label="Stop" className="grid size-8 shrink-0 place-items-center rounded-lg bg-[var(--fail-fill,#b3261e)] text-white">
+						<button type="button" onClick={stop} aria-label="Stop" className="grid size-8 shrink-0 place-items-center rounded-lg bg-[var(--fail-mark)] text-[var(--fail-on-mark)]">
 							<Square className="size-3.5" />
 						</button>
 					) : (

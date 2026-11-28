@@ -56,14 +56,6 @@
 	   when iOS Safari has the keyboard up, which is exactly the case a sheet has to get
 	   right. Same no-comma discipline as --kb above. */
 	--vvh: 100dvh;
-	/* Danger is hue-universal; themes/ defines no destructive token, so this is
-	 * a palette-blind ramp (one light value, one dark — WCAG-checked). */
-	--lx-ui-destructive: #c0362c;
-	--lx-ui-destructive-foreground: #ffffff;
-}
-:root[data-mode='dark'] {
-	--lx-ui-destructive: #f4675d;
-	--lx-ui-destructive-foreground: #1c0a08;
 }
 
 /* ── The map: shadcn semantic color tokens → Lattice palette tokens ──────────
@@ -88,8 +80,13 @@
 
 	--color-accent: var(--lx-ui-accent);
 	--color-accent-foreground: var(--text-heading);
-	--color-destructive: var(--lx-ui-destructive);
-	--color-destructive-foreground: var(--lx-ui-destructive-foreground);
+	/* Destructive IS the theme's blocked status, in its two tiers: `--fail` is the ink that reads on
+	 * the canvas (an error line, a red border, a focus ring), and `--fail-mark` under `--fail-on-mark`
+	 * is the filled pill each theme curates (2026-11-16-status-triplets.md). Every palette ships both,
+	 * per mode; the site invents no red of its own. */
+	--color-destructive: var(--fail);
+	--color-destructive-mark: var(--fail-mark);
+	--color-destructive-foreground: var(--fail-on-mark);
 
 	--color-border: var(--border);
 	--color-input: var(--border);
@@ -116,8 +113,10 @@
 	--radius-lg: var(--radius);
 	--radius-xl: calc(var(--radius) + 4px);
 
-	--font-sans: 'Outfit', 'Outfit Fallback', system-ui, sans-serif;
-	--font-mono: 'JetBrains Mono', 'JetBrains Mono Fallback', 'Courier New', monospace;
+	/* The body face, as the engine declares it (generated into lattice-tokens.generated.css). No
+	 * `--font-mono` here: that IS the generated token's name, and the unlayered generated `:root`
+	 * already beats Tailwind's theme-layer default, so `font-mono` resolves to the engine stack. */
+	--font-sans: var(--font-body);
 }
 
 /* ── Scoped baseline for shadcn islands (replaces global Preflight) ──────────

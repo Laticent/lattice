@@ -14,10 +14,10 @@ import { deviceTierState, type GpuRankStatus, onDeviceTierChange, readCachedCpu 
 import { browserName, type ReportRow, type RowStatus, reportRows, reportText } from '@/lib/system-report';
 import { setSystemOverlayEnabled } from '@/playground/system-overlay-prefs';
 
-// The rating colors the Perf and Storage overlays use, so the diagnostics read as one family.
-// Hex literals are the established convention for these React diagnostic islands (HARD RULE #3
-// governs engine and theme CSS); 'unknown' is the neutral dot.
-const STATUS_COLOR: Record<RowStatus, string> = { ok: '#16a34a', warn: '#d97706', bad: '#dc2626', unknown: '#52525b' };
+// The rating colors the Perf and Storage overlays use, so the diagnostics read as one family:
+// the theme's own status MARKS (each row's dot is a mark), so the overlay speaks the palette's
+// status colors in every palette and mode. 'unknown' is the deferred status.
+const STATUS_COLOR: Record<RowStatus, string> = { ok: 'var(--pass-mark)', warn: 'var(--warn-mark)', bad: 'var(--fail-mark)', unknown: 'var(--mute-mark)' };
 
 type NavExtras = Navigator & {
 	connection?: { effectiveType?: string; saveData?: boolean };
