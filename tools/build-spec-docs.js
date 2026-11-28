@@ -61,14 +61,10 @@ const SPECS = [
     title: 'LFM 1.0 — the specification',
     description:
       'The normative specification for Lattice-Flavored Markdown: the extension set over CommonMark + GFM, how each construct degrades, and what makes a document conformant.',
-    // LFM 1.x spells a slide's settings as a directive comment; since the cut the engine reads only the 2.0 record
-    // (engineering/decisions/2026-10-17-meta-record.md §15), so the page says so before a reader copies a 1.x sample.
     intro:
-      'New to LFM? Start with [Understanding LFM](/spec/understanding-lfm/). This page is LFM 1.0, which writes a ' +
-      "slide's settings as the old directive comment (`<!-- _class: … -->`). In the " +
-      `[LFM 2.0 draft](${GH_BLOB}/spec/LFM-2.0.md#21-the-slide-record), the §2.1 slide record ` +
-      "(`<!-- @meta{layout=…} -->`) replaces 1.1's `_class`. Lattice reads only the record: the old comment sets " +
-      'nothing and is a lint error, and `lattice migrate meta` rewrites a 1.x deck.',
+      'New to LFM? Start with [Understanding LFM](/spec/understanding-lfm/). A slide\'s settings are one ' +
+      '`<!-- @meta{…} -->` record (§2.3); an old `<!-- _class: … -->` comment sets nothing, and ' +
+      '`lattice migrate meta` rewrites a deck written that way.',
   },
   {
     source: 'spec/diagnostics.md',

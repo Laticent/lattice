@@ -1,7 +1,7 @@
 {
  "title": "logo: and plugins: carry values that are not one word from a list",
- "spec": "LFM-1.1",
- "section": "2.3",
+ "spec": "LFM-1.0",
+ "section": "4.2",
  "rows": [
   { "name": "plugins: a known list", "source": "---\nplugins: [math, mermaid]\n---\n\n## A\n\nText.\n", "L2": { "findings": [] } },
   { "name": "plugins: an unknown name", "source": "---\nplugins: [not-a-plugin]\n---\n\n## A\n\nText.\n", "L2": { "findings": [{ "rule": "unknown-plugin", "severity": "warning", "slide": 0 }] } },

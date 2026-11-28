@@ -1156,7 +1156,7 @@ function renderFences(manifests) {
 }
 
 /**
- * The component's DATA SLOTS (LFM 1.1 §3.6, rule 4): each Segno slot its manifest declares with
+ * The component's DATA SLOTS (LFM 1.0 §5.1, rule 4): each Segno slot its manifest declares with
  * `sits: "list-rows"`. An inline-code span on such a component's list rows is read by the slot,
  * never by the slide-wide pill / mark / spark pass. `rowDepth` (when declared) bounds the list
  * depth the slot reads, and a slot with it reads only the slide's first list. The engine reads

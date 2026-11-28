@@ -1,4 +1,4 @@
-<!-- _class: split-compare -->
+<!-- @meta{layout=split-compare} -->
 
 ## Two options, side by side
 
@@ -9,7 +9,7 @@
 
 ---
 
-<!-- _class: cards-grid dark -->
+<!-- @meta{layout=cards-grid, class=dark} -->
 
 ## Three bets
 

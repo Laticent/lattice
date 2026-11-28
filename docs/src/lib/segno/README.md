@@ -51,9 +51,10 @@ This is 0.x: a minor version may break the API. Within that, two halves move at 
 - **Experimental:** the grammar engine (`compile`, the combinators, `lint`, `generate`,
   `restrict`, `kindsOf`), a record slot's `tryRead`, and the notation's own grammar
   (`notationSpec`, `plainRecordSpec`, `TAGS`). Their names and shapes may change in any minor
-  version. The notation itself is specified in LFM 1.1 §3.6
-  ([`spec/LFM-1.1.md`](https://github.com/Laticent/lattice/blob/main/spec/LFM-1.1.md)), which wins
-  where it and this package disagree.
+  version. The notation itself is specified in
+  [`spec/SEGNO-1.0.md`](https://github.com/Laticent/lattice/blob/main/spec/SEGNO-1.0.md), and what LFM reads it for
+  in LFM 1.0 §5.1 ([`spec/LFM-1.0.md`](https://github.com/Laticent/lattice/blob/main/spec/LFM-1.0.md)); the specs
+  win where they and this package disagree.
 
 The notation is one line: a newline inside a span is an ordinary character, not whitespace. That
 matches Markdown inline code, which folds a line break into a space before Segno sees it.

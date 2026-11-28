@@ -1,4 +1,4 @@
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 ## Three bets
 

@@ -1,7 +1,7 @@
 {
  "title": "Every register in §2.3 takes its listed values, and a key no reader knows is reported",
- "spec": "LFM-1.1",
- "section": "2.3",
+ "spec": "LFM-1.0",
+ "section": "2.1",
  "rows": [
   { "name": "spectrum: one word per axis, in any order", "source": "---\nspectrum: band left solid\n---\n\n## A\n\nText.\n", "L2": { "findings": [] } },
   { "name": "spectrum: an unknown word", "source": "---\nspectrum: plaid\n---\n\n## A\n\nText.\n", "L2": { "findings": [{ "rule": "unknown-spectrum", "severity": "warning", "slide": 0 }] } },

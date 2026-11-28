@@ -29,7 +29,6 @@ const SANCTIONED = new Map([
   ['test/unit/tools/fixtures/list-text.frozen.json', 'the frozen list-text reader corpus the grammar is diffed against'],
   ['tools/frame-lab/bakeoff/corpus.json', 'the frame-lab bake-off corpus, sampled from the tree when it was measured'],
   ['spec/LFM-1.0.md', 'ratified LFM 1.0 specifies the 1.x note semantics'],
-  ['spec/LFM-1.1.md', 'the LFM 1.1 draft specifies the 1.x note semantics'],
   ['docs/src/content/docs/spec/lfm.md', 'the docs projection of ratified LFM 1.0'],
   // The machinery that retires them must name them.
   ['lib/authoring/lint-core.js', 'the `note-key-retired` rule matches the old keys'],

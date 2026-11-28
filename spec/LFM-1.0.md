@@ -151,7 +151,11 @@ a letter, then letters, digits and hyphens.
 
 The field registry is `dist/schemas/front-matter.schema.json`: a record field and a front-matter key are one name
 for one setting, so a deck-wide setting and a one-slide override use the same word. The shared cases are
-`spec/conformance/lfm/*-record`.
+`spec/conformance/lfm/class-directive` and `lens-tag`.
+
+**Migrating an older deck.** `lattice migrate meta` rewrites a deck's directive comments as records, and the migrated
+deck renders what the old one rendered; `lattice migrate notes` does the same for plain-comment speaker notes (§2.4).
+`lattice lint --fix` applies the record rewrite as well.
 
 
 ### 2.4 Notes

@@ -1,4 +1,4 @@
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 ## A flow
 
@@ -9,7 +9,7 @@ A-->B
 
 ---
 
-<!-- _class: math canvas -->
+<!-- @meta{layout=math, class=canvas} -->
 
 ## A curve
 
@@ -21,7 +21,7 @@ $$y = x^2$$
 
 ---
 
-<!-- _class: math canvas -->
+<!-- @meta{layout=math, class=canvas} -->
 
 ## The old fence name
 

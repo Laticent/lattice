@@ -10,9 +10,9 @@ const { listCases, readCase, runCase } = require('../../../tools/lfm-conformance
 const cases = listCases().map((n) => readCase(n));
 
 describe('LFM conformance: every shared case passes on the reference implementation', () => {
-  test('the folder holds cases for every section of LFM §2 and §3', () => {
+  test('the folder holds cases for every section of LFM §2 to §6 that a deck can show', () => {
     const sections = new Set(cases.map((c) => c.expect.section));
-    for (const s of ['2.1', '2.2', '2.3', '2.4', '3.1', '3.2', '3.3', '3.5', '3.6']) assert.ok(sections.has(s), `§${s} has a case`);
+    for (const s of ['2.1', '2.2', '2.3', '2.4', '3.1', '3.2', '3.3', '4.2', '5.1', '6.1']) assert.ok(sections.has(s), `§${s} has a case`);
   });
   for (const c of cases) {
     test(c.name, () => assert.deepEqual(runCase(c), []));
@@ -82,36 +82,31 @@ describe('LFM conformance: a wrong expectation fails (the arm that bites)', () =
   }
 });
 
-describe('spec/LFM-1.1.md §2.3 lists exactly the values each register accepts', () => {
-  // The cases catch a value the engine DROPS; this catches one it ADDS, which would otherwise
-  // leave the public table silently short. The KEYS come from the engine's table
-  // (lib/core/deck-settings.js, every row marked `spec: '2.3'` that takes words from a list,
-  // plugin registers included), so a register the engine reads cannot be missing from §2.3: the
-  // hand-kept map this replaced named 26 keys and missed four (spectrum-card, spectrum-card-edge,
-  // spectrum-trim, avatar). Each row's values come from its resolver through the lint vocab.
-  const fs = require('node:fs');
-  const path = require('node:path');
+describe('LFM 1.0 §4.2: the settings registry accepts every value each register reads', () => {
+  // LFM 1.0 publishes the registers as a registry (dist/schemas/front-matter.schema.json, built by
+  // tools/build-front-matter-schema.js from lib/core/deck-settings.js), not a table in its prose. The KEYS come from
+  // the engine's table (every row marked `spec: '4.2'` that takes words from a list, plugin registers included), so a
+  // register the engine reads cannot be missing from the registry, and each value the engine accepts must validate.
+  // The hand-kept map this replaced named 26 keys and missed four (spectrum-card, spectrum-card-edge, spectrum-trim,
+  // avatar). Failing arm: drop a value from a register's resolver in the schema builder and its row goes red.
+  const Ajv = require('ajv/dist/2020');
   const { buildVocab } = require('../../../lib/authoring/lint.js');
   const { withPluginRegisters, settingValues } = require('../../../lib/core/deck-settings.js');
+  const { buildSchema } = require('../../../tools/build-front-matter-schema.js');
   const vocab = buildVocab();
-  const governed = withPluginRegisters(vocab.pluginRegisters).filter((r) => r.spec === '2.3' && (r.kind === 'register' || r.kind === 'axis'));
-  const spec = fs.readFileSync(path.join(__dirname, '../../../spec/LFM-1.1.md'), 'utf8');
-  const rows = new Map(
-    [...spec.matchAll(/^\| `([a-z-]+):` \| ([^|]+) \|/gm)].map((m) => [m[1], [...m[2].matchAll(/`([^`]+)`/g)].map((v) => v[1])]),
-  );
-  test('the engine table governs at least the 30 registers §2.3 lists (reach)', () => {
+  const schema = buildSchema();
+  const validate = new Ajv({ strict: false }).compile(schema);
+  const governed = withPluginRegisters(vocab.pluginRegisters).filter((r) => r.spec === '4.2' && (r.kind === 'register' || r.kind === 'axis'));
+  test('the engine table governs at least the 30 registers LFM 1.0 §4.2 names (reach)', () => {
     assert.ok(governed.length >= 30, `only ${governed.length} rows`);
   });
   for (const row of governed) {
     test(`${row.key}:`, () => {
-      assert.ok(rows.has(row.key), `§2.3 has a row for ${row.key}:`);
+      assert.ok(Object.hasOwn(schema.properties, row.key), `the registry has an entry for ${row.key}`);
       const names = settingValues(row, vocab);
       assert.ok(names?.length, `${row.key}: has a value list`);
-      assert.deepEqual([...rows.get(row.key)].sort(), [...names].map(String).sort());
+      const refused = [...names].map(String).filter((v) => !validate({ [row.key]: v }));
+      assert.deepEqual(refused, [], `the registry refuses values the engine reads for ${row.key}`);
     });
   }
-  test('every register line in §2.3 is a row of the engine table', () => {
-    const keys = new Set(withPluginRegisters(vocab.pluginRegisters).map((r) => r.key));
-    assert.deepEqual([...rows.keys()].filter((k) => !keys.has(k)), []);
-  });
 });

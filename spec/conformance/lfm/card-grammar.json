@@ -1,7 +1,6 @@
 {
   "title": "A card is a list item's title with its nested list as the body",
   "spec": "LFM-1.0",
-  "until": "LFM-2.0",
   "section": "3.1",
   "L0": { "visible": ["Speed", "Ship weekly", "Trust", "Sign every release"] },
   "L1": {

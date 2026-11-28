@@ -64,7 +64,7 @@ function propertyFor(row, lists) {
     case 'register':
       if (!names?.length) throw new Error(`${row.key}: a register with no value list`);
       if (OPEN_VALUES.has(row.key)) return { ...base, type: 'string', pattern: '^[A-Za-z0-9_-]+$', examples: [...names] };
-      // A register matches without regard to case (LFM 1.1 §2.3) — except `size:`, whose reader
+      // A register matches without regard to case (LFM 1.0 §4.2) — except `size:`, whose reader
       // is case-sensitive. An enum is exact, so the lower-case spellings are the ones offered.
       return { ...base, enum: row.key === 'size' ? [...names] : [...new Set(names.map((n) => String(n).toLowerCase()))] };
     case 'axis': {

@@ -1,7 +1,7 @@
 {
  "title": "split: headings (the default) starts a slide at every # or ## after a section's first heading; split: rule only at ---",
- "spec": "LFM-1.1",
- "section": "2.3",
+ "spec": "LFM-1.0",
+ "section": "2.2",
  "rows": [
   { "name": "default", "source": "## One\n\nA.\n\n## Two\n\nB.\n", "L1": { "slideCount": 2 } },
   { "name": "headings", "source": "---\nsplit: headings\n---\n\n## One\n\nA.\n\n## Two\n\nB.\n", "L1": { "slideCount": 2 } },

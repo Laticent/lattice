@@ -18,7 +18,7 @@
  *   5. The four universal state markers are present with their gfm flag — the
  *      degradation contract LFM 1.0 §5.1 hinges on.
  *   5b. dataSlots name exactly the components the engine lets own their list rows
- *      (LFM 1.1 §3.6 rule 4), so the published grammar and the render agree.
+ *      (LFM 1.0 §5.1 rule 4), so the published grammar and the render agree.
  *   6. Deterministic / idempotent: re-rendering is byte-identical.
  *   7. The committed dist/docs/grammar.json is not stale vs the manifests.
  */
@@ -106,7 +106,7 @@ describe('LFM grammar.json projection', () => {
     }
   });
 
-  test('dataSlots name exactly the components that own their list rows (LFM 1.1 §3.6 rule 4)', () => {
+  test('dataSlots name exactly the components that own their list rows (LFM 1.0 §5.1 rule 4)', () => {
     const { LIST_ROW_OWNERS } = require('../../../lib/core/resolve-inline-code');
     const declared = doc.components.filter((c) => c.dataSlots.length).map((c) => c.name).sort();
     assert.deepEqual(declared, [...LIST_ROW_OWNERS].sort());

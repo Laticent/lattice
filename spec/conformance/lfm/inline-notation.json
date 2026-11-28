@@ -1,7 +1,7 @@
 {
  "title": "Pills, marks, sparks and icons in single-backtick code; anything else stays code",
- "spec": "LFM-1.1",
- "section": "3.6",
+ "spec": "LFM-1.0",
+ "section": "5.1",
  "rows": [
   { "name": "a pill with shape and color", "source": "## A\n\nStatus `{BETA, tag, c4}`\n",
     "L0": { "visible": ["{BETA, tag, c4}"] },

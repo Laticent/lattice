@@ -1,7 +1,7 @@
 {
   "title": "A slide's four notes are @note, @say, @alt and @handout; a plain comment is not a note",
-  "spec": "LFM-2.0",
-  "section": "3.5",
+  "spec": "LFM-1.0",
+  "section": "2.4",
   "L0": { "visible": ["The one claim"], "hidden": ["Open cold", "plain comment", "read aloud", "centered", "appendix", "markdownlint"] },
   "L1": {
     "slides": [{

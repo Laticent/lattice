@@ -1853,8 +1853,8 @@ fixed value list, a value from a typo (`unknown-<key>`). The Studio offers keys 
 and shows it on hover. The front-matter reference page prints it, and
 `tools/build-front-matter-schema.js` turns it into `dist/schemas/front-matter.schema.json`. So a
 new key is: the reader, the row (with `vocab:` naming the lint-vocab field its resolver fills, or
-`values:` when no resolver exports a list), and, if LFM should carry it, a `spec: '2.3'` row in
-`spec/LFM-1.1.md` and a shared case. A plugin's register needs no row: the plugin manifest's
+`values:` when no resolver exports a list), and, if LFM should carry it, `spec: '4.2'` on the row
+(the settings registry, LFM 1.0 §4.2, is generated from it) and a shared case in `spec/conformance/lfm/`. A plugin's register needs no row: the plugin manifest's
 `contributes.registers` is the row.
 
 `test/unit/conformance/static.test.js` runs the **deck-setting contract**

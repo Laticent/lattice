@@ -30,7 +30,7 @@ where     — lib/core/meta-door.mjs (`readRecord`: the bare first word; `carry`
             (the two new findings and their fixes), lib/authoring/meta-migrate.mjs (one record per slide, no `carry`),
             lib/core/meta-door.mjs `recordsToComments` and the Export-to-Marp path (global values plus per-slide
             overrides), docs/src/playground/grammar-vocab.js and context-sources.js (completion), the Compose
-            settings writer, spec/LFM-2.0.md §2.1, the record note, the skills and docs, and a demo deck (HARD RULE #9).
+            settings writer, spec/LFM-1.0.md §2.3, the record note, the skills and docs, and a demo deck (HARD RULE #9).
 done when — A slide with two records renders the last one only and lints the first with a removing fix;
             `carry` sets nothing beyond its slide and lints with a copying fix; `@meta{kpi}` renders `kpi`; the
             Marp export of a deck with a front-matter footer and one overriding slide renders the same in marp-cli;

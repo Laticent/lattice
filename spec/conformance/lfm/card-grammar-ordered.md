@@ -1,4 +1,4 @@
-<!-- _class: authority-chain -->
+<!-- @meta{layout=authority-chain} -->
 
 ## Who signs off
 
