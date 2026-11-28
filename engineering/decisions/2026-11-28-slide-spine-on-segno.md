@@ -1,6 +1,6 @@
 ---
 status: proposed
-summary: The slide spine, designed on Segno's deck model. One lib/core module owns what a deck's slides are (written slides, heading sections, panes, hidden slides), gives each written slide a session id that its own edits carry exactly, addresses slides by id or fingerprint, carries a content revision, applies structural ops atomically with receipts, and replaces the splitters that disagree on numbering. It settles use-case-layer §10 step 0, was hardened by the adversarial trio, and leaves three forks to the owner.
+summary: The slide spine, designed on Segno's deck model. One lib/core module owns what a deck's slides are (written slides, heading sections, panes, hidden slides), gives each written slide a session id that its own edits carry exactly, addresses slides by id or fingerprint, carries a content revision, applies structural ops atomically with receipts, and replaces the splitters that disagree on numbering. It settles use-case-layer §10 step 0, was hardened by the adversarial trio, and leaves four forks to the owner.
 ---
 
 # The slide spine, on Segno (2026-11-28)
@@ -95,7 +95,7 @@ Lente projects it over the spine's `written` view. A "range" view is a slice of 
 
 | Thing | Public identity | Lifetime |
 |---|---|---|
-| **Written slide** | `s<n>~<nonce>`: Fuoco's number plus a random nonce minted once per spine instance | one spine instance: a page load in the Studio, a process for `lattice mcp` |
+| **Written slide** | `s<n>~<nonce>`: Fuoco's number plus a random nonce minted once per session | one session: a page load in the Studio, a process for `lattice mcp`. The nonce carries across every edit and every `applyOps` in that session |
 | **Heading section** | `(slide id, k)`, `k` 0-based among the slide's sections | as its slide |
 | **Pane** | `(slide id, pane n)` | as its slide |
 | **Page** | a position in a view, never an address for an edit | one view |
@@ -108,10 +108,11 @@ Lente projects it over the spine's `written` view. A "range" view is a slice of 
   spine as its next index rather than re-deriving one from the new text. A copy always gets a new id; a
   move keeps its id; a replace keeps its target's id.
 - **Typing is guessed**, by today's three passes, for human edits only, with one change: **an id is
-  retired** when its slide is deleted or wholly rewritten, and pass 3 never hands a retired id to
-  another slide. A slide being typed in keeps its id, as now.
+  retired** when its slide is deleted, and pass 3 matches through the edit's offset mapping, so a slide
+  after a deletion keeps its own id and never inherits the deleted one's. A slide retyped in place,
+  even all of it, keeps its id, as now: to the editor that is typing, not a delete.
 
-**An id from another spine instance is `NOT_FOUND`**, because the nonce differs. A restarted
+**An id from another session is `NOT_FOUND`**, because the nonce differs. A restarted
 `lattice mcp` cannot hand an old `s14` to a new slide.
 
 **Recommendation: ids stay in memory (fork 2, option A).** Nothing is written into the file.
@@ -135,9 +136,12 @@ Lente projects it over the spine's `written` view. A "range" view is a slice of 
 | **Fingerprint** (§5.2) | `{ fingerprint: "sha256:…", ordinal: 0 }` | **required** |
 | **Number** (an extension) | `{ number: 3 }`, 1-based among written slides | **required** |
 
-- **Resolved once, against the base, before any op runs.** Numbers and fingerprints name slides of the
-  base text. After resolution every op holds ids, and only ids flow through the changeset, so an insert
-  earlier in a changeset cannot shift what a later op meant.
+- **Resolved once, against the base, before any op runs. This amends §5.2**, which says a later op is
+  evaluated against the result of the earlier ones. Under §5.2, `[insert first, replace number 3]`
+  replaces the old slide 2; here it replaces the old slide 3, which is the slide the caller read. Numbers
+  and fingerprints name slides of the base text; after resolution every op holds ids, and only ids flow
+  through the changeset. The ops still **apply** in order. The owner decides the amendment (§11, fork 4);
+  until then §5.2's rule stands.
 - **The fingerprint** is SHA-256 (256 bits, hex) over the written slide normalized by **the spine's one
   normalization**: BOM dropped, line ends folded to LF, trailing whitespace on each line kept, leading and
   trailing blank lines dropped. The typing passes compare slides with the same function.
@@ -160,7 +164,7 @@ Lente projects it over the spine's `written` view. A "range" view is a slice of 
 
 **Hashing is async, at the use-case edge.** `lib/core` already hashes through an injected
 `sha256Hex: (text) => Promise<string>` (`lib/core/ltt-deck.mjs:44`). The dispatcher is async, so reads
-and receipts compute fingerprints and revisions there, lazily, once per spine instance. The palette and
+and receipts compute fingerprints and revisions there, lazily, once per revision. The palette and
 the editors address by id and never hash, so a keystroke and a palette verb stay synchronous. Slice 1
 measures the cost on the gallery deck.
 
@@ -183,7 +187,7 @@ the whole changeset.
   `bodyModel`) to exactly one written slide, or the op is `INVALID`. A body cannot smuggle in a second
   slide or a front-matter block.
 - **Slide ops never touch front matter.** Its bytes must be identical before and after, or the changeset
-  is refused. Only the use-case layer's `fm.*` and `deck.create` ops write it.
+  is refused as `INVALID`. Only the use-case layer's `fm.*` and `deck.create` ops write it.
 - **The lens gate compares parsed registries.** `lensRegistryUnchanged(before, after)` parses `lenses:`
   on both sides (anchors, aliases and merge keys resolved) and refuses any change to an `approved`
   value as `GATED`. The use-case layer runs the same function on `fm.*` and `deck.create`. A text match
@@ -235,7 +239,7 @@ type Identity = { slide: string; fingerprint: string; number: number };
 **What a render knows that the source cannot.** The structural auto-split works on the rendered
 document with a measured plan, at non-wide sizes only, and the Studio preview renders one slide at a
 time with an offset. `stampSlideNumbers` (`lib/engine/split-gate.js:31-43`) stamps each top-level
-section, hidden ones included, with an integer; `auto-split.js:507` adds the `.k` suffix to each split
+section, hidden ones included, with an integer; `lib/core/auto-split.js:507` adds the `.k` suffix to each split
 page. So a render's pages are keyed by **section index, hidden included**, and depend on size, plan and
 revision, not on text alone.
 
@@ -272,11 +276,11 @@ them rather than building on the interim adapter: that would be the second model
 | 1 | **Spine core**: slides, ids (typing passes with retirement), sections from `modelTokens`, panes, hidden, the one normalization, async fingerprint and revision at the edge, the id nonce. `buildDeckIndex` becomes its adapter | `assignIds`, `sectionsOf` and its `boundaryParser.parse`, the unit build in `deck-outline.ts` | the deck-outline suite green; incremental equals full on the corpus; F8 shows retirement; `deck parses/key` stays 0; hash cost measured |
 | 5 | **`applyOps`**: the seven ops, exact or refused, receipts, the parsed lens gate, front-matter bytes held, comment fix-ups, ids carried by construction | the structural edits in `deck-ops.ts` and `hide-ops.ts` as Studio modules. Inventory first: about 18 Studio importers of `deck-ops`, its imports (`deck-outline`, `fuoco/outline`, `docs/src/lib/front-matter`, `slice-equivalence-core`), and the front-matter module's move to `lib/` (§5.3) | property tests (apply then inverse is the identity; a refused changeset leaves the text unchanged); F6, F9, F10; the gate refuses every YAML spelling of `approved`; failing arms, repeat and load runs (#34) |
 | 2 | **Counts**: every counter reads its view, per the table in §7 | `studio-store.slideCount`, coach `countSlides`, `deck-ops.slideCount` and `renderedCount`, `architect-edits.slideCount` (stays `written`: it feeds `autoHold`), `ShareSheet`'s count (stays `written`: it bounds comment annotations in the PDF), `galleries.mjs slideCount` | each view's own proof: a `written` count equals the written slides; a `pages` count equals the PDF's shown pages at `wide`; F1, F2, F4, F7. **Visible**: the deck chip stops counting hidden slides, so the slice ships a demo deck and screenshots (#9). Stored version-history counts keep their old meaning, and the slice says so |
-| 3 | **Written-slide splitters, one front-matter definition** | `docs/src/lib/deck-lint.ts` `splitSlides`, `splitTopLevel` in `slide-split.js` **and its copy** in `architect-edits.js`, `review-core.splitSlides`, `slice-equivalence-core.splitSlides`, `deckSlides`, `tier-filter.splitDeck`, every `FRONT_MATTER` pattern the census lists | lint, review and coach output byte-identical on the corpus; F2 keeps its definition through a rejoin; F5 parses as the engine does |
+| 3 | **Written-slide splitters, one front-matter definition** | `docs/src/lib/deck-lint.ts` `splitSlides`, `splitTopLevel` in `slide-split.js` **and its copy** in `architect-edits.js`, `review-core.splitSlides`, `slice-equivalence-core.splitSlides`, `deckSlides`, `tier-filter.splitDeck`, every `FRONT_MATTER` pattern the census lists | lint, review and coach output byte-identical on the corpus, except that lint findings gain page numbers beside their written-slide numbers; F2 keeps its definition through a rejoin; F5 parses as the engine does |
 | 4 | **Pages for narration, rehearsal and share** | `rehearsal.parseSlides`, `foldPaneSplits`, the hidden filters in `narration-bake` and `share-export`, `presentationPairs`, `splitSourceToSections` | F1, F3, F4, F7: narration, rehearsal and the browser `.vtt` agree with the CLI's; export bytes unchanged, or dark and light sign-off |
 | 6 | **Render readers and dev tools** | `slideCountOf` in `rendered-index.ts` (through `pageOf`), the `tools/` scripts that cut on their own regexes | the engine's shown numbers equal `pages` on the corpus at `wide`; `pageOf` round-trips every stamp at every size; `chat-figures.ts` keeps its own cut (it reads a model's code sample, not a deck), with that reason recorded |
 
-The lint keeps written-slide numbers (what an author edits) and adds page numbers beside them in slice 4.
+The lint keeps written-slide numbers (what an author edits) and adds page numbers beside them in slice 3.
 
 ## 10. Fixture decks
 
@@ -303,6 +307,7 @@ test runs lint, render, narration and every count over its deck and asserts they
 | **1. Where the spine lives** | **A.** `lib/core/deck-spine.mjs`, beside the deck model, reached directly as `lib/` code is. **B.** Lente's core moved to `lib/` and grown into the spine. **C.** Inside `@laticent/segno-languages` as part of its deck language | **A.** The spine is Lattice's meaning of slides (heading split, hide, panes), which the owner kept out of Segno's package (2026-11-22: "standard languages only"). Lente reads written slides; making it own the deck gives a reader view the deck's structure. §5.3's `@laticent/*` route is for workspace libraries; the spine is core, not a library | A: one core module and an adapter in `deck-outline.ts`. B: changes a published package's scope and its boundary gate. C: puts Lattice's semantics into a package meant for other hosts |
 | **2. Ids in memory or stored** | **A.** In memory, opaque, per spine instance; fingerprints across sessions. **B.** Written into each slide as a `@meta` key. **C.** A sidecar file beside the deck | **A.** B cannot be undone after 1.0, and A can grow into B or C additively (§2) | A: a reconnecting client uses fingerprints, and identical slides need an ordinal. B: every writer of deck text must keep ids unique, and pasted slides collide. C: a second file to keep in step with the deck, which every host and `git` must carry |
 | **3. Who owns page splitting** | **A.** The spine also folds each render's page map into a `rendered` view. **B.** The spine owns source-side pages; every render reader counts its own pages. **C.** The spine runs the auto-split itself. **D.** The spine owns source-side pages and translates any render's stamps to slides with one function | **D.** One source-side count, and one translation for what only a render knows | A: a render map depends on size, plan and revision, so the spine would have to key and expire it, and could serve a stale one. B: every reader keeps its own count, the follow-up's complaint. C: the spine would need the rendered document. D: render readers change to call `pageOf` (slice 6) |
+| **4. Resolve addresses against the base, or in order** (amends use-case-layer §5.2) | **A.** Numbers and fingerprints resolve once against the base revision; only ids flow through the changeset. **B.** Keep §5.2: each op's address is evaluated against the result of the earlier ops | **A.** The caller read the base, so its numbers mean the base; under B an insert earlier in the same changeset silently shifts a later number onto a different slide | A: §5.2 changes its documented rule in E3's PR that builds it. B: a caller must renumber its own later ops by hand, and a fingerprint of a slide it replaced earlier is `NOT_FOUND` |
 
 ## 12. What this does not decide
 
@@ -334,3 +339,6 @@ The trio read the first draft (3961f65b). Its findings and what changed:
 | Checker | Revision over normalized text would let the file host miss a line-ending change | §4: raw bytes for the on-disk check |
 | Checker | Number addressing and `slide.hide`/`show` extend §5.2 unannounced | §3, §5: labeled as extensions |
 | Checker | Drifted line numbers; two files named `deck-lint.ts` | fixed throughout |
+| Card grader | Resolving against the base amends §5.2's in-order rule without saying so | §3 says so; fork 4 puts it to the owner; §5.2 stands until then |
+| Card grader | "Spine instance" was ambiguous (a new instance per edit would expire every id) | §2: the nonce is per session and carries across `applyOps` |
+| Card grader | "Wholly rewritten" was undefined; the lint's page numbers sat in the wrong slice; one refusal had no code | §2 retires on delete only; slice 3; `INVALID` |
