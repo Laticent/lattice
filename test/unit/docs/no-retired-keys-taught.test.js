@@ -83,35 +83,12 @@ const SANCTIONED = {
     keys: { say: 1 },
   },
   'docs/src/content/docs/spec/diagnostics.md': {
-    why: "the diagnostics table names what each rule reports: `stray-overflow-marker`'s retired key, and `say:` as an unknown `terms:` field. TEMPORARY for the comment forms: the `meta-class-overridden` (:440), `track-directive` (:160), `one-stepping-directive` (:166), `code-line-range` (:183) and `unknown-debug-facet` (:272) rows still describe an old comment as current, and lint-core.js:1100 still counts `_class` as a class setter; followups.d/3606-p1-retired-comment-forms-in-docs.md",
+    why: "the diagnostics table names what each rule reports: `stray-overflow-marker`'s retired key, and `say:` as an unknown `terms:` field. TEMPORARY for the comment forms: the `meta-class-overridden` (:440), `track-directive` (:160), `one-stepping-directive` (:166), `code-line-range` (:183) and `unknown-debug-facet` (:272) rows still describe an old comment as current, and lint-core.js:1100 still counts `_class` as a class setter; the spec desk owns the fix (followups.d/3606-p1-retired-comment-forms-in-docs.md)",
     keys: { 'overflow-marker': 1, say: 1, _class: 1, _track: 1, _build: 1, _focus: 1, _debug: 1 },
   },
   'docs/src/content/catalog/libraries/lente.md': {
     why: "the standalone `lente` package reads a `<!-- _lens: … -->` comment itself; the same line gives Lattice's record, `@meta{lens=…}`",
     keys: { _lens: 1 },
-  },
-  // TEMPORARY, each a file this PR does not own, still describing an old comment as current. Tracked in
-  // followups.d/3606-p1-retired-comment-forms-in-docs.md and reported to desk:agent-native; the stale-entry check
-  // fails once a file is fixed, so its entry goes with the fix.
-  'docs/src/content/catalog/libraries/markup.md': {
-    why: "TEMPORARY: :103 says the engine's `_focus: line` and `_build: lines` read the fence's lines",
-    keys: { _build: 1, _focus: 1 },
-  },
-  'lib/base/base.docs.md': {
-    why: "TEMPORARY: :1755 says a slide's `_backgroundImage: url(…)` follows the logo's URL list",
-    keys: { _backgroundImage: 1 },
-  },
-  'lib/components/anchor/title/title.docs.md': {
-    why: "TEMPORARY: :41's anti-pattern names `_footer: ''`, a form the engine no longer reads",
-    keys: { _footer: 1 },
-  },
-  'lib/components/anchor/closing/closing.docs.md': {
-    why: "TEMPORARY: :53's anti-pattern names `_footer: ''`, a form the engine no longer reads",
-    keys: { _footer: 1 },
-  },
-  'lib/components/anchor/divider/divider.docs.md': {
-    why: "TEMPORARY: :47's anti-pattern names `_header: ''` and `_footer: ''`, forms the engine no longer reads",
-    keys: { _header: 1, _footer: 1 },
   },
 };
 

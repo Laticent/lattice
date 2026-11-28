@@ -72,7 +72,7 @@
     },
     {
       "title": "Header or footer overrides",
-      "body": "Don't blank them with `_header: ''` or `_footer: ''`. A divider keeps the deck's header and footer; drop one with `no-header` / `no-footer`, or all with `silent`."
+      "body": "Don't blank them with an empty `header=\"\"` or `footer=\"\"` in the record. A divider keeps the deck's header and footer; drop one with `no-header` / `no-footer`, or all with `silent`."
     }
   ],
   "related": [
