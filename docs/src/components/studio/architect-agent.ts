@@ -1137,9 +1137,13 @@ export function createToolbox(opts: {
 	async function run(name: string, argsJson: string): Promise<string> {
 		const out = await dispatch(chatHost, name, argsJson);
 		if (out.ok) return out.text;
-		// The chat's words for the dispatcher's codes, unchanged from before it existed.
+		// The chat's words for the dispatcher's codes. Only a schema refusal is new (use-case-layer.md §7).
 		if (out.code === 'NOT_OFFERED') return `${name} is not available in this chat mode. Tell the author what you would change; they can switch the chat to Review or Auto to have you make it.`;
-		if (out.code === 'BAD_ARGS') return `The arguments for ${name} were not valid JSON — send them again.`;
+		if (out.code === 'BAD_ARGS') {
+			// Arguments that parsed but did not fit the tool's schema name the field, so the model can fix that one.
+			if (out.path) return `The arguments for ${name} do not fit its schema: ${out.path} ${out.reason}. Fix that and send them again.`;
+			return `The arguments for ${name} were not valid JSON — send them again.`;
+		}
 		return `There is no tool called ${name}.`;
 	}
 

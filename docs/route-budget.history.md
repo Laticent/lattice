@@ -6,6 +6,34 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-28 — raise the studio eagerJsGz ceiling by 3,072 B (644,780 → 647,852), by hand, for PR 3588, storage slice 3, PR 3615 and PR 3617, at the owner's direction
+
+Owner OK 2026-11-28, in three picks, each in a question tool:
+
+- 03:07 UTC, storage desk's session: "Raise ceiling ~1 KB", for PR 3588 alone.
+- 04:00 UTC, storage desk's session: "One raise of 3 KB in #3610", adding storage slice 3. It was chosen over two raises, over giving bytes back first, and over making deck reads async.
+- 04:43 UTC, command center's session: "One raise via #3610", adding the flake desk's PR 3615 and PR 3617 (D4's failure card); the 3 KB already covers all four, measured below. It was chosen over a separate +1 KB raise, over +128 B for PR 3615 alone, and over dropping two of PR 3615's fixes.
+
+Written by hand, as the entries below are; soft stays 571,778. The rebaseline tool's `--ceiling` would put the ceiling 10% above the measured weight (about 64 KB) and move soft as well.
+
+Why: `main` measures 644,716 B (`measure-route-base.sh` on `origin/main` at fc733add), 64 B under the old ceiling. Four changes add eager bytes that stay eager:
+
+| change | studio eagerJsGz | measured by |
+|---|---|---|
+| PR 3588, Library slice 4 | +722 B, declared in `docs/route-budget.d/3588-library-icon-pills.md` | its author, docs build merged with `main` |
+| storage slice 3 (PR 3616), decks into the vault | about +1,746 B (631.3 KB on ec4f34ac, rounded to 0.1 KB), before its fix round | its worker |
+| PR 3615, iPad first-render step tracking | +73 B, cut from 148 B | the flake desk |
+| PR 3617, D4: a hung first render shows the failure card at 30 s (DeckPreview) | +370 B, after its checker's fixes and the network-error message | the flake desk's fix session |
+
+- PR 3588 keeps the Library's section icons and its Backup and restore button in the pre-paint shell, and the icon-only pill mode. Giving back the icons already eager elsewhere saves at most about 400 B; the rest would cut the pills that fit six sections at 320–480 px.
+- Slice 3 keeps the instant deck read and save path about 18 callers use, and the guard that stops an early save from blanking a deck, after moving the rest to load on first use (632.1 → 631.3 KB).
+
+Measured together: `main` (2ead5e1d) with all four merged in (local branch at 31866f4c, heads 8e42a8eb, b6d983ae, 018fa2d0 and b0eec566) builds to 647,664 B by `measure-route-base.sh`, 188 B under the new ceiling. Home's eagerJsGz, which this entry does not move, measures 331,368 B on the same build, 104 B over its 331,264 B ceiling; PR 3588 adds nothing there, and home's ceiling is a separate decision.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | eagerJsGz | 571778 | 571778 | +0 | 647852 |
+
 ### 2026-11-28 — raise the studio lintCoreGz ceiling by 1,024 B (174,022 → 175,046), by hand, for PR 3572, at the owner's direction
 
 Owner OK 2026-11-28, in PR #3572's session: "Raise ceiling 1 KB", in its own PR. Written by hand, as the 2026-11-24 lintCoreGz entry below is; soft stays 152,151.

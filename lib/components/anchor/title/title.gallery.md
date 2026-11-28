@@ -123,7 +123,7 @@ A poster headline, heavy, tight and set left.
 - Multi-line h1
   - Keep the h1 to one editorial line. The layout is centered and large — two-line titles get cramped and lose impact.
 - Header or footer overrides
-  - Don't blank the footer with `_footer: ''` on a title slide. The footer is the deck's standing note (a "Confidential", a copyright), and a cover is where a reader most expects it. Drop it on purpose with `no-footer`, or every band with `silent`.
+  - Don't blank the footer with an empty `footer=""` in a title slide's record. The footer is the deck's standing note (a "Confidential", a copyright), and a cover is where a reader most expects it. Drop it on purpose with `no-footer`, or every band with `silent`.
 
 ---
 
