@@ -232,10 +232,14 @@ describe('the boot cache after a cut-off save', () => {
 		// The vault write never runs: the tab closes first.
 		const realWrite = vault.write.bind(vault);
 		let cut = true;
-		vault.write = ((p: string, d: never, m: never) => (cut ? new Promise(() => {}) : realWrite(p, d, m))) as never;
+		let reached!: () => void;
+		const writeReached = new Promise<void>((r) => {
+			reached = r;
+		});
+		vault.write = ((p: string, d: never, m: never) => (cut ? (reached(), new Promise(() => {})) : realWrite(p, d, m))) as never;
 		saveSource('deck-a', `${deckA}- typed, then closed\n`, { fromShell: true });
 		const cached = mem.get(BOOT_SRC_LS) as string;
-		await new Promise((r) => setTimeout(r, 20)); // the queued write reaches the hung vault: the tab closes on it
+		await writeReached; // the queued write reaches the hung vault: the tab closes on it
 		cut = false;
 		expect(await text(deckPath('deck-a'))).toBe(deckA); // really cut off (the red team found it was not)
 		vault.write = realWrite;
@@ -254,10 +258,14 @@ describe('the boot cache after a cut-off save', () => {
 		await deckVaultSettled();
 		const realWrite = vault.write.bind(vault);
 		let cut = true;
-		vault.write = ((p: string, d: never, m: never) => (cut ? new Promise(() => {}) : realWrite(p, d, m))) as never;
+		let reached!: () => void;
+		const writeReached = new Promise<void>((r) => {
+			reached = r;
+		});
+		vault.write = ((p: string, d: never, m: never) => (cut ? (reached(), new Promise(() => {})) : realWrite(p, d, m))) as never;
 		saveSource('deck-a', `${deckA}- typed, then closed\n`, { fromShell: true });
 		const cached = mem.get(BOOT_SRC_LS) as string;
-		await new Promise((r) => setTimeout(r, 20));
+		await writeReached;
 		cut = false;
 		vault.write = realWrite;
 		reload();
