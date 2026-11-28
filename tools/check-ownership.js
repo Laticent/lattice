@@ -12906,6 +12906,7 @@ const USE_CASE_INPUT_KEYWORDS = new Set(['type', 'description', 'enum', 'const',
 function checkUseCaseValidators(errors, { root = ROOT } = {}) {
   const dir = path.join(root, 'lib', 'use-cases');
   if (!fs.existsSync(dir)) return;
+  const JS_STRING = /"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`/g;
   const ANY_IMPORT = /\bimport\s*(?:[\s{*"'`(]|$)|\brequire\s*\(|\bexport\s+[^;]*\bfrom\s*["'`]/m;
   const ids = [];
   for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -12921,7 +12922,9 @@ function checkUseCaseValidators(errors, { root = ROOT } = {}) {
     if (hasValidator && !hasManifest) {
       errors.push(`${relPosix(root, validator)} has no manifest beside it: delete it, or restore ${ent.name}.use-case.json.`);
     }
-    if (hasValidator && ANY_IMPORT.test(stripJsComments(readCssSource(validator)))) {
+    // String contents blanked first: a field named `from` or `import`, or an error message, is text, not a module.
+    // A real import still matches, its specifier reduced to "".
+    if (hasValidator && ANY_IMPORT.test(stripJsComments(readCssSource(validator)).replace(JS_STRING, '""'))) {
       errors.push(
         `${relPosix(root, validator)} imports a module. A use-case validator is shipped to every host and must be ` +
           'self-contained (use-case-layer.md §7). If an ajv upgrade made the standalone code import its runtime ' +

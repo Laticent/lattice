@@ -42,20 +42,22 @@ for the design note, not an edit to the generator.
 
 ## Validation
 
-The dispatcher runs the use case's validator on the parsed arguments before the handler, and refuses a
-call that fails with `BAD_ARGS` and the failing field's JSON Pointer (`/edits/0/slide`); a refused call
-never reaches the handler, so it never touches the deck. The validator checks the schema exactly as the
-model sees it, with two exceptions, both because the value is not known at build time:
+The dispatcher runs the use case's validator on the parsed arguments before the handler, for every use case,
+and refuses a call that does not fit with `BAD_ARGS` and the first failing field's JSON Pointer
+(`/edits/0/slide must be integer`). A refused call never reaches the handler, so it never touches the deck.
+The schema is the contract: if a tool should accept a shape, its schema says so, and the handler trusts what
+reaches it.
 
+- **A null in an optional field means it was left out.** The dispatcher drops it before validating
+  (`dropNullOptionals`), so no schema has to say "or null". A null the schema allows, or in a required field,
+  is kept.
 - **A keyword whose value is a runtime placeholder** (`enum: ["{{...themes}}"]`,
-  `maxItems: "{{=MAX_VIEWS_PER_TURN}}"`) is left out, and stays the handler's check. Each validator's
-  first lines name the keywords it left out.
-- **Descriptions** are text for the model, not rules, and are left out too.
+  `maxItems: "{{=MAX_VIEWS_PER_TURN}}"`) is left out of the validator and stays the handler's check. Each
+  validator's first lines name the keywords it left out. Descriptions are left out too.
 
-`checkUseCaseValidators` (`tools/check-ownership.js`, run by `build:check`) holds that every manifest has
-its validator, that none imports anything (ajv calls the `unicode: false` option that keeps it so
-deprecated), and that the index lists exactly the manifests. The generator's own `--check` holds each one
-to its manifest.
+`checkUseCaseValidators` (`tools/check-ownership.js`, run by `build:check`) holds that every manifest has its
+validator, that none imports anything (ajv calls the `unicode: false` option that keeps it so deprecated), and
+that the index lists exactly the manifests. The generator's own `--check` holds each one to its manifest.
 
 ## What the fields promise
 

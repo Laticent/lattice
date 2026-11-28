@@ -96,10 +96,19 @@ test('the gate refuses a validator that imports anything, in any spelling; a com
 		assert.match(gate({ body }).join('\n'), /imports a module/, body);
 	}
 	assert.deepEqual(gate({ body: '// this file imports nothing\nexport const validate = () => true;' }), []);
+	// A field named `from` or `import`, in the exported schema or an error message, is text, not a module.
+	assert.deepEqual(gate({ body: 'export const validate = () => true;\nexport const schema = {"properties":{"from":{},"import":{"enum":["import x from \'y\'"]}}};' }), []);
 });
 
 test('the gate refuses an index that misses a validator or imports anything else', () => {
 	assert.match(gate({ index: ['./a/a.validate.mjs'] }).join('\n'), /missing \.\/b\/b\.validate\.mjs/);
 	assert.match(gate({ index: ['./a/a.validate.mjs', './b/b.validate.mjs', 'ajv'] }).join('\n'), /unexpected ajv/);
+});
+
+test('a placeholder the validator cannot honor fails the build, never ships as literal braces', () => {
+	assert.throws(() => validatorSchema({ type: 'object', properties: { k: { type: 'string', enum: ['a', '{{=guides}}'] } } }), /cannot honor/);
+	assert.throws(() => validatorSchema({ type: 'object', properties: { k: { type: 'string', pattern: '^.{0,{{FIND_MAX_CHARS}}}$' } } }), /cannot honor/);
+	// In a description it is only text, and descriptions never reach the validator.
+	assert.doesNotThrow(() => validatorSchema({ type: 'object', properties: { k: { type: 'string', description: 'up to {{FIND_MAX_CHARS}}' } } }));
 });
 
