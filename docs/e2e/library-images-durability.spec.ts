@@ -8,8 +8,9 @@ import { CHROME, expect, gotoStudio, openSection, setEditorContent, test, toastT
 // line counts it, and deleting a deck takes its private photos with it
 // (engineering/decisions/2026-10-12-library-media-assets.md §5-§6).
 //
-// Driven on the real Studio because the parts that decide these are the browser's own: IndexedDB
-// storing a Blob, the download, and a restore reading a file back through the real Workspace sheet.
+// Driven on the real Studio because the parts that decide these are the browser's own: the storage vault
+// holding a photo's bytes (OPFS on Chromium and Gecko; IndexedDB on WebKit, whose ephemeral test context
+// refuses OPFS: vault slice 2), IndexedDB storing a Blob, the download, and a restore reading a file back through the real Workspace sheet.
 // `@webkit-tablet` and `@gecko` put the Blob round trip on the engines whose IndexedDB differs most
 // from Chromium's (Safari has a history of Blob-in-IndexedDB bugs); `@crosswidth` keeps it on `desktop`
 // and adds the 390px `mobile` project, where the Workspace sheet opens its sections from a menu.
@@ -115,7 +116,7 @@ async function shelf(page: Page): Promise<{ name: string; scope: string; bytes: 
 		return rows
 			.filter((x) => x.kind === 'image')
 			// A row holds its bytes as a Blob, or as an ArrayBuffer where the engine refuses to store a Blob.
-			.map((x) => ({ name: x.name as string, scope: x.scope as string, bytes: (x.blob as Blob | undefined)?.size ?? (x.data as ArrayBuffer).byteLength, caption: (x.caption as string | undefined) ?? null }))
+			.map((x) => ({ name: x.name as string, scope: x.scope as string, bytes: typeof x.vault === 'string' ? (x.bytes as number) : ((x.blob as Blob | undefined)?.size ?? (x.data as ArrayBuffer).byteLength), caption: (x.caption as string | undefined) ?? null }))
 			.sort((a, b) => a.name.localeCompare(b.name));
 	});
 }
@@ -285,4 +286,128 @@ test('deleting a deck takes the photos kept to that deck, and only those @crossw
 	await row.getByRole('button', { name: /^Delete Untitled deck/ }).click();
 	await expect(page.locator('[data-sonner-toast]').filter({ hasText: /photo/ }).first()).toContainText('belonged only to that deck', { timeout: 15_000 });
 	await expect.poll(async () => (await shelf(page)).map((r) => r.name), { timeout: 15_000 }).toEqual(['shared-stays']);
+});
+
+/** The raw stored row of one photo: what a reader sees before `media-store` turns it into a record. */
+async function rawRow(page: Page, name: string): Promise<{ vault?: string; hasBlob: boolean; hasData: boolean } | null> {
+	return page.evaluate(async (n) => {
+		const db: IDBDatabase = await new Promise((res, rej) => {
+			const r = indexedDB.open('lattice-workbench');
+			r.onsuccess = () => res(r.result);
+			r.onerror = () => rej(r.error);
+		});
+		const rows: Record<string, unknown>[] = await new Promise((res) => {
+			const r = db.transaction('assets').objectStore('assets').getAll();
+			r.onsuccess = () => res(r.result as Record<string, unknown>[]);
+		});
+		db.close();
+		const x = rows.find((r) => r.kind === 'image' && r.name === n);
+		return x ? { vault: x.vault as string | undefined, hasBlob: x.blob instanceof Blob, hasData: x.data instanceof ArrayBuffer } : null;
+	}, name);
+}
+
+/** The card's picture really decoded: a broken file shows WebKit's broken-image mark with a zero natural width. */
+async function cardDecoded(page: Page, name: string): Promise<number> {
+	const img = page.locator(`[data-media-card="${name}"] img`).first();
+	await expect(img).toBeVisible();
+	return img.evaluate(async (el: HTMLImageElement) => {
+		await el.decode().catch(() => {});
+		return el.naturalWidth;
+	});
+}
+
+test('a new photo keeps its bytes in the storage vault, and shows after a reload @crosswidth @webkit-tablet @gecko', async ({ page }) => {
+	await gotoStudio(page);
+	await openLibraryImages(page);
+	await addPhoto(page, 'Door.png', { w: 240, h: 120 });
+	await expect(page.locator('[data-media-card="door"]')).toBeVisible();
+	const row = await rawRow(page, 'door');
+	expect(row?.vault, 'the row names its vault file').toMatch(/^Library\/Images\/m_[a-z0-9_]+\.png$/);
+	expect(row, 'and holds no bytes of its own').toMatchObject({ hasBlob: false, hasData: false });
+	await page.reload();
+	await openLibraryImages(page);
+	expect(await cardDecoded(page, 'door')).toBe(240);
+});
+
+test('a photo saved before the vault moves into it on the next start, behind one backup @crosswidth @webkit-tablet @gecko', async ({ page }) => {
+	await gotoStudio(page);
+	// A row the way every Studio before slice 2 wrote it: the photo's bytes in the row itself.
+	await page.evaluate(async () => {
+		const c = document.createElement('canvas');
+		c.width = 200;
+		c.height = 100;
+		(c.getContext('2d') as CanvasRenderingContext2D).fillRect(0, 0, 200, 100);
+		const blob: Blob = await new Promise((r) => c.toBlob((b) => r(b as Blob), 'image/png'));
+		const db: IDBDatabase = await new Promise((res, rej) => {
+			const r = indexedDB.open('lattice-workbench');
+			r.onsuccess = () => res(r.result);
+			r.onerror = () => rej(r.error);
+		});
+		const row = { id: 'm_before_slice_2', kind: 'image', name: 'older', scope: 'library', mime: 'image/png', bytes: blob.size, width: 200, height: 100, sourceName: 'Older.png', original: true, addedAt: 1 };
+		const put = (value: Record<string, unknown>) =>
+			new Promise<void>((res, rej) => {
+				const t = db.transaction('assets', 'readwrite');
+				t.oncomplete = () => res();
+				t.onerror = t.onabort = () => rej(t.error ?? new Error('refused'));
+				try {
+					t.objectStore('assets').put(value);
+				} catch (e) {
+					rej(e);
+				}
+			});
+		// What the old `saveMedia` did: a Blob, or an ArrayBuffer where the engine refuses one. WebKit's ephemeral
+		// context refuses a Blob, as a Safari private window does, so this engine seeds the buffer row.
+		await put({ ...row, blob }).catch(async () => put({ ...row, data: await blob.arrayBuffer() }));
+		db.close();
+	});
+	const seeded = await rawRow(page, 'older');
+	expect(seeded?.hasBlob || seeded?.hasData, 'the row holds its own bytes').toBe(true);
+	await page.reload();
+	// The move runs at the first idle moment after boot: wait for its result, not for a duration (#32).
+	await expect.poll(async () => (await rawRow(page, 'older'))?.vault, { timeout: 30_000 }).toBe('Library/Images/m_before_slice_2.png');
+	expect(await rawRow(page, 'older')).toMatchObject({ hasBlob: false, hasData: false });
+	await openLibraryImages(page);
+	expect(await cardDecoded(page, 'older')).toBe(200);
+	await closeLibrary(page);
+	await openWorkspaceData(page);
+	const dialog = page.getByRole('dialog', { name: /Workspace/ });
+	await expect(dialog.getByText('Backup from the storage move')).toBeVisible({ timeout: 15_000 });
+	const download = page.waitForEvent('download');
+	await dialog.getByRole('button', { name: 'Download the backup from the storage move' }).click();
+	const zip = await JSZip.loadAsync(fs.readFileSync(await (await download).path()));
+	expect(zip.file('workspace.json'), 'the backup is a workspace zip Restore reads').not.toBeNull();
+	expect(Object.keys(zip.files).some((f) => f.startsWith('media/')), 'and it carries the photo').toBe(true);
+});
+
+test('the move-back puts a vault photo back in its row, and it still draws @crosswidth @webkit-tablet @gecko', async ({ page }) => {
+	// The undo path for vault slice 2 (media-vault.ts MEDIA_DIRECTION): a release that runs the move-back, then the
+	// code revert. `lattice-media-storage: rows` turns the way back on for this browser.
+	await gotoStudio(page);
+	await openLibraryImages(page);
+	await addPhoto(page, 'Window.png', { w: 180, h: 90 });
+	await expect(page.locator('[data-media-card="window"]')).toBeVisible();
+	const path = (await rawRow(page, 'window'))?.vault;
+	expect(path, 'saved into the vault first').toMatch(/^Library\/Images\//);
+	await page.evaluate(() => localStorage.setItem('lattice-media-storage', 'rows'));
+	await page.reload();
+	// The move-back runs at the first idle moment after boot: wait for its result, not for a duration (#32).
+	await expect.poll(async () => (await rawRow(page, 'window'))?.vault ?? 'moved back', { timeout: 30_000 }).toBe('moved back');
+	const back = await rawRow(page, 'window');
+	expect(back?.hasBlob || back?.hasData, 'the row holds its bytes again').toBe(true);
+	const fileLeft = await page.evaluate(async (p) => {
+		const db: IDBDatabase = await new Promise((res, rej) => {
+			const r = indexedDB.open('lattice-vault');
+			r.onsuccess = () => res(r.result);
+			r.onerror = () => rej(r.error);
+		});
+		const rec = await new Promise<{ deleted?: boolean } | undefined>((res) => {
+			const q = db.transaction('entries').objectStore('entries').get(p as string);
+			q.onsuccess = () => res(q.result);
+		});
+		db.close();
+		return !!rec && !rec.deleted;
+	}, path);
+	expect(fileLeft, 'the vault file is removed').toBe(false);
+	await openLibraryImages(page);
+	expect(await cardDecoded(page, 'window')).toBe(180);
 });

@@ -17,36 +17,17 @@ const assert = require('node:assert/strict');
 const path   = require('path');
 const os     = require('os');
 const fs     = require('fs');
-const { spawn } = require('child_process');
+const { runNode } = require('../../helpers/spawn-progress.js');
 
 describe('cli', { concurrency: true }, () => {
   const ROOT = path.join(__dirname, '..', '..', '..');
   const EMULATOR = path.join(ROOT, 'lattice.js');
   const SCREENSHOT = path.join(ROOT, 'tools', 'screenshot-slides.js');
 
+  // A deadline on a HANG, not on the machine's load (#32, F4): the child fails when it spins 10 s of CPU or uses none
+  // for 10 s, never because a busy runner starved it (test/helpers/spawn-progress.js).
   function run(script, args = [], { env = {} } = {}) {
-    return new Promise((resolve, reject) => {
-      const child = spawn(process.execPath, [script, ...args], {
-        cwd: ROOT,
-        env: { ...process.env, ...env },
-      });
-      let stdout = '';
-      let stderr = '';
-      child.stdout.on('data', (d) => { stdout += d.toString('utf8'); });
-      child.stderr.on('data', (d) => { stderr += d.toString('utf8'); });
-      const timer = setTimeout(() => {
-        child.kill();
-        reject(new Error(`cli test timeout after 10s: ${script} ${args.join(' ')}`));
-      }, 10000);
-      child.on('close', (status) => {
-        clearTimeout(timer);
-        resolve({ status, stdout, stderr });
-      });
-      child.on('error', (err) => {
-        clearTimeout(timer);
-        reject(err);
-      });
-    });
+    return runNode(script, args, { cwd: ROOT, env: { ...process.env, ...env } });
   }
 
   // ── lattice ──────────────────────────────────────────────────────

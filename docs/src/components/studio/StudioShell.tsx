@@ -4253,7 +4253,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				});
 		});
 	}, []);
-	// Storage durability — two quiet moves on boot. (1) Ask the browser to mark
+	// Storage durability — three quiet moves on boot. (1) Ask the browser to mark
 	// this origin's storage persistent (best-effort; silently denied where
 	// unsupported). (2) The EARNED backup nudge: only when real unbacked-up work
 	// exists, at most once per 14 days (shouldNudgeBackup) — ownership framing,
@@ -4265,6 +4265,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		} catch {
 			/* no Storage API here */
 		}
+		// (3) Library photos and videos move into the storage vault once, behind one automatic backup, or back out
+		// on the undo path (media-vault-move.ts `settleMediaStorage`). Off the boot path: it waits for an idle moment, and every photo still reads
+		// from where it is until its own move lands, so nothing on screen waits for it.
+		const move = () => void import('./media-vault-move').then((m) => m.settleMediaStorage()).catch(() => {});
+		const ric = (globalThis as { requestIdleCallback?: (fn: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
+		if (typeof ric === 'function') ric(move, { timeout: 5000 });
+		else setTimeout(move, 0);
 		const now = Date.now();
 		if (shouldNudgeBackup(now)) {
 			markBackupNudged(now);

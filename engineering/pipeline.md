@@ -929,7 +929,10 @@ That is why `tools/regression-gate.mjs` compares pixels with a tolerance rather
 than bytes, and why it stays a local spot-check instead of a CI gate.
 
 **Do not read a drift percentage as evidence of a regression** — reproduce it at
-a commit predating the suspected cause first. The numbers, the controls, and how
+a commit predating the suspected cause first (`npm run regress -- --only examples/<name>
+--control` does that on this machine, against the commit the golden was rendered from).
+It is not the browser version: on 2026-11-27, Chrome 157 and 158 wrote byte-identical
+PDFs in the sandbox, and only the raster photo XObjects differed from the runner's golden. The numbers, the controls, and how
 that triage goes wrong are in
 `engineering/decisions/2026-06-12-p4-regression-gate-retire-marp.md` §0a.
 
