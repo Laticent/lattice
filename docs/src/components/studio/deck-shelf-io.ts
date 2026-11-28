@@ -114,6 +114,7 @@ export async function hydrate(): Promise<void> {
 	for (const [id, text] of texts) {
 		if (S.hasLegacySource(id)) continue;
 		let e = index.find((x) => x.id === id);
+		if (!e && chains.has(id)) continue; // deleted in this tab while the vault was being read: its files are going
 		if (!e) {
 			e = { id, title: titleFromSource(text, 'Untitled deck'), builtin: DECKS.some((d) => d.id === id) };
 			index.push(e);

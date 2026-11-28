@@ -102,6 +102,9 @@ export type GovernanceStats = {
 	/** How full this browser's localStorage allowance is: deck text and settings share it, and a deck
 	 *  edit stops saving when it fills. The tab warns past `LOCAL_WARN_AT` (local-quota.ts). */
 	local: LocalStorageUse;
+	/** True while any deck's text is still in localStorage (vault slice 3 moves it to the vault). Only then does a full
+	 *  localStorage stop deck edits saving, which is what the Privacy & Data warning says. */
+	decksInLocal: boolean;
 	/** Sum of every category's bytes above — OpenRouter carries no size (it's a
 	 *  credential, not stored content), so it's the only one left out. */
 	totalBytes: number;
@@ -152,7 +155,7 @@ export async function loadGovernanceStats(): Promise<GovernanceStats> {
 	const library = { count: assets.length, bytes: libraryBytes };
 	const models = { count: modelNames.length, bytes: modelBytes };
 	const siteCache = { count: siteCacheNames.length, bytes: siteCacheBytesTotal };
-	return { decks: deckWithCrash, library, models, siteCache, narration, moveBackup, local: localStorageUse(), totalBytes: deckWithCrash.bytes + library.bytes + models.bytes + siteCache.bytes + narration.bytes + (moveBackup?.bytes ?? 0) };
+	return { decks: deckWithCrash, library, models, siteCache, narration, moveBackup, local: localStorageUse(), decksInLocal: (await import('./deck-shelf-io')).legacyDecks().length > 0, totalBytes: deckWithCrash.bytes + library.bytes + models.bytes + siteCache.bytes + narration.bytes + (moveBackup?.bytes ?? 0) };
 }
 
 /** "Clear decks": the decks go, and so do the photos kept to a single deck, which would otherwise be

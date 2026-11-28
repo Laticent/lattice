@@ -18,6 +18,8 @@
 //
 // Yjs (~90 KB) loads with this module, which the store imports on first use: the Studio's eager bundle
 // carries none of it (check:route-budget).
+
+import { normalizeSourceText } from '@/lib/normalize-source-text';
 import type { Change, Vault } from '@/lib/vault';
 import { defaultLocks } from '@/lib/vault/backing';
 import { adoptOutside, clientIdFor, type DeckDoc, deckDoc, docText, encodeDoc, hasPending, headOf, loadDoc, localSave, mergeUpdates, applyUpdate as yApply } from '@/lib/vault/deck-doc';
@@ -92,7 +94,8 @@ export class DeckVault {
 			const m = /^Decks\/(.+)\.md$/.exec(e.path);
 			if (!m) continue;
 			try {
-				texts.set(m[1], await (await this.vault.read(e.path)).text());
+				// An ingest boundary: a deck.md written outside Lattice may carry CRLF or a BOM (design §6.4, normalized text).
+				texts.set(m[1], normalizeSourceText(await (await this.vault.read(e.path)).text()));
 			} catch {
 				unreadable.push(m[1]);
 			}
@@ -102,7 +105,7 @@ export class DeckVault {
 
 	async readDeck(id: string): Promise<string | null> {
 		try {
-			return await (await this.vault.read(deckPath(id))).text();
+			return normalizeSourceText(await (await this.vault.read(deckPath(id))).text());
 		} catch (err) {
 			notFound(err);
 			return null;
@@ -208,7 +211,9 @@ export class DeckVault {
 		if (cur !== '' && head?.sha256 === mdSha) return; // deck.md trails the doc: the next write brings it level
 		// An edit made outside Lattice (or a deck whose doc files are new or were lost): adopt deck.md on a fork at the
 		// stamp's state, as a client named by the text, so two tabs adopting it create the same items.
-		const adopted = head ? adoptOutside(open.doc, unb64(head.head), md, `${id}:${mdSha}`) : null;
+		// Keyed by the base AND the text: two devices adopting one text from different bases must not share item ids (the
+		// inversion review's finding 3).
+		const adopted = head ? adoptOutside(open.doc, unb64(head.head), md, `${id}:${await shaText(head.head)}:${mdSha}`) : null;
 		const res = adopted ?? localSave(open.doc, cur, md);
 		if (res.delta) await this.persistOwn(open, mine, res.delta);
 	}
@@ -238,6 +243,13 @@ export class DeckVault {
 			const open = await this.open(id);
 			const mine = this.pendingPath(id, device, slot, clientID);
 			await this.catchUp(id, open, mine);
+			if (base === '' && next !== '' && !open.seen.size && !open.own.length && docText(open.doc) === '') {
+				// A new deck: its first text is a content-keyed base, like a moved deck's (writeGenesis).
+				await this.writeGenesis(id, next);
+				const fresh = await this.loadOpen(id, clientID, mine);
+				open.doc = fresh.doc;
+				open.seen = fresh.seen;
+			}
 			const { merged, delta } = localSave(open.doc, base, next);
 			try {
 				if (delta) await this.persistOwn(open, mine, delta);
@@ -286,12 +298,11 @@ export class DeckVault {
 		await this.me();
 		return this.withDeckLock(id, async () => {
 			const device = await this.vault.deviceId();
-			const files = await this.vault.list(deckMetaDir(id)).catch(() => []);
-			if (!files.some((e) => /\/base-[0-9a-f]+\.yjs$/.test(e.path))) {
-				const doc = deckDoc(clientIdFor(`move:${device}:${id}`));
-				localSave(doc, '', text);
-				const bytes = encodeDoc(doc);
-				await this.vault.write(`${deckMetaDir(id)}/base-${await sha256(bytes)}.yjs`, bytes);
+			const files = await this.vault.list(deckMetaDir(id), { recursive: true }).catch(() => []);
+			// Any doc file means the deck has history: bring it level with an ordinary save, never a second genesis, which
+			// would double the text (the red team's finding 5).
+			if (!files.some((e) => /\.yjsu?$/.test(e.path))) {
+				await this.writeGenesis(id, text);
 				this.docs.delete(id);
 				const open = await this.open(id);
 				await this.writeReadable(id, open.doc);
@@ -307,6 +318,20 @@ export class DeckVault {
 			}
 			return this.readDeck(id);
 		});
+	}
+
+	/**
+	 * A deck's first base, keyed by its content: the client id comes from the deck id and the text's hash, so two
+	 * devices that hold the same deck text (an edited built-in, a backup restored on a new laptop) write byte-identical
+	 * bases, and sync merges them as one (the inversion review's finding 2). Not by device: that doubled the text.
+	 */
+	private async writeGenesis(id: string, text: string): Promise<string> {
+		const doc = deckDoc(clientIdFor(`genesis:${id}:${await shaText(text)}`));
+		localSave(doc, '', text);
+		const bytes = encodeDoc(doc);
+		const path = `${deckMetaDir(id)}/base-${await sha256(bytes)}.yjs`;
+		await this.vault.write(path, bytes);
+		return path;
 	}
 
 	/** Remove a deck's files: deck.md and everything under its `.lattice/decks/<id>/`. */

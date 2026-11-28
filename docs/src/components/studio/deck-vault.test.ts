@@ -291,6 +291,37 @@ describe('the boot cache after a cut-off save', () => {
 	});
 });
 
+describe('history that sync can merge (the inversion review)', () => {
+	it('two devices with the same deck text write the same base, and merging them does not double it', async () => {
+		const other = await openMemoryVault();
+		const here = new DeckVault({ vault, slot: 0 });
+		const there = new DeckVault({ vault: other, slot: 0 });
+		await here.moveIn('welcome', '# Hi\n- one\n');
+		await there.moveIn('welcome', '# Hi\n- one\n');
+		const baseOf = async (v: VaultHandle) => (await v.list('.lattice/decks/welcome')).find((e) => e.path.includes('/base-'));
+		const [b1, b2] = [await baseOf(vault), await baseOf(other)];
+		expect(b1?.path).toBe(b2?.path);
+		expect(b1?.sha256).toBe(b2?.sha256);
+		// A new deck's first save gets a content-keyed base too.
+		await here.save('n', '', '# N\n');
+		expect((await vault.list('.lattice/decks/n')).some((e) => e.path.includes('/base-'))).toBe(true);
+	});
+	it('a move over a deck that already has update files but no base does not double its text', async () => {
+		const a = new DeckVault({ vault, slot: 0 });
+		await a.save('d', '', '# N\n\n- vault text\n');
+		for (const e of await vault.list('.lattice/decks/d')) if (e.path.includes('/base-')) await vault.remove(e.path); // a deck from before bases
+		await a.save('d', '# N\n\n- vault text\n', '# N\n\n- vault text\n- more\n');
+		const back = await new DeckVault({ vault, slot: 1 }).moveIn('d', '# N\n\n- vault text\n- old tab\n');
+		expect(back).toBe('# N\n\n- vault text\n- old tab\n');
+	});
+	it('reads a deck.md with CRLF and a BOM as LF text with no BOM', async () => {
+		await vault.write(deckPath('w'), '\uFEFF# W\r\n- one\r\n');
+		const dv = new DeckVault({ vault, slot: 0 });
+		expect(await dv.readDeck('w')).toBe('# W\n- one\n');
+		expect((await dv.readAll()).texts.get('w')).toBe('# W\n- one\n');
+	});
+});
+
 describe('hydration races (the red team\'s findings 3 and 4)', () => {
 	it('does not roll the editor back over a save typed right after the first paint', async () => {
 		seedLegacy();
@@ -325,6 +356,23 @@ describe('hydration races (the red team\'s findings 3 and 4)', () => {
 		vault.list = realList;
 		expect(JSON.parse(mem.get(INDEX) as string).find((e: { id: string }) => e.id === 'deck-n')?.vault).toBe(true);
 		expect(loadSource('deck-n')).toBe('# N real text\n');
+	});
+});
+
+describe('a delete before the shelf has read the vault (the checker\'s C3)', () => {
+	it('removes the vault files, and the deck does not come back on the next read', async () => {
+		seedLegacy();
+		await moveDecksIntoVault({ pack: pack('x') });
+		await deckVaultSettled();
+		reload();
+		mem.delete(BOOT_SRC_LS);
+		const { deleteDeck } = await import('./studio-store');
+		deleteDeck('deck-b'); // before decksReady
+		await deckVaultSettled();
+		expect(await vault.list('Decks').then((l) => l.map((e) => e.path))).not.toContain(deckPath('deck-b'));
+		reload();
+		await decksReady();
+		expect(JSON.parse(mem.get(INDEX) as string).some((e: { id: string }) => e.id === 'deck-b')).toBe(false);
 	});
 });
 

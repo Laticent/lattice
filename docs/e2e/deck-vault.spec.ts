@@ -149,10 +149,10 @@ test.describe('decks in the storage vault @crosswidth @webkit-phone @gecko', () 
 		await seedLegacyDeck(page);
 		await moved(page);
 		if (browserName === 'chromium') {
-			// REAL: the origin's quota is set to what it already uses, so the next vault write is refused.
+			// REAL: the origin's quota is set to exactly what it already uses, so the next vault write is refused.
 			const cdp = await profile.newCDPSession(page);
 			const usage = await page.evaluate(async () => (await navigator.storage.estimate()).usage ?? 0);
-			await cdp.send('Storage.overrideQuotaForOrigin', { origin: new URL(page.url()).origin, quotaSize: usage + 1024 });
+			await cdp.send('Storage.overrideQuotaForOrigin', { origin: new URL(page.url()).origin, quotaSize: usage });
 		} else {
 			// INJECTED on WebKit and Firefox: neither gives Playwright a quota control. Firefox keeps a 10 GiB quota whatever
 			// `dom.quotaManager.temporaryStorage.fixedLimit` says (measured 2026-11-28, three profiles), so the vault index's
@@ -165,7 +165,9 @@ test.describe('decks in the storage vault @crosswidth @webkit-phone @gecko', () 
 				};
 			});
 		}
-		await type(page, `\n- ${'a long line to save '.repeat(200)}`);
+		// Any vault write trips it, so a short edit does: a 4,000-character line typed key by key outran the test's
+		// timeout on Firefox under load (#33, the repeat run's root cause).
+		await type(page, `\n- ${'a line to save '.repeat(25)}`);
 		await expect(liveToast(page, /storage is full/)).toBeVisible({ timeout: 30_000 });
 	});
 });

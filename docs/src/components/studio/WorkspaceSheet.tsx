@@ -1316,7 +1316,7 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 						<div>
 						<div className="mt-1">
 							<GroupLabel icon={<FolderTree className="size-3.5" />}>Where decks live</GroupLabel>
-							<button type="button" onClick={() => { setStoreInCloud(false); notify('Decks are stored on this device (localStorage).'); }} className={cn('my-2 flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left', !storeInCloud ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-border')}>
+							<button type="button" onClick={() => { setStoreInCloud(false); notify('Decks are stored on this device, in this browser.'); }} className={cn('my-2 flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left', !storeInCloud ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-border')}>
 								<span className="text-[13px] font-semibold text-[var(--text-heading)]">This device only</span><span className="ml-auto text-[11px] text-muted-foreground">local · how Studio stores today</span>
 							</button>
 							<button type="button" onClick={() => { setStoreInCloud(true); notify('Cloud sync is not enabled in this build — decks stay on this device.'); }} className={cn('my-2 flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left', storeInCloud ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-border')}>
@@ -1364,7 +1364,7 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 								{gov && gov.totalBytes > 0 && <span className="rounded-full border border-border bg-card px-2 py-0.5 font-mono text-[11px] font-semibold text-[var(--text-heading)]">{fmtBytes(gov.totalBytes)} total</span>}
 							</div>
 							<p className="mb-3 text-xs text-muted-foreground">Everything the Studio has stored in this browser — clear one thing, or start over completely. Nothing here reaches a server; it's all local to this device. Your preferences (language, placement handles, etc.) are never touched here.</p>
-							{gov?.local.warn && (
+							{gov?.local.warn && gov.decksInLocal && (
 								<div role="status" data-testid="local-quota-warning" className="mb-3 flex gap-2.5 rounded-xl border border-[var(--warn)] bg-card px-3 py-2.5">
 									<TriangleAlert className="mt-0.5 size-4 shrink-0 text-[var(--warn)]" aria-hidden="true" />
 									<div className="text-xs leading-relaxed text-muted-foreground">

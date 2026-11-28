@@ -13,7 +13,8 @@ import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { installNodeEngine } from '../../test/node-engine';
 import { listStudioComponents, saveStudioComponent } from './component-library';
 import { deleteAsset, listAssets } from './library/asset-store.js';
-import { exportStudioState, importStudioState, loadDeckList, loadSource, saveSource } from './studio-store';
+import { pinStudioVault } from './media-vault';
+import { exportStudioState, importStudioState, loadDeckList, loadSource, resetShelfForTests, saveSource } from './studio-store';
 import { listStudioThemes, saveStudioTheme } from './theme-library';
 import { packWorkspace, restoreWorkspace } from './workspace-backup';
 
@@ -25,6 +26,10 @@ beforeAll(installNodeEngine);
 beforeEach(async () => {
 	for (const a of await listAssets()) await deleteAsset(a.id);
 	localStorage.clear();
+	// The import gates, not where decks live: decks stay in localStorage here (vault slice 3 pinned off). jsdom's Blob
+	// cannot be stored in the vault, and a restore now names a deck the vault refused.
+	pinStudioVault(null);
+	resetShelfForTests();
 });
 
 async function hostileBackup(): Promise<Blob> {

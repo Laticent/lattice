@@ -3645,9 +3645,20 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			const next = list[0] ?? DECKS[0];
 			sourceOwnerRef.current = next.id;
 			setDeck(next);
-			const text = deckSourceFor(next);
-			setSource(text, LOAD);
-			goToChunk(0, { after: text });
+			const open = () => {
+				if (deckIdRef.current !== next.id) return;
+				const text = deckSourceFor(next);
+				setSource(text, LOAD);
+				goToChunk(0, { after: text });
+			};
+			// A vault deck this tab has not read yet (the first moments after boot): show nothing until the shelf has it,
+			// so no keystroke lands on a placeholder that a later save would merge over the real deck (the checker's C2).
+			// A save of it meanwhile is refused by the shelf's guard.
+			if (deckLoaded(next.id)) open();
+			else {
+				setSource('', LOAD);
+				void decksReady().then(open).catch(() => {});
+			}
 		}
 		notify('Deck deleted.');
 	}

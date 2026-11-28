@@ -219,7 +219,7 @@ for (const tag of ['', ' @gecko', ' @webkit-tablet']) test.describe(`chat storag
 		await expect(page.getByText('answered before the upgrade')).toBeVisible();
 	});
 
-	test('Privacy & Data warns once localStorage passes 80% of its allowance', async ({ page }) => {
+	test('Privacy & Data warns once localStorage passes 80% of its allowance, while a deck still lives there', async ({ page }) => {
 		await gotoStudio(page);
 		const openData = async () => {
 			await page.getByRole('button', { name: 'Workspace settings' }).first().click();
@@ -241,6 +241,18 @@ for (const tag of ['', ' @gecko', ' @webkit-tablet']) test.describe(`chat storag
 		});
 		await openData();
 		const warning = page.getByTestId('local-quota-warning');
+		// Vault slice 3: no deck text lives in localStorage, so a full localStorage no longer stops deck saves, and the
+		// warning, which says it does, stays away.
+		await expect(page.getByText('Your data')).toBeVisible();
+		await expect(warning).toHaveCount(0);
+		await page.keyboard.press('Escape');
+		// A deck still stored the old way (the move has not taken it in yet): now a full localStorage matters.
+		await page.evaluate(() => {
+			const idx = JSON.parse(localStorage.getItem('lattice-studio-deck-index') || '[]');
+			localStorage.setItem('lattice-studio-deck-index', JSON.stringify([...idx, { id: 'e2e-legacy', title: 'Legacy', builtin: false }]));
+			localStorage.setItem('lattice-studio-src-e2e-legacy', JSON.stringify('# Legacy\n'));
+		});
+		await openData();
 		await expect(warning).toBeVisible();
 		await expect(warning).toContainText(/Deck storage is 8\d% full/);
 		await expect(warning).toContainText(/of 5\.2\s?M characters/);

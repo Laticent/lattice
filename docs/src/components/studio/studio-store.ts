@@ -628,10 +628,11 @@ function saveToShelf(id: string, source: string, fromShell: boolean): boolean {
 	return true;
 }
 function dropFromShelf(id: string): void {
-	const had = shelf.delete(id);
+	shelf.delete(id);
 	vaultText.delete(id);
 	if (read<{ id?: string }>(BOOT_SRC_LS)?.id === id) remove(BOOT_SRC_LS);
-	if (had || shelfVault === 'yes') toIo((m) => m.removeDeck(id));
+	// Always, not only once the vault is known: a vault deck deleted before hydration must not come back (C3).
+	toIo((m) => m.removeDeck(id));
 }
 function clearShelf(): void {
 	const ids = [...new Set([...shelf.keys(), ...vaultIds()])];
