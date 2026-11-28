@@ -37,6 +37,11 @@ still on the slide (strict).
 
 The demo deck also passed at `2aee2ef` itself, before this branch's engine fix, on both routes with the runtime on.
 
+The table counts one passing run per deck and route. In the first batch, 13 of 69 runs returned no result at all: VS
+Code re-created the preview frame while the harness read it, and puppeteer threw "detached Frame". That was a harness
+bug, not a slide failure. After the fix in `tools/vscode-preview-probe.mjs` (`runtimeState`), all 13 were run again and
+passed. No run that returned a result has failed.
+
 ## Screenshots
 
 - `vscode-runtime-on-split-panel.png`: the demo deck's split-panel, runtime on. The key insight and the note close the
