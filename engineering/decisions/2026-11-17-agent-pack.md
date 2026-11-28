@@ -326,6 +326,72 @@ bodied clause names only `split-panel`. A test pins both sets to lint's and the 
 `packages/lattice/package.json`. `publish-kits.yml` now republishes on a change to that file, so a
 release republishes the pack with its new number.
 
+### 4.10 Paired, capped and two-turn (2026-11-27)
+
+The owner's calls (desk session_015KSkL4AtPNjvKkBShG56Nu, 2026-11-27): paid testing on our key
+with Haiku 5.5 and DeepSeek V4.1 Flash, alternating rather than stacked, under a USD 5 cap for the
+whole effort, and real evidence over claims. So `tools/agent-pack-eval.mjs` changed in five ways:
+
+- **A hard cap.** `--max-usd` (USD 1 unless set) is checked before every call: OpenRouter's reported
+  spend so far, plus the most that call could cost (2 bytes of prompt a token, the reply at
+  `max_tokens`), priced at the dearest provider OpenRouter lists for the model. The cheapest listing
+  is not a bound: routing can fall back to a dearer provider, and DeepSeek V4.1 Flash's dearest is about
+  30 times its cheapest. The request asks for the cheapest provider first (`provider.sort: 'price'`),
+  which also keeps nights comparable. A price that is not a number of at least 0 refuses the run, a
+  cost OpenRouter does not report counts at the worst case, and a stop exits 3, so a capped night is
+  red, not quietly short.
+- **Paired mode.** `--old <start.md>` runs each brief and repeat on the old and the new `start.md`, on
+  the same model, one after the other. One model per run: a comparison never mixes models. The nightly
+  workflow's `old_ref` input builds the old file from a git ref in its own checkout.
+- **A retrieval arm.** The 1.5k-token `start.md` (§4.9, #3569) links out to `layouts.md` and the rest
+  of the kit, so a one-turn arm would measure a model that cannot follow a link. The retrieval arm lets the
+  model reply with `READ: <path>` lines (up to six files, 160 KB in all, never outside the kit); the
+  harness serves them and asks again for the deck. A folder, a missing file or a path outside the kit gets a note instead.
+- **Ten briefs.** Seven more registers joined the first three: a postmortem, a product launch, an
+  investor update, an architecture proposal, research findings, an all-hands policy and a fundraising
+  ask. They are fixed: a new brief gets a new slug, so nights stay comparable.
+- **Records.** Every deck's row holds model, arm, old or new, brief, repeat, lint errors and
+  warnings, pass or fail, tokens in and out, OpenRouter's cost and latency, in `summary.json`, and
+  `summary.md` tabulates them with each row's sample size.
+- **A bounded reasoning budget.** Reasoning tokens come out of `max_tokens`, and both nightly
+  models reason without being asked. Left alone, they spent the whole 6,000-token budget and wrote
+  no deck. Three runs on 2026-11-27 measured it, all on the retrieval arm, ten decks each:
+
+  | run | model | reasoning sent | passed | decks out of budget | USD |
+  |---|---|---|---:|---:|---:|
+  | 46068425702 | DeepSeek V4.1 Flash | none | 0 | 10 | 0.0193 |
+  | 46073230172 | DeepSeek V4.1 Flash | `effort: low` | 1 | 8 | 0.0123 |
+  | 46073233625 | Haiku 5.5 | none | 3 | 7 | 0.0473 |
+  | 46099328828 | Haiku 5.5 | `max_tokens: 1500` | 7 | 0 | 0.0185 |
+  | 46099331532 | DeepSeek V4.1 Flash | `effort: minimal` | 7 | 1 | 0.0095 |
+  | 46099333931 | DeepSeek V4.1 Flash | `effort: none` | 5 | 0 | 0.0070 |
+  | 46104381486 | Haiku 5.5 | `effort: none` | 9 | 0 | 0.0290 |
+
+  So `--reasoning auto`, the default, switches reasoning off (`effort: 'none'`) for both nightly
+  models (`REASONING_OFF`). The choice is made for coverage, not quality: the retrieval arm exists to
+  test whether a model fetches the files `start.md` links to, and with reasoning on, neither model
+  fetched any. With it off, DeepSeek fetched on 7 of 10 decks and Haiku on 10 of 10. Pass rates on
+  ten decks (DeepSeek 5 against 7, Haiku 9 against 7) are too few to tell the settings apart. Any
+  other Anthropic model gets a hard budget, `reasoning: { max_tokens: 1500 }`, which OpenRouter passes
+  through exactly (minimum 1,024), and is sent no temperature, since Anthropic refuses one while
+  thinking. Any other model gets `effort: 'minimal'`, because a model that must reason rejects
+  `none`. `max_tokens` stays at 6,000, so the cost ceiling does not move. A probe never sends a
+  setting, and old and new `start.md` always get the same one. The workflow takes a `reasoning`
+  input, a row records its reasoning tokens, and a reply that reasoned through its whole budget fails
+  as "no deck was written". No deck run at the settings `auto` now sends ran out of budget. The ones
+  that failed did so on lint errors and overflow, the defects this eval exists to find.
+
+The nightly now runs only the retrieval arm, Haiku on even days since the epoch and DeepSeek on odd
+ones, capped at USD 0.25. It goes red only when the run breaks (owner's D2, 2026-11-28). A deck the
+model wrote that fails its checks is the result, not a fault, so the tool exits 10 (`DECKS_FAILED`)
+for that case alone, and the workflow reads 10 as green with the deck table in the step summary.
+Every other non-zero code stays red: a config error (2), a cap stop (3), a crash (4), a request
+that got no reply (5), our own judge breaking (6: the linter crashed, or no deck rendered), and
+Node's own 1 for an import failure. The green code is one nothing else returns, so no unforeseen
+failure can pass for a result. The small arm's default model is Haiku 5.5 (it was gpt-4o-mini). A capable
+model (Sonnet 5.5) runs once per release by dispatch (RELEASE.md). These runs are exploratory: ten
+briefs and a few repeats show a direction, they do not prove that the new `start.md` is no worse.
+
 ## 5. Left out
 
 - Publishing to npm (owner's call, §3).
