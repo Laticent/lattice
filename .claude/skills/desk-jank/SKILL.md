@@ -43,7 +43,7 @@ here is a `check:jank` table, never a screenshot alone.
    found but will not fix this pass becomes a `followups.d/` file
    (`deferred: large|blocked|off-path`). A census run updates §The census.
 6. **Report** to the command center: the top items as fleet rows, the follow-ups claimed
-   and closed, and `budget: N/10 today`, with its `meter:` ledger, which also rides on every gate message to the command center (a card announcement, a 🧱 line).
+   and closed, and `budget: N/10 today`, with its `meter:` ledger, which also rides on every other gate message to the command center (a `card ready` line, a 🧱 line, a ❓ card) and is never sent as a message of its own (`engineering/workflow.md` §Desks, "A worker messages the command center only at a gate").
 
 ## Lane
 

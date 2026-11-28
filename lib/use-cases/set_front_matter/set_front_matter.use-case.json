@@ -21,6 +21,8 @@
 			"value": {
 				"type": [
 					"string",
+					"number",
+					"boolean",
 					"null"
 				]
 			},

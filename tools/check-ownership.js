@@ -7245,6 +7245,12 @@ const SANCTIONED_EOL_BOUNDARIES = [
        + 'over, at the ninth ingest, because the gate that was supposed to catch it did not exist.',
   },
   {
+    file: 'tools/vscode-harness/kit-deck.mjs',
+    why: 'the deck read that turns a repo deck into a kit deck for the VS Code harness. It rewrites `theme:` in '
+       + 'the front matter it anchors on `^---`, so a BOM\'d or CRLF deck would keep its own palette and reach the '
+       + 'preview unstyled: the harness would then measure the wrong surface.',
+  },
+  {
     file: 'tools/export-chart-svg.js',
     why: 'the deck read in main(). The TENTH ingest, and the one that proves arm 6 earns its '
        + 'place: it had no fold for the other five arms to inspect, so it was invisible to them '
@@ -9139,7 +9145,9 @@ function checkSecuritySpineCensus(errors, sanctions = SANCTIONED_SPINE_READERS, 
 //   clock-assert    F1  an assertion (`expect(…)`, `assert(…)`, `assert.x(…)`) whose arguments read a clock
 //                       (`performance.now()`, `Date.now()`, `process.hrtime`) directly, or through a variable or a
 //                       function the same file built from one: `const ratio = best(poisoned) / best(clean)` where
-//                       `poisoned` times a call is caught.
+//                       `poisoned` times a call is caught. Also a timing a function returns under a key, read back
+//                       by destructuring or off the call: `return { f, ms: performance.now() - t }`, then
+//                       `const { ms } = timed(h)` or `timed(h).ms` (added 2026-11-28; the other keys stay clean).
 //                       Also a timing the page measured itself: the `.duration` of a value built from
 //                       `performance.getEntries*()`, a key copied from one (`({ ms: m.duration })`, then `worst.ms`), or
 //                       a value that is one (`entries.map((e) => e.duration)`). An `expect`'s message argument is not read.
@@ -9179,7 +9187,9 @@ function checkSecuritySpineCensus(errors, sanctions = SANCTIONED_SPINE_READERS, 
 // (2026-11-06): a new hit fails, a file new to the baseline fails, and so does a count the baseline overstates, so the
 // list can only shrink. followups.d/3045-p1-flaky-test-audit.md drives it to empty.
 //
-// Known limits: a timing is followed through a declaration's initializer (a name resolves to its nearest enclosing
+// Known limits: a timing returned under a key is followed into an object destructuring (`const { ms } = timed(h)`) and a
+// `.key` read off the call or a name bound to it, not into an array pattern, a nested pattern, `timed(h)['ms']` or a
+// method's result (`o.timed().ms`); a timing is followed through a declaration's initializer (a name resolves to its nearest enclosing
 // declaration), not through an assignment, a `.push` or a `.map`, nor into another module; a clock compared without a
 // subtraction (`expect(performance.now()).toBeLessThan(start + 5)`) and `process.hrtime(start)` are not seen; a count
 // cannot tell one sleep swapped for another in the same file; a file not yet committed is not read; a tree-write follows
@@ -9230,15 +9240,32 @@ function flakyTestHits(text, rel = 'test/x.test.js') {
   const isScope = (n) => ts.isSourceFile(n) || ts.isBlock(n) || ts.isFunctionLike(n) || ts.isModuleBlock(n) || ts.isCaseBlock(n);
   const scopeOf = (n) => { let p = n.parent; while (p && !isScope(p)) p = p.parent; return p; };
   const declsIn = new Map(); // scope node -> Map(name -> init)
+  const boundIn = new Map(); // scope node -> Map(name -> BindingElement), the timing census's alone
   const declare = (scope, name, init) => { if (!declsIn.has(scope)) declsIn.set(scope, new Map()); declsIn.get(scope).set(name, init); };
   each(sf, (n) => {
     if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer) declare(scopeOf(n), n.name.text, n.initializer);
     else if (ts.isFunctionDeclaration(n) && n.name && n.body) declare(scopeOf(n), n.name.text, n.body);
+    // `const { f, ms } = timed(html)`: each name is its own binding, decided by its key (below).
+    // Kept apart from `declsIn`, so every other shape's `resolve` reads such a name as unresolved, as before.
+    else if (ts.isBindingElement(n) && ts.isIdentifier(n.name) && ts.isObjectBindingPattern(n.parent) && ts.isVariableDeclaration(n.parent.parent) && n.parent.parent.initializer) {
+      const scope = scopeOf(n.parent.parent);
+      if (!boundIn.has(scope)) boundIn.set(scope, new Map());
+      boundIn.get(scope).set(n.name.text, n);
+    }
   });
   const resolve = (id) => {
     for (let p = id.parent; p; p = p.parent) {
       const m = isScope(p) ? declsIn.get(p) : null;
       if (m?.has(id.text)) return m.get(id.text);
+    }
+    return null;
+  };
+  // `resolve`, plus the names a destructuring binds: the timing census follows a duration into `const { ms } = timed(h)`.
+  const resolveTimed = (id) => {
+    for (let p = id.parent; p; p = p.parent) {
+      if (!isScope(p)) continue;
+      if (declsIn.get(p)?.has(id.text)) return declsIn.get(p).get(id.text);
+      if (boundIn.get(p)?.has(id.text)) return boundIn.get(p).get(id.text);
     }
     return null;
   };
@@ -9253,11 +9280,53 @@ function flakyTestHits(text, rel = 'test/x.test.js') {
     each(node, (c) => {
       if (hit) return;
       if (alsoClock && isClockRead(c)) hit = true;
-      else if (ts.isIdentifier(c)) { const d = resolve(c); if (d && set.has(d)) hit = true; }
+      else if (ts.isIdentifier(c)) { const d = resolveTimed(c); if (d && set.has(d)) hit = true; }
     });
     return hit;
   };
   const isStamp = (node) => touches(node, stamps, true);
+  // A duration handed back under a KEY: `const timed = (h) => { const t = performance.now(); …; return { f, ms:
+  // performance.now() - t }; }`, then `const { ms } = timed(h)` or `timed(h).ms`. An object literal passes no duration on
+  // as a whole (below), so the census follows the key: the keys a function returns a duration under, and the keys of the
+  // value a call to it (or a name bound to one) holds. The stopwatch in slide-facts.test.js was this shape and the census
+  // did not see it (2026-11-28).
+  const unwrap = (e) => { while (e && (ts.isParenthesizedExpression(e) || ts.isAwaitExpression(e) || ts.isAsExpression?.(e) || ts.isNonNullExpression(e))) e = e.expression; return e; };
+  const fnOfInit = (init) => (init && ts.isBlock(init) && ts.isFunctionLike(init.parent) ? init.parent : init && ts.isFunctionLike(unwrap(init)) ? unwrap(init) : null);
+  const durationKey = (n) => (n && (ts.isIdentifier(n) || ts.isStringLiteral(n)) ? n.text : null);
+  const returnedDurationKeys = (fn) => {
+    const keys = new Set();
+    const fromObject = (o) => {
+      o = unwrap(o);
+      if (!o || !ts.isObjectLiteralExpression(o)) return;
+      for (const p of o.properties) {
+        if (ts.isPropertyAssignment(p) && durationKey(p.name) && hasDuration(p.initializer)) keys.add(durationKey(p.name));
+        else if (ts.isShorthandPropertyAssignment(p)) { const d = resolve(p.name); if (d && durations.has(d)) keys.add(p.name.text); }
+      }
+    };
+    if (!fn.body) return keys;
+    if (!ts.isBlock(fn.body)) { fromObject(fn.body); return keys; }
+    const walk = (c) => {
+      if (ts.isFunctionLike(c) && c !== fn) return;
+      if (ts.isReturnStatement(c) && c.expression) fromObject(c.expression);
+      c.forEachChild(walk);
+    };
+    fn.body.forEachChild(walk);
+    return keys;
+  };
+  const NO_KEYS = new Set();
+  const durationKeysOf = (expr, seen = new Set()) => {
+    const e = unwrap(expr);
+    if (!e || seen.has(e)) return NO_KEYS;
+    seen.add(e);
+    if (ts.isCallExpression(e) && ts.isIdentifier(e.expression)) {
+      const fn = fnOfInit(resolve(e.expression));
+      return fn ? returnedDurationKeys(fn) : NO_KEYS;
+    }
+    if (ts.isIdentifier(e)) { const d = resolve(e); return d && !ts.isBindingElement(d) && !fnOfInit(d) ? durationKeysOf(d, seen) : NO_KEYS; }
+    return NO_KEYS;
+  };
+  const isKeyedDuration = (c) => ts.isPropertyAccessExpression(c) && durationKeysOf(c.expression).has(c.name.text);
+  const isBoundDuration = (b) => durationKeysOf(b.parent.parent.initializer).has(durationKey(b.propertyName) ?? b.name.text);
   // An object or array literal does not pass a duration on (`return { settled, settledMs }` would taint every assertion on
   // `settled`), and a function is a duration only when it RETURNS one, not when it merely measures one inside.
   const hasDuration = (node) => {
@@ -9265,7 +9334,8 @@ function flakyTestHits(text, rel = 'test/x.test.js') {
     const walk = (c) => {
       if (hit || ts.isObjectLiteralExpression(c) || ts.isArrayLiteralExpression(c)) return;
       if (ts.isBinaryExpression(c) && c.operatorToken.kind === ts.SyntaxKind.MinusToken && isStamp(c.left) && isStamp(c.right)) { hit = true; return; }
-      if (ts.isIdentifier(c)) { const d = resolve(c); if (d && durations.has(d)) { hit = true; return; } }
+      if (isKeyedDuration(c)) { hit = true; return; }
+      if (ts.isIdentifier(c)) { const d = resolveTimed(c); if (d && durations.has(d)) { hit = true; return; } }
       if (ts.isFunctionLike(c) && c !== node) return; // a nested function's body is its own question
       c.forEachChild(walk);
     };
@@ -9286,10 +9356,11 @@ function flakyTestHits(text, rel = 'test/x.test.js') {
     return hit;
   };
   const isDuration = (init) => {
+    if (ts.isBindingElement(init)) return isBoundDuration(init);
     const fn = ts.isBlock(init) && ts.isFunctionLike(init.parent) ? init.parent : ts.isFunctionLike(init) ? init : null;
     return fn ? returnsDuration(fn) : hasDuration(init);
   };
-  const inits = [...declsIn.values()].flatMap((m) => [...m.values()]);
+  const inits = [...declsIn.values(), ...boundIn.values()].flatMap((m) => [...m.values()]);
   for (let grew = true; grew; ) {
     grew = false;
     for (const init of inits) {
@@ -12892,6 +12963,65 @@ const USE_CASE_INPUT_KEYWORDS = new Set(['type', 'description', 'enum', 'const',
  * ships a pure kernel beside its manifest and an input a model can call from the schema alone, bounded
  * and described at every depth (use-case-layer.md §2, §3.2, §3.5).
  */
+/**
+ * THE USE-CASE VALIDATORS ship no ajv (use-case-layer.md §7, §10 step 2). The dispatcher runs each use case's
+ * generated validator (lib/use-cases/<id>/<id>.validate.mjs) before its handler, so a validator is code every
+ * host ships. ajv's standalone mode writes them with `unicode: false`, which keeps a string-length check from
+ * importing ajv's runtime; ajv 8.20 calls that option deprecated, so an upgrade could quietly bring the import
+ * back. This holds the shape the dispatcher depends on:
+ *   - every manifest has its validator, and no validator outlives its manifest;
+ *   - a validator imports nothing at all, from ajv or anywhere else (checkAjvBoundary covers only the ajv family);
+ *   - the index (validators.generated.mjs) imports exactly one validator per manifest, and nothing else.
+ * Whether a validator matches its manifest NOW is the generator's own --check, which build:check runs.
+ */
+function checkUseCaseValidators(errors, { root = ROOT } = {}) {
+  const dir = path.join(root, 'lib', 'use-cases');
+  if (!fs.existsSync(dir)) return;
+  const JS_STRING = /"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`/g;
+  const ANY_IMPORT = /\bimport\s*(?:[\s{*"'`(]|$)|\brequire\s*\(|\bexport\s+[^;]*\bfrom\s*["'`]/m;
+  const ids = [];
+  for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (!ent.isDirectory()) continue;
+    const manifest = path.join(dir, ent.name, `${ent.name}.use-case.json`);
+    const validator = path.join(dir, ent.name, `${ent.name}.validate.mjs`);
+    const hasManifest = fs.existsSync(manifest);
+    const hasValidator = fs.existsSync(validator);
+    if (hasManifest) ids.push(ent.name);
+    if (hasManifest && !hasValidator) {
+      errors.push(`${relPosix(root, manifest)} has no validator: run \`npm run build\` (tools/build-use-cases.js) and commit ${relPosix(root, validator)}. The dispatcher refuses a use case without one.`);
+    }
+    if (hasValidator && !hasManifest) {
+      errors.push(`${relPosix(root, validator)} has no manifest beside it: delete it, or restore ${ent.name}.use-case.json.`);
+    }
+    // String contents blanked first: a field named `from` or `import`, or an error message, is text, not a module.
+    // A real import still matches, its specifier reduced to "".
+    if (hasValidator && ANY_IMPORT.test(stripJsComments(readCssSource(validator)).replace(JS_STRING, '""'))) {
+      errors.push(
+        `${relPosix(root, validator)} imports a module. A use-case validator is shipped to every host and must be ` +
+          'self-contained (use-case-layer.md §7). If an ajv upgrade made the standalone code import its runtime ' +
+          '(the deprecated `unicode: false` no longer holds), restrict the manifest to keywords that compile without one.',
+      );
+    }
+  }
+  const index = path.join(dir, 'validators.generated.mjs');
+  if (!ids.length) return;
+  if (!fs.existsSync(index)) {
+    errors.push(`lib/use-cases/validators.generated.mjs is missing: run \`npm run build\` (tools/build-use-cases.js).`);
+    return;
+  }
+  const src = stripJsComments(readCssSource(index));
+  const imported = [...src.matchAll(/\bimport\s+[^;]*?\bfrom\s*["'`]([^"'`]+)["'`]/g)].map((m) => m[1]);
+  const want = ids.map((id) => `./${id}/${id}.validate.mjs`);
+  const extra = imported.filter((s) => !want.includes(s));
+  const missing = want.filter((s) => !imported.includes(s));
+  if (extra.length || missing.length || /\brequire\s*\(|\bimport\s*\(/.test(src)) {
+    errors.push(
+      `lib/use-cases/validators.generated.mjs must import exactly one validator per manifest and nothing else` +
+        `${missing.length ? `; missing ${missing.join(', ')}` : ''}${extra.length ? `; unexpected ${extra.join(', ')}` : ''}. Run \`npm run build\`.`,
+    );
+  }
+}
+
 function checkUseCaseManifests(errors, { root = ROOT, legacy = SANCTIONED_LEGACY_USE_CASES } = {}) {
   const dir = path.join(root, 'lib', 'use-cases');
   if (!fs.existsSync(dir)) return;
@@ -16079,6 +16209,7 @@ function run() {
   checkSkillFreshness(errors);
   checkAgentModelPinning(errors);
   checkUseCaseManifests(errors);
+  checkUseCaseValidators(errors);
   checkProviderAttributeWriters(errors);
   checkSplitOracle(manifests, errors);
   checkCommittedPdfs(errors);
@@ -16177,6 +16308,7 @@ module.exports = {
   checkProjectionCoverage,
   checkManifestSchemas,
   checkAjvBoundary,
+  checkUseCaseValidators,
   checkThemeManifestCoverage,
   checkThemeManifestShape,
   checkThemeRoles,

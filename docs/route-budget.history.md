@@ -6,6 +6,16 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-28 — raise the studio lintCoreGz ceiling by 1,024 B (174,022 → 175,046), by hand, for PR 3572, at the owner's direction
+
+Owner OK 2026-11-28, in PR #3572's session: "Raise ceiling 1 KB", in its own PR. Written by hand, as the 2026-11-24 lintCoreGz entry below is; soft stays 152,151.
+
+Why: merged with main after #3362 and #3517, PR #3572 (W3, bold is emphasis) measures the Studio's lint chunk at 170.5 KB, 0.6 KB over the old ceiling; main alone measures 169.0 KB (docs build on 659c467a). W3's `bold-lead` rule, the codemod its hard break ships with, lives in lint-core and `lib/core/list-shapes.js`. #3572 gave 0.4 KB back first (it reads lint-core's own comment and fence mask, splits a list item with one anchored regex, and says each message once), which leaves it at about 170.1 KB. Cutting further would drop the corner-tag check, so a pre-W3 `decision` or `kpi` deck would render differently with no finding. About 0.8 KB stays as headroom.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | lintCoreGz | 152151 | 152151 | +0 | 175046 |
+
 ### 2026-11-27 — the owner raised the playground htmlRaw ceiling by 2.5 KB by hand, for PR 3362: 511.9 KB to 514.4 KB
 
 Owner OK 2026-11-27, in PR 3362's session: "Raise +2.5 KB, own PR". The owner chose it over dropping PR 3362's four panel-width variant samples from the playground's Variant menu, and over trimming them, which saves about 1 KB and still needs a raise. The lasting fix is still to fetch the playground catalog rather than inline it (`followups.d/3386-p1-playground-catalog-inline.md`).

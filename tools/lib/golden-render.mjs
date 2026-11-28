@@ -11,8 +11,12 @@ import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'no
 import { createRequire } from 'node:module';
 import { basename, dirname, join } from 'node:path';
 
-const require = createRequire(import.meta.url);
-const { injectDark } = require('../build-galleries.js');
+// The dark gallery is made by the ROOT's own producer (tools/build-galleries.js injectDark), not
+// by this checkout's: a render of another commit's tree must darken with that commit's code, or a
+// change to how galleries turn dark moves every dark golden while both renders of a comparison
+// apply the same new code and agree (the fifth review of #3589, finding 1; it also kept
+// golden-diff's base render from showing such a change).
+export const injectDarkFor = (root) => createRequire(join(root, 'tools', 'build-galleries.js'))('./build-galleries.js').injectDark;
 
 // Tolerance mirrors engine-parity's: a per-channel delta within FUZZ is AA shimmer, not
 // drift; a page FAILS only if the over-FUZZ pixel count exceeds FAIL_FRACTION of the page.
@@ -101,7 +105,7 @@ export function renderGallery(root, galleryMd, theme) {
     } else {
       const tmpMd = join(dir, `.regr-${name}.${theme}.md`);
       cleanup.push(tmpMd, tmpMd.replace(/\.md$/, '.html'));
-      writeFileSync(tmpMd, injectDark(readFileSync(galleryMd, 'utf8')));
+      writeFileSync(tmpMd, injectDarkFor(root)(readFileSync(galleryMd, 'utf8')));
       execFileSync(process.execPath, [emulator, tmpMd, themeCss, outPdf, 'indaco', '-q', ...deckSizeArgs(root)], {
         cwd: root,
         stdio: ['ignore', 'pipe', 'pipe'],
