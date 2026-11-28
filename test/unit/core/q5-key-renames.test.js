@@ -1,4 +1,4 @@
-'use strict';
+
 // Q5 of the plain-English key renames (engineering/decisions/2026-11-21-plain-english-key-renames.md §2 Q5):
 // `mode:` is `drawing:`; `boardroom` is `clean`, `sketch-clean` is `sketch-headings`, `sketch` stays. The per-slide
 // classes follow: `sketch-clean-body` is `sketch-headings` (one class, followups.d/3415) and the `boardroom` opt-out
@@ -50,4 +50,13 @@ test('the old classes are errors with a fix, and finish: names the drawing words
   const [f] = rules(deck('finish: sketch-clean'));
   assert.equal(f.rule, 'unknown-finish');
   assert.match(f.fix, /drawing: sketch-headings/);
+});
+
+test('the chart family\'s copies of the two hand predicates agree with lib/core/resolve-drawing.js', () => {
+  const core = require('../../../lib/core/resolve-drawing');
+  const family = require('../../../lib/plugins/chart-family/shared/transform-utils');
+  for (const tokens of [[], ['sketch'], ['sketch-headings'], ['sketch', 'sketch-headings'], ['no-sketch'], ['kpi', 'sketch']]) {
+    assert.equal(family.drawsByHand(tokens), core.drawsByHand(tokens), tokens.join(' '));
+    assert.equal(family.readsHandBody(tokens), core.writesBodyByHand(tokens), tokens.join(' '));
+  }
 });
