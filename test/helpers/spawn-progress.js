@@ -77,12 +77,13 @@ function running(pid) {
 /**
  * A reader of the CPU time of `root` and every process under it, in ms. Each call walks `/proc` once. The total only
  * goes up: a process keeps its highest reading after it exits. `live()` lists the tree's processes still running at
- * the last read, so a hung tree can be killed whole.
+ * the last read, each with its start time, so a hung tree can be killed whole without hitting a pid the kernel has
+ * since given to another process.
  * @param {number} root
- * @returns {{ read: () => number | null, live: () => number[] }}
+ * @returns {{ read: () => number | null, live: () => { pid: number, start: string }[] }}
  */
 function treeCpu(root) {
-  const best = new Map(); // pid -> highest own CPU ticks seen
+  const best = new Map(); // `${pid}:${start time}` -> highest own CPU ticks seen; the start time tells a reused pid apart
   let alive = [];
   const read = () => {
     const kids = new Map();
@@ -100,7 +101,7 @@ function treeCpu(root) {
       if (!f) continue;
       const pid = Number(name);
       const ppid = Number(f[1]);
-      own.set(pid, Number(f[11]) + Number(f[12]));
+      own.set(pid, { ticks: Number(f[11]) + Number(f[12]), start: f[19] }); // f[19]: start time, field 22
       if (!kids.has(ppid)) kids.set(ppid, []);
       kids.get(ppid).push(pid);
     }
@@ -108,8 +109,10 @@ function treeCpu(root) {
     alive = [];
     for (const todo = [root]; todo.length; ) {
       const pid = todo.pop();
-      alive.push(pid);
-      best.set(pid, Math.max(best.get(pid) ?? 0, own.get(pid)));
+      const { ticks, start } = own.get(pid);
+      alive.push({ pid, start });
+      const key = `${pid}:${start}`;
+      best.set(key, Math.max(best.get(key) ?? 0, ticks));
       for (const k of kids.get(pid) ?? []) todo.push(k);
     }
     let ticks = 0;
@@ -134,8 +137,11 @@ function runNode(script, args = [], opts = {}) {
     const child = spawn(process.execPath, [script, ...args], { cwd, env });
     let stdout = '';
     let stderr = '';
-    child.stdout.on('data', (d) => { stdout += d.toString('utf8'); });
-    child.stderr.on('data', (d) => { stderr += d.toString('utf8'); });
+    // setEncoding, not toString per chunk: a character split across two chunks would decode as two U+FFFD.
+    child.stdout.setEncoding('utf8');
+    child.stderr.setEncoding('utf8');
+    child.stdout.on('data', (d) => { stdout += d; });
+    child.stderr.on('data', (d) => { stderr += d; });
     const what = `${script} ${args.join(' ')}`;
     const tree = watchProc ? treeCpu(child.pid) : null;
     const done = () => {
@@ -148,7 +154,10 @@ function runNode(script, args = [], opts = {}) {
       if (isHung) return;
       isHung = true;
       done();
-      const pids = tree?.live() ?? [];
+      tree?.read(); // a fresh walk, so a process started since the last poll is killed too
+      // Kill a pid only while it is still the process we saw: same start time. A pid freed and handed to an unrelated
+      // process (possible on the orphaned-pipe path, where the last walk can be `stallMs` old) is left alone.
+      const pids = (tree?.live() ?? []).filter(({ pid, start }) => statFields(pid)?.[19] === start).map(({ pid }) => pid);
       for (const pid of pids) {
         try { process.kill(pid, 'SIGKILL'); } catch { /* already gone */ }
       }
@@ -200,40 +209,51 @@ function runNode(script, args = [], opts = {}) {
   });
 }
 
-/** The line the watcher prints to stderr, last, when the child hung; `runNodeSync` turns it into a thrown Error. */
-const HUNG_MARK = '\n[spawn-progress] ';
+/** The options `runNodeSync` passes on to the watch; anything else is refused, not silently dropped. */
+const WATCH_KEYS = new Set(['cpuBudgetMs', 'stallMs', 'stallCpuMs', 'ceilingMs', 'pollMs', 'watchProc']);
+/** The watcher's verdict goes out on fd 3, a pipe its child is never given, so nothing the child prints can fake one. */
+const VERDICT_FD = 3;
 
 /**
- * `runNode` for a synchronous test: returns `{ status, stdout, stderr }` like `spawnSync`, and throws when the child
- * hangs. There is no `timeout` option on purpose: a wall-clock total is the F4 shape this helper replaces.
+ * `runNode` for a synchronous test: returns `{ status, stdout, stderr }` like `spawnSync` (plus `signal` when a signal
+ * ended it), and throws when the child hangs. There is no `timeout` option on purpose: a wall-clock total is the F4
+ * shape this helper replaces. `encoding` is accepted and ignored: output is always UTF-8 text.
  * @param {string} script
  * @param {string[]} [args]
  * @param {{ cwd?: string, env?: object, cpuBudgetMs?: number, stallMs?: number, stallCpuMs?: number, ceilingMs?: number, pollMs?: number, watchProc?: boolean }} [opts]
- * @returns {{ status: number | null, stdout: string, stderr: string }}
+ * @returns {{ status: number | null, signal?: string, stdout: string, stderr: string }}
  */
 function runNodeSync(script, args = [], opts = {}) {
   const { cwd, env = process.env, timeout, encoding, ...watch } = opts;
   if (timeout !== undefined) throw new TypeError('runNodeSync takes no `timeout`: it fails a child on a hang, never on a wall-clock total');
-  const r = spawnSync(process.execPath, [__filename, JSON.stringify(watch), script, ...args], { cwd, env, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
+  const unknown = Object.keys(watch).filter((k) => !WATCH_KEYS.has(k));
+  if (unknown.length) throw new TypeError(`runNodeSync does not take ${unknown.map((k) => `\`${k}\``).join(', ')}`);
+  const r = spawnSync(process.execPath, [__filename, JSON.stringify(watch), script, ...args], {
+    cwd, env, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe', 'pipe'],
+  });
   if (r.error) throw r.error;
-  const at = r.stderr.lastIndexOf(HUNG_MARK);
-  if (at >= 0) throw new Error(`${r.stderr.slice(at + HUNG_MARK.length).trim()}\n--- its stderr ---\n${r.stderr.slice(0, at)}`);
-  return { status: r.status, stdout: r.stdout, stderr: r.stderr };
+  const verdict = JSON.parse(r.output[VERDICT_FD] || '{}');
+  if (verdict.hung) throw new Error(`${verdict.hung}\n--- its stderr ---\n${r.stderr}`);
+  return verdict.signal ? { status: null, signal: verdict.signal, stdout: r.stdout, stderr: r.stderr } : { status: r.status, stdout: r.stdout, stderr: r.stderr };
 }
 
-// The watcher `runNodeSync` spawns: run the child under `runNode`, relay its output, exit as it exited.
+// The watcher `runNodeSync` spawns: run the child under `runNode`, relay its output, exit as it exited, and say on
+// fd 3 whether it hung or a signal ended it. (It reports the signal rather than raising it on itself: SIGUSR1 would
+// open Node's debugger, and an ignored signal would leave the watcher exiting 0.)
 if (require.main === module) {
   const [watch, script, ...args] = process.argv.slice(2);
+  const say = (verdict) => fs.writeSync(VERDICT_FD, JSON.stringify(verdict));
   runNode(script, args, JSON.parse(watch)).then(
     ({ status, signal, stdout, stderr }) => {
       process.stdout.write(stdout);
       process.stderr.write(stderr);
-      if (signal) process.kill(process.pid, signal);
-      else process.exitCode = status;
+      say(signal ? { signal } : {});
+      process.exitCode = signal ? 1 : status;
     },
     (err) => {
       process.stdout.write(err.stdout ?? '');
-      process.stderr.write(`${err.stderr ?? ''}${HUNG_MARK}${err.message}\n`);
+      process.stderr.write(err.stderr ?? '');
+      say({ hung: err.message });
       process.exitCode = 124;
     },
   );
@@ -246,8 +266,10 @@ if (require.main === module) {
  *     the least a working export got under 64 CPU burners on 4 cores (590 ms);
  *   - CPU budget: 180 s, twelve times the costliest export's tree CPU (a three-slide `--player` render: 14.8 s idle,
  *     15.3 s under load);
- *   - ceiling: 600 s, four times the slowest export's wall time under that load (143 s, against 10.5 s idle).
+ *   - ceiling: 300 s, twice the slowest export's wall time under that load (143 s, against 10.5 s idle). It is held
+ *     under twice that on purpose: a hang only the ceiling catches (a child that polls, never stalling) must still be
+ *     reported inside a CI integration leg's 25-minute cap, where the slowest leg already runs about 16 minutes.
  */
-const EXPORT_WATCH = Object.freeze({ stallMs: 10_000, stallCpuMs: 200, cpuBudgetMs: 180_000, ceilingMs: 600_000 });
+const EXPORT_WATCH = Object.freeze({ stallMs: 10_000, stallCpuMs: 200, cpuBudgetMs: 180_000, ceilingMs: 300_000 });
 
 module.exports = { runNode, runNodeSync, cpuMs, treeCpu, EXPORT_WATCH };

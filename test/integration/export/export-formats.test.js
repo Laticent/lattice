@@ -1646,8 +1646,8 @@ describe('export-formats', () => {
   // caller asked for. `lattice deck.md out.webp` wrote PDF bytes into `out.webp`, and
   // nothing anywhere said so: exit 0, a file at the requested path, `file(1)` reading
   // "PDF document". Every assertion below is about the REFUSAL, and refusing has to be
-  // cheap: the check runs before Chromium is launched, which is why these tests carry
-  // no timeout while every render test above needs 60s.
+  // cheap: the check runs before Chromium is launched, so each refusal returns in well
+  // under a second.
   describe('an unsupported output extension is refused, never mislabeled', () => {
     test('.webp exits non-zero, names the supported set, and writes nothing', () => {
       const out = path.join(tmpDir(), 'deck.webp');

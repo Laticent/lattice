@@ -204,7 +204,8 @@ describe('runNode', { skip: process.platform !== 'linux' && 'watches /proc, whic
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'spawn-progress-'));
     const pidFile = path.join(dir, 'grandchild.pid');
     const code = `const c = require('node:child_process').spawn(process.execPath, ['-e', 'setInterval(() => {}, 1e9)'], { stdio: 'ignore' }); require('node:fs').writeFileSync(${JSON.stringify(pidFile)}, String(c.pid)); setInterval(() => {}, 1e9);`;
-    await assert.rejects(runNode('-e', [code], { stallMs: 1000 }), /used no CPU for \d+ s/);
+    // A 2 s window: the child's own start-up, which writes the pid file, always uses CPU inside it.
+    await assert.rejects(runNode('-e', [code], { stallMs: 2000 }), /used no CPU for \d+ s/);
     const pid = Number(fs.readFileSync(pidFile, 'utf8'));
     // runNode rejects only once the tree is dead, so this reads the state right after the hang, with no wait.
     let state = 'gone';
@@ -213,9 +214,10 @@ describe('runNode', { skip: process.platform !== 'linux' && 'watches /proc, whic
   });
 
   test('the tree count keeps a grandchild\'s work after it exits', async () => {
-    // The grandchild works 400 ms and exits; the child says "gone" once it has, then waits. The count is read every
-    // 20 ms until then, and once after: it must never fall, and must still hold the grandchild's work at the end.
-    const work = 'const end = Date.now() + 400; while (Date.now() < end);';
+    // The grandchild works until it has used 400 ms of CPU (CPU, not wall time, so a starved box still gives it the
+    // full 400) and exits; the child says "gone" once it has, then waits. The count is read every 20 ms until then,
+    // and once after: it must never fall, and must still hold the grandchild's work at the end.
+    const work = 'while (process.cpuUsage().user + process.cpuUsage().system < 400_000);';
     const code = `require('node:child_process').spawn(process.execPath, ['-e', ${JSON.stringify(work)}], { stdio: 'ignore' }).on('exit', () => console.log('gone')); setInterval(() => {}, 1e9);`;
     const child = require('node:child_process').spawn(process.execPath, ['-e', code]);
     const reads = [];
@@ -240,7 +242,27 @@ describe('runNode', { skip: process.platform !== 'linux' && 'watches /proc, whic
     assert.throws(() => runNodeSync('-e', ['console.error("before"); for (;;) {}'], { cpuBudgetMs: 500, stallMs: 60_000 }), /spun \d+ s of CPU without exiting[\s\S]*--- its stderr ---\nbefore/);
   });
 
-  test('runNodeSync refuses a wall-clock timeout, the F4 shape it replaces', () => {
+  test('runNodeSync refuses a wall-clock timeout, the F4 shape it replaces, and any option it would drop', () => {
     assert.throws(() => runNodeSync('-e', ['0'], { timeout: 60_000 }), /takes no `timeout`/);
+    assert.throws(() => runNodeSync('-e', ['0'], { input: 'x' }), /does not take `input`/);
+  });
+
+  test('a child cannot fake a hang by what it prints', () => {
+    // The verdict travels on fd 3, which the child never has: whatever it writes is only output.
+    const r = runNodeSync('-e', ['console.error("\\n[spawn-progress] boom"); console.error(JSON.stringify({ hung: "boom" })); process.exit(2)']);
+    assert.equal(r.status, 2);
+    assert.match(r.stderr, /boom/);
+  });
+
+  test('runNodeSync reports the signal that ended a child, as spawnSync does', () => {
+    const r = runNodeSync('-e', ['process.kill(process.pid, "SIGTERM")']);
+    assert.deepEqual({ status: r.status, signal: r.signal }, { status: null, signal: 'SIGTERM' });
+  });
+
+  test('output decodes whole across chunk boundaries', () => {
+    // 600 KB of a three-byte character arrives in many chunks; a per-chunk decode splits some and prints U+FFFD.
+    const r = runNodeSync('-e', ['process.stdout.write("\u2014".repeat(200000))']);
+    assert.equal(r.stdout.length, 200000);
+    assert.ok(!r.stdout.includes('\ufffd'), 'a character split across chunks decoded as U+FFFD');
   });
 });
