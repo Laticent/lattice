@@ -101,7 +101,7 @@ const SANCTIONED = {
 // "before" or "old" on its own appears in plenty of current instructions, and a cue that broad excused
 // `` `guards: loose` is the default `` (lib/base/base.docs.md) because "before #2308" sat in the same paragraph.
 const RETIREMENT_CUE =
-  /\b(?:retired|retirement|renamed|was called|replaced|no longer|legacy|migrat\w*|rewrites?|deprecated|(?:the|an?) old(?:er)? (?:name|names|key|keys|form|forms|spelling|one|note|syntax|classes)|old names|LFM 1\.x|reaches nothing|(?:is|are) not read)\b|\b(?:the|an?) old `[^`]+` (?:key|keys|class|classes|name|form|spelling)\b|\b(?:was|formerly) `|→|`[^`]+`[ \t]*(?:becomes|is now|instead of)[ \t]+`/i;
+  /\b(?:retired|retirement|renamed|was called|replaced|no longer|legacy|migrat\w*|rewrites?|deprecated|(?:the|an?) old(?:er)? (?:name|names|key|keys|form|forms|spelling|one|note|syntax|classes)|old names|LFM 1\.x|reaches nothing)\b|`[^`]+`[^.]*\b(?:is|are) not read\b|\b(?:the|an?) old `[^`]+` (?:key|keys|class|classes|name|form|spelling)\b|\b(?:was|formerly) `|→|`[^`]+`[ \t]*(?:becomes|is now|instead of)[ \t]+`/i;
 
 const RETIRED = DECK_SETTINGS.filter((r) => r.kind === 'retired').map((r) => r.key);
 // Slide directive comments the engine no longer reads. DECK_SETTINGS lists front-matter keys only, so these are named
@@ -115,11 +115,11 @@ const FM_LINE = new RegExp(`^[ \\t]*(${ALT})[ \\t]*:`);
 // A directive comment on its own line inside a deck fence: something an author copies.
 const COMMENT_LINE = new RegExp(`^[ \\t]*<!--[ \\t]*(${RETIRED_COMMENTS.map(esc).join('|')})[ \\t]*:`);
 // Inline: `key:` or `<!-- key: … -->` in a code span.
-const INLINE = new RegExp(`\`(?:<!--[ \\t]*)?(${ALL})[ \\t]*:`, 'g');
+const INLINE = new RegExp(`\`(?:[^\`\\n]*?<!--[ \\t]*)?(${ALL})[ \\t]*:`, 'g');
 const BARE = new RegExp(`(?<![\\w-])(${ALL})[ \\t]*:`, 'g');
 const FENCE = /^[ \t]*(`{3,}|~{3,})/;
 // A fence whose body is settings or a deck: a bare `key:` line in one is something an author copies.
-const SETTINGS_FENCE = /^[ \t]*(?:`{3,}|~{3,})[ \t]*(?:yaml|yml|md|markdown|lfm)?[ \t]*$/i;
+const SETTINGS_FENCE = /^[ \t]*(?:`{3,}|~{3,})[ \t]*(?:(?:md|markdown|lfm|lattice|html)(?:[ \t].*)?)?$/i;
 const YAML_FENCE = /^[ \t]*(?:`{3,}|~{3,})[ \t]*(?:yaml|yml)\b/i;
 const UNIT_START = /^[ \t]*(?:[-*+][ \t]|\d+\.[ \t]|\|)/;
 
@@ -161,9 +161,13 @@ function retiredKeys(text) {
       return;
     }
     if (inDeck && !FENCE.test(line) && line.startsWith(fenceIndent) && /^[^ \t]/.test(line.slice(fenceIndent.length))) {
-      const m = FM_LINE.exec(line) || COMMENT_LINE.exec(line);
+      const m = FM_LINE.exec(line);
       if (m) out.push({ line: i + 1, key: m[1], shape: 'front-matter' });
     }
+    // A retired directive comment on its own line is copyable wherever it sits: any fence, any indent, or raw in the
+    // source an agent reads.
+    const c = COMMENT_LINE.exec(line);
+    if (c) out.push({ line: i + 1, key: c[1], shape: 'front-matter' });
     if (!cued.has(unit[i])) for (const m of line.matchAll(INLINE)) out.push({ line: i + 1, key: m[1], shape: 'inline' });
     if (t === '') return;
     if ((t === '---' && atStart) || /=\s*`---$/.test(t)) inFm = true;
@@ -268,6 +272,13 @@ test('a mention its paragraph marks as history passes; a front-matter block neve
   assert.deepEqual(retiredKeys('```markdown\n<!-- _class: title -->\n\n# A\n```\n'), [{ line: 2, key: '_class', shape: 'front-matter' }]);
   assert.equal(retiredKeys('Put `<!-- _class: kpi -->` at the top of the slide.\n').length, 1);
   assert.deepEqual(retiredKeys('The old `<!-- _class: kpi -->` comments are not read at all.\n'), []);
+  // The comment form in any fence, indented, or raw; a heading in the same code span.
+  for (const deck of ['```html\n<!-- _class: kpi -->\n```\n', '```markdown title="deck.md"\n<!-- _class: kpi -->\n```\n', '- Write:\n  ```\n    <!-- _class: kpi -->\n  ```\n', '<!-- _class: kpi -->\n']) {
+    assert.equal(retiredKeys(deck).filter((h) => h.key === '_class').length, 1, deck);
+  }
+  assert.equal(retiredKeys('Write `# Revenue <!-- _class: kpi -->` on the slide.\n').length, 1);
+  // "not read" is a cue only after a code span in the same sentence.
+  assert.equal(retiredKeys('Add `<!-- _class: kpi -->`. Notes are not read by the engine.\n').length, 1);
   // A common word is not a cue: "before" here is an instruction, not history.
   assert.equal(retiredKeys('Set `paginate: true` before the first slide.\n').length, 1);
   // A cue next to a block does not excuse the block.
