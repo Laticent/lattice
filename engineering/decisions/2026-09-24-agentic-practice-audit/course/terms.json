@@ -1,0 +1,21 @@
+{
+  "about": "Every term the course introduces that a working engineer who has never used a coding agent may not know. Version control, pull requests, CI, code review, testing, schemas, linters, hooks and merge queues are assumed knowledge and deliberately absent. The harness fails a chapter that uses a term here before teaching it, unless the chapter's 'You need' slide restates it.",
+  "terms": [
+    { "name": "agent loop", "forms": [], "taught": "Primer" },
+    { "name": "context window", "forms": ["context windows"], "taught": "Primer" },
+    { "name": "instruction file", "forms": ["instruction files"], "taught": "Chapter 2" },
+    { "name": "index", "forms": [], "taught": "Chapter 2" },
+    { "name": "token", "forms": ["tokens"], "taught": "Chapter 2" },
+    { "name": "subagent", "forms": ["subagents", "helper agent", "helper agents"], "taught": "Chapter 2" },
+    { "name": "reach test", "forms": [], "taught": "Chapter 3" },
+    { "name": "stop list", "forms": [], "taught": "Chapter 3" },
+    { "name": "prompt injection", "forms": [], "taught": "Chapter 3" },
+    { "name": "decision record", "forms": ["decision records", "decision note", "decision notes", "ADR"], "taught": "Chapter 5" },
+    { "name": "follow-up file", "forms": ["follow-up files"], "taught": "Chapter 5" },
+    { "name": "red team", "forms": [], "taught": "Chapter 6" },
+    { "name": "flaky test", "forms": ["flaky tests", "flaky"], "taught": "Chapter 7" },
+    { "name": "guardrail", "forms": ["guardrails"], "taught": "Chapter 8" },
+    { "name": "jank", "forms": [], "taught": "Chapter 8" },
+    { "name": "emergence", "forms": [], "taught": "Chapter 8" }
+  ]
+}
