@@ -15,7 +15,7 @@ why now   — the diamond is the decision mark, and `!` / `?` are the labels it 
             the box center. Measured in PR #2357: Chromium 141 −0.44px mean, WebKit −0.30px,
             Firefox −0.14px at body size.
 where     — lib/base/base.modifiers.css § Inline pills, the `.lat-pill[data-shape='diamond']`
-            rule; any nudge must hold at `sm`, body and `lg`, and in `mode: sketch`
+            rule; any nudge must hold at `sm`, body and `lg`, and in `drawing: sketch`
             (Shantell Sans).
 done when — the ink-diff probe from PR #2357 reads ≤ 0.2px for `{!, diamond}` and
             `{?, diamond}` in Chromium, Firefox and WebKit, with digits (`{3, diamond}`,

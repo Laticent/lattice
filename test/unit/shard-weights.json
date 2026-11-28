@@ -596,7 +596,7 @@
   "test/unit/parsing/resolve-headline-align.test.js": 0.4,
   "test/unit/parsing/resolve-card-lift.test.js": 0.3,
   "test/unit/parsing/resolve-chart-finish.test.js": 1.6,
-  "test/unit/parsing/resolve-mode.test.js": 0.3,
+  "test/unit/parsing/resolve-drawing.test.js": 0.3,
   "test/unit/parsing/resolve-heading-rule.test.js": 0.3,
   "test/unit/parsing/resolve-spectrum.test.js": 0.4,
   "test/unit/parsing/resolve-stamp-shape.test.js": 0.2,

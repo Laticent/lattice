@@ -6,7 +6,7 @@
   "L0": { "visible": ["Q3 Strategy", "[-] Hiring partially staffed", "Expand EU", "Two markets live by Q4."], "hidden": ["_class", "paginate"], "rules": 2 },
   "L1": {
     "slideCount": 3,
-    "deck": { "mode": "boardroom", "finish": "none" },
+    "deck": { "drawing": "clean", "finish": "none" },
     "slides": [
       { "component": "title" },
       { "component": "checklist", "states": ["yes", "partly", "open"] },

@@ -174,7 +174,7 @@ icon the author asked for. On a raw Marp render (an Export-to-Marp bundle, or a 
 loads the Lattice runtime), the runtime fetches the same script from beside itself and draws. With the plugin switched off, a pill shows its label alone and a
 chart node its name.
 
-On a sketch slide (`mode: sketch`, or a slide's `sketch` class), a framed icon's tile is redrawn
+On a sketch slide (`drawing: sketch`, or a slide's `sketch` class), a framed icon's tile is redrawn
 by hand in its own edge color, as a spark's is, so the two read as one hand. The drawing inside
 stays crisp, a bare icon has no tile to ink, and an icon in the header or footer stays clean.
 

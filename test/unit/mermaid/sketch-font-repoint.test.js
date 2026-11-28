@@ -1,7 +1,7 @@
 /**
  * The sketch re-point the EXPORT's reader has to know about (#1674).
  *
- * `mode: sketch` reaches diagram labels through one indirection: `base.sketch.css`
+ * `drawing: sketch` reaches diagram labels through one indirection: `base.sketch.css`
  * re-points `--font-body` to `--sketch-font-body` inside a CLASS scope, and
  * `MERMAID_VAR_MAP.fontFamily` reads `--font-body`. The preview gets that for free —
  * its reader is `getComputedStyle(section)`, so the cascade has already applied the

@@ -11,7 +11,7 @@ Grouped tour:
   `split-panels.js`, `heading-split-core.js`, `resolve-split.js`
   (see `engineering/decisions/2026-06-22-the-fit-spine.md`).
 - **Directive resolvers** (`_class`/front-matter → classes):
-  `resolve-finish.js`, `resolve-mode.js`, `resolve-claim.js`,
+  `resolve-finish.js`, `resolve-drawing.js`, `resolve-claim.js`,
   `resolve-stamp-shape.js`, `resolve-palette.js`, `resolve-spectrum.js`,
   `resolve-tone-style.js`, `resolve-token-expr.js`.
 - **HTML walking:** `html-lists.js` (top-level `<li>` / first-list

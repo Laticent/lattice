@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-mode: sketch
+drawing: sketch
 pagination: true
 header: "Lattice · sketch"
 footer: "The sketch ledger — its frame hugs the rows"

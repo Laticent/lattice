@@ -32,7 +32,7 @@ const { isSurfaceRegisterToken } = require(path.join(ROOT, 'lib/core/surface-reg
 const PROBE = {
   label: 'Probe',
   desc: 'test only',
-  values: { theme: 'cuoio', 'color-mode': 'dark', mode: 'sketch', 'chart-finish': 'etch', 'color-intensity': 'vivid', backdrop: '40 clear', 'heading-rule': 'short' },
+  values: { theme: 'cuoio', 'color-mode': 'dark', drawing: 'sketch', 'chart-finish': 'etch', 'color-intensity': 'vivid', backdrop: '40 clear', 'heading-rule': 'short' },
   tokens: { '--rule-w': '2px' },
 };
 const TABLE = { ...PRESETS, probe: PROBE };
@@ -172,7 +172,7 @@ test('engine: the preset stamps its color mode, hand, marks, backdrop and token 
       }
     }
     // Every key the deck writes wins over its recommendation.
-    const own = classesOf(engine.render(deck(['preset: probe', 'color-mode: light', 'mode: boardroom', 'chart-finish: pigment', 'color-intensity: muted', 'backdrop: 80'])).html);
+    const own = classesOf(engine.render(deck(['preset: probe', 'color-mode: light', 'drawing: clean', 'chart-finish: pigment', 'color-intensity: muted', 'backdrop: 80'])).html);
     for (const cls of own) {
       assert.ok(cls.includes('color-light') && !cls.includes('dark'), cls.join(' '));
       assert.ok(!cls.includes('sketch') && !cls.includes('chart-finish-etch') && !cls.includes('backdrop-40'), cls.join(' '));

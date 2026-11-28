@@ -101,7 +101,7 @@ function selectGalleries(changed, galleries, { full = false } = {}) {
  * A deterministic sample of `examples/*.md` for the weekly composed-deck sweep (owner ruling
  * 2026-10-17: sampled, not all 280; the galleries cover every component on indaco, so this covers
  * what they cannot: other themes and composed finish and register mixes). Three strata, in order:
- * (1) every deck on a theme other than indaco, (2) every deck that sets `finish:` or `mode:`,
+ * (1) every deck on a theme other than indaco, (2) every deck that sets `finish:` or `drawing:`,
  * (3) the rest, taken at an even stride until `n` is reached. No randomness, so the baseline's keys
  * stay put from week to week; a new example joins the sample only through a stratum or the stride.
  * @param {string} [root]

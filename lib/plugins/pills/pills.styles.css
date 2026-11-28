@@ -141,7 +141,7 @@
     --lat-pill-pt:calc(var(--pill-pad-y) + var(--lat-pill-shift));
     --lat-pill-pb:calc(var(--pill-pad-y) - var(--lat-pill-shift));
   }
-  section.sketch .lat-pill[data-shape] { --lat-pill-shift:0.05em; }
+  section:is(.sketch, .sketch-headings) .lat-pill[data-shape] { --lat-pill-shift:0.05em; }
 }
 
 /* Geometry per shape. `pill` is the default and needs no rule — it inherits the

@@ -2,7 +2,7 @@
 marp: true
 theme: indaco
 pagination: true
-mode: sketch
+drawing: sketch
 header: "Lattice · hub-spoke in sketch"
 ---
 
@@ -10,9 +10,9 @@ header: "Lattice · hub-spoke in sketch"
 
 # Hub-spoke now measures the hand face it paints.
 
-`Chart · hub-spoke · mode: sketch`
+`Chart · hub-spoke · drawing: sketch`
 
-Under `mode: sketch` the chart billed every character at a flat 0.66em. Digits and
+Under `drawing: sketch` the chart billed every character at a flat 0.66em. Digits and
 symbols paint wider than that, so values ran past their room and the hub's value
 reached the edge of its disc. A measured per-character table replaces the flat number.
 

@@ -3045,7 +3045,13 @@ const SANCTIONED_TYPE_SIZE_MODIFIERS = [
     file: 'lib/base/base.sketch.css',
     modifier: 'sketch',
     count: 1,
-    why: 'Size-neutral, and a deck-wide mode. `section.sketch.split-panel .panel-right :is(p, li, strong)` holds --fs-body, the size split-panel.styles.css already gives those right-panel lines (:145, :147, :197), so it changes no size; it outranks the hand face\'s own sizing. The gate sees it since `sketch` joined MODIFIER_GROUPS through lib/base/base.manifest.json (the `mode` group, W5 of 2026-11-19-deterministic-authoring-audit.md).',
+    why: 'Size-neutral, and a deck-wide drawing. `section:is(.sketch, .sketch-headings).split-panel .panel-right :is(p, li, strong)` holds --fs-body, the size split-panel.styles.css already gives those right-panel lines (:145, :147, :197), so it changes no size; it outranks the hand face\'s own sizing. The gate sees it since `sketch` joined MODIFIER_GROUPS through lib/base/base.manifest.json (the `drawing` group, W5 of 2026-11-19-deterministic-authoring-audit.md).',
+  },
+  {
+    file: 'lib/base/base.sketch.css',
+    modifier: 'sketch-headings',
+    count: 1,
+    why: 'The same rule as the `sketch` entry above: since Q5 (2026-11-28) `drawing: sketch-headings` stamps one class, so every sketch rule names both classes, and the gate sees the second one.',
   },
 ];
 

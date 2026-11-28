@@ -110,7 +110,7 @@ its own front-matter key — no single key does two jobs:**
 | Register (human) | Key | What it sets |
 |---|---|---|
 | **Theme** | `theme:` | the palette (color) |
-| **Mode** | `mode:` | the rendering *mode* — the typographic hand: `boardroom` (clean default) / `sketch` / `sketch-clean` |
+| **Mode** | `drawing:` | the rendering *mode* — the typographic hand: `clean` (clean default) / `sketch` / `sketch-headings` |
 | **Backdrop** | `finish:` | the layer stack painted *behind* content: `none` / `atrium` … `gallery` |
 
 The Finish axis also carries an **accent** sub-family — small marks on chrome (not
@@ -129,8 +129,8 @@ backdrops), each its own front-matter key, palette-blind, defaulting to today's 
 The accent registers are documented for authors in `lib/base/base.registers.docs.md`; design in
 `engineering/decisions/2026-07-15-accent-finish-consolidation.md`.
 
-They compose: `theme: indaco` + `mode: sketch` + `finish: atrium` is a
-hand-drawn deck in indaco's blue on an atrium backdrop. *(The key is `mode:`,
+They compose: `theme: indaco` + `drawing: sketch` + `finish: atrium` is a
+hand-drawn deck in indaco's blue on an atrium backdrop. *(The key is `drawing:`,
 not `style:` — Marp already owns `style:` for inline-CSS injection — and the
 Finish axis's human word is just "Finish.")*
 

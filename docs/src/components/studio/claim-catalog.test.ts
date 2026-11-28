@@ -7,7 +7,7 @@ import { CLAIM_NAMES } from '../../../../lib/core/resolve-claim.js';
 import { CLAIMS } from './claim-catalog';
 
 // Rot-guard: the Studio display catalog MUST stay in step with the engine register.
-// Mirrors mode-catalog.test.ts / slide-corners-catalog.test.ts.
+// Mirrors drawing-catalog.test.ts / slide-corners-catalog.test.ts.
 describe('claim-catalog ↔ CLAIM_REGISTER', () => {
 	const names = new Set<string>(CLAIM_NAMES);
 

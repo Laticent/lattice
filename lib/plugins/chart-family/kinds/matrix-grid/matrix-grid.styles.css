@@ -483,7 +483,7 @@ section.matrix-grid:where([data-family="tall"], [data-family="strip"]) .matrix-g
  * raises the type as the box narrows, so a 5-column grid runs out of width
  * before it runs out of columns. The type cannot absorb it — `--fs-meta` is the
  * FLOOR of the 12-token scale (HARD RULE #4), and the portrait arm above already
- * takes the last step available. `mode: sketch` is the widest case in the engine:
+ * takes the last step available. `drawing: sketch` is the widest case in the engine:
  * it re-points --font-body and --font-label to Shantell Sans (base.sketch.css),
  * which costs another ~19px on the same string, and is why square is judged on
  * that column rather than on the default face.

@@ -38,11 +38,11 @@ describe('the text measurer reads the slide\'s body face', () => {
   });
 
   test('the sketch finish measures in the hand, unless the slide keeps the clean body', () => {
-    // base.sketch.css re-points --font-body to the hand on `section.sketch:not(.sketch-clean-body)`.
+    // base.sketch.css re-points --font-body to the hand on `section.sketch:not(.sketch-headings)`.
     assert.equal(bodyFaceOf(['piechart', 'sketch']), 'hand');
     assert.equal(bodyFaceOf(['piechart', 'sketch', 'typography-ledger']), 'hand');
-    assert.equal(bodyFaceOf(['piechart', 'sketch', 'sketch-clean-body']), 'clean');
-    assert.equal(bodyFaceOf(['piechart', 'sketch', 'sketch-clean-body', 'typography-poster']), 'inter');
+    assert.equal(bodyFaceOf(['piechart', 'sketch', 'sketch-headings']), 'clean');
+    assert.equal(bodyFaceOf(['piechart', 'sketch', 'sketch-headings', 'typography-poster']), 'inter');
     // A key name measured in the hand is wider than in Outfit: the red team's pie set "merchandising" under "40%".
     const name = 'Wholesale merchandising';
     assert.ok(withBodyFace('hand', () => textWidth(name, 36, { weight: 600 })) > textWidth(name, 36, { weight: 600 }) * 1.1);

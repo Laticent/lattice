@@ -32,7 +32,7 @@
  *      depends on the render host's installed fonts, which is the real argument for the
  *      fix: the geometry was not wrong in a fixed direction, it was nondeterministic.
  *
- *   3. IS IT THE FACE THIS SLIDE ASKED FOR?  Added after `mode: sketch` was found
+ *   3. IS IT THE FACE THIS SLIDE ASKED FOR?  Added after `drawing: sketch` was found
  *      reaching only some families: C4, journey, sequence and timeline carry their own
  *      `*FontFamily` config keys, defaulted to Open Sans / trebuchet ms, which the global
  *      `themeVariables.fontFamily` does not touch. A C4 slide on a sketch deck came back
@@ -43,7 +43,7 @@
  *      THE FIRST VERSION ASKED THE WRONG QUESTION. It matched each label against a
  *      hard-coded list of five Mermaid default face names, which can only catch a face
  *      that is FAMOUS — never one that is merely wrong. Turning the whole feature off
- *      (`mode: boardroom` on a deck built to be hand-drawn) produced `foreign-face: 0`
+ *      (`drawing: clean` on a deck built to be hand-drawn) produced `foreign-face: 0`
  *      and exit 0, and mermaid's own `sans-serif` presentation attribute on sequence
  *      autonumber bubbles was not on the list at all. So the question is now asked
  *      against the deck: read `--font-body` off the label's OWN `<section>` — the exact
@@ -172,7 +172,7 @@ async function main() {
     });
     const diagramCount = await page.evaluate(() => document.querySelectorAll('[data-lattice-figure]').length);
 
-    // A FACE THE SLIDE NEVER ASKED FOR is the failure `mode: sketch` is supposed to make
+    // A FACE THE SLIDE NEVER ASKED FOR is the failure `drawing: sketch` is supposed to make
     // impossible, and it hid behind the census for a whole review round: C4 and journey
     // carry their own `*FontFamily` config keys defaulted to Open Sans / trebuchet ms, so
     // 33 of 34 labels on a C4 slide rendered in Open Sans while every other word on the

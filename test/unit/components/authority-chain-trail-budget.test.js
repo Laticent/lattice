@@ -38,7 +38,7 @@ test('trail-budget: a citation word past its column warns at the venue that clip
   assert.match(hall[0].message, /citation word "X{14}" is too long for its column \(14 characters, max 13\)/);
   assert.equal(found({ cls: 'authority-chain trail scale-2xl', tiers: four(word) }).length, 1,
     'a slide scale class counts as its venue rung');
-  const hand = found({ fm: ['venue: hall', 'mode: sketch'], tiers: four('X'.repeat(12)) });
+  const hand = found({ fm: ['venue: hall', 'drawing: sketch'], tiers: four('X'.repeat(12)) });
   assert.equal(hand.filter((f) => /citation word/.test(f.message)).length, 1, 'the hand face holds 11 at hall');
   assert.equal(hand.filter((f) => /tier label/.test(f.message)).length, 0, 'REGULATION is 10, a hand hall label holds 10');
 });

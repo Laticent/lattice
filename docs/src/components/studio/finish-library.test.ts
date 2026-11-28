@@ -20,7 +20,7 @@ describe('finish-library — slugify', () => {
 describe('finish-library — safeSaveSlug (reserved-name collision, #6a)', () => {
 	it('namespaces a slug that collides with a built-in preset/register name', () => {
 		// A saved finish must not shadow a shipped `section.finish-<name>` rule.
-		for (const reserved of ['atrium', 'meridian', 'strata', 'halo', 'ledger', 'boardroom', 'sketch', 'sketch-clean', 'none', 'preview']) {
+		for (const reserved of ['atrium', 'meridian', 'strata', 'halo', 'ledger', 'clean', 'sketch', 'sketch-headings', 'none', 'preview']) {
 			expect(RESERVED_FINISH_NAMES.has(reserved)).toBe(true);
 			expect(safeSaveSlug(reserved)).toBe(`${reserved}-custom`);
 			// Title-cased input slugifies to the reserved name, then namespaces too.

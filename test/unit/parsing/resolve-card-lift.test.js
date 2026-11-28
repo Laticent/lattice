@@ -4,7 +4,7 @@
  * The opt-in card-elevation control: maps the deck front-matter `card-lift:` value to the
  * `card-lift-on` class token the three render paths append to every section. `off` is the flat
  * default and carries NO token; only `on` does. Per-slide `_class: card-lift-on` / `card-lift-off`
- * override it. Sibling of resolve-spectrum / resolve-finish / resolve-mode.
+ * override it. Sibling of resolve-spectrum / resolve-finish / resolve-drawing.
  */
 
 const { test, describe } = require('node:test');

@@ -21,7 +21,7 @@ const { isSurfaceRegisterToken } = require('../../../lib/core/surface-registers'
 const { roleOpenTag } = require('../../../lib/core/split-envelope');
 const { splitDoc } = require('../../../lib/core/auto-split');
 const { applyBackdropToHtml } = require('../../../lib/core/backdrop');
-const { MODE_TOKENS } = require('../../../lib/core/resolve-mode');
+const { DRAWING_TOKENS } = require('../../../lib/core/resolve-drawing');
 const { STAMP_SHAPE_TOKENS } = require('../../../lib/core/resolve-stamp-shape');
 const { TONE_STYLE_TOKENS } = require('../../../lib/core/resolve-tone-style');
 const spectrum = require('../../../lib/core/resolve-spectrum');
@@ -44,7 +44,7 @@ describe('core: which registers ride a split page', () => {
   // Read off each register's OWN list, so a value added to a register is covered without an
   // edit here — and a register that should ride but is missing from the kernel fails by name.
   const riding = {
-    mode: MODE_TOKENS, 'stamp-shape': STAMP_SHAPE_TOKENS, tone: TONE_STYLE_TOKENS,
+    mode: DRAWING_TOKENS, 'stamp-shape': STAMP_SHAPE_TOKENS, tone: TONE_STYLE_TOKENS,
     spectrum: spectrum.SPECTRUM_REGISTER.TOKENS, 'card-spectrum': spectrum.CARD_SPECTRUM_REGISTER.TOKENS,
     'trim-spectrum': spectrum.TRIM_SPECTRUM_REGISTER.TOKENS, 'slide-corners': SLIDE_CORNERS_TOKENS, fit: FIT_TOKENS,
     'heading-rule': HEADING_RULE_TOKENS, eyebrow: EYEBROW_TOKENS, 'inline-code': INLINE_CODE_TOKENS,

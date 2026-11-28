@@ -1,5 +1,5 @@
 ---
-mode: sketch
+drawing: sketch
 ---
 
 ## A sketched deck

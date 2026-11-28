@@ -1,11 +1,11 @@
 // Tri-state provenance for inherited per-slide axes.
 //
-// Deck-wide `class:` / `finish:` / `mode:` front-matter tokens are APPENDED to every
+// Deck-wide `class:` / `finish:` / `drawing:` front-matter tokens are APPENDED to every
 // section (lib/integrations/markdown-it/plugins.js `deckClassPropagate`), with a
 // per-slide finish/mode OVERRIDING rather than stacking. So a per-slide axis is never
 // a simple on/off: removing `dark` from a slide whose deck says `class: dark` does
 // nothing (it re-appends), and "off" for finish/mode is an explicit OPT-OUT token
-// (`no-finish` / `boardroom`), not an absence. This module computes the effective
+// (`no-finish` / `no-sketch`), not an absence. This module computes the effective
 // state — Auto (from the deck) / On (this slide) / Off — and the writes that realize each,
 // so the drawer's controls tell the truth. Pure; mirrors the engine's resolution.
 // See engineering/decisions/2026-07-03-slide-context-editor.md §6.
@@ -36,15 +36,15 @@ export type Provenance = {
 };
 
 /** Deck-wide tokens that propagate onto every slide. */
-export function deckDefaults(source: string): { classTokens: string[]; finish: string | null; mode: string | null } {
+export function deckDefaults(source: string): { classTokens: string[]; finish: string | null; drawing: string | null } {
 	const classTokens = (getFrontMatter(source, 'class') || '').trim().split(/\s+/).filter(Boolean);
 	// What the engine renders: the deck's own `finish:` read by the engine's rule (a trailing
 	// comment stripped, an empty or comment-only value falling through), else its preset's.
 	// `none` reads as no deck finish, exactly as an absent key did.
 	const deckFinish = registerValue(source, 'finish');
 	const finish = deckFinish === 'none' ? null : deckFinish;
-	const mode = (getFrontMatter(source, 'mode') || '').trim() || null;
-	return { classTokens, finish, mode };
+	const drawing = (getFrontMatter(source, 'drawing') || '').trim() || null;
+	return { classTokens, finish, drawing };
 }
 
 // A per-slide finish selector — mirrors the engine's isFinishVariantClass
@@ -114,34 +114,32 @@ export function setFinish(chunk: string, name: string | null): string {
 	return setClassTokens(chunk, kept);
 }
 
-// ── mode ─────────────────────────────────────────────────────────────────────
-// Per-slide mode tokens (resolve-mode.js MODE_TOKENS): `sketch`, `sketch-clean-body`,
-// and the `boardroom` clean opt-out.
+// ── drawing ──────────────────────────────────────────────────────────────────
+// Per-slide drawing tokens (resolve-drawing.js DRAWING_TOKENS): `sketch`, `sketch-headings`,
+// and the `no-sketch` opt-out (the per-slide spelling of `drawing: clean`).
 
-const MODE_TOKENS = ['sketch', 'sketch-clean-body', 'boardroom'];
-const isModeToken = (t: string) => MODE_TOKENS.includes(t);
+const DRAWING_TOKENS = ['sketch', 'sketch-headings', 'no-sketch'];
+const isDrawingToken = (t: string) => DRAWING_TOKENS.includes(t);
+type Drawing = 'sketch' | 'sketch-headings' | 'clean';
 
-export function modeProvenance(chunk: string, source: string): Provenance {
+export function drawingProvenance(chunk: string, source: string): Provenance {
 	const tokens = getClassTokens(chunk);
-	const deckMode = deckDefaults(source).mode;
-	const deckValue = deckMode && deckMode !== 'boardroom' ? deckMode : undefined;
+	const deckDrawing = deckDefaults(source).drawing;
+	const deckValue = deckDrawing && deckDrawing !== 'clean' ? deckDrawing : undefined;
 	const inheritable = deckValue !== undefined;
-	if (tokens.includes('boardroom')) return { state: 'off', deckValue, inheritable };
-	const own = tokens.find((t) => isModeToken(t) && t !== 'boardroom');
-	// `sketch-clean` emits BOTH `sketch` and `sketch-clean-body`; token order isn't
-	// guaranteed, so key the value on the clean marker, not on which token comes first.
-	if (own) return { state: 'on', value: tokens.includes('sketch-clean-body') ? 'sketch-clean' : 'sketch', deckValue, inheritable };
+	if (tokens.includes('no-sketch')) return { state: 'off', deckValue, inheritable };
+	// `sketch-headings` wins over a stray `sketch` beside it, as the CSS reads the pair.
+	const own = tokens.includes('sketch-headings') ? 'sketch-headings' : tokens.includes('sketch') ? 'sketch' : undefined;
+	if (own) return { state: 'on', value: own, deckValue, inheritable };
 	if (deckValue) return { state: 'inherited', value: deckValue, deckValue, inheritable: true };
 	return { state: 'off', inheritable: false };
 }
 
-/** Set the slide's mode. `'sketch'` / `'sketch-clean'` → the mode token(s);
- *  `'boardroom'` → the clean opt-out; `null` → inherit (remove mode tokens). */
-export function setMode(chunk: string, mode: 'sketch' | 'sketch-clean' | 'boardroom' | null): string {
-	const kept = getClassTokens(chunk).filter((t) => !isModeToken(t) && t !== 'sketch-clean-body');
-	if (mode === 'sketch') kept.push('sketch');
-	else if (mode === 'sketch-clean') kept.push('sketch', 'sketch-clean-body');
-	else if (mode === 'boardroom') kept.push('boardroom');
+/** Set the slide's drawing: `'sketch'` / `'sketch-headings'` → its token; `'clean'` → the
+ *  `no-sketch` opt-out; `null` → inherit (remove drawing tokens). */
+export function setDrawing(chunk: string, drawing: Drawing | null): string {
+	const kept = getClassTokens(chunk).filter((t) => !isDrawingToken(t));
+	if (drawing) kept.push(drawing === 'clean' ? 'no-sketch' : drawing);
 	return setClassTokens(chunk, kept);
 }
 

@@ -3,7 +3,7 @@
  * (engineering/decisions/2026-07-09-form-migration-audit.md): masthead-lift
  * wraps a Form slide's flow body into `<div class="cell-stage">` for every
  * STAGE_MIGRATED layout, but lib/base/base.sketch.css's hand-drawn "box"
- * treatment (the `mode: sketch` finish's headline feature) used only
+ * treatment (the `drawing: sketch` finish's headline feature) used only
  * direct-child-of-<section> selectors across ~14 layouts, so the boxes went
  * inert — silently falling back to the plain component border — the moment
  * Form (default since 2026-06-26) wrapped the body one level deeper.

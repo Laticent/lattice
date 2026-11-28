@@ -1160,7 +1160,7 @@ describe('LiveController: Library records', () => {
 		const beacon = { name: 'beacon', css: '@import url(https://evil.example/x.css); :root{}' };
 		for (let i = 0; i < 4; i++) {
 			// biome-ignore lint/suspicious/noExplicitAny: a hostile host sending the same heavy sheet again and again.
-			(h as any).post({ k: 'records', themes: [beacon], finishes: [{ name: 'boardroom', recipe: {} }, { name: 'none', recipe: {} }], components: [] });
+			(h as any).post({ k: 'records', themes: [beacon], finishes: [{ name: 'clean', recipe: {} }, { name: 'none', recipe: {} }], components: [] });
 			await settle(h, g);
 		}
 		expect(recordsOf(g).finishes).toEqual([]);

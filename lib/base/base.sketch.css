@@ -42,9 +42,11 @@
  * a blur under a wobble reads as neither. Boxes convert in a follow-up; see
  * engineering/decisions/2026-08-18-rough-ink.md § "What is still faked".
  *
- * Default `sketch` is FULL handwriting (headings + body). `sketch-clean-body`
+ * Default `sketch` is FULL handwriting (headings + body). `sketch-headings`
  * opts body back to the clean --font-body for dense, text-heavy slides
  * while keeping the hand headings + boxes.
+ * Every rule below names both classes, `section:is(.sketch, .sketch-headings)`;
+ * only the body-face re-point names `sketch` alone.
  *
  * Charts/diagrams: the finish is CSS + fonts, so it reskins the heading,
  * the HTML legend, and card text — but it cannot reach inside a chart's
@@ -55,7 +57,7 @@
  * at the end of this file.
  *
  * Bundle position: tail, alongside the other Finish-tier modifiers, so
- * its slide-scoped selectors (section.sketch …) compose on top of every
+ * its slide-scoped selectors (section:is(.sketch, .sketch-headings) …) compose on top of every
  * component. See tools/build-css.js.
  */
 
@@ -63,7 +65,7 @@
  * override --sketch-ink to draw the boxes in a softer or warmer ink than
  * its heading color without touching this file. Defaults to the heading
  * ink so it reads on every canvas (incl. dark, via the light-dark token). */
-section.sketch {
+section:is(.sketch, .sketch-headings) {
   --sketch-ink: var(--text-heading);
   /* The hand-drawn RULE, NO-SCRIPT FALLBACK ONLY — a tiling SVG mask.
    *
@@ -90,7 +92,7 @@ section.sketch {
   /* The section's own default font tracks --font-body (re-pointed just
    * below), so EVERY text node a component doesn't explicitly font — prose,
    * emphasis, links, stray spans — reads hand. Using the token (not a literal
-   * hand face) means `sketch-clean-body` reverts the section default too. */
+   * hand face) means `sketch-headings` reverts the section default too. */
   font-family: var(--font-body);
   /* Re-point the engine type TOKENS at the hand faces. Routing the TOKEN (not
    * enumerating elements) is what makes the finish reach every component
@@ -102,7 +104,7 @@ section.sketch {
    * leaks, no per-component overrides. `--font-mono` is deliberately NOT
    * re-pointed: real inline `code`/`pre`/math must stay unambiguous.
    * `--font-body` is re-pointed in its OWN rule below, guarded against
-   * `sketch-clean-body` — see the note there for why it cannot live here. */
+   * `sketch-headings` — see the note there for why it cannot live here. */
   --font-display: var(--sketch-font-display);
   /* The "label voice" — eyebrows, table column headers, stat sub-labels,
    * KEY INSIGHT, the running header/footer, counters, chips, chart legend
@@ -145,7 +147,7 @@ section.sketch {
 }
 
 /* --font-body is the ONE type token the finish re-points OUTSIDE the block
- * above, because `sketch-clean-body` has to be able to keep the clean face and
+ * above, because `sketch-headings` has to be able to keep the clean face and
  * a token cannot be un-set once a rule on the SAME element has set it.
  *
  * The obvious shape — re-point here, restore from a `--font-body-clean` alias
@@ -154,14 +156,14 @@ section.sketch {
  * rescopes :lattice-root onto the section itself (lib/engine/css.js
  * `composeCss`), which put `--font-body-clean: var(--font-body)` and
  * `--font-body: var(--font-body-clean)` on ONE element: a custom-property
- * CYCLE. Both resolve to the guaranteed-invalid value, so every sketch-clean
+ * CYCLE. Both resolve to the guaranteed-invalid value, so every sketch-headings
  * slide previewed its prose AND its diagram labels in Times New Roman while
  * the export was correct — measured, not reasoned.
  *
  * So the guard is in the SELECTOR, not in a second declaration: a clean-body
  * slide is never re-pointed in the first place and simply inherits whatever
  * --font-body the theme set. No alias, no snapshot, no cycle in either path. */
-section.sketch:not(.sketch-clean-body) {
+section.sketch:not(.sketch-headings) {
   --font-body: var(--sketch-font-body);
 }
 
@@ -176,9 +178,9 @@ section.sketch:not(.sketch-clean-body) {
  * dense layouts set (then `--fs-body-compact`; `--fs-body` since 2026-09-29),
  * overrunning fixed content budgets — the single biggest source of clipped
  * slides. Shantell's x-height reads fine at the engine sizes; dense decks
- * use `sketch-clean-body` for the rare slide that still needs the clean
+ * use `sketch-headings` for the rare slide that still needs the clean
  * footprint. */
-section.sketch :is(h1, h2, h3, h4, h5, h6) {
+section:is(.sketch, .sketch-headings) :is(h1, h2, h3, h4, h5, h6) {
   font-family: var(--sketch-font-display);
   font-weight: 700;
   letter-spacing: 0.005em;
@@ -198,19 +200,19 @@ section.sketch :is(h1, h2, h3, h4, h5, h6) {
  * layouts (list, checklist, actors) and the `::before` counter lists. The
  * bullet becomes an en-dash (reads as a pen-jotted list mark, and renders
  * identically in the fallback face); `ol` figures just take the hand. */
-section.sketch.content :is(ul, ol) > li::marker,
-section.sketch.split-compare .option :is(ul, ol) > li::marker {
+section:is(.sketch, .sketch-headings).content :is(ul, ol) > li::marker,
+section:is(.sketch, .sketch-headings).split-compare .option :is(ul, ol) > li::marker {
   font-family: var(--sketch-font-display);
   color: var(--accent);
 }
-section.sketch.content ul > li::marker,
-section.sketch.split-compare .option :is(ul, ol) > li::marker {
+section:is(.sketch, .sketch-headings).content ul > li::marker,
+section:is(.sketch, .sketch-headings).split-compare .option :is(ul, ol) > li::marker {
   content: "\2013\00a0";
 }
 
-/* `sketch-clean-body` — keep the hand headings + boxes, return prose to the
+/* `sketch-headings` — keep the hand headings + boxes, return prose to the
  * clean engine body face. It needs NO rule of its own: the re-point above is
- * guarded by `:not(.sketch-clean-body)`, so --font-body is simply never
+ * guarded by `:not(.sketch-headings)`, so --font-body is simply never
  * touched here and keeps the theme's stack. Because the section default and
  * every component pull var(--font-body), that reverts all body prose at once;
  * --font-display / --font-label stay re-pointed, so headings and labels keep
@@ -218,7 +220,7 @@ section.sketch.split-compare .option :is(ul, ol) > li::marker {
  * the clean footprint. */
 
 /* ── THE HEADING RULE — RETIRED (2026-08-18) ──────────────────────────
- * `section.sketch h2` used to draw its OWN underline: a `border-bottom`
+ * `section:is(.sketch, .sketch-headings) h2` used to draw its OWN underline: a `border-bottom`
  * bent into a wobble by `border-radius: 0 0 95% 4px / 0 0 14px 8px`, sized
  * to the words by `width: fit-content`, hued by --accent.
  *
@@ -275,31 +277,31 @@ section > svg[data-lattice-rough-ink] {
  * component ships: the marp-cli native `> ul/ol > li` and the lattice.js
  * post-processed `.card`.
  */
-section.sketch.cards-grid > ul > li,
-section.sketch.cards-grid > ol > li,
-section.sketch.cards-grid .card,
-section.sketch.cards-grid > .cell-stage > ul > li,
-section.sketch.cards-grid > .cell-stage > ol > li,
-section.sketch.cards-stack > ul > li,
-section.sketch.cards-stack > ol > li,
-section.sketch.cards-stack .card,
-section.sketch.cards-stack > .cell-stage > ul > li,
-section.sketch.cards-stack > .cell-stage > ol > li,
-section.sketch.verdict-grid > ul > li,
-section.sketch.verdict-grid > .cell-stage > ul > li,
-section.sketch.decision > ol > li,
-section.sketch.decision > .cell-stage > ol > li,
-section.sketch.matrix-2x2 > ol > li,
-section.sketch.matrix-2x2 > ul > li,
-section.sketch.matrix-2x2 > .cell-stage > ol > li,
-section.sketch.matrix-2x2 > .cell-stage > ul > li,
-section.sketch.pricing > ul > li,
-section.sketch.pricing > .cell-stage > ul > li,
-section.sketch.compare-prose .card,
-section.sketch.compare-prose > ol > li,
-section.sketch.compare-prose > .cell-stage > ol > li,
-section.sketch.citation-card > blockquote,
-section.sketch.citation-card > .cell-stage > blockquote,
+section:is(.sketch, .sketch-headings).cards-grid > ul > li,
+section:is(.sketch, .sketch-headings).cards-grid > ol > li,
+section:is(.sketch, .sketch-headings).cards-grid .card,
+section:is(.sketch, .sketch-headings).cards-grid > .cell-stage > ul > li,
+section:is(.sketch, .sketch-headings).cards-grid > .cell-stage > ol > li,
+section:is(.sketch, .sketch-headings).cards-stack > ul > li,
+section:is(.sketch, .sketch-headings).cards-stack > ol > li,
+section:is(.sketch, .sketch-headings).cards-stack .card,
+section:is(.sketch, .sketch-headings).cards-stack > .cell-stage > ul > li,
+section:is(.sketch, .sketch-headings).cards-stack > .cell-stage > ol > li,
+section:is(.sketch, .sketch-headings).verdict-grid > ul > li,
+section:is(.sketch, .sketch-headings).verdict-grid > .cell-stage > ul > li,
+section:is(.sketch, .sketch-headings).decision > ol > li,
+section:is(.sketch, .sketch-headings).decision > .cell-stage > ol > li,
+section:is(.sketch, .sketch-headings).matrix-2x2 > ol > li,
+section:is(.sketch, .sketch-headings).matrix-2x2 > ul > li,
+section:is(.sketch, .sketch-headings).matrix-2x2 > .cell-stage > ol > li,
+section:is(.sketch, .sketch-headings).matrix-2x2 > .cell-stage > ul > li,
+section:is(.sketch, .sketch-headings).pricing > ul > li,
+section:is(.sketch, .sketch-headings).pricing > .cell-stage > ul > li,
+section:is(.sketch, .sketch-headings).compare-prose .card,
+section:is(.sketch, .sketch-headings).compare-prose > ol > li,
+section:is(.sketch, .sketch-headings).compare-prose > .cell-stage > ol > li,
+section:is(.sketch, .sketch-headings).citation-card > blockquote,
+section:is(.sketch, .sketch-headings).citation-card > .cell-stage > blockquote,
 /* The generic "KEY INSIGHT" blockquote (the trailing `> blockquote` on any
  * non-specialized layout — same target as base.modifiers' key-insight chrome)
  * becomes a drawn box too. redline/quote/math/citation-card own their
@@ -308,13 +310,13 @@ section.sketch.citation-card > .cell-stage > blockquote,
    pricing li, compare-prose .card) and the generic key-insight blockquote
    (0,5,2, beating base.modifiers' 0,4,2 chrome) all outrank their component
    rules on specificity, so no !important is needed here. */
-section.sketch:not(.quote):not(.math):not(.citation-card):not(.redline) > blockquote,
-section.sketch:not(.quote):not(.math):not(.citation-card):not(.redline) > .cell-stage > blockquote,
+section:is(.sketch, .sketch-headings):not(.quote):not(.math):not(.citation-card):not(.redline) > blockquote,
+section:is(.sketch, .sketch-headings):not(.quote):not(.math):not(.citation-card):not(.redline) > .cell-stage > blockquote,
 /* …and the coda Cell, which is where a trailing key insight actually lives now: the
    frame harvests the beat into `.cell-coda` and peels that cell out to sit beside the
    stage, so BOTH older arms stopped matching and the whole hand-drawn box vanished on
    a sketch slide. lib/forms/cell/coda/coda.css. */
-section.sketch:not(.quote):not(.math):not(.citation-card):not(.redline) > .cell-coda > blockquote {
+section:is(.sketch, .sketch-headings):not(.quote):not(.math):not(.citation-card):not(.redline) > .cell-coda > blockquote {
   border: 2px solid var(--sketch-ink);
   border-radius: 255px 12px 225px 15px / 15px 225px 15px 255px;
   box-shadow: 2px 3px 0 -1px color-mix(in srgb, var(--sketch-ink) 30%, transparent);
@@ -322,49 +324,49 @@ section.sketch:not(.quote):not(.math):not(.citation-card):not(.redline) > .cell-
 /* Alternate the radius + a slight tilt per card so each grid of cards
  * reads hand-placed rather than stamped. Scoped to the multi-card list
  * layouts (single-card layouts get the drawn box above, no tilt). */
-section.sketch.cards-grid > ul > li:nth-child(2n),
-section.sketch.cards-grid > ol > li:nth-child(2n),
-section.sketch.cards-grid .card:nth-child(2n),
-section.sketch.cards-grid > .cell-stage > ul > li:nth-child(2n),
-section.sketch.cards-grid > .cell-stage > ol > li:nth-child(2n),
-section.sketch.cards-stack > ul > li:nth-child(2n),
-section.sketch.cards-stack > ol > li:nth-child(2n),
-section.sketch.cards-stack .card:nth-child(2n),
-section.sketch.cards-stack > .cell-stage > ul > li:nth-child(2n),
-section.sketch.cards-stack > .cell-stage > ol > li:nth-child(2n),
-section.sketch.verdict-grid > ul > li:nth-child(2n),
-section.sketch.verdict-grid > .cell-stage > ul > li:nth-child(2n),
-section.sketch.decision > ol > li:nth-child(2n),
-section.sketch.decision > .cell-stage > ol > li:nth-child(2n),
-section.sketch.matrix-2x2 > ol > li:nth-child(2n),
-section.sketch.matrix-2x2 > ul > li:nth-child(2n),
-section.sketch.matrix-2x2 > .cell-stage > ol > li:nth-child(2n),
-section.sketch.matrix-2x2 > .cell-stage > ul > li:nth-child(2n),
-section.sketch.pricing > ul > li:nth-child(2n),
-section.sketch.pricing > .cell-stage > ul > li:nth-child(2n) {
+section:is(.sketch, .sketch-headings).cards-grid > ul > li:nth-child(2n),
+section:is(.sketch, .sketch-headings).cards-grid > ol > li:nth-child(2n),
+section:is(.sketch, .sketch-headings).cards-grid .card:nth-child(2n),
+section:is(.sketch, .sketch-headings).cards-grid > .cell-stage > ul > li:nth-child(2n),
+section:is(.sketch, .sketch-headings).cards-grid > .cell-stage > ol > li:nth-child(2n),
+section:is(.sketch, .sketch-headings).cards-stack > ul > li:nth-child(2n),
+section:is(.sketch, .sketch-headings).cards-stack > ol > li:nth-child(2n),
+section:is(.sketch, .sketch-headings).cards-stack .card:nth-child(2n),
+section:is(.sketch, .sketch-headings).cards-stack > .cell-stage > ul > li:nth-child(2n),
+section:is(.sketch, .sketch-headings).cards-stack > .cell-stage > ol > li:nth-child(2n),
+section:is(.sketch, .sketch-headings).verdict-grid > ul > li:nth-child(2n),
+section:is(.sketch, .sketch-headings).verdict-grid > .cell-stage > ul > li:nth-child(2n),
+section:is(.sketch, .sketch-headings).decision > ol > li:nth-child(2n),
+section:is(.sketch, .sketch-headings).decision > .cell-stage > ol > li:nth-child(2n),
+section:is(.sketch, .sketch-headings).matrix-2x2 > ol > li:nth-child(2n),
+section:is(.sketch, .sketch-headings).matrix-2x2 > ul > li:nth-child(2n),
+section:is(.sketch, .sketch-headings).matrix-2x2 > .cell-stage > ol > li:nth-child(2n),
+section:is(.sketch, .sketch-headings).matrix-2x2 > .cell-stage > ul > li:nth-child(2n),
+section:is(.sketch, .sketch-headings).pricing > ul > li:nth-child(2n),
+section:is(.sketch, .sketch-headings).pricing > .cell-stage > ul > li:nth-child(2n) {
   border-radius: 15px 225px 15px 255px / 225px 15px 255px 15px;
   transform: rotate(-0.5deg);
 }
-section.sketch.cards-grid > ul > li:nth-child(3n),
-section.sketch.cards-grid > ol > li:nth-child(3n),
-section.sketch.cards-grid .card:nth-child(3n),
-section.sketch.cards-grid > .cell-stage > ul > li:nth-child(3n),
-section.sketch.cards-grid > .cell-stage > ol > li:nth-child(3n),
-section.sketch.cards-stack > ul > li:nth-child(3n),
-section.sketch.cards-stack > ol > li:nth-child(3n),
-section.sketch.cards-stack .card:nth-child(3n),
-section.sketch.cards-stack > .cell-stage > ul > li:nth-child(3n),
-section.sketch.cards-stack > .cell-stage > ol > li:nth-child(3n),
-section.sketch.verdict-grid > ul > li:nth-child(3n),
-section.sketch.verdict-grid > .cell-stage > ul > li:nth-child(3n),
-section.sketch.decision > ol > li:nth-child(3n),
-section.sketch.decision > .cell-stage > ol > li:nth-child(3n),
-section.sketch.matrix-2x2 > ol > li:nth-child(3n),
-section.sketch.matrix-2x2 > ul > li:nth-child(3n),
-section.sketch.matrix-2x2 > .cell-stage > ol > li:nth-child(3n),
-section.sketch.matrix-2x2 > .cell-stage > ul > li:nth-child(3n),
-section.sketch.pricing > ul > li:nth-child(3n),
-section.sketch.pricing > .cell-stage > ul > li:nth-child(3n) {
+section:is(.sketch, .sketch-headings).cards-grid > ul > li:nth-child(3n),
+section:is(.sketch, .sketch-headings).cards-grid > ol > li:nth-child(3n),
+section:is(.sketch, .sketch-headings).cards-grid .card:nth-child(3n),
+section:is(.sketch, .sketch-headings).cards-grid > .cell-stage > ul > li:nth-child(3n),
+section:is(.sketch, .sketch-headings).cards-grid > .cell-stage > ol > li:nth-child(3n),
+section:is(.sketch, .sketch-headings).cards-stack > ul > li:nth-child(3n),
+section:is(.sketch, .sketch-headings).cards-stack > ol > li:nth-child(3n),
+section:is(.sketch, .sketch-headings).cards-stack .card:nth-child(3n),
+section:is(.sketch, .sketch-headings).cards-stack > .cell-stage > ul > li:nth-child(3n),
+section:is(.sketch, .sketch-headings).cards-stack > .cell-stage > ol > li:nth-child(3n),
+section:is(.sketch, .sketch-headings).verdict-grid > ul > li:nth-child(3n),
+section:is(.sketch, .sketch-headings).verdict-grid > .cell-stage > ul > li:nth-child(3n),
+section:is(.sketch, .sketch-headings).decision > ol > li:nth-child(3n),
+section:is(.sketch, .sketch-headings).decision > .cell-stage > ol > li:nth-child(3n),
+section:is(.sketch, .sketch-headings).matrix-2x2 > ol > li:nth-child(3n),
+section:is(.sketch, .sketch-headings).matrix-2x2 > ul > li:nth-child(3n),
+section:is(.sketch, .sketch-headings).matrix-2x2 > .cell-stage > ol > li:nth-child(3n),
+section:is(.sketch, .sketch-headings).matrix-2x2 > .cell-stage > ul > li:nth-child(3n),
+section:is(.sketch, .sketch-headings).pricing > ul > li:nth-child(3n),
+section:is(.sketch, .sketch-headings).pricing > .cell-stage > ul > li:nth-child(3n) {
   border-radius: 225px 15px 255px 18px / 15px 255px 15px 225px;
   transform: rotate(0.4deg);
 }
@@ -384,7 +386,7 @@ section.sketch.pricing > .cell-stage > ul > li:nth-child(3n) {
  * and no selector contest (the old `:has()` specificity fight that needed an
  * !important here) can put a crisp corner back. A band (`card-tag-band`, or its alias
  * `banner-tag`) sets its own radius — the card's top corners — so it stays a straight strip. */
-section.sketch {
+section:is(.sketch, .sketch-headings) {
   --card-tag-num-font: var(--sketch-font-display);
   --card-tag-radius: 15px 2px 12px 3px / 3px 12px 2px 15px;
 }
@@ -413,10 +415,10 @@ section.sketch {
  * but switching back to `collapse` would merge the table's border with its
  * cells' and move every measured row boundary — a geometry change for no
  * gain. `border-spacing: 0` keeps the rows tight. */
-section.sketch:where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane)) > table,
-section.sketch:where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table,
-section.sketch.list-tabular > ol,
-section.sketch.list-tabular > .cell-stage > ol {
+section:is(.sketch, .sketch-headings):where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane)) > table,
+section:is(.sketch, .sketch-headings):where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table,
+section:is(.sketch, .sketch-headings).list-tabular > ol,
+section:is(.sketch, .sketch-headings).list-tabular > .cell-stage > ol {
   border: 2px solid var(--sketch-ink);
   /* Enrollment: a non-empty --rough-ink-stroke is what actually opts a
    * structure into the ink (lib/core/rough-ink-dom.js `measureRoughInk`).
@@ -426,8 +428,8 @@ section.sketch.list-tabular > .cell-stage > ol {
   --rough-ink-stroke: var(--sketch-ink);
   --rough-ink-width: 2;
 }
-section.sketch:where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane)) > table,
-section.sketch:where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table {
+section:is(.sketch, .sketch-headings):where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane)) > table,
+section:is(.sketch, .sketch-headings):where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table {
   border-collapse: separate;
   border-spacing: 0;
 }
@@ -443,8 +445,8 @@ section.sketch:where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap)
  * as `--rough-ink-inset`, a registered `<length>` so the measurer reads it back
  * in px (lib/core/rough-ink-dom.js). */
 @property --rough-ink-inset { syntax: "<length>"; inherits: false; initial-value: 0px; }
-section.sketch.list.principles > ol,
-section.sketch.list.principles > .cell-stage > ol {
+section:is(.sketch, .sketch-headings).list.principles > ol,
+section:is(.sketch, .sketch-headings).list.principles > .cell-stage > ol {
   --rough-ink-stroke: color-mix(in srgb, var(--sketch-ink) 55%, transparent);
   --rough-ink-width: 1.5;
   --rough-ink-inset: var(--list-rule-inset, 0px);
@@ -491,42 +493,42 @@ section.sketch.list.principles > .cell-stage > ol {
  * a masked --sketch-wave strip is laid over where it sat (a ::after pinned to
  * the row/cell bottom). The frame owns the ledger's outer edge, so the
  * first/last row's own rule is dropped to avoid doubling it. */
-section.sketch:where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane):not(.glossary)) > table td,
-section.sketch:where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane):not(.glossary)) > :where(.cell-stage) > table td,
-section.sketch.list-tabular > ol > li,
-section.sketch.list-tabular > .cell-stage > ol > li,
-section.sketch.list.principles > ol > li,
-section.sketch.list.principles > .cell-stage > ol > li {
+section:is(.sketch, .sketch-headings):where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane):not(.glossary)) > table td,
+section:is(.sketch, .sketch-headings):where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane):not(.glossary)) > :where(.cell-stage) > table td,
+section:is(.sketch, .sketch-headings).list-tabular > ol > li,
+section:is(.sketch, .sketch-headings).list-tabular > .cell-stage > ol > li,
+section:is(.sketch, .sketch-headings).list.principles > ol > li,
+section:is(.sketch, .sketch-headings).list.principles > .cell-stage > ol > li {
   position: relative;
   border-bottom-color: transparent;
 }
 /* list's row rule is a background (list.styles.css § Row rules), not a border; clear it
  * too, or it shows through under the wave. */
-section.sketch.list.principles > ol > li,
-section.sketch.list.principles > .cell-stage > ol > li { background-image: none; }
+section:is(.sketch, .sketch-headings).list.principles > ol > li,
+section:is(.sketch, .sketch-headings).list.principles > .cell-stage > ol > li { background-image: none; }
 /* The ledger's row rule is a `border-top` between two rows (list-tabular.styles.css `li + li`).
  * Under the finish the wave strip (and, once it paints, the ink) IS that rule, so every row's top
  * border goes transparent, not only the first's: left on, it drew a straight rule beside each
  * wave, two rules per row. */
-section.sketch.list-tabular > ol > li,
-section.sketch.list-tabular > .cell-stage > ol > li { border-top-color: transparent; }
+section:is(.sketch, .sketch-headings).list-tabular > ol > li,
+section:is(.sketch, .sketch-headings).list-tabular > .cell-stage > ol > li { border-top-color: transparent; }
 /* THE FRAME HUGS THE ROWS. The ledger's `ol` fills the stage (`flex: 1`) and centers its rows
  * inside itself (`align-content: safe center`), so the box the frame is drawn on — the CSS border
  * and the ink measured from it (lib/core/rough-ink-dom.js) — was the whole stage: three rows sat
  * mid-frame between two empty bands. Under the finish the `ol` takes its rows' height and the
  * STAGE centers it, which puts the rows exactly where they were and the frame on them. */
-section.sketch.list-tabular > .cell-stage { justify-content: safe center; }
-section.sketch.list-tabular > .cell-stage > ol { flex: 0 1 auto; }
+section:is(.sketch, .sketch-headings).list-tabular > .cell-stage { justify-content: safe center; }
+section:is(.sketch, .sketch-headings).list-tabular > .cell-stage > ol { flex: 0 1 auto; }
 /* …and keeps the counter off it. A table's cells carry their own padding inside the frame; the
  * ledger's rows start at the list's edge, so under a frame the `01` sat ON the left rule. */
-section.sketch.list-tabular > ol,
-section.sketch.list-tabular > .cell-stage > ol { padding-inline: var(--sp-md); }
-section.sketch:where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane):not(.glossary)) > table td::after,
-section.sketch:where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane):not(.glossary)) > :where(.cell-stage) > table td::after,
-section.sketch.list-tabular > ol > li::after,
-section.sketch.list-tabular > .cell-stage > ol > li::after,
-section.sketch.list.principles > ol > li:not(:last-child)::after,
-section.sketch.list.principles > .cell-stage > ol > li:not(:last-child)::after {
+section:is(.sketch, .sketch-headings).list-tabular > ol,
+section:is(.sketch, .sketch-headings).list-tabular > .cell-stage > ol { padding-inline: var(--sp-md); }
+section:is(.sketch, .sketch-headings):where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane):not(.glossary)) > table td::after,
+section:is(.sketch, .sketch-headings):where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane):not(.glossary)) > :where(.cell-stage) > table td::after,
+section:is(.sketch, .sketch-headings).list-tabular > ol > li::after,
+section:is(.sketch, .sketch-headings).list-tabular > .cell-stage > ol > li::after,
+section:is(.sketch, .sketch-headings).list.principles > ol > li:not(:last-child)::after,
+section:is(.sketch, .sketch-headings).list.principles > .cell-stage > ol > li:not(:last-child)::after {
   content: "";
   position: absolute;
   left: 0;
@@ -539,14 +541,14 @@ section.sketch.list.principles > .cell-stage > ol > li:not(:last-child)::after {
   pointer-events: none;
 }
 /* The fallback wave keeps the principles row rule's inset and lighter ink, like the painter. */
-section.sketch.list.principles > ol > li:not(:last-child)::after,
-section.sketch.list.principles > .cell-stage > ol > li:not(:last-child)::after {
+section:is(.sketch, .sketch-headings).list.principles > ol > li:not(:last-child)::after,
+section:is(.sketch, .sketch-headings).list.principles > .cell-stage > ol > li:not(:last-child)::after {
   left: var(--list-rule-inset, 0px);
   background-color: color-mix(in srgb, var(--sketch-ink) 55%, transparent);
 }
 /* The frame already draws the ledger's last edge — drop the last row's rule. */
-section.sketch.list-tabular > ol > li:last-child::after,
-section.sketch.list-tabular > .cell-stage > ol > li:last-child::after { display: none; }
+section:is(.sketch, .sketch-headings).list-tabular > ol > li:last-child::after,
+section:is(.sketch, .sketch-headings).list-tabular > .cell-stage > ol > li:last-child::after { display: none; }
 /* Same for the two table components, which this escape used to skip. Under `finish: sketch`
    the crisp `border-bottom` is turned transparent and the wave strip IS the row rule — so
    the strip under the LAST row is the table's outer bottom edge, and it collided with the
@@ -555,10 +557,10 @@ section.sketch.list-tabular > .cell-stage > ol > li:last-child::after { display:
    draws no rule" false on this one surface. Scoped to the table's last row GROUP for the
    `<tfoot>` / multi-`<tbody>` reason given in base.elements.css, and skipping the two
    obligation-matrix variants whose cell border is structure, not a separator. */
-section.sketch:where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane):not(.glossary)):not(.obligation-matrix) table:not(:has(tfoot)) > tbody:last-of-type > tr:last-child > td::after,
-section.sketch:where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane):not(.glossary)):not(.obligation-matrix) table > tfoot > tr:last-child > td::after,
-section.sketch.obligation-matrix:not(.heat):not(.asymmetric) table:not(:has(tfoot)) > tbody:last-of-type > tr:last-child > td::after,
-section.sketch.obligation-matrix:not(.heat):not(.asymmetric) table > tfoot > tr:last-child > td::after { display: none; }
+section:is(.sketch, .sketch-headings):where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane):not(.glossary)):not(.obligation-matrix) table:not(:has(tfoot)) > tbody:last-of-type > tr:last-child > td::after,
+section:is(.sketch, .sketch-headings):where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane):not(.glossary)):not(.obligation-matrix) table > tfoot > tr:last-child > td::after,
+section:is(.sketch, .sketch-headings).obligation-matrix:not(.heat):not(.asymmetric) table:not(:has(tfoot)) > tbody:last-of-type > tr:last-child > td::after,
+section:is(.sketch, .sketch-headings).obligation-matrix:not(.heat):not(.asymmetric) table > tfoot > tr:last-child > td::after { display: none; }
 
 /* ── THE HANDOVER: everything above is the fallback, this is the real thing ──
  * A slide's fallback rules switch off when — and only when — that slide is
@@ -602,20 +604,20 @@ section.sketch.obligation-matrix:not(.heat):not(.asymmetric) table > tfoot > tr:
  * holds the table". Without a `<lat-pane>` in the document these rules match nothing. (A pane
  * is never ENROLLED as a principles or agenda ledger in lib/core/rough-ink.js, so it keeps its
  * own CSS fallback and needs no pane rule here.) */
-section.sketch:where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane):not(.glossary)):has(> svg[data-lattice-rough-ink]) td:not(lat-pane td)::after,
-section.sketch:has(> svg[data-lattice-rough-ink]) lat-pane:where(:not([data-pane="matrix-grid"]):not([data-pane="roadmap"]):not([data-pane="glossary"])) > .cell-stage > table td::after,
-section.sketch:has(> svg[data-lattice-rough-ink]) lat-pane[data-pane="list-tabular"] > .cell-stage > ol > li::after,
-section.sketch.list-tabular:has(> svg[data-lattice-rough-ink]) > ol > li::after,
-section.sketch.list-tabular:has(> svg[data-lattice-rough-ink]) > .cell-stage > ol > li::after,
-section.sketch.list.principles:has(> svg[data-lattice-rough-ink]) > ol > li::after,
-section.sketch.list.principles:has(> svg[data-lattice-rough-ink]) > .cell-stage > ol > li::after {
+section:is(.sketch, .sketch-headings):where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane):not(.glossary)):has(> svg[data-lattice-rough-ink]) td:not(lat-pane td)::after,
+section:is(.sketch, .sketch-headings):has(> svg[data-lattice-rough-ink]) lat-pane:where(:not([data-pane="matrix-grid"]):not([data-pane="roadmap"]):not([data-pane="glossary"])) > .cell-stage > table td::after,
+section:is(.sketch, .sketch-headings):has(> svg[data-lattice-rough-ink]) lat-pane[data-pane="list-tabular"] > .cell-stage > ol > li::after,
+section:is(.sketch, .sketch-headings).list-tabular:has(> svg[data-lattice-rough-ink]) > ol > li::after,
+section:is(.sketch, .sketch-headings).list-tabular:has(> svg[data-lattice-rough-ink]) > .cell-stage > ol > li::after,
+section:is(.sketch, .sketch-headings).list.principles:has(> svg[data-lattice-rough-ink]) > ol > li::after,
+section:is(.sketch, .sketch-headings).list.principles:has(> svg[data-lattice-rough-ink]) > .cell-stage > ol > li::after {
   display: none;
 }
-section.sketch:where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane)):has(> svg[data-lattice-rough-ink]) table:not(lat-pane table),
-section.sketch:has(> svg[data-lattice-rough-ink]) lat-pane:where(:not([data-pane="matrix-grid"]):not([data-pane="roadmap"])) > .cell-stage > table,
-section.sketch:has(> svg[data-lattice-rough-ink]) lat-pane[data-pane="list-tabular"] > .cell-stage > ol,
-section.sketch.list-tabular:has(> svg[data-lattice-rough-ink]) > ol,
-section.sketch.list-tabular:has(> svg[data-lattice-rough-ink]) > .cell-stage > ol {
+section:is(.sketch, .sketch-headings):where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane)):has(> svg[data-lattice-rough-ink]) table:not(lat-pane table),
+section:is(.sketch, .sketch-headings):has(> svg[data-lattice-rough-ink]) lat-pane:where(:not([data-pane="matrix-grid"]):not([data-pane="roadmap"])) > .cell-stage > table,
+section:is(.sketch, .sketch-headings):has(> svg[data-lattice-rough-ink]) lat-pane[data-pane="list-tabular"] > .cell-stage > ol,
+section:is(.sketch, .sketch-headings).list-tabular:has(> svg[data-lattice-rough-ink]) > ol,
+section:is(.sketch, .sketch-headings).list-tabular:has(> svg[data-lattice-rough-ink]) > .cell-stage > ol {
   border-color: transparent;
 }
 /* NOTE — there is deliberately NO rule here clearing cells' LEFT/RIGHT
@@ -642,8 +644,8 @@ section.sketch.list-tabular:has(> svg[data-lattice-rough-ink]) > .cell-stage > o
  * the same ink as every other rule in the table. That is the point — a person
  * ruling a table by hand uses ONE pen, and the header row stays distinct
  * through its label-voice type, not through a second color of line. */
-section.sketch:where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane)):has(> svg[data-lattice-rough-ink]) thead tr:not(lat-pane tr),
-section.sketch:has(> svg[data-lattice-rough-ink]) lat-pane:where(:not([data-pane="matrix-grid"]):not([data-pane="roadmap"])) > .cell-stage > table thead tr {
+section:is(.sketch, .sketch-headings):where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane)):has(> svg[data-lattice-rough-ink]) thead tr:not(lat-pane tr),
+section:is(.sketch, .sketch-headings):has(> svg[data-lattice-rough-ink]) lat-pane:where(:not([data-pane="matrix-grid"]):not([data-pane="roadmap"])) > .cell-stage > table thead tr {
   background-image: none;
 }
 
@@ -652,26 +654,26 @@ section.sketch:has(> svg[data-lattice-rough-ink]) lat-pane:where(:not([data-pane
  * the corners and add the offset ink, never recolour the meaning-bearing
  * border. actors rows are bordered row-cards: same hand corners, colors
  * (the per-actor left hue) untouched. */
-section.sketch.quote blockquote {
-  /* `section.sketch.quote blockquote` (0,2,2) outranks the quote component's
+section:is(.sketch, .sketch-headings).quote blockquote {
+  /* `section:is(.sketch, .sketch-headings).quote blockquote` (0,2,2) outranks the quote component's
      `section.quote blockquote` (0,1,2), so no !important is needed. */
   border: 2px solid var(--sketch-ink);
   border-radius: 255px 12px 225px 15px / 15px 225px 15px 255px;
   box-shadow: 2px 3px 0 -1px color-mix(in srgb, var(--sketch-ink) 30%, transparent);
 }
-section.sketch.redline > blockquote,
-section.sketch.redline > .cell-stage > blockquote,
-section.sketch.checklist > ol > li,
-section.sketch.checklist > .cell-stage > ol > li {
+section:is(.sketch, .sketch-headings).redline > blockquote,
+section:is(.sketch, .sketch-headings).redline > .cell-stage > blockquote,
+section:is(.sketch, .sketch-headings).checklist > ol > li,
+section:is(.sketch, .sketch-headings).checklist > .cell-stage > ol > li {
   border-radius: 4px 225px 15px 4px / 4px 15px 225px 4px;
   box-shadow: 2px 3px 0 -1px color-mix(in srgb, var(--sketch-ink) 30%, transparent);
 }
-section.sketch.actors > ul > li,
-section.sketch.actors > ol > li,
-section.sketch.actors > .cell-stage > ul > li,
-section.sketch.actors > .cell-stage > ol > li,
-section.sketch.list > ul > li,
-section.sketch.list > .cell-stage > ul > li {
+section:is(.sketch, .sketch-headings).actors > ul > li,
+section:is(.sketch, .sketch-headings).actors > ol > li,
+section:is(.sketch, .sketch-headings).actors > .cell-stage > ul > li,
+section:is(.sketch, .sketch-headings).actors > .cell-stage > ol > li,
+section:is(.sketch, .sketch-headings).list > ul > li,
+section:is(.sketch, .sketch-headings).list > .cell-stage > ul > li {
   border-radius: 255px 12px 225px 15px / 15px 225px 15px 255px;
   box-shadow: 2px 3px 0 -1px color-mix(in srgb, var(--sketch-ink) 30%, transparent);
 }
@@ -680,7 +682,7 @@ section.sketch.list > .cell-stage > ul > li {
  * centerline (kind `mid`); the wave mask below is the no-script fallback and
  * is switched off under `.rough-inked`. The box keeps its height either way —
  * it is what reserves the divider's space in the flow. */
-section.sketch hr {
+section:is(.sketch, .sketch-headings) hr {
   height: 7px;
   border: none;
   border-radius: 0;
@@ -690,7 +692,7 @@ section.sketch hr {
   --rough-ink-stroke: var(--sketch-ink);
   --rough-ink-width: 3;
 }
-section.sketch:has(> svg[data-lattice-rough-ink]) hr {
+section:is(.sketch, .sketch-headings):has(> svg[data-lattice-rough-ink]) hr {
   background: none;
 }
 
@@ -723,21 +725,21 @@ section.sketch:has(> svg[data-lattice-rough-ink]) hr {
  * enough to show its own waver, so this is the sketch ink held back to a
  * little over half strength: unmistakably a pen stroke, still quieter than
  * the heading above it. `color-mix` on a token keeps it palette-blind. */
-section.sketch.form:not(.no-heading-rule):not(.heading-rule-short):not(.heading-rule-accent) .cell-masthead {
+section:is(.sketch, .sketch-headings).form:not(.no-heading-rule):not(.heading-rule-short):not(.heading-rule-accent) .cell-masthead {
   --rough-ink-stroke: color-mix(in srgb, var(--sketch-ink) 55%, transparent);
   --rough-ink-width: 2.6;
 }
-section.sketch.form:is(.heading-rule-short, .heading-rule-accent) .cell-masthead .masthead-rule {
+section:is(.sketch, .sketch-headings).form:is(.heading-rule-short, .heading-rule-accent) .cell-masthead .masthead-rule {
   --rough-ink-stroke: color-mix(in srgb, var(--sketch-ink) 55%, transparent);
   --rough-ink-width: 3.2;
 }
-section.sketch.form.heading-rule-accent .cell-masthead .masthead-rule {
+section:is(.sketch, .sketch-headings).form.heading-rule-accent .cell-masthead .masthead-rule {
   --rough-ink-stroke: var(--accent);
 }
-section.sketch.form:has(> svg[data-lattice-rough-ink]) .cell-masthead {
+section:is(.sketch, .sketch-headings).form:has(> svg[data-lattice-rough-ink]) .cell-masthead {
   border-bottom-color: transparent;
 }
-section.sketch.form:has(> svg[data-lattice-rough-ink]) .cell-masthead .masthead-rule {
+section:is(.sketch, .sketch-headings).form:has(> svg[data-lattice-rough-ink]) .cell-masthead .masthead-rule {
   background: none;
 }
 
@@ -746,7 +748,7 @@ section.sketch.form:has(> svg[data-lattice-rough-ink]) .cell-masthead .masthead-
  * synthesizes an oblique slant on an already-cursive script — muddy. The
  * quote component pins its blockquote text italic; drop it (Caveat's natural
  * slant already reads handwritten). */
-section.sketch.quote blockquote p {
+section:is(.sketch, .sketch-headings).quote blockquote p {
   font-style: normal;
 }
 
@@ -759,8 +761,8 @@ section.sketch.quote blockquote p {
  * `max-height` calibrated for the clean body face. The hand sans sets a
  * slightly taller line, so the 2nd line was guillotined; give the clamp a
  * little more room under the finish. */
-section.sketch.image.full p:last-of-type,
-section.sketch.image.contain p:last-of-type {
+section:is(.sketch, .sketch-headings).image.full p:last-of-type,
+section:is(.sketch, .sketch-headings).image.contain p:last-of-type {
   max-height: 5.6cqi;
 }
 
@@ -776,14 +778,14 @@ section.sketch.image.contain p:last-of-type {
  * panel (and the section clips it). Hold every line, titles included, at
  * --fs-body, the one reading size (typography.md §7), so the set fits. It was
  * --fs-body-compact before reading text had one size; body measured to fit. */
-section.sketch.split-panel .panel-right :is(p, li, strong) {
+section:is(.sketch, .sketch-headings).split-panel .panel-right :is(p, li, strong) {
   font-size: var(--fs-body);
 }
 
 /* checklist: a full 7-row list plus the per-row offset-ink shadow runs the
  * last row into the footer. Tighten the inter-row gap so the set clears it. */
-section.sketch.checklist > :is(ul, ol),
-section.sketch.checklist > .cell-stage > :is(ul, ol) {
+section:is(.sketch, .sketch-headings).checklist > :is(ul, ol),
+section:is(.sketch, .sketch-headings).checklist > .cell-stage > :is(ul, ol) {
   gap: var(--sp-xs);
 }
 
@@ -795,31 +797,31 @@ section.sketch.checklist > .cell-stage > :is(ul, ol) {
  * geometry (rings, boxes) + bends the active rule into a pen stroke. Color
  * never changes here, so every palette
  * still colors it. */
-section.sketch.agenda {
+section:is(.sketch, .sketch-headings).agenda {
   --ag-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 18'%3E%3Cpath d='M2 9 Q9 8.5 16 9 M12.5 3 Q19 6 21.5 9 Q19 12 12.5 15' fill='none' stroke='%23000' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   --ag-check: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M2.4 8.6 Q4.6 11.2 5.8 12.8 Q8.8 6 13.6 2.2' fill='none' stroke='%23000' stroke-width='2.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
 /* Numerals in the hand display face (harmless on the markless ::before of
  * checks/active-ledger, which carry no text). */
-section.sketch.agenda > ol > li::before,
-section.sketch.agenda > .cell-stage > ol > li::before { font-family: var(--sketch-font-display); }
+section:is(.sketch, .sketch-headings).agenda > ol > li::before,
+section:is(.sketch, .sketch-headings).agenda > .cell-stage > ol > li::before { font-family: var(--sketch-font-display); }
 
 /* Ledger — the active "you are here" rule bends into a pen stroke. Scoped to
  * ledger only (:not the styled variants): checks reuses the active row's
  * ::after for its arrow at the same nth-child, so an unscoped rule would
  * overwrite that arrow with this horizontal wave strip. */
-section.sketch.agenda:not(.circles):not(.checks).progress-1 > ol > li:nth-child(1)::after,
-section.sketch.agenda:not(.circles):not(.checks).progress-1 > .cell-stage > ol > li:nth-child(1)::after,
-section.sketch.agenda:not(.circles):not(.checks).progress-2 > ol > li:nth-child(2)::after,
-section.sketch.agenda:not(.circles):not(.checks).progress-2 > .cell-stage > ol > li:nth-child(2)::after,
-section.sketch.agenda:not(.circles):not(.checks).progress-3 > ol > li:nth-child(3)::after,
-section.sketch.agenda:not(.circles):not(.checks).progress-3 > .cell-stage > ol > li:nth-child(3)::after,
-section.sketch.agenda:not(.circles):not(.checks).progress-4 > ol > li:nth-child(4)::after,
-section.sketch.agenda:not(.circles):not(.checks).progress-4 > .cell-stage > ol > li:nth-child(4)::after,
-section.sketch.agenda:not(.circles):not(.checks).progress-5 > ol > li:nth-child(5)::after,
-section.sketch.agenda:not(.circles):not(.checks).progress-5 > .cell-stage > ol > li:nth-child(5)::after,
-section.sketch.agenda:not(.circles):not(.checks).progress-6 > ol > li:nth-child(6)::after,
-section.sketch.agenda:not(.circles):not(.checks).progress-6 > .cell-stage > ol > li:nth-child(6)::after {
+section:is(.sketch, .sketch-headings).agenda:not(.circles):not(.checks).progress-1 > ol > li:nth-child(1)::after,
+section:is(.sketch, .sketch-headings).agenda:not(.circles):not(.checks).progress-1 > .cell-stage > ol > li:nth-child(1)::after,
+section:is(.sketch, .sketch-headings).agenda:not(.circles):not(.checks).progress-2 > ol > li:nth-child(2)::after,
+section:is(.sketch, .sketch-headings).agenda:not(.circles):not(.checks).progress-2 > .cell-stage > ol > li:nth-child(2)::after,
+section:is(.sketch, .sketch-headings).agenda:not(.circles):not(.checks).progress-3 > ol > li:nth-child(3)::after,
+section:is(.sketch, .sketch-headings).agenda:not(.circles):not(.checks).progress-3 > .cell-stage > ol > li:nth-child(3)::after,
+section:is(.sketch, .sketch-headings).agenda:not(.circles):not(.checks).progress-4 > ol > li:nth-child(4)::after,
+section:is(.sketch, .sketch-headings).agenda:not(.circles):not(.checks).progress-4 > .cell-stage > ol > li:nth-child(4)::after,
+section:is(.sketch, .sketch-headings).agenda:not(.circles):not(.checks).progress-5 > ol > li:nth-child(5)::after,
+section:is(.sketch, .sketch-headings).agenda:not(.circles):not(.checks).progress-5 > .cell-stage > ol > li:nth-child(5)::after,
+section:is(.sketch, .sketch-headings).agenda:not(.circles):not(.checks).progress-6 > ol > li:nth-child(6)::after,
+section:is(.sketch, .sketch-headings).agenda:not(.circles):not(.checks).progress-6 > .cell-stage > ol > li:nth-child(6)::after {
   height: 7px;
   -webkit-mask: var(--sketch-wave) repeat-x center / 140px 7px;
   mask: var(--sketch-wave) repeat-x center / 140px 7px;
@@ -840,49 +842,49 @@ section.sketch.agenda:not(.circles):not(.checks).progress-6 > .cell-stage > ol >
  * mark from a rule — it is dotted on purpose, it reads fine in the hand, and
  * roughening it into a solid stroke would erase the distinction the ledger
  * style is built on. */
-section.sketch.agenda:not(.circles):not(.checks).progress-1 ol:where(.cell-stage > *) > li:nth-child(1),
-section.sketch.agenda:not(.circles):not(.checks).progress-2 ol:where(.cell-stage > *) > li:nth-child(2),
-section.sketch.agenda:not(.circles):not(.checks).progress-3 ol:where(.cell-stage > *) > li:nth-child(3),
-section.sketch.agenda:not(.circles):not(.checks).progress-4 ol:where(.cell-stage > *) > li:nth-child(4),
-section.sketch.agenda:not(.circles):not(.checks).progress-5 ol:where(.cell-stage > *) > li:nth-child(5),
-section.sketch.agenda:not(.circles):not(.checks).progress-6 ol:where(.cell-stage > *) > li:nth-child(6) {
+section:is(.sketch, .sketch-headings).agenda:not(.circles):not(.checks).progress-1 ol:where(.cell-stage > *) > li:nth-child(1),
+section:is(.sketch, .sketch-headings).agenda:not(.circles):not(.checks).progress-2 ol:where(.cell-stage > *) > li:nth-child(2),
+section:is(.sketch, .sketch-headings).agenda:not(.circles):not(.checks).progress-3 ol:where(.cell-stage > *) > li:nth-child(3),
+section:is(.sketch, .sketch-headings).agenda:not(.circles):not(.checks).progress-4 ol:where(.cell-stage > *) > li:nth-child(4),
+section:is(.sketch, .sketch-headings).agenda:not(.circles):not(.checks).progress-5 ol:where(.cell-stage > *) > li:nth-child(5),
+section:is(.sketch, .sketch-headings).agenda:not(.circles):not(.checks).progress-6 ol:where(.cell-stage > *) > li:nth-child(6) {
   --rough-ink-stroke: var(--accent);
   --rough-ink-width: 3;
 }
-section.sketch.agenda:not(.circles):not(.checks).progress-1:has(> svg[data-lattice-rough-ink]) ol:where(.cell-stage > *) > li:nth-child(1)::after,
-section.sketch.agenda:not(.circles):not(.checks).progress-2:has(> svg[data-lattice-rough-ink]) ol:where(.cell-stage > *) > li:nth-child(2)::after,
-section.sketch.agenda:not(.circles):not(.checks).progress-3:has(> svg[data-lattice-rough-ink]) ol:where(.cell-stage > *) > li:nth-child(3)::after,
-section.sketch.agenda:not(.circles):not(.checks).progress-4:has(> svg[data-lattice-rough-ink]) ol:where(.cell-stage > *) > li:nth-child(4)::after,
-section.sketch.agenda:not(.circles):not(.checks).progress-5:has(> svg[data-lattice-rough-ink]) ol:where(.cell-stage > *) > li:nth-child(5)::after,
-section.sketch.agenda:not(.circles):not(.checks).progress-6:has(> svg[data-lattice-rough-ink]) ol:where(.cell-stage > *) > li:nth-child(6)::after {
+section:is(.sketch, .sketch-headings).agenda:not(.circles):not(.checks).progress-1:has(> svg[data-lattice-rough-ink]) ol:where(.cell-stage > *) > li:nth-child(1)::after,
+section:is(.sketch, .sketch-headings).agenda:not(.circles):not(.checks).progress-2:has(> svg[data-lattice-rough-ink]) ol:where(.cell-stage > *) > li:nth-child(2)::after,
+section:is(.sketch, .sketch-headings).agenda:not(.circles):not(.checks).progress-3:has(> svg[data-lattice-rough-ink]) ol:where(.cell-stage > *) > li:nth-child(3)::after,
+section:is(.sketch, .sketch-headings).agenda:not(.circles):not(.checks).progress-4:has(> svg[data-lattice-rough-ink]) ol:where(.cell-stage > *) > li:nth-child(4)::after,
+section:is(.sketch, .sketch-headings).agenda:not(.circles):not(.checks).progress-5:has(> svg[data-lattice-rough-ink]) ol:where(.cell-stage > *) > li:nth-child(5)::after,
+section:is(.sketch, .sketch-headings).agenda:not(.circles):not(.checks).progress-6:has(> svg[data-lattice-rough-ink]) ol:where(.cell-stage > *) > li:nth-child(6)::after {
   display: none;
 }
 
 /* circles — hand-drawn rings with an offset ink + a per-row tilt. */
-section.sketch.agenda.circles > ol > li::before,
-section.sketch.agenda.circles > .cell-stage > ol > li::before {
+section:is(.sketch, .sketch-headings).agenda.circles > ol > li::before,
+section:is(.sketch, .sketch-headings).agenda.circles > .cell-stage > ol > li::before {
   border-color: var(--sketch-ink);
   border-radius: 47% 53% 49% 51% / 53% 47% 52% 48%;
   box-shadow: 1.5px 2px 0 -1px color-mix(in srgb, var(--sketch-ink) 26%, transparent);
 }
-section.sketch.agenda.circles > ol > li:nth-child(odd)::before,
-section.sketch.agenda.circles > .cell-stage > ol > li:nth-child(odd)::before { transform: rotate(-2deg); }
-section.sketch.agenda.circles > ol > li:nth-child(even)::before,
-section.sketch.agenda.circles > .cell-stage > ol > li:nth-child(even)::before { transform: rotate(2deg); }
+section:is(.sketch, .sketch-headings).agenda.circles > ol > li:nth-child(odd)::before,
+section:is(.sketch, .sketch-headings).agenda.circles > .cell-stage > ol > li:nth-child(odd)::before { transform: rotate(-2deg); }
+section:is(.sketch, .sketch-headings).agenda.circles > ol > li:nth-child(even)::before,
+section:is(.sketch, .sketch-headings).agenda.circles > .cell-stage > ol > li:nth-child(even)::before { transform: rotate(2deg); }
 
 /* checks — hand-drawn boxes. The "current" arrow lives inside a small filled
  * box; the bowed hand arrow muddies at that knockout scale, so checks keeps
  * the crisp geometric arrow (a clean mark inside a drawn box reads fine). */
-section.sketch.agenda.checks {
+section:is(.sketch, .sketch-headings).agenda.checks {
   --ag-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 18'%3E%3Cpath d='M2 9 H21 M14 3 L21 9 L14 15' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
-section.sketch.agenda.checks > ol > li::before,
-section.sketch.agenda.checks > .cell-stage > ol > li::before {
+section:is(.sketch, .sketch-headings).agenda.checks > ol > li::before,
+section:is(.sketch, .sketch-headings).agenda.checks > .cell-stage > ol > li::before {
   border-color: var(--sketch-ink);
   border-radius: 5px 13px 6px 12px / 12px 6px 13px 5px;
 }
-section.sketch.agenda.checks > ol > li:nth-child(odd)::before,
-section.sketch.agenda.checks > .cell-stage > ol > li:nth-child(odd)::before { transform: rotate(-1.5deg); }
-section.sketch.agenda.checks > ol > li:nth-child(even)::before,
-section.sketch.agenda.checks > .cell-stage > ol > li:nth-child(even)::before { transform: rotate(1.5deg); }
+section:is(.sketch, .sketch-headings).agenda.checks > ol > li:nth-child(odd)::before,
+section:is(.sketch, .sketch-headings).agenda.checks > .cell-stage > ol > li:nth-child(odd)::before { transform: rotate(-1.5deg); }
+section:is(.sketch, .sketch-headings).agenda.checks > ol > li:nth-child(even)::before,
+section:is(.sketch, .sketch-headings).agenda.checks > .cell-stage > ol > li:nth-child(even)::before { transform: rotate(1.5deg); }
 

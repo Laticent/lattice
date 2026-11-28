@@ -28,7 +28,7 @@ describe('resolve-finish', () => {
     // (and the deck-lint flags them as unknown finish values).
     assert.equal(finishClasses('sketch'), '', 'sketch is a mode, not a finish');
     assert.equal(finishClasses('boardroom'), '', 'boardroom is a mode, not a finish');
-    assert.equal(finishClasses('sketch-clean'), '');
+    assert.equal(finishClasses('sketch-headings'), '');
     assert.ok(!isKnownFinish('sketch'));
     assert.ok(!isKnownFinish('boardroom'));
   });

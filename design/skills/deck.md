@@ -53,7 +53,7 @@ three of them directly:
   lists, inline-code "pills." The engine turns the shape of your markdown into the
   rendered slide.
 - **Finish** = *how it feels.* Set once in front matter: `theme:` (palette),
-  `mode:` (typographic hand), `finish:` (backdrop). See the `finish.md` and
+  `drawing:` (typographic hand), `finish:` (backdrop). See the `finish.md` and
   `theme.md` skills.
 
 You pick the component (`<!-- @meta{layout=name} -->`); the engine supplies the chrome
@@ -95,7 +95,7 @@ about Form directly — the component already selected it.
    header: "Meridian Freight · Board update"
    ---
    ```
-   `theme:` defaults to `indaco` if omitted. Add `finish:` / `mode:` only
+   `theme:` defaults to `indaco` if omitted. Add `finish:` / `drawing:` only
    deliberately (see the finish/theme skills). A typo'd register value
    (`finish: atriumm`) silently renders the baseline — the linter catches it.
 
@@ -268,7 +268,7 @@ A 12-slide board update:
 7. **Forgetting `silent`** on bookends (leaves header/footer/pagination on).
 8. **`**bold**` inside a `kpi`/`stats` ordered item** (splits the number grid) and
    **bodyless number items** (the number won't render in display type).
-9. **Typo'd `finish:` / `mode:` values** that silently ship the baseline.
+9. **Typo'd `finish:` / `drawing:` values** that silently ship the baseline.
 10. **Hand-editing generated files** (`dist/**`, `*.docs.md`, `*.gallery.md`).
 
 ---
@@ -283,7 +283,7 @@ A 12-slide board update:
   substances; the component catalog.
 - `lib/base/base.docs.md` — eyebrow / subtitle / pill / key-insight / below-note.
 - `lib/base/base.registers.docs.md` — the deck-level front-matter registers
-  (`mode:` `finish:` `split:` `stamp-shape:`/`tone:` `spectrum:` `heading-rule:` `eyebrow:`
+  (`drawing:` `finish:` `split:` `stamp-shape:`/`tone:` `spectrum:` `heading-rule:` `eyebrow:`
   `headline-align:` `card-lift:` `slide-corners:`) and the per-slide tokens they resolve to.
 - `spec/LFM-1.0.md` — the markdown dialect and front-matter surface.
 - `AGENTS.md` — the agent authoring loop (count → capacity → density → lint →

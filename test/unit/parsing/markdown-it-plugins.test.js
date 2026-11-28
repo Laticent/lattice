@@ -129,10 +129,10 @@ describe('markdown-it-plugins', () => {
     assert.ok(cls.includes('cards-grid'));
   });
 
-  test('deckClassPropagate: front-matter `mode: sketch` propagates the mapped class to every section', () => {
+  test('deckClassPropagate: front-matter `drawing: sketch` propagates the mapped class to every section', () => {
     const m = makeHost(plugins.deckClassPropagate);
     const md = [
-      '---', 'mode: sketch', '---', '',
+      '---', 'drawing: sketch', '---', '',
       '# Slide 1', '',
       '---', '',
       '<!-- @meta{layout=cards-grid} -->',
@@ -146,22 +146,22 @@ describe('markdown-it-plugins', () => {
     assert.ok(sections[1].includes('cards-grid'), `slide 2 lost 'cards-grid'; got [${sections[1].join(', ')}]`);
   });
 
-  test('deckClassPropagate: `mode: sketch-clean` maps to both the sketch + clean-body tokens', () => {
+  test('deckClassPropagate: `drawing: sketch-headings` maps to the one sketch-headings token', () => {
     const m = makeHost(plugins.deckClassPropagate);
-    const md = ['---', 'mode: sketch-clean', '---', '', '# Slide'].join('\n');
+    const md = ['---', 'drawing: sketch-headings', '---', '', '# Slide'].join('\n');
     const { html } = m.render(md);
     const cls = html.match(/<section[^>]*class="([^"]*)"/)[1].split(/\s+/).filter(Boolean);
-    assert.ok(cls.includes('sketch'));
-    assert.ok(cls.includes('sketch-clean-body'));
+    assert.ok(!cls.includes('sketch'));
+    assert.ok(cls.includes('sketch-headings'));
   });
 
-  test('deckClassPropagate: `mode:` (mode) and `finish:` (backdrop) COMPOSE on every section', () => {
+  test('deckClassPropagate: `drawing:` (mode) and `finish:` (backdrop) COMPOSE on every section', () => {
     const m = makeHost(plugins.deckClassPropagate);
-    const md = ['---', 'class: numbered', 'mode: sketch', 'finish: atrium', '---', '', '# Slide'].join('\n');
+    const md = ['---', 'class: numbered', 'drawing: sketch', 'finish: atrium', '---', '', '# Slide'].join('\n');
     const { html } = m.render(md);
     const cls = html.match(/<section[^>]*class="([^"]*)"/)[1].split(/\s+/).filter(Boolean);
     assert.ok(cls.includes('numbered'), `lost class:; got [${cls.join(', ')}]`);
-    assert.ok(cls.includes('sketch'), `lost mode:; got [${cls.join(', ')}]`);
+    assert.ok(cls.includes('sketch'), `lost drawing:; got [${cls.join(', ')}]`);
     assert.ok(cls.includes('finish'), `lost finish base; got [${cls.join(', ')}]`);
     assert.ok(cls.includes('finish-atrium'), `lost finish preset; got [${cls.join(', ')}]`);
   });
@@ -242,10 +242,10 @@ describe('markdown-it-plugins', () => {
   test('deckClassPropagate: a per-slide `boardroom` opts one slide OUT of the deck-wide style', () => {
     const m = makeHost(plugins.deckClassPropagate);
     const md = [
-      '---', 'mode: sketch', 'finish: atrium', '---', '',
+      '---', 'drawing: sketch', 'finish: atrium', '---', '',
       '# Slide 1 (gets the deck sketch)', '',
       '---', '',
-      '<!-- @meta{class=boardroom} -->',
+      '<!-- @meta{class=no-sketch} -->',
       '# Slide 2 (clean, but keeps the backdrop)',
     ].join('\n');
     const { html } = m.render(md);

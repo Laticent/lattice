@@ -562,9 +562,9 @@ largest legend size that keeps a clear gap between rows. Demo: `examples/mermaid
 
 Use different shapes for different hierarchy levels to aid visual scanning.
 
-## 5.3e The node look — `mode: sketch` reaches the diagram
+## 5.3e The node look — `drawing: sketch` reaches the diagram
 
-A deck in `mode: sketch` (or the legacy deck-wide `class: sketch`) bakes Mermaid's
+A deck in `drawing: sketch` (or the legacy deck-wide `class: sketch`) bakes Mermaid's
 native **hand-drawn** node renderer, so the diagram is drawn by the same hand as the
 slide around it. Mermaid 11 bundles rough.js for this; the engine turns it on by
 emitting `look: 'handDrawn'` in the init config.
@@ -577,9 +577,9 @@ undo it. The rule, in precedence order:
 
 1. **Texture wins.** A palette that routes categories through `--cat-N-texture`
    renders classic, always — see below.
-2. **A slide naming a mode token owns its look.** `_class: boardroom` opts one slide
+2. **A slide naming a mode token owns its look.** `_class: no-sketch` opts one slide
    out of a sketch deck; `_class: sketch` opts one in on a plain deck.
-3. **Otherwise inherit the deck** (`mode:` first, then a deck-wide `class:`).
+3. **Otherwise inherit the deck** (`drawing:` first, then a deck-wide `class:`).
 
 A deck that resolves to classic emits **no `look` key at all** rather than the
 explicit default, so its directive stays byte-identical to what it emitted before
@@ -621,15 +621,15 @@ The two answers come apart on purpose, and the split is worth holding on to:
 
 | | hand SHAPE (`resolveDiagramLook`) | hand TYPE (`resolveDiagramHandType`) |
 |---|---|---|
-| `mode: sketch`, ordinary palette | ✓ | ✓ |
-| `mode: sketch`, `a11y-*` / `onyx` / `concrete` | ✗ rule 1 | ✓ |
-| `mode: sketch`, `--print` band | ✗ rule 1 | ✓ |
-| `_class: boardroom` on a sketch deck | ✗ | ✗ |
+| `drawing: sketch`, ordinary palette | ✓ | ✓ |
+| `drawing: sketch`, `a11y-*` / `onyx` / `concrete` | ✗ rule 1 | ✓ |
+| `drawing: sketch`, `--print` band | ✗ rule 1 | ✓ |
+| `_class: no-sketch` on a sketch deck | ✗ | ✗ |
 | `_class: sketch` on a plain deck | ✓ | ✓ |
 
 Rule 1 exists because a per-category PATTERN cannot survive being painted through a
 hachure stroke — that is about the redundant-encoding channel and says nothing about
-type. So a texture deck in `mode: sketch` gets **hand labels inside machine-drawn
+type. So a texture deck in `drawing: sketch` gets **hand labels inside machine-drawn
 nodes**, which is what "those decks still get the hand type everywhere else" above has
 always meant. `resolveDiagramLook` calls `resolveDiagramHandType` rather than
 repeating rules 2 and 3, so the two cannot drift.
@@ -1043,7 +1043,7 @@ sanction that no longer diverges, and on a Mermaid upgrade that takes one of tho
 off its secure list (which would make it shareable).
 
 **Both paths now use the deck's own body face.** A diagram reads `--font-body`, like
-every other run of text on the slide, which is also how `mode: sketch` reaches diagram
+every other run of text on the slide, which is also how `drawing: sketch` reaches diagram
 labels (§5.3e) with no sketch-specific code in the diagram path at all.
 
 It was not always so, and the reason is worth keeping because it constrains anyone who
@@ -1066,7 +1066,7 @@ sequence and timeline do not.** Mermaid's config schema gives them per-element
 `sequence.actorFontFamily`, `timeline.taskFontFamily` and so on — each defaulted to
 `"Open Sans"` or `"trebuchet ms"`, and those win for the elements they cover.
 
-Left alone, that means a `mode: sketch` deck renders a C4 context diagram with **33 of 34
+Left alone, that means a `drawing: sketch` deck renders a C4 context diagram with **33 of 34
 labels in Open Sans** while every other word on the slide is hand-drawn. Measured, and
 found by eye on an export before any gate noticed — the label census had been printing it
 for a whole review round.

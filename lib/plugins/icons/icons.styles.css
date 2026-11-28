@@ -210,7 +210,7 @@ section .lat-pill[role='img'] > .lat-pill-icon { padding-right:0; }
  * icon has no tile to ink. Header and footer icons stay clean, as sparks do (lib/core/rough-ink-dom.js;
  * the spark's twin of these two rules is in lib/plugins/sparks/sparks.styles.css). The ink frame is
  * square, so an `icon-rounded` tile shows its rounded fill inside square ink, as a rounded spark does. */
-section.sketch .lat-icon {
+section:is(.sketch, .sketch-headings) .lat-icon {
   --rough-ink-stroke: var(--icon-edge);
   --rough-ink-width: 1.6;
 }
@@ -219,14 +219,14 @@ section.sketch .lat-icon {
  * clear tile, where the spark's 0.9 already reads. Written as plain compounds, never a nested
  * `:not(:is(…))`: the Playground's first-paint snapshot (docs/src/playground/snapshot-cache.js)
  * keeps any rule it cannot test against the captured slide, and it sits close to its size cap. */
-section.sketch .lat-icon[data-look='etch'],
-section.sketch .lat-icon[data-look='tone'],
-section.sketch.icon-etch .lat-icon:not([data-look]),
-section.sketch.icon-tone .lat-icon:not([data-look]) { --rough-ink-width: 0.9; }
+section:is(.sketch, .sketch-headings) .lat-icon[data-look='etch'],
+section:is(.sketch, .sketch-headings) .lat-icon[data-look='tone'],
+section:is(.sketch, .sketch-headings).icon-etch .lat-icon:not([data-look]),
+section:is(.sketch, .sketch-headings).icon-tone .lat-icon:not([data-look]) { --rough-ink-width: 0.9; }
 /* The handover: once the slide has ink, the crisp edge goes, except in the header and footer,
  * which are not inked. */
-section.sketch:has(> svg[data-lattice-rough-ink]) .lat-icon::before { border-color: transparent; }
-section.sketch:has(> svg[data-lattice-rough-ink]) :is(header, footer) .lat-icon::before { border-color: var(--icon-edge); }
+section:is(.sketch, .sketch-headings):has(> svg[data-lattice-rough-ink]) .lat-icon::before { border-color: transparent; }
+section:is(.sketch, .sketch-headings):has(> svg[data-lattice-rough-ink]) :is(header, footer) .lat-icon::before { border-color: var(--icon-edge); }
 
 /* An icon and the word after it never part at a line end: the icon labels that word (lib/core/icon-bind.js). */
 section .lat-icon-bind {

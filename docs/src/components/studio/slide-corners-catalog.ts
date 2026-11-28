@@ -1,5 +1,5 @@
 // The Studio corners catalog — DISPLAY metadata for the `slide-corners:` register (whether
-// the slide's own surface is rounded). Sibling of mode-catalog.ts / heading-rule-catalog.ts.
+// the slide's own surface is rounded). Sibling of drawing-catalog.ts / heading-rule-catalog.ts.
 // The engine's single source of truth is SLIDE_CORNERS_NAMES (lib/core/resolve-slide-corners.js);
 // THIS file adds only the human layer the picker needs. Rot-guard: slide-corners-catalog.test.ts.
 //

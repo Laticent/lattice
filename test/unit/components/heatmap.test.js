@@ -491,14 +491,14 @@ describe('heatmap — every step lands inside the ramp', () => {
 describe('heatmap — the fit guard reads the face the slide will paint', () => {
   const { readsHandBody } = require('../../../lib/plugins/chart-family/shared/transform-utils');
 
-  test('sketch-clean is measured on the CLEAN face, not the hand one', () => {
-    // `mode: sketch-clean` resolves to `sketch sketch-clean-body`, and that token
+  test('sketch-headings is measured on the CLEAN face, not the hand one', () => {
+    // `drawing: sketch-headings` resolves to `sketch sketch-headings`, and that token
     // puts `--font-body` — which `.heatmap-value` names — back on the clean face.
     // A `includes('sketch')` test measures the hand advance against clean glyphs,
     // 50% too wide, and refuses every value in the grid. Measured on a 12-column
     // matrix of four-digit values: all 72 printed numbers lost, silently.
-    assert.equal(readsHandBody(['sketch', 'sketch-clean-body']), false,
-      'sketch-clean paints the clean body face, so it must not take the hand advance');
+    assert.equal(readsHandBody(['sketch', 'sketch-headings']), false,
+      'sketch-headings paints the clean body face, so it must not take the hand advance');
     assert.equal(readsHandBody(['sketch']), true, 'plain sketch does paint the hand face');
     const src = fs.readFileSync(
       path.join(__dirname, '../../../lib/plugins/chart-family/kinds/heatmap/heatmap.transform.js'), 'utf8');

@@ -77,13 +77,13 @@ Acts on: the slide. Not offered. Pick one.
 
 - `typography-classic` · `typography-ledger` · `typography-poster` · `typography-festival`
 
-### Mode — `mode`
+### Drawing — `drawing`
 
-The `mode:` register's look (`sketch`, `boardroom`), per slide. Not offered: a deck has one mode.
+The `drawing:` register's look (`sketch`, `sketch-headings`, `clean`), per slide. Not offered: a deck has one drawing.
 
 Acts on: the slide. Not offered. Pick one.
 
-- `sketch` · `sketch-clean-body` · `boardroom`
+- `sketch` · `sketch-headings` · `no-sketch`
 
 ### Chart finish — `chart-finish`
 
@@ -462,7 +462,7 @@ A register is a front-matter key. It stamps its value as class words on every sl
 
 | Key | Stamps the words of | Note |
 |---|---|---|
-| `mode:` | `mode` |  |
+| `drawing:` | `drawing` |  |
 | `venue:` | `venue` |  |
 | `typography:` | `type-set` |  |
 | `inline-code:` | `inline-code` |  |

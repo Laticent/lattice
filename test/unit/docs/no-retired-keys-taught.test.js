@@ -63,8 +63,8 @@ const SANCTIONED = {
     keys: { form: 1 },
   },
   'docs/src/content/docs/spec/lfm.md': {
-    why: "TEMPORARY, the whole entry: generated from spec/LFM-1.0.md, which #3554 (the spec desk) regenerates with @meta examples and no `paginate:` or `_class` taught as current (checked against #3554's head). Whichever of #3554 and #3606 lands second deletes this entry; the stale-entry check forces it",
-    keys: { paginate: 2, _class: 5 },
+    why: "TEMPORARY, the whole entry: generated from spec/LFM-1.0.md, which #3554 (the spec desk) regenerates with @meta examples and no `paginate:` or `_class` taught as current (checked against #3554's head). Whichever of #3554 and #3606 lands second deletes this entry; the stale-entry check forces it. `mode:` is the ratified 1.0 text's own key, renamed `drawing:` in LFM-1.1 (renames Q5); the regenerated page drops it",
+    keys: { paginate: 2, _class: 5, mode: 3 },
   },
   'lib/base/base.registers.docs.md': {
     why: 'the raw-Marp section: Marpit itself reads `_class:`, and a deck exported to Marp must list the register token in it',

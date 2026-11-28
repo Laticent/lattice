@@ -75,9 +75,9 @@ every `<section>`. The base `finish` class is the compositor; each `finish-<name
 sets the per-role custom properties the compositor blends. Unset slots default to
 no-ops, so a preset declares only what it uses.
 
-**`finish:` is only the backdrop.** The sibling register `mode:`
-(`boardroom`/`sketch`/`sketch-clean`) is the *typographic hand* — a separate axis
-that composes freely (`mode: sketch` + `finish: atrium`). Don't conflate them.
+**`finish:` is only the backdrop.** The sibling register `drawing:`
+(`clean`/`sketch`/`sketch-headings`) is the *typographic hand* — a separate axis
+that composes freely (`drawing: sketch` + `finish: atrium`). Don't conflate them.
 
 **The RICH/OPAQUE dual is the load-bearing constraint.** Chromium's print-to-PDF
 encodes large alpha-fading gradients toward transparent-black → a muddy gray cloud.
@@ -128,7 +128,7 @@ interpolates color and opacity separately.
   (the same generator the Studio uses) over every recipe and writes the rules into
   the file's marked region, and `build:check` fails on a hand edit there. Tuning a
   `recipe.json` changes what every deck renders.
-- **The sibling `mode:`**: `lib/core/resolve-mode.js` + `lib/base/base.sketch.css`.
+- **The sibling `drawing:`**: `lib/core/resolve-drawing.js` + `lib/base/base.sketch.css`.
 - **Ships today (10 values)**: `none` (baseline), `atrium`, `meridian`, `strata`,
   `halo`, `ledger`, `nimbus`, `loom`, `savile`, `gallery`.
 - **The closed layer vocabulary** (what the generator/AI may speak): WASH = none /
@@ -281,7 +281,7 @@ with `<!-- @meta{class=no-finish} -->`.
 - `lib/core/resolve-finish.js` — the register, readers, class mapping (read from
   the generated presets; you add a finish by adding its folder).
 - `lib/base/base.finish.css` — the compositor, the generated preset bodies, the opaque flip.
-- `lib/core/resolve-mode.js` + `lib/base/base.sketch.css` — the sibling `mode:`
+- `lib/core/resolve-drawing.js` + `lib/base/base.sketch.css` — the sibling `drawing:`
   register.
 - `lib/base/base.registers.docs.md` §`finish:` — the author-facing reference.
 - `engineering/decisions/2026-06-30-finish-the-surface-layer.md` — the founding

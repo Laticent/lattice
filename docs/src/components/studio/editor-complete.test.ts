@@ -49,9 +49,9 @@ describe('makeStudioCompletion', () => {
 		expect(labels(r)).not.toContain('paginate');
 	});
 
-	it('completes the finish-override + mode keys in the --- block', () => {
+	it('completes the finish-override + drawing keys in the --- block', () => {
 		expect(labels(complete('---\nfinish-o', 11))).toContain('finish-override');
-		expect(labels(complete('---\nmod', 7))).toContain('mode');
+		expect(labels(complete('---\ndraw', 8))).toContain('drawing');
 	});
 
 	it('completes finish: VALUES — built-ins bare, saved finishes PREFIXED', () => {

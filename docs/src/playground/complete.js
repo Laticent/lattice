@@ -64,7 +64,7 @@ function themeSource(themes) {
 }
 
 // Completes the deck-wide finish register after `finish:` in the front matter
-// (boardroom / sketch / sketch-clean). The names come from the same handoff the
+// (atrium / meridian / …). The names come from the same handoff the
 // linter validates against (lintVocab.finishNames → lib/core/resolve-finish.js),
 // so completion and the unknown-finish lint speak one vocabulary.
 function finishSource(finishes) {

@@ -82,13 +82,13 @@ describe('a repeated top-level key reads as its LAST line everywhere, and lint w
     assert.equal(core.lintTextWith(fm(['theme: indaco', 'lenses:', '  theme: x']), {}).filter((f) => f.rule === 'duplicate-key').length, 0);
   });
 
-  test('every value check reads the line that wins: `unknown-mode` on a live `zzz`, nothing on a dead `bogus`', () => {
+  test('every value check reads the line that wins: `unknown-drawing` on a live `zzz`, nothing on a dead `bogus`', () => {
     // The checker's repro on the second cut: the linter's own value checks still read the FIRST line, so a
-    // live `mode: zzz` went unreported while the deck silently fell back.
+    // live `drawing: zzz` went unreported while the deck silently fell back.
     const { lintText, buildVocab } = require('../../../lib/authoring/lint');
     const vocab = buildVocab();
     const rules = (lines) => lintText(fm(['theme: indaco', ...lines]), { vocab }).filter((f) => f.slide === 0).map((f) => `${f.rule}:${f.classToken}`);
-    assert.ok(rules(['mode: sketch', 'mode: zzz']).includes('unknown-mode:zzz'));
+    assert.ok(rules(['drawing: sketch', 'drawing: zzz']).includes('unknown-drawing:zzz'));
     assert.ok(!rules(['finish: bogus', 'finish: halo']).some((r) => r.startsWith('unknown-finish')));
   });
 

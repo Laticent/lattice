@@ -109,7 +109,7 @@ const WITH_STRINGS = has('strings');
 // digits, and the result is divided back out so the number is size-free.
 const FS = 200;
 // The two faces, as they resolve in the real rules. `--font-body` is Outfit on
-// every theme; `mode: sketch` re-points it at Shantell Sans, which is why the
+// every theme; `drawing: sketch` re-points it at Shantell Sans, which is why the
 // hand face measures the same rule with a different family.
 const FACE_FAMILY = { clean: 'Outfit', hand: 'Shantell Sans' };
 // The token each face's stack comes from, read out of base.tokens.css rather

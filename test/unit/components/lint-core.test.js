@@ -714,18 +714,18 @@ describe('lint-core: auto-fix', () => {
   test('a misspelled plugins: name is fixed IN its own line, and every fix after it still runs', () => {
     // `unknown-plugin` once pointed `line` at a made-up `plugins: <name>`; applyFix matches the
     // finding's line against the source, so on a flow list or a block sequence the fix found no
-    // line, returned null, and applyAllFixes stopped there — dropping the `mode:` fix queued after
+    // line, returned null, and applyAllFixes stopped there — dropping the `drawing:` fix queued after
     // it (HARD RULE #25 checker, E0).
-    const v = { ...vocab, modeNames: ['boardroom', 'sketch'] };
+    const v = { ...vocab, drawingNames: ['clean', 'sketch'] };
     for (const [list, fixedList] of [
       ['plugins: [math, mermiad]', 'plugins: [math, mermaid]'],
       ['plugins:\n  - math\n  - mermiad', 'plugins:\n  - math\n  - mermaid'],
       ['plugins: mermiad', 'plugins: mermaid'],
     ]) {
-      const src = `---\n${list}\nmode: skech\n---\n\n# T\n`;
+      const src = `---\n${list}\ndrawing: skech\n---\n\n# T\n`;
       const f = core.lintTextWith(src, v).find((x) => x.rule === 'unknown-plugin');
       assert.equal(f.didYouMean, 'mermaid', list);
-      assert.equal(core.applyAllFixes(src, v), `---\n${fixedList}\nmode: sketch\n---\n\n# T\n`, list);
+      assert.equal(core.applyAllFixes(src, v), `---\n${fixedList}\ndrawing: sketch\n---\n\n# T\n`, list);
     }
   });
 

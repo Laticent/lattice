@@ -136,7 +136,7 @@ Anywhere a figure has a past or a target: KPI tiles, a trend column in a quarter
 
 ## How Lattice uses it
 
-No slide type requires the plugin. The `kpi` layout sizes a spark to match its status pills, and a `fill` spark under a KPI headline becomes the tile's trend line. In `mode: sketch`, sparks are drawn by hand like the rest of the slide. Every spark carries a spoken label with its numbers ("Trend, 8 points, from 0.8 to 1.9"), so a screen reader hears what the chart shows.
+No slide type requires the plugin. The `kpi` layout sizes a spark to match its status pills, and a `fill` spark under a KPI headline becomes the tile's trend line. In `drawing: sketch`, sparks are drawn by hand like the rest of the slide. Every spark carries a spoken label with its numbers ("Trend, 8 points, from 0.8 to 1.9"), so a screen reader hears what the chart shows.
 
 ## What it doesn't do
 

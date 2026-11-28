@@ -13,7 +13,7 @@ const SPECTRUM_NAMES: readonly string[] = SPECTRUM_AXES.style;
 // Rot-guard: the Studio display catalog (spectrum-catalog.ts) MUST stay in step with the
 // engine SPECTRUM_NAMES. Without this, a register change silently drifts the picker (a
 // value that renders but isn't offered, or a catalog entry pointing at a dead value).
-// Mirrors mode-catalog.test.ts / finish-catalog.test.ts, and pairs with the register↔CSS
+// Mirrors drawing-catalog.test.ts / finish-catalog.test.ts, and pairs with the register↔CSS
 // rot-guard in test/unit/parsing/resolve-spectrum.test.js.
 describe('spectrum-catalog ↔ SPECTRUM_NAMES', () => {
 	const names = new Set(SPECTRUM_NAMES);

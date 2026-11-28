@@ -222,14 +222,14 @@ describe('hub-spoke lint (through lint-core)', () => {
     const tree = HS.markdownTree('## T.\n\n- Hub\n  - core_platform_v2 `$4M`\n  - **Ops** & [IT](x)\n');
     assert.deepEqual(tree[0].children.map((c) => [c.label, c.pills]), [['core_platform_v2', ['$4M']], ['Ops & IT', []]]);
   });
-  test('a deck-wide `mode: sketch` bills the hand face in the width estimate', () => {
+  test('a deck-wide `drawing: sketch` bills the hand face in the width estimate', () => {
     const six = ['A', 'B', 'C', 'D', 'E', 'F'].map((x) => `  - ${x}`).join('\n');
     // Capitals and the wide letters paint far wider in the hand face (M is 1.04em against
     // the mono 0.6). A mostly lowercase name no longer works here: the hand face's
     // lowercase paints about as wide as the mono face, and the estimate now knows it.
     const body = `<!-- @meta{layout=hub-spoke} -->\n\n## T.\n\n- MOMENTUM WORKFLOW MANAGEMENT OFFICE \`$48M\`\n${six}\n`;
     assert.ok(!findHubSpokeIssues(`---\nmarp: true\n---\n\n${body}`).some((f) => f.rule === 'hub-spoke-hub-overflow'), 'fits in the mono face');
-    assert.ok(findHubSpokeIssues(`---\nmarp: true\nmode: sketch\n---\n\n${body}`).some((f) => f.rule === 'hub-spoke-hub-overflow'), 'mode: sketch was ignored');
+    assert.ok(findHubSpokeIssues(`---\nmarp: true\ndrawing: sketch\n---\n\n${body}`).some((f) => f.rule === 'hub-spoke-hub-overflow'), 'drawing: sketch was ignored');
   });
   // Painted width ÷ font size, Shantell Sans 700 with tabular-nums, measured in Chromium
   // with SVG getComputedTextLength (followups 2396-p2). The flat 0.66em this replaced billed

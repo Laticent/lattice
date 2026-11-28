@@ -23,7 +23,7 @@ const CATALOG = [
 const LIB: AgentLibrary = {
 	componentDoc: async (n) => (n === 'kpi' ? '# kpi\n\nUse for 2–4 headline numbers.' : null),
 	guide: async (t) => (t === 'finish' ? '# Finish\n\n## Choosing\n\nPick one.\n\n## Applying\n\nSet `finish:`.' : null),
-	registersDoc: async () => '# registers\n\n## The `finish:` front-matter register (backdrop)\n\nValues: atrium, halo.\n\n## The `mode:` front-matter register (rendering mode)\n\nboardroom.',
+	registersDoc: async () => '# registers\n\n## The `finish:` front-matter register (backdrop)\n\nValues: atrium, halo.\n\n## The `drawing:` front-matter register (rendering mode)\n\nboardroom.',
 	universalsDoc: async () => '# base\n\n## Eyebrow labels\n\nA backtick paragraph.',
 };
 

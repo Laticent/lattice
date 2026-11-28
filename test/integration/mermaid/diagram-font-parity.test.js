@@ -20,13 +20,13 @@
  *
  * IT IS NOT THE PREVIEW'S CASCADE, and an earlier version of this note said it was. The
  * preview rescopes `:lattice-root` onto the section (`composeCss`), so a token that
- * resolves in one can fail in the other — which is exactly how a sketch-clean
+ * resolves in one can fail in the other — which is exactly how a sketch-headings
  * custom-property cycle survived this gate. `preview-diagram-face.test.js` is the one
  * that reads the preview.
  *
- * The `sketch-clean` row is the one that caught a shipped bug: that register wants hand
+ * The `sketch-headings` row is the one that caught a shipped bug: that register wants hand
  * SHAPES and a clean body FACE, and an earlier cut resolved the type from
- * `deckWantsHandDrawn` — which contains `sketch-clean` — so the export baked the hand
+ * `deckWantsHandDrawn` — which contains `sketch-headings` — so the export baked the hand
  * face where the cascade said Outfit.
  */
 
@@ -96,7 +96,7 @@ async function facesFor(source) {
 describe('the per-diagram font keys cover every one mermaid ships', () => {
   // `themeVariables.fontFamily` is global and most families follow it. Four do not: C4,
   // journey, sequence and timeline carry their OWN `*FontFamily` config keys, defaulted to
-  // Open Sans / trebuchet ms. A `mode: sketch` deck rendered a C4 context diagram with 33
+  // Open Sans / trebuchet ms. A `drawing: sketch` deck rendered a C4 context diagram with 33
   // of 34 labels in Open Sans, and a user journey with 22 of 51 — on slides where every
   // other word was hand-drawn.
   //
@@ -204,9 +204,9 @@ describe('the per-diagram font keys cover every one mermaid ships', () => {
 describe('diagram font parity — the baked face IS the cascade\'s face', { skip: skipWithoutChrome(CHROME) }, () => {
   test('every mode answer agrees between the export bake and the cascade', { timeout: TIMEOUT }, async () => {
     const decks = [
-      ['mode: sketch', 'mode: sketch', ['', 'boardroom', 'sketch-clean-body', 'dark']],
-      ['mode: sketch-clean', 'mode: sketch-clean', ['', 'sketch']],
-      ['mode: boardroom', 'mode: boardroom', ['', 'sketch']],
+      ['drawing: sketch', 'drawing: sketch', ['', 'boardroom', 'sketch-headings', 'dark']],
+      ['drawing: sketch-headings', 'drawing: sketch-headings', ['', 'sketch']],
+      ['drawing: clean', 'drawing: clean', ['', 'sketch']],
       ['plain deck', 'pagination: true', ['', 'sketch']],
       ['legacy class: sketch', 'class: sketch', ['', 'boardroom']],
     ];
@@ -232,7 +232,7 @@ describe('diagram font parity — the baked face IS the cascade\'s face', { skip
   test('the sketch deck really does bake the hand face — the test is not vacuous', { timeout: TIMEOUT }, async () => {
     // Without this, a change that made BOTH sides resolve the clean face would pass the
     // parity assertion above while silently deleting the feature.
-    const rows = await facesFor(deck('mode: sketch', ['']));
+    const rows = await facesFor(deck('drawing: sketch', ['']));
     assert.equal(rows[0].baked, 'Shantell Sans',
       'a sketch deck must bake the hand face into its diagram labels');
   });

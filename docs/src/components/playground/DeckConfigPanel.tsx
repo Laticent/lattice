@@ -9,7 +9,7 @@ import { glyphs, optionGlyph, SizeChip } from '@/components/studio/option-glyphs
 import { SLIDE_CORNERS } from '@/components/studio/slide-corners-catalog';
 import { sizeRatio } from '@/components/studio/slide-size';
 import { defaultVenue, familyForAspect, venueOption, venueOptionsFor } from '@/components/studio/venue';
-import { MODES } from '@/lib/mode-catalog';
+import { DRAWINGS } from '@/lib/drawing-catalog';
 import { A11Y_GROUP_LABEL, paletteLabel } from '@/lib/palette-label';
 import { isA11yPalette, PALETTE_DOTS } from '@/lib/theme-catalog.generated';
 import { lookBaseline, PRESET_OPTIONS, readFrontMatter, writeFrontMatter } from '@/playground/deck-config.js';
@@ -164,7 +164,7 @@ export function DeckConfigPanel({
 				{note ?? 'These live in the deck’s front matter — managed for you, so the Markdown stays clean. They apply to the whole deck and travel with an exported .md.'}
 			</p>
 
-			{group('Look', ['theme', 'color-mode', 'preset', 'finish', 'headline-align', 'heading-rule', 'eyebrow', 'slide-corners', 'card-lift', 'mode'])}
+			{group('Look', ['theme', 'color-mode', 'preset', 'finish', 'headline-align', 'heading-rule', 'eyebrow', 'slide-corners', 'card-lift', 'drawing'])}
 			{show('theme') && palettes.length > 0 && themeRow()}
 			{show('color-mode') &&
 				selectRow('color-mode', 'Color mode', 'The mode the deck opens in everywhere — pin light/dark, follow the OS, or match the host', [{ options: withUnknown(COLOR_MODES, fm['color-mode']) }], fm['color-mode'], '', {
@@ -195,7 +195,7 @@ export function DeckConfigPanel({
 			{lookRow('eyebrow', 'Eyebrow', 'The mark before the small label above a heading')}
 			{lookRow('slide-corners', 'Slide corners', 'Square, or rounded at the theme’s radius')}
 			{show('card-lift') && <SwitchRow label="Card lift" hint="Lift card surfaces off the slide with a subtle shadow — reads in light & dark, safe in the PDF export" on={fm['card-lift']} onChange={(on) => apply('card-lift', on)} />}
-			{show('mode') && selectRow('mode', 'Mode', 'The rendering hand — clean or sketch — applies to the whole deck', [{ options: withUnknown(catalogOptions(MODES), fm.mode) }], fm.mode, 'boardroom')}
+			{show('drawing') && selectRow('drawing', 'Mode', 'The rendering hand — clean or sketch — applies to the whole deck', [{ options: withUnknown(catalogOptions(DRAWINGS), fm.drawing) }], fm.drawing, 'clean')}
 
 			{group('Format', ['size', 'venue', 'split'])}
 			{show('size') && selectRow('size', 'Slide size', 'Landscape, or a portrait / square format for social & mobile', [{ options: withUnknown(SIZES, fm.size) }], fm.size, 'hd')}

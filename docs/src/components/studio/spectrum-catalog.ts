@@ -1,11 +1,11 @@
 // The Studio spectrum catalog — DISPLAY metadata for the `spectrum:` STYLE axis (the deck's
 // accent gradient: the section-edge bar AND every accent that reads the shared --spectrum
-// token — table rails, timeline spines, code strips). Sibling of mode-catalog.ts (the
+// token — table rails, timeline spines, code strips). Sibling of drawing-catalog.ts (the
 // rendering mode) and finish-catalog.ts (the backdrop). The engine's single source of truth
 // for the value set is the style axis of SPECTRUM_AXES (lib/core/resolve-spectrum.js). THIS file adds only the
 // human layer the picker needs (label, blurb, swatch) and MUST stay in step with
 // the style axis — the catalog↔register rot-guard is spectrum-catalog.test.ts, mirroring
-// mode-catalog.test.ts, and pairs with the register↔CSS rot-guard in
+// drawing-catalog.test.ts, and pairs with the register↔CSS rot-guard in
 // test/unit/parsing/resolve-spectrum.test.js.
 //
 // The spectrum STYLE is the style word on `spectrum:` deck-wide, or per slide `_class:

@@ -22,7 +22,7 @@ Each case is two files with the same name:
   "spec": "LFM-1.0",
   "section": "3.2",
   "L0": { "visible": ["…"], "hidden": ["…"], "rules": 2, "codeBlocks": ["mermaid"] },
-  "L1": { "slideCount": 3, "deck": { "mode": "sketch" }, "slides": [{ "component": "checklist" }] },
+  "L1": { "slideCount": 3, "deck": { "drawing": "sketch" }, "slides": [{ "component": "checklist" }] },
   "L2": { "findings": [{ "rule": "unknown-finish", "severity": "warning", "slide": 0 }] }
 }
 ```
@@ -63,7 +63,7 @@ host does.
 |---|---|
 | `slideCount` | The number of slides. |
 | `absent` | Strings that MUST NOT appear anywhere in the rendered output (a `_lens` tag, §2.4). |
-| `deck.mode` | The rendering mode (§2.3): `boardroom`, `sketch` or `sketch-clean`. |
+| `deck.drawing` | How the deck is drawn (§2.3): `clean`, `sketch` or `sketch-headings`. |
 | `deck.finish` | The finish (§2.3), or `none`. |
 | `deck.logo` | The `logo:` path, or `null`. |
 | `slides[i].component` | The component the slide's `_class` names (§2.1): its first token. `null` with no directive. |

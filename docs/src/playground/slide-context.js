@@ -508,7 +508,7 @@ export function sizeValuePosition(before) {
 }
 
 // The cursor's position on a `finish:` front-matter line, for finish-register
-// completion (the deck-wide finish: boardroom / sketch / sketch-clean). Mirrors
+// completion (the deck-wide finish: atrium / meridian / …). Mirrors
 // themeValuePosition — `finish:` then an optional partial value, no trailing
 // content. Returns `{ from, typed }` or null.
 export function finishValuePosition(before) {

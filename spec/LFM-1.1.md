@@ -107,10 +107,10 @@ specify them, and `split:` and `preset:` have none.
 
 | Key | Values (default first, where one applies) | What it sets | Rule |
 |---|---|---|---|
-| `mode:` | `boardroom` · `sketch` · `sketch-clean` | The rendering mode: clean, or drawn by hand. | `unknown-mode` |
+| `drawing:` | `clean` · `sketch` · `sketch-headings` | The rendering mode: clean, or drawn by hand. | `unknown-drawing` |
 | `finish:` | `none` · `atrium` · `meridian` · `strata` · `halo` · `ledger` · `nimbus` · `loom` · `savile` · `gallery` | The backdrop painted behind every slide. A host MAY also accept the name of a finish package it holds or the deck carries (LATTICE-FILE §4); the list is the finishes every renderer knows. | `unknown-finish` |
 | `backdrop:` | a strength (`20` `40` `60` `80` `full`), a mask (`clear` `open` `clear-footer` `clear-hero`) or a spot (`spot-tl` `spot-t` `spot-tr` `spot-l` `spot-c` `spot-r` `spot-bl` `spot-b` `spot-br`); up to one of each | How strongly the finish shows, and where it clears. | `unknown-backdrop` |
-| `preset:` | `classic` · `editorial` · `brand` · `minimal` | A named look that sets several registers at once, and MAY also recommend `theme:`, `color-mode:`, `mode:`, `chart-finish:`, `color-intensity:` and `backdrop:`. A register the deck sets itself wins over the preset's, and a color-axis token in a deck-wide `class:` (such as `dark`, `light` or `print`), or a `-dark` theme, keeps its color mode over a recommended one. | `unknown-preset` |
+| `preset:` | `classic` · `editorial` · `brand` · `minimal` | A named look that sets several registers at once, and MAY also recommend `theme:`, `color-mode:`, `drawing:`, `chart-finish:`, `color-intensity:` and `backdrop:`. A register the deck sets itself wins over the preset's, and a color-axis token in a deck-wide `class:` (such as `dark`, `light` or `print`), or a `-dark` theme, keeps its color mode over a recommended one. | `unknown-preset` |
 | `split:` | `headings` · `rule` | How the deck divides into slides: at headings as well as `---` (§2.2), or at `---` only. | `unknown-split` |
 | `stamp-shape:` | `tab` `notch` `bracket` `seal` `pill` `ribbon` `flag` `underline` `dot` `mark` `veil` `bar` `pin` | The shape of a slide's marker. | `unknown-stamp-shape` |
 | `tone:` | `rail` · `edge` · `glow` | The marker's tone. | `unknown-tone` |
@@ -598,7 +598,7 @@ A three-slide LFM deck, and how the same source reads in each environment:
 ````markdown
 ---
 theme: indaco
-mode: boardroom
+drawing: clean
 pagination: true
 ---
 

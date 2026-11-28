@@ -38,7 +38,7 @@ describe('RESERVED_FINISH_NAMES covers the engine’s finish register', () => {
 	// containment so the assertion above cannot be satisfied by deleting entries.
 	it('the register is a subset, and the extra reserved words are deliberate', () => {
 		expect(FINISH_NAMES.length).toBeGreaterThanOrEqual(9);
-		for (const extra of ['boardroom', 'sketch', 'sketch-clean', 'preview']) {
+		for (const extra of ['clean', 'sketch', 'sketch-headings', 'preview']) {
 			expect(RESERVED_FINISH_NAMES.has(extra)).toBe(true);
 		}
 	});

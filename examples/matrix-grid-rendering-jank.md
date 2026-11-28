@@ -101,7 +101,7 @@ The widest label no longer buys width from its neighbors.
 - Measured as text advance
   - `scrollWidth` on a centered flex box misses the half that overflows left. A Range over the text node is the honest unit — and it reads `-25.2px` where `scrollWidth` reported a 2px rounding artifact.
 - Square fails like portrait, later
-  - `--canvas-scale` raises the type as the box narrows. `Distinguished` clears its cell by `+75.9px` at wide, misses by `-25.2px` at square and `-44.5px` under `mode: sketch`.
+  - `--canvas-scale` raises the type as the box narrows. `Distinguished` clears its cell by `+75.9px` at wide, misses by `-25.2px` at square and `-44.5px` under `drawing: sketch`.
 
 ---
 

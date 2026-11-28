@@ -4,33 +4,33 @@
  "section": "2.3",
  "rows": [
   {
-   "name": "mode: boardroom",
-   "source": "---\nmode: boardroom\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "drawing: clean",
+   "source": "---\ndrawing: clean\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "mode: sketch",
-   "source": "---\nmode: sketch\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "drawing: sketch",
+   "source": "---\ndrawing: sketch\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "mode: sketch-clean",
-   "source": "---\nmode: sketch-clean\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "drawing: sketch-headings",
+   "source": "---\ndrawing: sketch-headings\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "mode: (unknown)",
-   "source": "---\nmode: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "drawing: (unknown)",
+   "source": "---\ndrawing: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": [
      {
-      "rule": "unknown-mode",
+      "rule": "unknown-drawing",
       "severity": "warning",
       "slide": 0
      }

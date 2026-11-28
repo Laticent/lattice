@@ -67,7 +67,7 @@ export function chunkStartLines(src) {
  * @property {Record<string, { valid: Set<string>; names: string[] }>} [mapRegions]
  * @property {string[]} [finishNames] — the builder forwards EVERY `*Names` register list
  *   (`fitNames`, `alignNames`, …); only the ones a caller reads by name are declared
- * @property {string[]} [modeNames]
+ * @property {string[]} [drawingNames]
  * @property {string[]} [themeNames]
  * @property {string[]} [splitNames]
  * @property {Record<string, { axis: string; hard: number }>} [capacity]

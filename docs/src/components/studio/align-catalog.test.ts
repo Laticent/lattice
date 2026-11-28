@@ -5,7 +5,7 @@ import { HORIZONTAL, VERTICAL } from '../../../../lib/core/resolve-align.js';
 import { ALIGN_HORIZONTAL, ALIGN_VERTICAL, readAlign, writeAlign } from './align-catalog';
 
 // Rot-guard: the Studio display catalog MUST stay in step with the engine register, or a word
-// renders but is not offered, or the picker offers a dead word. Mirrors mode-catalog.test.ts.
+// renders but is not offered, or the picker offers a dead word. Mirrors drawing-catalog.test.ts.
 describe('align-catalog ↔ resolve-align', () => {
 	it('offers exactly the engine words, in the engine order, on each axis', () => {
 		expect(ALIGN_VERTICAL.map((e) => e.name)).toEqual([...VERTICAL]);

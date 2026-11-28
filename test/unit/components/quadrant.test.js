@@ -619,7 +619,7 @@ describe('quadrant', () => {
 // The dispatcher is the seam where the slide's class reaches the builder, and a
 // break here is invisible: the labels still render, just measured for the wrong
 // face. Keyed on the `sketch` TOKEN because that is what the CSS keys on, so a
-// per-slide `_class: boardroom` opt-out lands on both sides at once — the same
+// per-slide `_class: no-sketch` opt-out lands on both sides at once — the same
 // contract the gantt axis uses (see gantt.test.js).
 describe('quadrant — the sketch token reaches the builder', () => {
   // A corner name whose two faces straddle a word break — `COMMITMENT WAVE`
@@ -675,17 +675,17 @@ describe('quadrant — the sketch token reaches the builder', () => {
     });
   }
 
-  test('`sketch-clean` measures the CLEAN face — it reverts --font-body', () => {
-    // `mode: sketch-clean` resolves to `sketch sketch-clean-body`, and
+  test('`sketch-headings` measures the CLEAN face — it reverts --font-body', () => {
+    // `drawing: sketch-headings` resolves to `sketch sketch-headings`, and
     // base.sketch.css puts `--font-body` back to the clean stack while leaving
     // `--font-display` / `--font-label` on the hand. These labels are
     // `--font-body`, so they paint CLEAN there — unlike `.gantt-tick`, which is
     // `--font-label` and stays hand. Testing the bare `sketch` token (as the
     // gantt correctly does) measured the hand while the CSS painted the clean
     // face, under-counting by up to 11% on C/O-heavy names. #1672.
-    assert.deepEqual(labelsOf('quadrant sketch sketch-clean-body'), labelsOf('quadrant'),
-      'a sketch-clean slide must be measured exactly as a clean slide is');
-    assert.notDeepEqual(labelsOf('quadrant sketch sketch-clean-body'), labelsOf('quadrant sketch'),
+    assert.deepEqual(labelsOf('quadrant sketch sketch-headings'), labelsOf('quadrant'),
+      'a sketch-headings slide must be measured exactly as a clean slide is');
+    assert.notDeepEqual(labelsOf('quadrant sketch sketch-headings'), labelsOf('quadrant sketch'),
       'and must NOT be measured as a full-sketch slide');
   });
 

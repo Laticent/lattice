@@ -91,10 +91,10 @@ another's.
 | **Finish** | Finish | what should it feel like? | theme designers |
 
 The **Finish** axis is set through three composable front-matter registers, each
-its own key: `theme:` (the palette), `mode:` (the rendering *mode* — the
-typographic hand: `boardroom` / `sketch`), and `finish:` (the *backdrop* layer
+its own key: `theme:` (the palette), `drawing:` (the rendering *mode* — the
+typographic hand: `clean` / `sketch`), and `finish:` (the *backdrop* layer
 stack: `none` / `atrium` …). *"Mode" is the human word for that rendering-hand
-register specifically.* (The key is `mode:`, not `style:` — Marp already owns
+register specifically.* (The key is `drawing:`, not `style:` — Marp already owns
 `style:` for inline-CSS injection.)
 
 **The one word we legislate against is "look"** — it collides between *Layout*
