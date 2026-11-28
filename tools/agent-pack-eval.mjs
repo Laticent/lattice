@@ -36,12 +36,13 @@
  *   --reasoning how much a deck call may reason. Reasoning tokens come out of max_tokens, and both
  *               nightly models reason unasked: left alone they spent the whole budget and wrote no deck
  *               (runs 46068425702, 46073230172, 46073233625). auto (default) gives an Anthropic model a
- *               hard budget of REASONING_BUDGET tokens, the one control OpenRouter passes through exactly,
- *               and any other model effort minimal; low, minimal, medium or high sends that effort; default
- *               sends nothing; none switches reasoning off. none is never the default: a model that must
- *               reason rejects it, and each refused call still counts its ceiling against --max-usd. A
- *               reasoning budget goes to a Claude model without a temperature, which Anthropic refuses
- *               while thinking. A probe never sends a setting. Old and new start.md get the same one.
+ *               hard budget of REASONING_BUDGET tokens, a model in REASONING_OFF effort none, and any
+ *               other model effort minimal. low, minimal, medium or high sends that effort; default
+ *               sends nothing; none switches reasoning off. none is never sent to an unmeasured model:
+ *               one that must reason rejects it, and each refused call still counts its ceiling against
+ *               --max-usd. A reasoning budget goes to a Claude model without a temperature, which
+ *               Anthropic refuses while thinking. A probe never sends a setting. Old and new start.md
+ *               get the same one.
  *   --probe     one max_tokens-1 call per system file: what the prompt costs in tokens on this model (R0).
  *               Anthropic and Gemini have free token counters; use this only where none exists.
  *
@@ -90,11 +91,19 @@ export const REASONING = ['auto', 'none', 'low', 'minimal', 'medium', 'high', 'd
  * 2026-11-27 wrote theirs in about 800 to 1,500 tokens.
  */
 export const REASONING_BUDGET = 1500;
+/**
+ * Models `auto` runs with reasoning off, each measured to accept it. DeepSeek V4.1 Flash with `none`
+ * (run 46099333931) asked for kit files on 7 of 10 decks and never ran out of budget; at `minimal`
+ * (46099331532) it asked for none, so the retrieval arm tested nothing on it. Any other model keeps
+ * `minimal`, since a model that must reason rejects `none`.
+ */
+export const REASONING_OFF = new Set([MODELS.deepseek]);
 /** The `reasoning` object a call sends, or null for none. A probe never asks for reasoning: it allows 1 output token. */
 export function reasoningFor(model, setting, probe = false) {
   if (probe || setting === 'default') return null;
   if (setting !== 'auto') return { effort: setting };
-  return String(model).startsWith('anthropic/') ? { max_tokens: REASONING_BUDGET } : { effort: 'minimal' };
+  if (String(model).startsWith('anthropic/')) return { max_tokens: REASONING_BUDGET };
+  return REASONING_OFF.has(model) ? { effort: 'none' } : { effort: 'minimal' };
 }
 const MAX_TOKENS = 6000;
 /** The retrieval arm serves at most this many files, and at most this many bytes of them in all. */

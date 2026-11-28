@@ -362,18 +362,25 @@ whole effort, and real evidence over claims. So `tools/agent-pack-eval.mjs` chan
   | 46068425702 | DeepSeek V4.1 Flash | none | 0 | 10 | 0.0193 |
   | 46073230172 | DeepSeek V4.1 Flash | `effort: low` | 1 | 8 | 0.0123 |
   | 46073233625 | Haiku 5.5 | none | 3 | 7 | 0.0473 |
+  | 46099328828 | Haiku 5.5 | `max_tokens: 1500` | 7 | 0 | 0.0185 |
+  | 46099331532 | DeepSeek V4.1 Flash | `effort: minimal` | 7 | 1 | 0.0095 |
+  | 46099333931 | DeepSeek V4.1 Flash | `effort: none` | 5 | 0 | 0.0070 |
 
   So `--reasoning auto`, the default, now gives an Anthropic model a hard budget,
   `reasoning: { max_tokens: 1500 }`. OpenRouter passes that to Anthropic exactly (minimum 1,024).
-  Every other model gets `effort: 'minimal'`, because for an effort-only model OpenRouter only picks
-  an effort from a token budget. The decks that passed wrote their text in about 800 to 1,500
+  DeepSeek gets `effort: 'none'` (`REASONING_OFF`). With it, DeepSeek asked for kit files on 7 of 10
+  decks; at `minimal` it asked for none, so the retrieval arm tested nothing. Every other model gets
+  `effort: 'minimal'`, because for an effort-only model OpenRouter only picks an effort from a token
+  budget, and a model that must reason rejects `none`. The decks that passed wrote their text in about 800 to 1,500
   tokens, so 4,500 is enough room. `max_tokens` stays at 6,000, so the cost ceiling does not move.
   A Claude model given a budget is sent no temperature, since Anthropic refuses one while thinking.
   `--reasoning none` switches reasoning off. It is never the default, because a model that must
   reason rejects it. A probe never sends a setting.
   Old and new `start.md` always get the same one. The workflow takes a `reasoning` input, a row
   records its reasoning tokens, and a reply that reasoned through its whole budget fails as "no deck
-  was written". Whether `minimal` holds DeepSeek inside the budget is UNVERIFIED until the next run.
+  was written". The Haiku `max_tokens: 1500` row and the DeepSeek `none` row are what `auto` sends now. Neither
+  ran a deck out of budget, and their failures are lint errors and overflow: the defects this eval
+  exists to find.
 
 The nightly now runs only the retrieval arm, Haiku on even days since the epoch and DeepSeek on odd
 ones, capped at USD 0.25. The small arm's default model is Haiku 5.5 (it was gpt-4o-mini). A capable
