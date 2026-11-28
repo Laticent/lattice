@@ -53,7 +53,7 @@ not: a red on `main`, a tool or dependency missing from the sandbox image, a bro
 hook that two or more sessions hit (`engineering/workflow.md` §Desks, "Blockers go to the
 command center"), except a nightly, golden-bless or platform-suite red and a break a
 dependency bump caused, which stay with the deps desk. Give each one owner, tag the fixing session `claim:blocker:<slug>`, and
-tell the command center the owner and tag so it can tell every affected session. A fix that
+put the owner and tag in this pass's report to the command center (step 4), so it can tell every affected session; never as a message of its own. A fix that
 changes a CI job or step, a hook or the environment's settings goes to the owner first
 (CLAUDE.md, SECOND FILTER). Not yours: merging, labels, another session's branch, a red test a session's own change caused
 (that session fixes it, HARD RULE #33), and a non-test bug that only one session hits (the command

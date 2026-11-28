@@ -3287,7 +3287,7 @@ this. something durable and sustainable"):
 | Gate | What it sends |
 |---|---|
 | **Card ready** | one line, `card ready #N <sha>`: the 🚦 card itself is on the PR, where the command center and the merge desk read it (§Pre-merge card) |
-| **Blocker** | the one `🧱 blocker` line (below), when it needs routing |
+| **Blocker** | the one `🧱 blocker` line (below) |
 | **Owner question** | the ❓ decision card, same wording as on the PR (§❓ Decision card) |
 | **Done, when asked** | `done` plus the git output the command center asked for (auto-archive check 4(b), below); a reply, sent only after the command center asks |
 
@@ -3298,7 +3298,8 @@ a rebase, a merge landing, the 📋 standup and 🎯 brief) goes on the PR and i
 (§Relay), where the command center reads it when it needs it (`list_events`, the PR). A question from the
 command center or a desk is answered with one `send_message` back, as below; that is a reply, not a new
 gate. A desk's end-of-pass report answers the pass the owner or the command center asked for, so it is a
-reply too, and it is the desk's only report. Born 2026-11-28: the command center held about 400,000
+reply too, and it is the desk's only report; the 🌙 night desk's morning report (`/desk-night`) is its
+end-of-pass report. Born 2026-11-28: the command center held about 400,000
 tokens, every desk FYI, "merged" line and meter woke it, it answered each one, and it reposted one merge
 digest four times ("Command-center conduct", below).
 
@@ -3405,8 +3406,9 @@ archives a session only when all of these hold, read fresh in the same run, with
    own checkout and `get_session` still read `"unpushed_work": false`, so the flag missed an
    untracked file (at least while that turn was still running; nobody has yet checked
    whether it catches up at the turn's end). To keep (b) cheap, the command center asks for
-   it while the session's cache is still warm, right after the session reports it is done
-   (its standup, its "nothing left"), never by waking one that has sat idle past an hour. A
+   it while the session's cache is still warm, right after the session says it is done (its
+   📋 standup on the PR, which the command center reads after its own `#N merged at <sha>`
+   message or a check-in, or its "nothing left"), never by waking one that has sat idle past an hour. A
    session idle past an hour with no such reply on record stays, and goes on the owner's
    list. A session can also say it discarded its work while it still holds some: the
    2026-11-27 Compose session still held a local branch and a stash, and its flag read
@@ -3438,7 +3440,7 @@ pinned session, or one with an open PR or a question for the owner.
 reports to the one live session with that tag. If two or more live sessions hold
 it, the desk reports to none of them: it stops and asks the owner which one is the
 command center, because a second holder would otherwise receive desk reports,
-relays and merge confirmations meant for the first. "Live" means not archived. To
+relays and gate messages meant for the first. "Live" means not archived. To
 find the holder, page `list_sessions(mine:true, limit:100)` with `after_id` until
 `has_more` is false and read each row's tags; the `tags:` filter is refused from
 inside a session. If no live session holds the tag, the desk asks the owner where
@@ -3460,8 +3462,10 @@ the whole fleet, so each of its turns is the most expensive turn in the fleet. T
    to know before deciding.
 2. **One merge digest per new card.** It posts a `🚦 Merge digest` once, when a new card is ready. The
    owner's `all` stays valid against that digest until a newer digest replaces it, however much text
-   comes between: `.claude/hooks/owner-merge-gate.mjs` has read it that way since #3550 (§Merging). It
-   never reposts a digest to keep `all` working; a repost costs a full turn and buys nothing.
+   comes between, except for a PR the owner names after it ("hold #N"):
+   `.claude/hooks/owner-merge-gate.mjs` has read it that way since #3550 (§Merging). Because `all` reads
+   only the newest digest, each new digest lists every PR still waiting, not only the new one. It never
+   reposts a digest to keep `all` working; a repost costs a full turn and buys nothing.
 3. **Rotate past ~300,000 tokens, whatever the usage percentage.** At a checkpoint where its own
    `external_metadata.context_usage.used_tokens` (`get_session`, no id) is above about 300,000, it
    rotates even when the weekly usage is low: it writes its brief (§Relay, "Session rotation"), starts a
