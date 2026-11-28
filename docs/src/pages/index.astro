@@ -253,7 +253,7 @@ const nextSteps = nextStepsFor(url);
 		{/* The description leads with Compose and names Markdown as Source (owner, 2026-11-28,
 		    PR 3618 "copy 2"): the page's first door is the Studio's writing page. */}
 		<PageMeta
-			title="Lattice — Markdown to boardroom-ready slide decks (PDF, PPTX)"
+			title="Lattice — Write the words, get a boardroom-ready deck (PDF, PowerPoint)"
 			description="Write each slide in Compose, like a document, or in Source as Markdown. Pick a layout, and Lattice renders a polished PDF, PowerPoint, or web deck. Free, open source (AGPL-3.0-only)."
 		/>
 		{/* Where an agent starts (#3522 E2-S01): the authoring entry, in the initial HTML. The
@@ -304,7 +304,7 @@ const nextSteps = nextStepsFor(url);
 						<p class="m-0 mb-2 font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-primary">After · one slide</p>
 						<HeroPreview client:load data={heroData} />
 						<p class="m-0 mt-3 text-[13px] text-muted-foreground">
-							The same facts as six lines of text, one per bar. Open <span class="font-semibold text-foreground">Source</span> to see them.
+							The memo's facts as six short lines of text; Lattice drew the chart. Click the <span class="font-semibold text-foreground">Source</span> tab to see the lines.
 						</p>
 					</div>
 				</div>
@@ -442,10 +442,9 @@ const nextSteps = nextStepsFor(url);
 							Change one line. Restyle the whole deck.
 						</h3>
 						<p class="m-0 text-[17px] text-foreground">
-							Your brand colors live in one palette file and your logo in one{' '}<code class="font-mono text-[0.88em] text-primary">logo:</code>{' '}line,
-							so every deck anyone on the team makes comes out on brand. Change the{' '}<code class="font-mono text-[0.88em] text-primary">theme:</code>{' '}line
-							and the whole deck follows, in light or dark. Below, one quarterly review moves through every palette. Watch the{' '}<code class="font-mono text-[0.88em] text-primary">theme:</code>{' '}line:
-							one word changes, every color follows, and the layout, words and numbers stay put.
+							Your brand is set up once: your colors and your logo. After that, every deck anyone on the team makes comes out
+							on brand, in light or dark. Below, one quarterly review moves through every palette: one setting changes, every
+							color follows, and the layout, words and numbers stay put.
 						</p>
 					</div>
 					<RestyleShowcase client:visible data={restyleData} />
@@ -515,7 +514,7 @@ const nextSteps = nextStepsFor(url);
 			<section class="border-t border-border py-[clamp(48px,6vw,88px)]">
 				<div class="wrap">
 					<SectionHead eyebrow="Where to go next" title="Pick a starting point.">
-						The engine ships today; the Laticent desktop app is on the way.
+						The Studio and the command line work today. A desktop app, Laticent, is on the way.
 					</SectionHead>
 					<NextSteps links={nextSteps} />
 				</div>

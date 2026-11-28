@@ -79,7 +79,7 @@ export default function VenueDemo({ data }: { data: VenueDemoData }) {
 											: `${v.label}, for ${v.who}: all five numbers fit at this type size.`}
 									</p>
 									<p className={`m-0 mb-2 ${LABEL}`}>
-										One slide · <code>venue: {v.venue}</code>
+										Before · one slide
 									</p>
 									<DeckPreview
 										options={options}
@@ -99,7 +99,7 @@ export default function VenueDemo({ data }: { data: VenueDemoData }) {
 												Your fix: the same five numbers on two slides that fit at this size. On a 16:9 deck, Lattice
 												never splits a slide for you.
 											</p>
-											<p className={`m-0 mb-2 ${LABEL}`}>The fix · two slides</p>
+											<p className={`m-0 mb-2 ${LABEL}`}>After · two slides</p>
 											<div className="grid grid-cols-2 gap-2.5">
 												{splitSlides.map((s, i) => (
 													<DeckPreview
@@ -155,7 +155,7 @@ function LintVerdict({ findings }: { findings: VenueFinding[] }) {
 			<p className="m-0 mt-2.5 flex items-center gap-2 text-[14px] text-foreground">
 				<CircleCheck aria-hidden="true" className="size-4 flex-none text-primary" />
 				<span>
-					<code className="font-mono text-[0.9em]">lint:deck</code>: no warnings.
+					Lattice’s checks: no warnings.
 				</span>
 			</p>
 		);

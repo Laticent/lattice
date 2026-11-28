@@ -60,9 +60,8 @@ const HOW_STEPS: { verb: string; body: React.ReactNode }[] = [
 		verb: 'Pick a layout',
 		body: (
 			<>
-				from the slide’s menu, or by name: <code className="font-mono text-[0.9em] text-primary">big-number</code>,{' '}
-				<code className="font-mono text-[0.9em] text-primary">gantt</code>,{' '}
-				<code className="font-mono text-[0.9em] text-primary">verdict-grid</code>.
+				by what the slide needs to do (a big number, a timeline, a verdict grid), from the slide’s menu in Compose
+				or by name in Source.
 			</>
 		),
 	},
@@ -105,7 +104,7 @@ const SAY_MORE_BEATS: { lead: string; body: string }[] = [
 	},
 	{
 		lead: 'Show it instead of saying it.',
-		body: 'A plain list becomes a funnel, a Gantt chart, a map, or a verdict grid. No drawing tool.',
+		body: 'Choose a funnel, a timeline, a map, or a verdict grid, and your plain list is drawn as one. No drawing tool.',
 	},
 	{
 		lead: 'Spend the hour on the argument.',
@@ -225,8 +224,8 @@ export function RoomCards({ playgroundHref, layoutCount }: { playgroundHref: str
 					...c,
 					body: (
 						<>
-							Gantt charts, every Mermaid diagram type, code diffs, statute stacks, and radar charts, in the notation
-							each field expects. {layoutCount} layouts in all, one Markdown syntax.
+							Project timelines, flowcharts and diagrams, code changes, stacked legal clauses, and radar charts, each drawn
+							the way its field expects. {layoutCount} layouts in all, written the same way.
 						</>
 					),
 				}
@@ -521,15 +520,15 @@ const WHY_CARDS: WhyCard[] = [
 		title: 'Layouts you ask for by name.',
 		body: (
 			<>
-				You ask for a verdict grid, a derivation, a statute stack — the name says what the slide does. &ldquo;Which
-				layout do I want?&rdquo; has an answer that isn&rsquo;t <em>scroll the gallery</em>.
+				You ask for a verdict grid, a derivation, a stack of legal clauses: the name says what the slide does, so
+				you find the right one without browsing a gallery.
 			</>
 		),
 	},
 	{
 		id: 'no-service',
-		title: 'No service, no account, no telemetry.',
-		body: 'The engine runs on your own machine, or in your own build, and sends nothing anywhere.',
+		title: 'No account, and nothing sent anywhere.',
+		body: 'Lattice runs on your own machine, or in your own build, and what you write stays there.',
 	},
 ];
 
@@ -616,7 +615,7 @@ export function QualityLayers({
 		},
 		{
 			step: 'Detects',
-			title: 'Lattice’s checks catch what an author can still get wrong.',
+			title: 'Lattice flags a problem slide while you write, before anyone sees it.',
 			body: 'It reads every slide as you write, in the Studio or on the command line, and names the problem and the fix: a slide too full for the room, or a layout given the wrong kind of content.',
 		},
 		{
@@ -690,7 +689,7 @@ const STUDIO_ROWS: { label: string; body: React.ReactNode }[] = [
 	// and a fourth row costs phones a screen.
 	{
 		label: 'Edit',
-		body: 'Write in Compose, a plain writing page with no Markdown at all, or in Source, the Markdown itself, beside a live preview of the finished slide. Share a link and up to four people edit with you live, with a voice call if you want one.',
+		body: 'Write in Compose, which works like a document, or in Source, the same deck as Markdown, beside a live preview of the finished slide. Share a link and up to four people edit with you live, with a voice call if you want one.',
 	},
 	{
 		label: 'Review',
@@ -754,8 +753,8 @@ export function StudioCopy() {
 					    components and finishes — decks live in the workspace, so the old
 					    wording named a real surface that holds something else. */}
 					<p className="m-0 mb-6 max-w-[46ch] text-[17px] leading-[1.6] text-foreground">
-						The same engine that renders your PDFs, running in a browser tab — with an editor, your saved decks, and
-						Present mode around it. Your decks live in this browser: no account, nothing to install.
+						Write, check and present your deck in a browser tab, with the same engine that makes the PDF. Your decks are
+						saved in this browser, and you can export a copy any time: no account, nothing to install.
 					</p>
 
 					{/* Three beats, in the same voice as the how-it-works steps above them.
@@ -833,7 +832,8 @@ export function StudioTrust() {
 // engine is agent-addressable" and started reading as "our web app has AI chat"
 // — the exact adjacency §3 exists to prevent.
 //
-// Every string is the original, verbatim, at its original altitude. It sits
+// Its heading changed in the 2026-11-28 prose round (owner's pick: "Let your AI assistant draft.
+// Lattice still designs.", stating the split in the heading); the eyebrow is unchanged. It sits
 // immediately AFTER the Studio section so the page still holds one AI
 // conversation rather than two in two registers.
 export function ByomSection({
@@ -849,12 +849,12 @@ export function ByomSection({
 					<Eyebrow>Bring your own model</Eyebrow>
 				</div>
 				<h2 className="mb-3.5 font-[family-name:var(--font-display)] text-[clamp(28px,3.4vw,42px)] leading-[1.08] tracking-[-0.02em] text-[var(--text-heading)]">
-					Point your copilot at Lattice.
+					Let your AI assistant draft. Lattice still designs.
 				</h2>
 				<p className="m-0 mb-5 text-[17px] leading-[1.6] text-foreground">
-					Lattice itself never guesses, but a model can still draft the words. Lattice ships a machine-readable layout
-					catalog and a published authoring spec, so Claude, Cursor, or any agent can draft a valid deck, and the
-					engine renders only what is in the file — the design was finished long before the model arrived.
+					Lattice itself never guesses, but an AI assistant can still draft the words. Lattice publishes its layouts and
+					its writing rules in a form assistants can read, so Claude, Cursor, or any other can draft a valid deck, and
+					Lattice renders only what is in the file: the design was finished long before the assistant arrived.
 				</p>
 				{/* The one new sentence. "The split holds", not "the same rule holds" —
 				    the paragraph above describes a split (the model drafts, the engine
@@ -892,7 +892,7 @@ export function ByomSection({
 }
 
 // ── For builders ────────────────────────────────────────────────────────────
-// The technical visitor's band, beside "Point your copilot at Lattice" — the other
+// The technical visitor's band, beside the AI section ("Let your AI assistant draft.") — the other
 // half of the same audience. When the Libraries and Specs sections left the home
 // scroll, a single sentence under Next steps replaced them, and both scoring
 // reviews (2026-10-28) marked the developer visitor down for it: a technical
@@ -1077,7 +1077,7 @@ export function nextStepsFor(url: (p: string) => string): NextStep[] {
 		{
 			href: url('getting-started/'),
 			title: 'For developers',
-			body: 'Install the command line, render your first deck in a few minutes, and build decks in CI.',
+			body: 'Install the command line, render your first deck in minutes, and build decks in CI.',
 			cta: 'Getting started',
 		},
 		{
@@ -1089,7 +1089,7 @@ export function nextStepsFor(url: (p: string) => string): NextStep[] {
 		{
 			href: url('components/'),
 			title: 'Browse the layouts',
-			body: 'Every layout (the reference calls them components) with a live preview and an in-browser editor — themable in all palettes.',
+			body: 'Every layout, with a live preview you can edit, in every palette.',
 			cta: 'Layout reference',
 		},
 	];

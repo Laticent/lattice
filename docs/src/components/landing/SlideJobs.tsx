@@ -25,6 +25,15 @@ export type SlideJobsData = {
 };
 
 const JOBS = SLIDE_JOBS;
+// The layouts by their plain names: a reader who owns how a company presents does not type them here.
+const LAYOUT_NAMES: Record<string, string> = {
+	slope: 'Slope chart',
+	'hub-spoke': 'Hub and spoke',
+	'big-number': 'Big number',
+	'list-steps': 'Steps',
+	glossary: 'Glossary',
+	decision: 'Decision',
+};
 
 export default function SlideJobs({ data }: { data: SlideJobsData }) {
 	const [job, setJob] = React.useState(JOBS[0]?.job ?? '');
@@ -62,7 +71,7 @@ export default function SlideJobs({ data }: { data: SlideJobsData }) {
 						{/* At lg the line sits beside the slide, so a full-width 16:9 render does
 						    not cost a desktop screen; below lg it sits above it. */}
 						<p className="m-0 text-[15px] leading-[1.55] text-foreground lg:pt-2">
-							<code className="font-mono text-[0.9em] text-primary">{j.layout}</code> · {j.look}
+							<span className="font-semibold text-[var(--text-heading)]">{LAYOUT_NAMES[j.layout] ?? j.layout}.</span> {j.look}
 						</p>
 						<DeckPreview
 							options={options}
