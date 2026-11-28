@@ -486,8 +486,8 @@ bundle's CSS and JavaScript unmodified. It does not cover:
   including the Marp kit and the Export-to-Marp bundle themselves (beyond the
   files a rendered deck loads);
 - assets extracted from a rendered deck for reuse;
-- a modified engine, or embedded assets changed beyond what the export pipeline
-  or a Marp tool does;
+- a modified engine, or embedded assets changed beyond what the export pipeline,
+  Marp CLI or Marp for VS Code does;
 - a deck that any other tool builds from Lattice's files, including another
   program that uses Marp Core or Marpit.
 

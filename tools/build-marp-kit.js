@@ -258,10 +258,11 @@ and \`lattice-runtime.js\`, included for reading rather than running. They are
 built from the Lattice repository, https://github.com/Laticent/lattice, which is
 where their source is.
 
-**The output exception does not apply to this folder.** Lattice grants an
-exception, in \`LICENSE-EXCEPTIONS\`, for engine assets embedded *inside a
-rendered deck*. This kit is the other thing: the engine handed over loose, for
-reuse, so the AGPL applies to the folder in full. Slides you write are yours and
+**Apart from the files a rendered deck loads (see below), the output exception
+does not apply to this folder.** Lattice grants an exception, in
+\`LICENSE-EXCEPTIONS\`, for engine assets embedded *inside a rendered deck*.
+This kit is the other thing: the engine handed over loose, for reuse, so the
+AGPL applies to the folder itself. Slides you write are yours and
 were never covered either way; the terms here are about redistributing these
 files.
 
@@ -278,12 +279,13 @@ one of them puts engine code in your hands to pass on:
   measured is \`--pptx-editable\`, which converts through LibreOffice.)
 - **\`marp --html\` inlines the engine stylesheet** — about 852 KB of it — into
   the output file, and the file loads \`lattice-runtime-min.js\` and the other
-  scripts from beside it. If you leave this kit's CSS and JavaScript unmodified
-  and render with Marp CLI or Marp for VS Code, the output exception (version
-  1.2, in \`LICENSE-EXCEPTIONS\` beside this file) covers that file and the
-  scripts it loads: you may publish them together under terms of your choice,
-  with no duty to offer their source. Lifting the CSS or scripts out for other
-  use is not covered.
+  script and stylesheet files from beside it. If you leave this kit's CSS and
+  JavaScript unmodified and render with Marp CLI or Marp for VS Code, run with
+  the configuration this kit ships, the output exception (version 1.2, in
+  \`LICENSE-EXCEPTIONS\` beside this file) covers that file and the files it
+  loads: you may publish them together under terms of your choice, with no duty
+  to offer their source. Lifting the CSS or scripts out for other use is not
+  covered.
 
 If you plan to redistribute the kit itself, or ship a service built on it, read
 \`LICENSE\`.
