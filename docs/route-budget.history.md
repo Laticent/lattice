@@ -21,14 +21,14 @@ Why: `main` measures 644,716 B (`measure-route-base.sh` on `origin/main` at fc73
 | change | studio eagerJsGz | measured by |
 |---|---|---|
 | PR 3588, Library slice 4 | +722 B, declared in `docs/route-budget.d/3588-library-icon-pills.md` | its author, docs build merged with `main` |
-| storage slice 3, decks into the vault | about +1,746 B (631.3 KB on ec4f34ac, rounded to 0.1 KB) | its worker |
+| storage slice 3 (PR 3616), decks into the vault | about +1,746 B (631.3 KB on ec4f34ac, rounded to 0.1 KB), before its fix round | its worker |
 | PR 3615, iPad first-render step tracking | +73 B, cut from 148 B | the flake desk |
-| PR 3617, D4: a hung first render shows the failure card at 30 s (DeckPreview) | +128 B | the flake desk's fix session |
+| PR 3617, D4: a hung first render shows the failure card at 30 s (DeckPreview) | +243 B, after its checker's fixes | the flake desk's fix session |
 
 - PR 3588 keeps the Library's section icons and its Backup and restore button in the pre-paint shell, and the icon-only pill mode. Giving back the icons already eager elsewhere saves at most about 400 B; the rest would cut the pills that fit six sections at 320–480 px.
 - Slice 3 keeps the instant deck read and save path about 18 callers use, and the guard that stops an early save from blanking a deck, after moving the rest to load on first use (632.1 → 631.3 KB).
 
-Together `main` reaches about 647,385 B. The new ceiling leaves about 467 B of slack; the one rounded figure (slice 3, ±51 B) fits inside it.
+Measured together: `main` with all four merged in (local branch at cb10e115, heads 8e42a8eb, b6d983ae, 018fa2d0 and a43d5af1) builds to 647,537 B by `measure-route-base.sh`, 315 B under the new ceiling. Home's eagerJsGz, which this entry does not move, measures 331,241 B on the same build against its 331,264 B ceiling.
 
 | Route | Metric | Soft before | Soft after | Change | Ceiling after |
 |---|---|---|---|---|---|
