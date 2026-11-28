@@ -27,6 +27,19 @@ const RELOADED_KEY = 'lattice-preview-engine-reloaded';
 // 2026-11-28, D4). The card clears itself if that render settles later.
 const HUNG_RENDER_MS = 30000;
 
+/**
+ * The card's reason for a render that failed. The renderer's own reasons ("this slide's source renders as 2 slides…")
+ * tell an author what to change, so they show as they are. A network error is the browser's wording, and different in
+ * every browser ("Failed to fetch", "Load failed", "NetworkError when attempting to fetch resource.", a module URL), so
+ * the card says what to do and the console keeps the browser's words, as the engine-load card does (#3617's checker).
+ */
+const NETWORK_ERROR = /failed to fetch|load failed|networkerror|importing a module script failed|dynamically imported module|chunkloaderror|loading chunk/i;
+function failureReason(error: string): string {
+	if (!NETWORK_ERROR.test(error)) return error;
+	console.warn('[preview] a render failed on the network:', error);
+	return 'the server couldn’t be reached; check the connection, then Retry';
+}
+
 /** Read the three deck-level motion front-matter keys into a resolved `DeckMotion`. */
 function deckMotionOf(src: string): DeckMotion {
 	return parseDeckMotion(getFrontMatter(src, 'motion'), getFrontMatter(src, 'motion-style'), getFrontMatter(src, 'motion-speed'));
@@ -929,7 +942,7 @@ export function DeckPreview({
 				setFailed(isFailure);
 				setFailedOverSlide(false);
 				setStalled(false);
-				setFailedWhy(isFailure ? String(status.error ?? '') : '');
+				setFailedWhy(isFailure ? failureReason(String(status.error ?? '')) : '');
 			}
 			// A render ran, so the engine is loaded.
 			retriedRef.current = false;

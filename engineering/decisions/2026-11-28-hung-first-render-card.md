@@ -40,6 +40,10 @@ never settles was neither, so the Studio spun for good. That is what a person sa
   same way. Its bar's wording ("edits will not show here") fits the editing preview, not Present; the engine-failure bar
   has the same wording there. Not changed here.
 
+- A render that fails on the network (`ok: false` with the browser's wording: "Failed to fetch", "Load failed", a
+  module URL) says "the server couldn't be reached; check the connection, then Retry", and the browser's words go to
+  the console, as the engine-load card already does. The renderer's own reasons (an authoring error) show as they are.
+
 ## Why 30 s
 
 The owner's number. The clock times a render SETTLING, not the frame revealing. A render that writes the frame returns

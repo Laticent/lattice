@@ -30,12 +30,15 @@ const revealed = (page: Page) =>
 /** Hold every request matching `pattern`: none is answered until `release` (continue) or `fail` (abort). */
 async function hold(page: Page, pattern: string) {
 	const held: Route[] = [];
-	let mode: 'hold' | 'pass' | 'abort' = 'hold';
+	let mode: 'hold' | 'pass' | 'untilPressed' = 'hold';
 	let seen!: () => void;
 	const arrived = new Promise<void>((r) => (seen = r));
-	await page.route(pattern, (route) => {
+	await page.route(pattern, async (route) => {
 		if (mode === 'pass') return route.continue();
-		if (mode === 'abort') return route.abort();
+		if (mode === 'untilPressed') {
+			const pressed = await page.evaluate(() => (window as { __retryPressed?: boolean }).__retryPressed === true).catch(() => false);
+			return pressed ? route.continue() : route.abort();
+		}
 		held.push(route);
 		seen();
 	});
@@ -45,11 +48,37 @@ async function hold(page: Page, pattern: string) {
 			mode = 'pass';
 			await Promise.all(held.splice(0).map((r) => r.continue()));
 		},
+		// Fail what is held, and every request after it until the page has seen the Retry press: a render the page starts
+		// by itself in between (the scheduler's catch-up) would otherwise fetch the theme and recover before the press, and
+		// the arm would prove nothing about Retry. A capture listener marks the press before the button's own handler runs.
 		fail: async () => {
-			mode = 'pass';
+			mode = 'untilPressed';
+			await page.evaluate(() =>
+				document.addEventListener('pointerdown', (e) => {
+					if ((e.target as Element | null)?.closest?.('.nacre-failed__retry')) (window as { __retryPressed?: boolean }).__retryPressed = true;
+				}, true),
+			);
 			await Promise.all(held.splice(0).map((r) => r.abort()));
 		},
 	};
+}
+
+/**
+ * Step the page clock until the stall card shows. The held request can arrive before the render that waits on it starts (a
+ * phone prefetches the theme before its preview pane is shown), so one 30 s step can end before that render's clock does.
+ * DeckPreview.test.tsx pins the exact 30 s; this asks only that the card comes while the request is held. On the code
+ * before #3617 it never does.
+ */
+async function runUntilStallCard(page: Page) {
+	await expect
+		.poll(
+			async () => {
+				await page.clock.runFor(5_000);
+				return (await card(page).locator('.nacre-failed__text').textContent().catch(() => '')) ?? '';
+			},
+			{ timeout: 30_000, intervals: [0] },
+		)
+		.toContain('did not finish loading');
 }
 
 async function openHeld(page: Page, pattern: string) {
@@ -63,11 +92,11 @@ async function openHeld(page: Page, pattern: string) {
 	return h;
 }
 
-test('@crosswidth @webkit-phone @webkit-tablet @gecko a render held on a lazy chunk shows the failure card at 30 s, and the card goes when the chunk answers', async ({ page }) => {
+test('@crosswidth @webkit-phone @webkit-tablet @gecko a render held on a lazy chunk shows the failure card, and the card goes when the chunk answers', async ({ page }) => {
 	const h = await openHeld(page, '**/_astro/image-size-memo.*.js');
 	// The render is stuck inside the held import, and no card says so yet.
 	await expect(card(page)).toHaveCount(0);
-	await page.clock.runFor(30_000);
+	await runUntilStallCard(page);
 	await expect(card(page).locator('.nacre-failed__text')).toHaveText('This preview couldn’t render — the slide did not finish loading; check the connection, then Retry.');
 	await expect(card(page).getByRole('button', { name: 'Retry' })).toBeVisible();
 	// The chunk answers: the held render settles, the slide shows, and the card clears itself.
@@ -78,8 +107,7 @@ test('@crosswidth @webkit-phone @webkit-tablet @gecko a render held on a lazy ch
 
 test('@crosswidth @webkit-phone @webkit-tablet @gecko a render held on the theme shows the card, and Retry renders once the theme can be fetched again', async ({ page }) => {
 	const h = await openHeld(page, '**/playground/v/*/themes/*.css');
-	await page.clock.runFor(30_000);
-	await expect(card(page).locator('.nacre-failed__text')).toContainText('did not finish loading');
+	await runUntilStallCard(page);
 	// The held request fails (a connection that drops): the render settles as a failure, and the theme fetcher drops it,
 	// so the next ask fetches again. The requests after this one pass.
 	await h.fail();

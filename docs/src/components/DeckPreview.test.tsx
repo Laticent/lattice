@@ -474,6 +474,21 @@ describe('DeckPreview — render failure affordance (#1164)', () => {
 		});
 	});
 
+	it.each(['Failed to fetch', 'Load failed', 'NetworkError when attempting to fetch resource.', 'error loading dynamically imported module: https://x/_astro/remote-ref.CTz8c7Xo.js'])(
+		'a render that fails on the network ("%s") says what to do, and the browser’s words go to the console',
+		async (raw) => {
+			const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+			renderInto.mockImplementation(() => Promise.resolve({ ok: false, slides: 0, error: raw }));
+			const { container } = render(<DeckPreview options={opts} sample="# A" drawn={false} loader aria-label="p" />);
+			await waitFor(() => expect(container.querySelector('.nacre-failed')).toBeTruthy());
+			const shown = container.querySelector('.nacre-failed__text')?.textContent ?? '';
+			expect(shown).toBe('This preview couldn’t render — the server couldn’t be reached; check the connection, then Retry.');
+			expect(shown).not.toContain(raw);
+			expect(warn).toHaveBeenCalledWith('[preview] a render failed on the network:', raw);
+			warn.mockRestore();
+		},
+	);
+
 	it('an engine that fails while a slide is ALREADY SHOWING (the newcomer bake) leaves the slide visible: a bar, not a cover', async () => {
 		// Measured on Chromium and WebKit: the head seed's bake had painted a correct slide when the engine import failed,
 		// and the full card hid it. Now the card is a bar along the slide's foot and the slide stays in the a11y tree.
