@@ -6,7 +6,7 @@ updated: 2026-11-28
 area: infra
 severity: medium
 swimlane: engineering/gotchas/ci.md
-deferred: off-path — each load-only red below is held: deck-register-gap and compose-layout-button pass on main and the flake desk (session_015KSkL7caJSQERqwMMpmVT2) holds them as witness-on-main claims; filo-undo and workspace-restore-gate belong to session_015KSkL7sXyLNDKsTcTWygYP; the mobile-touch avatar tap has no owner yet; none of them has been seen red on main itself
+deferred: off-path — each load-only red below is held: deck-register-gap and compose-layout-button pass on main and the flake desk (session_015KSkL7caJSQERqwMMpmVT2) watches them (witness-on-main, defined below); filo-undo and workspace-restore-gate belong to session_015KSkL7sXyLNDKsTcTWygYP; the mobile-touch avatar tap has no owner yet; none of them has been seen red on main itself
 source: https://github.com/Laticent/lattice/pull/3043
 ---
 
@@ -39,7 +39,9 @@ cleared   — 2026-11-28, deck-register-gap.spec.ts:99 (now :108, the @crosswidt
             burners, and inside three whole-suite runs at 4 workers (two six-project runs and one desktop-project run, each
             stopped after the file). :21: 101 of 101, including 28 under Chromium CPU throttling. :85: 81 of 81, the last
             inside the whole gecko project at 4 workers (517 passed, 4 skipped, 0 failed). The flake desk holds all three
-            as witness-on-main claims: a red on main gets its trace read and an owner.
+            as witness-on-main claims. A witness-on-main claim is a test that passes on main with no cause found: the desk
+            keeps watching it, and the next red on main gets its trace read and an owner. The run logs were in that
+            session's container and are not kept.
 cleared   — 2026-11-21, branch claude/chromium-e2e-flake-triage, on main 450df6d with a fresh `build:e2e`, the desktop,
             tablet and mobile projects, --retries=0, whole spec files: 4 workers x2 and x8 under load, and 1 worker x5
             alone. Every Chromium item still listed here passed every run, so each is stale:
