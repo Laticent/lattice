@@ -480,3 +480,5 @@ visitor test instead of a rescore number.
 - **Copy 1 yes:** the hero's "the same way every time" now carries the same bound as the proof strip: the same text and palette give the same design.
 - **Copy 2 yes:** "Compose should be the focus, we mention markdown as source". The meta description and the how-it-works Write step lead with Compose and name Markdown as Source.
 - **Copy 3 keep:** the Studio H2 "The same deck, without installing anything." is unchanged.
+
+**After #3629 and #3621 landed (2026-11-28).** Main alone measured home htmlRaw 126,880 B, and with #3618 merged in the page was 2.5 KB past its 130.9 KB ceiling. Astro ships `<!-- -->` comments in the HTML (9.2 KB of them on home), so the comments in the sections this round owns (say-more, Studio, quality, AI) became `{/* */}`, which Astro strips. Home then measured htmlRaw 129.8 KB and eagerJsGz 324.7 KB, both under their ceilings, with about 1.1 KB and 0.3 KB of room.

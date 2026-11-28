@@ -310,13 +310,13 @@ const nextSteps = nextStepsFor(url);
 				</div>
 			</section>
 
-			<!-- Say more with less — the communication thesis, directly under the
+			{/* Say more with less — the communication thesis, directly under the
 			     hero: what a deck is FOR (the people who decide understand you) before
 			     how it is made. Muted. Under the thesis, the vocabulary grouped by the job
 			     a slide does, one LIVE slide at a time (SlideJobs; owner's next-round
 			     brief, item 5): the line above the picker says what to do, and each panel
 			     says what to look at before the slide.
-			     See engineering/decisions/2026-10-28-home-positioning-audit.md §5. -->
+			     See engineering/decisions/2026-10-28-home-positioning-audit.md §5. */}
 			<section class="border-y border-border bg-muted py-[clamp(48px,6vw,88px)]">
 				<div class="wrap">
 					<SayMoreSection />
@@ -325,8 +325,8 @@ const nextSteps = nextStepsFor(url);
 							<span class="font-semibold text-[var(--text-heading)]">What does this slide need to do?</span> Pick a job to
 							see the layout built for it. The slide is rendered live from its text, not a picture.
 						</p>
-						<!-- client:only: the shell (LiveDemos.tsx) loads the picker when it nears the
-						     viewport; the fallback holds its space until then. -->
+						{/* client:only: the shell (LiveDemos.tsx) loads the picker when it nears the
+						     viewport; the fallback holds its space until then. */}
 						<SlideJobsLive client:only="react" data={slideJobsData}>
 							<div slot="fallback" class="lx-ui min-w-0" aria-hidden="true">
 								<div class="h-10 w-full rounded-lg bg-[var(--bg-alt)]"></div>
@@ -337,7 +337,7 @@ const nextSteps = nextStepsFor(url);
 				</div>
 			</section>
 
-			<!-- The Studio — moved UP to directly after "Say more with less" (owner's
+			{/* The Studio — moved UP to directly after "Say more with less" (owner's
 			     next-round brief, item 1), with the three how-it-works steps folded in
 			     to its panel. It used to sit below the brand section, after a separate
 			     "How it works" band, so the visitor met the text-file model before the
@@ -345,25 +345,25 @@ const nextSteps = nextStepsFor(url);
 			     company presents will write in the Studio. Each step names both doors
 			     (Compose or Markdown; the Studio or one command), so neither reads as the
 			     lesser; the steps sit inside the panel, under its headline and live slide.
-			     Plain background; the panel supplies its own inset bg-card. -->
+			     Plain background; the panel supplies its own inset bg-card. */}
 			<section class="py-[clamp(48px,6vw,88px)]">
 				<div class="wrap">
-					<!-- The inset panel is what makes this read as an OBJECT you can open
+					{/* The inset panel is what makes this read as an OBJECT you can open
 					     rather than another prose band, and what separates it from the
 					     plain card sections around it. Astro owns the panel + grid;
 					     React owns the content — the same split the hero uses, and the
-					     reason the preview is a SIBLING island rather than a child. -->
+					     reason the preview is a SIBLING island rather than a child. */}
 					<div class="rounded-2xl border border-border bg-card p-[clamp(20px,3vw,40px)] text-card-foreground shadow-sm">
-						<!-- Same column ratio as the hero, so the page keeps one visual
+						{/* Same column ratio as the hero, so the page keeps one visual
 						     language and the eye recognizes "another open-it moment".
 						     THREE children, not two, so the CTA can follow the PROOF when
 						     the grid stacks: below lg the order reads prose → preview →
 						     buttons; at lg the prose and buttons sit in column 1 and the
-						     preview spans both rows in column 2. -->
+						     preview spans both rows in column 2. */}
 						<div class="grid grid-cols-1 items-start gap-x-[clamp(24px,3vw,44px)] gap-y-7 lg:grid-cols-[1.05fr_1fr]">
 							<div class="min-w-0 lg:col-start-1 lg:row-start-1"><StudioCopy /></div>
-							<!-- client:visible — below the fold; the engine bundle it needs is
-							     already in flight from the hero's client:load preview. -->
+							{/* client:visible — below the fold; the engine bundle it needs is
+							     already in flight from the hero's client:load preview. */}
 							<div class="min-w-0 lg:col-start-2 lg:row-start-1 lg:row-span-2">
 								<StudioPreview client:visible data={studioData} />
 							</div>
@@ -371,8 +371,8 @@ const nextSteps = nextStepsFor(url);
 								<StudioActions studioHref={url('studio/')} newDeckHref={url('studio/') + '?new=1'} />
 							</div>
 						</div>
-						<!-- How it works, folded in under the panel's headline and proof: three
-						     steps that each name both doors. -->
+						{/* How it works, folded in under the panel's headline and proof: three
+						     steps that each name both doors. */}
 						<div class="mt-8 border-t border-border pt-8">
 							<HowItWorks />
 						</div>
@@ -455,7 +455,7 @@ const nextSteps = nextStepsFor(url);
 				</div>
 			</section>
 
-			<!-- Quality, in three layers — what PREVENTS drift (the type scale and the
+			{/* Quality, in three layers — what PREVENTS drift (the type scale and the
 			     theme), what DETECTS a broken rule (the linter), and what ASSESSES the
 			     deck (the Studio's Deck read), each told as its own job (owner's
 			     next-round brief, item 4). Then the detecting layer at work on one real
@@ -464,7 +464,7 @@ const nextSteps = nextStepsFor(url);
 			     the linter says first. Every name, count and warning is the engine's,
 			     read at build time (engine-facts.ts) and pinned by its test. Muted, so
 			     it separates the plain brand section above from the muted AI band below
-			     by a rule, not a color change. -->
+			     by a rule, not a color change. */}
 			<section class="border-t border-border py-[clamp(48px,6vw,88px)]">
 				<div class="wrap">
 					<SectionHead eyebrow="Quality, built in" title="The standard is set before you write, and checked while you do.">
@@ -491,13 +491,13 @@ const nextSteps = nextStepsFor(url);
 				</div>
 			</section>
 
-			<!-- Bring your own model — its own band, at h2 altitude. It was briefly
+			{/* Bring your own model — its own band, at h2 altitude. It was briefly
 			     absorbed into the Studio section as an h3 to hold the page's section
 			     count; that trade was wrong. The eyebrow exists to disclaim AT SKIM
 			     ALTITUDE (copy doc §5.5), and a skimmer scanning h2s never sees an h3 in
 			     another section's footer. Since the Studio moved up (next-round brief,
 			     item 1) it follows the quality section, whose Studio scores it answers:
-			     the model can draft, the engine and the checks stay deterministic. -->
+			     the model can draft, the engine and the checks stay deterministic. */}
 			<section class="border-y border-border bg-muted py-[clamp(48px,6vw,88px)]">
 				<div class="wrap">
 					<ByomSection
