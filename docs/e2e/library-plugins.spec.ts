@@ -96,7 +96,7 @@ for (const [label, width, height] of [
 		const box = await card.boundingBox();
 		expect(box && box.x >= 0 && box.x + box.width <= width + 1, 'the card fits the width').toBe(true);
 		// Every pill is reachable at this width: five pills must not push one off screen.
-		for (const name of ['All', 'Design', 'Media', 'Files', 'Plugins']) {
+		for (const name of ['All', 'Decks', 'Design', 'Media', 'Files', 'Plugins']) {
 			const tab = tabs.getByRole('tab', { name, exact: true });
 			await expect(tab).toBeVisible();
 			const b = await tab.boundingBox();
@@ -110,11 +110,11 @@ for (const [label, width, height] of [
 		// phone keeps the field docked at the bottom, always open. The tabs above are laid out, so the header is too.
 		const searchButton = page.getByRole('button', { name: 'Search library' });
 		if (await searchButton.isVisible()) await searchButton.click();
-		await page.getByPlaceholder(/^Search themes/).fill('zzz-no-match');
+		await page.getByPlaceholder(/^Search decks, themes/).fill('zzz-no-match');
 		await expect(card).toHaveCount(0);
-		await page.getByPlaceholder(/^Search themes/).fill('gantt');
+		await page.getByPlaceholder(/^Search decks, themes/).fill('gantt');
 		await expect(card).toBeVisible();
-		await page.getByPlaceholder(/^Search themes/).fill('');
+		await page.getByPlaceholder(/^Search decks, themes/).fill('');
 		// Remove.
 		await pick('Plugins');
 		await card.getByRole('button', { name: /^Delete / }).click();

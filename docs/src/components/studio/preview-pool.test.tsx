@@ -43,7 +43,7 @@ vi.mock('@/components/DeckPreview', async () => {
 });
 
 import { slotShows } from './pool-capture';
-import { APPLY_MS, BASE_SLOTS, CAPTURE_INPUT_QUIET_MS, CAPTURE_QUIET_MS, captureWait, FRAME_BLEED, HARD_MAX_SLOTS, hearInput, PARK_MS, PENDING_HARD_MS, PooledThumbFace, type PoolReport, PreviewPool, paintedIsCurrent, RELEASE_GRACE, readerQuietFor, showsOther, tierSlotCaps } from './preview-pool';
+import { APPLY_MS, BASE_SLOTS, CAPTURE_INPUT_QUIET_MS, CAPTURE_QUIET_MS, captureWait, FRAME_BLEED, HARD_MAX_SLOTS, hearInput, PARK_MS, PENDING_HARD_MS, PooledThumbFace, type PoolReport, PreviewPool, paintedIsCurrent, RELEASE_GRACE, readerQuietFor, SHAPE_SPARE, showsOther, slotRoom, tierSlotCaps } from './preview-pool';
 
 // A controllable IntersectionObserver: jsdom has none, and the pool's no-IO fallback treats
 // every tile as in band, which would make every assertion here vacuous.
@@ -920,6 +920,266 @@ describe('PreviewPool — a tile of another shape', () => {
 		settle();
 		expect(showing(container)).toContain(samples[BASE_SLOTS]);
 		expect(reshapes, 'a full pool rewrote a plain slot for the one Mermaid tile').toBe(0);
+	});
+
+	it('never rewrites the one Mermaid frame for a plain tile whose own frames are all busy, even at the ceiling', () => {
+		// The Add slide gallery under LITE (ceiling 12) put 12 plain tiles on screen at 1440x900. The 12th took the one free
+		// Mermaid frame, and the Mermaid tile then rewrote a plain one: about two documents on every reopen, with no bound
+		// (MR-3 under ?tier=lite, 31 steals in 12 runs). The same steal happened on FULL whenever the pool sat at its on-screen
+		// cap. A ceiling of 4 here stands in for both: 3 plain + 1 Mermaid fill it, then 4 plain tiles want frames at once.
+		reshapes = 0;
+		const MER = '```mermaid\ngraph TD\n```';
+		const samples = ['# 0', '# 1', '# 2', '# 3', MER];
+		const reports: PoolReport[] = [];
+		const { container } = render(
+			<PreviewPool maxSlots={4} onSettle={(r) => reports.push(r)}>
+				{samples.map((sample, i) => (
+					<div key={sample} data-testid={`tile-${i}`}>
+						<PooledThumbFace options={{ themeBase: '', runtimeUrl: '', engineUrl: '' }} sample={sample} className="aspect-video w-full" />
+					</div>
+				))}
+			</PreviewPool>,
+		);
+		const show = (on: number[], off: number[]) => {
+			for (const i of off) {
+				offScreen(face(container, i));
+				intersect(face(container, i), false);
+			}
+			for (const i of on) {
+				onScreen(face(container, i));
+				intersect(face(container, i), true);
+			}
+		};
+		show([0, 1, 2, 4], []);
+		settle();
+		show([3], [4]);
+		settle(RELEASE_GRACE + APPLY_MS + 50);
+		expect(showing(container)).toEqual(expect.arrayContaining(['# 0', '# 1', '# 2', '# 3']));
+		// And back: the Mermaid tile finds its own frame still built for it.
+		show([4], [3]);
+		settle(RELEASE_GRACE + APPLY_MS + 50);
+		expect(showing(container)).toContain(MER);
+		expect(reshapes, 'a frame was rewritten across the Mermaid boundary').toBe(0);
+		const last = reports[reports.length - 1];
+		expect(last.slots, 'one spare frame past the ceiling, and no more').toBe(4 + SHAPE_SPARE);
+		expect(last.capacity, 'the spare is not more tiles on screen').toBe(4);
+	});
+
+	it('keeps the Mermaid frame through a filter round trip, and gives the spare back on a look change', () => {
+		// A filter (or a looks panel remounted per open) unregisters the Mermaid tile for a while. Its frame must survive
+		// that: reading staleness from the registered tiles trimmed it, or gave it to a plain tile, and a new frame was
+		// made on every round trip (checker 18, measured: mounts and unmounts +1 each per round trip).
+		const MER = '```mermaid\ngraph TD\n```';
+		const reports: PoolReport[] = [];
+		const Pool = ({ withMer, palette = 'a' }: { withMer: boolean; palette?: string }) => (
+			<PreviewPool maxSlots={4} onSettle={(r) => reports.push(r)}>
+				{['# 0', '# 1', '# 2', '# 3', ...(withMer ? [MER] : [])].map((sample, i) => (
+					<div key={sample} data-testid={`tile-${i}`}>
+						<PooledThumbFace options={{ themeBase: '', runtimeUrl: '', engineUrl: '' }} sample={sample} paletteOverride={palette} className="aspect-video w-full" />
+					</div>
+				))}
+			</PreviewPool>
+		);
+		const { container, rerender } = render(<Pool withMer />);
+		const show = (on: number[], off: number[]) => {
+			for (const i of off) {
+				offScreen(face(container, i));
+				intersect(face(container, i), false);
+			}
+			for (const i of on) {
+				onScreen(face(container, i));
+				intersect(face(container, i), true);
+			}
+		};
+		// Four plain frames first, so the Mermaid tile's frame is the spare at the END of the list, where the trim pops.
+		show([0, 1, 2, 3], []);
+		settle();
+		show([4], [3]);
+		settle(RELEASE_GRACE + APPLY_MS + 50);
+		expect(reports[reports.length - 1].slots).toBe(4 + SHAPE_SPARE);
+		reshapes = 0;
+		const [m0, u0] = [mounts, unmounts];
+		for (let round = 0; round < 3; round++) {
+			rerender(<Pool withMer={false} />);
+			settle(RELEASE_GRACE + APPLY_MS + 50);
+			rerender(<Pool withMer />);
+			show([0, 1, 2, 4], [3]);
+			settle(RELEASE_GRACE + APPLY_MS + 50);
+			expect(showing(container)).toContain(MER);
+		}
+		expect([mounts - m0, unmounts - u0], 'a filter round trip destroyed or made a frame').toEqual([0, 0]);
+		expect(reshapes, 'a filter round trip rewrote a frame across the Mermaid boundary').toBe(0);
+		// A look change with the Mermaid tile gone: every old frame is stale, the grid is one shape, the spare goes back.
+		rerender(<Pool withMer={false} palette="b" />);
+		show([0, 1, 2, 3], []);
+		settle();
+		show([], [0, 1, 2, 3]);
+		settle(RELEASE_GRACE + APPLY_MS + 50);
+		expect(reports[reports.length - 1].slots, 'the spare outlived the look that needed it').toBe(4);
+		expect(slotRoom(12, false)).toBe(12);
+		expect(slotRoom(12, true)).toBe(12 + SHAPE_SPARE);
+		expect(slotRoom(HARD_MAX_SLOTS, true)).toBe(HARD_MAX_SLOTS);
+	});
+
+	it('keeps a local component frame through a filter round trip, the gallery saying its CSS is per tile', () => {
+		// The same round trip with a local component's own CSS as the second shape. Inferring "deck-wide CSS" from the
+		// registered tiles turned true once the filter hid the local tile (every tile left carried none), which made its
+		// frame stale and trimmed it: slots 4,5,4,5, three frames made and destroyed in three round trips (card grader).
+		const LOCAL = '# local';
+		const Pool = ({ withLocal }: { withLocal: boolean }) => (
+			<PreviewPool maxSlots={4} tileCss>
+				{['# 0', '# 1', '# 2', '# 3', ...(withLocal ? [LOCAL] : [])].map((sample, i) => (
+					<div key={sample} data-testid={`tile-${i}`}>
+						<PooledThumbFace options={{ themeBase: '', runtimeUrl: '', engineUrl: '' }} sample={sample} extraCss={sample === LOCAL ? '.x{color:red}' : undefined} className="aspect-video w-full" />
+					</div>
+				))}
+			</PreviewPool>
+		);
+		const { container, rerender } = render(<Pool withLocal />);
+		const show = (on: number[], off: number[]) => {
+			for (const i of off) {
+				offScreen(face(container, i));
+				intersect(face(container, i), false);
+			}
+			for (const i of on) {
+				onScreen(face(container, i));
+				intersect(face(container, i), true);
+			}
+		};
+		show([0, 1, 2, 3], []);
+		settle();
+		show([4], [3]);
+		settle(RELEASE_GRACE + APPLY_MS + 50);
+		const [m0, u0] = [mounts, unmounts];
+		for (let round = 0; round < 3; round++) {
+			rerender(<Pool withLocal={false} />);
+			settle(RELEASE_GRACE + APPLY_MS + 50);
+			rerender(<Pool withLocal />);
+			show([0, 1, 2, 4], [3]);
+			settle(RELEASE_GRACE + APPLY_MS + 50);
+			expect(showing(container)).toContain(LOCAL);
+		}
+		expect([mounts - m0, unmounts - u0], 'a filter round trip destroyed or made a frame').toEqual([0, 0]);
+	});
+
+	for (const kind of ['mermaid', 'local'] as const) {
+		it(`keeps every frame through an empty-search bounce (${kind})`, () => {
+			// A search that matches nothing renders an empty state, and every tile unregisters. Reading staleness from the
+			// empty set called every frame stale and trimmed the spare on every bounce: slots 4,5,4,5, three frames made and
+			// destroyed in three bounces, one document per typo on LITE (card grader, #3441).
+			const MER = '```mermaid\ngraph TD\n```';
+			const odd = kind === 'mermaid' ? MER : '# local';
+			const Pool = ({ empty }: { empty: boolean }) => (
+				<PreviewPool maxSlots={4} tileCss>
+					{empty ? (
+						<p>none</p>
+					) : (
+						['# 0', '# 1', '# 2', '# 3', odd].map((sample, i) => (
+							<div key={sample} data-testid={`tile-${i}`}>
+								<PooledThumbFace options={{ themeBase: '', runtimeUrl: '', engineUrl: '' }} sample={sample} extraCss={sample === '# local' ? '.x{color:red}' : undefined} className="aspect-video w-full" />
+							</div>
+						))
+					)}
+				</PreviewPool>
+			);
+			const { container, rerender } = render(<Pool empty={false} />);
+			const show = (on: number[], off: number[]) => {
+				for (const i of off) {
+					offScreen(face(container, i));
+					intersect(face(container, i), false);
+				}
+				for (const i of on) {
+					onScreen(face(container, i));
+					intersect(face(container, i), true);
+				}
+			};
+			show([0, 1, 2, 3], []);
+			settle();
+			show([4], [3]);
+			settle(RELEASE_GRACE + APPLY_MS + 50);
+			const [m0, u0] = [mounts, unmounts];
+			reshapes = 0;
+			for (let round = 0; round < 3; round++) {
+				rerender(<Pool empty />);
+				settle(RELEASE_GRACE + APPLY_MS + 50);
+				rerender(<Pool empty={false} />);
+				show([0, 1, 2, 4], [3]);
+				settle(RELEASE_GRACE + APPLY_MS + 50);
+				expect(showing(container)).toContain(odd);
+			}
+			expect([mounts - m0, unmounts - u0, reshapes], 'an empty-search bounce made, destroyed or rewrote a frame').toEqual([0, 0, 0]);
+		});
+	}
+
+	it('reuses the frames a palette change left stale instead of growing past them', () => {
+		// A one-shape grid, its frames free while the reader is away (the Add slide gallery stays mounted, closed), then a
+		// palette change. Every free frame is keyed to the old palette and matches no tile. Growing past them doubled the
+		// pool on FULL (10 frames became 20); reusing them costs the same writes and keeps 10.
+		const reports: PoolReport[] = [];
+		const Pool = ({ palette }: { palette: string }) => (
+			<PreviewPool onSettle={(r) => reports.push(r)}>
+				{Array.from({ length: BASE_SLOTS }, (_, i) => (
+					// biome-ignore lint/suspicious/noArrayIndexKey: a fixed-length fake grid; the index IS the tile's identity.
+					<div key={i} data-testid={`tile-${i}`}>
+						<PooledThumbFace options={{ themeBase: '', runtimeUrl: '', engineUrl: '' }} sample={`# ${i}`} paletteOverride={palette} className="aspect-video w-full" />
+					</div>
+				))}
+			</PreviewPool>
+		);
+		const { container, rerender } = render(<Pool palette="a" />);
+		const all = Array.from({ length: BASE_SLOTS }, (_, i) => i);
+		const set = (on: boolean) => {
+			for (const i of all) {
+				(on ? onScreen : offScreen)(face(container, i));
+				intersect(face(container, i), on);
+			}
+		};
+		set(true);
+		settle();
+		expect(reports[reports.length - 1].slots).toBe(BASE_SLOTS);
+		set(false);
+		settle(RELEASE_GRACE + APPLY_MS + 50);
+		rerender(<Pool palette="b" />);
+		set(true);
+		settle();
+		const last = reports[reports.length - 1];
+		expect(last.held).toBe(BASE_SLOTS);
+		expect(last.slots, 'a palette change grew the pool past its stale frames').toBe(BASE_SLOTS);
+	});
+
+	it('reuses the frames a deck-wide CSS edit left stale, as it does after a palette change', () => {
+		// The overview, the map, Reshape and the layout menu pass one deck-wide CSS to every tile, so an edit to it moves
+		// every tile off its frames at once, as a palette change does (checker 18: 10 frames became 20 here before).
+		const reports: PoolReport[] = [];
+		const Pool = ({ palette }: { palette: string }) => (
+			<PreviewPool onSettle={(r) => reports.push(r)}>
+				{Array.from({ length: BASE_SLOTS }, (_, i) => (
+					// biome-ignore lint/suspicious/noArrayIndexKey: a fixed-length fake grid; the index IS the tile's identity.
+					<div key={i} data-testid={`tile-${i}`}>
+						<PooledThumbFace options={{ themeBase: '', runtimeUrl: '', engineUrl: '' }} sample={`# ${i}`} extraCss={palette} className="aspect-video w-full" />
+					</div>
+				))}
+			</PreviewPool>
+		);
+		const { container, rerender } = render(<Pool palette=".a{}" />);
+		const all = Array.from({ length: BASE_SLOTS }, (_, i) => i);
+		const set = (on: boolean) => {
+			for (const i of all) {
+				(on ? onScreen : offScreen)(face(container, i));
+				intersect(face(container, i), on);
+			}
+		};
+		set(true);
+		settle();
+		expect(reports[reports.length - 1].slots).toBe(BASE_SLOTS);
+		set(false);
+		settle(RELEASE_GRACE + APPLY_MS + 50);
+		rerender(<Pool palette=".b{}" />);
+		set(true);
+		settle();
+		const last = reports[reports.length - 1];
+		expect(last.held).toBe(BASE_SLOTS);
+		expect(last.slots, 'a deck CSS edit grew the pool past its stale frames').toBe(BASE_SLOTS);
 	});
 });
 

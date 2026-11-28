@@ -11,7 +11,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { classifyDropped, landingFilter, refusedDetail, rejectedMessage } from './Library';
-import { sectionOf } from './panel-shells';
+import { LIBRARY_SECTIONS, sectionFilter, sectionOf } from './panel-shells';
 import { REF_DOC_ACCEPT } from './reference-doc';
 
 const file = (name: string) => new File(['x'], name);
@@ -155,11 +155,12 @@ describe('landingFilter', () => {
 		expect(land('a.png', 'clip.mov')).toBe('media');
 	});
 
-	it('opens Design for a package archive and Files for a reference file or a deck', () => {
+	it('opens Design for a package archive, Decks for a deck and Files for a reference file', () => {
 		expect(land('assets.zip')).toBe('design');
 		expect(land('notes.md', 'brief.pdf')).toBe('refdoc');
-		expect(land('q3.lattice')).toBe('refdoc');
-		expect(land('q3.lattice', 'notes.md')).toBe('refdoc');
+		expect(land('q3.lattice')).toBe('deck');
+		// A deck and a file are two sections now, so the batch opens All, where both sort newest first.
+		expect(land('q3.lattice', 'notes.md')).toBe('all');
 		expect(land('talk.pptx', 'a.png')).toBe('all');
 	});
 
@@ -170,10 +171,12 @@ describe('landingFilter', () => {
 	});
 
 	it('every landing filter lives under a pill that exists', () => {
-		for (const f of ['image', 'video', 'media', 'design', 'refdoc', 'all'] as const) {
-			expect(['all', 'design', 'media', 'files']).toContain(sectionOf(f));
+		for (const f of ['image', 'video', 'media', 'design', 'refdoc', 'deck', 'all'] as const) {
+			expect(LIBRARY_SECTIONS.map((x) => x.value)).toContain(sectionOf(f));
 		}
 		expect(sectionOf('refdoc')).toBe('files');
+		expect(sectionOf('deck')).toBe('decks');
+		expect(sectionFilter('decks')).toBe('deck');
 		expect(sectionOf('motion')).toBe('design');
 	});
 });

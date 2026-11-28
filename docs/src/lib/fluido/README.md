@@ -109,3 +109,8 @@ The measured rescue (an element that still overflows its own page, on live scree
 adapter that measures and applies a plan in the Studio's preview frame are later Fluid phases; the
 CLI measures and packs today, behind `--fit-pack`. Fluido does not own the
 family classifier yet; until P4 the host passes the family in.
+
+## License
+
+AGPL-3.0-only. The full text ships as `LICENSE` in the package. Which part of Lattice is under which license:
+[`LICENSING.md`](https://github.com/Laticent/lattice/blob/main/LICENSING.md).

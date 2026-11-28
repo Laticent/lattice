@@ -463,7 +463,10 @@ See [CHANGELOG.md](CHANGELOG.md) for the per-version detail.
 
 ## License
 
-GNU Affero General Public License v3.0 (`AGPL-3.0-only`). See [LICENSE](LICENSE).
+The engine is licensed under the GNU Affero General Public License v3.0
+(`AGPL-3.0-only`); see [LICENSE](LICENSE). Most of its libraries are licensed under
+Apache-2.0 instead, and the specifications under CC-BY-4.0; [LICENSING.md](LICENSING.md)
+says which part is which.
 Copyright © 2025–2026 Sharmarke Aden, doing business as Laticent.
 
 Lattice is free and open source. Running it on your own laptop or in CI is not
@@ -498,5 +501,5 @@ version as a network service, your engine source must be available under the
 same license. To embed Lattice in a closed-source product under different
 terms, contact Laticent about a commercial license: <sharmarke.aden@gmail.com>.
 
-The "Lattice" and "Laticent" names and logos are trademarks — the license
-does not grant them; forks must rename. See [TRADEMARKS.md](TRADEMARKS.md).
+The "Lattice" and "Laticent" names and logos are trademarks — the licenses
+do not grant them; forks must rename. See [TRADEMARKS.md](TRADEMARKS.md).

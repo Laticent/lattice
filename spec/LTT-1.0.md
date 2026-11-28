@@ -8,7 +8,7 @@ tests: docs/src/lib/ltt/conformance/ test/unit/export/ltt-validate-conformance.t
 
 **Version:** 1.0 · **Status:** Ratified · **Date:** 2026-10-08 · **Owner:** @saden1 ·
 **License:** [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/) (this document and its
-conformance fixtures; the reference implementation `@laticent/ltt` is AGPL-3.0) ·
+conformance fixtures; the reference implementation `@laticent/ltt` is Apache-2.0) ·
 **Follows:** [How the Lattice specs version and extend](./EXTENDING-1.0.md)
 
 The owner signs off every change to this spec's meaning: a new field, a new layer, a new

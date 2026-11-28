@@ -10329,8 +10329,8 @@ const OPENROUTER_SCAN_EXEMPT = new Set(['test/unit/cli/check-ownership.test.js']
 // onset by concurrency and packed-request cuts; on demand, opt-in, prints its spend and refuses a
 // plan above --max-usd (owner-approved small run, 2026-11-11).
 // tools/agent-pack-eval.mjs: does the agent pack make a model write a good deck? Opt-in
-// (OPENROUTER_ALLOW_SPEND=1), prints its cost, run nightly by agent-pack-eval-nightly.yml
-// (engineering/decisions/2026-11-17-agent-pack.md §4.5).
+// (OPENROUTER_ALLOW_SPEND=1), stops hard at --max-usd (USD 1 unless set), prints OpenRouter's cost,
+// run nightly by agent-pack-eval-nightly.yml (engineering/decisions/2026-11-17-agent-pack.md §4.5, §4.10).
 const SANCTIONED_OPENROUTER_SPENDERS = ['tools/component-gen-eval.mjs', 'tools/generate-voice-samples.mjs', 'tools/record-lesson-voice.mjs', 'tools/intent-bakeoff/judge-eval.mjs', 'tools/probe-picture-tokens.mjs', 'tools/tts-bench.mjs', 'tools/agent-pack-eval.mjs', 'tools/stop-billing-probe.mjs'];
 // tools/stop-billing-probe.mjs: measures how OpenRouter bills a stopped chat request, the assumption behind the chat
 // ledger's settleOpenRound (#3533). About USD 0.04 a run, --cap 0.10, dispatch-only via agent-pack-eval-nightly.yml's
@@ -10341,7 +10341,7 @@ const SANCTIONED_OPENROUTER_SPENDERS = ['tools/component-gen-eval.mjs', 'tools/g
 // never pull_request/push/merge_group, which fire constantly). This is the CI home for live E2E.
 const SANCTIONED_OPENROUTER_WORKFLOWS = [
   '.github/workflows/studio-e2e-nightly.yml', // nightly Studio live-AI E2E — ~1c/night, fails loud without the secret (#696, #1931)
-  '.github/workflows/agent-pack-eval-nightly.yml', // nightly agent-pack eval — six completions, ~USD 0.20–0.40/night, fails loud without the secret (2026-11-17-agent-pack.md §4.5)
+  '.github/workflows/agent-pack-eval-nightly.yml', // nightly agent-pack eval — ten two-turn decks on Haiku 5.5 or DeepSeek (alternating), ~USD 0.02–0.06/night at the cheapest provider (priced 2026-11-27), hard cap --max-usd 0.25 priced at the dearest; fails loud without the secret (2026-11-17-agent-pack.md §4.5, §4.10)
 ];
 
 // docs/ CODE files, incl. `.astro` — whose build-time frontmatter runs at build and inlines

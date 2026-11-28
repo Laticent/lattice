@@ -198,6 +198,18 @@ describe('export-marp bundle (end-to-end)', () => {
     }
   });
 
+  // #3598 (owner D3): the bundle conveys engine object code, so the AGPL text travels with it, and
+  // so does the exception that covers a deck Marp renders from it. Byte-equal to the repo's own
+  // files, so a recipient reads the terms that actually apply, not a summary of them.
+  test('ships LICENSE and LICENSE-EXCEPTIONS verbatim, and the README names them', () => {
+    for (const f of ['LICENSE', 'LICENSE-EXCEPTIONS']) {
+      const shipped = path.join(dest, f);
+      assert.ok(fs.existsSync(shipped), `bundle is missing ${f}`);
+      assert.ok(fs.readFileSync(shipped).equals(fs.readFileSync(path.join(REPO, f))), `${f} in the bundle differs from the repo's`);
+    }
+    assert.match(fs.readFileSync(path.join(dest, 'README.md'), 'utf8'), /`LICENSE`, `LICENSE-EXCEPTIONS`/);
+  });
+
   // The license file is a hand-written list (lib/export/third-party-licenses.js), so derive what the
   // bundle ACTUALLY ships and require a heading for each third-party piece. A new font family or a
   // new vendored file then fails here instead of shipping without its license text.
@@ -215,7 +227,7 @@ describe('export-marp bundle (end-to-end)', () => {
       assert.ok(headings.includes(FAMILY[prefix]), `no license heading names ${FAMILY[prefix]}`);
     }
     // Lattice's own files, and the license file itself; everything else in STATIC_ASSETS is third party.
-    const OWN = ['lattice.css', 'lattice-vscode.css', '.vscode/themes/lattice.css', '.vscode/lattice.code-snippets', 'lattice-runtime-min.js', 'lattice-plugin-avatars.js', 'THIRD-PARTY-LICENSES.txt'];
+    const OWN = ['lattice.css', 'lattice-vscode.css', '.vscode/themes/lattice.css', '.vscode/lattice.code-snippets', 'lattice-runtime-min.js', 'lattice-plugin-avatars.js', 'THIRD-PARTY-LICENSES.txt', 'LICENSE', 'LICENSE-EXCEPTIONS'];
     for (const { to } of STATIC_ASSETS) {
       if (OWN.includes(to)) continue;
       assert.ok(headings.includes(to), `${to} ships in the bundle but no license heading names it`);

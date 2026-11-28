@@ -2,7 +2,7 @@
   "name": "@laticent/segno",
   "version": "0.1.0",
   "description": "A general-purpose grammar engine that only builds grammars it can prove are linear (LL(1) over characters), and a small inline notation built on it: values, [lists] and {records}, one separator, name=value, and schema-bound types with aliases and shortcuts. Framework-free, zero-dependency, no DOM.",
-  "license": "AGPL-3.0-only",
+  "license": "Apache-2.0",
   "author": "Sharmarke Aden (Laticent) <sharmarke.aden@gmail.com>",
   "repository": {
     "type": "git",
@@ -42,6 +42,7 @@
     "!*.test.ts",
     "README.md",
     "LICENSE",
+    "NOTICE",
     "CHANGELOG.md"
   ],
   "publishConfig": {

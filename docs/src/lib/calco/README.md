@@ -212,4 +212,5 @@ Design, measurements and the LibreOffice behaviors the writers work around:
 
 ## License
 
-AGPL-3.0-only. The full text ships as `LICENSE` in the package.
+AGPL-3.0-only. The full text ships as `LICENSE` in the package. Which part of Lattice is under which license:
+[`LICENSING.md`](https://github.com/Laticent/lattice/blob/main/LICENSING.md).

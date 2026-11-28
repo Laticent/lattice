@@ -9,6 +9,9 @@
 //   title, description   the <title> and meta description
 //   specimen             the page hosts a live <Specimen>: warm the preview runtime and pull
 //                        in the specimen styles, as the component reference pages do
+//   license              the footer's license line. Default: the site's, AGPL-3.0. A library
+//                        page names its own (LICENSING.md), so a reader of an Apache-2.0
+//                        library's page is not told the library is AGPL
 import '../styles/landing.css';
 import '../styles/catalog.css';
 import { readFileSync } from 'node:fs';
@@ -22,7 +25,7 @@ import PageMeta from '../components/site/PageMeta.astro';
 import { joinBase } from '../lib/base-url.mjs';
 import { GITHUB_URL } from '../lib/nav.mjs';
 
-const { title, description, specimen = false } = Astro.props;
+const { title, description, specimen = false, license = 'AGPL-3.0-licensed' } = Astro.props;
 
 const base = import.meta.env.BASE_URL;
 const url = (p) => joinBase(base, p);
@@ -77,7 +80,7 @@ const palettes = [...new Set([...tokensCss.matchAll(/data-palette="([^"]+)"/g)].
 					<a href={url('plugins/')}>Plugins</a>
 					<a href={GITHUB_URL}>GitHub</a>
 				</nav>
-				<span class="legal">Designed by humans. Refined with Claude. · Part of Laticent · AGPL-3.0-licensed</span>
+				<span class="legal">Designed by humans. Refined with Claude. · Part of Laticent · {license}</span>
 			</div>
 		</footer>
 		{specimen && <EngineWarm />}

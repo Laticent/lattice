@@ -2,7 +2,7 @@
   "name": "@laticent/tavola",
   "version": "0.1.0",
   "description": "Live collaboration on one document, browser to browser: an invite link in the URL fragment, a knock-and-admit handshake, a roster gate that sends and accepts the document only for admitted members (and document edits only from members who may edit), a cap, and rejoin by token. The transport and the document are passed in, so the core has no dependencies; a Trystero adapter (public Nostr relays, then WebRTC) and a Yjs adapter (the awareness gate and a typed view of where each member is) ship beside it.",
-  "license": "AGPL-3.0-only",
+  "license": "Apache-2.0",
   "author": "Sharmarke Aden (Laticent) <sharmarke.aden@gmail.com>",
   "repository": {
     "type": "git",
@@ -62,7 +62,8 @@
     "adapters/*.ts",
     "!*.test.ts",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "NOTICE"
   ],
   "publishConfig": {
     "access": "public"

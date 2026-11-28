@@ -173,3 +173,8 @@ deck.
 The core imports nothing outside this folder, and only `react.ts` imports React
 (`checkFuocoBoundary` in `tools/check-ownership.js`). `npm run fuoco-lib:build` builds the
 package; `npm run check:fuoco` (in `docs/`) typechecks the core on its own.
+
+## License
+
+Apache-2.0. The full text ships as `LICENSE` in the package, and the copyright notice as `NOTICE`.
+Which part of Lattice is under which license: [`LICENSING.md`](https://github.com/Laticent/lattice/blob/main/LICENSING.md).

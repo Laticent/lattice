@@ -5,7 +5,7 @@ recorded: 2026-11-21
 area: website
 severity: medium
 swimlane: engineering/decisions/2026-11-06-flaky-tests.md
-deferred: blocked — which gate the first render stalls at is unknown: the three failures carry no evidence of it, and the instrumentation that will name it lands in #3368; the flake desk ruled no first-render timeout without that evidence (2026-11-21)
+deferred: blocked — which gate the first render stalls at is unknown: the three failures carry no evidence of it, and the instrumentation that will name it lands in #3615; the flake desk ruled no first-render timeout without that evidence (2026-11-21)
 source: https://github.com/Laticent/lattice/pull/3368
 ---
 
@@ -30,3 +30,21 @@ evidence  — the two runs above, and a third, earlier stall on the iPhone (disp
             worker). The engine-import rejection that shows no failure card (frame-scheduler.ts:111 swallows it
             before DeckPreview's setFailed) is a separate product defect, fixed on its own branch after #3368.
 verify    — the iPad and iPhone ios-safari-studio suites, dispatched ten times; the timeout message on any failure.
+update    — 2026-11-28 (🧪 fix session for #3588's reds). The fourth stall, iPad run 46081960658 (claude/library-slice-4),
+            stopped AFTER the engine loaded: engine loaded, bake none, engine.js and lattice.css finished, controlled, no
+            iframe, no alert, no sample. So the engine's import is not this one's gate. The same job was starved: loopback
+            fetches of 12.6–18 s in its engine-retry trace, 1–3 s taps. It passed in 4 iPad runs since, the main control
+            46085213157 and dispatch 46099447530 included. No product cause shown; no app change made for it.
+            Now covered (#3615, claude/panes-probe-post-load-gates): the preview host carries `data-lattice-gate`, the
+            step the newest render waits on (theme, engine render, split, image chunks, frame load, sheet load, then done,
+            stood down or failed; single-slide-render.ts `markGate`), and panes-probe.js `previewState` names it, with the
+            post-load chunks' resource timing. Desktop WebKit with a held image-size-memo chunk, and with lattice.css held,
+            FAILS naming "image chunks" and "theme". Not covered: the frame scheduler's own state (cut to keep the Studio's
+            eager bundle under its ceiling; a gate short of done after the 4 s watchdog says the same), and which await
+            inside a merged step stalled.
+            Seen in that arm: a render that hangs leaves the frame scheduler's watchdog to clear its guard, nothing renders
+            again, and no failure card shows. The engine-import rejection is already handled on main (DeckPreview's
+            runRender catches `whenReady()` and shows the card with Retry). The hang is not: the 32 s never-paint ceiling
+            skips loader hosts on purpose (#1164), and the Studio's preview is one. Showing a card for a hung render
+            changes that contract; the owner decided it (D4, 2026-11-28: card + Retry at 30 s), and it ships on its own
+            branch as #3617.

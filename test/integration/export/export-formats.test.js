@@ -752,15 +752,33 @@ describe('export-formats', () => {
       for (let y = Math.floor(h * 0.3); y < Math.floor(h * 0.6); y++) for (let x = Math.floor(w * 0.6); x < w - 2; x++) max = Math.max(max, Math.abs(d[y * w + x + 1] - d[y * w + x]));
       return max;
     };
-    const mine = path.join(dir, 'writer.pdf'), chrome = path.join(dir, 'chrome.pdf');
-    for (const [out, extra] of [[mine, []], [chrome, ['--chrome-pdf']]]) {
-      const r = runNodeSync(EMULATOR, [src, out, '--quiet', ...extra], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, ...WATCH });
+    // A control the writer draws itself: a black box across the measured band, a hard vector edge on every platform.
+    const edgeSrc = path.join(dir, 'edge.md');
+    fs.writeFileSync(edgeSrc, '---\nhtml: true\ntheme: cuoio\n---\n\n## A hard edge\n\nText.\n\n<div style="position:absolute;left:68%;top:38%;width:22%;height:14%;background:#000"></div>\n');
+    const mine = path.join(dir, 'writer.pdf'), chrome = path.join(dir, 'chrome.pdf'), edge = path.join(dir, 'edge.pdf');
+    for (const [from, out, extra] of [[src, mine, []], [src, chrome, ['--chrome-pdf']], [edgeSrc, edge, []]]) {
+      const r = runNodeSync(EMULATOR, [from, out, '--quiet', ...extra], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, ...WATCH });
       assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     }
     // Measured 2026-09-27: 1 for the writer (the export face's feathered spotlight), 63 for
     // Chrome's printer (the print face's hard ellipse). The Chrome render is the control that
-    // proves this measure can see an arc at all.
-    assert.ok(maxStep(chrome) > 20, 'control: Chrome\'s print face draws the hard arc');
+    // proves this measure can see an arc at all. 2026-11-28, Linux: 1 and 173 (poppler 24.02),
+    // 1 and 208 (mupdf 1.23).
+    //
+    // That control holds only where Chrome's PDF has an arc to see. On Linux, Chrome prints the
+    // masked radials as vector shadings (14 ShadingType dictionaries, no image XObjects, 31 KB),
+    // and their hard edge is the arc. On macOS (macos-26, 2026-11-28) its PDF has 2 ShadingType
+    // dictionaries and 12 image XObjects (350 KB), and neither poppler nor mupdf finds an edge in
+    // it for this measure to read. So on every platform the measure is first proven against the
+    // edge control, a hard edge the writer draws itself (247 on Linux); the writer's assertion
+    // below runs everywhere.
+    // disabled: tried the control on macos-26 (harness on #3612): both poppler 26.11 and mupdf 1.28
+    // read Chrome's step as 4, and origin/main fails the same way; evidence
+    // https://github.com/Laticent/lattice/actions/runs/46141278118 and
+    // https://github.com/Laticent/lattice/actions/runs/46137655665; re-enable when Chrome on macOS prints
+    // the hard ellipse as vector shading again (the step reads > 20 there).
+    if (process.platform === 'linux') assert.ok(maxStep(chrome) > 20, 'control: Chrome\'s print face draws the hard arc');
+    assert.ok(maxStep(edge) > 20, `control: the measure sees a hard edge the writer draws, largest step ${maxStep(edge)}`);
     assert.ok(maxStep(mine) <= 6, `the writer's spotlight fades softly, largest step ${maxStep(mine)}`);
   });
 

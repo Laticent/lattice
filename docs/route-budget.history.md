@@ -6,6 +6,16 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-28 — raise the home eagerJsGz ceiling by 1,536 B (331,264 → 332,800), by hand, for PR 3618, at the owner's direction
+
+Owner OK 2026-11-28, in PR #3618's session: "D1 A", the option to raise home eagerJsGz by about 1.5 KB in its own PR. Written by hand, as the entries below are: `route-budget:rebaseline --raise --ceiling` would also reset soft to the measurement and put the ceiling 10% above it, about 33 KB higher. Soft stays 291,531.
+
+Why: PR #3618 (home page next round) adds two live demos, the slide-jobs picker and the venue demo. Their bodies (Radix tabs, two previews, the lint verdicts) load with `import()` only when they near the viewport, so they are not eager. Measured with `docs/scripts/measure-route-base.sh` on main 0f72aeca and on #3618 at 57c5a831, home eagerJsGz goes 330,991 -> 332,289 B (+1,298). Three eager changes make it up: the shell module that waits for the viewport (`LiveDemos.tsx`, 1,144 B gz, new), Radix tabs moving out of `HeroPreview` into a shared chunk now that the lazy picker uses them too (`tabs` new at 1,810 B, `HeroPreview` 2,259 -> 677 B, net about +228), and `DeckPreview` shrinking 74 B (4,814 -> 4,740). Main sat 273 B under the old ceiling, so any new island crossed it. Giving the bytes back was put to the owner: swapping the hero's Radix tabs for `PillTabs` (an unmeasured saving that changes the hero) or dropping the picker (still over). The owner chose the raise. It leaves about 0.5 KB after PR #3618; unmerged PRs that also touch home (the brand-section PR #3621 among them) draw on the same room.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| home | eagerJsGz | 291531 | 291531 | +0 | 332800 |
+
 ### 2026-11-28 — raise the studio eagerJsGz ceiling by 3,072 B (644,780 → 647,852), by hand, for PR 3588, storage slice 3, PR 3615 and PR 3617, at the owner's direction
 
 Owner OK 2026-11-28, in three picks, each in a question tool:

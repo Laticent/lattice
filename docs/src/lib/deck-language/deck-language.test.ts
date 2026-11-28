@@ -220,6 +220,53 @@ describe('a keystroke, counted', () => {
 		expect(built).toBeGreaterThan(0);
 		expect(built * 20).toBeLessThan(all);
 	});
+
+	// CodeMirror parses a transaction with a 20 ms budget (`Work.Apply`). On a slow machine the deck update can spend
+	// it, and then `takeTree` cuts the tree where a nested parse is still pending: the front matter's YAML here (the
+	// edit breaks the slide's comment), the start of the document when an HTML parse is pending (the test after this
+	// one). The next parse (here `ensureSyntaxTree`, in an editor the idle-time worker) starts again from the fragments
+	// and calls the deck parser a second time on text it has already read. That second call is CodeMirror's slicing,
+	// and it must cost the deck nothing: no second update, no slide counted twice, the same final tree. A clock that
+	// jumps 1 s per read spends the budget after the first step every time, so the split no longer waits for a load.
+	/** Type `x` at `at(model)` with a clock that spends CodeMirror's budget after the first step, then finish the parse. */
+	const splitKeystroke = (src: string, at: (m: DeckModel) => number) => {
+		const state = EditorState.create({ doc: src, extensions: deckMarkdown() });
+		const m0 = modelOf(ensureSyntaxTree(state, src.length, 5000) as Tree) as DeckModel;
+		const before = { ...deckTreeStats };
+		const realNow = Date.now;
+		let clock = realNow();
+		Date.now = () => (clock += 1000);
+		let next: EditorState;
+		try {
+			next = state.update({ changes: { from: at(m0), insert: 'x' } }).state;
+		} finally {
+			Date.now = realNow;
+		}
+		const tree = ensureSyntaxTree(next, next.doc.length, 5000) as Tree;
+		const d = (k: keyof typeof deckTreeStats) => deckTreeStats[k] - before[k];
+		// The deck updated once, one slide rebuilt, every other one reused once.
+		expect(d('updates')).toBe(1);
+		expect(d('models')).toBe(0);
+		expect(d('slidesBuilt')).toBe(1);
+		expect(d('slidesReused')).toBe(m0.slides.length - 1);
+		// The split happened: the deck parser ran twice, and the second run found the text it had already read.
+		expect(d('repeats')).toBe(1);
+		// And the tree it ends with is the one a parse from nothing builds, the HTML and YAML inside included.
+		const fresh = EditorState.create({ doc: next.doc.toString(), extensions: deckMarkdown() });
+		expect(dump(tree)).toEqual(dump(ensureSyntaxTree(fresh, fresh.doc.length, 5000) as Tree));
+	};
+	const lineAt = (m: DeckModel, line: number) => m.source.length - m.text.length + m.bodyStart + m.lineStart(line);
+	const middle = (m: DeckModel) => m.slides[m.slides.length >> 1];
+
+	it('a keystroke whose parse runs out of time and finishes in a second slice still updates the deck once', () => {
+		splitKeystroke(read('test/integration/baseline-decks/gallery.md'), (m) => lineAt(m, middle(m).fromLine + 1));
+	});
+
+	it('the same, cut where the edited slide’s comment is still being parsed as HTML (no front matter)', () => {
+		const src = read('test/integration/baseline-decks/gallery.md').replace(/^---\n[\s\S]*?\n---\n/, '');
+		// At the end of the slide's second line, so its `<!-- @meta -->` comment stays whole and its HTML parse pending.
+		splitKeystroke(src, (m) => lineAt(m, middle(m).fromLine + 2) - 1);
+	});
 });
 
 describe('in CodeMirror', () => {
