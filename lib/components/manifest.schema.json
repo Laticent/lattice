@@ -339,6 +339,21 @@
         }
       }
     },
+    "inlineReads": {
+      "type": "array",
+      "description": "Where this component reads bold (`strong`) or italic (`em`) as STRUCTURE rather than stress (LFM 1.0 \u00a73.4). Everywhere else they keep their ordinary Markdown meaning, so a second renderer that implements only CommonMark draws the deck correctly except at these declared points. A titled item's leading bold is covered by the titled-items rule (\u00a73.1) and is not listed here. Projected into dist/docs/grammar.json as `inlineReads`; test/unit/components/inline-reads.test.js fails a stylesheet that reads `em` or `strong` without a declaration here, a titled-items layout, or a styling-only entry in that test. OMIT for a component that reads neither, which is most of them.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["selector", "effect", "reads"],
+        "properties": {
+          "selector": { "type": "string", "minLength": 1, "description": "Where the construct sits in the author's Markdown, as a CSS-like sketch (`ul > li > em`). A read-out, like a slot's `selector`." },
+          "variant": { "type": "string", "description": "The variant this read applies to; omit when every variant reads it." },
+          "effect": { "enum": ["meaning", "ignored"], "description": "`meaning`: the construct changes what the slide shows (pricing's `*Recommended*` becomes the ribbon). `ignored`: the component draws it upright or plain, so the author's emphasis has no visible effect there." },
+          "reads": { "type": "string", "minLength": 1, "description": "One sentence: what the construct means here." }
+        }
+      }
+    },
     "labelSet": {
       "type": "object",
       "additionalProperties": false,

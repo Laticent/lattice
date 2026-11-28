@@ -1,7 +1,7 @@
 {
  "title": "Every register value in §2.3 is accepted, and a value outside the list is unknown-<key>",
- "spec": "LFM-1.1",
- "section": "2.3",
+ "spec": "LFM-1.0",
+ "section": "4.2",
  "rows": [
   {
    "name": "mode: boardroom",

@@ -278,5 +278,17 @@
       }
     }
   },
-  "venueProbe": "<!-- @meta{layout=matrix-grid} -->\n\n## Your level is a cell, not a rung.\n\n`[Wider reach, Deeper cognition]`\n\n| Verb | Self | Team | Org | Field |\n| ---------- | :--: | :--: | :--: | :---: |\n| Apply      | [-]  | [x] Senior | [-] | [ ] |\n| Understand | [x] Mid | [-] | [ ] | [ ] |\n"
+  "venueProbe": "<!-- @meta{layout=matrix-grid} -->\n\n## Your level is a cell, not a rung.\n\n`[Wider reach, Deeper cognition]`\n\n| Verb | Self | Team | Org | Field |\n| ---------- | :--: | :--: | :--: | :---: |\n| Apply      | [-]  | [x] Senior | [-] | [ ] |\n| Understand | [x] Mid | [-] | [ ] | [ ] |\n",
+  "inlineReads": [
+    {
+      "selector": "p > strong",
+      "effect": "meaning",
+      "reads": "In the trailing caption, a bold run is drawn as a filled cell swatch beside its label."
+    },
+    {
+      "selector": "p > em",
+      "effect": "meaning",
+      "reads": "In the trailing caption, an italic run is drawn as an outlined cell swatch beside its label."
+    }
+  ]
 }

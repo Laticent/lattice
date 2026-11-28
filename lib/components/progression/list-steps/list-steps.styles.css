@@ -39,7 +39,10 @@ section.list-steps ol:where(.cell-stage > *) > li:not(:last-child)::after {
   z-index:1;
 }
 section.list-steps ol:where(.cell-stage > *) > li::before { content:'STEP ' counter(step-counter, decimal-leading-zero); color:var(--card-tag-inline-ink); }   /* the tag voice: lib/base/base.card-tag.css */
-section.list-steps ol:where(.cell-stage > *) > li strong { display:block; }
+/* The step's title is its lead: `li > strong`, or `li > p > strong` in a loose list (blank lines between steps). A bold
+ * word inside the description is not the title and stays inline. */
+section.list-steps ol:where(.cell-stage > *) > li > strong,
+section.list-steps ol:where(.cell-stage > *) > li > p:first-child > strong:first-child { display:block; }
 section.list-steps ol:where(.cell-stage > *) > li p { font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-base); margin:0; }
 section.list-steps ol:where(.cell-stage > *) > li:not(:has(> ul)) > p { flex:1; }
 /* Nested list format: - body text under each step */
@@ -164,7 +167,8 @@ section.list-steps.capsule ol:where(.cell-stage > *) > li::before {
   box-shadow: var(--card-tag-edge);
   font-size: var(--card-tag-fs);
 }
-section.list-steps.capsule ol:where(.cell-stage > *) > li strong {
+section.list-steps.capsule ol:where(.cell-stage > *) > li > strong,
+section.list-steps.capsule ol:where(.cell-stage > *) > li > p:first-child > strong:first-child {
   font-family: var(--font-display);
   font-size: var(--fs-h4);
   font-weight: 600;
@@ -369,8 +373,12 @@ section.list-steps.converge ol:where(.cell-stage > *) > li:nth-child(1)    { cli
 section.list-steps.converge ol:where(.cell-stage > *) > li:nth-child(2)    { clip-path:polygon(6.75% 0,  93.25% 0,   86.5% 100%,  13.5% 100%);  padding-inline:13cqi; background:color-mix(in srgb, var(--accent) 12%, var(--accent-soft)); }
 section.list-steps.converge ol:where(.cell-stage > *) > li:nth-child(3)    { clip-path:polygon(13.5% 0,  86.5% 0,    79.75% 100%, 20.25% 100%); padding-inline:19cqi; background:color-mix(in srgb, var(--accent) 92%, var(--accent-soft)); }
 section.list-steps.converge ol:where(.cell-stage > *) > li:nth-child(n+4)  { clip-path:polygon(20.25% 0, 79.75% 0,   73% 100%,    27% 100%);    padding-inline:25cqi; background:var(--accent); }
-section.list-steps.converge ol:where(.cell-stage > *) > li:nth-child(-n+2) :is(strong, ul li) { color:var(--accent-soft-body); }
-section.list-steps.converge ol:where(.cell-stage > *) > li:nth-child(n+3)  :is(strong, ul li) { color:var(--on-accent); }
+section.list-steps.converge ol:where(.cell-stage > *) > li:nth-child(-n+2) > strong,
+section.list-steps.converge ol:where(.cell-stage > *) > li:nth-child(-n+2) > p:first-child > strong:first-child,
+section.list-steps.converge ol:where(.cell-stage > *) > li:nth-child(-n+2) > :is(ul, ol) > li { color:var(--accent-soft-body); }
+section.list-steps.converge ol:where(.cell-stage > *) > li:nth-child(n+3) > strong,
+section.list-steps.converge ol:where(.cell-stage > *) > li:nth-child(n+3) > p:first-child > strong:first-child,
+section.list-steps.converge ol:where(.cell-stage > *) > li:nth-child(n+3) > :is(ul, ol) > li { color:var(--on-accent); }
 section.list-steps.converge ol:where(.cell-stage > *) > li > strong {
   font-family:var(--font-label); font-size:var(--fs-h5); font-weight:700;
   text-transform:uppercase; letter-spacing:0.05em;

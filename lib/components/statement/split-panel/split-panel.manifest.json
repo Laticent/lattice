@@ -827,5 +827,19 @@
   },
   "gesture": {
     "archetype": "compare"
-  }
+  },
+  "inlineReads": [
+    {
+      "selector": "h2 > em",
+      "variant": "metric",
+      "effect": "meaning",
+      "reads": "The hero number's unit, set upright beside the number."
+    },
+    {
+      "selector": "p > em:first-child",
+      "variant": "proof",
+      "effect": "meaning",
+      "reads": "A display label over the proof in the left panel."
+    }
+  ]
 }

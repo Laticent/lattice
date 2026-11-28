@@ -21,10 +21,14 @@ The next four slides carry the **byte-identical** content — same eyebrow, same
 
 ## The system has four moving parts.
 
-- **Signal Intake.** Weekly collection across conversations and market data.
-- **Scoring Model.** Scored on confidence, recency, and relevance.
-- **Decision Log.** Every call recorded with the signals behind it.
-- **Calibration Loop.** Outcomes compared to predictions each cycle.
+- Signal Intake
+  - Weekly collection across conversations and market data.
+- Scoring Model
+  - Scored on confidence, recency, and relevance.
+- Decision Log
+  - Every call recorded with the signals behind it.
+- Calibration Loop
+  - Outcomes compared to predictions each cycle.
 
 ---
 
@@ -34,10 +38,14 @@ The next four slides carry the **byte-identical** content — same eyebrow, same
 
 ## The system has four moving parts.
 
-- **Signal Intake.** Weekly structured collection across conversations and market data.
-- **Scoring Model.** Each signal scored on confidence, recency, and relevance.
-- **Decision Log.** Every call recorded with the signals that informed it.
-- **Calibration Loop.** Outcomes compared to predictions each cycle.
+- Signal Intake
+  - Weekly structured collection across conversations and market data.
+- Scoring Model
+  - Each signal scored on confidence, recency, and relevance.
+- Decision Log
+  - Every call recorded with the signals that informed it.
+- Calibration Loop
+  - Outcomes compared to predictions each cycle.
 
 > Signals without decisions are just noise.
 
@@ -49,10 +57,14 @@ The next four slides carry the **byte-identical** content — same eyebrow, same
 
 ## The system has four moving parts.
 
-- **Signal Intake.** Weekly structured collection across conversations and market data.
-- **Scoring Model.** Each signal scored on confidence, recency, and relevance.
-- **Decision Log.** Every call recorded with the signals that informed it.
-- **Calibration Loop.** Outcomes compared to predictions each cycle.
+- Signal Intake
+  - Weekly structured collection across conversations and market data.
+- Scoring Model
+  - Each signal scored on confidence, recency, and relevance.
+- Decision Log
+  - Every call recorded with the signals that informed it.
+- Calibration Loop
+  - Outcomes compared to predictions each cycle.
 
 > Signals without decisions are just noise.
 
@@ -64,10 +76,14 @@ The next four slides carry the **byte-identical** content — same eyebrow, same
 
 ## The system has four moving parts.
 
-- **Signal Intake.** Weekly collection across conversations and market data.
-- **Scoring Model.** Scored on confidence, recency, and relevance.
-- **Decision Log.** Every call recorded with the signals behind it.
-- **Calibration Loop.** Outcomes compared to predictions each cycle.
+- Signal Intake
+  - Weekly collection across conversations and market data.
+- Scoring Model
+  - Scored on confidence, recency, and relevance.
+- Decision Log
+  - Every call recorded with the signals behind it.
+- Calibration Loop
+  - Outcomes compared to predictions each cycle.
 
 ---
 

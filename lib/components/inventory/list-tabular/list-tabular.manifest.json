@@ -524,5 +524,12 @@
   },
   "gesture": {
     "archetype": "list"
-  }
+  },
+  "inlineReads": [
+    {
+      "selector": "ol > li > ul > li:nth-child(2) em",
+      "effect": "ignored",
+      "reads": "Italic in the second column is drawn upright."
+    }
+  ]
 }

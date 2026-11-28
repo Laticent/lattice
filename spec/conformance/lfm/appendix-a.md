@@ -4,7 +4,7 @@ mode: boardroom
 pagination: true
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # Q3 Strategy
 
@@ -14,7 +14,7 @@ How we get to plan by year-end.
 
 ---
 
-<!-- _class: checklist -->
+<!-- @meta{layout=checklist} -->
 
 ## Readiness
 
@@ -24,7 +24,7 @@ How we get to plan by year-end.
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 ## Bets
 

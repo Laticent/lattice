@@ -291,10 +291,14 @@ theme: indaco
 
 ## inventory cards
 
-- **Alpha.** The first card carries one line.
-- **Beta.** The second card carries one line.
-- **Gamma.** The third card carries one line.
-- **Delta.** The fourth card carries one line.
+- Alpha
+  - The first card carries one line.
+- Beta
+  - The second card carries one line.
+- Gamma
+  - The third card carries one line.
+- Delta
+  - The fourth card carries one line.
 
 ---
 

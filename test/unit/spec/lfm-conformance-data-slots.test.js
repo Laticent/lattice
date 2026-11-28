@@ -1,4 +1,4 @@
-// The data-slots case (spec/conformance/lfm/data-slots.json, LFM 1.1 §3.6 rule 4) must fail when
+// The data-slots case (spec/conformance/lfm/data-slots.json, LFM 1.0 §5.1 rule 4) must fail when
 // the ENGINE loses the rule, not only when its expectations are broken. A flowchart consumes its
 // whole list into the chart, so "no pill on the slide" holds with or without ownership; this test
 // strips the slot declarations from the engine and checks the case notices.

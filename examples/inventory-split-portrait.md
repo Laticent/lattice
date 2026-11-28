@@ -23,9 +23,12 @@ A portrait page takes one row at a time. The insight closes the run once, and ev
 
 ## The ledger closes on its insight.
 
-- **First entry.** One-sentence description.
-- **Second entry.** One-sentence description.
-- **Third entry.** One-sentence description.
+- First entry
+  - One-sentence description.
+- Second entry
+  - One-sentence description.
+- Third entry
+  - One-sentence description.
 
 > The takeaway lands once, after the last row.
 
@@ -38,9 +41,12 @@ A portrait page takes one row at a time. The insight closes the run once, and ev
 
 ## The timeline keeps its dot on the row.
 
-- **First entry.** One-sentence description.
-- **Second entry.** One-sentence description.
-- **Third entry.** One-sentence description.
+- First entry
+  - One-sentence description.
+- Second entry
+  - One-sentence description.
+- Third entry
+  - One-sentence description.
 
 > The takeaway follows the last row here too.
 
@@ -53,9 +59,12 @@ A portrait page takes one row at a time. The insight closes the run once, and ev
 
 ## The editorial centers its row.
 
-- **First entry.** One-sentence description.
-- **Second entry.** One-sentence description.
-- **Third entry.** One-sentence description.
+- First entry
+  - One-sentence description.
+- Second entry
+  - One-sentence description.
+- Third entry
+  - One-sentence description.
 
 > The sidebar takeaway prints once.
 

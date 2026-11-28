@@ -62,10 +62,6 @@ const SANCTIONED = {
     why: "`form:` here is a component manifest's Frame field, not the retired deck key",
     keys: { form: 1 },
   },
-  'docs/src/content/docs/spec/lfm.md': {
-    why: "TEMPORARY, the whole entry: generated from spec/LFM-1.0.md, which #3554 (the spec desk) regenerates with @meta examples and no `paginate:` or `_class` taught as current (checked against #3554's head). Whichever of #3554 and #3606 lands second deletes this entry; the stale-entry check forces it",
-    keys: { paginate: 2, _class: 5 },
-  },
   'lib/base/base.registers.docs.md': {
     why: 'the raw-Marp section: Marpit itself reads `_class:`, and a deck exported to Marp must list the register token in it',
     keys: { _class: 4 },
@@ -83,8 +79,8 @@ const SANCTIONED = {
     keys: { say: 1 },
   },
   'docs/src/content/docs/spec/diagnostics.md': {
-    why: "the diagnostics table names what each rule reports: `stray-overflow-marker`'s retired key, and `say:` as an unknown `terms:` field. TEMPORARY for the comment forms, each dropped by the stale-entry check as its fix lands: `_track`, `_build`, `_focus`, `_debug` are the `track-directive` (:160), `one-stepping-directive` (:166), `code-line-range` (:183) and `unknown-debug-facet` (:272) rows, which #3554 (the spec desk) rewrites",
-    keys: { 'overflow-marker': 1, say: 1, _track: 1, _build: 1, _focus: 1, _debug: 1 },
+    why: "the diagnostics table names what each rule reports: `stray-overflow-marker`'s retired key, and `say:` as an unknown `terms:` field.",
+    keys: { 'overflow-marker': 1, say: 1 },
   },
   'docs/src/content/catalog/libraries/lente.md': {
     why: "the standalone `lente` package reads a `<!-- _lens: … -->` comment itself; the same line gives Lattice's record, `@meta{lens=…}`",

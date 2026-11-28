@@ -3,12 +3,9 @@
 The canonical, hand-written specs: LFM (Lattice-Flavored Markdown), the Diagnostic Protocol and
 the Lattice Timing Track (LTT):
 
-- `LFM-1.0.md` — ratified 2026-10-08. Its shared test cases are in `conformance/lfm/`.
-- `LFM-1.1.md` — a **draft** for the owner's sign-off: the front-matter registers, the `_lens` tag
-  and the inline notation, each with shared test cases. Not projected into the docs site until it
-  is ratified, like `LPM.md`.
-- `LFM-2.0.md` — a **draft**, written as changes against 1.1: the four notes (§3.5), with a shared
-  test case. Not projected into the docs site until it is ratified.
+- `LFM-1.0.md` — the consolidated LFM 1.0 for the Lattice 1.0 release: a core and four profiles, the
+  `@meta` record and the four notes. It replaces the 2026-10-08 text and the 1.1 and 2.0 drafts, and
+  is a **draft** for the owner's sign-off. Its shared test cases are in `conformance/lfm/`.
 - `diagnostics.md`
 - `LTT-1.0.md` — the Lattice Timing Track, ratified. It moved here from `engineering/ltt.md` on
   2026-10-08; its conformance fixtures stay beside its reference implementation, in
@@ -17,6 +14,10 @@ the Lattice Timing Track (LTT):
   reader refuses. A **draft** for the owner's sign-off; its cases are in `conformance/theme/`.
 - `LATTICE-FILE-1.0.md` — the `.lattice` project file. A **draft** for the owner's sign-off; its
   cases are in `conformance/lattice-file/`.
+- `EXTENDING-1.0.md` — the seven rules every spec here follows: a closed core, profiles, registries, prefixed
+  names, ignoring what a reader does not know, the version line, and what each version may change. A **draft**
+  for the owner's sign-off (`engineering/decisions/2026-11-27-specs-1-0.md`); not projected into the docs site
+  until it is ratified.
 - `SEGNO-1.0.md` — Segno notation, the curly-brace syntax pills, sparks, icons and `@meta` records
   are written in: its grammar, its tree, its refusals and its versioning rule. A **draft** for the
   owner's sign-off; its cases are in `conformance/segno/`.

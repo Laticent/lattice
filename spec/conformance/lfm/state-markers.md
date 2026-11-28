@@ -1,4 +1,4 @@
-<!-- _class: checklist -->
+<!-- @meta{layout=checklist} -->
 
 ## Launch readiness
 

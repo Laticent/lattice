@@ -772,5 +772,13 @@
   },
   "gesture": {
     "archetype": "list"
-  }
+  },
+  "inlineReads": [
+    {
+      "selector": "li > ul > li em",
+      "variant": "timeline",
+      "effect": "ignored",
+      "reads": "Italic in a step's body is drawn upright."
+    }
+  ]
 }

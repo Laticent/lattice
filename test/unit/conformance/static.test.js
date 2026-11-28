@@ -57,8 +57,8 @@ describe('conformance: the deck-setting MEASUREMENT can produce a failing fact',
   // a key nothing reads, the spec lacks and its doc never names is measured as exactly that.
   const contract = contracts.find((c) => c.kind === 'deck-setting');
   const ctx = contract.context();
-  const phantom = contract.measure('zzphantom', { key: 'zzphantom', kind: 'text', offer: false, docs: 'design/skills/lens.md', spec: '2.3' }, ctx);
-  test('a phantom key has no reader, no §2.3 line, no case and no doc mention', () => {
+  const phantom = contract.measure('zzphantom', { key: 'zzphantom', kind: 'text', offer: false, docs: 'design/skills/lens.md', spec: '4.2' }, ctx);
+  test('a phantom key has no reader, no registry entry, no case and no doc mention', () => {
     assert.deepEqual(phantom.readers, []);
     assert.equal(phantom.inSpec, false);
     assert.equal(phantom.specCases, 0);

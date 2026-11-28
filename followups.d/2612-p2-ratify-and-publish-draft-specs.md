@@ -8,13 +8,15 @@ swimlane: engineering/decisions/2026-10-08-spec-audit.md
 source: engineering/decisions/2026-10-08-spec-audit.md §8
 ---
 
-# The owner signs off LFM 1.1, the theme contract and the .lattice file, then they go on the site
+# The owner signs off the theme contract and the .lattice file, then they go on the site
 
-why now   — all three are written, each with shared test cases that run in the unit tier, and each
+update    — 2026-11-28: LFM 1.1 and the 2.0 draft are folded into the consolidated LFM 1.0 (#3554), whose
+            sign-off is that PR's merge ask; this item keeps the other two.
+why now   — both are written, each with shared test cases that run in the unit tier, and each
             is marked "Draft, for the owner's sign-off", because the owner signs off every change to
             a public spec's meaning (spec audit §8.3). The repo keeps a draft spec off the site
             (spec/README.md, as LPM), so none of the three is published yet.
-where     — spec/LFM-1.1.md, spec/THEME-1.0.md, spec/LATTICE-FILE-1.0.md (status line and change log);
+where     — spec/THEME-1.0.md, spec/LATTICE-FILE-1.0.md (status line and change log);
             tools/build-spec-docs.js SPECS; docs/astro.config.mjs Specification sidebar;
             docs/src/lib/nav.mjs specsNav (the home page's Specs group).
 done when — each is ratified with an owner line, projected to /spec/<slug>/, listed in the sidebar and

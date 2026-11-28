@@ -12,12 +12,13 @@ This page is generated from [`spec/LTT-1.0.md`](https://github.com/Laticent/latt
 <!-- spec-parts
 schema: docs/src/lib/ltt/ltt.schema.json
 reference: docs/src/lib/ltt/
-tests: docs/src/lib/ltt/conformance/
+tests: docs/src/lib/ltt/conformance/ test/unit/export/ltt-validate-conformance.test.js
 -->
 
 **Version:** 1.0 · **Status:** Ratified · **Date:** 2026-10-08 · **Owner:** @saden1 ·
 **License:** [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/) (this document and its
-conformance fixtures; the reference implementation `@laticent/ltt` is Apache-2.0)
+conformance fixtures; the reference implementation `@laticent/ltt` is Apache-2.0) ·
+**Follows:** [How the Lattice specs version and extend](https://github.com/Laticent/lattice/blob/main/spec/EXTENDING-1.0.md)
 
 The owner signs off every change to this spec's meaning: a new field, a new layer, a new
 version. The reasoning behind the format is in
@@ -40,6 +41,7 @@ named `*.ltt.json`.
 | The cursor (time → word, and re-timing to a clip) | `makeCursor` in `docs/src/lib/ltt/cursor.ts`. Cadenza re-exports it. |
 | The timing functions | `positionAt` and `timeline` in `docs/src/lib/ltt/position.ts` |
 | The conformance fixtures | `docs/src/lib/ltt/conformance/*.json`: sample files, each with its expected timeline and the expected position at chosen times |
+| The version and closed-core cases | `docs/src/lib/ltt/conformance/validate/*.json`: an LTT, whether a 1.x reader accepts it, and the problem it must report: a newer major refused, a newer minor with fields outside the core read, a field inside the closed core refused |
 | The deck producer | `deckLtt` in `lib/core/ltt-deck.mjs`, called by the HTML export (`narrationPayload` in `lib/export/player-core.mjs`) |
 | The timing engine's hash | `ENGINE_HASH` in `docs/src/lib/cadenza/engine-hash.ts`, written by `tools/lib/timing-engine-hash.js` |
 
@@ -288,6 +290,10 @@ So a reader of any 1.x MUST read every 1.y file, ignoring the fields it does not
 know outside the core, and MUST refuse a file whose major version it does not
 know. A writer writes the version it implements (`LTT_VERSION`).
 
+These are the rules every Lattice spec follows ([EXTENDING §5–§7](https://github.com/Laticent/lattice/blob/main/spec/EXTENDING-1.0.md)). A field a producer adds
+outside the core carries its producer's prefix (`acme.note`), so it cannot collide with a later minor's field. The
+shared cases are in `conformance/validate/`.
+
 ## Encodings
 
 One data model, two encodings. Conversion is lossless both ways.
@@ -520,5 +526,6 @@ reason (owner ruling, 2026-09-24).
 
 | Version | Date | Change |
 |---|---|---|
+| 1.0 | 2026-11-27 | Editorial, no change in meaning: cites the shared rules ([EXTENDING](https://github.com/Laticent/lattice/blob/main/spec/EXTENDING-1.0.md)), names the prefix for a producer's own field outside the core, and adds three shared cases for the version and closed-core rules (`conformance/validate/`). Record: `engineering/decisions/2026-11-27-specs-1-0.md`. |
 | 1.0 | 2026-10-08 | Moved from `engineering/ltt.md` to `spec/LTT-1.0.md` and published at `/spec/ltt/` (spec audit §6 step 2). Three clarifications from the library trio, each matching what the reference implementation already did or what §Versions already implied: a 1.x reader reads every 1.y file and refuses a new major; the staleness hash input is `[text, inputs]` or `[text, inputs, emphasis]`; `charOffset` counts UTF-16 code units. Record: `engineering/decisions/2026-10-08-library-trio-before-publish.md`. |
 | 1.0 | 2026-09-24 | First version, with bookends added before any reader shipped. Record: `engineering/decisions/2026-09-24-lattice-timing-track.md`. |

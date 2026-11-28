@@ -44,9 +44,9 @@ function load() {
 /** Every case in the folder: `<name>.md` beside `<name>.json`, or a `<name>.json` table whose
  *  `rows` each carry their own deck. */
 // The LFM version the reference implementation follows. A case whose `until` is at or below it pins behavior a later
-// version changed (LFM-1.0's §3.5, a plain comment as the speaker note, is the first), so it is kept for a 1.x
-// implementation and not run here. spec/conformance/lfm/README.md § A case.
-const REFERENCE_SPEC = 'LFM-2.0';
+// version changed, so it is kept for an older implementation and not run here. LFM 1.0 is the first ratified version
+// and no case carries `until` yet. spec/conformance/lfm/README.md § A case.
+const REFERENCE_SPEC = 'LFM-1.0';
 const specNumber = (v) => String(v).replace(/^LFM-/, '').split('.').map(Number);
 const atOrBelow = (a, b) => {
   const [x, y] = [specNumber(a), specNumber(b)];
@@ -165,7 +165,7 @@ function l1(source) {
         cards: cardsOf(stage),
         states: items.map(answerOf),
         fences: [...s.querySelectorAll('[data-lattice-hydrate]')].map((e) => e.getAttribute('data-lattice-hydrate').replace(/-/g, '')),
-        // The four notes (LFM-2.0 §3.5), each joined as the reference joins it; null where the slide has none.
+        // The four notes (LFM-1.0 §2.4), each joined as the reference joins it; null where the slide has none.
         notes: (({ note, say, description, handout }) => ({ note, say, alt: description, handout }))(notes.slideNoteRecord([s.outerHTML])[0]),
         inline: inlineOf(s),
         lens: lensOf(sources[i] ?? ''),
@@ -213,9 +213,7 @@ function runCase(c) {
     const got = l2(c.source);
     const key = (f) => `${f.rule}|${f.severity}|${f.slide}`;
     const want = (L2.findings || []).map(key).sort();
-    // Every case the reference runs is written for LFM 2.0's spelling: a 1.x case that holds a directive comment is
-    // marked `until: LFM-2.0` (the cut, record note §15 slice E) and has a twin in records (`<name>-record`), so an
-    // old-spelling finding here is a real one.
+    // Every case is written in LFM 1.0's spelling (records, the four notes), so an old-spelling finding here is real.
     const have = got.map(key).sort();
     if (!sameJson(want, have)) fails.push(`L2: findings ${JSON.stringify(have)}, expected ${JSON.stringify(want)}`);
   }

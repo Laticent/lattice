@@ -10,13 +10,13 @@ This page is generated from [`spec/diagnostics.md`](https://github.com/Laticent/
 :::
 
 <!-- spec-parts
-schema: none: the finding shape is stated in §1
+schema: spec/diagnostics.schema.json
 reference: lib/authoring/lint-core.js
-tests: test/unit/authoring/diagnostics-registry.test.js
+tests: test/unit/authoring/diagnostics-registry.test.js test/unit/authoring/diagnostics-schema.test.js
 -->
 
-**Status:** Draft · **Version:** 1.1 · **Date:** 2026-10-08 · **Owner:** @saden1
-**Companion to:** [`LFM-1.0.md`](/spec/lfm/) (conformance level **L2**)
+**Status:** Draft, for the owner's ratification at Lattice 1.0 · **Version:** 1.0 · **Date:** 2026-11-27 · **Owner:** @saden1
+**Companion to:** [`LFM-1.0.md`](/spec/lfm/) (the **Diagnostics** profile, LFM §1) · **Follows:** [How the Lattice specs version and extend](https://github.com/Laticent/lattice/blob/main/spec/EXTENDING-1.0.md)
 
 A conformant LFM document is always valid Markdown (§ LFM L0), so LFM
 diagnostics are never *parse errors*. They are **authoring findings**:
@@ -30,7 +30,7 @@ findings and quick-fixes — in an editor, a CI check, a PR bot, or a host like
 GitHub. This protocol is the foundation of a future LFM Language Server (§6).
 
 The reference implementation is `lib/authoring/lint-core.js` (pure, fs-free,
-shared by the CLI `tools/lint-deck.js`, the engine's `validate()`, and the
+shared by the CLI `lattice lint` (`lib/cli/lint-deck.js`), the engine's `validate()`, and the
 browser panels in the Studio and the Playground). This document *publishes* that implementation's
 contract; the contract, not the implementation, is the standard.
 
@@ -55,22 +55,58 @@ A diagnostic is a JSON object:
 
 | Field | Type | Required | Meaning |
 |---|---|---|---|
-| `slide` | integer | yes | 1-based slide number, matching the preview's "Slide N" and edit markers. `0` for a deck-wide finding sourced from front matter. |
+| `slide` | integer | yes | 1-based slide number, matching the preview's "Slide N". `0` for a deck-wide finding, including every finding sourced from front matter. |
 | `rule` | string | yes | A stable ID from the registry (§3). Tools key suppression and docs links off this. |
 | `severity` | string | yes | `error`, `warning`, `info` or `suggestion` (§2). |
-| `classToken` | string | yes | The `_class` component or modifier token, or front-matter value, the finding concerns. |
-| `line` | string | yes | The offending source line (trimmed) or the `_class`/front-matter directive line, for locating and display. |
 | `message` | string | yes | Human-readable explanation of *what* and *why it matters*. |
-| `fix` | string | yes | Author-facing guidance — the canonical correct shape. |
-| `autofixable` | boolean | no | `true` when a deterministic automatic fix exists (§4). Absent means no automatic fix; apply `fix` by hand. |
+| `classToken` | string | no | The token the finding is about: a component, a modifier, a record field, a front-matter key or a value. Absent when the finding is about the slide or the deck as a whole. |
+| `line` | string | no | The offending source line (trimmed), for locating and display. Absent for a finding about a whole slide or deck. |
+| `fix` | string | no | Author-facing guidance: the correct shape, in words. |
+| `autofixable` | boolean | no | `true` when a deterministic automatic fix exists (§4). Absent means no automatic fix. |
+| `replace` | object | no | `{ "from": string, "to": string }`: the fix as data, a substring of `line` and what replaces it. Present on a did-you-mean finding. |
+| `didYouMean` | string | no | The nearest known name, for a misspelling. |
+| `replacement` | object | no | `{ "from": string, "to": string }`: for a renamed or retired key, the old key and the new one, so a tool renames the key without parsing `message`. |
+| `col` | integer | no | 0-based column in `line` where the offending text starts. |
+| `span` | string | no | The offending text inside `line`. |
+| `chunkLine` | integer | no | 0-based line, within the slide's source, where an autofix starts. |
+| `shapeChange` | boolean | no | `true` when applying the fix changes how an existing deck renders. |
+| `file` | string | no | The file the finding is in, when a tool lints several. |
 
-> **Location note (v1):** v1 locates a finding by `slide` + `line` (the text of
-> the offending line, scoped to the slide). A future minor version MAY add a
-> precise `range` (`{ start, end }` line/column) for editors that want
-> character-level squiggles; tools MUST treat an absent `range` as "highlight
-> the matching `line` within `slide`."
+A finding MAY carry other fields; a reader MUST ignore a field it does not know and MUST keep it when it passes the
+finding on ([EXTENDING §5](https://github.com/Laticent/lattice/blob/main/spec/EXTENDING-1.0.md)). A field with a prefix (`acme.score`) belongs to the tool of that
+name.
+
+> **Location (1.0):** a finding is located by `slide` and `line` (the text of the offending line, scoped to the
+> slide), with `col` and `span` where the producer knows them. A minor version MAY add a precise `range`
+> (`{ start, end }`, line and column); a tool MUST treat an absent `range` as "highlight the matching `line` within
+> `slide`." A slide number is a position, not an identity: it changes when slides move.
+
+### 1.1 The report
+
+A tool that reports on a whole deck (a CLI, a CI check, an agent tool) returns one JSON object:
+
+```jsonc
+{
+  "version": "1.0",                                   // this protocol's version
+  "scope": { "files": ["deck.md"], "slides": "all" }, // what was checked
+  "coverage": { "profiles": ["core", "presentation", "notation", "lens", "timing"] },
+  "findings": [ /* §1 findings */ ]
+}
+```
+
+`coverage.profiles` names the LFM parts whose rules the tool ran. **An empty `findings` list means clean only for what
+`scope` and `coverage` name**: a part the tool did not run is unknown, never a pass. A tool that skipped a rule it
+would otherwise run (a rule that needs a browser, say) MUST list it in `coverage.skipped`, an array of
+`{ "rule": string, "why": string }`, or `{ "tier": string, "why": string }` for a whole group of rules it left out. A reader MUST refuse a report whose major version it does not know.
+
+The reference CLI, `lattice lint --json` (`npm run lint:deck -- --json` in a checkout), emits this report, with four
+counts beside it (`files`, `errors`, `warnings`, `suggestions`) and `reviewFindings`, the review tier (§3.9). It lists the
+`review` tier in `coverage.skipped` when that tier is off, and always lists `fit`, the browser-based fit checks, which run only in its text report (`--fit`). Its schema is
+[`spec/diagnostics.schema.json`](https://github.com/Laticent/lattice/blob/main/spec/diagnostics.schema.json).
 
 ## 2. Severities
+
+A reader that meets a severity this list does not name MUST treat it as `info`, so a later minor can add one.
 
 - **`error`** — the slide will render visibly wrong (a slot inherits the wrong
   weight, a grid row splits, a required slot renders empty). Authors SHOULD
@@ -100,6 +136,13 @@ The published namespace convention going forward is `lfm/<rule>`; the bare IDs
 below are the canonical identifiers the reference implementation emits, and
 `lfm/<rule>` is the equivalent qualified form a host MAY present.
 
+**A rule from outside this registry** carries a prefix naming its owner: `acme/slide-too-long`. An unprefixed ID
+is this registry's. **A renamed rule keeps its old ID** as a retired alias, listed with the ID that replaced it, so a
+tool that suppresses the old ID keeps working; renaming a rule is a minor version, never a break. Some IDs still
+carry a front-matter key's old name (`unknown-mode`, `unknown-lift`, `unknown-corners`, `unknown-headline`): they are
+renamed with their keys before Lattice 1.0 (owner, #3531 D2, relayed by the agent-native desk), and from 1.0 on a
+rename keeps the old ID as an alias.
+
 **The registry is complete.** Every rule ID the reference implementation can
 emit is listed here, and every ID listed here is one it emits.
 `test/unit/authoring/diagnostics-registry.test.js` reads the reference
@@ -119,7 +162,7 @@ distinct, stable ID.
 
 | Rule ID | Severity | Autofix | What it catches |
 |---|---|---|---|
-| `unknown-class` | warning | ✓ | A `_class` token that is not a known component or modifier, or one that was renamed. Carries a did-you-mean. |
+| `unknown-class` | warning | ✓ | A word in a record's `layout` or `class` that is not a known component or modifier, or one that was renamed. Carries a did-you-mean. |
 | `agenda-empty` | warning | — | An `agenda` slide with no list, in a deck with fewer than two shown `divider` slides, so the engine has nothing to fill it from and it renders as a heading over an empty slide (`lib/core/agenda-autofill.js`). |
 | `agenda-retired-style` | warning | ✓ | An `agenda` slide naming the retired `rail` or `cards` style; it renders as the default ledger. The fix rewrites `rail` to `circles` and removes `cards`. |
 | `conflicting-variants` | warning | — | Two tokens on one slide from an axis that takes one value at a time (two variants, two finishes); only one wins. |
@@ -157,13 +200,13 @@ distinct, stable ID.
 | `collage-hint` | warning | — | A trailing hint span after a `collage` photo that is not `hero`, one focal word (`top`, `bottom`, `left`, `right`, `center`) and a ratio such as `3:2`; the whole span is ignored and nothing is drawn for it. |
 | `collage-tail` | warning | — | Text after a `collage` photo that is not a clean hint span; a collage draws no per-photo text, and any hint on that line is ignored. |
 | `collage-hero-dup` | warning | — | More than one `collage` photo marked `hero`; only the first counts. |
-| `track-directive` | warning | — | A bare `track:` (deck-wide from that slide on) where `_track:` was meant, `_track` on a slide that is not `topic` or on `topic fact`, a track with fewer than two labels (none is drawn), or a track with no current topic. |
+| `track-directive` | warning | — | A record's `track` with `carry` (it runs on to every later slide) where one slide was meant, a `track` on a slide that is not `topic` or on `topic fact`, a track with fewer than two labels (none is drawn), or a track with no current topic. |
 | `track-list` | warning | — | A list on a `topic` slide, which shows as plain content; the track is built from the section's headings. |
 | `focus-spec` | warning | — | A malformed `_focus` directive; it silently does nothing at render. |
 | `focus-style` | warning | — | A `_focusStyle` value that is not `spotlight`, `ring`, `list-fill`, `blur` or `highlight`. |
 | `focus-steps` | warning | — | A `_focusSteps` step that is not a valid `_focus` spec (only the first bad step is reported). |
 | `focus-with-steps` | warning | — | A slide carries both a static `_focus` and a `_focusSteps` walk; the walk wins and the `_focus` is ignored. |
-| `one-stepping-directive` | error | — | A slide carries both `_build` and `_focusSteps` (a deck-wide `build:` counts; `_build: none` opts out). A slide takes one stepping directive (engineering/decisions/2026-11-09-steps-as-a-behavior.md §1). |
+| `one-stepping-directive` | error | — | A slide's record sets both `build` and `focus-steps` (a deck-wide `build:` counts; `build=none` opts out). A slide takes one stepping setting (engineering/decisions/2026-11-09-steps-as-a-behavior.md §1). |
 | `unknown-map-region` | warning | — | A `map` list item whose lead name the basemap can't resolve. Carries a did-you-mean against the basemap vocabulary. |
 | `map-highlight-implied` | info | — | A `map highlight` slide whose values are labels (or absent), so the data already fills it by category and the class says nothing. |
 | `trail-budget` | warning | — | A word in an `authority-chain trail` column too long for the column, which squeezes the others. |
@@ -180,7 +223,7 @@ distinct, stable ID.
 | `markup-unsure` | warning | — | Raw HTML a browser may build differently from how the preview's reader reads it (an unclosed comment, HTML inside `<svg>` or `<math>`, a `<select>`, a `<noscript>`): the preview asks the browser's own parser there. |
 | `code-record` | warning | — | An `@code{…}` record above a fence that does not read: an unknown word, a bad line range, a width out of range. The render ignores what it cannot read. |
 | `code-record-orphan` | warning | — | An `@code{…}` record line with no fence after it, so it configures nothing and renders as inline code. |
-| `code-line-range` | warning | — | A line reference past the end of its code block: `focus=` or `mark=` in a record, or a slide's `_focus: line` against its first fence. It marks nothing. Not checked on a formatted block, whose lines the formatter decides. |
+| `code-line-range` | warning | — | A line reference past the end of its code block: `focus=` or `mark=` in a record, or a record's `focus=line …` against the slide's first fence. It marks nothing. Not checked on a formatted block, whose lines the formatter decides. |
 | `code-format-unsupported` | warning | — | A block whose own `@code{…}` record asks for `format` in a language no formatter reads; it keeps its text. |
 
 ### 3.2 Fit and capacity
@@ -261,6 +304,7 @@ distinct, stable ID.
 | `unknown-<axis register>` | warning | ✓ | A family: one ID per axis register (`unknown-align`, `unknown-spark`, `unknown-cover-layout`, the three spectrum keys `unknown-spectrum`, `unknown-card-spectrum` and `unknown-trim-spectrum`, and one per register a plugin declares, such as `unknown-icon`). An unknown word, or a second word for an axis already set. |
 | `unknown-<setting>` | warning | ✓ | A family: one ID per key whose value list the deck-settings table holds (`lib/core/deck-settings.js`, `generic: true`): `unknown-theme`, `unknown-size`, `unknown-motion`, `unknown-motion-style`, `unknown-motion-speed`, `unknown-player-motion`, `unknown-glossary`, `unknown-typography`, `unknown-logo-finish` (an axis register: a word outside the vocabulary, or two words on one axis). A value the key's reader does not accept; the deck uses the default (for `theme:`, the command line refuses it). |
 | `unknown-key` | warning | ✓ | A top-level front-matter key that no reader reads and no plugin declares; the deck ignores the whole line. Carries a did-you-mean. |
+| `lfm-version` | error / warning | — | The deck's `lfm:` line (LFM 1.0 §2.1). An error when it names a major version this tool does not read: the reference command line refuses to render the deck. A warning when it is not a version (`lfm: one`): the deck reads as LFM 1.0. |
 | `duplicate-key` | warning | — | A top-level front-matter key written more than once (`key :` counts). The last line wins, as in the engine and in YAML; each earlier line is ignored. A render-target key (`fluid`, `player`, `present`, `read`) is read as a union instead, and the message says so. |
 | `unknown-treatment` | warning | ✓ | A `tint-*` or `mark-*` class token that `lib/base/base.treatments.css` does not paint. |
 | `treatment-placement` | warning | — | `tint-corner` or `tint-edge` without a placement it accepts (`at-tl` … for a corner, `at-top` … for an edge), so it paints nothing. |
@@ -269,13 +313,13 @@ distinct, stable ID.
 | `unknown-color-mode` | warning | ✓ | A `color-mode:` value the engine does not know; the deck uses the theme's default colors. |
 | `unknown-delivery` | warning | ✓ | A `delivery:` value the engine does not know; the deck uses `restrained`. |
 | `unknown-pace` | warning | ✓ | A `pace:` value the engine does not know; playback uses each viewer's own setting. |
-| `unknown-debug-facet` | warning | — | A word in a front-matter `debug:` value or a `<!-- _debug: -->` directive that the engine does not know; the overlay falls back to on-hover. |
+| `unknown-debug-facet` | warning | — | A word in a front-matter `debug:` value or a record's `debug` field that the engine does not know; the overlay falls back to on-hover. |
 | `deck-wide-component` | warning | — | A component named in the deck-wide `class:` register (every slide would become it), or a class `color-mode:` overrides. Ignored. |
 | `bad-render-target-value` | warning | — | A render-target setting that is neither on nor off; the export treats it as off. |
 | `nested-render-target-key` | warning | — | An indented render-target key that the export still reads as the deck setting. |
 | `marks-split` | error | ✓ | The old `marks:` key, which split into `chart-finish:` (finish and tone's source) and `color-intensity:` (muted, vivid); the engine reads neither from it. The fix writes the new lines in its place, leaving out an intensity the deck already sets with `color-intensity:`. A deck that also sets the old `chart-finish:` rendered `marks:` before the split, so the fix first deletes that line and then splits `marks:`. A `marks:` written as a YAML block list has no fix. Also an intensity word under `chart-finish:` (the spelling before #2887), which sets nothing; the fix moves it to `color-intensity:`, or drops it when that key already decides. An old `marks-*` or `chart-finish-muted` / `-vivid` slide class is an `unknown-class` error whose fix writes the new class. |
 | `retired-backdrop-key` | warning | — | The retired multi-line `backdrop:` block, which is no longer read. |
-| `retired-spectrum-key` | error | ✓ | `spectrum-edge:`, `spectrum-card:`, `spectrum-card-edge:`, `spectrum-trim:` or `spectrum: on`, which no longer render (LFM-1.1 §2.3). The fix moves each word onto `spectrum:`, `card-spectrum:` or `trim-spectrum:` (`auto` and the trim's `on`, which copied the slide edge, become the style the deck was showing; the trim's `off` / `restrained` become `quiet` / `mono`) and deletes the old keys. |
+| `retired-spectrum-key` | error | ✓ | `spectrum-edge:`, `spectrum-card:`, `spectrum-card-edge:`, `spectrum-trim:` or `spectrum: on`, which no longer render (LFM-1.0 §4.2). The fix moves each word onto `spectrum:`, `card-spectrum:` or `trim-spectrum:` (`auto` and the trim's `on`, which copied the slide edge, become the style the deck was showing; the trim's `off` / `restrained` become `quiet` / `mono`) and deletes the old keys. |
 | `retired-logo-key` | warning | ✓ | `logo-style:` (now `logo-finish:`), `logo-on:`, `logo-x:`, `logo-y:` or `logo-scale:`, which no longer render. The fix folds them into one `logo-finish:` line (`title`, a size word, the nearest of six placements) and deletes them. |
 | `retired-form-key` | warning | — | `form: off`, which no longer works; slides now show the title band and progress bar. |
 | `retired-form-token` | warning | — | The retired `no-form` class token. |
@@ -291,7 +335,7 @@ distinct, stable ID.
 | Rule ID | Severity | Autofix | What it catches |
 |---|---|---|---|
 | `note-key-retired` | error / warning | — | An old note key, which the engine no longer reads, so the line reaches nothing: a `say:` or `caption:` comment (now `@say`), a `describe:` comment (now `@alt`), a `reader:` comment (now `@handout`), or a front-matter `say:` / `captions:` map (each line now `@say` on its slide), all errors; a lowercase `note:` comment (now `@note`) is a warning, because it is also how an author opens a comment to themselves. `lattice migrate notes` rewrites a deck. |
-| `note-malformed` | error / warning | — | A comment that almost is a note (LFM-2.0 §3.5): `@Say{…}` (the names are lowercase), braces that never close, or text after the closing brace, each an error; an `@word{…}` whose word is not one of the four notes, a warning. |
+| `note-malformed` | error / warning | — | A comment that almost is a note (LFM-1.0 §2.4): `@Say{…}` (the names are lowercase), braces that never close, or text after the closing brace, each an error; an `@word{…}` whose word is not one of the four notes, a warning. |
 | `plain-comment-notes` | info | ✓ | A deck with no named note and two or more plain comments: the shape of an LFM 1.x deck whose plain comments were its speaker notes, which now exports with none. The fix runs the notes migration over the whole deck (`lattice migrate notes`), turning each plain comment into `@note`. |
 | `lexicon-single-letter-key` | — | — | **Deprecated (2026-11-16), no longer emitted.** It warned that a single-letter/digit `lexicon:` key (`e:`, `2:`) was substituted inside every other word. A letter or digit key in `terms:`, `acronyms:` or `lexicon:` now applies only to the whole word, so the hazard is gone. |
 | `terms-key-renamed` | suggestion | ✓ | An `acronyms:` or `lexicon:` block, both older names for `terms:` and both still read. The fix renames the block and writes each plain `acronyms:` value as `{ expansion: … }`; it is offered only when the deck has one of the three blocks. |
@@ -438,7 +482,7 @@ literal text and is never reported.
 | `meta-in-html-block` | error | — | A record directly under an HTML line with no blank line between, so both become one HTML block. |
 | `meta-block-in-container` | error | — | A multi-line record holding a blank line inside a list or blockquote, where the comment ends early. |
 | `meta-class-overridden` | warning | — | Two `@meta` records on one slide each set the slide's class (a record's `layout`, `class` or register field); the last wins, so the earlier one's words are dropped. An old `_class:` comment sets nothing and is never counted; `legacy-directive-comment` names it. |
-| `meta-record` | error | ✓ | A record the engine reads but cannot apply in full: an unknown field, a value outside its register, braces or a quote that never close, a deck-only key, a repeated field, a note field (`note=`, `say=`, `describe=`, `reader=`: a note is its own comment, LFM-2.0 §3.5). The finding's token names the door's code (`meta-unknown-key`, `meta-field-value`, `meta-note-field`, `unterminated-record`, …). A field a key rename retired (`@meta{headline=left}`) is fixed to its new name (`@meta{headline-align=left}`) when the record is the whole line. |
+| `meta-record` | error | ✓ | A record the engine reads but cannot apply in full: an unknown field, a value outside its register, braces or a quote that never close, a deck-only key, a repeated field, a note field (`note=`, `say=`, `describe=`, `reader=`: a note is its own comment, LFM-1.0 §2.4). The finding's token names the door's code (`meta-unknown-key`, `meta-field-value`, `meta-note-field`, `unterminated-record`, …). A field a key rename retired (`@meta{headline=left}`) is fixed to its new name (`@meta{headline-align=left}`) when the record is the whole line. |
 | `legacy-directive-comment` | error | ✓ | An old setting comment (`<!-- _class: x -->`, a pane marker such as `<!-- _pane: bar -->` or `<!-- panes: 60/40 -->`, the bare marker `<!-- stress-slide -->`), on every deck. The engine reads none of them, so the slide renders its default. The fix rewrites every old comment in the deck as a `<!-- @meta{…} -->` record, the same text `lattice migrate meta` writes. |
 
 > **Autofix is per-finding, not per-rule.** The ✓ marks rules that *can* offer a
@@ -488,6 +532,10 @@ apply it without prompting the author. The reference implementation exposes:
 A conformant L2 tool MAY implement its own fixer; it MUST NOT mark a finding
 `autofixable` unless the rewrite is deterministic and unique.
 
+**A fix is idempotent.** Linting the output of an autofixable fix MUST produce no further finding of that rule at that
+place, so a tool may apply fixes until none remain and stop. (The reference fix driver refuses a fix that leaves its
+own finding in place.)
+
 ## 5. Producing diagnostics
 
 The reference engine is `lintTextWith(source, vocab)` in `lint-core.js`:
@@ -507,24 +555,23 @@ The reference engine is `lintTextWith(source, vocab)` in `lint-core.js`:
 - **A Language Server.** This protocol is its foundation — a server wraps
   `lintTextWith` + `applyFix` behind LSP `textDocument/publishDiagnostics` and
   `textDocument/codeAction`. Not built here.
-- **Character-precise `range`s.** v1 locates by slide + line; ranges are a
+- **Character-precise `range`s.** 1.0 locates by slide + line (with `col` and `span` where known); ranges are a
   forward-compatible addition (§1).
 - **Cross-document / deck-level findings** beyond front matter (e.g. duplicate
   slide IDs, asset existence). Out of scope for 1.x.
-- **The optional fields the reference implementation already emits.** Some
-  findings carry fields §1 does not define yet: `didYouMean` and `replace`
-  (a did-you-mean rewrite), `span` and `col` (a span inside the line),
-  `chunkLine` (which line an autofix starts on), and `shapeChange` (the fix
-  changes how an existing deck renders). Some findings also omit `classToken` or
-  `line`, which §1 lists as required: the review tier's slide- and deck-level
-  findings and the CLI's `--discover` findings carry no `line`. And three
-  front-matter findings (`autosplit-retired`, `note-key-retired`,
-  `pagination-unsupported-value`) report `slide: 1`, where §1 says front matter is
-  `slide: 0`. Specifying these is the
-  next minor version's work.
+- **Outcome per check.** 1.0 reports failures as findings and what was not checked as `coverage`; a per-rule
+  pass record is a 1.x addition.
 
 ## 7. Change log
 
+- **1.0 (2026-11-27, draft for ratification at Lattice 1.0).** Renumbered 1.0 to ship beside LFM 1.0 (owner,
+  2026-11-27). §1 makes `classToken`, `line` and `fix` optional, as the review tier and the CLI's discovery pass
+  already emitted them, and specifies the fields the reference implementation already emitted (`replace`,
+  `didYouMean`, `col`, `span`, `chunkLine`, `shapeChange`, `file`), plus `replacement` on a renamed key. §1.1 adds the
+  report (`version`, `scope`, `coverage`), so silence is clean only for what was checked. §3 adds prefixed rule IDs and
+  retired aliases. Front-matter findings all report `slide: 0` (`autosplit-retired`, `note-key-retired` and
+  `pagination-unsupported-value` reported `slide: 1`). The `lfm-version` rule joins §3.4. Shared schema:
+  `spec/diagnostics.schema.json`. Design record: `engineering/decisions/2026-11-27-specs-1-0.md` §7.2.
 - **Unreleased.** §3.4 adds `image-card-renamed`, the image card's old per-slide classes
   (`engineering/decisions/2026-11-21-plain-english-key-renames.md` D2). §3.4 adds `key-renamed`,
   one rule over a table of renamed deck keys (`paginate:` → `pagination:` first); `fonts-renamed`

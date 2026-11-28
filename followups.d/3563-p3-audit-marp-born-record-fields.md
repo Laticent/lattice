@@ -26,7 +26,7 @@ why now   — The owner asked which `@meta` fields are load-bearing for Lattice 
             with a lint error and a fix (`background-image` becomes a `![bg](…)` line, `paginate` becomes
             `pagination`, the rest are removed in favor of a theme, finish or tone). The owner chose to decide later.
 where     — the `meta` plugin manifest (lib/plugins/meta), lib/core/meta-keys.mjs, the apply step in lib/engine/slides.js,
-            lib/authoring/lint-core.js, the Export-to-Marp writer, spec/LFM-2.0.md §2.1 and the docs that list fields.
+            lib/authoring/lint-core.js, the Export-to-Marp writer, spec/LFM-1.0.md §2.3 and the docs that list fields.
 done when — the owner has ruled on each field, and the vocabulary, lint, docs and spec match the ruling.
 evidence  — this census rerun on the day, and the render probe for each field.
 verify    — render a slide with each field before and after; lint:deck --fix on a deck that uses each.

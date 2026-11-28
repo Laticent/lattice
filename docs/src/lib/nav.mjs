@@ -137,7 +137,7 @@ export function pluginsNav(url) {
 
 // The public SPECS published on the site (spec/*.md, projected by tools/build-spec-docs.js), drawn
 // as the home page's Specs group. `pkg` is each spec's reference implementation, so the workspace
-// check in nav.test.ts counts @laticent/ltt here. A spec still in draft (LPM, LFM 1.1) is not
+// check in nav.test.ts counts @laticent/ltt here. A spec still in draft (LPM) is not
 // listed until it is ratified and published.
 export function specsNav(url) {
 	return [

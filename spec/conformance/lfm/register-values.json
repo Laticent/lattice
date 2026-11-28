@@ -1,7 +1,7 @@
 {
  "title": "A register value matches without regard to case, and an unknown single-word value changes nothing",
- "spec": "LFM-1.1",
- "section": "2.3",
+ "spec": "LFM-1.0",
+ "section": "4.2",
  "rows": [
   { "name": "mode: Sketch is sketch", "source": "---\nmode: Sketch\n---\n\n## A\n\nText.\n", "L1": { "deck": { "mode": "sketch" } }, "L2": { "findings": [] } },
   { "name": "finish: Halo is halo", "source": "---\nfinish: Halo\n---\n\n## A\n\nText.\n", "L1": { "deck": { "finish": "halo" } }, "L2": { "findings": [] } },

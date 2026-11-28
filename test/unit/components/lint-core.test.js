@@ -1041,11 +1041,11 @@ describe('lint-core: a deck finish on a bookend is not a finding', () => {
 describe('pagination: skip / hold in front matter are flagged rather than silently downgraded', () => {
   const find = (src) => ruleFor(src, 'pagination-unsupported-value');
 
-  test('`skip` is flagged against slide 1, as a suggestion', () => {
+  test('`skip` is flagged against the front matter (slide 0, Diagnostics 1.0 §1), as a suggestion', () => {
     const f = find('---\npagination: skip\n---\n\n# A\n\n---\n\n## B.\n');
     assert.ok(f, 'expected pagination-unsupported-value');
     assert.equal(f.severity, 'suggestion');
-    assert.equal(f.slide, 1);
+    assert.equal(f.slide, 0);
     assert.match(f.message, /pagination: skip/);
     assert.match(f.fix, /pagination: false/);
   });
