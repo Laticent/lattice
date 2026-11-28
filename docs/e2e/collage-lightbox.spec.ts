@@ -86,6 +86,20 @@ async function openStudioDeck(page: Page, source: string = deck) {
 	await expect(slideTitle(page)).toHaveText('First slide', { timeout: 15_000 });
 	await page.setViewportSize(target);
 	await expect(livePreview(page).locator('.collage-tile')).toHaveCount(4, { timeout: 30_000 });
+	// Click only a collage that has packed. While its photos load, the list is `data-collage="measuring"` and
+	// `visibility: hidden` (collage.styles.css), yet each tile keeps a box in the unpacked grid: a point read then
+	// holds still across the reads below, the click lands on a photo nobody can see, `tapCollageAt`'s
+	// `elementFromPoint` skips it, and the pack then moves every tile. It failed 2 of 5 on main 2ead5e1d while a
+	// full 4-worker suite kept the preview server busy (CPU load alone did not slow the photos enough), and every
+	// time once the photos answered 3.5 s late. The measure always ends, at the latest at measure-kit's 4 s cap,
+	// as `packed` or `fallback`.
+	await expect
+		.poll(() => page.evaluate(() => {
+			const doc = (document.querySelector('iframe.live') as HTMLIFrameElement | null)?.contentDocument;
+			const lists = Array.from(doc?.querySelectorAll('ul.collage-list') ?? []);
+			return lists.length > 0 && lists.every((l) => /^(packed|fallback)$/.test(l.getAttribute('data-collage') ?? ''));
+		}), { timeout: 30_000, message: 'the collage never finished measuring its photos' })
+		.toBe(true);
 	// Click only a frame a reader can see. A resize to a phone mounts a fresh preview frame, which holds itself hidden
 	// (opacity 0, no pointer events) until its fonts land and it reveals; under load that is seconds after its tiles are
 	// in the DOM, and `tapCollageAt` rightly ignores a tap on a hidden frame. Clicking before the reveal failed 3 of 24
