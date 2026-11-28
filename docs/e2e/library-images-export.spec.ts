@@ -145,8 +145,8 @@ async function setUp(page: Page): Promise<() => Promise<string[]>> {
 }
 
 /** Wait until some toast said `ready`, then assert none said `warning`. Both read the log, never the live pill. */
-async function expectToasts(toasts: () => Promise<string[]>, ready: RegExp, warning?: RegExp, why = '') {
-	await expect.poll(toasts, { message: `a toast matching ${ready}`, timeout: 60_000 }).toContainEqual(expect.stringMatching(ready));
+async function expectToasts(toasts: () => Promise<string[]>, ready: RegExp, warning?: RegExp, why = '', timeout = 30_000) {
+	await expect.poll(toasts, { message: `a toast matching ${ready}`, timeout }).toContainEqual(expect.stringMatching(ready));
 	if (warning) expect(await toasts(), why || `no toast matching ${warning}`).not.toContainEqual(expect.stringMatching(warning));
 }
 
@@ -189,7 +189,7 @@ onEveryEngine('@smoke the PDF export draws the photo on the page, and does not r
 	const doc = await PDFDocument.load(new Uint8Array(readFileSync(path)), { updateMetadata: false });
 	expect(doc.getPageCount()).toBe(1);
 	// Anchor first: "no warning" passes on a page with no toast at all, so wait for the export's own toast.
-	await expectToasts(toasts, /PDF ready/, /could not load every image/i);
+	await expectToasts(toasts, /PDF ready/, /could not load every image|stand-in/i, '', 60_000);
 	// The page is one raster of the slide (an image-per-page PDF), so the page's own image is what a viewer shows.
 	// Read it from the file rather than shelling out to poppler, which the per-PR `studio-smoke` job does not install.
 	expect(await greenShareOfPageImage(page, new Uint8Array(readFileSync(path))), 'the photo is painted on the PDF page').toBeGreaterThan(0.02);
@@ -206,7 +206,7 @@ onEveryEngine('@smoke the PowerPoint export carries the photo, and does not repo
 	const toasts = await setUp(page);
 	const path = await download(page, 'pptx');
 	// The message carries the capture's log, so a failure names which image was lost and why.
-	await expectToasts(toasts, /PowerPoint ready/, /could not load every image/i, `the PowerPoint toast; the capture logged: ${exportLog.join(' | ') || 'nothing'}`);
+	await expectToasts(toasts, /PowerPoint ready/, /could not load every image|stand-in/i, `the PowerPoint toast; the capture logged: ${exportLog.join(' | ') || 'nothing'}`);
 	const zip = await JSZip.loadAsync(readFileSync(path));
 	// PNG or JPEG: a photographic slide is written as a JPEG when that is much smaller (canvasToPictureBlob), and which
 	// one wins depends on the engine's encoder. Firefox writes this deck's slide as a JPEG; a PNG-only filter found no picture.
@@ -330,7 +330,8 @@ onEveryEngine('@smoke a re-openable PDF carries the photo, and a fresh browser p
 	const pending = page.waitForEvent('download', { timeout: 240_000 });
 	await dialog.getByRole('button', { name: /^Download PDF/ }).click();
 	const path = (await (await pending).path()) as string;
-	await expectToasts(toasts, /PDF ready/, /not inside the re-openable copy/i);
+	// Every warning a re-openable PDF can raise names a stand-in or says the photo is "not inside" (share-export.ts).
+	await expectToasts(toasts, /PDF ready/, /stand-in|not inside/i, '', 60_000);
 
 	const other = await browser.newContext({ baseURL: new URL(page.url()).origin, acceptDownloads: true });
 	try {
