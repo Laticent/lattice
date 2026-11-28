@@ -35,11 +35,16 @@ export function HeroCopy() {
 			</h1>
 			{/* "Markdown" stays (the developer visitor asked for it back) but is glossed
 			    in the same breath for everyone else: both scoring reviews on 2026-10-28
-			    split on it, and the gloss serves both. */}
+			    split on it, and the gloss serves both. The Studio's Compose comes FIRST
+			    (owner's next-round brief, item 1): it is a first-class way to write, and
+			    second place would read as the fallback for people who cannot write
+			    Markdown. "Pick" keeps the writer choosing the layout (§7.1): in Compose
+			    from the slide's layout menu, in Markdown by name. */}
 			<p className="m-0 max-w-[46ch] text-[clamp(17px,1.5vw,20px)] text-foreground">
-				For the boardroom, the pitch, the briefing, and the lecture hall. Write each slide as a few lines of plain
-				text (Markdown, as simple as a bulleted email) and name the layout that fits it. Lattice sets every page so
-				your audience gets the point at a glance.
+				For the boardroom, the pitch, the briefing, and the lecture hall. Write each slide in the Studio as you would
+				a document, with no Markdown at all, or as a few lines of plain text (Markdown, as simple as a bulleted
+				email), and pick the layout that fits it. Lattice sets every page so your audience gets the point at a
+				glance.
 			</p>
 			{/* The contrast with AI deck generators, at the fold. Both scoring reviews
 			    found it only mid-page; the July note's §7.1 still holds — the page

@@ -8,8 +8,9 @@
 // React owns the content. Static sections (hero copy/CTAs, feature/why/next
 // cards, section heads) render SERVER-SIDE with NO client: directive → zero JS.
 // Only the genuinely interactive bits hydrate: the hero Preview/Source Tabs
-// (HeroPreview), the field-card live previews (FieldCardsLive), and the restyle
-// carousel (RestyleShowcase). Each WRAPS the irreducible engine via the shared
+// (HeroPreview), the Studio preview, the field-card live previews
+// (FieldCardsLive), the restyle carousel (RestyleShowcase), and the slide-jobs picker
+// and venue demo (LiveDemos.tsx: client:only shells that lazy-load their bodies). Each WRAPS the irreducible engine via the shared
 // <DeckPreview> bridge (src/components/DeckPreview.tsx → src/playground/single-slide-render.ts)
 // — it never reimplements the engine render.
 // See engineering/decisions/2026-06-09-shadcn-migration.md §0.
@@ -28,6 +29,7 @@ import {
 	NextSteps,
 	nextStepsFor,
 	ProofStrip,
+	QualityLayers,
 	RoomCards,
 	SayMoreSection,
 	SectionHead,
@@ -37,8 +39,10 @@ import {
 	WhyCards,
 } from '../components/landing/sections.tsx';
 import FieldCardsLive from '../components/landing/FieldCardsLive.tsx';
-import { BRAND_SLIDE, HERO_SLIDE, ROOM_SLIDES } from '../components/landing/room-decks';
+import { BRAND_SLIDE, HERO_SLIDE, ROOM_SLIDES, SLIDE_JOBS } from '../components/landing/room-decks';
+import { scorecardHalves, typeSizeCount, venueFindings } from '../components/landing/engine-facts';
 import RestyleShowcase from '../components/landing/RestyleShowcase.tsx';
+import { SlideJobsLive, VenueDemoLive } from '../components/landing/LiveDemos.tsx';
 import StudioPreview from '../components/landing/StudioPreview.tsx';
 import { DECKS } from '../components/studio/decks';
 import { assetBase, engineAsset } from '../playground/asset-version.mjs';
@@ -186,6 +190,36 @@ const studioData = {
 	katexUrl,
 };
 
+// "What does this slide need to do?" — six live slides, one per job, picked one at a time.
+const slideJobsData = {
+	drawn: SLIDE_JOBS.map((j) => needsDrawn(j.sample)),
+	themeBase,
+	runtimeUrl,
+	engineUrl,
+	dagreUrl,
+	katexUrl,
+};
+
+// The quality section: three layers, every name and count read from the engine
+// (engine-facts.ts), and the venue demo with lint's own verdict at each of the four rooms,
+// computed here at build time. engine-facts.test.ts pins both.
+const scorecard = scorecardHalves();
+// Only the verdicts travel as props; the island composes the decks from room-decks.ts.
+const venueData = {
+	venues: venueFindings().map(({ venue, label, who, one, split }) => ({ venue, label, who, one, split })),
+	themeBase,
+	runtimeUrl,
+	engineUrl,
+	dagreUrl,
+	katexUrl,
+};
+
+// The Output Exception's version, from the license file itself ("LATTICE OUTPUT EXCEPTION,
+// version 1.2"), so the builders panel names the exception that ships.
+const exceptionHead = readFileSync(join(repoRoot, 'LICENSE-EXCEPTIONS'), 'utf8').split('\n')[0];
+const outputExceptionVersion = exceptionHead.match(/version\s+([\d.]+)/i)?.[1] ?? '';
+if (!outputExceptionVersion) throw new Error(`index.astro: no version in LICENSE-EXCEPTIONS' first line: ${exceptionHead}`);
+
 // The four next-step cards now live in sections.tsx with the rest of the landing
 // copy — card 4's body carries an inline link, and JSX can't appear in Astro
 // frontmatter.
@@ -263,21 +297,72 @@ const nextSteps = nextStepsFor(url);
 
 			<!-- Say more with less — the communication thesis, directly under the
 			     hero: what a deck is FOR (the people who decide understand you) before
-			     how it is made. Muted, with its own before/after proof; the live slide
-			     host is filled by the FieldCardsLive island in the rooms section below.
+			     how it is made. Muted. Under the thesis, the vocabulary grouped by the job
+			     a slide does, one LIVE slide at a time (SlideJobs; owner's next-round
+			     brief, item 5): the line above the picker says what to do, and each panel
+			     says what to look at before the slide.
 			     See engineering/decisions/2026-10-28-home-positioning-audit.md §5. -->
 			<section class="border-y border-border bg-muted py-[clamp(48px,6vw,88px)]">
 				<div class="wrap">
 					<SayMoreSection />
+					<div class="mt-[clamp(32px,4vw,56px)]">
+						<p class="m-0 mb-4 max-w-[62ch] text-[17px] leading-[1.6] text-foreground">
+							<span class="font-semibold text-[var(--text-heading)]">What does this slide need to do?</span> Pick a job to
+							see the layout built for it. The slide is rendered live from its text, not a picture.
+						</p>
+						<!-- client:only: the shell (LiveDemos.tsx) loads the picker when it nears the
+						     viewport; the fallback holds its space until then. -->
+						<SlideJobsLive client:only="react" data={slideJobsData}>
+							<div slot="fallback" class="lx-ui min-w-0" aria-hidden="true">
+								<div class="h-10 w-full rounded-lg bg-[var(--bg-alt)]"></div>
+								<div class="mt-4 aspect-video w-full max-w-[720px] rounded-xl border border-border bg-card"></div>
+							</div>
+						</SlideJobsLive>
+					</div>
 				</div>
 			</section>
 
-			<!-- How it works — a slim three-step band directly after say-more: the thesis,
-			     then how you do it, then whose room it is. Both scoring reviews found it too
-			     late further down. Plain with a bottom rule, under the muted say-more band. -->
-			<section class="border-b border-border py-[clamp(28px,3.5vw,44px)]">
+			<!-- The Studio — moved UP to directly after "Say more with less" (owner's
+			     next-round brief, item 1), with the three how-it-works steps folded in
+			     to its panel. It used to sit below the brand section, after a separate
+			     "How it works" band, so the visitor met the text-file model before the
+			     app; the owner reversed that, because most of the people who own how a
+			     company presents will write in the Studio. Each step names both doors
+			     (Compose or Markdown; the Studio or one command), so neither reads as the
+			     lesser; the steps sit inside the panel, under its headline and live slide.
+			     Plain background; the panel supplies its own inset bg-card. -->
+			<section class="py-[clamp(48px,6vw,88px)]">
 				<div class="wrap">
-					<HowItWorks />
+					<!-- The inset panel is what makes this read as an OBJECT you can open
+					     rather than another prose band, and what separates it from the
+					     plain card sections around it. Astro owns the panel + grid;
+					     React owns the content — the same split the hero uses, and the
+					     reason the preview is a SIBLING island rather than a child. -->
+					<div class="rounded-2xl border border-border bg-card p-[clamp(20px,3vw,40px)] text-card-foreground shadow-sm">
+						<!-- Same column ratio as the hero, so the page keeps one visual
+						     language and the eye recognizes "another open-it moment".
+						     THREE children, not two, so the CTA can follow the PROOF when
+						     the grid stacks: below lg the order reads prose → preview →
+						     buttons; at lg the prose and buttons sit in column 1 and the
+						     preview spans both rows in column 2. -->
+						<div class="grid grid-cols-1 items-start gap-x-[clamp(24px,3vw,44px)] gap-y-7 lg:grid-cols-[1.05fr_1fr]">
+							<div class="min-w-0 lg:col-start-1 lg:row-start-1"><StudioCopy /></div>
+							<!-- client:visible — below the fold; the engine bundle it needs is
+							     already in flight from the hero's client:load preview. -->
+							<div class="min-w-0 lg:col-start-2 lg:row-start-1 lg:row-span-2">
+								<StudioPreview client:visible data={studioData} />
+							</div>
+							<div class="min-w-0 lg:col-start-1 lg:row-start-2">
+								<StudioActions studioHref={url('studio/')} newDeckHref={url('studio/') + '?new=1'} />
+							</div>
+						</div>
+						<!-- How it works, folded in under the panel's headline and proof: three
+						     steps that each name both doors. -->
+						<div class="mt-8 border-t border-border pt-8">
+							<HowItWorks />
+						</div>
+						<StudioTrust />
+					</div>
 				</div>
 			</section>
 
@@ -353,53 +438,57 @@ const nextSteps = nextStepsFor(url);
 				</div>
 			</section>
 
-			<!-- The Studio — the browser door, opened. It sits well AFTER "How it works" on
-			     purpose, so the visitor reads the text-file → engine model before they learn
-			     there is an app. Ahead of it the page would read "web app that also has a
-			     CLI".
-			     Plain background; the section supplies its own inset bg-card panel. -->
-			<section class="py-[clamp(48px,6vw,88px)]">
+			<!-- Quality, in three layers — what PREVENTS drift (the type scale and the
+			     theme), what DETECTS a broken rule (the linter), and what ASSESSES the
+			     deck (the Studio's Deck read), each told as its own job (owner's
+			     next-round brief, item 4). Then the detecting layer at work on one real
+			     slide in four rooms (VenueDemo, item 3): a bigger room sets bigger type,
+			     the engine never shrinks it back, and a too-full slide is CUT OFF, which
+			     the linter says first. Every name, count and warning is the engine's,
+			     read at build time (engine-facts.ts) and pinned by its test. Muted, so
+			     it separates the plain brand section above from the muted AI band below
+			     by a rule, not a color change. -->
+			<section class="border-t border-border py-[clamp(48px,6vw,88px)]">
 				<div class="wrap">
-					<!-- The inset panel is what makes this read as an OBJECT you can open
-					     rather than another prose band, and what separates it from the
-					     plain card sections around it. Astro owns the panel + grid;
-					     React owns the content — the same split the hero uses, and the
-					     reason the preview is a SIBLING island rather than a child. -->
-					<div class="rounded-2xl border border-border bg-card p-[clamp(20px,3vw,40px)] text-card-foreground shadow-sm">
-						<!-- Same column ratio as the hero, so the page keeps one visual
-						     language and the eye recognizes "another open-it moment".
-						     THREE children, not two, so the CTA can follow the PROOF when
-						     the grid stacks: below lg the order reads prose → preview →
-						     buttons; at lg the prose and buttons sit in column 1 and the
-						     preview spans both rows in column 2. -->
-						<div class="grid grid-cols-1 items-start gap-x-[clamp(24px,3vw,44px)] gap-y-7 lg:grid-cols-[1.05fr_1fr]">
-							<div class="min-w-0 lg:col-start-1 lg:row-start-1"><StudioCopy /></div>
-							<!-- The one island. client:visible — it is below the fold, and the
-							     engine bundle it needs is already in flight from the hero's
-							     client:load preview, so this adds no new network bytes. -->
-							<div class="min-w-0 lg:col-start-2 lg:row-start-1 lg:row-span-2">
-								<StudioPreview client:visible data={studioData} />
-							</div>
-							<div class="min-w-0 lg:col-start-1 lg:row-start-2">
-								<StudioActions studioHref={url('studio/')} newDeckHref={url('studio/') + '?new=1'} />
-							</div>
-						</div>
-						<StudioTrust />
+					<SectionHead eyebrow="Quality, built in" title="The standard is set before you write, and checked while you do.">
+						Three layers keep every deck on standard, and each does a different job: one stops mistakes before they
+						happen, one catches the ones an author can still make, and one tells you how the deck reads.
+					</SectionHead>
+					<QualityLayers typeSizes={typeSizeCount()} craft={scorecard.craft} style={scorecard.style} profiles={scorecard.profiles} />
+					<div class="mt-[clamp(40px,5vw,64px)] mb-5 max-w-[62ch]">
+						<h3 class="m-0 mb-2 font-[family-name:var(--font-display)] text-[clamp(22px,2.4vw,30px)] leading-[1.15] tracking-[-0.01em] text-[var(--text-heading)]">
+							The same slide, in four rooms.
+						</h3>
+						<p class="m-0 text-[17px] text-foreground">
+							Pick where this five-number slide will be shown. A bigger room needs bigger type, so Lattice sets it larger,
+							and never shrinks it back to squeeze a slide in. Watch what the checks say when the slide is too full, and
+							what the fix looks like.
+						</p>
 					</div>
+					<VenueDemoLive client:only="react" data={venueData}>
+						<div slot="fallback" class="lx-ui min-w-0" aria-hidden="true">
+							<div class="h-10 w-full rounded-lg bg-[var(--bg-alt)]"></div>
+							<div class="mt-4 aspect-video w-full max-w-[720px] rounded-xl border border-border bg-card"></div>
+						</div>
+					</VenueDemoLive>
 				</div>
 			</section>
 
-			<!-- Bring your own model — its own band again, at h2 altitude, directly
-			     after the Studio. It was briefly absorbed into the Studio section as an
-			     h3 to hold the page's section count; that trade was wrong. The eyebrow
-			     exists to disclaim AT SKIM ALTITUDE (copy doc §5.5), and a skimmer
-			     scanning h2s never sees an h3 in another section's footer. Adjacent to
-			     the Studio, the page still reads as ONE AI conversation rather than two
-			     in two registers — which was the real goal; "no net section" was only
-			     the bookkeeping. -->
+			<!-- Bring your own model — its own band, at h2 altitude. It was briefly
+			     absorbed into the Studio section as an h3 to hold the page's section
+			     count; that trade was wrong. The eyebrow exists to disclaim AT SKIM
+			     ALTITUDE (copy doc §5.5), and a skimmer scanning h2s never sees an h3 in
+			     another section's footer. Since the Studio moved up (next-round brief,
+			     item 1) it follows the quality section, whose Studio scores it answers:
+			     the model can draft, the engine and the checks stay deterministic. -->
 			<section class="border-y border-border bg-muted py-[clamp(48px,6vw,88px)]">
 				<div class="wrap">
-					<ByomSection featuresHref={url('features/') + '#ai-authoring'} url={url} layoutCount={manifests.length} />
+					<ByomSection
+						featuresHref={url('features/') + '#ai-authoring'}
+						url={url}
+						layoutCount={manifests.length}
+						outputExceptionVersion={outputExceptionVersion}
+					/>
 				</div>
 			</section>
 
