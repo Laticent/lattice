@@ -219,7 +219,7 @@ export const sectionFilter = (s: LibrarySection): LibraryFilter => (s === 'decks
 export const LIBRARY_HEADER = {
 	icon: <FileBox />,
 	title: 'Library',
-	searchPlaceholder: 'Search decks, themes, components, finishes, images, videos, files & plugins…',
+	searchPlaceholder: 'Search decks, themes and more…',
 } as const;
 
 export function LibraryShell({ docked, open, onOpenChange, children }: { docked?: boolean; open: boolean; onOpenChange: (v: boolean) => void; children?: React.ReactNode }) {
