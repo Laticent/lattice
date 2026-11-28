@@ -426,12 +426,15 @@ function MiniBody({ m }: { m: MiniSlide }) {
 	);
 }
 
-function MiniSlideRow({ slides, label }: { slides: MiniSlide[]; label: string }) {
+// Each row is introduced before it is shown: its label, then one line naming what to
+// look at, then the pictures (owner, 2026-11-28: "introduce, then look at the row").
+function MiniSlideRow({ slides, label, caption }: { slides: MiniSlide[]; label: string; caption: string }) {
 	return (
 		<div className="min-w-0">
-			<p className="m-0 mb-2.5 font-mono text-[11.5px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+			<p className="m-0 mb-1 font-mono text-[11.5px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
 				{label}
 			</p>
+			<p className="m-0 mb-3 text-[14px] text-foreground">{caption}</p>
 			<ul className="m-0 grid list-none grid-cols-2 gap-2.5 p-0 sm:grid-cols-4">
 				{slides.map((m) => (
 					<li key={m.page} className="drift-mini" style={{ background: m.bg }} data-rule={m.rule.edge}>
@@ -478,13 +481,20 @@ function MiniSlideRow({ slides, label }: { slides: MiniSlide[]; label: string })
 
 export function DriftDemo() {
 	return (
-		<figure className="lx-ui m-0 flex flex-col gap-6 rounded-xl border border-border bg-muted p-[clamp(16px,2.5vw,28px)]">
-			<MiniSlideRow slides={DRIFTED} label="Four people, four blank canvases" />
-			<MiniSlideRow slides={ALIGNED} label="The same four slides, one Lattice palette" />
-			<figcaption className="m-0 text-[13px] text-muted-foreground">
-				Top row: the title font, brand color, logo corner and page number change on every slide. Bottom row: none of
-				them move, because the theme sets them, not the author.
-			</figcaption>
+		<figure
+			className="lx-ui m-0 flex flex-col gap-7 rounded-xl border border-border bg-muted p-[clamp(16px,2.5vw,28px)]"
+			aria-label="An illustration: the same four slides made on blank canvases, then in Lattice"
+		>
+			<MiniSlideRow
+				slides={DRIFTED}
+				label="Four people, four blank canvases"
+				caption="The title font, the brand color, the logo's corner and the page number change from slide to slide."
+			/>
+			<MiniSlideRow
+				slides={ALIGNED}
+				label="The same four slides, one Lattice palette"
+				caption="In Lattice none of them move: the theme sets them, not the author."
+			/>
 		</figure>
 	);
 }

@@ -289,12 +289,6 @@ export default function RestyleShowcase({ data }: { data: RestyleData }) {
 				>
 					{active?.label ?? ''}
 				</p>
-				{/* What to watch and what it proves: the heading makes the claim, this line
-				    points at the evidence (the 2026-11 polish pass). */}
-				<p className="m-0 text-[13px] text-muted-foreground">
-					Watch the <code className="font-mono text-[0.95em] text-primary">theme:</code> line. One word changes and every
-					color on the slide follows; the layout, words and numbers stay put.
-				</p>
 			</div>
 		</div>
 	);
