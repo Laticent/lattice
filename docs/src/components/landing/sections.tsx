@@ -527,8 +527,8 @@ const WHY_CARDS: WhyCard[] = [
 	},
 	{
 		id: 'no-service',
-		title: 'No account, and nothing sent anywhere.',
-		body: 'Lattice runs on your own machine, or in your own build, and what you write stays there.',
+		title: 'No account, and nothing reported back.',
+		body: 'Lattice runs on your own machine, or in your own build, and reports nothing back. Your deck leaves it only when you share a live link or ask an AI assistant for help.',
 	},
 ];
 
@@ -615,8 +615,8 @@ export function QualityLayers({
 		},
 		{
 			step: 'Detects',
-			title: 'Lattice flags a problem slide while you write, before anyone sees it.',
-			body: 'It reads every slide as you write, in the Studio or on the command line, and names the problem and the fix: a slide too full for the room, or a layout given the wrong kind of content.',
+			title: 'Lattice flags a problem slide before anyone sees it.',
+			body: 'It reads every slide as you write in the Studio, or when you run the check from the command line, and names the problem and the fix: a slide too full for the room, or a layout given the wrong kind of content.',
 		},
 		{
 			step: 'Assesses',
@@ -663,7 +663,7 @@ export function QualityLayers({
 //
 // It ABSORBS the former ByomSection. Every asset of that section survives
 // verbatim — the `Bring your own model` eyebrow (red-teamed in the copy doc
-// §5.5 precisely to disclaim at skim altitude), the `Point your copilot at
+// §5.5 precisely to disclaim at skim altitude), the `Let your AI assistant draft` (formerly `Point your copilot at
 // Lattice.` heading words, the whole body paragraph, and the `How AI authoring
 // works →` link and its #ai-authoring target. It loses only its h2 altitude and
 // its own band. The page therefore carries ONE AI conversation instead of two in

@@ -65,7 +65,7 @@ export function HeroCopy() {
 // buttons and three paragraphs of small print; both scoring reviews flagged it.
 //
 // The fold offers exactly TWO doors — browser and machine — and the button labels
-// name the job of each ("Open the Studio", "Use the command line"). The sentence
+// name the job of each ("Open the Studio", "For developers: the command line"). The sentence
 // that used to explain them under the buttons repeated the Studio section and the
 // How-it-works band, so the third scoring round's dedupe cut it.
 // See engineering/decisions/2026-07-30-landing-studio-promotion.md §0 F1.
