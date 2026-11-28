@@ -1950,16 +1950,19 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		// This render's turn on the host. The restyle path waits for a sheet to load; a newer render that
 		// starts meanwhile must win, so the older one checks this after its wait and stands down.
 		const renderGen = (liveHost.__latticeRenderGen = (liveHost.__latticeRenderGen ?? 0) + 1);
-		// WHICH STEP THE NEWEST RENDER IS WAITING ON, on the host as `data-lattice-render-gate="<step>"`, the
-		// way `data-lattice-bake` carries the bake's outcome. A first render that stalled after the engine loaded showed no
-		// frame, no sample and no alert for 150 s on an iPad simulator (followups.d/3368-p1, run 46081960658). Write-only.
+		// WHICH STEP THE NEWEST RENDER IS WAITING ON, on the host as `data-lattice-gate="<step>"`, the way
+		// `data-lattice-bake` carries the bake's outcome. A first render that stalled after the engine loaded showed no frame, no
+		// sample and no alert for 150 s on an iPad simulator (followups.d/3368-p1, run 46081960658). Write-only.
 		// The step is a number, to keep the Studio's eager bundle under its ceiling; RENDER_GATE_STEPS in
-		// docs/scripts/ios-safari/panes-probe.js names them: 0 theme (the deck's CSS and KaTeX faces), 1 engine render (with the
-		// pane-run chunk), 2 split (the splitter, measured-split and split-page-pick chunks), 3 image chunks (remote-ref,
-		// image-size-memo, preview-image-scale, then stamping the sizes), 4 frame load, 5 sheet load, 6 done, 7 stood down,
-		// 8 failed. A gate still short of done long after frame-scheduler.ts's 4 s watchdog is a render that never settled:
-		// the scheduler has cleared its guard, and with no new edit nothing renders again.
-		const markGate = (step: number) => host.setAttribute('data-lattice-render-gate', '' + step);
+		// docs/scripts/ios-safari/panes-probe.js names them: 0 theme (the deck's CSS and KaTeX faces), 1 engine render (with
+		// the pane-run chunk), 2 split (the splitter, measured-split and split-page-pick chunks), 3 image chunks (remote-ref,
+		// image-size-memo, preview-image-scale, then stamping the sizes), 4 frame load, 5 sheet load, 6 done, 7 stood down
+		// (disposed, or a newer render owns the frame), 8 failed (an engine or authoring error, or a throw).
+		// Only the newest render writes it, so a stalled render that settles late cannot hide a newer one's step. A render
+		// that returns before step 0 (no engine yet, already disposed) writes nothing. A gate short of done long after
+		// frame-scheduler.ts's 4 s watchdog is a render that never settled: the scheduler has cleared its guard, and with no
+		// new edit nothing renders again.
+		const markGate = (step: number) => liveHost.__latticeRenderGen === renderGen && host.setAttribute('data-lattice-gate', step as unknown as string); // setAttribute stringifies; `'' +` cost the budget's last bytes
 		// A render stands down only once a NEWER one OWNS the frame, never merely because a newer one has started:
 		// that one may still fail (bad Markdown mid-typing, an engine error) before it does anything, and an older
 		// render that had already swapped the sheet would then leave the new sheet under the old body. A render
@@ -2992,7 +2995,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				return { ok: true, slides, error: null, writePath: 'write' as const, page: splitPage, canSplit, webImagesBlocked };
 			})
 			.then((r) => {
-				markGate(r.ok ? 6 : 7);
+				markGate(r.ok ? 6 : r.error === 'renderer disposed' ? 7 : 8);
 				return r;
 			})
 			.catch((e) => {

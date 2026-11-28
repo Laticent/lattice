@@ -1,4 +1,4 @@
-// `data-lattice-render-gate`: the step a render is waiting on, on its host (followups.d/3368-p1). An iPad first render
+// `data-lattice-gate`: the step a render is waiting on, on its host (followups.d/3368-p1). An iPad first render
 // stalled after the engine loaded with no frame, no sample and no alert, and nothing said which await it stopped at.
 // The iOS panes probe reads this attribute; these tests pin that a stalled step is the one it names, and that a render
 // that finishes says so.
@@ -8,20 +8,32 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const hold = vi.hoisted(() => ({ theme: false, engine: false }));
-const never = () => new Promise<never>(() => {});
+// Each hold is a door: `shut` makes the next call wait until `open()`, and `reached` resolves when a call is waiting.
+const hold = vi.hoisted(() => {
+	const door = () => {
+		const d = { shut: false, reached: null as null | (() => void), open: () => {}, wait: Promise.resolve(), arrived: Promise.resolve() };
+		d.arrived = new Promise<void>((r) => (d.reached = r));
+		d.wait = new Promise<void>((r) => (d.open = r));
+		return d;
+	};
+	return { door, theme: door(), engine: door(), engineThrows: false };
+});
+const pass = async (d: typeof hold.theme) => {
+	if (!d.shut) return;
+	d.reached?.();
+	await d.wait;
+};
 
 vi.mock('../lib/render-engine', () => ({
 	renderMarkdown: vi.fn(async () => {
-		if (hold.engine) await never();
+		await pass(hold.engine);
+		if (hold.engineThrows) throw new Error('bad markdown');
 		return { html: '<div class="lattice"><section><h1>Hi</h1></section></div>', css: '.x{}', width: 1280, height: 720 };
 	}),
 }));
 vi.mock('../lib/theme-fetch', () => ({
 	createThemeFetcher: () => ({
-		ensure: async () => {
-			if (hold.theme) await never();
-		},
+		ensure: () => pass(hold.theme),
 		ensureBase: async () => {},
 		ensureKatexFaces: async () => {},
 		katexFacesActive: () => false,
@@ -39,8 +51,9 @@ const stopFrameLoad = (e: Event) => {
 };
 
 beforeEach(() => {
-	hold.theme = false;
-	hold.engine = false;
+	hold.theme = hold.door();
+	hold.engine = hold.door();
+	hold.engineThrows = false;
 	document.addEventListener('load', stopFrameLoad, true);
 	(globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver = class {
 		observe = vi.fn();
@@ -66,12 +79,12 @@ const render = (host: HTMLElement, r: ReturnType<typeof createSingleSlideRendere
 const here = dirname(fileURLToPath(import.meta.url));
 const PROBE = readFileSync(join(here, '..', '..', 'scripts', 'ios-safari', 'panes-probe.js'), 'utf8');
 const STEPS: string[] = JSON.parse((/const RENDER_GATE_STEPS = (\[[^\]]*\]);/.exec(PROBE)?.[1] ?? '[]').replaceAll("'", '"'));
-const gate = (host: HTMLElement) => STEPS[Number(host.getAttribute('data-lattice-render-gate') ?? -1)];
+const gate = (host: HTMLElement) => STEPS[Number(host.getAttribute('data-lattice-gate') ?? -1)];
 
-describe('data-lattice-render-gate', () => {
+describe('data-lattice-gate', () => {
 	it('every step the renderer writes has a name in the probe', () => {
 		const src = readFileSync(join(here, 'single-slide-render.ts'), 'utf8');
-		const codes = [...src.matchAll(/markGate\((?:r\.ok \? )?(\d+)(?: : (\d+))?\)/g)].flatMap((m) => [m[1], m[2]]).filter(Boolean).map(Number);
+		const codes = [...src.matchAll(/markGate\(([^;]*)\);/g)].flatMap((m) => [...m[1].matchAll(/\b\d+\b/g)].map((d) => Number(d[0])));
 		expect([...new Set(codes)].sort((x, y) => x - y)).toEqual(STEPS.map((_, i) => i));
 	});
 
@@ -81,19 +94,58 @@ describe('data-lattice-render-gate', () => {
 		const out = await render(host, r);
 		expect(out.ok).toBe(true);
 		expect(gate(host)).toBe('done');
-		expect(host.getAttribute('data-lattice-render-gate')).toBe('6');
+		expect(host.getAttribute('data-lattice-gate')).toBe('6');
 		r.dispose();
 	});
 
 	it.each([
 		['theme', 'theme'],
 		['engine', 'engine render'],
-	] as const)('names the step a render is stuck on: when the %s never answers it reads "%s"', async (what, step) => {
-		hold[what] = true;
+	] as const)('names the step a render is stuck on: while the %s does not answer it reads "%s", and done once it does', async (what, step) => {
+		hold[what].shut = true;
 		const r = createSingleSlideRenderer(opts);
 		const host = document.body.appendChild(document.createElement('figure'));
-		void render(host, r);
-		await vi.waitFor(() => expect(gate(host)).toBe(step));
+		const out = render(host, r);
+		// The held call is waiting, so the render is stuck inside it: that is the signal, not a duration.
+		await hold[what].arrived;
+		expect(gate(host)).toBe(step);
+		hold[what].open();
+		expect((await out).ok).toBe(true);
+		expect(gate(host)).toBe('done');
+		r.dispose();
+	});
+
+	it('reads "failed" when the engine throws, not "stood down"', async () => {
+		hold.engineThrows = true;
+		const r = createSingleSlideRenderer(opts);
+		const host = document.body.appendChild(document.createElement('figure'));
+		expect((await render(host, r)).ok).toBe(false);
+		expect(gate(host)).toBe('failed');
+		r.dispose();
+	});
+
+	it('an older render that settles late does not overwrite a newer one\'s step', async () => {
+		const r = createSingleSlideRenderer(opts);
+		const host = document.body.appendChild(document.createElement('figure'));
+		hold.engine.shut = true;
+		const older = render(host, r);
+		await hold.engine.arrived;
+		// The newer render waits on the theme; the older one is still in the engine.
+		hold.theme.shut = true;
+		const newer = render(host, r);
+		await hold.theme.arrived;
+		hold.engine.open();
+		// The older render writes its frame and waits for it to load; jsdom loads nothing, so the test fires it.
+		const fr = await vi.waitFor(() => {
+			const f = host.querySelector('iframe');
+			if (!f) throw new Error('no frame yet');
+			return f;
+		});
+		fr.onload?.(new Event('load'));
+		await older;
+		expect(gate(host)).toBe('theme');
+		hold.theme.open();
+		await newer;
 		r.dispose();
 	});
 });

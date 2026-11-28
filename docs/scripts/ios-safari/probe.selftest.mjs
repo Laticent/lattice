@@ -619,10 +619,15 @@ async function tapRunner(page, fn, touch) {
 }
 // HOLD=<regex> answers no request whose URL matches, for the whole run: the failing arm for a probe's stall report
 // (followups.d/3368-p1). `HOLD='/_astro/image-size-memo\.' ONLY=panes-probe.js SHAPES=iPad-Safari-width` must FAIL with
-// the panes probe naming that step (`render gate …:image-size-memo`). The service worker is blocked while a hold is on,
+// the panes probe naming that step (`render gate image chunks`, and `image-size-memo not listed` under `after load`). The service worker is blocked while a hold is on,
 // so every request reaches the page's route. ONLY and SHAPES pick probes and shapes by name, comma-separated.
 const HOLD = process.env.HOLD ? new RegExp(process.env.HOLD) : null;
-const only = (list, env, key) => (process.env[env] ? list.filter((x) => process.env[env].split(',').includes(x[key])) : list);
+const only = (list, env, key) => {
+	if (!process.env[env]) return list;
+	const kept = list.filter((x) => process.env[env].split(',').includes(x[key]));
+	if (!kept.length) throw new Error(`${env}=${process.env[env]} matches nothing; one of: ${list.map((x) => x[key]).join(', ')}`);
+	return kept;
+};
 for (const { label, options } of only(shapes, 'SHAPES', 'label')) {
 	for (const probe of only(PROBES, 'ONLY', 'file')) {
 		const context = await browser.newContext(HOLD ? { ...options, serviceWorkers: 'block' } : options);

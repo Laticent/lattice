@@ -155,7 +155,7 @@ async function latticePanesProbe() {
 			`render gate ${(() => {
 				// The renderer writes the step as a number (single-slide-render.ts `markGate`); this list names them, in its order.
 				const RENDER_GATE_STEPS = ['theme', 'engine render', 'split', 'image chunks', 'frame load', 'sheet load', 'done', 'stood down', 'failed'];
-				const g = box?.getAttribute('data-lattice-render-gate');
+				const g = box?.getAttribute('data-lattice-gate');
 				return g ? (RENDER_GATE_STEPS[Number(g)] ?? `step ${g}`) : 'none';
 			})()}`,
 			`finished: ${(() => {
