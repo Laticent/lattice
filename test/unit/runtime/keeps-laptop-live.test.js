@@ -67,7 +67,7 @@ test('NO-SETTINGS: a Marp render with no settings block marks the code slides an
 });
 
 test('SETTINGS: a settings block with other keys still marks them', { skip }, async () => {
-  const w = await boot(`<article class="lattice">${slides(block('lift: on'))}</article>`);
+  const w = await boot(`<article class="lattice">${slides(block('card-lift: on'))}</article>`);
   assert.deepEqual(state(w), ['A listing:keeps:-', 'Split page:keeps:-', 'Plain:-:-']);
   closeQuietly(w);
 });
@@ -77,7 +77,7 @@ test('LIVE: VS Code saves venue: phone, the marker goes; saved without it, the m
   const fetchImpl = async () => ({ ok: true, text: async () => saved });
   const head = '<base href="https://file+.vscode-resource.vscode-cdn.net/ws/deck.md">'
     + '<meta id="vscode-markdown-preview-data" data-settings="{}">';
-  const w = await boot(`<article class="lattice">${slides(block('lift: on'))}</article>`, { head, fetchImpl });
+  const w = await boot(`<article class="lattice">${slides(block('card-lift: on'))}</article>`, { head, fetchImpl });
   await w.clock.advance(300);
   assert.deepEqual(state(w), ['A listing:-:venue-phone', 'Split page:-:venue-phone', 'Plain:-:venue-phone'],
     'the deck said phone, so no slide keeps laptop');

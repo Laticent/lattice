@@ -858,7 +858,7 @@ function galleryHref(m) {
   return path.relative(DOCS_DIR, abs).split(path.sep).join('/');
 }
 
-/** The component's effective DEFAULT framing alignment (what `headline: auto` resolves to) —
+/** The component's effective DEFAULT framing alignment (what `headline-align: auto` resolves to) —
  *  DERIVED from its own CSS, not hand-authored. A layout centers its masthead by default when it
  *  sets the shared `--headline-justify` axis to `center` as the FALLBACK, either on the
  *  `.masthead-lede` (Form band) or on its `section.<name>` root (an anchor that centers the whole
@@ -1056,7 +1056,7 @@ function renderPortalJson(manifests) {
     whenToUse: Array.isArray(m.whenToUse) ? m.whenToUse : [],
     antiPatterns: Array.isArray(m.antiPatterns) ? m.antiPatterns : [],
     related: Array.isArray(m.related) ? m.related : [],
-    // Derived: the default framing alignment (`headline: auto` result) — `left` or `center`.
+    // Derived: the default framing alignment (`headline-align: auto` result) — `left` or `center`.
     headlineDefault: headlineDefault(m),
     galleryHref: galleryHref(m),
   }));

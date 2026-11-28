@@ -1,13 +1,13 @@
-// The Studio headline catalog — DISPLAY metadata for the `headline:` register (the horizontal
+// The Studio headline catalog — DISPLAY metadata for the `headline-align:` register (the horizontal
 // alignment of a slide's framing-text cluster: auto / left / center / right). Sibling of
 // eyebrow-catalog.ts, an accent-axis register. The engine's single source of truth is
-// HEADLINE_NAMES (lib/core/resolve-headline.js). THIS file adds only the human layer the picker
-// needs; the rot-guard is headline-catalog.test.ts.
+// HEADLINE_ALIGN_NAMES (lib/core/resolve-headline-align.js). THIS file adds only the human layer the picker
+// needs; the rot-guard is headline-align-catalog.test.ts.
 //
-// Authored deck-wide via `headline:` or per-slide via `_class: head-left`.
+// Authored deck-wide via `headline-align:` or per-slide via `_class: headline-align-left`.
 
-export type HeadlineEntry = {
-	/** the `headline:` register value (and engine HEADLINE_NAMES member) */
+export type HeadlineAlignEntry = {
+	/** the `headline-align:` register value (and engine HEADLINE_ALIGN_NAMES member) */
 	name: string;
 	label: string;
 	/** For an entry whose own label is "Auto": what auto RESOLVES to, for the
@@ -31,7 +31,7 @@ const bars = (pos: string) =>
 	`linear-gradient(${INK}, ${INK}) ${pos} 62% / 40% 2px no-repeat, var(--bg)`;
 
 // Ordered as the picker shows them. `auto` is the named baseline (the component's own default).
-export const HEADLINES: HeadlineEntry[] = [
+export const HEADLINE_ALIGNS: HeadlineAlignEntry[] = [
 	{
 		name: 'auto', label: 'Auto', autoLabel: 'Component',
 		blurb: "Respect the component — left masthead, centered title. The default.",
@@ -55,12 +55,12 @@ export const HEADLINES: HeadlineEntry[] = [
 	},
 ];
 
-export const HEADLINE_BY_NAME: Record<string, HeadlineEntry> = Object.fromEntries(
-	HEADLINES.map((s) => [s.name, s]),
+export const HEADLINE_BY_NAME: Record<string, HeadlineAlignEntry> = Object.fromEntries(
+	HEADLINE_ALIGNS.map((s) => [s.name, s]),
 );
 
 /** The active headline entry for a value; unknown / empty → the `auto` default. */
-export function activeHeadline(value: string | undefined | null): HeadlineEntry {
+export function activeHeadlineAlign(value: string | undefined | null): HeadlineAlignEntry {
 	const key = (value ?? '').trim().toLowerCase();
 	return HEADLINE_BY_NAME[key] ?? HEADLINE_BY_NAME.auto;
 }

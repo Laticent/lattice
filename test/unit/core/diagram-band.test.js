@@ -102,7 +102,7 @@ describe('resolveDiagramBand', () => {
         ['style: "section.title { color-scheme: dark }"', 'light'],
         // …while the supported spellings still resolve.
         ['color-mode: dark', 'dark'],
-        ['class: lifted dark', 'dark'],
+        ['class: card-lift-on dark', 'dark'],
       ];
       for (const [line, expected] of cases) {
         assert.equal(resolveDiagramBand({ frontMatter: fmOf(line), slideClass: 'diagram' }), expected, line);
@@ -151,12 +151,12 @@ describe('resolveDiagramBand', () => {
     test('quoted front-matter values resolve', () => {
       assert.equal(resolveDiagramBand({ frontMatter: fmOf('color-mode: "dark"') }), 'dark');
       assert.equal(resolveDiagramBand({ frontMatter: fmOf("color-mode: 'print'") }), 'print');
-      assert.equal(resolveDiagramBand({ frontMatter: fmOf('class: "lifted dark"') }), 'dark');
+      assert.equal(resolveDiagramBand({ frontMatter: fmOf('class: "card-lift-on dark"') }), 'dark');
     });
 
     test('a deck `class:` LIST carries its color token', () => {
-      assert.equal(resolveDiagramBand({ frontMatter: fmOf('class: lifted dark paginate') }), 'dark');
-      assert.equal(resolveDiagramBand({ frontMatter: fmOf('class: lifted print') }), 'print');
+      assert.equal(resolveDiagramBand({ frontMatter: fmOf('class: card-lift-on dark paginate') }), 'dark');
+      assert.equal(resolveDiagramBand({ frontMatter: fmOf('class: card-lift-on print') }), 'print');
     });
 
     test('CRLF front matter resolves the same as LF', () => {

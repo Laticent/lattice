@@ -3,7 +3,7 @@ marp: true
 size: 4K
 theme: indaco
 pagination: true
-corners: rounded
+slide-corners: rounded
 header: "Lattice · The slide's corner"
 ---
 
@@ -13,7 +13,7 @@ header: "Lattice · The slide's corner"
 
 # The slide has a corner
 
-`Lattice · corners: rounded`
+`Lattice · slide-corners: rounded`
 
 One register, one token, and the brand bar comes with it.
 
@@ -24,9 +24,9 @@ One register, one token, and the brand bar comes with it.
 ## What the register does
 
 1. The engine owns the shape
-   - `corners: rounded` in the deck's front matter, nowhere else
+   - `slide-corners: rounded` in the deck's front matter, nowhere else
 2. One rule owns how round
-   - `section.corners-rounded`, and nothing downstream re-derives it
+   - `section.slide-corners-rounded`, and nothing downstream re-derives it
 3. The deck decides, per deck
    - the same axis `theme:` and `color-mode:` already sit on
 
@@ -56,12 +56,12 @@ One register, one token, and the brand bar comes with it.
 
 ---
 
-<!-- @meta{class=corners-square, footer=Per-slide opt-out · corners-square} -->
+<!-- @meta{class=slide-corners-square, footer=Per-slide opt-out · slide-corners-square} -->
 
 
 ## This slide opted out
 
-1. `class=corners-square`
+1. `class=slide-corners-square`
    - a slide overrides the deck, the same way `class=light` overrides a dark deck
 2. The deck's token is evicted, not stacked
    - both rules land at one specificity, so leaving them side by side would let source order decide instead of the author

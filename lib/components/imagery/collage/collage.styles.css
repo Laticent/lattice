@@ -231,7 +231,7 @@ section.collage.mirror:not(.above):not(.bleed):not([data-orientation="portrait"]
 }
 
 /* The description is a plain paragraph straight under the header: the masthead's own rule (the
- * `rule:` register styles it) is the only line, so there is no second hairline above the
+ * `heading-rule:` register styles it) is the only line, so there is no second hairline above the
  * paragraph and no gap beneath the rule. The shared below-note rule (base.modifiers.css) draws
  * a hairline on any paragraph that follows a block; the coda after the photos keeps it, and
  * this paragraph, which follows the masthead, does not. The tripled class beats that rule's

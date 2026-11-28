@@ -238,7 +238,7 @@ section.sketch.split-compare .option :is(ul, ol) > li::marker {
  * than roughened alongside it.
  *
  * Do not reinstate this rule to "bring the underline back". If a heading
- * underline is wanted again it is a rule-* finish question for
+ * underline is wanted again it is a heading-rule-* finish question for
  * base.accent-finish.css, which already owns the four-way answer
  * (full / none / short / accent) for where a heading rule lives — not a
  * finish-layer override that runs in parallel with it. */
@@ -382,7 +382,7 @@ section.sketch.pricing > .cell-stage > ul > li:nth-child(3n) {
  * (lib/base/base.card-tag.css) reads --card-tag-radius and --card-tag-num-font, so
  * every card tag — numbered, labeled, the split-compare verdict — takes the wobble,
  * and no selector contest (the old `:has()` specificity fight that needed an
- * !important here) can put a crisp corner back. A band (`tag-band`, or its alias
+ * !important here) can put a crisp corner back. A band (`card-tag-band`, or its alias
  * `banner-tag`) sets its own radius — the card's top corners — so it stays a straight strip. */
 section.sketch {
   --card-tag-num-font: var(--sketch-font-display);
@@ -700,9 +700,9 @@ section.sketch:has(> svg[data-lattice-rough-ink]) hr {
  * base.accent-finish.css, and the enrollment mirrors it exactly rather than
  * re-deriving it:
  *
- *   rule-full (default)  the band's own `border-bottom` is the rule  → band enrolls
+ *   heading-rule-full (default)  the band's own `border-bottom` is the rule  → band enrolls
  *   no-heading-rule            there is no rule                            → nobody enrolls
- *   rule-short / -accent the rule is a real <hr class="masthead-rule"> → the hr enrolls
+ *   heading-rule-short / -accent the rule is a real <hr class="masthead-rule"> → the hr enrolls
  *
  * Keeping that logic in the cascade — rather than testing `border-bottom-style`
  * in JS — is why enrollment is a custom property at all. By the time the ink
@@ -712,7 +712,7 @@ section.sketch:has(> svg[data-lattice-rough-ink]) hr {
  * with a `padding-top` gap above it (base.accent-finish.css), so its visible
  * segment sits at the BOTTOM of its box and its centerline would land in the
  * padding. It also explicitly opts out of the wave mask there, which means
- * under `rule-short`/`rule-accent` the heading rule was the one line on a
+ * under `heading-rule-short`/`heading-rule-accent` the heading rule was the one line on a
  * sketch deck that stayed perfectly straight. It no longer is.
  *
  * THE INK IS NOT `var(--border)`. That is what the machine hairline is drawn
@@ -723,15 +723,15 @@ section.sketch:has(> svg[data-lattice-rough-ink]) hr {
  * enough to show its own waver, so this is the sketch ink held back to a
  * little over half strength: unmistakably a pen stroke, still quieter than
  * the heading above it. `color-mix` on a token keeps it palette-blind. */
-section.sketch.form:not(.no-heading-rule):not(.rule-short):not(.rule-accent) .cell-masthead {
+section.sketch.form:not(.no-heading-rule):not(.heading-rule-short):not(.heading-rule-accent) .cell-masthead {
   --rough-ink-stroke: color-mix(in srgb, var(--sketch-ink) 55%, transparent);
   --rough-ink-width: 2.6;
 }
-section.sketch.form:is(.rule-short, .rule-accent) .cell-masthead .masthead-rule {
+section.sketch.form:is(.heading-rule-short, .heading-rule-accent) .cell-masthead .masthead-rule {
   --rough-ink-stroke: color-mix(in srgb, var(--sketch-ink) 55%, transparent);
   --rough-ink-width: 3.2;
 }
-section.sketch.form.rule-accent .cell-masthead .masthead-rule {
+section.sketch.form.heading-rule-accent .cell-masthead .masthead-rule {
   --rough-ink-stroke: var(--accent);
 }
 section.sketch.form:has(> svg[data-lattice-rough-ink]) .cell-masthead {

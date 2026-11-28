@@ -126,13 +126,13 @@
     }
   ],
   "variants": [
-    "tag-band"
+    "card-tag-band"
   ],
   "variantDocs": {
-    "tag-band": {
-      "label": "tag-band",
+    "card-tag-band": {
+      "label": "card-tag-band",
       "summary": "Headlines each card with its camp.",
-      "sample": "<!-- @meta{layout=decision, class=tag-band} -->\n\n## tag-band headlines each card with its camp.\n\n- DECIDE\n  - The banner carries the stance; the body carries the reason.\n- RECORD\n  - Use when the slide is the decision log's public face.\n"
+      "sample": "<!-- @meta{layout=decision, class=card-tag-band} -->\n\n## card-tag-band headlines each card with its camp.\n\n- DECIDE\n  - The banner carries the stance; the body carries the reason.\n- RECORD\n  - Use when the slide is the decision log's public face.\n"
     }
   },
   "commonMistakes": [
@@ -151,8 +151,8 @@
       "useWhen": "The reasoning carries the weight — a quiet corner tag labels each justification without competing with the verdict heading."
     },
     {
-      "variant": "tag-band",
-      "useWhen": "The camp or stance itself is worth headlining — converts the quiet corner tag into a full-width banner strip per card. `tag-band` is the shared card-tag placement (formerly `banner-tag`, which still works); it, or `tag: band` deck-wide, works on every tagged layout."
+      "variant": "card-tag-band",
+      "useWhen": "The camp or stance itself is worth headlining — converts the quiet corner tag into a full-width banner strip per card. `card-tag-band` is the shared card-tag placement (formerly `banner-tag`, which still works); it, or `card-tag: band` deck-wide, works on every tagged layout."
     }
   ],
   "specimenVoice": true,

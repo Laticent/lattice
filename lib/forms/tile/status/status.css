@@ -4,7 +4,7 @@
  * in the form masthead bay, with a corner-pill fallback for masthead-less layouts.
  * The status-marker style-variant work (2026-07-03) replaces that special-case with
  * ONE uniform default — the corner TAB — on every layout, form or not, plus an
- * author-selectable `stamp-<style>` axis (base.variants.css). This removes the
+ * author-selectable `stamp-shape-<style>` axis (base.variants.css). This removes the
  * masthead-bay coupling (and the masthead-less-invisible bug it caused): a stamp is
  * now always visible and always the same shape family across a deck.
  *

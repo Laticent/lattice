@@ -70,7 +70,7 @@ function parseFm(source: string): { pairs: [string, string][]; blocks: [string, 
 	for (let i = 0; i < lines.length; i++) {
 		// A BLOCK SCALAR (`style: |`, `header: >-`) is one flat pair whose value is the indicator,
 		// and its indented lines are its BODY — never pairs of their own. Reading them as pairs let a
-		// CSS line named like a register (`  lift: on`) read as that register, and let a write or a
+		// CSS line named like a register (`  card-lift: on`) read as that register, and let a write or a
 		// preset Reset of the register rewrite the author's CSS. `frontMatterKeySpan` skips the same
 		// lines. The body is kept verbatim so the nested-block writers re-emit it intact.
 		const scalar = BLOCK_SCALAR_RE.exec(lines[i]);

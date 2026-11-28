@@ -67,14 +67,14 @@ const PACE_OPTIONS: Completion[] = PACE_NAMES.map((n: string) => ({ label: n, ty
 // below the Studio, so the docs reference page reads the same lists without importing the editor.
 export { registerValueLists, VOCAB_VALUE_FIELDS } from '../../lib/front-matter-values';
 
-// The keys that take one word per axis on ONE line (`tag:`, `backdrop:`, `image-card:`, the plugin
+// The keys that take one word per axis on ONE line (`card-tag:`, `backdrop:`, `image-card:`, the plugin
 // registers), so completion offers a second word after the first.
 const AXIS_KEYS = new Set(OFFERED_SETTINGS.filter((r) => r.kind === 'axis').map((r) => r.key));
 // The axes of the registers the Studio mirrors (deck-axes.ts and spectrum-keys.ts, each pinned to its kernel
 // by a test). A key not listed still completes, without the filled-axis filter.
 const REGISTER_AXES: Record<string, readonly (readonly string[])[]> = {
 	backdrop: [BACKDROP_STRENGTHS, BACKDROP_MASKS],
-	tag: Object.values(CARD_TAG_AXES),
+	'card-tag': Object.values(CARD_TAG_AXES),
 	'image-card': IMAGE_CARD_AXIS_ORDER.map(imageCardWords),
 	'logo-finish': LOGO_FINISH_AXIS_ORDER.map(logoFinishWords),
 	'progress-rail': PROGRESS_RAIL_AXIS_ORDER.map(progressRailWords),

@@ -1,15 +1,15 @@
 /**
  * tools/lib/record-registers.js
  *
- * The host's own front-matter registers (`finish:`, `headline:`, `rule:`, …) as SLIDE-RECORD fields:
- * `<!-- {finish=ledger, headline=left} -->` writes the class words one slide would carry in `_class:`
- * (`finish finish-ledger head-left`). Design: engineering/decisions/2026-10-17-meta-record.md §4.2, step 3.
+ * The host's own front-matter registers (`finish:`, `headline-align:`, `heading-rule:`, …) as SLIDE-RECORD fields:
+ * `<!-- {finish=ledger, headline-align=left} -->` writes the class words one slide would carry in `_class:`
+ * (`finish finish-ledger headline-align-left`). Design: engineering/decisions/2026-10-17-meta-record.md §4.2, step 3.
  *
- * The words come from each register's own resolver (`finishClasses`, `headlineClass`, …), so a record
+ * The words come from each register's own resolver (`finishClasses`, `headlineAlignClass`, …), so a record
  * and front matter can never disagree about what a value means. The one thing a resolver cannot say is
  * the word for the DEFAULT on one slide: front matter writes no token for a default, but a slide inside
  * a deck that sets another value needs a token to ask for the default back. Those restore words are
- * already documented per register (lib/base/base.registers.docs.md, "per slide `rule-auto`") and are
+ * already documented per register (lib/base/base.registers.docs.md, "per slide `heading-rule-auto`") and are
  * listed in `RESTORE` below; test/unit/tools/record-registers.test.js holds each one to its register's
  * token set, so a renamed token fails a test rather than a slide.
  *
@@ -18,40 +18,40 @@
  */
 
 const finish = require('../../lib/core/resolve-finish');
-const headline = require('../../lib/core/resolve-headline');
-const rule = require('../../lib/core/resolve-rule');
+const headline = require('../../lib/core/resolve-headline-align');
+const rule = require('../../lib/core/resolve-heading-rule');
 const eyebrow = require('../../lib/core/resolve-eyebrow');
 const spectrum = require('../../lib/core/resolve-spectrum');
-const lift = require('../../lib/core/resolve-lift');
-const stamp = require('../../lib/core/resolve-stamp');
+const lift = require('../../lib/core/resolve-card-lift');
+const stamp = require('../../lib/core/resolve-stamp-shape');
 const tone = require('../../lib/core/resolve-tone-style');
-const corners = require('../../lib/core/resolve-corners');
+const corners = require('../../lib/core/resolve-slide-corners');
 const cover = require('../../lib/core/resolve-cover-layout');
 
 /** key → [value names, value → front-matter class words, the register's token set (null: no list)]. */
 const SOURCES = [
   ['finish', finish.FINISH_NAMES, finish.finishClasses, null],
-  ['headline', headline.HEADLINE_NAMES, headline.headlineClass, headline.HEADLINE_TOKENS],
-  ['rule', rule.RULE_NAMES, rule.ruleClass, rule.RULE_TOKENS],
+  ['headline-align', headline.HEADLINE_ALIGN_NAMES, headline.headlineAlignClass, headline.HEADLINE_ALIGN_TOKENS],
+  ['heading-rule', rule.HEADING_RULE_NAMES, rule.headingRuleClass, rule.HEADING_RULE_TOKENS],
   ['eyebrow', eyebrow.EYEBROW_NAMES, eyebrow.eyebrowClass, eyebrow.EYEBROW_TOKENS],
   // The three spectrum keys are axis registers: every word, a default included, names its own class.
   ...[spectrum.SPECTRUM_REGISTER, spectrum.CARD_SPECTRUM_REGISTER, spectrum.TRIM_SPECTRUM_REGISTER]
     .map((r) => [r.key, r.NAMES, (v) => r.classes(v).join(' '), r.TOKENS]),
-  ['lift', lift.LIFT_NAMES, lift.liftClass, lift.LIFT_TOKENS],
-  ['stamp', stamp.STAMP_STYLE_NAMES, stamp.stampClass, stamp.STAMP_STYLE_TOKENS],
+  ['card-lift', lift.CARD_LIFT_NAMES, lift.cardLiftClass, lift.CARD_LIFT_TOKENS],
+  ['stamp-shape', stamp.STAMP_SHAPE_NAMES, stamp.stampShapeClass, stamp.STAMP_SHAPE_TOKENS],
   ['tone', tone.TONE_STYLE_NAMES, tone.toneStyleClass, tone.TONE_STYLE_TOKENS],
-  ['corners', corners.CORNERS_NAMES, corners.cornersClass, corners.CORNERS_TOKENS],
+  ['slide-corners', corners.SLIDE_CORNERS_NAMES, corners.slideCornersClass, corners.SLIDE_CORNERS_TOKENS],
   ['cover-layout', cover.COVER_NAMES, (v) => cover.coverClasses(v).join(' '), cover.COVER_TOKENS],
 ];
 
 /** The one-slide word for each register's default (front matter writes none for it). */
 const RESTORE = Object.freeze({
   'finish:none': 'no-finish',
-  'headline:auto': 'head-auto',
-  'rule:auto': 'rule-auto',
+  'headline-align:auto': 'headline-align-auto',
+  'heading-rule:auto': 'heading-rule-auto',
   'eyebrow:plain': 'eyebrow-plain',
-  'lift:off': 'flat',
-  'corners:square': 'corners-square',
+  'card-lift:off': 'card-lift-off',
+  'slide-corners:square': 'slide-corners-square',
   'cover-layout:inverse': 'cover-inverse',
   'cover-layout:plain': 'cover-plain',
 });

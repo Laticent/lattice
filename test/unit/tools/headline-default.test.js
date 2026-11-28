@@ -1,6 +1,6 @@
 /**
  * Unit: the DERIVED `headlineDefault` field on every component in dist/docs/components.json
- * (tools/build-docs-portal.js `headlineDefault`). It reports what `headline: auto` resolves to for
+ * (tools/build-docs-portal.js `headlineDefault`). It reports what `headline-align: auto` resolves to for
  * each component — `left` or `center` — computed from the component's own CSS, NOT hand-authored.
  * A layout is `center` when it sets the shared `--headline-justify` axis to `center` as the fallback
  * on its masthead-lede (Form) or section root (anchor); variant-only centering (list-steps.timeline,

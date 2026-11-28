@@ -70,7 +70,7 @@ The coefficients above are the **landscape** scale. They are not hand-written in
 `base.tokens.css` — they live in the manifest `lib/typography/scale.js` and are
 emitted into `dist/lattice.css` by `lib/typography/emit.js`. The manifest carries
 **three curated coefficient sets**, one per orientation, selected per slide off
-the `data-orientation` stamp:
+the `data-orientation` stamp-shape:
 
 | Category | Aspect | Sizes | Reference width |
 |---|---|---|---|
@@ -840,7 +840,7 @@ Conventional, and what the tokens below are sized to:
 
 The engine keeps **very few**, on purpose. Framing text on an ordinary
 component *fills its masthead band* and takes its behavior from the
-`headline:` register — a component does not compose its own chrome
+`headline-align:` register — a component does not compose its own chrome
 (`engineering/decisions/2026-07-30-masthead-framing-fills-the-band.md`).
 Fit is autosplit + atomization's job, never a width cap's.
 

@@ -5,10 +5,10 @@
  * That one pins the kernel's decisions; this one pins that the decisions are
  * actually WIRED. A kernel returning the right answer into a call site nobody
  * added is the defect shape `inline-code-register-paths.test.js` exists for, and
- * `corners:` — the register this one was modeled on — has no such test, which is
+ * `slide-corners:` — the register this one was modeled on — has no such test, which is
  * a gap rather than a precedent.
  *
- * It matters more for this register than for a cosmetic one. `corners:` landing on
+ * It matters more for this register than for a cosmetic one. `slide-corners:` landing on
  * one path only makes a slide's corner disagree between the PDF and the exported
  * HTML. `fit:` landing on one path only means one of them REMOVES TEXT the
  * other keeps, from the same source, with no signal that the two differ.

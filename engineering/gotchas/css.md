@@ -559,7 +559,7 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   slide (a `<body>`-portaled overlay / popover / toast).
 - **Commits:** status trio → `PORTAL_TOKENS` + `@import`-scan fix (a11y) + `carta` completion
   + white-text-fill pins (#1142); the derived `--*-fill` trio + `--on-accent` fills +
-  `headline-catalog` fallback + `url()`-aware `@import` strip + cuoio `--warn` AA (#1149);
+  `headline-align-catalog` fallback + `url()`-aware `@import` strip + cuoio `--warn` AA (#1149);
   the theme-wide foreground AA sweep + carbone scheme-derived resolution (#1160); the overlay
   dark-mode workaround it superseded (#1129).
 
@@ -764,7 +764,7 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   rule were not there — and unlike the parse-time case above, `CSS.supports` on the
   literal text says it is **fine**. Two shipped instances: pricing's recommended tier
   wrote `box-shadow: inset 0 0 0 1px var(--accent), var(--elevation-card)` and had no
-  accent ring on any deck without `lift: on`; a `tone-* no-finish overflow` slide
+  accent ring on any deck without `card-lift: on`; a `tone-* no-finish overflow` slide
   lost its tone rail from `box-shadow: var(--tone-rail, …), var(--fin-frame, …)`.
 - **Cause:** the token held `none`, and **`none` is legal only as box-shadow's SOLE
   value** — so once substituted, the value is invalid. The trap is what happens next.

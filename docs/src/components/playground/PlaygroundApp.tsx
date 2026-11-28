@@ -99,7 +99,8 @@ export type PlaygroundData = {
 	palettes: string[];
 	finishes: string[];
 	// Deck-grammar lint vocabulary for the editor's inline validation (optional so
-	// the test harness can omit it). Passed straight to EditorHost → createEditor.
+	// the test harness can omit it). The page passes it as one JSON string (playground.astro: a structured prop
+	// costs ~8KB of raw HTML in Astro's per-value wrapping); a harness may pass the object. → EditorHost → createEditor.
 	lintVocab?: unknown;
 	starter: string;
 	// Base URL of the staged plans/<name>.json walk plans (Explore surface).
@@ -313,7 +314,8 @@ function adoptBootSeed(view: 'read' | 'edit', pane: 'edit' | 'preview') {
  * the config panel (DeckSetupSheet). None are reimplemented.
  */
 export function PlaygroundApp({ data }: { data: PlaygroundData }) {
-	const { catalog, components, lenses, galleryGroups, themeBase, runtimeUrl, engineUrl, dagreUrl, katexUrl, palettes, finishes, lintVocab, starter, plansBase, galleriesBase, bakeCaption } = data;
+	const { catalog, components, lenses, galleryGroups, themeBase, runtimeUrl, engineUrl, dagreUrl, katexUrl, palettes, finishes, lintVocab: lintVocabProp, starter, plansBase, galleriesBase, bakeCaption } = data;
+	const lintVocab = React.useMemo(() => (typeof lintVocabProp === 'string' ? JSON.parse(lintVocabProp) : lintVocabProp), [lintVocabProp]);
 
 	// Two component states, one rule each (2026-07-05 decision §4): `draftComponent`
 	// is DERIVED — what detectComponent reads out of the live editor, possibly '' when

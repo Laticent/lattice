@@ -1094,7 +1094,7 @@ const IMAGE_SET_OPTS = normalizeImageSetOptions({
 // only output whose capability depends on a flag, because the image format IS the choice
 // (png/webp carry alpha, jpeg has no such channel). Everything else is fixed by the
 // container. The capability table and the per-format measurements live in
-// lib/core/corner-export-capability.mjs — NOT in resolve-corners.js, which answers the
+// lib/core/corner-export-capability.mjs — NOT in resolve-slide-corners.js, which answers the
 // different question of what the DECK asked for.
 const { cornerSurvivesExport, isFlatExportTarget } = require('./lib/core/corner-export-capability.mjs');
 const CORNER_TARGET = OUT_FORMAT === 'imageset' ? IMAGE_SET_OPTS.format : OUT_FORMAT;
@@ -5095,7 +5095,7 @@ async function renderBody(browser, g, closeBrowser) {
   // (resetting border-radius on a clone, say) is what left the two exporters disagreeing:
   // `clip-path` does the real rounding here, `border-radius` only rides along for
   // consumers to read back, so a reset that names one and not the other flattens nothing.
-  // Evicting the token is the whole fix, and it covers a per-slide `_class: corners-rounded`
+  // Evicting the token is the whole fix, and it covers a per-slide `_class: slide-corners-rounded`
   // opt-in for free — that is the same token, on the same element.
   //
   // This runs IN THE PAGE, not on the emitted HTML, and that is deliberate: the `.html`
@@ -5132,8 +5132,8 @@ async function renderBody(browser, g, closeBrowser) {
   // the per-slide list and the pages differ in length (the inversion, 2026-11-10).
   const byStepPages = (list) => (STEP_COUNTS && Array.isArray(list) && list.length === STEP_COUNTS.length ? list.flatMap((v, i) => Array(STEP_COUNTS[i]).fill(v)) : list);
   const roundedSlides = await g(() => page.evaluate((squareNow) => {
-    const hit = document.querySelectorAll('section.corners-rounded');
-    if (squareNow) for (const s of hit) s.classList.remove('corners-rounded');
+    const hit = document.querySelectorAll('section.slide-corners-rounded');
+    if (squareNow) for (const s of hit) s.classList.remove('slide-corners-rounded');
     return hit.length;
   }, !CORNER_SURVIVES), 'resolve corners for the export target');
   if (roundedSlides && !CORNER_SURVIVES && !QUIET) {

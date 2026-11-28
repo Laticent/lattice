@@ -42,7 +42,7 @@ own `L0`, `L1` and `L2`.
 
 ```json
 { "title": "…", "spec": "LFM-1.1", "section": "2.3",
-  "rows": [{ "name": "lift: off", "source": "---\nlift: off\n---\n\n## A\n", "L2": { "findings": [] } }] }
+  "rows": [{ "name": "card-lift: off", "source": "---\ncard-lift: off\n---\n\n## A\n", "L2": { "findings": [] } }] }
 ```
 
 ### L0: what a CommonMark host shows

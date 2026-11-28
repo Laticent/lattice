@@ -27,9 +27,9 @@ The verdict slide — one chosen path, named explicitly.
 
 ---
 
-<!-- @meta{layout=decision, class=tag-band, footer="tag-band · decision tag-band — Headlines each card with its camp."} -->
+<!-- @meta{layout=decision, class=card-tag-band, footer="card-tag-band · decision card-tag-band — Headlines each card with its camp."} -->
 
-## tag-band headlines each card with its camp.
+## card-tag-band headlines each card with its camp.
 
 - DECIDE
   - The banner carries the stance; the body carries the reason.

@@ -1,8 +1,8 @@
 /**
- * Unit: the `stamp:` register resolver (lib/core/resolve-stamp.js).
+ * Unit: the `stamp-shape:` register resolver (lib/core/resolve-stamp-shape.js).
  *
- * Pure mapping from the deck front-matter `stamp:` value (the state-marker SHAPE —
- * tab / seal / notch / …) to the `stamp-<name>` class token the three render paths
+ * Pure mapping from the deck front-matter `stamp-shape:` value (the state-marker SHAPE —
+ * tab / seal / notch / …) to the `stamp-shape-<name>` class token the three render paths
  * append to every section. The sibling of resolve-finish / resolve-mode; orthogonal to
  * WHICH state marker shows (that's the semantic `confidential`/`wip`/… token).
  */
@@ -12,76 +12,76 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const {
-  STAMP_STYLES,
-  STAMP_STYLE_NAMES,
-  STAMP_STYLE_TOKENS,
-  readFrontMatterStamp,
-  isKnownStamp,
-  stampClass,
-  stampClassFromSource,
-} = require('../../../lib/core/resolve-stamp');
+  STAMP_SHAPES,
+  STAMP_SHAPE_NAMES,
+  STAMP_SHAPE_TOKENS,
+  readFrontMatterStampShape,
+  isKnownStampShape,
+  stampShapeClass,
+  stampShapeClassFromSource,
+} = require('../../../lib/core/resolve-stamp-shape');
 
-describe('resolve-stamp', () => {
-  test('stampClass maps each known name to its class token', () => {
-    assert.equal(stampClass('tab'), 'stamp-tab');
-    assert.equal(stampClass('seal'), 'stamp-seal');
-    assert.equal(stampClass('ribbon'), 'stamp-ribbon');
+describe('resolve-stamp-shape', () => {
+  test('stampShapeClass maps each known name to its class token', () => {
+    assert.equal(stampShapeClass('tab'), 'stamp-shape-tab');
+    assert.equal(stampShapeClass('seal'), 'stamp-shape-seal');
+    assert.equal(stampShapeClass('ribbon'), 'stamp-shape-ribbon');
   });
 
   test('omitted / unrecognized resolve to no class', () => {
-    assert.equal(stampClass(''), '');
-    assert.equal(stampClass('   '), '');
-    assert.equal(stampClass('taab'), '', 'typo → no class (deck-lint flags it)');
-    assert.equal(stampClass(undefined), '');
-    assert.equal(stampClass(null), '');
+    assert.equal(stampShapeClass(''), '');
+    assert.equal(stampShapeClass('   '), '');
+    assert.equal(stampShapeClass('taab'), '', 'typo → no class (deck-lint flags it)');
+    assert.equal(stampShapeClass(undefined), '');
+    assert.equal(stampShapeClass(null), '');
   });
 
   test('value is case- and whitespace-insensitive', () => {
-    assert.equal(stampClass('  Seal  '), 'stamp-seal');
-    assert.equal(stampClass('NOTCH'), 'stamp-notch');
+    assert.equal(stampShapeClass('  Seal  '), 'stamp-shape-seal');
+    assert.equal(stampShapeClass('NOTCH'), 'stamp-shape-notch');
   });
 
-  test('isKnownStamp recognizes the register names only', () => {
-    assert.ok(isKnownStamp('tab'));
-    assert.ok(isKnownStamp('pin'));
-    assert.ok(!isKnownStamp('taab'));
-    assert.ok(!isKnownStamp(''));
-    assert.ok(!isKnownStamp(undefined));
+  test('isKnownStampShape recognizes the register names only', () => {
+    assert.ok(isKnownStampShape('tab'));
+    assert.ok(isKnownStampShape('pin'));
+    assert.ok(!isKnownStampShape('taab'));
+    assert.ok(!isKnownStampShape(''));
+    assert.ok(!isKnownStampShape(undefined));
   });
 
-  test('STAMP_STYLE_NAMES is the boardroom subset followed by the wider range', () => {
-    // Pinned to a hand-written literal (NOT re-derived from STAMP_STYLES), so an
+  test('STAMP_SHAPE_NAMES is the boardroom subset followed by the wider range', () => {
+    // Pinned to a hand-written literal (NOT re-derived from STAMP_SHAPES), so an
     // accidental edit/reorder in either group must also touch this list to stay
     // green — a derived-vs-source compare would move in lockstep and prove nothing.
-    assert.deepEqual([...STAMP_STYLE_NAMES], [
+    assert.deepEqual([...STAMP_SHAPE_NAMES], [
       'tab', 'notch', 'bracket', 'seal', 'pill', // boardroom: the curated five, in order
       'ribbon', 'flag', 'underline', 'dot', 'mark', 'veil', 'bar', 'pin', // range: the rest
     ]);
     // …and the boardroom subset itself leads with exactly those five.
-    assert.deepEqual([...STAMP_STYLES.boardroom], ['tab', 'notch', 'bracket', 'seal', 'pill']);
+    assert.deepEqual([...STAMP_SHAPES.boardroom], ['tab', 'notch', 'bracket', 'seal', 'pill']);
   });
 
-  test('STAMP_STYLE_TOKENS is each name stamp-prefixed', () => {
-    // Literal pin (not `STAMP_STYLE_NAMES.map(...)`, which recreates the impl's
+  test('STAMP_SHAPE_TOKENS is each name stamp-prefixed', () => {
+    // Literal pin (not `STAMP_SHAPE_NAMES.map(...)`, which recreates the impl's
     // own derivation): the `stamp-` prefix AND membership are both asserted here.
-    assert.deepEqual([...STAMP_STYLE_TOKENS], [
-      'stamp-tab', 'stamp-notch', 'stamp-bracket', 'stamp-seal', 'stamp-pill',
-      'stamp-ribbon', 'stamp-flag', 'stamp-underline', 'stamp-dot', 'stamp-mark',
-      'stamp-veil', 'stamp-bar', 'stamp-pin',
+    assert.deepEqual([...STAMP_SHAPE_TOKENS], [
+      'stamp-shape-tab', 'stamp-shape-notch', 'stamp-shape-bracket', 'stamp-shape-seal', 'stamp-shape-pill',
+      'stamp-shape-ribbon', 'stamp-shape-flag', 'stamp-shape-underline', 'stamp-shape-dot', 'stamp-shape-mark',
+      'stamp-shape-veil', 'stamp-shape-bar', 'stamp-shape-pin',
     ]);
   });
 
-  test('readFrontMatterStamp extracts the value from the front-matter block only', () => {
-    const md = '---\nmarp: true\ntheme: carta\nstamp: seal\n---\n\n# H\n\n`stamp: not-this` in body\n';
-    assert.equal(readFrontMatterStamp(md), 'seal');
-    assert.equal(stampClassFromSource(md), 'stamp-seal');
+  test('readFrontMatterStampShape extracts the value from the front-matter block only', () => {
+    const md = '---\nmarp: true\ntheme: carta\nstamp-shape: seal\n---\n\n# H\n\n`stamp-shape: not-this` in body\n';
+    assert.equal(readFrontMatterStampShape(md), 'seal');
+    assert.equal(stampShapeClassFromSource(md), 'stamp-shape-seal');
   });
 
-  test('readFrontMatterStamp accepts quotes and returns null when absent', () => {
-    assert.equal(readFrontMatterStamp('---\nstamp: "notch"\n---\n'), 'notch');
-    assert.equal(readFrontMatterStamp("---\nstamp: 'pill'\n---\n"), 'pill');
-    assert.equal(readFrontMatterStamp('---\ntheme: carta\n---\n'), null);
-    assert.equal(readFrontMatterStamp(''), null);
+  test('readFrontMatterStampShape accepts quotes and returns null when absent', () => {
+    assert.equal(readFrontMatterStampShape('---\nstamp-shape: "notch"\n---\n'), 'notch');
+    assert.equal(readFrontMatterStampShape("---\nstamp-shape: 'pill'\n---\n"), 'pill');
+    assert.equal(readFrontMatterStampShape('---\ntheme: carta\n---\n'), null);
+    assert.equal(readFrontMatterStampShape(''), null);
   });
 
   // Rot-guard: every style token the register knows must have a real CSS rule in
@@ -89,7 +89,7 @@ describe('resolve-stamp', () => {
   // way resolve-finish guards base.finish.css and resolve-mode guards base.sketch.css.
   test('every stamp style token resolves to a real CSS rule in base.variants.css', () => {
     const css = fs.readFileSync(path.join(__dirname, '../../../lib/base/base.variants.css'), 'utf8');
-    for (const cls of STAMP_STYLE_TOKENS) {
+    for (const cls of STAMP_SHAPE_TOKENS) {
       assert.ok(new RegExp(`\\.${cls}\\b`).test(css), `${cls} is registered but base.variants.css has no rule`);
     }
   });

@@ -28,8 +28,8 @@ describe('record registers', () => {
   });
 
   test('a register field reads to its class words; a bad value is reported, never applied', () => {
-    assert.equal(readRecord(' @meta{layout=cards, finish=ledger, headline=left} ').d.class, 'cards finish finish-ledger head-left');
-    const bad = readRecord(' @meta{rule=bogus} ');
+    assert.equal(readRecord(' @meta{layout=cards, finish=ledger, headline-align=left} ').d.class, 'cards finish finish-ledger headline-align-left');
+    const bad = readRecord(' @meta{heading-rule=bogus} ');
     assert.equal(bad.d.class, undefined);
     assert.equal(bad.diagnostics[0].code, 'meta-field-value');
   });
@@ -48,5 +48,14 @@ describe('record registers', () => {
     // Since the cut (record note §15, slice E) the old `_class` comment sets nothing: the slide renders as if it were not there.
     const old = engine.render(`${head}<!-- _class: cards finish finish-ledger -->${body}`).html;
     assert.equal(old, engine.render(`${head}${body}`).html);
+  });
+});
+
+describe('the generated table is compact', () => {
+  // The table ships in the Studio's eager JS, so a value whose class is `<key>-<value>` is written 0 and
+  // lib/core/meta-keys.mjs spells it out; the deep-equal above proves the door still reads every word.
+  test('the generated table writes the common case `<key>-<value>` as 0', () => {
+    const table = require('../../../lib/plugins/meta.generated.mjs').META_HOST_REGISTERS;
+    assert.ok(table.flatMap((r) => Object.values(r.values)).some((c) => c === 0));
   });
 });
