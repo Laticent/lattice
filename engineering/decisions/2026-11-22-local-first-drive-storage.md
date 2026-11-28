@@ -308,7 +308,8 @@ interface Vault {
   `createWritable`, worker `createSyncAccessHandle`, worker `createWritable`), as they do in Chromium and Firefox in
   both contexts. Safari Private Browsing probably behaves like the ephemeral context; that is untested. The vault fails
   visibly with `VaultError('unavailable')` (slice 1, #3442). What it falls back to is slice 2's decision (D1 on
-  #3442), and e2e tests run in persistent profiles.
+  #3442), and e2e tests run in persistent profiles. Built in slice 2: IndexedDB blobs, a choice the vault records
+  and keeps (`2026-11-27-vault-slice-2-as-built.md`).
 
 ### 6.3 Sync
 
@@ -515,6 +516,13 @@ yet." So there is no copy-verify-keep machinery.
    first, the sync merges as it would on any other day.
 
 The pre-paint deck list (localStorage) is rebuilt from the vault after the move, so the first paint does not slow down.
+
+**Undo is a move-back, not a revert** (owner's answer on #3582, 2026-11-27). Slice 2 also ships the way back:
+`MEDIA_DIRECTION = 'rows'` makes the Studio put every moved photo back in its row at boot and save new ones there. So
+undoing a slice is two releases: one that runs the move-back, then the code revert, which keeps the vault reader for
+one more release, since a device that never opened the Studio in between still has data in the vault. No copies are kept and storage
+does not double, so the ruling above stands. Later slices that move data owe the same
+(`2026-11-27-vault-slice-2-as-built.md` §Undo).
 
 ## 9. Trust: copy and threat model (axis H)
 

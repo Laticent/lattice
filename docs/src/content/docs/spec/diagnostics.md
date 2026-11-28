@@ -481,7 +481,7 @@ literal text and is never reported.
 | `meta-not-own-line` | error | — | A record inside a list item or blockquote. |
 | `meta-in-html-block` | error | — | A record directly under an HTML line with no blank line between, so both become one HTML block. |
 | `meta-block-in-container` | error | — | A multi-line record holding a blank line inside a list or blockquote, where the comment ends early. |
-| `meta-class-overridden` | warning | — | Two comments on one slide each set the slide's class (a `_class:` comment, a record's `layout`, `class` or register field); the last wins, so the earlier one's words are dropped. |
+| `meta-class-overridden` | warning | — | Two `@meta` records on one slide each set the slide's class (a record's `layout`, `class` or register field); the last wins, so the earlier one's words are dropped. An old `_class:` comment sets nothing and is never counted; `legacy-directive-comment` names it. |
 | `meta-record` | error | — | A record the engine reads but cannot apply in full: an unknown field, a value outside its register, braces or a quote that never close, a deck-only key, a repeated field, a note field (`note=`, `say=`, `describe=`, `reader=`: a note is its own comment, LFM-1.0 §2.4). The finding's token names the door's code (`meta-unknown-key`, `meta-field-value`, `meta-note-field`, `unterminated-record`, …). |
 | `legacy-directive-comment` | error | ✓ | An old setting comment (`<!-- _class: x -->`, a pane marker such as `<!-- _pane: bar -->` or `<!-- panes: 60/40 -->`, the bare marker `<!-- stress-slide -->`), on every deck. The engine reads none of them, so the slide renders its default. The fix rewrites every old comment in the deck as a `<!-- @meta{…} -->` record, the same text `lattice migrate meta` writes. |
 
