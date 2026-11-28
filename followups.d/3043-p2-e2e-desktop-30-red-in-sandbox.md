@@ -6,7 +6,7 @@ updated: 2026-11-28
 area: infra
 severity: medium
 swimlane: engineering/gotchas/ci.md
-deferred: off-path — each load-only red below has an owner the flake desk named on 2026-11-28 (deck-register-gap and compose-layout-button: session_015KSkL5qA3FjXiw1Cr933XL; filo-undo and workspace-restore-gate: session_015KSkL7sXyLNDKsTcTWygYP), and the mobile-touch avatar tap has none yet; none of them has been seen red on main itself
+deferred: off-path — each load-only red below is held: deck-register-gap and compose-layout-button pass on main and the flake desk (session_015KSkL7caJSQERqwMMpmVT2) holds them as witness-on-main claims; filo-undo and workspace-restore-gate belong to session_015KSkL7sXyLNDKsTcTWygYP; the mobile-touch avatar tap has no owner yet; none of them has been seen red on main itself
 source: https://github.com/Laticent/lattice/pull/3043
 ---
 
@@ -15,10 +15,7 @@ source: https://github.com/Laticent/lattice/pull/3043
 state     — 2026-11-06 a full desktop run on `main` 8a755f69 ended 1,227 passed, 45 failed. PRs #3057, #3087, #3102,
             #3150, #3164 and the 2026-11-12 flaky-e2e branches (shell, export, render, compose) fixed most of them at their
             causes, each with its evidence in that PR; the last of those fixes is kept below.
-open      — deck-register-gap.spec.ts:99 (desktop): red only under full-suite load, 0 of 8 runs at 4 workers, cause
-            unknown. #3307 has merged, so its claim is stale; on 2026-11-28 the flake desk gave :99 and :21 (below)
-            to session_015KSkL5qA3FjXiw1Cr933XL.
-            compose-avatar-icon-editor.spec.ts:122 (mobile-touch, the `@parity` tap test): red once, in a full
+open      — compose-avatar-icon-editor.spec.ts:122 (mobile-touch, the `@parity` tap test): red once, in a full
             all-projects run on PR #3480's merged tree (main 7c252ae + the PR), 2026-11-27: the tap on the avatar
             never showed the popover within 15 s. It passed every run after that: 10 of 10 alone (--repeat-each=10),
             5 of 5 at --workers=4 --repeat-each=5, and 15 of 15 at --workers=4 on a fresh `build:e2e`
@@ -32,10 +29,17 @@ open      — deck-register-gap.spec.ts:99 (desktop): red only under full-suite 
             three, 1,301 of 1,311 passed; compose-default, player-parity, minfont and the three -touch projects did
             not run, so the avatar test above got no new run): four reds, each 3 of 3 alone after:
             deck-register-gap.spec.ts:21 (desktop, `align: spread` never became `"spread right"`) and
-            compose-layout-button.spec.ts:85 (gecko again, "Replace text" never appeared), both given to
-            session_015KSkL5qA3FjXiw1Cr933XL; filo-undo.spec.ts:80 (webkit-tablet, ⌘Z from the rail left the edit)
+            compose-layout-button.spec.ts:85 (gecko again, "Replace text" never appeared), both held now by the
+            flake desk as witness-on-main claims (cleared, below); filo-undo.spec.ts:80 (webkit-tablet, ⌘Z from the rail left the edit)
             and workspace-restore-gate.spec.ts:56 (gecko, the page closed while waiting for the restore's reload),
             both given to session_015KSkL7sXyLNDKsTcTWygYP.
+cleared   — 2026-11-28, deck-register-gap.spec.ts:99 (now :108, the @crosswidth tablet and mobile test), :21, and
+            compose-layout-button.spec.ts:85, on main 2ead5e1d with a fresh `build:e2e`, --retries=0, and no red in any
+            run. #3307, which claimed :99, merged on 2026-11-23. :108: the whole file 10 times at 4 workers with 4 CPU
+            burners, and inside three whole-suite runs at 4 workers (two six-project runs and one desktop-project run, each
+            stopped after the file). :21: 101 of 101, including 28 under Chromium CPU throttling. :85: 81 of 81, the last
+            inside the whole gecko project at 4 workers (517 passed, 4 skipped, 0 failed). The flake desk holds all three
+            as witness-on-main claims: a red on main gets its trace read and an owner.
 cleared   — 2026-11-21, branch claude/chromium-e2e-flake-triage, on main 450df6d with a fresh `build:e2e`, the desktop,
             tablet and mobile projects, --retries=0, whole spec files: 4 workers x2 and x8 under load, and 1 worker x5
             alone. Every Chromium item still listed here passed every run, so each is stale:
