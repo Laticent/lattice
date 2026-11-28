@@ -16,7 +16,7 @@ const hold = vi.hoisted(() => {
 		d.wait = new Promise<void>((r) => (d.open = r));
 		return d;
 	};
-	return { door, theme: door(), engine: door(), engineThrows: false };
+	return { door, theme: door(), engine: door(), engineThrows: false, themeRejects: false, themeThrowsNow: false };
 });
 const pass = async (d: typeof hold.theme) => {
 	if (!d.shut) return;
@@ -33,7 +33,10 @@ vi.mock('../lib/render-engine', () => ({
 }));
 vi.mock('../lib/theme-fetch', () => ({
 	createThemeFetcher: () => ({
-		ensure: () => pass(hold.theme),
+		ensure: () => {
+			if (hold.themeThrowsNow) throw new Error('theme setup threw');
+			return hold.themeRejects ? Promise.reject(new Error('theme fetch failed')) : pass(hold.theme);
+		},
 		ensureBase: async () => {},
 		ensureKatexFaces: async () => {},
 		katexFacesActive: () => false,
@@ -54,6 +57,8 @@ beforeEach(() => {
 	hold.theme = hold.door();
 	hold.engine = hold.door();
 	hold.engineThrows = false;
+	hold.themeRejects = false;
+	hold.themeThrowsNow = false;
 	document.addEventListener('load', stopFrameLoad, true);
 	(globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver = class {
 		observe = vi.fn();
@@ -121,6 +126,38 @@ describe('data-lattice-gate', () => {
 		const host = document.body.appendChild(document.createElement('figure'));
 		expect((await render(host, r)).ok).toBe(false);
 		expect(gate(host)).toBe('failed');
+		r.dispose();
+	});
+
+	it('reads "failed" when the theme rejects, which reaches the render\'s catch', async () => {
+		hold.themeRejects = true;
+		const r = createSingleSlideRenderer(opts);
+		const host = document.body.appendChild(document.createElement('figure'));
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		expect((await render(host, r)).ok).toBe(false);
+		expect(gate(host)).toBe('failed');
+		r.dispose();
+	});
+
+	it('a newer render that throws in its theme setup names that step, not the older render\'s', async () => {
+		const r = createSingleSlideRenderer(opts);
+		const host = document.body.appendChild(document.createElement('figure'));
+		hold.engine.shut = true;
+		const older = render(host, r);
+		await hold.engine.arrived;
+		expect(gate(host)).toBe('engine render');
+		hold.themeThrowsNow = true;
+		expect(() => render(host, r)).toThrow('theme setup threw');
+		hold.themeThrowsNow = false;
+		hold.engine.open();
+		const fr = await vi.waitFor(() => {
+			const f = host.querySelector('iframe');
+			if (!f) throw new Error('no frame yet');
+			return f;
+		});
+		fr.onload?.(new Event('load'));
+		await older;
+		expect(gate(host)).toBe('theme');
 		r.dispose();
 	});
 

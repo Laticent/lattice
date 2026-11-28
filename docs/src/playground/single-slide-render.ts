@@ -1963,6 +1963,9 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		// frame-scheduler.ts's 4 s watchdog is a render that never settled: the scheduler has cleared its guard, and with no
 		// new edit nothing renders again.
 		const markGate = (step: number) => liveHost.__latticeRenderGen === renderGen && host.setAttribute('data-lattice-gate', step as unknown as string); // setAttribute stringifies; `'' +` cost the budget's last bytes
+		// Step 0 lands as this render takes its turn, before the synchronous theme setup below: a throw there must not leave
+		// an older render's step on the host, which this render's turn has already shut out.
+		markGate(0);
 		// A render stands down only once a NEWER one OWNS the frame, never merely because a newer one has started:
 		// that one may still fail (bad Markdown mid-typing, an engine error) before it does anything, and an older
 		// render that had already swapped the sheet would then leave the new sheet under the old body. A render
@@ -2000,7 +2003,6 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					PG.addThemes([{ name: extra.name, css: extra.css }]);
 				})
 			: themes.ensure(palette, mode);
-		markGate(0);
 		return Promise.all([themeReady, katexReady])
 			.then(async () => {
 				// Bail if the host was disposed/detached while the theme fetch was in
