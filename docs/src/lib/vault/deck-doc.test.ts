@@ -143,6 +143,17 @@ describe('loadDoc: an update on a rebuilt base (finding 2b-ii)', () => {
 		expect(hasPending(doc)).toBe(false);
 		expect(docText(doc)).toBe('one\ntwo\nthree');
 	});
+	it('places an update listed before the one it depends on (path order is not causal order)', () => {
+		const base = withText(1, 'a');
+		const baseBytes = encodeDoc(base);
+		const t = clone(base, 8);
+		const u1 = localSave(t, 'a', 'a\nb').delta as Uint8Array;
+		const u2 = localSave(t, 'a\nb', 'a\nb\nc').delta as Uint8Array;
+		const { doc, pending } = loadDoc(9, baseBytes, [{ name: 'dev-10', bytes: u2 }, { name: 'dev-9', bytes: u1 }]);
+		expect(pending).toEqual([]);
+		expect(docText(doc)).toBe('a\nb\nc');
+		expect(doc.clientID).toBe(9);
+	});
 	it('merges per-tab update files in any order, and a duplicate is a no-op', () => {
 		const base = withText(1, 'a\nb\nc');
 		const baseBytes = encodeDoc(base);

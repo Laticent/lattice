@@ -129,7 +129,7 @@ export class DeckVault {
 			if (!m || m[2] !== device || Number(m[3]) !== slot) continue;
 			await this.withDeckLock(m[1], async () => {
 				const bytes = await bytesOf(this.vault, e.path).catch(() => null);
-				if (bytes?.length) await this.vault.write(`${deckMetaDir(m[1])}/updates/${device}-${await this.vault.nextSeq()}.yjsu`, bytes);
+				if (bytes?.length) await this.vault.write(`${deckMetaDir(m[1])}/updates/${device}-${seqName(await this.vault.nextSeq())}.yjsu`, bytes);
 				await this.vault.remove(e.path).catch(notFound);
 			});
 		}
@@ -147,21 +147,21 @@ export class DeckVault {
 	 *  no base is fine: its first save's update is the whole text, and a later compaction (slice 6) makes the base. */
 	private async catchUp(id: string, open: Open, mine: string): Promise<void> {
 		const files = await this.vault.list(deckMetaDir(id), { recursive: true });
-		for (const e of files) {
-			if (!/\.yjsu?$/.test(e.path) || e.path === mine || open.seen.get(e.path) === e.revision) continue;
-			const bytes = await bytesOf(this.vault, e.path);
-			yApply(open.doc, bytes);
-			open.seen.set(e.path, e.revision);
-			if (hasPending(open.doc)) {
-				// An update from history this doc lacks (a rebuilt base, finding 2b-ii): reopen from the files, which sets
-				// it aside, and let deck.md carry its text.
-				const fresh = await this.loadOpen(id, open.doc.clientID, mine);
-				open.doc = fresh.doc;
-				open.seen = fresh.seen;
-				for (const u of open.own) yApply(open.doc, u); // this tab's own edits, which the files may not hold yet
-				return;
-			}
+		const fresh = files.filter((e) => /\.yjsu?$/.test(e.path) && e.path !== mine && open.seen.get(e.path) !== e.revision);
+		if (!fresh.length) return;
+		// Every new file first: the list is in path order, not causal order, and Yjs parks an early update until what it
+		// depends on arrives. Only what is still pending after all of them is from history this doc lacks.
+		for (const e of fresh) yApply(open.doc, await bytesOf(this.vault, e.path));
+		if (!hasPending(open.doc)) {
+			for (const e of fresh) open.seen.set(e.path, e.revision);
+			return;
 		}
+		// Finding 2b-ii: reopen from the files, which sets the stray update aside (and never marks it seen), and keep
+		// this tab's own edits, which the files may not hold yet.
+		const re = await this.loadOpen(id, open.doc.clientID, mine);
+		open.doc = re.doc;
+		open.seen = re.seen;
+		for (const u of open.own) yApply(open.doc, u);
 	}
 
 	private async loadOpen(id: string, clientID: number, mine: string): Promise<Open> {
@@ -176,7 +176,8 @@ export class DeckVault {
 			updates.push({ name: e.path, bytes: await bytesOf(this.vault, e.path) });
 			seen.set(e.path, e.revision);
 		}
-		const { doc } = loadDoc(clientID, base, updates);
+		const { doc, pending } = loadDoc(clientID, base, updates);
+		for (const name of pending) seen.delete(name); // a set-aside file is tried again on the next catch-up
 		seen.delete(mine);
 		return { doc, seen, own: [], promotedAt: this.now() };
 	}
@@ -260,7 +261,7 @@ export class DeckVault {
 
 	/** Turn this tab's pending edits into one update file (`<device>-<seq>`, seq under the vault's lock). */
 	private async promoteLocked(id: string, open: Open, device: string, mine: string): Promise<void> {
-		const path = `${deckMetaDir(id)}/updates/${device}-${await this.vault.nextSeq()}.yjsu`;
+		const path = `${deckMetaDir(id)}/updates/${device}-${seqName(await this.vault.nextSeq())}.yjsu`;
 		const e = await this.vault.write(path, mergeUpdates(open.own));
 		open.seen.set(path, e.revision);
 		open.own = [];
@@ -328,6 +329,9 @@ export class DeckVault {
 		});
 	}
 }
+
+/** Zero-padded, so a path listing sorts update files in the order they were written. */
+const seqName = (n: number) => String(n).padStart(10, '0');
 
 /** An error after the save's edit reached this tab's doc: the edit is held there and goes out with the next write. */
 export const isHeld = (err: unknown): boolean => (err as { deckHeld?: boolean } | null)?.deckHeld === true;

@@ -190,6 +190,39 @@ describe('the guard: a save before the shelf has the deck (storage desk must-fix
 	});
 });
 
+describe('load order (the red team\'s finding 1)', () => {
+	it('a fresh tab keeps an edit that is only in a pending file, which lists before updates/', async () => {
+		let t = 0;
+		const a = new DeckVault({ vault, slot: 0, now: () => t });
+		await a.save('d', '', 'one');
+		t = 61_000;
+		await a.save('d', 'one', 'one\ntwo'); // promoted to updates/
+		t = 62_000;
+		await a.save('d', 'one\ntwo', 'one\ntwo\nthree'); // only in pending/
+		const b = new DeckVault({ vault, slot: 1 });
+		expect((await b.save('d', 'one\ntwo\nthree', 'one\ntwo\nthree\nfrom B')).merged).toBe('one\ntwo\nthree\nfrom B');
+	});
+	it('twelve promotions and a reload into the same slot lose nothing, and a third tab reads it all', async () => {
+		for (let i = 0; i < 8; i++) await vault.nextSeq(); // other decks' promotions use up seq 1–8
+		let t = 0;
+		const tab = new DeckVault({ vault, slot: 0, now: () => t });
+		let cur = '';
+		for (let k = 0; k < 12; k++) {
+			const next = `${cur}minute ${k}\n`;
+			await tab.save('d', cur, next);
+			cur = next;
+			t += 61_000;
+		}
+		await tab.promoteAll();
+		const again = new DeckVault({ vault, slot: 0, now: () => t });
+		const { merged } = await again.save('d', cur, `${cur}after reload\n`);
+		expect(merged).toBe(`${cur}after reload\n`);
+		const third = new DeckVault({ vault, slot: 2, now: () => t });
+		expect((await third.save('d', merged, merged)).merged).toBe(merged);
+		expect(await text(deckPath('d'))).toBe(merged);
+	});
+});
+
 describe('the boot cache after a cut-off save', () => {
 	it('saves the cached text again when the vault still holds its base', async () => {
 		seedLegacy();

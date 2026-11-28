@@ -159,25 +159,51 @@ export type LoadedDoc = {
 	pending: string[];
 };
 
-/** Build a deck's doc from its base and update files. Order does not matter; an update applied twice is a no-op. */
+/** The client id a doc loads under: it makes no items, and loading under it keeps Yjs from seeing the slot's own id
+ *  arrive in a "remote" update, which makes Yjs pick a random id (the inversion review's finding). */
+const LOADING_CLIENT = 0x3fffffff;
+
+/**
+ * Build a deck's doc from its base and update files. Order does not matter: the vault lists files by path, which is
+ * not causal order (`dev-10` before `dev-9`, `pending/` before `updates/`), and Yjs parks an early update until what
+ * it depends on arrives. So every file is applied first, and only what is STILL unplaceable after all of them counts
+ * as made against history this doc lacks (finding 2b-ii). Those are found by adding the files back in rounds until a
+ * round makes no progress, and the doc is rebuilt without them. An update applied twice is a no-op.
+ *
+ * When something was set aside, the doc gets a fresh random client id: a set-aside file may hold clocks of the slot's
+ * own client, and reusing them for new text would put two items under one id.
+ */
 export function loadDoc(clientID: number, base: Uint8Array | null, updates: readonly { name: string; bytes: Uint8Array }[]): LoadedDoc {
-	const good: Uint8Array[] = base ? [base] : [];
-	let doc = deckDoc(clientID);
-	if (base) Y.applyUpdate(doc, base);
+	const fresh = (parts: Uint8Array[]) => {
+		const d = deckDoc(LOADING_CLIENT);
+		for (const u of parts) Y.applyUpdate(d, u);
+		return d;
+	};
+	const root = base ? [base] : [];
+	let doc = fresh(root);
 	if (hasPending(doc)) throw new Error('the deck base is not a whole document');
+	for (const u of updates) Y.applyUpdate(doc, u.bytes);
 	const pending: string[] = [];
-	for (const u of updates) {
-		Y.applyUpdate(doc, u.bytes);
-		if (!hasPending(doc)) {
-			good.push(u.bytes);
-			continue;
+	if (hasPending(doc)) {
+		const good: Uint8Array[] = [...root];
+		let rest = [...updates];
+		for (let progress = true; progress && rest.length; ) {
+			progress = false;
+			const next: typeof rest = [];
+			for (const u of rest) {
+				const probe = fresh([...good, u.bytes]);
+				if (hasPending(probe)) next.push(u);
+				else {
+					good.push(u.bytes);
+					progress = true;
+				}
+			}
+			rest = next;
 		}
-		// The doc now holds structs it cannot place. Rebuild it from the updates that applied, so a later
-		// update cannot complete the stray one by chance and put text back in an order nobody wrote.
-		pending.push(u.name);
-		doc = deckDoc(clientID);
-		Y.applyUpdate(doc, Y.mergeUpdates(good));
+		pending.push(...rest.map((u) => u.name));
+		doc = fresh(good);
 	}
+	doc.clientID = pending.length ? Math.floor(Math.random() * (LOADING_CLIENT - 1)) + 1 : clientID;
 	return { doc, pending };
 }
 
