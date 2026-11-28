@@ -1,3 +1,8 @@
+---
+status: shipped
+summary: Slice 3 of local-first storage, as built. Deck text moves from localStorage into the storage vault in its final form, Decks/<id>.md plus per-deck Yjs files (a base, per-device update files at most one a minute, a per-tab pending file and a head stamp), so sync needs no second migration. Every deck read stays synchronous through an in-memory shelf; a vault deck the tab has not read yet reads as null and its save is refused, so a save before hydration never shrinks a deck. The move reuses slice 2's lock and rewrites its one backup in place through a checked temp file. DECK_DIRECTION local is the move-back. Saves merge three-way, so a stale tab keeps newer text, and a full disk shows the deck-save notice.
+---
+
 # Vault slice 3, as built: decks in the storage vault
 
 **Date:** 2026-11-28 · **Design:** `2026-11-22-local-first-drive-storage.md` §6.4, §8, §10 (slice 3) · **Before it:**
