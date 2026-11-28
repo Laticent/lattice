@@ -1,6 +1,6 @@
 // @vitest-environment node
 /**
- * The vault contract, run over every backing slice 1 ships, then the crash window, the locks, the line
+ * The vault contract, run over every backing slices 1 and 2 ship, then the crash window, the locks, the line
  * endings and a seeded model test. Node's Blob, File and WebCrypto stand in for the browser's; the
  * browser's real OPFS and worker run in docs/e2e/vault.spec.ts.
  */
@@ -8,9 +8,10 @@ import 'fake-indexeddb/auto';
 import { IDBFactory } from 'fake-indexeddb';
 import { describe, expect, it } from 'vitest';
 import { type BlobStore, type IndexStore, memoryLocks } from './backing';
-import { type BlobWriter, opfsBlobs, workerWriter } from './browser';
+import { BLOB_BACKING_KEY, type BlobWriter, openBrowserVault, opfsBlobs, workerWriter } from './browser';
 import { openVault } from './core';
 import { fakeOpfs } from './fake-opfs.test-helper';
+import { idbBlobs } from './idb-blobs';
 import { idbIndex } from './idb-index';
 import { memoryBlobs, memoryIndex, openMemoryVault } from './memory';
 import { writeBlob } from './opfs-write';
@@ -48,6 +49,13 @@ let dbn = 0;
 const BACKINGS: Backing[] = [
 	{ name: 'memory', make: () => ({ blobs: memoryBlobs(), index: memoryIndex() }) },
 	{ name: 'memory blobs + IndexedDB index', make: () => ({ blobs: memoryBlobs(), index: idbIndex(`vault-test-${++dbn}`, new IDBFactory()) }) },
+	{
+		name: 'IndexedDB blobs + IndexedDB index',
+		make: () => {
+			const idb = new IDBFactory();
+			return { blobs: idbBlobs(`vault-blobs-${++dbn}`, idb), index: idbIndex(`vault-test-${++dbn}`, idb) };
+		},
+	},
 	{
 		name: 'OPFS blobs (sync access handle) + IndexedDB index',
 		make: () => {
@@ -509,5 +517,80 @@ describe('paths', () => {
 		expect(normalizePath('/Decks/Q3.md/')).toBe('Decks/Q3.md');
 		expect(normalizePath('Café.md')).toBe('Café.md');
 		expect(normalizePath('', { dir: true })).toBe('');
+	});
+});
+
+describe('the IndexedDB blob store (D1: where OPFS is refused)', () => {
+	it('falls back to an ArrayBuffer when the engine refuses to store a Blob, and reads back the same bytes', async () => {
+		// Safari in a private window refuses a Blob in an object store and stores an ArrayBuffer fine.
+		const real = globalThis.structuredClone;
+		let refused = 0;
+		globalThis.structuredClone = ((v: unknown, o?: StructuredSerializeOptions) => {
+			if (v && typeof v === 'object' && (v as { blob?: unknown }).blob instanceof Blob) {
+				refused++;
+				throw new DOMException('Error preparing Blob/File data to be stored in object store', 'DataCloneError');
+			}
+			return real(v, o);
+		}) as typeof structuredClone;
+		try {
+			const blobs = idbBlobs(`refuse-${++dbn}`, new IDBFactory());
+			const v = await openVault({ blobs, index: memoryIndex(), locks: memoryLocks(), ...determinism() });
+			await v.write('Library/Images/a.png', new Blob([new Uint8Array([1, 2, 3])]));
+			await v.write('Library/Images/b.png', new Blob([new Uint8Array([4, 5])]));
+			expect([...new Uint8Array(await (await v.read('Library/Images/a.png')).arrayBuffer())]).toEqual([1, 2, 3]);
+			expect([...new Uint8Array(await (await v.read('Library/Images/b.png')).arrayBuffer())]).toEqual([4, 5]);
+			// One refusal, then buffers only: the second write does not try a Blob again.
+			expect(refused).toBe(1);
+			expect(blobs.stored).toEqual({ blob: 0, buffer: 2 });
+			v.close();
+		} finally {
+			globalThis.structuredClone = real;
+		}
+	});
+
+	it('stores a Blob where the engine allows one', async () => {
+		const blobs = idbBlobs(`allow-${++dbn}`, new IDBFactory());
+		await blobs.put('ab'.repeat(32), new Uint8Array([9]));
+		expect(blobs.stored).toEqual({ blob: 1, buffer: 0 });
+		expect(await blobs.names()).toEqual(['ab'.repeat(32)]);
+		await blobs.delete('ab'.repeat(32));
+		expect(await blobs.get('ab'.repeat(32))).toBeNull();
+	});
+});
+
+describe('openBrowserVault: which blob store, and keeping it', () => {
+	// Node has IndexedDB (fake-indexeddb/auto) and no OPFS, which is the WebKit ephemeral case.
+	it('opens on IndexedDB blobs where OPFS is missing, records the choice, and survives a reopen', async () => {
+		const dbName = `browser-${++dbn}`;
+		const opts = { dbName, blobDbName: `${dbName}-blobs`, channel: null, locks: memoryLocks() };
+		const v = await openBrowserVault(opts);
+		expect(v.blobBacking).toBe('indexeddb');
+		expect(await v.probeWritePath()).toBe('indexeddb');
+		await v.write('Decks/Q3.md', '# Q3\r\n');
+		v.close();
+		const again = await openBrowserVault(opts);
+		expect(again.blobBacking).toBe('indexeddb');
+		expect(await text(await again.read('Decks/Q3.md'))).toBe('# Q3\n');
+		expect((await again.recover()).damaged).toEqual([]);
+		again.close();
+		const index = idbIndex(dbName);
+		expect(await index.getMeta(BLOB_BACKING_KEY)).toBe('indexeddb');
+		index.close();
+	});
+
+	it('refuses with unavailable, and marks nothing damaged, when a vault that chose OPFS finds it refused', async () => {
+		const dbName = `browser-${++dbn}`;
+		const index = idbIndex(dbName);
+		await index.setMeta(BLOB_BACKING_KEY, 'opfs');
+		index.close();
+		await expect(openBrowserVault({ dbName, blobDbName: `${dbName}-blobs`, channel: null })).rejects.toMatchObject({ code: 'unavailable' });
+	});
+
+	it('treats a slice-1 vault (no recorded choice, a journal) as OPFS, so a refusal never opens it on empty blobs', async () => {
+		const dbName = `browser-${++dbn}`;
+		const index = idbIndex(dbName);
+		await index.apply([], () => ({ puts: [], journal: [{ path: 'Decks/a.md', id: 'x', op: 'write', baseRevision: 0, sha256: 'ab'.repeat(32) }], result: null }));
+		index.close();
+		await expect(openBrowserVault({ dbName, blobDbName: `${dbName}-blobs`, channel: null })).rejects.toMatchObject({ code: 'unavailable' });
 	});
 });
