@@ -34,11 +34,11 @@ test('@crosswidth @webkit-phone @gecko the Specimen completes a @meta record: th
 	// The fields open at once, inside the braces.
 	await expect(menu(page).getByRole('option', { name: /^layout/ })).toBeVisible();
 	await page.keyboard.type('headl');
-	await expect(menu(page).getByRole('option', { name: /^headline/ })).toBeVisible();
+	await expect(menu(page).getByRole('option', { name: /^headline-align/ })).toBeVisible();
 	await acceptCompletion(page);
-	await expect(editor).toContainText('<!-- @meta{headline=}');
+	await expect(editor).toContainText('<!-- @meta{headline-align=}');
 	await page.keyboard.type('l');
 	await expect(menu(page).getByRole('option', { name: /^left/ })).toBeVisible();
 	await acceptCompletion(page);
-	await expect(editor).toContainText('<!-- @meta{headline=left}');
+	await expect(editor).toContainText('<!-- @meta{headline-align=left}');
 });

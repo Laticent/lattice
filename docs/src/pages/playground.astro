@@ -26,6 +26,7 @@ import ColorSchemeSeed from '../components/site/ColorSchemeSeed.astro';
 import StaleDeployRecovery from '../components/site/StaleDeployRecovery.astro';
 import PlaygroundIsland from '../components/playground/PlaygroundIsland.tsx';
 import { buildCatalog, buildLenses } from '../lib/families.mjs';
+import { packCatalog } from '../lib/catalog-wire';
 import { PG_SPLIT_BUCKET, PG_SPLIT_KEY, PG_SPLIT_MIN, PG_SPLIT_PANEL_IDS, PG_SPLIT_SNAP_MIDPOINT } from '../components/playground/pg-split';
 // The storage keys the pre-paint seed reads, from the module that DECLARES them rather
 // than restated as literals in the inline script. `playground-controller.ts` has no
@@ -172,7 +173,8 @@ const bake = { component: bakeName, palette: 'cuoio', base: url(pg + 'newcomer/'
 
 const pgData = {
 	catalog,
-	components,
+	// Packed for the island prop: two word lists as arrays cost ~17 bytes of wrapping a word (catalog-wire.ts).
+	components: packCatalog(components),
 	lenses,
 	galleryGroups,
 	themeBase: url(pg + 'themes/'),
@@ -186,7 +188,9 @@ const pgData = {
 	galleriesBase: url(pg + 'galleries/'),
 	palettes,
 	finishes: FINISH_NAMES,
-	lintVocab,
+	// One JSON string, not a structured prop: Astro wraps every value of a structured prop as `[0,"…"]`, which on
+	// this vocabulary (every class name, several lists over) cost ~8KB of the page's raw HTML budget.
+	lintVocab: JSON.stringify(lintVocab),
 	starter,
 	bakeCaption,
 };

@@ -191,7 +191,7 @@ const VARIANT_DECL_IGNORE = new Map([
   // every family member; checklist only re-tints its row ground under it so the ground follows the inverted role.
   ['checklist', new Set(['heat'])],
   // `left`: legacy alias of `mirror` (base.modifiers.css). The others are DECK-REGISTER classes
-  // (`rule:` → resolve-rule.js, `trim-spectrum:` → resolve-spectrum.js) that the card's divider reads
+  // (`heading-rule:` → resolve-heading-rule.js, `trim-spectrum:` → resolve-spectrum.js) that the card's divider reads
   // so it follows the deck's and the slide's own settings; they are not image variants.
   // `image-card-5` … `image-card-95` are the in-between backing levels (resolve-image-card.js BACKING_LEVELS):
   // one axis, documented once under `image-card-solid`/`-soft`/`-sheer`/`-clear`. Declaring each would add
@@ -7245,6 +7245,12 @@ const SANCTIONED_EOL_BOUNDARIES = [
        + 'over, at the ninth ingest, because the gate that was supposed to catch it did not exist.',
   },
   {
+    file: 'tools/vscode-harness/kit-deck.mjs',
+    why: 'the deck read that turns a repo deck into a kit deck for the VS Code harness. It rewrites `theme:` in '
+       + 'the front matter it anchors on `^---`, so a BOM\'d or CRLF deck would keep its own palette and reach the '
+       + 'preview unstyled: the harness would then measure the wrong surface.',
+  },
+  {
     file: 'tools/export-chart-svg.js',
     why: 'the deck read in main(). The TENTH ingest, and the one that proves arm 6 earns its '
        + 'place: it had no fold for the other five arms to inspect, so it was invisible to them '
@@ -10323,8 +10329,8 @@ const OPENROUTER_SCAN_EXEMPT = new Set(['test/unit/cli/check-ownership.test.js']
 // onset by concurrency and packed-request cuts; on demand, opt-in, prints its spend and refuses a
 // plan above --max-usd (owner-approved small run, 2026-11-11).
 // tools/agent-pack-eval.mjs: does the agent pack make a model write a good deck? Opt-in
-// (OPENROUTER_ALLOW_SPEND=1), prints its cost, run nightly by agent-pack-eval-nightly.yml
-// (engineering/decisions/2026-11-17-agent-pack.md §4.5).
+// (OPENROUTER_ALLOW_SPEND=1), stops hard at --max-usd (USD 1 unless set), prints OpenRouter's cost,
+// run nightly by agent-pack-eval-nightly.yml (engineering/decisions/2026-11-17-agent-pack.md §4.5, §4.10).
 const SANCTIONED_OPENROUTER_SPENDERS = ['tools/component-gen-eval.mjs', 'tools/generate-voice-samples.mjs', 'tools/record-lesson-voice.mjs', 'tools/intent-bakeoff/judge-eval.mjs', 'tools/probe-picture-tokens.mjs', 'tools/tts-bench.mjs', 'tools/agent-pack-eval.mjs', 'tools/stop-billing-probe.mjs'];
 // tools/stop-billing-probe.mjs: measures how OpenRouter bills a stopped chat request, the assumption behind the chat
 // ledger's settleOpenRound (#3533). About USD 0.04 a run, --cap 0.10, dispatch-only via agent-pack-eval-nightly.yml's
@@ -10335,7 +10341,7 @@ const SANCTIONED_OPENROUTER_SPENDERS = ['tools/component-gen-eval.mjs', 'tools/g
 // never pull_request/push/merge_group, which fire constantly). This is the CI home for live E2E.
 const SANCTIONED_OPENROUTER_WORKFLOWS = [
   '.github/workflows/studio-e2e-nightly.yml', // nightly Studio live-AI E2E — ~1c/night, fails loud without the secret (#696, #1931)
-  '.github/workflows/agent-pack-eval-nightly.yml', // nightly agent-pack eval — six completions, ~USD 0.20–0.40/night, fails loud without the secret (2026-11-17-agent-pack.md §4.5)
+  '.github/workflows/agent-pack-eval-nightly.yml', // nightly agent-pack eval — ten two-turn decks on Haiku 5.5 or DeepSeek (alternating), ~USD 0.02–0.06/night at the cheapest provider (priced 2026-11-27), hard cap --max-usd 0.25 priced at the dearest; fails loud without the secret (2026-11-17-agent-pack.md §4.5, §4.10)
 ];
 
 // docs/ CODE files, incl. `.astro` — whose build-time frontmatter runs at build and inlines
@@ -12957,6 +12963,65 @@ const USE_CASE_INPUT_KEYWORDS = new Set(['type', 'description', 'enum', 'const',
  * ships a pure kernel beside its manifest and an input a model can call from the schema alone, bounded
  * and described at every depth (use-case-layer.md §2, §3.2, §3.5).
  */
+/**
+ * THE USE-CASE VALIDATORS ship no ajv (use-case-layer.md §7, §10 step 2). The dispatcher runs each use case's
+ * generated validator (lib/use-cases/<id>/<id>.validate.mjs) before its handler, so a validator is code every
+ * host ships. ajv's standalone mode writes them with `unicode: false`, which keeps a string-length check from
+ * importing ajv's runtime; ajv 8.20 calls that option deprecated, so an upgrade could quietly bring the import
+ * back. This holds the shape the dispatcher depends on:
+ *   - every manifest has its validator, and no validator outlives its manifest;
+ *   - a validator imports nothing at all, from ajv or anywhere else (checkAjvBoundary covers only the ajv family);
+ *   - the index (validators.generated.mjs) imports exactly one validator per manifest, and nothing else.
+ * Whether a validator matches its manifest NOW is the generator's own --check, which build:check runs.
+ */
+function checkUseCaseValidators(errors, { root = ROOT } = {}) {
+  const dir = path.join(root, 'lib', 'use-cases');
+  if (!fs.existsSync(dir)) return;
+  const JS_STRING = /"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`/g;
+  const ANY_IMPORT = /\bimport\s*(?:[\s{*"'`(]|$)|\brequire\s*\(|\bexport\s+[^;]*\bfrom\s*["'`]/m;
+  const ids = [];
+  for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (!ent.isDirectory()) continue;
+    const manifest = path.join(dir, ent.name, `${ent.name}.use-case.json`);
+    const validator = path.join(dir, ent.name, `${ent.name}.validate.mjs`);
+    const hasManifest = fs.existsSync(manifest);
+    const hasValidator = fs.existsSync(validator);
+    if (hasManifest) ids.push(ent.name);
+    if (hasManifest && !hasValidator) {
+      errors.push(`${relPosix(root, manifest)} has no validator: run \`npm run build\` (tools/build-use-cases.js) and commit ${relPosix(root, validator)}. The dispatcher refuses a use case without one.`);
+    }
+    if (hasValidator && !hasManifest) {
+      errors.push(`${relPosix(root, validator)} has no manifest beside it: delete it, or restore ${ent.name}.use-case.json.`);
+    }
+    // String contents blanked first: a field named `from` or `import`, or an error message, is text, not a module.
+    // A real import still matches, its specifier reduced to "".
+    if (hasValidator && ANY_IMPORT.test(stripJsComments(readCssSource(validator)).replace(JS_STRING, '""'))) {
+      errors.push(
+        `${relPosix(root, validator)} imports a module. A use-case validator is shipped to every host and must be ` +
+          'self-contained (use-case-layer.md §7). If an ajv upgrade made the standalone code import its runtime ' +
+          '(the deprecated `unicode: false` no longer holds), restrict the manifest to keywords that compile without one.',
+      );
+    }
+  }
+  const index = path.join(dir, 'validators.generated.mjs');
+  if (!ids.length) return;
+  if (!fs.existsSync(index)) {
+    errors.push(`lib/use-cases/validators.generated.mjs is missing: run \`npm run build\` (tools/build-use-cases.js).`);
+    return;
+  }
+  const src = stripJsComments(readCssSource(index));
+  const imported = [...src.matchAll(/\bimport\s+[^;]*?\bfrom\s*["'`]([^"'`]+)["'`]/g)].map((m) => m[1]);
+  const want = ids.map((id) => `./${id}/${id}.validate.mjs`);
+  const extra = imported.filter((s) => !want.includes(s));
+  const missing = want.filter((s) => !imported.includes(s));
+  if (extra.length || missing.length || /\brequire\s*\(|\bimport\s*\(/.test(src)) {
+    errors.push(
+      `lib/use-cases/validators.generated.mjs must import exactly one validator per manifest and nothing else` +
+        `${missing.length ? `; missing ${missing.join(', ')}` : ''}${extra.length ? `; unexpected ${extra.join(', ')}` : ''}. Run \`npm run build\`.`,
+    );
+  }
+}
+
 function checkUseCaseManifests(errors, { root = ROOT, legacy = SANCTIONED_LEGACY_USE_CASES } = {}) {
   const dir = path.join(root, 'lib', 'use-cases');
   if (!fs.existsSync(dir)) return;
@@ -14823,9 +14888,9 @@ const AUTHOR_SET_ENGINE_TOKENS = Object.freeze([
   // them; a preset's stamped class (Phase 0) or a deck `style:` block sets them on a section, and
   // every read carries today's value as its fallback, so unset they render byte-for-byte as before.
   // Contract: the comment beside `--radius-*` in lib/base/base.tokens.css.
-  { token: 'rule-w', why: 'heading-rule weight: masthead hairline, rule-full, the short/accent segment height, the split-panel kicker and the five split-page runheads. Fallback 1px (segment: 0.22cqi).' },
+  { token: 'rule-w', why: 'heading-rule weight: masthead hairline, heading-rule-full, the short/accent segment height, the split-panel kicker and the five split-page runheads. Fallback 1px (segment: 0.22cqi).' },
   { token: 'rule-style', why: 'heading-rule border style on the same border-drawn rules. Fallback solid.' },
-  { token: 'rule-mark', why: 'heading-rule ink on the same rules (rule-accent keeps --accent). Fallback var(--border).' },
+  { token: 'rule-mark', why: 'heading-rule ink on the same rules (heading-rule-accent keeps --accent). Fallback var(--border).' },
   { token: 'rail-w', why: 'card-spectrum stripe thickness (base.accent-finish.css --sp-card-w). Fallback 0.35 section cqi.' },
   { token: 'radius-card', why: 'card corner: every tile that can carry a card tag (cards-grid, cards-stack, stats, pricing, verdict-grid, list-steps, list, actors, decision, compare-prose, split-compare options/verdict, split-panel proof/watermark, citation-card triptych, statute-stack) and the tag itself. Fallback var(--radius-md); never --radius-full, quote panels, diagram tiles or corners:.' },
 ]);
@@ -16144,6 +16209,7 @@ function run() {
   checkSkillFreshness(errors);
   checkAgentModelPinning(errors);
   checkUseCaseManifests(errors);
+  checkUseCaseValidators(errors);
   checkProviderAttributeWriters(errors);
   checkSplitOracle(manifests, errors);
   checkCommittedPdfs(errors);
@@ -16242,6 +16308,7 @@ module.exports = {
   checkProjectionCoverage,
   checkManifestSchemas,
   checkAjvBoundary,
+  checkUseCaseValidators,
   checkThemeManifestCoverage,
   checkThemeManifestShape,
   checkThemeRoles,

@@ -62,7 +62,7 @@
       "description": "Use when writing a whole deck from a blank file: narrative arc, front matter, picking layouts, the 10/10 bar and the ship checklist.",
       "kind": "make",
       "studio": true,
-      "tokens": 3267
+      "tokens": 3275
     },
     {
       "name": "diagram",
@@ -98,7 +98,7 @@
       "description": "Use when turning lint, Coach or overflow findings into fixes: reading lint:deck output, the common rule ids and their fixes, and fitting a slide without shrinking type.",
       "kind": "operate",
       "studio": true,
-      "tokens": 3587
+      "tokens": 3592
     },
     {
       "name": "import",
@@ -134,7 +134,7 @@
       "description": "Use when changing how a deck looks without changing what it says: theme, color mode, preset, finish, mode, registers, per-slide modifiers, or a better-fitting layout.",
       "kind": "operate",
       "studio": true,
-      "tokens": 3217
+      "tokens": 3239
     },
     {
       "name": "speaker-notes",

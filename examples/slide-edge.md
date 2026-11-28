@@ -83,9 +83,9 @@ Think deeper, plan longer, decide once — the mandate fit on a napkin, so the v
 
 ---
 
-<!-- @meta{layout=content, class=corners-rounded} -->
+<!-- @meta{layout=content, class=slide-corners-rounded} -->
 
-`corners: rounded`
+`slide-corners: rounded`
 
 ## The keyline takes the slide's own corner.
 

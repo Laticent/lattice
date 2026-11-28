@@ -38,7 +38,7 @@ describe('deck-class register — refusals', () => {
   });
 
   test('everything else is admitted — a modifier, a variant, an unknown token', () => {
-    for (const t of ['no-note', 'safe', 'lifted', 'no-spectrum', 'zzzz-not-a-thing']) {
+    for (const t of ['no-note', 'safe', 'card-lift-on', 'no-spectrum', 'zzzz-not-a-thing']) {
       assert.equal(deckClassRefusal(t, 'dark'), null, t);
     }
   });

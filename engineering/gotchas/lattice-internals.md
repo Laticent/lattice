@@ -163,10 +163,11 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   golden at the commit its nightly bless rendered from, on this machine. It then says
   "cross-machine band", "source drift" or "unavailable". In a shallow clone it says
   "unavailable" until `git fetch --unshallow --filter=blob:none`, with a stale or
-  missing render build until `npm run build`, and with any `LATTICE_*` setting but
-  `LATTICE_ACTOR` in the environment. A "band" passes only for a nightly bless with
-  no dependency change since. The limits are in `engineering/development.md`, after the
-  `regress` spot-check.
+  missing render build until `npm run build`, with any `LATTICE_*` setting but
+  `LATTICE_ACTOR` in the environment, with packages installed in your store, and with
+  an untracked `lattice-plugins.json` at the repo root. A "band" passes only for a
+  nightly bless with no dependency change since. The limits are in
+  `engineering/development.md`, after the `regress` spot-check.
 - **Lesson:** a stale artifact is not a broken renderer. Exclude the boring cause
   before relitigating a settled design decision.
 
@@ -1111,7 +1112,7 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   **It applies only when EVERY arm is one compound that starts with `section` (not `section\.a`, not
   `section|a`) and none mentions `:root`.** An arm with a combinator inside it (`:where(section .wrap) .d`)
   filters on a descendant of a section, not on the slide, so it keeps scoping as a descendant and keeps
-  working. A mixed list (`:where(section.a, .b) .y`) is ambiguous and stays dead (the fixture's mixed rule:
+  working. A mixed list (`:where(section.a, .b) .y`) is ambiguous and stays dead (the fixture's mixed heading-rule:
   preview 0px, export 5px); `:where(:root)` and `:where(section:root)` stay dead on purpose, because a
   `color-scheme` moved onto the slide stops it inheriting a forced dark mode (see the `:where(:root)`
   bullet below). All are pinned in `css-scope.test.js`, where the guard exempts the companion arm only

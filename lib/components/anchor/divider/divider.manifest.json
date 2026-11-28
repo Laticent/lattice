@@ -18,6 +18,7 @@
     "agenda-setting",
     "walkthrough"
   ],
+  "searchTerms": ["section", "chapter", "break", "part"],
   "description": "Section boundary slide. Dark canvas with a single heading.",
   "purpose": "Marks the start of a major section. Use sparingly — every divider is a context switch for the audience. A 30-slide deck typically has 3-5 dividers; more becomes navigation noise. It keeps the deck's running header and its footer, the standing note (a \"Confidential\", a copyright), by the anchor-chrome rule (engineering/decisions/2026-11-08-anchor-chrome.md).",
   "split": { "strategy": "lede-page", "note": "A divider whose paragraph overflows the page (measured) keeps its eyebrow and heading and gives the paragraph a page of its own after it, on the same canvas (owner, 2026-11-16, \"lede page, all\"; fit-everywhere-model.md §25). One that fits never splits. lib/core/carousel.js lede-page." },
@@ -72,7 +73,7 @@
     },
     {
       "title": "Header or footer overrides",
-      "body": "Don't blank them with `_header: ''` or `_footer: ''`. A divider keeps the deck's header and footer; drop one with `no-header` / `no-footer`, or all with `silent`."
+      "body": "Don't blank them with an empty `header=\"\"` or `footer=\"\"` in the record. A divider keeps the deck's header and footer; drop one with `no-header` / `no-footer`, or all with `silent`."
     }
   ],
   "related": [

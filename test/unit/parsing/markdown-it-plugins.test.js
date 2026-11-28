@@ -344,12 +344,12 @@ describe('markdown-it-plugins', () => {
     }
   });
 
-  // ── deck-wide `stamp:` / `tone:` SHAPE registers ───────────────────────
+  // ── deck-wide `stamp-shape:` / `tone:` SHAPE registers ───────────────────────
 
-  test('deckClassPropagate: `stamp: seal` + `tone: edge` propagate the shape token to every section', () => {
+  test('deckClassPropagate: `stamp-shape: seal` + `tone: edge` propagate the shape token to every section', () => {
     const m = makeHost(plugins.deckClassPropagate);
     const md = [
-      '---', 'stamp: seal', 'tone: edge', '---', '',
+      '---', 'stamp-shape: seal', 'tone: edge', '---', '',
       '# Slide 1', '',
       '---', '',
       '<!-- @meta{layout=cards-grid} -->',
@@ -359,29 +359,29 @@ describe('markdown-it-plugins', () => {
     const sections = [...html.matchAll(/<section[^>]*class="([^"]*)"/g)].map(x => x[1].split(/\s+/).filter(Boolean));
     assert.equal(sections.length, 2);
     for (const cls of sections) {
-      assert.ok(cls.includes('stamp-seal'), `missing 'stamp-seal'; got [${cls.join(', ')}]`);
+      assert.ok(cls.includes('stamp-shape-seal'), `missing 'stamp-shape-seal'; got [${cls.join(', ')}]`);
       assert.ok(cls.includes('tone-edge'), `missing 'tone-edge'; got [${cls.join(', ')}]`);
     }
     // Composes with the per-slide layout class, not replaces it.
     assert.ok(sections[1].includes('cards-grid'), `slide 2 lost 'cards-grid'; got [${sections[1].join(', ')}]`);
   });
 
-  test('deckClassPropagate: a per-slide `stamp-*` / `tone-*` shape OVERRIDES the deck register', () => {
+  test('deckClassPropagate: a per-slide `stamp-shape-*` / `tone-*` shape OVERRIDES the deck register', () => {
     const m = makeHost(plugins.deckClassPropagate);
     const md = [
-      '---', 'stamp: seal', 'tone: edge', '---', '',
+      '---', 'stamp-shape: seal', 'tone: edge', '---', '',
       '# Slide 1 (deck shapes)', '',
       '---', '',
-      '<!-- @meta{class=stamp-notch tone-glow} -->',
+      '<!-- @meta{class=stamp-shape-notch tone-glow} -->',
       '# Slide 2 (its own shapes win)',
     ].join('\n');
     const { html } = m.render(md);
     const sections = [...html.matchAll(/<section[^>]*class="([^"]*)"/g)].map(x => x[1].split(/\s+/).filter(Boolean));
     // Slide 1 carries the deck shapes.
-    assert.ok(sections[0].includes('stamp-seal') && sections[0].includes('tone-edge'),
+    assert.ok(sections[0].includes('stamp-shape-seal') && sections[0].includes('tone-edge'),
       `slide 1 should carry the deck shapes; got [${sections[0].join(', ')}]`);
     // Slide 2 keeps its OWN shapes and does NOT also get the deck's (no two stacked).
-    assert.ok(sections[1].includes('stamp-notch') && !sections[1].includes('stamp-seal'),
+    assert.ok(sections[1].includes('stamp-shape-notch') && !sections[1].includes('stamp-shape-seal'),
       `slide 2 stamp should be its own; got [${sections[1].join(', ')}]`);
     assert.ok(sections[1].includes('tone-glow') && !sections[1].includes('tone-edge'),
       `slide 2 tone should be its own; got [${sections[1].join(', ')}]`);
@@ -400,9 +400,9 @@ describe('markdown-it-plugins', () => {
     assert.ok(cls.includes('tone-edge'), `semantic tone must not suppress the deck shape; got [${cls.join(', ')}]`);
   });
 
-  test('deckClassPropagate: an unknown `stamp:` / `tone:` value maps to no class (silent default)', () => {
+  test('deckClassPropagate: an unknown `stamp-shape:` / `tone:` value maps to no class (silent default)', () => {
     const m = makeHost(plugins.deckClassPropagate);
-    const md = ['---', 'stamp: sael', 'tone: raill', '---', '', '<!-- @meta{layout=title} -->', '# Slide'].join('\n');
+    const md = ['---', 'stamp-shape: sael', 'tone: raill', '---', '', '<!-- @meta{layout=title} -->', '# Slide'].join('\n');
     const { html } = m.render(md);
     const cls = html.match(/<section[^>]*class="([^"]*)"/)[1].split(/\s+/).filter(Boolean);
     assert.deepEqual(cls.filter(noFinishStamp), ['title'], `unknown shapes should add nothing; got [${cls.join(', ')}]`);
@@ -444,11 +444,11 @@ describe('markdown-it-plugins', () => {
   test('deckClassPropagate: the accent registers each propagate their mapped token', () => {
     const m = makeHost(plugins.deckClassPropagate);
     const md = ['---',
-      'spectrum: left', 'card-spectrum: rainbow top', 'rule: short', 'eyebrow: dot',
+      'spectrum: left', 'card-spectrum: rainbow top', 'heading-rule: short', 'eyebrow: dot',
       '---', '', '# Slide 1', '', '---', '', '<!-- @meta{layout=cards-grid} -->', '# Slide 2'].join('\n');
     const sections = [...m.render(md).html.matchAll(/<section[^>]*class="([^"]*)"/g)].map(x => x[1].split(/\s+/).filter(Boolean));
     for (const cls of sections) {
-      for (const t of ['spectrum-left', 'with-card-spectrum', 'card-spectrum-top', 'rule-short', 'eyebrow-dot']) {
+      for (const t of ['spectrum-left', 'with-card-spectrum', 'card-spectrum-top', 'heading-rule-short', 'eyebrow-dot']) {
         assert.ok(cls.includes(t), `missing '${t}'; got [${cls.join(', ')}]`);
       }
     }
@@ -507,13 +507,13 @@ describe('markdown-it-plugins', () => {
       ['spectrum-regular', 'spectrum-band'],
       ['card-spectrum-regular', 'card-spectrum-hairline'],
       ['trim-spectrum-quiet', 'trim-spectrum-mono'],
-      ['rule-auto', 'rule-accent'],
+      ['heading-rule-auto', 'heading-rule-accent'],
       ['eyebrow-plain', 'eyebrow-dot'],
-      ['head-auto', 'head-center'],
+      ['headline-align-auto', 'headline-align-center'],
     ];
     const md = ['---',
       'spectrum: solid left band', 'card-spectrum: rainbow top hairline', 'trim-spectrum: mono',
-      'rule: accent', 'eyebrow: dot', 'headline: center',
+      'heading-rule: accent', 'eyebrow: dot', 'headline-align: center',
       '---', '', '# Slide 1',
       ...restores.flatMap(([own]) => ['', '---', '', `<!-- @meta{class=content ${own}} -->`, `# ${own}`]),
     ].join('\n');
@@ -544,12 +544,12 @@ describe('markdown-it-plugins', () => {
 
   test('deckClassPropagate: a per-slide rule/eyebrow token overrides the deck register', () => {
     const m = makeHost(plugins.deckClassPropagate);
-    const md = ['---', 'rule: accent', 'eyebrow: dot', '---', '',
+    const md = ['---', 'heading-rule: accent', 'eyebrow: dot', '---', '',
       '# Slide 1 (deck accent+dot)', '', '---', '',
       '<!-- @meta{layout=content, class=no-heading-rule eyebrow-arrow} -->', '# Slide 2'].join('\n');
     const s = [...m.render(md).html.matchAll(/<section[^>]*class="([^"]*)"/g)].map(x => x[1].split(/\s+/).filter(Boolean));
-    assert.ok(s[0].includes('rule-accent') && s[0].includes('eyebrow-dot'), `slide 1; got [${s[0].join(', ')}]`);
-    assert.ok(s[1].includes('no-heading-rule') && !s[1].includes('rule-accent'), `slide 2 rule override; got [${s[1].join(', ')}]`);
+    assert.ok(s[0].includes('heading-rule-accent') && s[0].includes('eyebrow-dot'), `slide 1; got [${s[0].join(', ')}]`);
+    assert.ok(s[1].includes('no-heading-rule') && !s[1].includes('heading-rule-accent'), `slide 2 rule override; got [${s[1].join(', ')}]`);
     assert.ok(s[1].includes('eyebrow-arrow') && !s[1].includes('eyebrow-dot'), `slide 2 eyebrow override; got [${s[1].join(', ')}]`);
   });
 

@@ -82,7 +82,7 @@ describe('measureRoughInk — enrollment', () => {
   });
 
   test('an element absent from layout is skipped even when enrolled', () => {
-    // The `rule-full` case: `.masthead-rule` exists in the DOM but is
+    // The `heading-rule-full` case: `.masthead-rule` exists in the DOM but is
     // `display:none`, so it has no client rects. Inking it would draw a
     // second heading rule on top of the band's own.
     mount(`<section ${SECTION}><hr class="masthead-rule" style="${INK}" data-geom="0,0,0,0"></section>`);

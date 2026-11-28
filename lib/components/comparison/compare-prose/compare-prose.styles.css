@@ -25,7 +25,7 @@ section.compare-prose .compare-prose-inner .card > ol { list-style:none; padding
 section.compare-prose .compare-prose-inner .card > ul > li,
 section.compare-prose .compare-prose-inner .card > ol > li { font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-base); font-weight:400; }
 section.compare-prose .connector { display:flex; align-items:center; justify-content:center; font-size:var(--fs-h3); color:var(--text-secondary); padding:0 var(--sp-sm); flex-shrink:0; }
-/* text-align follows the headline-alignment seam (`headline:` register); inherits to the
+/* text-align follows the headline-alignment seam (`headline-align:` register); inherits to the
  * note's `p`. `auto` → fallback `left` (today's render). The full-width hairline (::before,
  * absolute) is a separator, not text, so it stays full-bleed. */
 .below-note { padding-top:var(--sp-xs); flex-shrink:0; position:relative; text-align:var(--headline-align, left); }
@@ -241,7 +241,7 @@ section.compare-prose :is(ul,ol) > li > strong ~ * { font-weight: 400; }
 /* ── corner tag, banner variant (.banner-tag modifier) ────────────────────
  * Turns the flush-corner label into a full-width header strip. Use it when the slot label
  * is the card's architectural signal (`BUILD` / `WHY NOT BUY` / `WHY NOT DELAY`) rather
- * than a quiet marker. `banner-tag` is now an alias of the `tag-band` placement, drawn in
+ * than a quiet marker. `banner-tag` is now an alias of the `card-tag-band` placement, drawn in
  * lib/base/base.card-tag.css on every tagged layout: the band stretches across the card top,
  * and the card keeps its own padding and reserves the band's height above the body. */
 
@@ -278,7 +278,7 @@ section.compare-prose.transition:not(:has(.compare-prose-inner)) > .cell-stage >
  * description via nth-child, not a transform. */
 /* The whole framing cluster centers, masthead included — this variant is a
  * centered explainer, not a left-ruled reference slide. Uses the headline
- * seam (base.accent-finish.css `headline:` register), the same mechanism
+ * seam (base.accent-finish.css `headline-align:` register), the same mechanism
  * `list-steps.timeline` uses to center its own masthead. */
 section.form.compare-prose.axis .cell-masthead .masthead-lede {
   text-align: var(--headline-align, center);

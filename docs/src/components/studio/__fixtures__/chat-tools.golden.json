@@ -504,6 +504,8 @@
 						"value": {
 							"type": [
 								"string",
+								"number",
+								"boolean",
 								"null"
 							]
 						},
@@ -720,7 +722,10 @@
 										"type": "string"
 									},
 									"value": {
-										"type": "string"
+										"type": [
+											"string",
+											"number"
+										]
 									},
 									"parts": {
 										"type": "array",
@@ -731,7 +736,10 @@
 													"type": "string"
 												},
 												"value": {
-													"type": "string"
+													"type": [
+														"string",
+														"number"
+													]
 												}
 											},
 											"required": [

@@ -66,10 +66,10 @@ const FIELD_DEFAULTS = {
   // written value is `auto`. No-op unless the deck's `acronyms:` registry defines a term.
   glossary: 'off',
   // `lift` opts the deck into card ELEVATION — the "Struck" box-shadow that lifts card
-  // surfaces (cards-grid, kpi tiles, stats, …) off the slide (lib/core/resolve-lift.js).
+  // surfaces (cards-grid, kpi tiles, stats, …) off the slide (lib/core/resolve-card-lift.js).
   // Off (default → omitted) / `on`; surfaced as a boolean like `pagination`, the canonical
-  // written value is `on`. Per-slide `_class: lifted` / `flat` override it.
-  lift: 'off',
+  // written value is `on`. Per-slide `_class: card-lift-on` / `card-lift-off` override it.
+  'card-lift': 'off',
   size: 'hd', // default landscape (memorable name; 16:9 geometry) (themes also define 4K / standard)
   // Page numbers are ON by default (the owner's ruling, 2026-10-20); a deck opts out with `pagination: false`.
   pagination: 'true',
@@ -97,10 +97,10 @@ const FIELD_DEFAULTS = {
   // as first-class settings; the Playground had none of them, so a deck's headline alignment,
   // heading rule, eyebrow and corners could only be changed by knowing the key names.
   preset: '',
-  headline: '',
-  rule: '',
+  'headline-align': '',
+  'heading-rule': '',
   eyebrow: '',
-  corners: '',
+  'slide-corners': '',
   // `venue:` — where the deck is seen; the engine sizes type for it (lib/core/resolve-venue.js).
   // Unset is the shape's default: laptop on a 16:9 deck, phone on a square, portrait or story one.
   // So `laptop` is a choice like any other and is written, never folded into unset.
@@ -111,7 +111,7 @@ const MANAGED = Object.keys(FIELD_DEFAULTS);
 // The preset-family registers this module manages. Values are the engine's own
 // (lib/core/resolve-{headline,rule,eyebrow,corners}.js); the Playground's panel takes their
 // options and labels from the Studio's catalogs (DeckConfigPanel.tsx).
-const LOOK_KEYS = ['headline', 'rule', 'eyebrow', 'corners'];
+const LOOK_KEYS = ['headline-align', 'heading-rule', 'eyebrow', 'slide-corners'];
 
 // The preset picker's rows: each preset's name, label and the finish it sets, so the row's
 // chip can show that backdrop. From the engine's own table, in its order.
@@ -122,7 +122,7 @@ export const PRESET_OPTIONS = frontMatterKey.PRESET_NAMES.map((name) => ({
 }));
 // Emit order for known keys; any unmanaged keys we preserved trail in their
 // original order. `marp` leads (it's what tells marp-cli to render the deck).
-const EMIT_ORDER = ['marp', 'theme', 'preset', 'mode', 'color-mode', 'finish', 'headline', 'rule', 'eyebrow', 'corners', 'split', 'glossary', 'lift', 'size', 'venue', 'pagination', 'header', 'footer', 'class', 'validate', 'lang'];
+const EMIT_ORDER = ['marp', 'theme', 'preset', 'mode', 'color-mode', 'finish', 'headline-align', 'heading-rule', 'eyebrow', 'slide-corners', 'split', 'glossary', 'card-lift', 'size', 'venue', 'pagination', 'header', 'footer', 'class', 'validate', 'lang'];
 
 const TRUEY = /^(true|yes|on|1)$/i;
 const FALSEY = /^(false|no|off|0)$/i;
@@ -203,8 +203,8 @@ export function readFrontMatter(source) {
     split: (map.split || 'headings').trim().toLowerCase() === 'rule' ? 'rule' : 'headings',
     // `glossary` is binary — on when the deck opts in with `glossary: auto`.
     glossary: (map.glossary || '').trim().toLowerCase() === 'auto',
-    // `lift` is binary — on when the deck opts in with `lift: on`.
-    lift: map.lift ? TRUEY.test(map.lift) : lookBaseline(map.preset, 'lift') === 'on',
+    // `lift` is binary — on when the deck opts in with `card-lift: on`.
+    'card-lift': map['card-lift'] ? TRUEY.test(map['card-lift']) : lookBaseline(map.preset, 'card-lift') === 'on',
     size: map.size || 'hd',
     pagination: paginateOn(map.pagination),
     header: map.header || '',
@@ -216,10 +216,10 @@ export function readFrontMatter(source) {
     lang: map.lang || '',
     preset: frontMatterKey.isKnownPreset(map.preset || '') ? String(map.preset).trim().toLowerCase() : '',
     // What each look register resolves to: the deck's own value, else its preset's.
-    headline: (map.headline || lookBaseline(map.preset, 'headline')).trim().toLowerCase(),
-    rule: (map.rule || lookBaseline(map.preset, 'rule')).trim().toLowerCase(),
+    'headline-align': (map['headline-align'] || lookBaseline(map.preset, 'headline-align')).trim().toLowerCase(),
+    'heading-rule': (map['heading-rule'] || lookBaseline(map.preset, 'heading-rule')).trim().toLowerCase(),
     eyebrow: (map.eyebrow || lookBaseline(map.preset, 'eyebrow')).trim().toLowerCase(),
-    corners: (map.corners || lookBaseline(map.preset, 'corners')).trim().toLowerCase(),
+    'slide-corners': (map['slide-corners'] || lookBaseline(map.preset, 'slide-corners')).trim().toLowerCase(),
     venue: (map.venue || '').trim().toLowerCase(),
     // Whether the deck carries any NON-THEME managed front matter — drives the
     // trigger's "configured" cue. `theme` is excluded: with full sync nearly
@@ -256,8 +256,8 @@ function isDefault(key, value) {
   if (key === 'pagination') return paginateOn(value);
   // `glossary` is binary — off is the omitted default; only `glossary: auto` is written.
   if (key === 'glossary') return (value == null ? '' : String(value)).trim().toLowerCase() !== 'auto';
-  // `lift` is binary — off is the omitted default; only `lift: on` is written.
-  if (key === 'lift') return !TRUEY.test((value == null ? '' : String(value)).trim());
+  // `lift` is binary — off is the omitted default; only `card-lift: on` is written.
+  if (key === 'card-lift') return !TRUEY.test((value == null ? '' : String(value)).trim());
   // `validate` is binary, default ON — so on (any non-falsey) is the omitted
   // default; only an explicit `validate: off` is written into the block.
   if (key === 'validate') return !FALSEY.test(String(value).trim());
@@ -287,7 +287,7 @@ function normalize(key, value, preset) {
   if (key === 'glossary') return value === true || (value != null && String(value).trim().toLowerCase() === 'auto') ? 'auto' : null;
   // `lift` writes the canonical `on` when enabled; off omits the key.
   // Under a preset that turns lift on, off is the override that gets written.
-  if (key === 'lift') { const want = value === true || TRUEY.test(value || '') ? 'on' : 'off'; return want === lookBaseline(preset, 'lift') ? null : want; }
+  if (key === 'card-lift') { const want = value === true || TRUEY.test(value || '') ? 'on' : 'off'; return want === lookBaseline(preset, 'card-lift') ? null : want; }
   // `validate` is default ON, so on omits the key; only an opt-OUT is written, as
   // the canonical `off`. The switch passes a boolean (checked = validation on).
   if (key === 'validate') return value === false || FALSEY.test(String(value).trim()) ? 'off' : null;
@@ -346,7 +346,7 @@ export function writeFrontMatter(source, key, value) {
   // The deck's preset decides which value of a family key is the omitted baseline.
   const presetEntry = entries.find(([k, v]) => k === 'preset' && !v?.block);
   // When the change IS the preset, the deck's other keys are read against the NEW one. Read
-  // against the old, an author's own `headline: left` under Editorial (whose baseline is left)
+  // against the old, an author's own `headline-align: left` under Editorial (whose baseline is left)
   // counted as "at the preset" and was deleted — and under Brand the deck then centered.
   const preset = key === 'preset' ? String(value ?? '').trim().toLowerCase() : presetEntry ? stripQuotes(presetEntry[1]) : '';
   for (const [k, raw] of entries) {

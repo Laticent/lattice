@@ -1,5 +1,5 @@
 // The Studio align catalog — DISPLAY metadata for the `align:` register (where a slide's content
-// sits, up and down and side to side). Sibling of corners-catalog.ts. The engine's single source
+// sits, up and down and side to side). Sibling of slide-corners-catalog.ts. The engine's single source
 // of truth is VERTICAL / HORIZONTAL (lib/core/resolve-align.js); THIS file adds only the human
 // layer the two pickers need. Rot-guard: align-catalog.test.ts.
 //

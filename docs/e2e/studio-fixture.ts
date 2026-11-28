@@ -550,6 +550,48 @@ export function liveToast(page: Pick<Page, 'locator'>, text: RegExp | string): L
 	return page.locator('[data-sonner-toast]:not([data-removed="true"])').filter({ hasText: text });
 }
 
+/**
+ * Every toast text the page shows from now on, kept after the pill leaves. Call it BEFORE the action whose
+ * toast you want, then read the log with `expect.poll(log)`.
+ *
+ * A plain "… ready." confirmation lives for STATUS_DURATION (2.6 s, lib/notify.ts), and a test that downloads
+ * a file and parses it before looking for the toast can miss it: on a loaded CI runner the download and the
+ * parse took longer than the dwell, and `toBeVisible` then waited 30 s for a pill that had already gone
+ * (studio-smoke on #3599). The log also makes "no warning toast" mean something: read after the dwell, a
+ * `toHaveCount(0)` on the live DOM passes even if the warning was shown. `characterData` is observed because
+ * notify() reuses a live pill's id, so a second message can rewrite the first one's text in place.
+ */
+export async function recordToasts(page: Page): Promise<() => Promise<string[]>> {
+	await page.evaluate(() => {
+		const w = window as unknown as { __latticeToastLog?: string[]; __latticeToastRead?: () => void };
+		// "From now on": a second call starts the log over rather than adding a second observer.
+		if (w.__latticeToastLog && w.__latticeToastRead) {
+			w.__latticeToastLog.length = 0;
+			w.__latticeToastRead();
+			return;
+		}
+		const log: string[] = [];
+		w.__latticeToastLog = log;
+		const read = () => {
+			for (const el of document.querySelectorAll('[data-sonner-toast]')) {
+				const t = (el.textContent ?? '').trim();
+				if (t && !log.includes(t)) log.push(t);
+			}
+		};
+		w.__latticeToastRead = read;
+		new MutationObserver(read).observe(document.body, { childList: true, subtree: true, characterData: true });
+		read();
+	});
+	// A reader that found no log would make every "no such toast" check pass, so it fails instead: the page navigated
+	// after recordToasts() and the log went with the old document. Call recordToasts() again after a navigation.
+	return () =>
+		page.evaluate(() => {
+			const log = (window as unknown as { __latticeToastLog?: string[] }).__latticeToastLog;
+			if (!log) throw new Error('recordToasts: no toast log on this page (it navigated since recordToasts was called)');
+			return [...log];
+		});
+}
+
 /** The app toast pill — the canonical name for the centralized toast accessor.
  *  Prefer this in new specs; `toastText` remains as its long-standing alias. */
 export const appToast = toastText;

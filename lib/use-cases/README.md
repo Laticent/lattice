@@ -11,7 +11,9 @@ command palette and an MCP server later. The design is
 | `<id>/<id>.use-case.json` | The manifest: id, tier, effects, input schema, per-host wording, the chat's position and status labels |
 | `use-case.schema.json` | What a manifest may hold. `npm run build:check` validates every manifest against it (`tools/manifest-schemas.js`) |
 | `<id>/<id>.kernel.mjs` | A new use case's pure kernel: `(model, args) → Outcome` (use-case-layer.md §5.1). The 19 legacy tools have none yet |
-| `dispatch.mjs` | The one path from "an action was asked for" to its result: look up, gate, parse, run, check |
+| `<id>/<id>.validate.mjs` | GENERATED. The input's validator, compiled by ajv's standalone mode at build time (use-case-layer.md §7). It imports nothing, so no host ships ajv |
+| `validators.generated.mjs` | GENERATED. Every validator, by id. The dispatcher refuses a use case with none |
+| `dispatch.mjs` | The one path from "an action was asked for" to its result: look up, gate, parse, validate, run, check |
 
 The build compiles the manifests (`tools/build-use-cases.js`, a `build.js` step) into two committed files
 in `docs/src/components/studio/`: `chat-tools.generated.ts` (the definitions in the order the model sees
@@ -25,7 +27,7 @@ chat panel's startup code reads them and must not carry every schema).
    (use-case-layer.md §5.1; until the slide spine lands, on the interim adapter §10 0b allows). The gate
    refuses a new use case without one. **Do not add a handler to `createToolbox`**: that closure is where
    the 19 legacy tools wait to become kernels, not a place for new work.
-3. `npm run build`. The generated files change; commit them with the manifest.
+3. `npm run build`. The generated files change, the validator included; commit them with the manifest.
 4. A new use case is not `legacy`, so `checkUseCaseManifests` holds it to the rules. Its input compiles as
    JSON Schema and uses only the keywords in `USE_CASE_INPUT_KEYWORDS`; every object is closed
    (`additionalProperties: false`) or a bounded map; every value has a type; every string, array and map
@@ -37,6 +39,25 @@ string, `{{guides|join}}` for a list as text, `{{=MAX_VIEWS_PER_TURN}}` as a who
 `"{{...finishes}}"` spread into an array. The names are `CHAT_VARS` in `tools/build-use-cases.js`. Those
 four forms are the whole grammar (`test/unit/use-cases/generator.test.js` pins it); a fifth is a decision
 for the design note, not an edit to the generator.
+
+## Validation
+
+The dispatcher runs the use case's validator on the parsed arguments before the handler, for every use case,
+and refuses a call that does not fit with `BAD_ARGS` and the first failing field's JSON Pointer
+(`/edits/0/slide must be integer`). A refused call never reaches the handler, so it never touches the deck.
+The schema is the contract: if a tool should accept a shape, its schema says so, and the handler trusts what
+reaches it.
+
+- **A null in an optional field means it was left out.** The dispatcher drops it before validating
+  (`dropNullOptionals`), so no schema has to say "or null". A null the schema allows, or in a required field,
+  is kept.
+- **A keyword whose value is a runtime placeholder** (`enum: ["{{...themes}}"]`,
+  `maxItems: "{{=MAX_VIEWS_PER_TURN}}"`) is left out of the validator and stays the handler's check. Each
+  validator's first lines name the keywords it left out. Descriptions are left out too.
+
+`checkUseCaseValidators` (`tools/check-ownership.js`, run by `build:check`) holds that every manifest has its
+validator, that none imports anything (ajv calls the `unicode: false` option that keeps it so deprecated), and
+that the index lists exactly the manifests. The generator's own `--check` holds each one to its manifest.
 
 ## What the fields promise
 

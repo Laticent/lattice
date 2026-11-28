@@ -482,8 +482,8 @@ section.divider:not(.light).no-spectrum {
 
 /* ── STATE ── meta markers about the slide, rendered by an orthogonal STYLE axis.
    The SEMANTIC class (confidential/wip/…) sets ONLY a label + a palette color; a
-   `stamp-<style>` class sets the SHAPE. They compose, so `confidential stamp-seal`
-   is the Confidential label in the seal shape. The default (no stamp-* class) is the
+   `stamp-shape-<style>` class sets the SHAPE. They compose, so `confidential stamp-shape-seal`
+   is the Confidential label in the seal shape. The default (no stamp-shape-* class) is the
    corner TAB, so a no-config, mixed-marker deck reads as ONE family. All color is a
    palette token, so every style is on-brand across themes/palettes automatically.
    See engineering/decisions/2026-07-03-status-marker-style-variants.md. */
@@ -509,13 +509,13 @@ section.revised      { --stamp-label: "Revised";      --stamp-color: var(--accen
  * pushed a fixed row when the 13 shapes sat at three different heights, a unitless
  * `calc()` that invalidated the whole transform, a logo reserve that landed a marker
  * inside the mark. The markers then moved to the top-center band, which left exactly one
- * shape reserving anything (`stamp-notch`, the full-width hairline). They have since
+ * shape reserving anything (`stamp-shape-notch`, the full-width hairline). They have since
  * merged into ONE capsule berthed at the slide's BOTTOM edge (`.marker-rail`,
  * base.modifiers.css), and a stamp painted along the top edge shares no band with it.
  *
  * So a new stamp shape needs no entry here, and adding one back would be a regression
  * rather than a nicety: the reserve only ever existed to keep two things apart that are
- * no longer in the same place. The full-bleed washes (`stamp-mark`, `stamp-veil`) still
+ * no longer in the same place. The full-bleed washes (`stamp-shape-mark`, `stamp-shape-veil`) still
  * cover the capsule, deliberately — they sit on `--z-mark` above `--z-alarm`, and
  * inverting that once punched a reader pill through a redaction in a delivered PDF. */
 
@@ -528,7 +528,7 @@ section:is(.confidential, .wip, .draft, .tbd, .redacted, .archived, .pinned, .re
    generated — so each style rule is marker-blind and recolors per marker for free.
    Only non-geometry basics live here; each style sets its own full geometry. */
 section:is(.confidential, .wip, .draft, .tbd, .redacted, .archived, .pinned, .revised)::before,
-section:is(.stamp-tab, .stamp-notch, .stamp-pill, .stamp-bracket, .stamp-seal, .stamp-ribbon, .stamp-flag, .stamp-underline, .stamp-dot, .stamp-mark, .stamp-veil, .stamp-bar, .stamp-pin)::before {
+section:is(.stamp-shape-tab, .stamp-shape-notch, .stamp-shape-pill, .stamp-shape-bracket, .stamp-shape-seal, .stamp-shape-ribbon, .stamp-shape-flag, .stamp-shape-underline, .stamp-shape-dot, .stamp-shape-mark, .stamp-shape-veil, .stamp-shape-bar, .stamp-shape-pin)::before {
   content: var(--stamp-label);
   position: absolute;
   /* Each stamp style adds `--_hold-*` (base.tokens.css) so its distance from the SLIDE edge is constant
@@ -539,7 +539,7 @@ section:is(.stamp-tab, .stamp-notch, .stamp-pill, .stamp-bracket, .stamp-seal, .
    *
    * That reads backwards and it was briefly written the other way, on the argument that an
    * author must be able to see the overflow tab even on a stamped slide. It broke delivered
-   * PDFs: `stamp-veil` is a redaction wash at `inset: 0`, and with the alarm above it the
+   * PDFs: `stamp-shape-veil` is a redaction wash at `inset: 0`, and with the alarm above it the
    * reader-mode overflow pill punched straight through the redaction — 10,136 differing
    * pixels. The counter-argument also fails on its own terms: full-bleed stamps reserve
    * nothing (no reserve token survives), and the marker that ships in a delivered export is the
@@ -578,7 +578,7 @@ section:is(.title, .closing).cover-light:not(.print)::before {
 
 /* ── DEFAULT + TAB — a filled corner tab hugging top-right, inner diagonal notch. */
 section:is(.confidential, .wip, .draft, .tbd, .redacted, .archived, .pinned, .revised)::before,
-section.stamp-tab::before {
+section.stamp-shape-tab::before {
   /* Right edge: one bar width in from the slide edge in EVERY placement, so the tab hangs inside the frame the
      bar draws and never sits under it. Placed flush (`right: var(--_hold-r)`) it overlapped a right bar. */
   top: var(--_hold-t); right: calc(var(--_bar-w) + var(--_hold-r));
@@ -588,7 +588,7 @@ section.stamp-tab::before {
 }
 
 /* ── NOTCH — a top full-width hairline band with a leading color chip. */
-section.stamp-notch::before {
+section.stamp-shape-notch::before {
   top: var(--_hold-t); left: var(--_hold-l); right: var(--_hold-r); clip-path: none;
   display: flex; align-items: center; gap: 0.5cqi;
   color: color-mix(in srgb, var(--stamp-color) 86%, var(--text-heading));
@@ -598,7 +598,7 @@ section.stamp-notch::before {
 }
 
 /* ── PILL — a keyline-outlined pill, accent text on a soft wash. */
-section.stamp-pill::before {
+section.stamp-shape-pill::before {
   top: calc(6% + 0.06 * var(--_hold-h) + var(--_hold-t)); right: calc(5% + 0.05 * var(--_hold-w) + var(--_hold-r)); clip-path: none;
   color: var(--stamp-color);
   background: color-mix(in srgb, var(--stamp-color) 10%, var(--bg));
@@ -607,7 +607,7 @@ section.stamp-pill::before {
 }
 
 /* ── BRACKET — [ LABEL ] framed technical tag (glyphs concatenated onto the var). */
-section.stamp-bracket::before {
+section.stamp-shape-bracket::before {
   content: "[ " var(--stamp-label) " ]";
   top: calc(6% + 0.06 * var(--_hold-h) + var(--_hold-t)); right: calc(5% + 0.05 * var(--_hold-w) + var(--_hold-r)); clip-path: none; background: none;
   color: var(--stamp-color);
@@ -615,7 +615,7 @@ section.stamp-bracket::before {
 }
 
 /* ── SEAL — a ruled double-ring seal, letterpressed. */
-section.stamp-seal::before {
+section.stamp-shape-seal::before {
   top: calc(6% + 0.06 * var(--_hold-h) + var(--_hold-t)); right: calc(5% + 0.05 * var(--_hold-w) + var(--_hold-r)); clip-path: none; background: none;
   width: 7.6cqi; height: 7.6cqi; border-radius: 50%;
   display: grid; place-items: center; text-align: center;
@@ -626,7 +626,7 @@ section.stamp-seal::before {
 }
 
 /* ── RIBBON — a 45° banner across the top-right corner. */
-section.stamp-ribbon::before {
+section.stamp-shape-ribbon::before {
   top: calc(8% + 0.08 * var(--_hold-h) + var(--_hold-t)); right: calc(-21% + -0.21 * var(--_hold-w) + var(--_hold-r)); width: calc(60% + 0.6 * var(--_hold-w)); clip-path: none;
   transform: rotate(38deg); transform-origin: center;
   color: var(--on-accent); background: var(--stamp-color); text-align: center;
@@ -635,14 +635,14 @@ section.stamp-ribbon::before {
 }
 
 /* ── FLAG — a vertical bookmark flag down the right edge. */
-section.stamp-flag::before {
+section.stamp-shape-flag::before {
   top: var(--_hold-t); right: calc(8% + 0.08 * var(--_hold-w) + var(--_hold-r)); clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 84%, 0 100%);
   writing-mode: vertical-rl; color: var(--on-accent); background: var(--stamp-color);
   font-size: 0.7cqi; /* cqi-ok: decorative status-marker label, shape-fitted to the slide */ letter-spacing: 0.14em; padding: 0.8cqi 0.32cqi 1cqi;
 }
 
 /* ── UNDERLINE — label on a thick accent keyline. */
-section.stamp-underline::before {
+section.stamp-shape-underline::before {
   top: calc(6.5% + 0.065 * var(--_hold-h) + var(--_hold-t)); right: calc(5% + 0.05 * var(--_hold-w) + var(--_hold-r)); clip-path: none; background: none;
   color: var(--text-heading);
   font-size: 0.78cqi; /* cqi-ok: decorative status-marker label, shape-fitted to the slide */ padding-bottom: 0.28cqi;
@@ -659,7 +659,7 @@ section.stamp-underline::before {
  * pseudo to position, no SVG to size, and the fill is still the palette token
  * (HARD RULE #3). `padding-left` opens the well the gradient paints into
  * (padding, not margin — HARD RULE #20). */
-section.stamp-dot::before {
+section.stamp-shape-dot::before {
   content: var(--stamp-label);
   top: calc(6.5% + 0.065 * var(--_hold-h) + var(--_hold-t)); right: calc(5% + 0.05 * var(--_hold-w) + var(--_hold-r)); clip-path: none;
   padding-left: 1.15cqi;
@@ -668,7 +668,7 @@ section.stamp-dot::before {
 }
 
 /* ── MARK — a restrained diagonal watermark (opt-in; the iconic DRAFT look). */
-section.stamp-mark::before {
+section.stamp-shape-mark::before {
   /* `background: none` — the shared DEFAULT+TAB rule above fills every state marker's
    * pseudo with --stamp-color, and this full-slide box would carry that fill as an opaque
    * rotated slab over the content instead of a faint word. */
@@ -682,7 +682,7 @@ section.stamp-mark::before {
 }
 
 /* ── VEIL — a desaturating overlay + a corner label chip. */
-section.stamp-veil::before {
+section.stamp-shape-veil::before {
   inset: var(--_hold-t) var(--_hold-r) var(--_hold-b) var(--_hold-l); clip-path: none;
   background: color-mix(in srgb, var(--stamp-color) 13%, transparent);
   display: grid; place-items: start end; padding: 5%;
@@ -691,7 +691,7 @@ section.stamp-veil::before {
 }
 
 /* ── BAR — a redaction bar that names its state: a dark strip, the label in light caps. */
-section.stamp-bar::before {
+section.stamp-shape-bar::before {
   top: calc(6.5% + 0.065 * var(--_hold-h) + var(--_hold-t)); right: calc(5% + 0.05 * var(--_hold-w) + var(--_hold-r)); clip-path: none;
   color: var(--on-accent);
   background: color-mix(in srgb, var(--stamp-color) 82%, var(--text-heading));
@@ -699,7 +699,7 @@ section.stamp-bar::before {
 }
 
 /* ── PIN — a bookmark pin dropped from the top edge (label hidden). */
-section.stamp-pin::before {
+section.stamp-shape-pin::before {
   top: var(--_hold-t); right: calc(11% + 0.11 * var(--_hold-w) + var(--_hold-r)); clip-path: polygon(0 0, 100% 0, 100% 76%, 50% 100%, 0 76%);
   color: transparent; overflow: hidden;
   background: var(--stamp-color); width: 2cqi; height: 2.9cqi;
@@ -711,7 +711,7 @@ section.stamp-pin::before {
    `content: var(--insight-label, <default>)`. Setting --insight-label on the
    section — through one of the curated `insight-*` modifiers below, or a
    deck-wide frontmatter `class:` — swaps the word while every default stays put
-   (the var() fallback). Same custom-property-as-content idiom as the stamp-*
+   (the var() fallback). Same custom-property-as-content idiom as the stamp-shape-*
    markers above; the vocabulary is deliberately small and curated (a highly
    edited boardroom heading, not free text). The two defaults are themselves
    modifiers (insight-key / insight-recommendation), so either word can move to

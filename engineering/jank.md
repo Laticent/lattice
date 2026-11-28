@@ -451,7 +451,7 @@ section-relative and owes the canvas a fixed position, while a `ul::before` owes
 
 **The census had the same blind spot the invariant did, one level up.** Sweeping every
 manifest class and variant finds no `section::before` candidate anywhere — because the
-engine's running marks are base MODIFIERS (`mark-orbit`, `stamp-seal`), not manifest
+engine's running marks are base MODIFIERS (`mark-orbit`, `stamp-shape-seal`), not manifest
 variants, so a catalog sweep never renders one. The archetype this whole tool was built
 for was not in the 272. `--marks` reads the mark selectors out of the built bundle and
 sweeps each on a plain host; **all 23 hold position** (22 at 0px, `mark-pills` at 0.1px).
@@ -806,17 +806,17 @@ offset and the answer is exact. The general guarantee is MR13's direction only.
 **A modifier that paints nothing alone must be given its companion**, or the census
 reports "none" for a mark that is simply not on the page — the false clean this tool is
 built against, reproduced in the instrument that was supposed to check for it.
-`stamp-*` picks the SHAPE of a state marker and the LABEL comes from the state class, so
-`content stamp-seal` draws nothing while `content confidential stamp-seal` draws a
+`stamp-shape-*` picks the SHAPE of a state marker and the LABEL comes from the state class, so
+`content stamp-shape-seal` draws nothing while `content confidential stamp-shape-seal` draws a
 98.8x98.8 seal. The census carries that pairing in `MARK_COMPANIONS`.
 
 **A ROTATED anchor cries wolf, and this is the rig's own defect.** `applyTransform`
 returns the axis-aligned bounding box of the transformed corners — exact for the
 `translate(-50%, 50%)` centering idiom it was built for, and badly wrong for a rotation.
-`stamp-ribbon` is a 768x25px bar at 38 degrees, so its AABB is roughly 620x493 — about
+`stamp-shape-ribbon` is a 768x25px bar at 38 degrees, so its AABB is roughly 620x493 — about
 sixteen times the area it paints — and check-jank reports a confident COLLISION from step
 7 over a real clearance of about 145px. Rendered and looked at: the heading is
-measure-capped and cannot reach the band. `stamp-mark` and `stamp-veil` are the other two
+measure-capped and cannot reach the band. `stamp-shape-mark` and `stamp-shape-veil` are the other two
 verdicts, and both are `inset: 0` full-slide overlays where covering the content IS the
 design. Three of the 23 marks the tool exists to police therefore fail it falsely, which
 is the corrosive direction — see *Crying wolf* above. Tracked; the fix is an oriented-box

@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: shipped
 summary: DECIDED 2026-11-28 — the owner chose option A and extended the exception to Marp renders (LICENSE-EXCEPTIONS 1.2, #3598). Originally an ESCALATION — the licensing call is the owner's. Verified by rendering (marp-cli 4.5.0, which is what the `^4.3.1` range resolves to): `marp --html` inlines ~852 KB of engine CSS into the output file, while `marp --pdf` carries no engine source at all. So the output exception's reach matters on exactly one route. The gap is NOT where the on-deck note placed it — §Limits (a) excludes assets "distributed other than inside a rendered deck", and a `marp --html` file IS a rendered deck, so (a) does not bite; the exclusion comes from the Grant's "as embedded by Lattice itself", §Limits' opening "Lattice's own export pipeline", and §Limits (c), since Marpit REWRITES every selector on the way in. marp-cli did the embedding, so the literal text does not reach the very workflow the kit ships to enable. Scope is wider than the kit — the Export-to-Marp bundle's documented `npm run html` has the identical gap. Two options (extend the grant / narrow the reassurance), recommendation is to extend, and NOTICE.md was first narrowed to what was factually true WITHOUT touching the grant; it now states the 1.2 grant. Also logs a separate and more clear-cut finding, tracked as #1354 and deliberately not fixed here: the Export-to-Marp bundle ships mermaid (MIT), the KaTeX faces (MIT) and five OFL font families with no LICENSE, no NOTICE and no license texts at all — the exact defect the kit was fixed for in #1325.
 ---
 
@@ -176,7 +176,13 @@ grants nothing and withholds nothing.
 
 **Does not:** touch `LICENSE-EXCEPTIONS`. Option A is a change to what Lattice
 *grants*, it is one-way, and it is the copyright holder's decision. Awaiting it
-is why this note's status is `blocked` rather than `proposed`.
+is why this note's status was `blocked` rather than `proposed`.
+
+> **Resolved 2026-11-28 (#3598, #3622).** The owner chose option A. `LICENSE-EXCEPTIONS`
+> went to 1.2 (#3598) rather than 1.1, because 1.1 was already taken by the rename, and the
+> kit `NOTICE.md` cites it. The bundle got no `NOTICE.md`: #3622 ships `LICENSE` and
+> `LICENSE-EXCEPTIONS` themselves in every bundle, and the bundle README names them and
+> what they grant. That is why the status is now `shipped`. The text above is kept as written.
 
 ## Logged, not fixed here (HARD RULE #18, off-path)
 
@@ -223,6 +229,9 @@ the file needed, from `assets/licenses/`).
 > is not waiting on the A-or-B call below.
 
 ## For whoever picks this up
+
+> **Done 2026-11-28.** Item 1 shipped as the Resolved callout above describes; item 2 shipped
+> as #1354. The list below is kept as written.
 
 1. Owner decides A or B-only. If A, `LICENSE-EXCEPTIONS` goes to 1.1 and both the
    kit `NOTICE.md` and a new bundle `NOTICE.md` cite the new version.

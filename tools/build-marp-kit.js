@@ -555,11 +555,9 @@ function buildKit() {
   out.set(VSIX, buildVsix());
   out.set('README.md', readme());
   out.set('NOTICE.md', notice());
-  // Verbatim, not summarized: an AGPL conveyance has to carry the actual text.
-  out.set('LICENSE', fs.readFileSync(path.join(ROOT, 'LICENSE')));
-  // The exception NOTICE.md reasons about, so a recipient can check the claim
-  // rather than take it on trust.
-  out.set('LICENSE-EXCEPTIONS', fs.readFileSync(path.join(ROOT, 'LICENSE-EXCEPTIONS')));
+  // LICENSE and LICENSE-EXCEPTIONS arrive through STATIC_ASSETS above, verbatim, the same
+  // files the Export-to-Marp bundle carries (#3598): an AGPL conveyance has to carry the
+  // actual text, and NOTICE.md cites the exception by version.
   // THIRD-PARTY-LICENSES.txt arrives through STATIC_ASSETS above, the same file the
   // Export-to-Marp bundle carries (lib/export/third-party-licenses.js, #1354). MIT and
   // OFL both require their TEXT to travel with the files, not merely a mention.

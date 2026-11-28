@@ -31,7 +31,7 @@ One word in the front matter sets the backdrop, the alignment, the bar, the rule
 
 ---
 
-<!-- @meta{layout=title, class=finish-ledger head-left eyebrow-bar} -->
+<!-- @meta{layout=title, class=finish-ledger headline-align-left eyebrow-bar} -->
 
 `Editorial · preset: editorial`
 
@@ -41,7 +41,7 @@ The ledger backdrop draws a rail down the left edge and faint rules behind the c
 
 ---
 
-<!-- @meta{layout=title, class=finish-strata head-center eyebrow-dot} -->
+<!-- @meta{layout=title, class=finish-strata headline-align-center eyebrow-dot} -->
 
 `Brand-forward · preset: brand`
 
@@ -51,7 +51,7 @@ Centered, with corner marks over a faint grid. Set the theme accent to a client'
 
 ---
 
-<!-- @meta{layout=title, class=head-left corners-rounded} -->
+<!-- @meta{layout=title, class=headline-align-left slide-corners-rounded} -->
 
 `Minimal · preset: minimal`
 
@@ -61,7 +61,7 @@ Flush left, no backdrop, no bar and no heading rule. Rounded slide corners on sc
 
 ---
 
-<!-- @meta{layout=content, class=finish-ledger head-left rule-short eyebrow-bar trim-spectrum-mono lifted} -->
+<!-- @meta{layout=content, class=finish-ledger headline-align-left heading-rule-short eyebrow-bar trim-spectrum-mono card-lift-on} -->
 
 `Editorial · a content slide`
 
@@ -74,7 +74,7 @@ Every other line has at least 15% headroom. Line 3 has six, and the Q4 forecast 
 
 ---
 
-<!-- @meta{layout=cards-grid, class=three finish-strata head-center spectrum-solid card-spectrum-solid trim-spectrum-solid rule-accent eyebrow-dot lifted} -->
+<!-- @meta{layout=cards-grid, class=three finish-strata headline-align-center spectrum-solid card-spectrum-solid trim-spectrum-solid heading-rule-accent eyebrow-dot card-lift-on} -->
 
 `Brand-forward · a card slide`
 
@@ -99,7 +99,7 @@ Every other line has at least 15% headroom. Line 3 has six, and the Q4 forecast 
 ---
 theme: indaco
 preset: editorial
-rule: none      # everything from Editorial except the heading rule
+heading-rule: none      # everything from Editorial except the heading rule
 ---
 ```
 

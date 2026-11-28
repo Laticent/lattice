@@ -6,9 +6,9 @@ header: "Lattice · Preset hooks"
 meta: "Preset hooks · rule weight, rail weight, card corner"
 card-spectrum: rainbow
 style: |
-  /* `rule-auto` restores the default heading rule, a no-op in a deck with no `rule:` key, so it
+  /* `heading-rule-auto` restores the default heading rule, a no-op in a deck with no `heading-rule:` key, so it
      marks the slides that set the hooks without adding a class of the deck's own. */
-  section:is(.rule-auto, .rule-short) {
+  section:is(.heading-rule-auto, .heading-rule-short) {
     --rule-w: 3px;
     --rule-mark: var(--text-heading);
     --rail-w: calc(var(--_sec-1cqi, 1cqi) * 0.9);
@@ -48,7 +48,7 @@ The hooks read today's values as their fallbacks, so every existing deck keeps i
 
 ---
 
-<!-- @meta{layout=cards-grid, class=three rule-auto} -->
+<!-- @meta{layout=cards-grid, class=three heading-rule-auto} -->
 
 `Set · a heavier hand`
 
@@ -80,7 +80,7 @@ One rule in the deck's `style:` block sets `--rule-w`, `--rule-mark`, `--rail-w`
 
 ---
 
-<!-- @meta{layout=list-steps, class=rule-auto} -->
+<!-- @meta{layout=list-steps, class=heading-rule-auto} -->
 
 `Set · on steps`
 
@@ -95,20 +95,20 @@ One rule in the deck's `style:` block sets `--rule-w`, `--rule-mark`, `--rail-w`
 
 ---
 
-<!-- @meta{layout=content, class=rule-short} -->
+<!-- @meta{layout=content, class=heading-rule-short} -->
 
 `Set · on the short rule`
 
 ## The short rule takes the weight
 
-`rule:` still picks the shape. The weight token sets how heavy the short segment is, here three pixels in place of the default 0.22% of the slide width.
+`heading-rule:` still picks the shape. The weight token sets how heavy the short segment is, here three pixels in place of the default 0.22% of the slide width.
 
-- `rule: short` and `rule: accent` read `--rule-w` for the segment's height.
-- `rule: accent` keeps its accent ink whatever `--rule-mark` says.
+- `heading-rule: short` and `heading-rule: accent` read `--rule-w` for the segment's height.
+- `heading-rule: accent` keeps its accent ink whatever `--rule-mark` says.
 
 ---
 
-<!-- @meta{layout=decision, class=rule-auto} -->
+<!-- @meta{layout=decision, class=heading-rule-auto} -->
 
 ## Square cards keep square tags.
 
@@ -123,7 +123,7 @@ One rule in the deck's `style:` block sets `--rule-w`, `--rule-mark`, `--rail-w`
 
 ---
 
-<!-- @meta{layout=cards-grid, class=three dark rule-auto} -->
+<!-- @meta{layout=cards-grid, class=three dark heading-rule-auto} -->
 
 `Set · in dark mode`
 

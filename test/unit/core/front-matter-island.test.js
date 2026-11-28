@@ -46,7 +46,7 @@ test('the island: the closer need not end its line, as the engine always read it
 });
 
 test('the island: a block scalar body holds no keys, its header does', () => {
-  const keys = frontMatterKeys('style: |\n  color: red\n\n  lift: on\nmode: sketch\n  css: >-\n    a: b\nx: 1');
+  const keys = frontMatterKeys('style: |\n  color: red\n\n  card-lift: on\nmode: sketch\n  css: >-\n    a: b\nx: 1');
   assert.deepEqual(keys.map((k) => [k.name, k.blockScalar]), [['style', true], ['mode', false], ['css', true], ['x', false]]);
 });
 
@@ -207,7 +207,7 @@ function rng(seed) {
   };
 }
 
-const KEYS = ['theme', 'class', 'mode', 'color-mode', 'footer', 'style', 'lift', 'a.b', '$x', 'preset', '1x'];
+const KEYS = ['theme', 'class', 'mode', 'color-mode', 'footer', 'style', 'card-lift', 'a.b', '$x', 'preset', '1x'];
 /**
  * Keys main's loose reader could not pick a line for: it read the key back out of its own regex with
  * `[A-Za-z_][\w-]*`, which stops at a `.` or `$` and fails on a leading digit (then the FIRST match at any indent

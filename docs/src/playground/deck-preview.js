@@ -168,7 +168,7 @@ export function docStyleText({ css, mode, geom, padding = 18, background = null,
 		// the deck's --border, base.modifiers.css) and needs only the on-screen scale, which the
 		// FIT agent stamps when `slideEdge` asks for it. The LIFT rides the CONTAINER, not the
 		// section: this frame used to give every slide a 6px radius and a box-shadow of its
-		// own, so a square deck previewed rounded — and a `corners-rounded` section's
+		// own, so a square deck previewed rounded — and a `slide-corners-rounded` section's
 		// `clip-path` clips its own box-shadow away. A drop-shadow on `.lattice` traces each
 		// slide's painted outline instead, square or rounded.
 		'.lattice{filter:' + slideFrameFilter('card') + ';}';

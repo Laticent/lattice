@@ -40,7 +40,7 @@ describe('the front-matter register family', () => {
   test('the did-you-mean takes the first name at the best distance, so the order decides a tie', () => {
     assert.equal(nearest('of', ['on', 'solid', 'duo', 'mono', 'off']), 'on');
     assert.equal(nearest('of', ['off', 'on']), 'off');
-    assert.equal(fixDeck(deck('lift: of'), { vocab }).text, deck('lift: on'), '`lift:` names `on` first');
+    assert.equal(fixDeck(deck('card-lift: of'), { vocab }).text, deck('card-lift: on'), '`card-lift:` names `on` first');
   });
 
   test('the value span survives a BOM and CRLF line ends, and the fix lands on it', () => {

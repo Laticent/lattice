@@ -509,7 +509,7 @@ lays it out, so a wide graph flows down the tall frame instead of shrinking into
 (`lib/plugins/mermaid/shared/reorient.js`). Every other diagram keeps its source.
 
 A fence in a PANE turns for the pane's box, not the slide's. The engine stamps each
-`<lat-pane>` with its own orientation, and both render paths read that stamp:
+`<lat-pane>` with its own orientation, and both render paths read that stamp-shape:
 
 - the CLI bakes fences before the engine renders, so the Mermaid bake (`mermaid.bake.js`) asks the engine
   (`engine.paneOrientations`, the same carve and box `renderPane` uses). The answer carries

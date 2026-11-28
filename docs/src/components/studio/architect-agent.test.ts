@@ -207,27 +207,27 @@ describe('the toolbox', () => {
 
 	it('edits the DRAFT, never the source, and reports refusals in words', async () => {
 		const tb = toolbox();
-		const ok = await tb.run('edit_slides', JSON.stringify({ edits: [{ action: 'replace', slide: 3, body: '<!-- @meta{layout=content} -->\n## Next steps\n\n- Hire three' }] }));
+		const ok = await tb.run('edit_slides', JSON.stringify({ edits: [{ action: 'replace', slide: 3, body: '<!-- @meta{layout=content} -->\n## Next steps\n\n- Hire three' }], summary: 'Test edit' }));
 		expect(ok).toContain('Replaced slide 3');
 		expect(tb.draft).toContain('Hire three');
-		const bad = await tb.run('edit_slides', JSON.stringify({ edits: [{ action: 'replace', slide: 9, body: 'x' }] }));
+		const bad = await tb.run('edit_slides', JSON.stringify({ edits: [{ action: 'replace', slide: 9, body: 'x' }], summary: 'Test edit' }));
 		expect(bad).toContain("doesn't exist");
 		expect(await tb.run('edit_slides', '{not json')).toContain('not valid JSON');
 	});
 
 	it('reads its own staged edits back', async () => {
 		const tb = toolbox();
-		await tb.run('edit_slides', JSON.stringify({ edits: [{ action: 'insert', slide: 1, body: '<!-- @meta{layout=content} -->\n## Inserted' }] }));
+		await tb.run('edit_slides', JSON.stringify({ edits: [{ action: 'insert', slide: 1, body: '<!-- @meta{layout=content} -->\n## Inserted' }], summary: 'Test edit' }));
 		expect(await tb.run('read_slides', JSON.stringify({ from: 2 }))).toContain('## Inserted');
 	});
 
 	it('sets and removes front matter on the draft; refuses a multi-line value', async () => {
 		const tb = toolbox();
-		await tb.run('set_front_matter', JSON.stringify({ key: 'finish', value: 'atrium' }));
+		await tb.run('set_front_matter', JSON.stringify({ key: 'finish', value: 'atrium', summary: 'Test edit' }));
 		expect(getFrontMatter(tb.draft, 'finish')).toBe('atrium');
-		await tb.run('set_front_matter', JSON.stringify({ key: 'theme', value: null }));
+		await tb.run('set_front_matter', JSON.stringify({ key: 'theme', value: null, summary: 'Test edit' }));
 		expect(getFrontMatter(tb.draft, 'theme')).toBeUndefined();
-		expect(await tb.run('set_front_matter', JSON.stringify({ key: 'finish-override', value: 'a\nb' }))).toContain('single-line');
+		expect(await tb.run('set_front_matter', JSON.stringify({ key: 'finish-override', value: 'a\nb', summary: 'Test edit' }))).toContain('single-line');
 	});
 
 	// #3208 item 1: the agent edits the nested `terms:` map, losslessly, and the author reviews one
@@ -543,7 +543,7 @@ describe('the toolbox', () => {
 	it('checks the DRAFT with the host checker, errors first, and flags slides over budget', async () => {
 		const check = vi.fn(async () => ({ findings: [{ slide: 1, severity: 'warning', rule: 'w', message: 'meh' }, { slide: 2, severity: 'error', rule: 'e', message: 'broken' }], diagrams: [{ slide: 3, message: 'Parse error' }] }));
 		const tb = toolbox({ check, slideWordBudget: 3 });
-		await tb.run('edit_slides', JSON.stringify({ edits: [{ action: 'replace', slide: 3, body: '<!-- @meta{layout=content} -->\n## Next steps\n\n- Hire five more people' }] }));
+		await tb.run('edit_slides', JSON.stringify({ edits: [{ action: 'replace', slide: 3, body: '<!-- @meta{layout=content} -->\n## Next steps\n\n- Hire five more people' }], summary: 'Test edit' }));
 		const out = await tb.run('check_deck', '{}');
 		expect(check).toHaveBeenCalledWith(tb.draft);
 		expect(out.indexOf('broken')).toBeLessThan(out.indexOf('meh'));
@@ -572,32 +572,32 @@ describe('draft → reviewable edits', () => {
 	const slides = (s: string) => deckSlides(s).map((x) => x.trim());
 
 	it('a replace', async () => {
-		const r = await roundTrip([['edit_slides', { edits: [{ action: 'replace', slide: 2, body: '<!-- @meta{layout=kpi} -->\n## Revenue grew 12%\n\n1. Revenue `$4.2M`' }] }]]);
+		const r = await roundTrip([['edit_slides', { edits: [{ action: 'replace', slide: 2, body: '<!-- @meta{layout=kpi} -->\n## Revenue grew 12%\n\n1. Revenue `$4.2M`' }], summary: 'Test edit' }]]);
 		expect(r.raw).toEqual([expect.objectContaining({ action: 'replace', slide: 2 })]);
 		expect(slides(r.out)).toEqual(slides(r.draft));
 	});
 
 	it('an insert, then a replace of the slide it pushed down', async () => {
 		const r = await roundTrip([
-			['edit_slides', { edits: [{ action: 'insert', slide: 1, body: '<!-- @meta{layout=content} -->\n## New' }] }],
-			['edit_slides', { edits: [{ action: 'replace', slide: 3, body: '<!-- @meta{layout=kpi} -->\n## Revenue grew fast\n\n1. Revenue `$4.2M`' }] }],
+			['edit_slides', { edits: [{ action: 'insert', slide: 1, body: '<!-- @meta{layout=content} -->\n## New' }], summary: 'Test edit' }],
+			['edit_slides', { edits: [{ action: 'replace', slide: 3, body: '<!-- @meta{layout=kpi} -->\n## Revenue grew fast\n\n1. Revenue `$4.2M`' }], summary: 'Test edit' }],
 		]);
 		expect(slides(r.out)).toEqual(slides(r.draft));
 	});
 
 	it('a delete next to an insert, and a prepend', async () => {
 		const r = await roundTrip([
-			['edit_slides', { edits: [{ action: 'delete', slide: 2 }] }],
-			['edit_slides', { edits: [{ action: 'insert', slide: 1, body: '<!-- @meta{layout=content} -->\n## A\n\n---\n\n<!-- @meta{layout=content} -->\n## B' }] }],
-			['edit_slides', { edits: [{ action: 'insert', slide: 0, body: '<!-- @meta{layout=content} -->\n## First' }] }],
+			['edit_slides', { edits: [{ action: 'delete', slide: 2 }], summary: 'Test edit' }],
+			['edit_slides', { edits: [{ action: 'insert', slide: 1, body: '<!-- @meta{layout=content} -->\n## A\n\n---\n\n<!-- @meta{layout=content} -->\n## B' }], summary: 'Test edit' }],
+			['edit_slides', { edits: [{ action: 'insert', slide: 0, body: '<!-- @meta{layout=content} -->\n## First' }], summary: 'Test edit' }],
 		]);
 		expect(slides(r.out)).toEqual(slides(r.draft));
 	});
 
 	it('front matter rides as its own edit and lands through the line writer', async () => {
 		const r = await roundTrip([
-			['set_front_matter', { key: 'finish', value: 'atrium' }],
-			['set_front_matter', { key: 'theme', value: 'cuoio' }],
+			['set_front_matter', { key: 'finish', value: 'atrium', summary: 'Test edit' }],
+			['set_front_matter', { key: 'theme', value: 'cuoio', summary: 'Test edit' }],
 		]);
 		expect(r.raw.map((e) => e.action)).toEqual(['frontmatter', 'frontmatter']);
 		expect(getFrontMatter(r.out, 'finish')).toBe('atrium');
@@ -607,8 +607,8 @@ describe('draft → reviewable edits', () => {
 
 	it('an edit undone within the turn proposes nothing', async () => {
 		const tb = toolbox();
-		await tb.run('set_front_matter', JSON.stringify({ key: 'finish', value: 'atrium' }));
-		await tb.run('set_front_matter', JSON.stringify({ key: 'finish', value: null }));
+		await tb.run('set_front_matter', JSON.stringify({ key: 'finish', value: 'atrium', summary: 'Test edit' }));
+		await tb.run('set_front_matter', JSON.stringify({ key: 'finish', value: null, summary: 'Test edit' }));
 		expect(tb.proposal()).toEqual([]);
 		expect(proposalFromDraft(DECK, DECK)).toEqual([]);
 	});
@@ -672,7 +672,7 @@ describe('the loop', () => {
 		const complete: AgentComplete = async (_m, { onToken }) => {
 			n++;
 			onToken('Tightened slide 3.');
-			return { text: 'Tightened slide 3.', toolCalls: [call('a', 'edit_slides', { edits: [{ action: 'replace', slide: 3, body: '<!-- @meta{layout=content} -->\n## Next\n\n- Hire' }] })], truncated: false };
+			return { text: 'Tightened slide 3.', toolCalls: [call('a', 'edit_slides', { edits: [{ action: 'replace', slide: 3, body: '<!-- @meta{layout=content} -->\n## Next\n\n- Hire' }], summary: 'Tightened slide 3.' })], truncated: false };
 		};
 		const turn = await runAgentLoop({ complete, messages: [{ role: 'user', content: 'u' }], toolbox: tb });
 		expect(n).toBe(1);
@@ -725,7 +725,8 @@ describe('the loop', () => {
 			const complete: AgentComplete = async () => {
 				n++;
 				if (n > 1) return { text: 'Done.', toolCalls: [], truncated: false };
-				return { text: c.text, toolCalls: [call('a', 'edit_slides', { edits: [{ action: 'replace', slide: c.slide ?? 3, body: '<!-- @meta{layout=content} -->\n## Next\n\n- Hire' }] })], truncated: false };
+				// The last case writes neither prose nor a summary: its schema requires one, so the edit is refused (use-case-layer.md §7) and the turn goes on, as it did when the edit ran unsummarized.
+				return { text: c.text, toolCalls: [call('a', 'edit_slides', { edits: [{ action: 'replace', slide: c.slide ?? 3, body: '<!-- @meta{layout=content} -->\n## Next\n\n- Hire' }], ...(c.text ? { summary: 'Test edit' } : {}) })], truncated: false };
 			};
 			const turn = await runAgentLoop({ complete, messages: [{ role: 'user', content: 'u' }], toolbox: tb });
 			expect(n).toBe(2);
@@ -736,8 +737,8 @@ describe('the loop', () => {
 	it('does not end on a round that mixed an edit with a read, or two edits where one was refused', async () => {
 		const check = vi.fn(async () => ({ findings: [] }));
 		for (const calls of [
-			[call('a', 'edit_slides', { edits: [{ action: 'delete', slide: 3 }] }), call('b', 'read_slides', { from: 1 })],
-			[call('a', 'set_front_matter', { key: 'not a key', value: 'x' }), call('b', 'set_front_matter', { key: 'finish', value: 'atrium' })],
+			[call('a', 'edit_slides', { edits: [{ action: 'delete', slide: 3 }], summary: 'Test edit' }), call('b', 'read_slides', { from: 1 })],
+			[call('a', 'set_front_matter', { key: 'not a key', value: 'x', summary: 'Test edit' }), call('b', 'set_front_matter', { key: 'finish', value: 'atrium', summary: 'Test edit' })],
 		]) {
 			let n = 0;
 			const complete: AgentComplete = async () => {
@@ -897,7 +898,7 @@ describe('the loop', () => {
 	it('reports warnings only on the slides the turn wrote', async () => {
 		const check = vi.fn(async () => ({ findings: [{ slide: 1, severity: 'warning', message: 'old' }, { slide: 3, severity: 'warning', message: 'new one' }] }));
 		const tb = toolbox({ check });
-		await tb.run('edit_slides', JSON.stringify({ edits: [{ action: 'replace', slide: 3, body: '<!-- @meta{layout=content} -->\n## Next\n\n- Hire' }] }));
+		await tb.run('edit_slides', JSON.stringify({ edits: [{ action: 'replace', slide: 3, body: '<!-- @meta{layout=content} -->\n## Next\n\n- Hire' }], summary: 'Test edit' }));
 		expect(tb.settled()).toBe(true);
 		expect(tb.verdict?.warnings).toEqual(['slide 3: new one']);
 	});
@@ -944,7 +945,7 @@ describe('fixes from the maker-checker pass', () => {
 	it('a blank deck takes its first slide without a phantom empty one, and Apply agrees', async () => {
 		for (const start of ['', '---\ntheme: indaco\n---\n']) {
 			const tb = toolbox({ source: start });
-			const out = await tb.run('edit_slides', JSON.stringify({ edits: [{ action: 'insert', slide: 0, body: '<!-- @meta{layout=title} -->\n# A' }] }));
+			const out = await tb.run('edit_slides', JSON.stringify({ edits: [{ action: 'insert', slide: 0, body: '<!-- @meta{layout=title} -->\n# A' }], summary: 'Test edit' }));
 			expect(out).toContain('The draft now has 1 slides');
 			const applied = applyProposedEditsChecked(start, tb.proposal().map((r) => ({ raw: r })));
 			expect(deckSlides(applied.source)).toEqual(deckSlides(tb.draft));
@@ -966,7 +967,7 @@ describe('fixes from the maker-checker pass', () => {
 				const n = deckSlides(tb.draft).length;
 				const pick = rnd(3);
 				const edit = pick === 0 || !n ? { action: 'insert', slide: rnd(n + 1), body: bodies[rnd(3)] } : pick === 1 ? { action: 'replace', slide: 1 + rnd(n), body: bodies[rnd(3)] } : { action: 'delete', slide: 1 + rnd(n) };
-				await tb.run('edit_slides', JSON.stringify({ edits: [edit] }));
+				await tb.run('edit_slides', JSON.stringify({ edits: [edit], summary: 'Test edit' }));
 			}
 			const applied = applyProposedEditsChecked(start, tb.proposal().map((r) => ({ raw: r })));
 			expect(applied.refusals).toEqual([]);
@@ -980,8 +981,8 @@ describe('fixes from the maker-checker pass', () => {
 		expect(isBlockKey(src, 'finish-override')).toBe(true);
 		expect(isBlockKey(src, 'style')).toBe(true);
 		expect(isBlockKey(src, 'theme')).toBe(false);
-		expect(await tb.run('set_front_matter', JSON.stringify({ key: 'finish-override', value: 'none' }))).toContain('cannot rewrite safely');
-		expect(await tb.run('set_front_matter', JSON.stringify({ key: 'style', value: null }))).toContain('cannot rewrite safely');
+		expect(await tb.run('set_front_matter', JSON.stringify({ key: 'finish-override', value: 'none', summary: 'Test edit' }))).toContain('cannot rewrite safely');
+		expect(await tb.run('set_front_matter', JSON.stringify({ key: 'style', value: null, summary: 'Test edit' }))).toContain('cannot rewrite safely');
 		expect(tb.draft).toBe(src);
 		expect(tb.proposal()).toEqual([]);
 	});
@@ -1000,12 +1001,12 @@ describe('efficiency: fewer rounds, cached tails', () => {
 	it('an edit returns the checker’s verdict, so the model needs no separate check round', async () => {
 		const check = vi.fn(async () => ({ findings: [{ slide: 3, severity: 'error', rule: 'r', message: 'bad nesting' }] }));
 		const tb = toolbox({ check });
-		const out = await tb.run('edit_slides', JSON.stringify({ edits: [{ action: 'replace', slide: 3, body: '<!-- @meta{layout=content} -->\n## Next\n\n- Hire' }] }));
+		const out = await tb.run('edit_slides', JSON.stringify({ edits: [{ action: 'replace', slide: 3, body: '<!-- @meta{layout=content} -->\n## Next\n\n- Hire' }], summary: 'Test edit' }));
 		expect(out).toContain('Replaced slide 3');
 		expect(out).toContain('Check of the draft after this change');
 		expect(out).toContain('bad nesting');
 		expect(check).toHaveBeenCalledWith(tb.draft, { only: [3], slideCount: 3 });
-		const fm = await tb.run('set_front_matter', JSON.stringify({ key: 'finish', value: 'atrium' }));
+		const fm = await tb.run('set_front_matter', JSON.stringify({ key: 'finish', value: 'atrium', summary: 'Test edit' }));
 		expect(fm).toContain('Check of the draft after this change');
 	});
 

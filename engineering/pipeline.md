@@ -450,7 +450,7 @@ slide's own color (`bandIsClear`, `compose.mjs`); anything else drops the vector
 that slide's photo with the edge in it (`edge-ink`). A border bar needs neither, since the section
 clips its content inside the bar. The edge stays in
 the photo when anything's ink can reach it (a finish's pseudo-element layer, an inset shadow over
-the hairline, an outer shadow, a list marker, a full-bleed image), when the slide is clipped or rounded (`corners-rounded`), or
+the hairline, an outer shadow, a list marker, a full-bleed image), when the slide is clipped or rounded (`slide-corners-rounded`), or
 when its geometry is not one the reader models; `LATTICE_PDF_REPORT` names the reason
 (`edge-covered`, `edge-clip-path`, …). Other 1 px rules a finish paints (the frame keyline, an
 inset ring) are drawn with the finish's backdrop, below; when the backdrop stays in the photo, so do
