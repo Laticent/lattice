@@ -225,15 +225,11 @@ describe('writeMeta on records: the inversion’s cases', () => {
     assert.equal(readRecord(' {headline-align=left, class=stats} ').d.class, 'stats headline-align-left');
     assert.equal(readRecord(' {finish=ledger, layout=cards, class=compact} ').d.class, 'cards compact finish finish-ledger');
   });
-  test('a field the D1 renames retired names its new spelling and applies nothing', () => {
+  test('a field the D1 renames retired is refused and applies nothing (lint names the new spelling)', () => {
     const { readRecord } = require('../../../lib/core/meta-door.mjs');
     const r = readRecord(' {layout=cards, headline=left, lift=on} ');
     assert.equal(r.d.class, 'cards');
-    assert.deepEqual(r.diagnostics.map((x) => x.message), [
-      '`headline` is now `headline-align`; the old field does nothing',
-      '`lift` is now `card-lift`; the old field does nothing',
-    ]);
-    assert.equal(readRecord(' {bogus=1} ').diagnostics[0].message, '`bogus` is not a record field');
+    assert.deepEqual(r.diagnostics.map((x) => x.code), ['meta-unknown-key', 'meta-unknown-key']);
   });
 });
 

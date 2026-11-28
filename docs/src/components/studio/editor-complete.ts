@@ -74,7 +74,7 @@ const AXIS_KEYS = new Set(OFFERED_SETTINGS.filter((r) => r.kind === 'axis').map(
 // by a test). A key not listed still completes, without the filled-axis filter.
 const REGISTER_AXES: Record<string, readonly (readonly string[])[]> = {
 	backdrop: [BACKDROP_STRENGTHS, BACKDROP_MASKS],
-	tag: Object.values(CARD_TAG_AXES),
+	'card-tag': Object.values(CARD_TAG_AXES),
 	'image-card': IMAGE_CARD_AXIS_ORDER.map(imageCardWords),
 	'logo-finish': LOGO_FINISH_AXIS_ORDER.map(logoFinishWords),
 	'progress-rail': PROGRESS_RAIL_AXIS_ORDER.map(progressRailWords),

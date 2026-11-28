@@ -186,7 +186,9 @@ const pgData = {
 	galleriesBase: url(pg + 'galleries/'),
 	palettes,
 	finishes: FINISH_NAMES,
-	lintVocab,
+	// One JSON string, not a structured prop: Astro wraps every value of a structured prop as `[0,"…"]`, which on
+	// this vocabulary (every class name, several lists over) cost ~8KB of the page's raw HTML budget.
+	lintVocab: JSON.stringify(lintVocab),
 	starter,
 	bakeCaption,
 };

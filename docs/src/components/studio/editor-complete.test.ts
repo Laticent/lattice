@@ -1027,3 +1027,14 @@ describe('positionCompletionInfo', () => {
 		expect(out.style).toMatch(/^top: 0px;/);
 	});
 });
+
+describe('card-tag: completes one word per axis under its renamed key', () => {
+	it('after a color word, offers the other axes and not a second color', async () => {
+		const { nextAxisWords } = await import('./editor-complete');
+		const words = ['color', 'plain', 'bare', 'small', 'large', 'corner', 'band', 'start', 'end'];
+		const next = nextAxisWords('card-tag', 'plain ', words);
+		expect(next).not.toContain('color');
+		expect(next).not.toContain('bare');
+		expect(next).toEqual(expect.arrayContaining(['small', 'band', 'start']));
+	});
+});

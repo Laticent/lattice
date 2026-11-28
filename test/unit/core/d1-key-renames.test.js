@@ -1,4 +1,3 @@
-'use strict';
 // The six D1 key renames (engineering/decisions/2026-11-21-plain-english-key-renames.md §2 D1): each old key is a
 // `key-renamed` error whose fix keeps the value, and each old class is an `unknown-class` error whose fix writes the
 // new class. A line with several old classes is fixed in one pass (`replaceAll`), on a slide and in the deck `class:`.
@@ -43,4 +42,17 @@ test('old classes in the deck-wide class: are errors too, and fixed together', (
   const errors = lintText(src, { vocab }).filter((f) => f.rule === 'unknown-class' && f.slide === 0);
   assert.deepEqual(errors.map((f) => f.classToken), ['lifted', 'head-left']);
   assert.equal(applyAllFixes(src, vocab), deck('class: card-lift-on headline-align-left dark'));
+});
+
+test('an old @meta field names its new spelling, and the fix renames every one on the line, never a value', () => {
+  const src = deck('', '<!-- @meta{layout=content, headline=left, rule=full, lift=on, footer="rule of thumb"} -->\n\n## B.\n\nText.\n');
+  const found = lintText(src, { vocab }).filter((f) => f.rule === 'meta-record');
+  assert.deepEqual(found.map((f) => f.message), [
+    '`headline` is now `headline-align`; the old field does nothing.',
+    '`rule` is now `heading-rule`; the old field does nothing.',
+    '`lift` is now `card-lift`; the old field does nothing.',
+  ]);
+  const fixed = applyAllFixes(src, vocab);
+  assert.match(fixed, /@meta\{layout=content, headline-align=left, heading-rule=full, card-lift=on, footer="rule of thumb"\}/);
+  assert.equal(lintText(fixed, { vocab }).filter((f) => f.rule === 'meta-record').length, 0);
 });
