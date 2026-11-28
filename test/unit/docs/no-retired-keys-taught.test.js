@@ -83,8 +83,8 @@ const SANCTIONED = {
     keys: { say: 1 },
   },
   'docs/src/content/docs/spec/diagnostics.md': {
-    why: "the diagnostics table names what each rule reports: `stray-overflow-marker`'s retired key, and `say:` as an unknown `terms:` field. TEMPORARY for the comment forms, each dropped by the stale-entry check as its fix lands: `_track`, `_build`, `_focus`, `_debug` are the `track-directive` (:160), `one-stepping-directive` (:166), `code-line-range` (:183) and `unknown-debug-facet` (:272) rows, which #3554 (the spec desk) rewrites; `_class` is the `meta-class-overridden` row (:440), which #3607 rewrites with the rule in lint-core.js",
-    keys: { 'overflow-marker': 1, say: 1, _class: 1, _track: 1, _build: 1, _focus: 1, _debug: 1 },
+    why: "the diagnostics table names what each rule reports: `stray-overflow-marker`'s retired key, and `say:` as an unknown `terms:` field. TEMPORARY for the comment forms, each dropped by the stale-entry check as its fix lands: `_track`, `_build`, `_focus`, `_debug` are the `track-directive` (:160), `one-stepping-directive` (:166), `code-line-range` (:183) and `unknown-debug-facet` (:272) rows, which #3554 (the spec desk) rewrites",
+    keys: { 'overflow-marker': 1, say: 1, _track: 1, _build: 1, _focus: 1, _debug: 1 },
   },
   'docs/src/content/catalog/libraries/lente.md': {
     why: "the standalone `lente` package reads a `<!-- _lens: … -->` comment itself; the same line gives Lattice's record, `@meta{lens=…}`",
