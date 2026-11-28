@@ -476,6 +476,31 @@ Step 1 shipped as planned, with these differences, each found while building it:
 
 How to work in the folder: `lib/use-cases/README.md`.
 
+### 10.2 Step 2, as built (2026-11-28)
+
+Step 2 shipped the validators of §7, with these decisions, each made while building it:
+
+- **One standalone validator per use case,** `lib/use-cases/<id>/<id>.validate.mjs`, and an index,
+  `validators.generated.mjs`, both written by `tools/build-use-cases.js`. All 19 import nothing.
+- **A keyword whose value the Studio computes at runtime is left out.** Five manifests name one: the
+  theme, finish, chart-kind and guide `enum`s, and `view_asset`'s `maxItems`. A build-time validator cannot
+  know them, so they stay the handler's check, as they were. Each file's header names what it left out.
+  Descriptions are left out too: they are text for the model, not rules.
+- **The validator checks the schema exactly as the model sees it.** The legacy schemas are open
+  (`additionalProperties` unset) and unbounded, so an unknown field passes and no string has a length
+  limit. Closing or bounding them changes what the model sees, which waits for #3208 item 34's replay of
+  real sessions (`lib/use-cases/README.md` §Legacy).
+- **`required` is enforced, though some handlers tolerated its absence.** `edit_slides` and
+  `set_front_matter` used to run without their required `summary`, and `read_slides` defaulted a missing
+  `from` to 1. The model is told these fields are required, so a call without one is now refused, naming
+  the field, and the model sends it again. The chat tests that sent no summary did so as a shortcut, and now
+  send one.
+- **Fail closed.** The dispatcher runs a use case only if it has a validator; one without answers
+  `UNKNOWN`, like one without a handler. `checkUseCaseValidators` keeps every manifest's.
+- **The refusal names the field.** `BAD_ARGS` carries the JSON Pointer of the first failure and the
+  validator's reason, and the chat says it: "The arguments for edit_slides do not fit its schema:
+  /edits/0/slide must be integer." A refused deck edit is marked refused and never reaches the handler.
+
 ## 11. What this note does not do
 
 - It builds nothing and settles nothing the spine owns.
