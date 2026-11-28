@@ -1,0 +1,7 @@
+studio: +240
+playground: +140
+The preview pool (`preview-pool`, +151) chooses a frame by the deck's look as well as the tile's shape: it reuses a frame no tile can patch into before it grows, gives a busy shape a new frame instead of rewriting another shape's, and keeps one spare frame past its ceiling while a grid mixes shapes, so reopening the Add slide gallery rewrites no kept frame. The gallery (`StudioIsland`, +6 to +8) tells the pool its tiles carry their own CSS (`tileCss`), so a filter round trip keeps a local component's frame; with no tile registered (a search that matches nothing) the pool judges staleness by the last looks it saw. The Playground (`PlaygroundIsland`, +105) writes a pick's pointer when the pick is made, and a pick whose plan fails puts back the component last settled, walking it again when nothing is on screen.
+
+Studio measured +138 and +140 on two merges of the same code (gzip moves a few bytes with its neighbors), then +156 with the empty-search fix on the rebased head; +165 covers the drift.
+
+On 2026-11-27 CI measured studio +230 (`preview-pool` +224, `StudioIsland` +6) and playground +130 against main at 5d42727, after two changes: the pool now runs a pass when an animation or transition on its surface ends, so a reopened phone sheet shows every tile (the pool's chunk went from +151 to +224 against main), and main moved under the Playground chunk. +240 and +140 cover the drift seen between merges of the same code.

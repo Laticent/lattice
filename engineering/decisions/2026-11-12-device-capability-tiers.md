@@ -287,7 +287,7 @@ as an argument with that read as the default, so its tests pass the tier in and 
 | Picture encoders (every export) | cores − 1, at most 2 | 1 | `poolSize` in `picture-encoder-pool.js` |
 | Narration packers | cores − 1, at most 4 | 1 | `packPoolSize` in `narration-pack-pool.js` |
 | PDF and PowerPoint photo lanes | 2 slides queued on the worker | 1 | `exportInFlight` in `device-lite.js`, read by `deck-export.js` |
-| Preview iframe pool | floor 10, ceiling 28 | floor 6, ceiling 12 (a host's lower numbers win) | `tierSlotCaps` in `preview-pool.tsx` |
+| Preview iframe pool | floor 10, ceiling 28 | floor 6, ceiling 12 (a host's lower numbers win), plus one spare frame in a grid that mixes tile shapes | `tierSlotCaps`, `slotRoom` in `preview-pool.tsx` |
 | Idle prefetch | Compose, Present, reading view, KaTeX, diagrams, Fabricate, fonts | the clip notice and Hide/Show only | `startStudioWarmUp` in `studio-warm.ts` |
 | On-device voice (Kokoro) | offered on a desktop | unsupported, as on a phone; never filled as the default voice; hosted voices only | `kokoroSupported` in `voice-model.js`, `canRunKokoro` in `model-selection.js` |
 | On-device chat (WebLLM, Transformers.js) | offered | shown, disabled, with the reason | `OnDeviceTier.tsx` |
@@ -298,7 +298,34 @@ as an argument with that read as the default, so its tests pass the tier in and 
 - **The preview ceiling of 12** still covers the biggest grid measured (12 tiles at 1920×1200), so tiles on screen keep
   their frames there. A bigger grid on a LITE device starves its least-recently-seen tiles; that is the trade. A pool
   watches the attribute, so a drop to LITE mid-session re-renders it and its next pass gives back the free frames above
-  12, from the end of its list (a slot's place is its React identity), as tiles leave.
+  12 (13 while its grid mixes tile shapes, below), from the end of its list (a slot's place is its React identity), as tiles leave.
+- **One spare frame past the ceiling, in a mixed grid (owner, 2026-11-22).** A pool holds one frame more than its
+  ceiling (`SHAPE_SPARE` in `preview-pool.tsx`) while it holds tiles of more than one shape: a Mermaid tile needs a
+  document with the diagram runtime, a plain tile does not, and moving a frame between the two is a full `srcdoc` write.
+  The Add slide gallery puts 12 plain tiles on screen at 1440×900 and holds one Mermaid tile. At a ceiling of exactly 12
+  the twelfth plain tile took the Mermaid frame, and the Mermaid tile rewrote a plain one, on every reopen, with no bound
+  (MR-3 under `?tier=lite`: 31 steals in 12 runs, about two documents per reopen, each permanent on WebKit). With the
+  spare: 0 steals, and the document count flat across reopens in 12 of 12 runs. The spare is not one more tile on
+  screen: the pool's reported `capacity` stays the ceiling. A frame is STALE when no tile has its LOOK (palette, mode,
+  theme, and the host's deck-wide CSS, as the overview's) any more: a look change leaves every free frame stale, and the pool reuses stale frames before it grows
+  (growing past them doubled a one-shape grid on FULL, 10 frames to 20). Staleness is never read from which tiles are
+  registered, because a filter or a remounted panel unregisters the Mermaid tile for a while, and calling its frame
+  stale then cost a new frame on every round trip (both found by the checker). With NO tile registered (a search that
+  matches nothing renders an empty state), staleness is judged by the last looks the grid had: the empty set called
+  every frame stale and trimmed the spare on every empty-search bounce (found by #3441's card grader). Whether a tile's CSS is the deck's or its
+  own is the HOST's word too (`PreviewPool tileCss`, passed only by the Add slide gallery), not inferred from the tiles:
+  inferring it turned the gallery's CSS deck-wide whenever a filter hid its local component, and its frame was made and
+  destroyed on every round trip (found by #3441's card grader). So a one-shape grid never uses the
+  spare, and a grid that once mixed shapes keeps it until a look change retires it. It applies on every tier and to a
+  host's own `maxSlots` too, and never passes `HARD_MAX_SLOTS`.
+- **A pass when the surface stops moving (2026-11-27, #3441).** Which tiles hold a frame is decided by what is on screen,
+  measured against the viewport. The Add slide gallery slides up from the bottom on a phone and zooms from 95% on a
+  desktop, both with a transform, so no scroll, resize or observer reports the move. A reopen's pass landed mid-slide,
+  saw the lower tiles as off screen and gave their frames away, and no pass ran once the sheet stopped: at 390×844 on
+  LITE, 2 of the 6 tiles on screen stayed blank after every reopen (1 before the spare frame above). The pool now runs a
+  pass when an animation or transition ends on an ancestor of its frame layer. Held by MR-8
+  (`gallery-preview-metamorphic.spec.ts`), which plays the page's animations at a fifth of their speed so the slide
+  always outlasts the pass: without the fix, 3 of 3 runs red at LITE on the phone width.
 - **A voice picked before.** The independent review found that `canRunKokoro`, which fills an unset voice, still said
   yes on a LITE desktop, so read-aloud got a Kokoro voice it could not run. It now says no, and a Kokoro voice picked on an
   earlier FULL visit reads as unavailable with "On-device voice is off in Lite mode" in the voice settings, never a

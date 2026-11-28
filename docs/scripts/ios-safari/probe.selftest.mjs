@@ -17,6 +17,7 @@
  *   PROBE=icon-grid [SHOTS=<dir>] node scripts/ios-safari/probe.selftest.mjs   # the icon grid on a phone: insert from Source, copy from Preview
  *   PROBE=player-charts node scripts/ios-safari/probe.selftest.mjs   # chart cards in an exported player, opened and closed by taps
  *   PROBE=logo-wall node scripts/ios-safari/probe.selftest.mjs   # a logo wall's first paint: never the unpacked grid
+ *   PROBE=gallery-memory [BASELINE_URL=http://localhost:4341] node scripts/ios-safari/probe.selftest.mjs   # Add slide reopens rewrite no kept frame
  *   PROBE=playground-scroll [ENGINE=chromium] [TRIALS=10] node scripts/ios-safari/probe.selftest.mjs   # the preview keeps a scroll across a window move
  *   PROBE=reload-tap node scripts/ios-safari/probe.selftest.mjs   # engine-retry's Reload press: a long hold reads as a long press, a tap as a click
  *   PROBE=boot-report node scripts/ios-safari/probe.selftest.mjs   # latticeBootReport names a held Studio island as unhydrated
@@ -586,6 +587,51 @@ if (process.env.PROBE === 'empty-deck') {
 		const result = { ok: !error && steps.every((s) => s.pass), error, width: page.viewportSize()?.width, steps };
 		report(label, 'empty-deck-probe.js', result);
 		await context.close();
+	}
+	await browser.close();
+	process.exit(failed ? 1 : 0);
+}
+if (process.env.PROBE === 'gallery-memory') {
+	// The gallery reopen probe (#3441), as run.mjs runs it: a fresh page per tier, the counter installed, then the cycles.
+	// The FAILING ARM is a page-side knob-free one: build `main` (or any commit before #3441), serve it on another port and
+	// pass it as BASELINE_URL. Its arms are reported and must go red on (d); this build's must pass. Memory is not read here.
+	const { galleryChecks, gallerySummary } = await import('./gallery-memory.mjs');
+	const GALLERY = fs.readFileSync(path.join(here, 'gallery-memory-probe.js'), 'utf8');
+	const CYCLES = Math.max(3, Number(process.env.GALLERY_CYCLES || 6));
+	const TIERS = (process.env.GALLERY_TIERS || 'lite,full').split(',').map((s) => s.trim()).filter(Boolean);
+	// The desktop shape too: the leak needs a dozen plain tiles on screen at LITE, which a phone never shows (MR-3, 1440x900).
+	const galleryShapes = [{ label: 'desktop-sized', options: { viewport: { width: 1440, height: 900 } } }, ...shapes];
+	const arms = [['this build', BASE, false]];
+	if (process.env.BASELINE_URL) arms.push(['baseline', process.env.BASELINE_URL.replace(/\/$/, ''), true]);
+	for (const { label, options } of galleryShapes) {
+		for (const [name, base, reported] of arms) {
+			for (const tier of TIERS) {
+				const context = await browser.newContext(options);
+				const page = await context.newPage();
+				await page.addInitScript(SEED);
+				await page.goto(`${base}/studio/?tier=${tier}`, { waitUntil: 'domcontentloaded' });
+				await page.addScriptTag({ content: GALLERY });
+				const installed = await page.evaluate(() => globalThis.latticeGalleryInstall());
+				const arm = { tier, cycles: [], memoryMB: [] };
+				for (let i = 0; i < CYCLES; i++) {
+					const c = await page.evaluate((n) => globalThis.latticeGalleryCycle(n), i);
+					arm.cycles.push(c);
+					if (!c.ok) break;
+				}
+				arm.shows = [];
+				for (let i = 0; i < 3 && arm.cycles.every((c) => c.ok); i++) arm.shows.push(await page.evaluate((n) => globalThis.latticeGalleryShows(n), i));
+				const steps = galleryChecks(arm);
+				const ok = steps.every((s) => s.pass);
+				console.log(`${label} ${gallerySummary(`${name} (${tier})`, arm)}`);
+				if (reported) {
+					console.log(`${label} gallery-memory-probe.js ${name} (${tier}): ${ok ? 'green' : 'RED'} [reported; the failing arm]`);
+					for (const s of steps) console.log(`  ${s.pass ? 'ok  ' : 'red '} ${s.name}${s.detail ? ` (${s.detail})` : ''}`);
+				} else {
+					report(label, `gallery-memory-probe.js ${name} (${tier})`, { ok, error: steps.filter((s) => !s.pass).map((s) => s.name).join('; '), width: installed.width, steps });
+				}
+				await context.close();
+			}
+		}
 	}
 	await browser.close();
 	process.exit(failed ? 1 : 0);

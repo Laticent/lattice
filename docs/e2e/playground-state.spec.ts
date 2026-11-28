@@ -70,6 +70,191 @@ test('@crosswidth search and lens survive reopening the picker AND a reload', as
 	expect(await page.evaluate((k) => localStorage.getItem(k), COMPONENT_KEY)).toBe('kpi');
 });
 
+// The pick is remembered when it is MADE, not when its plan lands. The plan fetch is held open here, so the label, the
+// address and the reload all happen inside the window that, under load, used to forget the pick (:52 above went red on
+// a phone: the picker still said "actors" after the reload). Two causes, both fixed in PlaygroundApp.tsx: the pointer was
+// written only when the plan landed, and the address bar named the walk still on screen (`?c=actors`), which at boot
+// outranks the stored pointer.
+test('@crosswidth a pick is remembered before its plan has landed', async ({ page }) => {
+	await gotoPlayground(page);
+	let release = () => {};
+	const held = new Promise<void>((r) => {
+		release = r;
+	});
+	await page.route(/\/plans\/kpi\.json/, async (route) => {
+		await held;
+		await route.continue().catch(() => {}); // the page that asked has been reloaded by then
+	});
+	await page.locator('#pg-template-trigger').click();
+	await page.getByPlaceholder(/Search components/).fill('kpi');
+	await page.getByRole('option', { name: 'kpi', exact: true }).click();
+	await expect(page.locator('#pg-template-trigger')).toContainText('kpi');
+	expect(await page.evaluate((k) => localStorage.getItem(k), COMPONENT_KEY)).toBe('kpi');
+	// The address names the pick too, not the walk still on screen: at boot the address outranks the stored pointer.
+	await expect(page).toHaveURL(/[?&]c=kpi(&|$)/);
+	await expect(page).not.toHaveURL(/[?&]s=/);
+
+	await page.unrouteAll({ behavior: 'ignoreErrors' });
+	await page.reload({ waitUntil: 'domcontentloaded' });
+	release();
+	await expect(page.locator('#pg-template-trigger')).toContainText('kpi');
+});
+
+// A pick whose plan never loads leaves the deck before it on screen, so the pointer goes back to the component the pick
+// replaced. The pick writes the pointer before the fetch (the test above), and without the revert the picker, the stored
+// pointer and a reload all named a component nobody was reading.
+test('@crosswidth a pick whose plan fails to load puts the previous component back', async ({ page }) => {
+	await gotoPlayground(page);
+	// A pick that loads first, so the pointer the failed pick replaces is a known one.
+	const landed = page.waitForResponse((r) => /\/plans\/big-number\.json/.test(r.url()) && r.ok());
+	await page.locator('#pg-template-trigger').click();
+	await page.getByPlaceholder(/Search components/).fill('big-number');
+	await page.getByRole('option', { name: 'big-number', exact: true }).click();
+	await landed;
+	await expect(page).toHaveURL(/[?&]c=big-number(&|$)/);
+	const before = 'big-number';
+	const label = (await page.locator('#pg-template-trigger').textContent())?.trim() ?? '';
+	expect(label).toContain(before);
+	await page.route(/\/plans\/kpi\.json/, (route) => route.fulfill({ status: 404, body: 'gone' }));
+	const failed = page.waitForResponse((r) => /\/plans\/kpi\.json/.test(r.url()) && r.status() === 404);
+	await page.locator('#pg-template-trigger').click();
+	await page.getByPlaceholder(/Search components/).fill('kpi');
+	await page.getByRole('option', { name: 'kpi', exact: true }).click();
+	await failed;
+	await expect.poll(() => page.evaluate((k) => localStorage.getItem(k), COMPONENT_KEY)).toBe(before);
+	await expect(page.locator('#pg-template-trigger')).toHaveText(label);
+	await expect(page).not.toHaveURL(/[?&]c=kpi(&|$)/);
+
+	await page.unrouteAll({ behavior: 'ignoreErrors' });
+	await page.reload({ waitUntil: 'domcontentloaded' });
+	await expect(page.locator('#pg-template-trigger')).toHaveText(label);
+});
+
+// The address outranks the stored pointer at boot, so after a `?c=` boot the component the address opened is what a
+// failed pick puts back, not the one storage held before. It matters before the boot's plan lands: until then no walk
+// is on screen to name it, and the revert fell back to the pointer, which the boot had left on storage's component.
+test('@crosswidth after a ?c= boot, a pick whose plan fails puts the address component back', async ({ page }) => {
+	await page.addInitScript((k) => {
+		try {
+			if (!sessionStorage.getItem('seeded')) {
+				localStorage.setItem(k, 'actors');
+				sessionStorage.setItem('seeded', '1');
+			}
+		} catch {}
+	}, COMPONENT_KEY);
+	// The boot's plan is held open, so the pick below is made before any walk is on screen.
+	let release = () => {};
+	const held = new Promise<void>((r) => {
+		release = r;
+	});
+	const asked = page.waitForRequest((r) => /\/plans\/big-number\.json/.test(r.url()));
+	await page.route(/\/plans\/big-number\.json/, async (route) => {
+		await held;
+		await route.continue().catch(() => {});
+	});
+	// Read view: there the picker names the pointer (in Edit it names the component the draft holds).
+	await page.goto('/playground/?view=read&c=big-number', { waitUntil: 'domcontentloaded' });
+	await controlReady(page.locator('#pg-template-trigger'));
+	await asked;
+	await expect(page.locator('#pg-template-trigger')).toContainText('big-number');
+	await page.route(/\/plans\/kpi\.json/, (route) => route.fulfill({ status: 404, body: 'gone' }));
+	const failed = page.waitForResponse((r) => /\/plans\/kpi\.json/.test(r.url()) && r.status() === 404);
+	await page.locator('#pg-template-trigger').click();
+	await page.getByPlaceholder(/Search components/).fill('kpi');
+	await page.getByRole('option', { name: 'kpi', exact: true }).click();
+	await failed;
+	await expect.poll(() => page.evaluate((k) => localStorage.getItem(k), COMPONENT_KEY)).toBe('big-number');
+	await expect(page.locator('#pg-template-trigger')).toContainText('big-number');
+	// The failed pick superseded the boot's walk, so nothing was on screen: the address component is walked again, and
+	// once its plan arrives it is the deck and the address keeps its `?c=` (it used to be stripped, Explore left empty).
+	release();
+	await expect(page).toHaveURL(/[?&]c=big-number(&|$)/);
+	await expect(page.locator('#pg-template-trigger')).toContainText('big-number');
+	await page.unrouteAll({ behavior: 'ignoreErrors' });
+});
+
+// A gallery on screen names no component, so what a failed pick puts back is the component last settled, not the
+// pointer an earlier pick still loading has moved.
+test('@crosswidth with a gallery on screen, a failed pick behind a pick still loading puts back the last settled component', async ({ page }) => {
+	await gotoPlayground(page);
+	const landed = page.waitForResponse((r) => /\/plans\/big-number\.json/.test(r.url()) && r.ok());
+	await page.locator('#pg-template-trigger').click();
+	await page.getByPlaceholder(/Search components/).fill('big-number');
+	await page.getByRole('option', { name: 'big-number', exact: true }).click();
+	await landed;
+	await expect(page).toHaveURL(/[?&]c=big-number(&|$)/);
+	const galleries = page.locator('#pg-galleries-trigger');
+	await controlReady(galleries);
+	await galleries.click();
+	const dialog = page.getByRole('dialog');
+	await expect(dialog).toBeVisible();
+	await dialog.locator('button', { hasText: /\d+\s+slides?/ }).first().click();
+	await expect(dialog).toBeHidden();
+	let release = () => {};
+	const held = new Promise<void>((r) => {
+		release = r;
+	});
+	const asked = page.waitForRequest((r) => /\/plans\/kpi\.json/.test(r.url()));
+	await page.route(/\/plans\/kpi\.json/, async (route) => {
+		await held;
+		await route.continue().catch(() => {});
+	});
+	await page.locator('#pg-template-trigger').click();
+	await page.getByPlaceholder(/Search components/).fill('kpi');
+	await page.getByRole('option', { name: 'kpi', exact: true }).click();
+	await asked;
+	await expect.poll(() => page.evaluate((k) => localStorage.getItem(k), COMPONENT_KEY)).toBe('kpi');
+	await page.route(/\/plans\/cards-stack\.json/, (route) => route.fulfill({ status: 404, body: 'gone' }));
+	const failed = page.waitForResponse((r) => /\/plans\/cards-stack\.json/.test(r.url()) && r.status() === 404);
+	await page.locator('#pg-template-trigger').click();
+	await page.getByPlaceholder(/Search components/).fill('cards-stack');
+	await page.getByRole('option', { name: 'cards-stack', exact: true }).click();
+	await failed;
+	await expect.poll(() => page.evaluate((k) => localStorage.getItem(k), COMPONENT_KEY)).toBe('big-number');
+	release();
+	await page.unrouteAll({ behavior: 'ignoreErrors' });
+});
+
+// Two picks in flight: the first is still loading when the second fails. What goes back is the component on screen,
+// not the pointer the first pick wrote: nobody is reading that one.
+test('@crosswidth a failed pick behind a pick still loading puts back the component on screen', async ({ page }) => {
+	await gotoPlayground(page);
+	const landed = page.waitForResponse((r) => /\/plans\/big-number\.json/.test(r.url()) && r.ok());
+	await page.locator('#pg-template-trigger').click();
+	await page.getByPlaceholder(/Search components/).fill('big-number');
+	await page.getByRole('option', { name: 'big-number', exact: true }).click();
+	await landed;
+	await expect(page).toHaveURL(/[?&]c=big-number(&|$)/);
+	// kpi's plan is held open, so its pick is in flight when the next one fails.
+	let release = () => {};
+	const held = new Promise<void>((r) => {
+		release = r;
+	});
+	const asked = page.waitForRequest((r) => /\/plans\/kpi\.json/.test(r.url()));
+	await page.route(/\/plans\/kpi\.json/, async (route) => {
+		await held;
+		await route.continue().catch(() => {});
+	});
+	await page.locator('#pg-template-trigger').click();
+	await page.getByPlaceholder(/Search components/).fill('kpi');
+	await page.getByRole('option', { name: 'kpi', exact: true }).click();
+	await asked;
+	await expect.poll(() => page.evaluate((k) => localStorage.getItem(k), COMPONENT_KEY)).toBe('kpi');
+	// cards-stack: a component no walk has loaded or prefetched (a walk caches its plan and its neighbors'), so it is fetched.
+	await page.route(/\/plans\/cards-stack\.json/, (route) => route.fulfill({ status: 404, body: 'gone' }));
+	const failed = page.waitForResponse((r) => /\/plans\/cards-stack\.json/.test(r.url()) && r.status() === 404);
+	await page.locator('#pg-template-trigger').click();
+	await page.getByPlaceholder(/Search components/).fill('cards-stack');
+	await page.getByRole('option', { name: 'cards-stack', exact: true }).click();
+	await failed;
+	await expect.poll(() => page.evaluate((k) => localStorage.getItem(k), COMPONENT_KEY)).toBe('big-number');
+	await expect(page.locator('#pg-template-trigger')).toContainText('big-number');
+	release();
+	await page.unrouteAll({ behavior: 'ignoreErrors' });
+});
+
+// #3586's two tests, landed on main beside #3441's above: a fetch held until the reload aborts it (so no hand-back
+// may fire on a thrown fetch), and the designed 404 (so the hand-back fires on an answer).
 test('@crosswidth a pick survives a reload that beats its plan fetch', async ({ page }) => {
 	// The race the test above lost once under load, which had TWO losing orders. (1) A pick was recorded only after
 	// `startWalk`'s plan fetch landed, so a reload while that fetch was on the wire found the old component stored.

@@ -191,6 +191,15 @@ function shapeKey(p: PooledPreviewProps): string {
 	return `${drawn ? 'M' : '-'}|${p.extraCss || ''}|${p.paletteOverride || ''}|${p.modeOverride || ''}|${p.extraTheme?.name || ''}`;
 }
 
+/** The part of `shapeKey` that is the deck's LOOK rather than the tile's kind: a palette, mode or theme change moves
+ *  every tile off its old look at once, which is what makes a frame of that look stale (the slot pass). `deckCss`: the
+ *  grid's author CSS when every tile carries the same (the overview, the map, Reshape and the layout menu pass one
+ *  deck-wide sheet), so an edit to it is a look change too; a grid whose tiles carry their own (the Add slide gallery's
+ *  local components) says so with `PreviewPool tileCss`, and there the CSS is a tile's kind. PURE. */
+export function lookKey(p: PooledPreviewProps, deckCss: boolean): string {
+	return `${identityKey(p)}\u0000${p.paletteOverride || ''}|${p.modeOverride || ''}|${p.extraTheme?.name || ''}${deckCss ? `\u0000${p.extraCss || ''}` : ''}`;
+}
+
 /**
  * What a slot can NEVER be re-pointed across, as opposed to what it merely prefers.
  *
@@ -314,6 +323,16 @@ export const BASE_SLOTS = 10;
  *  is a visible defect rather than an invisible one. */
 export const HARD_MAX_SLOTS = 28;
 
+/** One frame a pool may hold past its ceiling, and only while it mixes tile shapes, so a shape never has to rewrite
+ *  another shape's frame to show a tile (the slot pass below has the measurements). */
+export const SHAPE_SPARE = 1;
+
+/** How many frames a pool may hold: its ceiling, plus `SHAPE_SPARE` when `mixed` (shapes compete for the frames), never
+ *  past HARD_MAX_SLOTS. PURE. */
+export function slotRoom(ceiling: number, mixed: boolean): number {
+	return Math.min(HARD_MAX_SLOTS, ceiling + (mixed ? SHAPE_SPARE : 0));
+}
+
 /**
  * A LITE device (device-capability-tiers §4) holds fewer frames: a floor of 6 and a ceiling of 12, where each frame is a
  * whole document in memory. 12 still covers the biggest grid measured above (12 tiles at 1920x1200), so the "never cap
@@ -325,10 +344,11 @@ export function tierSlotCaps(baseSlots: number, maxSlots: number, lite: boolean)
 }
 
 /**
- * What a pool tells its host after it mounts and after every pass. `capacity` is the most frames it will
- * ever hold (its `maxSlots`, at most HARD_MAX_SLOTS): a host that asks for more live tiles than this gets
+ * What a pool tells its host after it mounts and after every pass. `capacity` is the most tiles it will
+ * show at once (its `maxSlots`, at most HARD_MAX_SLOTS): a host that asks for more live tiles than this gets
  * the rest blank, so it should ask for no more. `slots` is how many frames it retains now, which is its
- * high-water mark because a pool never releases one; `held` is how many of them show a tile.
+ * high-water mark because a pool never releases one, and can sit `SHAPE_SPARE` above `capacity` in a grid
+ * that mixes tile shapes; `held` is how many of them show a tile.
  */
 export interface PoolReport {
 	capacity: number;
@@ -391,7 +411,7 @@ function parkedProps(p: PooledPreviewProps): PooledPreviewProps {
  * `onSettle` receives a `PoolReport`: the slide map (map-rail/MapRail.tsx) passes its `capacity` to
  * Veduta's `settle` as the live cap, so the core never asks this pool for more live tiles than it holds.
  */
-export function PreviewPool({ children, className, baseSlots: hostBase = BASE_SLOTS, maxSlots: hostMax = HARD_MAX_SLOTS, onSettle }: { children: React.ReactNode; className?: string; baseSlots?: number; maxSlots?: number; onSettle?: (report: PoolReport) => void }) {
+export function PreviewPool({ children, className, baseSlots: hostBase = BASE_SLOTS, maxSlots: hostMax = HARD_MAX_SLOTS, tileCss = false, onSettle }: { children: React.ReactNode; className?: string; baseSlots?: number; maxSlots?: number; /** Each tile's `extraCss` is its own (a local component's sheet), not the deck's: it is then a tile's KIND, never part of the look, so a stale frame is never inferred from it. Only the Add slide gallery. */ tileCss?: boolean; onSettle?: (report: PoolReport) => void }) {
 	// Read at render. The tier can change once mid-session (decided after the first slide): the effect below re-renders the
 	// pool and runs a pass when it does, and the pass gives back the free frames above a lowered ceiling.
 	const [, setTierTick] = React.useState(0);
@@ -402,6 +422,9 @@ export function PreviewPool({ children, className, baseSlots: hostBase = BASE_SL
 	const ceiling = Number.isFinite(maxSlots) ? Math.max(1, Math.min(HARD_MAX_SLOTS, Math.floor(maxSlots))) : HARD_MAX_SLOTS;
 	const ceilingRef = React.useRef(ceiling);
 	ceilingRef.current = ceiling;
+	const lastLooksRef = React.useRef<Set<string>>(new Set());
+	const tileCssRef = React.useRef(tileCss);
+	tileCssRef.current = tileCss;
 	const onSettleRef = React.useRef(onSettle);
 	onSettleRef.current = onSettle;
 	const layerRef = React.useRef<HTMLDivElement>(null);
@@ -594,6 +617,25 @@ export function PreviewPool({ children, className, baseSlots: hostBase = BASE_SL
 				.map((x) => x.t);
 			const next = slotsRef.current.map((s) => ({ ...s }));
 			const held = new Set<number>();
+			// A STALE frame is one built for a LOOK (palette, mode, theme, and a grid's deck-wide CSS) no tile has any more: a palette change leaves every
+			// free frame keyed to the old look, and such a frame is the first to reuse and never a reason to grow (growing past
+			// them doubled a one-shape grid on FULL, 10 frames to 20). Staleness is read from the look and never from which
+			// tiles happen to be registered (and with none registered, from the last looks the grid had): a filter or a remounted panel unregisters the Mermaid tile for a while, and
+			// calling its frame stale then handed it to a plain tile, or trimmed it, on every round trip (checker 18).
+			// `deckCss` comes from the HOST, never from the tiles: inferring it ("every registered tile carries the same CSS") turned
+			// true when a filter hid the Add slide gallery's local component, which then made its frame stale and trimmed it on
+			// every round trip, the Mermaid churn again through another shape (card grader, #3441).
+			const all = [...tiles.current.values()];
+			const deckCss = !tileCssRef.current;
+			// NO tile registered (a search that matched nothing renders an empty state, and every tile leaves) is not a look
+			// change: judge staleness by the last looks the grid had. Reading it from the empty set called every frame stale
+			// and trimmed the spare on every empty-search bounce, one document per typo on LITE (card grader, #3441).
+			const looks = all.length > 0 ? new Set(all.map((t) => lookKey(t.props, deckCss))) : lastLooksRef.current;
+			lastLooksRef.current = looks;
+			const stale = (x: { props: PooledPreviewProps | null }) => !x.props || !looks.has(lookKey(x.props, deckCss));
+			// `mixed`: the grid holds more than one shape of the current look, counting the frames a filtered-out tile left
+			// behind. Only then is the spare for anything; a look change retires the rest and the trim gives it back.
+			const mixed = new Set([...all.map((t) => `${identityKey(t.props)}\u0000${shapeKey(t.props)}`), ...next.filter((x) => !stale(x)).map((x) => `${x.id}\u0000${x.key}`)]).size > 1;
 			// 1. A tile keeps the slot it already has — but ONLY if it survived the cap above.
 			//
 			//    Testing `holding()` here instead was a real bug and a visible one: a tile that had
@@ -639,17 +681,26 @@ export function PreviewPool({ children, className, baseSlots: hostBase = BASE_SL
 				// render patches instead of rewriting. Never a slot of another identity, whatever the
 				// pressure: that one is not a cost, it is a wrong answer.
 				//
-				// A NEW SLOT OF THIS SHAPE BEATS A FREE ONE OF ANOTHER — under the ceiling, and one past it
-				// for a shape the pool holds no slot of at all. Taking the other shape's slot is a full
+				// A NEW SLOT OF THIS SHAPE BEATS A FREE ONE OF ANOTHER, whenever no free slot of this shape
+				// is left — not only when the pool holds none at all. Taking the other shape's slot is a full
 				// rewrite now and another when a tile of that shape wants it back: two fresh documents, on
 				// WebKit two permanent ones, on every traversal. Measured on the Add slide gallery, which is
-				// kept mounted between opens and fills the ceiling at 1440 px: its one Mermaid tile cost two
-				// `srcdoc` writes on every reopen. One slot of its own shape, once, costs less. Still bounded
-				// by HARD_MAX_SLOTS.
+				// kept mounted between opens: with 15 plain tiles on screen and 15 slots, the 15th plain tile
+				// took the one Mermaid slot (its own slots were all held), and the Mermaid tile then rewrote
+				// a plain one. The old test only grew the pool for a shape with NO slot, so it missed this.
+				//
+				// AND ONE PAST THE CEILING (`SHAPE_SPARE`) while that is the only way to avoid the steal. A
+				// LITE pool's ceiling is 12, and the same gallery puts 12 plain tiles on screen at 1440x900:
+				// at the ceiling the steal is forced, and it cost about two documents on every reopen, with no
+				// bound (MR-3 under `?tier=lite`: 31 steals in 12 runs). With one spare frame: 0 steals, the
+				// document count flat across reopens in 12 of 12 runs. Owner's call, 2026-11-22
+				// (2026-11-12-device-capability-tiers.md §4.2). Still bounded by HARD_MAX_SLOTS.
+				//
+				// A STALE frame (built for a look no tile has now, see `stale`) goes before any new one: no tile can patch
+				// into it, so reusing it costs the same write and keeps the frame count where it was.
 				const free = next.filter((s) => s.tileId === null && s.id === idk);
-				let slot = free.find((s) => s.key === k);
-				const shapeless = !next.some((s) => s.key === k && s.id === idk);
-				if (!slot && (next.length < cap || (shapeless && next.length < ceilingRef.current))) {
+				let slot = free.find((s) => s.key === k) ?? free.find(stale);
+				if (!slot && next.length < slotRoom(ceilingRef.current, mixed)) {
 					slot = { tileId: null, rect: { top: 0, left: 0, width: 0, height: 0 }, props: null, key: k, id: idk, gen: 0 };
 					next.push(slot);
 				}
@@ -681,8 +732,10 @@ export function PreviewPool({ children, className, baseSlots: hostBase = BASE_SL
 			}
 			// A LOWERED CEILING (the device tier dropped to LITE mid-session) gives back the free frames above it. Only from the
 			// END, because a slot's place in the list is its React identity; a held slot there is trimmed by a later pass, once its
-			// tile leaves, since the cap above already keeps `want` within the ceiling.
-			while (next.length > ceilingRef.current && next[next.length - 1].tileId === null) next.pop();
+			// tile leaves, since the cap above already keeps `want` within the ceiling. A pool that holds more than one shape keeps
+			// its SHAPE_SPARE while `mixed`: trimming it would hand the steal straight back on the next traversal.
+			// Once a look change leaves the grid one shape, the spare goes back with the rest.
+			while (next.length > slotRoom(ceilingRef.current, mixed) && next[next.length - 1].tileId === null) next.pop();
 			setSlots(next);
 			// THE BOUND on a hidden slot: a frame that never reports a paint of its new slide must not leave its tile blank for
 			// good. Each slot is shown PENDING_HARD_MS after it began waiting, whatever it holds. The next deadline is read from
@@ -972,6 +1025,28 @@ export function PreviewPool({ children, className, baseSlots: hostBase = BASE_SL
 		const ro = new ResizeObserver(() => schedule());
 		if (layer.parentElement) ro.observe(layer.parentElement);
 		return () => ro.disconnect();
+	}, [schedule]);
+
+	// A PASS WHEN THE SURFACE STOPS MOVING. Which tiles get a frame is decided by what is on screen (`seen`), measured
+	// against the viewport, and a surface that slides or zooms in (the phone sheet rises from the bottom; the desktop
+	// dialog zooms from 95%) moves its tiles with a transform: no scroll, no resize, nothing an observer reports. The pass
+	// that a reopen runs lands mid-slide, while the lower tiles are still below the viewport, so it gives their frames to
+	// tiles nobody can see, and nothing ran another pass once the sheet stopped. At 390x844 on LITE, 2 of the 6 tiles on
+	// screen stayed blank after every reopen (1 before #3441; MR-3's note called it "the tile at the edge that is still
+	// writing its srcdoc"). An animation or transition that ends on an ancestor of the layer now schedules a pass, which
+	// only re-decides who holds a frame (`schedule` is throttled to APPLY_MS).
+	React.useEffect(() => {
+		const layer = layerRef.current;
+		if (!layer) return;
+		const onEnd = (e: Event) => {
+			if (e.target instanceof Node && e.target.contains(layer)) schedule();
+		};
+		document.addEventListener('animationend', onEnd, true);
+		document.addEventListener('transitionend', onEnd, true);
+		return () => {
+			document.removeEventListener('animationend', onEnd, true);
+			document.removeEventListener('transitionend', onEnd, true);
+		};
 	}, [schedule]);
 
 	return (
