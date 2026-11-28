@@ -6,6 +6,21 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-28 — raise the home eagerJsGz ceiling by 512 B (332,800 → 333,312) and the studio eagerJsGz ceiling by 1,024 B (647,852 → 648,876), by hand, for PR 3618, PR 3615, PR 3616, PR 3617 and PR 3588, at the owner's direction
+
+Owner OK 2026-11-28, 13:38 UTC, in the command center's session: "A", choosing A′ (one follow-up raise for both routes) over trims (B′) and a raise per merge (C′). It follows the owner's D6 (13:15 UTC, home +1 KB to 332,288), which PR 3629 (home to 332,800 for PR 3618) had already overtaken.
+
+Written by hand, as the entries below are; both soft targets stay (home 291,531, studio 571,778).
+
+Why: PR 3629 sized home for PR 3618 alone, and PR 3610 sized studio for the storage and flake PRs alone. PR 3618 also adds studio eager JS that PR 3610 never counted. Built together, the five PRs pass both old ceilings, so whichever merged last would fail its size gate.
+
+Measured together by `measure-route-base.sh`: `main` (4d8da9b6) with PR 3618 d53f35d9, PR 3615 c42eec44, PR 3616 1eaa6ad1, PR 3617 47d02303 and PR 3588 38515516 merged in (local branch at eb9bfb47) builds to home 332,934 B (378 B under the new ceiling) and studio 648,664 B (212 B under). An earlier build on `main` 97f4dadb with older heads measured home 332,934 B and studio 648,425 B.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| home | eagerJsGz | 291531 | 291531 | +0 | 333312 |
+| studio | eagerJsGz | 571778 | 571778 | +0 | 648876 |
+
 ### 2026-11-28 — raise the home eagerJsGz ceiling by 1,536 B (331,264 → 332,800), by hand, for PR 3618, at the owner's direction
 
 Owner OK 2026-11-28, in PR #3618's session: "D1 A", the option to raise home eagerJsGz by about 1.5 KB in its own PR. Written by hand, as the entries below are: `route-budget:rebaseline --raise --ceiling` would also reset soft to the measurement and put the ceiling 10% above it, about 33 KB higher. Soft stays 291,531.
