@@ -153,8 +153,12 @@ jobs:
                 --temperature "${TEMPERATURE:-0}" --reasoning "${REASONING:-auto}" --max-usd "${MAX_USD:-0.25}")
           if [ -n "${OLD_REF:-}" ]; then args+=(--old "$RUNNER_TEMP/old-start.md"); fi
           if [ "${PROBE:-false}" = 'true' ]; then args+=(--probe); fi
+          # GitHub runs this as `bash -e -o pipefail`, so without +e a non-zero tool exit kills the step
+          # before the next line reads it (run 46142692312 went red on exit 10).
+          set +e
           node tools/agent-pack-eval.mjs "${args[@]}" | tee -a "$GITHUB_STEP_SUMMARY"
           code=${PIPESTATUS[0]}
+          set -e
           if [ "$code" -eq 10 ]; then
             echo "::notice title=Decks failed::at least one deck failed; the table above is the result, and the run itself is sound"
             exit 0
