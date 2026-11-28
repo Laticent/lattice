@@ -63,7 +63,7 @@ export default function HeroPreview({ data }: { data: HeroData }) {
 
 				<TabsContent value="source">
 					<div className="aspect-video overflow-auto rounded-[14px] bg-[var(--surface-inverse)] p-5 shadow-lg">
-						<pre className="m-0 whitespace-pre font-mono text-[12.5px] leading-[1.65] text-[var(--on-dark-primary)]">
+						<pre className="m-0 whitespace-pre font-mono text-[12.5px] leading-[1.65] text-on-dark">
 							{/* Pre-highlighted server-side; spans carry .ln-* classes (landing.css keeps them). */}
 							<code
 								// biome-ignore lint/security/noDangerouslySetInnerHtml: source is escaped + highlighted server-side in the Astro page.

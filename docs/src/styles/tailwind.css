@@ -84,6 +84,9 @@
 	 * the canvas (an error line, a red border, a focus ring), and `--fail-mark` under `--fail-on-mark`
 	 * is the filled pill each theme curates (2026-11-16-status-triplets.md). Every palette ships both,
 	 * per mode; the site invents no red of its own. */
+	/* The engine's on-dark ink (generated from lib/base/base.tokens.css), for text on a dark panel. */
+	--color-on-dark: var(--on-dark-primary);
+
 	--color-destructive: var(--fail);
 	--color-destructive-mark: var(--fail-mark);
 	--color-destructive-foreground: var(--fail-on-mark);

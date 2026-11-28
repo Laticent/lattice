@@ -172,6 +172,14 @@ h1#_top {
 	padding: 0;
 }
 
+/* The header's GitHub link is a bare <a> (a ghost Button rendered asChild), and the docs zone
+ * gives a bare link no color, so its glyph fell to the browser's default link blue here only.
+ * Inherit the header ink, as the sibling icon buttons do. In CSS rather than a utility class
+ * on the island, so the fix adds no eager JS to every route that ships the header. */
+.header a[aria-label='GitHub repository'] {
+	color: inherit;
+}
+
 /* Mobile sidebar toggle (Starlight's <starlight-menu-button>). Restyle the
  * default floating white circle into the same bordered square <SiteHeader>'s
  * own controls use, palette-bound, so the docs hamburger matches the rest of
