@@ -8,7 +8,7 @@ Copyright 2025-2026 Sharmarke Aden, doing business as Laticent.
 
 ## Apache-2.0: the public libraries
 
-These 15 libraries are licensed under the [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0).
+These 14 libraries are licensed under the [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0).
 Each one keeps its own `LICENSE` (the Apache text) and `NOTICE` in its folder, and both ship in
 its npm package.
 
@@ -16,7 +16,6 @@ its npm package.
 |---|---|
 | `@laticent/cadenza` | `docs/src/lib/cadenza/` |
 | `@laticent/filo` | `docs/src/lib/filo/` |
-| `@laticent/fluido` | `docs/src/lib/fluido/` |
 | `@laticent/fuoco` | `docs/src/lib/fuoco/` |
 | `@laticent/lastra` | `docs/src/lib/lastra/` |
 | `@laticent/ltt` | `docs/src/lib/ltt/` |
@@ -57,6 +56,8 @@ under the [GNU Affero General Public License, version 3 only](LICENSE). That inc
 - `@laticent/calco` (`docs/src/lib/calco/`) and `@laticent/trama` (`docs/src/lib/trama/`): editable
   PowerPoint and OpenDocument export, and graph-chart layout and routing, are product features the
   owner keeps under the AGPL (2026-11-28);
+- `@laticent/fluido` (`docs/src/lib/fluido/`). Its pagination defaults (a wide slide never paginates,
+  one item per page, the 64-page cap) come from Lattice's own layout decisions (2026-11-28);
 - `@laticent/lente` (`docs/src/lib/lente/`). Its suggestion rules (`suggest.ts`) encode which
   Lattice components belong in which reader lens, which is Lattice's own design policy;
 - `@laticent/cenno` (`docs/src/lib/cenno/`), which is private and not published.

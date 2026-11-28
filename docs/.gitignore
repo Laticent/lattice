@@ -15,6 +15,7 @@ dist/
 # NOTICE in its folder, tracked (LICENSING.md).
 src/lib/calco/LICENSE
 src/lib/cenno/LICENSE
+src/lib/fluido/LICENSE
 src/lib/lente/LICENSE
 src/lib/trama/LICENSE
 # generated types

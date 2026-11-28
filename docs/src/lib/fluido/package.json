@@ -2,7 +2,7 @@
   "name": "@laticent/fluido",
   "version": "0.1.0",
   "description": "Decide how content fits the box it is shown in: which slides stay whole, which paginate and along which seam, the size gate, and a deterministic budget rescue for one over-budget member. Facts about a rendered slide in, a decision out. Deterministic, framework-free, zero-dependency, no DOM.",
-  "license": "Apache-2.0",
+  "license": "AGPL-3.0-only",
   "author": "Sharmarke Aden (Laticent) <sharmarke.aden@gmail.com>",
   "repository": {
     "type": "git",
@@ -32,7 +32,6 @@
     "!*.test.ts",
     "README.md",
     "LICENSE",
-    "NOTICE",
     "CHANGELOG.md"
   ],
   "publishConfig": {
