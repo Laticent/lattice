@@ -1,0 +1,14 @@
+---
+"@laticent/lattice": patch
+---
+
+The Studio chat's cost figures now say "unknown" when a provider sends no cache report instead of 0%, and a reply stopped mid-round is charged and listed as an estimate instead of nothing.
+
+- The metrics dropdown's cache share reads "unknown" when the provider reported no figure, and Anthropic's own key now reports its cache reads, which always read 0 before.
+- A cache write on a direct Anthropic key is priced by its own 5-minute / 1-hour split: 1.25× and 2× base input.
+- A round the provider accepted but that a Stop or an error ended before it reported its usage is charged as an estimate, shown in the reply's usage and in Show work, and marked as one. A request the provider refused, or one stopped before its first chunk, costs nothing: on OpenRouter, a request stopped on its HTTP 200 before any chunk was measured as not billed, and one stopped on its first chunk was.
+- A Stop ends the reply as stopped on every route: no partial usage or half-streamed tool call is reported, and no tool runs after the Stop.
+- The hard-stop budget cap and the Stop estimate count the tool definitions each round carries.
+- Show work lists each model call's cost, input with its cached share, and output, and its total keeps cumulative input apart from the largest single call.
+- The chat's system prompt names 14 export, preview and raw-CSS front-matter keys instead of describing each, and folds `lexicon:` and `acronyms:` into the `terms:` row: 412 fewer tokens on every request. The model still reads each one in full on request, and read_front_matter now finds the camelCase keys (`backgroundColor` and four more), which it reported as unknown before.
+- Dialog and sheet titles across the Studio and the docs site read as separate words: the display tracking on headings no longer closes their word space ("Show work" read as "Showwork").

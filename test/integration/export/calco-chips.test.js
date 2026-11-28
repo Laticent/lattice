@@ -12,6 +12,7 @@
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const puppeteer = require('puppeteer');
+const { launchOrExplain } = require('../../helpers/chrome.js');
 const { readSlide, restoreSlide } = require('@laticent/calco');
 
 const HTML = `<!doctype html><html><head><style>
@@ -38,7 +39,9 @@ describe('calco inline chips as highlights', () => {
   let browser;
   let res;
   before(async () => {
-    browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    // launchOrExplain adds the machine's state to a launch failure (a 30 s WS-endpoint timeout here once,
+    // never reproduced: PR #3577); it does not retry or wait any longer.
+    browser = await launchOrExplain(puppeteer, { headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
     const page = await browser.newPage();
     await page.setViewport({ width: 1280, height: 720 });
     await page.setContent(HTML, { waitUntil: 'load' });

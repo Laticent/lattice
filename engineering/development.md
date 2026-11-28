@@ -1311,10 +1311,11 @@ copy that leaks markup or still links an HTML page that has a copy.
 
 **The agent pack lives at `/agents/`.** `docs/scripts/sync-portal.mjs` copies `dist/agent-kit/`
 (built by `tools/build-agent-kit.mjs`) there verbatim, and `/llms.txt` sends agents to
-`/agents/start.md` first. The same tree is mirrored to the `dist-kits` branch, so edit the kit's
-generator, never the copies. The kit build fails on a link that leaves the kit and on Marp wording
-outside `render/lattice-export-to-marp.md`; `tools/agent-pack-eval.mjs` (nightly) has a model write
-decks from `start.md` alone. Why: `engineering/decisions/2026-11-17-agent-pack.md`.
+`/agents/start.md` first, then `/agents/layouts.md`. The same tree is mirrored to the `dist-kits` branch, so edit the kit's
+generator, never the copies. The kit build fails on a link that leaves the kit, on Marp wording
+outside `render/lattice-export-to-marp.md`, and on a `start.md` over 990 o200k tokens
+(`START_TOKEN_MAX`: the owner's 1,500 on Claude's count, at the measured 1.51× ratio); `tools/agent-pack-eval.mjs`
+(nightly) has a model write decks from `start.md` alone. Why: `engineering/decisions/2026-11-17-agent-pack.md`.
 The link-preview card is `docs/public/og/lattice.png`, drawn by `node tools/make-og-card.js`
 (committed, like the PWA icons; re-run it after changing the lockup, the promise or the showcase
 slides it uses).

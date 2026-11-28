@@ -10260,7 +10260,10 @@ const OPENROUTER_SCAN_EXEMPT = new Set(['test/unit/cli/check-ownership.test.js']
 // tools/agent-pack-eval.mjs: does the agent pack make a model write a good deck? Opt-in
 // (OPENROUTER_ALLOW_SPEND=1), prints its cost, run nightly by agent-pack-eval-nightly.yml
 // (engineering/decisions/2026-11-17-agent-pack.md §4.5).
-const SANCTIONED_OPENROUTER_SPENDERS = ['tools/component-gen-eval.mjs', 'tools/generate-voice-samples.mjs', 'tools/record-lesson-voice.mjs', 'tools/intent-bakeoff/judge-eval.mjs', 'tools/probe-picture-tokens.mjs', 'tools/tts-bench.mjs', 'tools/agent-pack-eval.mjs'];
+const SANCTIONED_OPENROUTER_SPENDERS = ['tools/component-gen-eval.mjs', 'tools/generate-voice-samples.mjs', 'tools/record-lesson-voice.mjs', 'tools/intent-bakeoff/judge-eval.mjs', 'tools/probe-picture-tokens.mjs', 'tools/tts-bench.mjs', 'tools/agent-pack-eval.mjs', 'tools/stop-billing-probe.mjs'];
+// tools/stop-billing-probe.mjs: measures how OpenRouter bills a stopped chat request, the assumption behind the chat
+// ledger's settleOpenRound (#3533). About USD 0.04 a run, --cap 0.10, dispatch-only via agent-pack-eval-nightly.yml's
+// stop_probe input; the owner approved both the entry and the input (2026-11-27).
 
 // Workflows allowed to spend the key: sanctioned, budgeted, skipping or failing VISIBLY when the
 // secret is unset (#1931: a silent green skip looks like a real run), and — critically — OFF the PR/commit critical path (nightly schedule / workflow_dispatch,

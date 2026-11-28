@@ -1630,7 +1630,8 @@ The contract, and its limits — be precise about what it does and doesn't cover
   release (`release.yml`, where dispatching the workflow *is* the
   authorization), and patch/minor dependency bumps
   (`dependabot-auto-merge.yml`; majors wait). See
-  § Automation vs. the main ruleset.
+  § Automation vs. the main ruleset. **Night mode** is the one standing grant for
+  authored work: §Desks, "Night mode".
 - **A machine checks the authorization, not the model.** A `PreToolUse` hook,
   `.claude/hooks/owner-merge-gate.mjs`, runs before every `merge_pull_request` and
   `enable_pr_auto_merge` call. **Sessions merge only through those two tools.** The
@@ -1640,18 +1641,32 @@ The contract, and its limits — be precise about what it does and doesn't cover
   merges (a `$N`, a line continuation, `sudo`) and blocked ordinary commands. The gate reads the
   transcript's `origin.kind`, which the harness writes: only the owner's own turns
   are `human`; relayed session messages, desk briefs, subagent reports and hook
-  feedback never are. It allows the merge only when the owner's latest typed turn is,
-  **as the whole message**:
+  feedback never are. It allows the merge only on the owner's latest word, which is
+  either a typed turn that is, **as the whole message**:
   - `merge #N` (or `merge #N, #M`), or
-  - `all` / `all but #N`, answering the newest assistant message, whose first line
-    is exactly `🚦 Merge digest` and which lists the PR as a row `#N — head <sha> …`.
+  - `all` / `all but #N`, answering the **newest** `🚦 Merge digest` before it, however
+    much text or how many messages came between (owner's decision, 2026-11-27). The
+    marker is a line of its own, in a fenced block or not, and the digest lists the PR
+    as a row `#N — head <sha> …`. An older digest never counts once a newer one exists;
+  
+  or the owner's **answer to a question about merging** (a real `AskUserQuestion` call,
+  which the transcript records as `user_temporary`; owner's decision, 2026-11-27). Ask
+  "Which PRs should merge?" with options `merge #3442 vault, VERY HIGH` and `merge all`.
+  A chosen option, matched whole, that reads `merge #N …` approves #N, and `merge all …`
+  approves every `merge #N` option of that question. Approving nothing: any other label
+  shape (`#3442 vault`, `Approve #3442`), a holding or excepting word in the question, a
+  label or its description (hold, not, keep, but, except …), free text typed as "Other",
+  and a question that does not say merge.
+- **"all" does not cover a PR the owner wrote about after the digest** ("hold #3442"):
+  that PR is asked again. A digest's rows end at the first line that is not a row.
 
   Anything else is denied with the reason: "do not merge #N", "hold all", "yes" or
-  "lgtm" do not parse, so a refusal or a hedge can never read as an approval. An
-  unreadable transcript denies too. Unlike the repo's warn-only hooks, it blocks: it
-  fires only on a merge tool, and a warning does not stop one. It does not check the
-  PR's head commit; the command center does that before it merges (§Merging, the
-  digest bullet). The owner can always merge from GitHub itself.
+  "lgtm" do not parse, so a refusal or a hedge can never read as an approval. A
+  subagent's merge call, and an unreadable transcript, deny too. Unlike the repo's warn-only hooks, it blocks: it
+  fires only on a merge tool, and a warning does not stop one. Outside night mode it
+  does not check the PR's head commit; the command center does that before it merges
+  (§Merging, the digest bullet). In night mode `tools/night-eligible.mjs` checks the
+  head against the card (§Desks, "Night mode"). The owner can always merge from GitHub itself.
 - **An approval covers the head it was given on** (owner's decision,
   2026-11-20). If the PR gets a new head afterwards that is more than a clean
   rebase (`git range-diff` of old and new is not empty), for example a fix pushed
@@ -1665,7 +1680,8 @@ The contract, and its limits — be precise about what it does and doesn't cover
   brief as after any merge. With no live
   `desk:merge` session, each session asks as below.
 - **Batch the ask when more than one PR is green.** The authorization itself does
-  not change — a human still authorizes every merge, and one PR's approval is
+  not change — a human still authorizes every merge (night mode is the owner's one
+  standing grant, §Desks), and one PR's approval is
   never license for the next. What changes is the *delivery*: when several PRs
   are green and review-ready, put them in **one** round rather than pinging once
   per PR. List each as `#N — one line — <check state>`, ordered so the answer can
@@ -3059,6 +3075,7 @@ running it:
 | 💬 Feedback | `/desk-feedback` | outside reports: reproduce, route to the lane, draft replies for the owner |
 | 📈 Stress | `/desk-stress` | the upper limits of what still passes (deck size, images, chart points, session length) without breaking anything; a limits table, and a dropped limit is a regression |
 | 🔥 Torture | `/desk-torture` | driving the Studio to crash, leak or rot on purpose with `perf-torture`, and naming the culprit by its retainer chain or listener add-site |
+| 🌙 Night | `/desk-night` | acting for the owner while they are away: raising cards and merging VERY HIGH PRs the gate finds eligible, after the owner's "good night" or "afk" (below) |
 
 **Read your lane first, write back last** (owner's decision, 2026-11-21). A desk's
 first pass starts from the work already known in its lane, not only from live state:
@@ -3080,6 +3097,62 @@ includes `followups.d/` (its embargo in `/desk-security`). The backlog desk alon
 follow-up into an issue or retires one that is done or stale; the other desks claim and fix.
 Before this rule, only the backlog desk read `followups.d/` (about 580 files), and only the
 deps and optimize desks read a gotcha file (`engineering/gotchas/ci.md`).
+
+**Night mode** (owner's decisions, 2026-11-21, after a red team, an inversion and a checker
+reviewed the first draft). The owner types `/desk-night` in a session, then exactly "good
+night" or "afk", as its own turn: typed while a turn is still running, it is only queued and
+arms nothing (seen live on 2026-11-27). Until their next typed turn there (a message queued
+mid-turn and an answer to a question count), or 12 hours, the merge gate
+(`.claude/hooks/owner-merge-gate.mjs`) allows that session's merge calls (never a subagent's)
+on a PR only when `tools/night-eligible.mjs`, taken from `origin/main` and run by the gate
+itself, finds on GitHub that:
+- **it is the owner's own work:** an owner login opened it from this repository (no forks), and
+  no commit carries the night session's `Claude-Session:` trailer (no self-approval);
+- **the card is real and current:** the newest 🚦 card was posted by an owner login and never
+  edited, reads VERY HIGH on its confidence line, picks MERGE on its pick line (a VERY HIGH
+  HOLD stays put), names a checker on its graded-by line, and names the PR's current head sha.
+  `npm run card` has no head field, so put the short sha in the card's `ran` line;
+- **it is green on a green base:** `ci` from GitHub Actions succeeded on the head; GitHub reports
+  the PR clean or only behind `main`; and the latest golden-bless and integration-nightly runs
+  on `main` are not red (a guard with no run to read counts as red). CI is not a guard (owner's
+  decision, 2026-11-27): it never runs on `main`, and a merge-queue run fails when one PR is
+  ejected, not when `main` breaks;
+- **it is non-visual and outside the control plane:** every changed path, old name and new, is
+  under `lib/`, `tools/`, `test/`, `engineering/`, `design/`, `followups.d/` or `changelog.d/`,
+  or is a changeset file directly in `.changeset/` (owner's decision, 2026-11-27).
+  None may be visual (components, base, plugins, finishes, tokens, any CSS, images), export,
+  fonts, a sanitizer, a `package.json`, or a gate the next night depends on (the card builder,
+  the ownership check, the lint core, the flaky baseline, this file, `orchestration.md`,
+  `house-style.md`, the gate and its tests, `.changeset/README.md`). It also carries no breaking
+  record (a `**Breaking:**` line, or a changeset that bumps a package `major`), no release, and
+  no `security`, `release`, `dependencies` or `breaking` label.
+  The owner chose to leave the slide-drawing kernel (`lib/engine`, `lib/core`,
+  `lib/transformers`) and the build tools (`tools/build-*`) mergeable at night (2026-11-27),
+  knowing the 01:07 golden bless then re-records the reference PDFs to match.
+
+Anything unreadable, missing, or over 300 files is a no. There is no cap on merges a night
+(owner's choice). **Visual PRs wait for the owner's eyes**: the desk puts the VERY HIGH ones in
+a morning `🚦 Merge digest` with their artifacts attached. **A new push turns auto-merge off**
+(`.github/workflows/disarm-on-push.yml`, owner-approved): an approval or a night check covers
+the head it saw, and GitHub's auto-merge does not, so the PR is asked about or checked again.
+It skips Dependabot and the two generated branches that re-arm themselves after a force-push
+(`chore/golden-bless`, `chore/backlog-sync`). It disarms a clean rebase too, which is stricter
+than the approval rule above: re-arm after one.
+The desk never regrades or posts a card; the PR's own session raises it. It reads
+`.claude/skills/desk-night/owner.md` only for its own reversible choices.
+
+What no machine checks, stated plainly:
+- whether the owner is back in ANOTHER session (the desk watches the command center; the gate
+  sees only its own session);
+- whether the card's grader really ran (the gate reads the card's words, as #28 says of `npm
+  run card`);
+- a session transcript edited from its own shell, which could already forge a typed `merge #N`
+  before night mode existed. The same holds for a session that repoints its local `origin/main`
+  ref or edits the hook: reading the tool from `origin/main` stops an accidental edit, not a
+  hostile one;
+- who wrote a card or a PR: every session posts through the owner's GitHub account, so "an owner
+  login" rules out strangers and forks, not another session's self-graded card. The owner
+  accepted this for now (2026-11-27); a signed card would close it.
 
 **What every desk may do on its own (owner's decision, 2026-11-20): act inside
 its lane, and only these verbs.** This list is exhaustive; every other action

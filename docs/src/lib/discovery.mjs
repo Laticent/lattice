@@ -96,7 +96,8 @@ export const LLMS_LINKS = Object.freeze({
 	// scripts/sync-portal.mjs. Files, not pages, so they are linked as they are
 	// (engineering/decisions/2026-11-17-agent-pack.md).
 	'Write a deck': [
-		['/agents/start.md', 'Write a Lattice deck', 'Start here. What a good deck is, the rules, every layout in one line, the common skeletons, how to check and render. One file', { file: true }],
+		['/agents/start.md', 'Write a Lattice deck', 'Start here, under 1,500 tokens. The file shape, what a good deck is, the rules, the common layouts and modifiers, how to check and render', { file: true }],
+		['/agents/layouts.md', 'Every layout', 'All layouts in one line each, the parts any slide can carry, the deck settings, the inline notation and the common skeletons', { file: true }],
 		['/agents/components/README.md', 'Layouts', 'One file per layout: how much it holds, its variants, its skeleton, the mistakes reviewers flag. Read one for each layout you use', { file: true }],
 		['/agents/skills/README.md', 'Craft guides', 'Edit or restyle a deck, chart from data, speaker notes, fix lint findings, diagrams, math, import', { file: true }],
 		['/agents/render/lattice-render-a-deck.md', 'Render and check', '`npx @laticent/lattice deck.md deck.pdf`, the Studio, and the checker at /agents/review/check.mjs', { file: true }],
@@ -175,14 +176,22 @@ export const OG_IMAGE = Object.freeze({
 export const REPO_URL = 'https://github.com/Laticent/lattice';
 export const AGENT_KIT_URL = 'https://github.com/Laticent/lattice/tree/dist-kits/agent';
 
-export function llmsTxt({ site }) {
+/**
+ * `version` is the engine version the agent pack describes (packages/lattice/package.json). The
+ * route passes it in rather than this module importing the manifest, because the landing page's
+ * client bundle imports this module too (`AGENT_ENTRY`). Without it, the line is left out.
+ *
+ * @param {{ site?: URL | string, version?: string }} opts
+ */
+export function llmsTxt({ site, version }) {
 	const abs = (p) => (site ? new URL(p, site).href : p);
 	const out = [
 		'# Lattice',
 		'',
-		'> A slide-deck engine that renders boardroom-ready PDF, PPTX and HTML decks from plain Markdown. Each slide picks a layout with `<!-- @meta{class=name} -->`; a theme supplies the palette. Open source (AGPL-3.0), runs offline.',
+		'> A slide-deck engine that renders boardroom-ready PDF, PPTX and HTML decks from plain Markdown. Each slide picks a layout with `<!-- @meta{layout=NAME} -->`; a theme supplies the palette. Open source (AGPL-3.0), runs offline.',
 		'',
-		'To write a deck, read /agents/start.md first, then the file for each layout you use. Everything an agent needs is on this domain, in plain Markdown.',
+		...(version ? [`The agent pack below describes engine ${version}.`, ''] : []),
+		'To write a deck, read /agents/start.md first, then /agents/layouts.md or the file for each layout you use. Everything an agent needs is on this domain, in plain Markdown.',
 		'',
 		`Source: ${REPO_URL}. The same agent pack is mirrored to ${AGENT_KIT_URL} for products that take uploaded files.`,
 		'',
