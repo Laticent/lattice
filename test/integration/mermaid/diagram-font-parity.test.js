@@ -204,11 +204,11 @@ describe('the per-diagram font keys cover every one mermaid ships', () => {
 describe('diagram font parity — the baked face IS the cascade\'s face', { skip: skipWithoutChrome(CHROME) }, () => {
   test('every mode answer agrees between the export bake and the cascade', { timeout: TIMEOUT }, async () => {
     const decks = [
-      ['drawing: sketch', 'drawing: sketch', ['', 'boardroom', 'sketch-headings', 'dark']],
+      ['drawing: sketch', 'drawing: sketch', ['', 'no-sketch', 'sketch-headings', 'dark']],
       ['drawing: sketch-headings', 'drawing: sketch-headings', ['', 'sketch']],
       ['drawing: clean', 'drawing: clean', ['', 'sketch']],
       ['plain deck', 'pagination: true', ['', 'sketch']],
-      ['legacy class: sketch', 'class: sketch', ['', 'boardroom']],
+      ['legacy class: sketch', 'class: sketch', ['', 'no-sketch']],
     ];
     const mismatches = [];
     for (const [label, fm, classes] of decks) {

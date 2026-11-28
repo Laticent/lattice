@@ -51,7 +51,7 @@ describe('deck-mode-fm', () => {
     assert.ok(slide2.cls.includes('cards-grid'), `slide 2 lost 'cards-grid'; got "${slide2.cls.join(' ')}"`);
     assert.ok(slide2.cls.includes('sketch'), `slide 2 missing mode 'sketch'; got "${slide2.cls.join(' ')}"`);
 
-    // Slide 3's per-slide `boardroom` opts OUT of the deck mode (no `sketch`),
+    // Slide 3's per-slide `no-sketch` opts OUT of the deck mode (no `sketch`),
     // but keeps the deck-wide finish backdrop.
     const slide3 = sections.find(s => s.id === '3');
     assert.ok(!slide3.cls.includes('sketch'), `slide 3 opted out; should NOT be sketch; got "${slide3.cls.join(' ')}"`);

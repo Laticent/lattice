@@ -251,13 +251,13 @@ describe('preview diagram face', { skip: skipWithoutChrome(CHROME) }, () => {
     const census = await previewFaces(src, 'indaco');
     assertAllRendered(census, fenceCount(src), 'drawing: sketch');
     assertNoForeignFace(census, 'drawing: sketch');
-    // Bucketed, because slide 8 of this deck is `_class: diagram boardroom` — the
+    // Bucketed, because slide 8 of this deck is `_class: diagram no-sketch` — the
     // per-slide opt-out. A flat "no Outfit anywhere" assertion would call that a defect.
     assert.deepEqual(Object.keys(census.byBucket.hand).sort(), ['Shantell Sans'],
       'every label on a sketch SLIDE previews in the hand face: '
       + JSON.stringify(census.byBucket));
     assert.deepEqual(Object.keys(census.byBucket.clean).sort(), ['Outfit'],
-      'and the deck\'s `_class: diagram boardroom` opt-out slide previews clean — that '
+      'and the deck\'s `_class: diagram no-sketch` opt-out slide previews clean — that '
       + 'per-slide escape hatch is half of what #1674 shipped: '
       + JSON.stringify(census.byBucket));
   });
