@@ -51,8 +51,15 @@ async function type(page: Page, text: string): Promise<void> {
 }
 const ls = (page: Page, key: string) => page.evaluate((k) => localStorage.getItem(k), key);
 
+/** The shipped direction: the fixture keeps decks in localStorage unless a spec says `vault` first. */
+async function onVault(page: Page): Promise<void> {
+	await page.addInitScript(() => {
+		if (localStorage.getItem('lattice-deck-storage') === null) localStorage.setItem('lattice-deck-storage', 'vault');
+	});
+}
 /** A deck stored the pre-slice-3 way, opened as the active deck; the move takes it in on this load. */
 async function seedLegacyDeck(page: Page): Promise<void> {
+	await onVault(page);
 	await gotoStudio(page);
 	await page.evaluate(
 		({ id, deck }) => {
@@ -120,6 +127,7 @@ test.describe('decks in the storage vault @crosswidth @webkit-phone @gecko', () 
 		await seedLegacyDeck(a);
 		await moved(a);
 		const b = await profile.newPage();
+		await onVault(b);
 		await gotoStudio(b);
 		await expect.poll(() => deckEditorText(b), { timeout: 30_000 }).toContain('- first line');
 		await type(a, '\n- from tab A');

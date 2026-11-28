@@ -57,7 +57,10 @@ const BASE_URL = `http://localhost:${PORT}`;
 // studio-player-consent does. A page on another origin, or a load after `localStorage.clear()`, starts unpinned.
 const tierPin = (tier: 'lite') => ({
 	cookies: [],
-	origins: [{ origin: BASE_URL, localStorage: [{ name: 'lattice-device-tier-override', value: tier }] }],
+	// `lattice-deck-storage: local` keeps deck text in localStorage, the way back of vault slice 3: the suite's helpers and
+	// many specs read and seed `lattice-studio-src-<id>` keys. deck-vault.spec.ts runs the shipped vault path in its own
+	// persistent profiles, which this pin does not reach. studio-fixture.ts gotoStudio sets the same key.
+	origins: [{ origin: BASE_URL, localStorage: [{ name: 'lattice-device-tier-override', value: tier }, { name: 'lattice-deck-storage', value: 'local' }] }],
 });
 const isCI = !!process.env.CI;
 // TIME-BALANCED LEGS. The nightly's eight `e2e` legs set E2E_SHARD=K/8 instead of passing `--shard`.

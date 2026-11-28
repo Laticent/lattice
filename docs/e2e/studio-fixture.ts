@@ -586,6 +586,11 @@ export async function gotoStudio(page: Page, { query = '' }: { query?: string } 
 			// StudioShell.test.tsx / SlideContext.test.tsx.
 			// engineering/decisions/2026-09-26-deck-presets-and-settings-tiers.md.
 			localStorage.setItem('lattice-studio-settings-tier', JSON.stringify('advanced'));
+			// DECK TEXT IN LOCALSTORAGE, not the shipped storage vault (vault slice 3): the suite's helpers and many specs
+			// read and seed `lattice-studio-src-<id>` keys, so the fixture keeps decks there with the documented way back,
+			// `lattice-deck-storage: local`. A spec about the vault (deck-vault.spec.ts) sets the key to `vault` first,
+			// and this leaves any value already there alone.
+			if (localStorage.getItem('lattice-deck-storage') === null) localStorage.setItem('lattice-deck-storage', 'local');
 		} catch {
 			/* storage unavailable — the app falls back to its default */
 		}
