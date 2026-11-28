@@ -30,6 +30,8 @@ test('every library except Calco, Cenno, Lente and Trama is Apache-2.0, and each
   const agpl = LIBS.filter((dir) => read(dir).license === 'AGPL-3.0-only');
   assert.deepEqual([...apache, ...agpl].sort(), [...LIBS].sort(), 'a library names a license that is neither Apache-2.0 nor AGPL-3.0-only');
   assert.deepEqual(agpl.sort(), STAY_AGPL);
+  // An AGPL library ships no NOTICE: a stray Apache NOTICE left in its folder must never be packed.
+  for (const dir of agpl) assert.ok(!(read(dir).files || []).includes('NOTICE'), `${dir} lists NOTICE in files`);
   assert.equal(apache.length, 15);
   // stageLicense on an Apache folder only reads, so running it on the real tree changes nothing.
   for (const dir of apache) assert.equal(stageLicense(path.join(ROOT, dir)), null, dir);

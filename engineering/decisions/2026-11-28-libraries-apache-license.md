@@ -15,8 +15,8 @@ The owner, who holds the copyright, typed in the 🧭 Initiative desk session on
 01:30 UTC: "I don't need a lawyer. the change to apache is sound? reasonable?", then "we should
 start a desk or session to switch the libraries to apache". That approves the relicensing without
 counsel review, and it replaces the initiative's "counsel/owner approval" for this step. Nothing
-is on npm yet (D1 in the map's §0 holds npm 1.0.0), so each library's first public version is
-Apache-2.0.
+is on npm yet (D1 in the map's §0 holds npm 1.0.0), so each library this note moves has Apache-2.0
+as its first public version.
 
 **The owner narrowed it** in the same desk session's question tool at 03:24 UTC: "16 Apache; Calco,
 Trama stay AGPL". The question called Calco (editable PowerPoint) and Trama (diagram layout) "real
@@ -104,5 +104,11 @@ Cenno is private and stays AGPL-3.0-only, as E2 says.
 - **Six libraries cannot take a changeset** (filo, fuoco, suono, tavola, veduta, vetrina): they are
   in `.changeset/config.json` `ignore` and the gate rejects them. Their manifests and files changed
   all the same; their first publish will be Apache-2.0.
+- **Fluido (D2 on the ❓ card).** Its page-break defaults read as generic (§3), so it moves to
+  Apache-2.0. The owner can still keep it AGPL before this merges.
+- **The inbound license (D3 on the ❓ card).** `CONTRIBUTING.md` lines 40–42 still say every
+  accepted contribution comes in under AGPL-3.0-only, and `TRADEMARKS.md` lines 5–6 say the AGPL
+  covers the code. Both are now wrong for the 15 Apache libraries. Wording them is the owner's
+  call: `followups.d/3605-p1-inbound-license-wording.md`.
 - **An artifact license gate in CI** (map A-4) is still unbuilt. Prepack now refuses a wrong
   license at pack time; a CI job that packs every library is a separate, owner-approved change.
