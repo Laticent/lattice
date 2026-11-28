@@ -40,6 +40,28 @@ async function latticeLibraryProbe() {
 	const button = (label) => [...document.querySelectorAll(`button[aria-label="${label}"]`)].find(live);
 	const SECTIONS = ['All', 'Decks', 'Design', 'Media', 'Files', 'Plugins'];
 	const strip = () => [...document.querySelectorAll('[role="tablist"][aria-label="Library sections"]')].find(live);
+	// SETTLED, not just present: the sheet slides in over 500 ms (ui/sheet.tsx), and on a starved runner far longer, so a
+	// strip read the moment it exists can sit a sheet's width off to the right (harness run 1 on #3588: 1049–1544px on a
+	// 1032px screen). Wait until no animation runs on it or its dialog, and its box holds still for three frames (#32).
+	const settled = async (what, el) => {
+		const host = el.closest('[role="dialog"]') || el;
+		let last = '';
+		let still = 0;
+		await until(what, () => {
+			// Any finite animation not yet finished counts, paused or stalled at its first frame included: run 1 read the
+			// strip a whole sheet-width (720px) to the right, the slide's starting frame. An endless one (a spinner) does not.
+			// Animations on the strip, inside its dialog, or on any ANCESTOR (the slide can live on a wrapper above the dialog).
+			const moving = document.getAnimations().some((a) => {
+				const t = a.effect?.target;
+				return !!t && (t.contains(el) || host.contains(t)) && a.playState !== 'finished' && a.effect.getComputedTiming().iterations !== Infinity;
+			});
+			const r = el.getBoundingClientRect();
+			const key = `${Math.round(r.left)},${Math.round(r.top)},${Math.round(r.width)}`;
+			still = !moving && key === last ? still + 1 : 0;
+			last = key;
+			return still >= 3;
+		}, 30000);
+	};
 	const row = () => {
 		const list = strip();
 		const host = list.parentElement;
@@ -75,6 +97,7 @@ async function latticeLibraryProbe() {
 			entry.click();
 		}
 		await until('the live Library section strip', () => strip(), 30000);
+		await settled('the Library to finish opening', strip());
 		step('the Library opens with a live section strip', true, `via ${how} at ${innerWidth}px`);
 
 		// 2–4. The strip.
@@ -94,7 +117,7 @@ async function latticeLibraryProbe() {
 			row().find((p) => p.name === name).el.click();
 			await until(`${name} selected`, () => row().find((p) => p.name === name && p.el.getAttribute('aria-selected') === 'true'));
 			// Let the section render and the strip refit (a ResizeObserver tick) before reading the row again.
-			await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+			await settled(`the strip to settle after picking ${name}`, strip());
 			const now = row();
 			step(`picking ${name} leaves the row still`, oneRow(now) && shownNames(now) === shownNames(first), `${shownNames(now)}`);
 			if (name === 'Decks') {
