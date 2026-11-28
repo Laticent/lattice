@@ -137,6 +137,23 @@ test.describe('decks in the storage vault @crosswidth @webkit-phone @gecko', () 
 		expect(await deckEditorText(a)).toContain('- from tab A');
 	});
 
+	test('a pre-slice-3 tab that writes the old key after the move wins the next read, and moves in', async ({ profile }) => {
+		const page = await profile.newPage();
+		await seedLegacyDeck(page);
+		await moved(page);
+		// A tab still on the old code saves into the key it knows: main's last-save-wins, carried on the card.
+		await page.evaluate(
+			({ id, deck }) => localStorage.setItem(`lattice-studio-src-${id}`, JSON.stringify(`${deck}- from an old tab\n`)),
+			{ id: ID, deck: DECK },
+		);
+		await page.reload();
+		await waitForStudioPaint(page);
+		await expect.poll(() => deckEditorText(page), { timeout: 30_000 }).toContain('- from an old tab');
+		await moved(page); // the next move takes the key in as a save
+		await reloadFromVault(page);
+		await expect.poll(() => deckEditorText(page), { timeout: 30_000 }).toContain('- from an old tab');
+	});
+
 	test('the move-back puts the deck in its key again, read back', async ({ profile }) => {
 		const page = await profile.newPage();
 		await seedLegacyDeck(page);

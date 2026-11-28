@@ -380,6 +380,43 @@ describe('the boot cache after a cut-off save', () => {
 	});
 });
 
+describe('carried item 2b against main\'s storage', () => {
+	// 2b: a cut-off save of tab A is lost when tab B saves the same deck before A reopens (the test just above).
+	// main keeps decks in one localStorage key per deck and no tab hears another's deck save, so the last save wins.
+	// The local direction is that storage, and the e2e suite's pin.
+	it('on main\'s storage, tab B\'s later save replaces tab A\'s edit even when A\'s save was not cut off', () => {
+		mem.set(DECK_DIRECTION_KEY, 'local');
+		seedLegacy();
+		const opened = loadSource('deck-a') as string; // both tabs open the deck
+		saveSource('deck-a', `${opened}- from tab A\n`, { fromShell: true }); // A's save lands in full
+		saveSource('deck-a', `${opened}- from tab B\n`, { fromShell: true }); // B never saw A's text
+		expect(loadSource('deck-a')).toBe(`${opened}- from tab B\n`);
+	});
+	it('a pre-slice-3 tab that writes the old key after the move wins the next read, and the next move takes it in', async () => {
+		seedLegacy();
+		await moveDecksIntoVault({ pack: pack('x') });
+		expect(mem.has(SRC_PREFIX + 'deck-a')).toBe(false);
+		// A tab still running the old code saves the text it holds, into the key it knows: main's last-save-wins.
+		mem.set(SRC_PREFIX + 'deck-a', JSON.stringify(`${deckA}- from an old tab\n`));
+		reload();
+		await decksReady();
+		expect(loadSource('deck-a')).toBe(`${deckA}- from an old tab\n`);
+		expect(await moveDecksIntoVault({ pack: pack('y') })).toMatchObject({ moved: 1 });
+		await deckVaultSettled();
+		expect(mem.has(SRC_PREFIX + 'deck-a')).toBe(false);
+		expect(await text(deckPath('deck-a'))).toBe(`${deckA}- from an old tab\n`);
+	});
+	it('in the vault, the same two saves merge, so A\'s edit is lost only when its save was cut off (2b)', async () => {
+		const a = new DeckVault({ vault, slot: 0 });
+		const b = new DeckVault({ vault, slot: 1 });
+		await a.save('d', '', deckA);
+		await a.save('d', deckA, `${deckA}- from tab A\n`);
+		const { merged } = await b.save('d', deckA, `${deckA}- from tab B\n`);
+		expect(merged).toContain('- from tab A');
+		expect(merged).toContain('- from tab B');
+	});
+});
+
 describe('history that sync can merge (the inversion review)', () => {
 	it('two devices with the same deck text write the same base, and merging them does not double it', async () => {
 		const other = await openMemoryVault();

@@ -138,8 +138,18 @@ The design is the same as slice 2's (§8, "Undo is a move-back"):
   vault reader (`decksReady`, `deck-vault.ts` `readAll` and `readDeck`) for one more release, for devices that never
   opened the Studio during the `'local'` release.
 
-**A known edge.** A tab still running pre-slice-3 code writes a deck's old key after the move. That key wins the next
-read, and the next move takes it in as a replacing save.
+**Two known edges, each no worse than main.** main keeps a deck in one localStorage key, and no tab hears another
+tab's deck save, so the last save wins.
+- **A tab still running pre-slice-3 code** writes a deck's old key after the move. That key wins the next read, and
+  the next move takes it in as a replacing save. This is main's last-save-wins. Driven: `deck-vault.spec.ts` "a
+  pre-slice-3 tab that writes the old key" on Chromium, Linux WebKit and Gecko, and its unit twin, which goes red
+  if the vault's text wins the read or the move skips the key.
+- **One boot cache per origin (2b).** A save that a reload cut off survives in the boot cache. But if another tab
+  saves the same deck before this tab reopens, the cache's base no longer matches and the other tab's text wins
+  ("lets the vault win when another tab saved after the cache's base"). On main, tab B's save replaces tab A's
+  edit even when A's save was NOT cut off ("on main's storage, tab B's later save replaces tab A's edit"), and in
+  the vault the same two saves merge. So the vault loses that edit only when the save was cut off and another tab
+  saves first; main lost it whenever another tab saved later.
 
 ## Proof
 
@@ -149,10 +159,10 @@ read, and the next move takes it in as a replacing save.
   - outside-edit adoption: 200 trials, 0 divergence on the fork; the live-doc control diverges;
   - a seeded many-tab convergence run.
 
-  `deck-vault.test.ts` has 32 tests: the move, the guard, D1, a closed page during the move, saving, the pending
+  `deck-vault.test.ts` has 35 tests: the move, the guard, D1, a closed page during the move, saving, the pending
   file, outside edits, a full disk, the cut-off save, and the move-back. The full docs unit suite is green.
-- **e2e.** `docs/e2e/deck-vault.spec.ts` has 4 tests × `desktop` (Chromium), `webkit-phone` (persistent profile) and
-  `gecko` = 12 of 12 green. Each test uses a persistent profile, and each wait is on a signal; the vault holding the
+- **e2e.** `docs/e2e/deck-vault.spec.ts` has 5 tests × `desktop` (Chromium), `webkit-phone` (persistent profile) and
+  `gecko` = 15 of 15 green. Each test uses a persistent profile, and each wait is on a signal; the vault holding the
   text is read from the index record's SHA-256.
 - **The full disk** is REAL on Chromium (`Storage.overrideQuotaForOrigin`) and **INJECTED** on WebKit and Firefox.
   Firefox keeps a 10 GiB quota whatever `dom.quotaManager.temporaryStorage.fixedLimit` says (measured on three
