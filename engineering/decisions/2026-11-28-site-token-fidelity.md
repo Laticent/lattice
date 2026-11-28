@@ -63,7 +63,8 @@ list last grew, and none of it reached the site. Three consequences, all measure
 ## Two grounds the renders chose
 
 Both were first drawn as washes the gate could score, then changed after looking at the real pages
-(the PR's before/after renders: cuoio, indaco, concrete and a11y-deuteranopia, both faces):
+(before/after element shots from the production build, in cuoio, indaco, concrete and
+a11y-deuteranopia, both faces; sent to the owner and summarized on the PR):
 
 - **Card icon tile: the theme's category chip.** The first cut drew the glyph and rim in
   `--cat-N-mark` over a 6% wash. On a dark face the themes put the hue in `-fill` and make the mark
@@ -72,12 +73,16 @@ Both were first drawn as washes the gate could score, then changed after looking
   the ground, `--cat-on-fill` as the glyph (AA on every fill, worst 4.88, concrete dark), and the
   mark as the rim, which holds 3:1 against the canvas where a pale light fill alone can sit at 1.06:1
   (atelier slot 11). The contract never pairs a mark on its own fill (1.51:1 on the a11y palettes).
-  `main`'s `chart-catN` tiles, a 14% sRGB wash, fell to 2.91 (onyx dark, slot 4).
+  `main`'s `chart-catN` tiles, a 14% sRGB wash, fell to 2.91 (onyx dark, slot 4). On concrete light
+  the fills are near-identical grays by the theme's design, so the hue rides on the rim there.
 - **Aside ground: `--bg-alt`.** The aside title is the status ink, so a status wash had to stay
   faint to hold AA: at 12% it fell below 4.5:1 on 12 palette-modes (worst 4.0, concrete light), and
   at 4% it held AA (4.54) but barely set the aside off the page. The palette's card surface does
   both, and every status ink is gated AA on it. Before this change every aside was Starlight's
   lavender or navy on every palette, and on a11y-deuteranopia dark its body text was dark on navy.
+  The aside's title, icon and left rule are the status ink, not the mark: the mark falls below 3:1
+  on `--bg-alt` in 27 dark palette-mode-kinds, the ink holds AA. The tip aside takes the same
+  ground, because `--accent-soft` equals `--bg` on eight dark palettes.
 
 ## Typography: faces yes, sizes no
 

@@ -98,7 +98,7 @@ h1#_top {
  * concrete) and warm themes. Each tile is instead the theme's own category
  * chip, from the 12-slot categorical contract
  * (2026-07-15-categorical-token-contract.md): the slot's FILL as the ground, the
- * contract's `--cat-on-fill` as the glyph (AA on every fill, worst 4.88), and the
+ * contract's `--cat-on-fill` as the glyph (AA on every fill, worst 4.88, gated), and the
  * slot's MARK as the rim, which holds 3:1 against the canvas where a pale light
  * fill alone would not (a fill can sit at 1.06:1 to --bg). On a dark face the
  * hue lives in the fill and the mark is pale, so a mark-colored glyph went
@@ -126,30 +126,33 @@ h1#_top {
 /* ── Asides — the theme's status colors, not Starlight's fixed hues ────────
  * Starlight paints its asides (note / caution / danger, and diff marks) from its
  * own fixed blue, orange, red and green. Each is a status the theme already
- * curates per palette and per mode (2026-10-24-status-is-one-system.md): the
- * `-high` step is the ink that reads on the canvas, the base step the mark (the
- * aside's rule and icon), and the `-low` step, the aside's ground, is the
- * palette's own card surface, `--bg-alt`: every status ink is gated AA on it
- * (tools/check-shadcn-bridge-contrast.js), and it stands the aside off the page
- * in every palette, which a faint status wash could not do and still hold AA
- * for the title (12% fell below 4.5:1 on 12 palette-modes; 4% held it but barely
- * showed). Purple (tip) has no status meaning, so it takes the accent. */
+ * curates per palette and per mode (2026-10-24-status-is-one-system.md). Both the
+ * `-high` step (the title and its icon, which is `currentColor`) and the base step
+ * (the aside's left rule) are the status INK; the `-low` step, the aside's ground,
+ * is the palette's own card surface, `--bg-alt`. Every status ink is gated AA on
+ * `--bg-alt` (tools/check-shadcn-bridge-contrast.js), so the title and the rule
+ * both read on it; the status MARK would not (below 3:1 on --bg-alt in 27 dark
+ * palette-mode-kinds). `--bg-alt` stands the aside off the page in every palette,
+ * which a faint status wash could not do and still hold AA for the title (12% fell
+ * below 4.5:1 on 12 palette-modes; 4% held it but barely showed). Purple (tip) has
+ * no status meaning, so it takes the accent, on the same ground: `--accent-soft`
+ * equals `--bg` on eight dark palettes, which left the tip with no ground at all. */
 :root {
 	--sl-color-blue-high: var(--info);
-	--sl-color-blue: var(--info-mark);
+	--sl-color-blue: var(--info);
 	--sl-color-blue-low: var(--bg-alt);
 	--sl-color-orange-high: var(--warn);
-	--sl-color-orange: var(--warn-mark);
+	--sl-color-orange: var(--warn);
 	--sl-color-orange-low: var(--bg-alt);
 	--sl-color-red-high: var(--fail);
-	--sl-color-red: var(--fail-mark);
+	--sl-color-red: var(--fail);
 	--sl-color-red-low: var(--bg-alt);
 	--sl-color-green-high: var(--pass);
-	--sl-color-green: var(--pass-mark);
+	--sl-color-green: var(--pass);
 	--sl-color-green-low: var(--bg-alt);
 	--sl-color-purple-high: var(--accent);
 	--sl-color-purple: var(--accent);
-	--sl-color-purple-low: var(--accent-soft);
+	--sl-color-purple-low: var(--bg-alt);
 }
 
 /* ── Header → the shared SiteHeader ─────────────────────────────────────────

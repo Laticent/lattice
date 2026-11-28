@@ -112,16 +112,17 @@ function main() {
 				[`${s} pill (${s}-on-mark/${s}-mark)`, t(`--${s}-on-mark`), t(`--${s}-mark`), AA, false],
 				[`${s} dot (${s}-mark/bg)`, t(`--${s}-mark`), t('--bg'), AA_GRAPHIC, false],
 			]),
-			// Starlight asides sit on --bg-alt with the title in the status ink: the `ink on card` rows above.
-			// The tip aside takes the accent (it has no status meaning): its title is --accent on --accent-soft.
-			['tip aside title (accent/accent-soft)', t('--accent'), t('--accent-soft'), AA, false],
+			// Starlight asides sit on --bg-alt with the title, icon and rule in the status ink: the `ink on card` rows above.
+			// The tip aside takes the accent (it has no status meaning): title and rule are --accent on --bg-alt.
+			['tip aside title (accent/bg-alt)', t('--accent'), t('--bg-alt'), AA, false],
 			['text-secondary on canvas', t('--text-secondary'), t('--bg'), AA, false],
 			['text-secondary on card', t('--text-secondary'), t('--bg-alt'), AA, false],
 			['text-label on canvas', t('--text-label'), t('--bg'), AA, false],
 			['text-label on card', t('--text-label'), t('--bg-alt'), AA, false],
 			// Docs Card icon tiles: the category chip (lattice.css) — glyph --cat-on-fill on the fill, rim the mark.
 			...Array.from({ length: 12 }, (_, i) => [
-				`card tile glyph (cat-on-fill/cat-${i + 1}-fill)`, t('--cat-on-fill'), t(`--cat-${i + 1}-fill`), AA_GRAPHIC, false,
+				// AA, not 3:1: the contract promises text-grade ink on a fill, and the docs say so.
+				`card tile glyph (cat-on-fill/cat-${i + 1}-fill)`, t('--cat-on-fill'), t(`--cat-${i + 1}-fill`), AA, false,
 			]),
 			...Array.from({ length: 12 }, (_, i) => [
 				`card tile rim (cat-${i + 1}-mark/bg)`, t(`--cat-${i + 1}-mark`), t('--bg'), AA_GRAPHIC, false,
