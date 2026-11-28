@@ -90,27 +90,38 @@ reason forces a parse to stay, slice 1 states it.
 thin adapter over the spine, and Fuoco's `Outline` contract (numeric `UnitId`) does not change: the
 spine keeps Fuoco's number internally and translates at its public edge (§2).
 
-**Where it lives: inside Lente (fork 1, the owner's B).** Lente becomes the deck's one state machine,
+**Where it lives: inside Lente (fork 1, the owner's B, realized in place).** The card's B read "Lente's
+core moved to `lib/`". The move turns out to be unneeded: `lib/` reaches workspace packages as
+`@laticent/*` dependencies (use-case-layer §5.3), so the CLI and the Studio share Lente where it stands,
+and its boundary gate keeps working unchanged. Moving the folder later is mechanical. Lente becomes the deck's one state machine,
 as the owner first proposed (2026-11-17): slides, ids, views and edits, with lenses as one kind of view.
 Lente stays what its boundary gate holds it to (`tools/check-ownership.js`, `checkLenteBoundary`): no
 imports from outside its folder, no DOM, no parser. That works the way Lente already takes an injected
 `ComponentCatalog`:
 
-- **Lente defines two seams.** A `DeckSource` (the written slides' line ranges, each slide's block
-  tokens, its directives) and `SlideRules` (`sectionsOf`, `hiddenOf`, `panesOf`), plus an injected
-  `sha256Hex`. Lente's spine code is generic over them.
+- **Lente defines three seams.** A `DeckSource` (the written slides' line ranges, each slide's block
+  tokens, its directives); `SlideRules` (`sectionsOf`, `hiddenOf`, `panesOf`); and `Parsers`, the two
+  parses `applyOps` needs and Lente must not own: `parseBody(text) → DeckSource`, so "one slide per body"
+  (§5) counts written slides with Segno's own rules, and `parseFrontMatter(text) → { lenses }`, so the lens
+  gate compares registries parsed by a real YAML reader. Lente's own registry reader is line-based
+  (`docs/src/lib/lente/registry.ts:105-115`) and stays the read path's. Lente's spine code is generic
+  over the three, and hashes with its own synchronous `sha256Hex` (`docs/src/lib/lente/hash.ts:42`).
 - **Lattice fills them** in one host adapter, `lib/core/lente-host.mjs`, from Segno's model
   (`deckModel`, `updateDeckModel`, `modelTokens`) and Lattice's own rules (`headingSplitPoints`, the hide
-  directive, `panes.js`). So there is still one parser and one model of the deck (D5), and the CLI and the
-  Studio reach the same code (HARD RULE #1): `lib/` depends on `@laticent/lente` as it already depends on
-  `@laticent/segno-languages`.
-- **The approval rules stay walled off.** Lente's read path and its suggester already live in separate
-  modules (`2026-07-13-lente-reader-lenses.md` §6). The spine's `applyOps` is a third module that never
-  imports the approval writer, and the same boundary check holds it: an edit can de-approve a lens but
-  can never approve one.
+  directive, `panes.js`), and `Parsers` from `bodyModel` and the engine's front-matter reader. So there is
+  still one parser and one model of the deck (D5), and the CLI and the Studio reach the same code (HARD
+  RULE #1). **Slice 1 adds a published dependency:** `@laticent/lattice` does not depend on
+  `@laticent/lente` today (`packages/lattice/package.json`), and slice 1 adds it, as `lib/` already
+  depends on `@laticent/segno-languages`.
+- **An edit can never approve a lens.** Lente has no separate approval writer: `approvalHash` lives in
+  the read path (`project.ts`), and the Studio's Approve writes its value. `applyOps` may call
+  `approvalHash` (to list `lenses_deapproved`, §6), but nothing it returns can add or change an `approved`
+  value, because the parsed-registry gate (§5) refuses any such change. That gate, not the module
+  boundary, is the wall. Slice 5's tests hold it with a failing arm. `checkLenteBoundary` checks only
+  imports that leave the folder, so this note claims nothing from it.
 - **What changes for Lente.** Its scope (the package description and README), a minor version bump, and
-  a test that its spine runs on a fake `DeckSource` with no Lattice code at all. The boundary gate itself
-  does not change.
+  a test that its spine runs on a fake `DeckSource` and fake `Parsers` with no Lattice code at all. The
+  boundary gate does not change.
 
 ## 2. Identity
 
@@ -183,11 +194,10 @@ imports from outside its folder, no DOM, no parser. That works the way Lente alr
 - **The file host's on-disk check** (§6.3) compares **raw bytes**, so a change that touches only line
   endings or a BOM still counts as a change and a submit never overwrites it.
 
-**Hashing is async, at the use-case edge.** `lib/core` already hashes through an injected
-`sha256Hex: (text) => Promise<string>` (`lib/core/ltt-deck.mjs:44`). The dispatcher is async, so reads
-and receipts compute fingerprints and revisions there, lazily, once per revision. The palette and
-the editors address by id and never hash, so a keystroke and a palette verb stay synchronous. Slice 1
-measures the cost on the gallery deck.
+**Hashing is synchronous and lazy.** Lente's own `sha256Hex` (`docs/src/lib/lente/hash.ts:42`) is
+synchronous, so `applyOps` and every read stay synchronous. Fingerprints and revisions are computed
+lazily, once per revision, only when a read or a receipt needs them. The palette and the editors address
+by id and never hash, so a keystroke pays nothing. Slice 1 measures the cost on the gallery deck.
 
 The Studio's numeric `rev` (`fuoco/outline.ts:44`) stays as an in-page memo key and never leaves the page.
 
@@ -294,7 +304,7 @@ them rather than building on the interim adapter: that would be the second model
 
 | # | Slice | Replaces | Proof it owes |
 |---|---|---|---|
-| 1 | **Spine core, in Lente, with its `lib/core/lente-host.mjs` adapter**: the `DeckSource` and `SlideRules` seams, slides, ids (typing passes with retirement), sections from `modelTokens`, panes, hidden, the one normalization, async fingerprint and revision at the edge, the id nonce. `buildDeckIndex` becomes its adapter | `assignIds`, `sectionsOf` and its `boundaryParser.parse`, the unit build in `deck-outline.ts` | the deck-outline suite green; incremental equals full on the corpus; F8 shows retirement; `deck parses/key` stays 0; hash cost measured; Lente's spine passes on a fake `DeckSource` with no Lattice code; `checkLenteBoundary` unchanged and green |
+| 1 | **Spine core, in Lente, with its `lib/core/lente-host.mjs` adapter**: the `DeckSource`, `SlideRules` and `Parsers` seams, slides, ids (typing passes with retirement), sections from `modelTokens`, panes, hidden, the one normalization, lazy fingerprint and revision through Lente's own synchronous hash, the id nonce. `buildDeckIndex` becomes its adapter | `assignIds`, `sectionsOf` and its `boundaryParser.parse`, the unit build in `deck-outline.ts` | the deck-outline suite green; incremental equals full on the corpus; F8 shows retirement; `deck parses/key` stays 0; hash cost measured; Lente's spine passes on a fake `DeckSource` with no Lattice code; `checkLenteBoundary` unchanged and green |
 | 5 | **`applyOps`, in its own Lente module that never imports the approval writer**: the seven ops, exact or refused, receipts, the parsed lens gate, front-matter bytes held, comment fix-ups, ids carried by construction | the structural edits in `deck-ops.ts` and `hide-ops.ts` as Studio modules. Inventory first: about 18 Studio importers of `deck-ops`, its imports (`deck-outline`, `fuoco/outline`, `docs/src/lib/front-matter`, `slice-equivalence-core`), and the front-matter module's move to `lib/` (§5.3) | property tests (apply then inverse is the identity; a refused changeset leaves the text unchanged); F6, F9, F10; the gate refuses every YAML spelling of `approved`; failing arms, repeat and load runs (#34) |
 | 2 | **Counts**: every counter reads its view, per the table in §7 | `studio-store.slideCount`, coach `countSlides`, `deck-ops.slideCount` and `renderedCount`, `architect-edits.slideCount` (stays `written`: it feeds `autoHold`), `ShareSheet`'s count (stays `written`: it bounds comment annotations in the PDF), `galleries.mjs slideCount` | each view's own proof: a `written` count equals the written slides; a `pages` count equals the PDF's shown pages at `wide`; F1, F2, F4, F7. **Visible**: the deck chip stops counting hidden slides, so the slice ships a demo deck and screenshots (#9). Stored version-history counts keep their old meaning, and the slice says so |
 | 3 | **Written-slide splitters, one front-matter definition** | `docs/src/lib/deck-lint.ts` `splitSlides`, `splitTopLevel` in `slide-split.js` **and its copy** in `architect-edits.js`, `review-core.splitSlides`, `slice-equivalence-core.splitSlides`, `deckSlides`, `tier-filter.splitDeck`, every `FRONT_MATTER` pattern the census lists | lint, review and coach output byte-identical on the corpus, except that lint findings gain page numbers beside their written-slide numbers; F2 keeps its definition through a rejoin; F5 parses as the engine does |
@@ -342,7 +352,7 @@ No fork is open.
 | **1. Where the spine lives** | **A.** `lib/core/deck-spine.mjs`, beside the deck model, reached directly as `lib/` code is. **B.** Lente's core moved to `lib/` and grown into the spine. **C.** Inside `@laticent/segno-languages` as part of its deck language | **A.** The spine is Lattice's meaning of slides (heading split, hide, panes), which the owner kept out of Segno's package (2026-11-22: "standard languages only"). Lente reads written slides; making it own the deck gives a reader view the deck's structure. §5.3's `@laticent/*` route is for workspace libraries; the spine is core, not a library | A: one core module and an adapter in `deck-outline.ts`. B: changes a published package's scope and its boundary gate. C: puts Lattice's semantics into a package meant for other hosts |
 | **2. Ids in memory or stored** | **A.** In memory, opaque, per spine instance; fingerprints across sessions. **B.** Written into each slide as a `@meta` key. **C.** A sidecar file beside the deck | **A.** B cannot be undone after 1.0, and A can grow into B or C additively (§2) | A: a reconnecting client uses fingerprints, and identical slides need an ordinal. B: every writer of deck text must keep ids unique, and pasted slides collide. C: a second file to keep in step with the deck, which every host and `git` must carry |
 | **3. Who owns page splitting** | **A.** The spine also folds each render's page map into a `rendered` view. **B.** The spine owns source-side pages; every render reader counts its own pages. **C.** The spine runs the auto-split itself. **D.** The spine owns source-side pages and translates any render's stamps to slides with one function | **D.** One source-side count, and one translation for what only a render knows | A: a render map depends on size, plan and revision, so the spine would have to key and expire it, and could serve a stale one. B: every reader keeps its own count, the follow-up's complaint. C: the spine would need the rendered document. D: render readers change to call `pageOf` (slice 6) |
-| **4. Resolve addresses against the base, or in order** (amends use-case-layer §5.2) | **A.** Numbers and fingerprints resolve once against the base revision; only ids flow through the changeset. **B.** Keep §5.2: each op's address is evaluated against the result of the earlier ops | **A.** The caller read the base, so its numbers mean the base; under B an insert earlier in the same changeset silently shifts a later number onto a different slide | A: §5.2 changes its documented rule in E3's PR that builds it. B: a caller must renumber its own later ops by hand, and a fingerprint of a slide it replaced earlier is `NOT_FOUND` |
+| **4. Resolve addresses against the base, or in order** (amends use-case-layer §5.2) | **A.** Numbers and fingerprints resolve once against the base revision; only ids flow through the changeset. **B.** Keep §5.2: each op's address is evaluated against the result of the earlier ops | **A.** The caller read the base, so its numbers mean the base; under B an insert earlier in the same changeset silently shifts a later number onto a different slide | A: §5.2 changes its documented rule (done in this PR). B: a caller must renumber its own later ops by hand, and a fingerprint of a slide it replaced earlier is `NOT_FOUND` |
 
 ## 12. What this does not decide
 
@@ -376,5 +386,6 @@ The trio read the first draft (3961f65b). Its findings and what changed:
 | Checker | Drifted line numbers; two files named `deck-lint.ts` | fixed throughout |
 | Card grader | Resolving against the base amends §5.2's in-order rule without saying so | §3 says so; fork 4 put it to the owner, who chose A; §5.2 amended in this PR |
 | Card grader | "Spine instance" was ambiguous (a new instance per edit would expire every id) | §2: the nonce is per session and carries across `applyOps` |
+| Card grader (2nd) | `applyOps` needed a body parse and a YAML parse Lente cannot import; the note claimed a boundary wall no gate enforces; fork 1's "move to `lib/`" was not what §1 did | §1: a `Parsers` seam; the lens gate is the wall, held by slice 5's tests; B recorded as realized in place; Lente's own sync hash |
 | Owner | Fork 1: B, grow Lente (2026-11-28) | §1: the spine inside Lente, fed by `lib/core/lente-host.mjs` through injected seams; slices 1 and 5 name it |
 | Card grader | "Wholly rewritten" was undefined; the lint's page numbers sat in the wrong slice; one refusal had no code | §2 retires on delete only; slice 3; `INVALID` |
