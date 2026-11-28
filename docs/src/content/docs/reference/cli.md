@@ -23,7 +23,7 @@ project: the unscoped `lat` package on npm is someone else's, just like `lattice
 
 ## Command shapes
 
-```sh
+```sh wrap hangingIndent=4
 npx lattice <deck.md> <output> [palette] [options]
 npx lattice <deck.md> <layouts.css> <output> [palette] [options]
 npx lattice -o <output> [-p palette] [-c layouts.css] <deck.md>
@@ -276,7 +276,7 @@ a `.vtt` beside it.
   the optional voice install; the first run downloads its model (about 80 MB)
   once:
 
-  ```sh
+  ```sh wrap hangingIndent=4
   npm i --no-save kokoro-js@1.2.1 @breezystack/lamejs@1.2.7
   ```
 
@@ -317,25 +317,25 @@ Install it with the line for your shell:
 
 - **bash**, in `~/.bashrc` (bash 3.2 or newer):
 
-  ```sh wrap
+  ```sh wrap hangingIndent=4
   eval "$(lattice completion bash)"
   ```
 
 - **zsh**, in `~/.zshrc`, after `compinit`:
 
-  ```sh wrap
+  ```sh wrap hangingIndent=4
   source <(lattice completion zsh)
   ```
 
 - **fish**, once:
 
-  ```sh wrap
+  ```sh wrap hangingIndent=4
   mkdir -p ~/.config/fish/completions && lattice completion fish > ~/.config/fish/completions/lattice.fish
   ```
 
 - **PowerShell**, in `$PROFILE`:
 
-  ```powershell wrap
+  ```powershell wrap hangingIndent=4
   lattice completion powershell | Out-String | Invoke-Expression
   ```
 
@@ -346,12 +346,12 @@ serves the candidates. cmd.exe has no programmable completion.
 
 ## Environment variables
 
-- `LATTICE_PALETTE`: The palette, below the command line and above the deck's `theme:`.
-- `LATTICE_OVERFLOW_MARKER`: The standing `--overflow-marker` level (`reader` or `author`; `off` is per render only).
+- `LATTICE_PALETTE`: the palette, below the command line and above the deck's `theme:`.
+- `LATTICE_OVERFLOW_MARKER`: the standing `--overflow-marker` level (`reader` or `author`; `off` is per render only).
 - `LATTICE_KEEP_HTML`: `1` keeps the `<output>.html` sidecar beside a non-HTML export, same as `--keep-html`.
-- `LATTICE_HOME`: The folder that holds the package store, `<dir>/packages`.
-- `CHROME_PATH`: The Chrome or Chromium binary to render with. `PUPPETEER_EXECUTABLE_PATH` wins when both are set.
-- `LATTICE_RENDER_WATCHDOG_MS`: How long one render step may take before it is stopped. Default `90000`.
+- `LATTICE_HOME`: the folder that holds the package store, `<dir>/packages`.
+- `CHROME_PATH`: the Chrome or Chromium binary to render with. `PUPPETEER_EXECUTABLE_PATH` wins when both are set.
+- `LATTICE_RENDER_WATCHDOG_MS`: how long one render step may take before it is stopped. Default `90000`.
 
 ## Exit codes
 
