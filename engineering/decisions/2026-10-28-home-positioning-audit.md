@@ -476,7 +476,7 @@ the PR. Real-user proof (§16) is still the open gap, and the PR proposes a smal
 visitor test instead of a rescore number.
 
 **Owner's picks (2026-11-28, in PR 3618's session).**
-- **D1 A:** raise the home eagerJsGz ceiling about 1.5 KB, in its own PR. #3629 sets it by hand, 331,264 → 332,800, and #3618 declares its +1,298 B in `docs/route-budget.d/home-live-demos.md`.
+- **D1 A:** raise the home eagerJsGz ceiling about 1.5 KB, in its own PR. #3629 sets it by hand, 331,264 → 332,800, and #3618 declares its +1,372 B (CI's measurement) in `docs/route-budget.d/home-live-demos.md`.
 - **Copy 1 yes:** the hero's "the same way every time" now carries the same bound as the proof strip: the same text and palette give the same design.
 - **Copy 2 yes:** "Compose should be the focus, we mention markdown as source". The meta description and the how-it-works Write step lead with Compose and name Markdown as Source.
 - **Copy 3 keep:** the Studio H2 "The same deck, without installing anything." is unchanged.
