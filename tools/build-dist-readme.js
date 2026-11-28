@@ -152,7 +152,7 @@ const DESCRIPTIONS = {
     consume: '`node dist/lattice-min.js`',
   },
   'docs/components.json': {
-    purpose: 'Machine-readable component catalog (axes, tags, slots, skeletons, when/anti/related) — the JSON an agent or tool loads to pick a component.',
+    purpose: 'Machine-readable component catalog (axes, tags, slots, skeletons, when/anti/related) — the JSON an agent or tool loads to pick a component. A new field keeps `schemaVersion`; removing or renaming a field, or changing what one means, bumps it (design/design-system.md §7).',
     consume: 'load as JSON / `@laticent/lattice/dist/docs/components.json`',
   },
   'docs/components.pick.md': {
