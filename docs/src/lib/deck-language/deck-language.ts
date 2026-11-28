@@ -30,6 +30,7 @@ import { Language, LanguageSupport } from '@codemirror/language';
 import {
 	COL_SHIFT,
 	type DeckModel,
+	type Detail,
 	F_CLOSED,
 	F_EMPTY,
 	I_AUX,
@@ -57,6 +58,7 @@ import {
 	LINK_REF,
 	LSTRIDE,
 	leafToBody,
+	type RefRecord,
 	referencesOf,
 	SPECIAL_ENTITY,
 	STRIDE,
@@ -234,9 +236,19 @@ function slideTree(m: DeckModel, seg: number, leaves: InlineLeaf[]): { tree: Tre
 	let rowEnd = 0;
 	let leafEnd = 0;
 
+	// The slide's link reference definitions, which produce no token: each is written before the first token on a line
+	// after it, so it lands in the container that holds it.
+	const refs = ((d.detail as Detail | undefined)?.refs ?? []).filter((r) => r.line >= L0 && r.line < L0 + g.lines);
+	let nextRef = 0;
+	const containerEnds: number[] = []; // a quote's or list item's map end, for the definitions inside it
+	const refsBefore = (line: number) => {
+		for (; nextRef < refs.length && refs[nextRef].line - L0 < line; nextRef++) reference(refs[nextRef]);
+	};
+
 	for (let j = 0; j < g.length; j++) {
 		const at = (sd.t0 + j) * STRIDE;
 		const tape = d.tape;
+		if (tape[at + T_L0] >= 0) refsBefore(tape[at + T_L0] - L0);
 		const kind = tape[at + T_KIND];
 		const nest = tape[at + T_NEST];
 		const l0 = tape[at + T_L0] - L0;
@@ -294,7 +306,10 @@ function slideTree(m: DeckModel, seg: number, leaves: InlineLeaf[]): { tree: Tre
 			}
 			case KIND.bullet_list_close:
 			case KIND.ordered_list_close:
+				w.close(w.lastEnd);
+				break;
 			case KIND.list_item_close:
+				refsBefore(containerEnds.pop() as number);
 				w.close(w.lastEnd);
 				break;
 			case KIND.list_item_open: {
@@ -302,6 +317,7 @@ function slideTree(m: DeckModel, seg: number, leaves: InlineLeaf[]): { tree: Tre
 				let to = from;
 				if (opens[opens.length - 2] === KIND.ordered_list_open) while (ch(to) >= 0x30 && ch(to) <= 0x39) to++;
 				to++;
+				containerEnds.push(l1);
 				w.open(ID.ListItem, from);
 				w.leaf(ID.ListMark, from, to);
 				setFloor(l0, to);
@@ -309,6 +325,7 @@ function slideTree(m: DeckModel, seg: number, leaves: InlineLeaf[]): { tree: Tre
 			}
 			case KIND.blockquote_open: {
 				quoteDepth++;
+				containerEnds.push(l1);
 				let p = skipSpace(floorOf(l0), le(l0));
 				w.open(ID.Blockquote, p);
 				if (ch(p) === 0x3e) {
@@ -331,6 +348,7 @@ function slideTree(m: DeckModel, seg: number, leaves: InlineLeaf[]): { tree: Tre
 			}
 			case KIND.blockquote_close:
 				quoteDepth--;
+				refsBefore(containerEnds.pop() as number);
 				w.close(w.lastEnd);
 				break;
 			case KIND.fence: {
@@ -440,10 +458,35 @@ function slideTree(m: DeckModel, seg: number, leaves: InlineLeaf[]): { tree: Tre
 				}
 		}
 	}
+	refsBefore(Number.MAX_SAFE_INTEGER);
 	w.done();
 	const buf = w.buf;
 	const tree = Tree.build({ buffer: buf, nodeSet: deckNodeSet, topID: 0, length, maxBufferLength: 1024 });
 	return { tree, nodes: buf.length / 4 };
+
+	/** A piece's first and last offsets: `(line, from, to)` triples, columns from each line's own start. */
+	function pieceSpan(p: Int32Array): [number, number] {
+		return [ls(p[0] - L0) + p[1], ls(p[p.length - 3] - L0) + p[p.length - 1]];
+	}
+
+	/** `[label]: destination "title"`, as Lezer Markdown names its parts. */
+	function reference(r: RefRecord): void {
+		const [l0, l1] = pieceSpan(r.label);
+		const [d0, d1] = pieceSpan(r.dest);
+		// A bracketed destination's `<>` are outside its recorded text.
+		const bracketed = ch(d0 - 1) === 0x3c;
+		let end = bracketed ? d1 + 1 : d1;
+		w.open(ID.LinkReference, l0 - 1);
+		w.leaf(ID.LinkLabel, l0 - 1, l1 + 1);
+		w.leaf(ID.LinkMark, l1 + 1, l1 + 2);
+		w.leaf(ID.URL, bracketed ? d0 - 1 : d0, end);
+		if (r.title.length) {
+			const [t0, t1] = pieceSpan(r.title);
+			w.leaf(ID.LinkTitle, t0 - 1, t1 + 1);
+			end = t1 + 1;
+		}
+		w.close(end);
+	}
 
 	function leafStart(leaf: InlineLeaf | undefined): number {
 		return leaf ? leafAt(leaf, 0) : 0;

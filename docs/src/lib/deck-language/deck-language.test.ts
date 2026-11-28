@@ -275,6 +275,14 @@ describe('in CodeMirror', () => {
 		expect(names('> ```\n> code\n> ```\n')).toContain('CodeText 8 12');
 	});
 
+	it('a link reference definition is a LinkReference with its parts, as Lezer Markdown read it', () => {
+		const doc = 'See [b].\n\n[b]: /x "t"\n> [c]:\n> <y z>\n';
+		const ours = names(doc);
+		expect(ours).toEqual(expect.arrayContaining(['LinkReference 10 21', 'LinkLabel 10 13', 'LinkMark 13 14', 'URL 15 17', 'LinkTitle 18 21']));
+		expect(ours).toEqual(expect.arrayContaining(['Blockquote 22 36', 'LinkReference 24 36', 'LinkLabel 24 27', 'LinkMark 27 28', 'QuoteMark 29 30', 'URL 31 36']));
+		expect(ours.filter((n) => n.startsWith('LinkReference ')).length).toBe(2);
+	});
+
 	it('the slide break and the ATX marks', () => {
 		expect(names('# A #\n\n---\n\nb\n')).toEqual(['Document 0 14', 'ATXHeading1 0 5', 'HeaderMark 0 1', 'HeaderMark 4 5', 'HorizontalRule 7 10', 'Paragraph 12 13']);
 	});

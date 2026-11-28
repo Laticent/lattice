@@ -1341,8 +1341,9 @@ lang-yaml, as a nested parse.
 **The node names are Lezer Markdown's.** The tree uses the node set of `markdown({ base: markdownLanguage })`, so the
 highlight style, the fold props, heading folds, HTML completion and the `Enter` / `Backspace` list keymap read it
 unchanged. Five names are added: `Frontmatter`, `FrontmatterMark` and `FrontmatterContent` for the front matter, and
-`LatticeBlock` and `LatticeInline` for plugin tokens (math's `$$` and `$`, the code record). Link reference
-definitions get no node yet: the model records them, but nothing in the editor reads them.
+`LatticeBlock` and `LatticeInline` for plugin tokens (math's `$$` and `$`, the code record). A link reference
+definition produces no token, so its `LinkReference` node is written from the definition the detail parse records,
+inside the quote or list item that holds it.
 
 **The inline parser.** `deckInlineParser()` (lib/core/deck-model.mjs) is S2 configured as the engine's markdown-it:
 `html`, `~~`, and every plugin inline rule at its manifest's anchor and triggers. The token adapter reads its
@@ -1359,5 +1360,11 @@ from nothing, one slide subtree built (38 of the tree's 4,071 nodes) and 119 reu
 structure the model holds is a node with its range; 60 random edits on the gallery give the tree a build from nothing
 gives; the keystroke counts above. `e2e/deck-language.spec.ts` drives the real Studio at 1440, 820 and 390 px:
 highlighting and the list and quote keymap.
+
+**The maker-checker review** found a setext heading's underline written as a NaN mark (a close token carries no map,
+and the corpus has no setext heading), an entity check looser than markdown-it's entity rule (`&notit;`), a quoted
+fence's code starting on the quote's space, no failing arm for the reference-label cache key, and no node for a
+definition. Each is fixed with a test that fails without the fix. One item waits:
+`followups.d/3599-p1-deck-language-admission-reparse.md`.
 
 **Step two** builds Compose's document from the model and removes Compose's own markdown-it.
