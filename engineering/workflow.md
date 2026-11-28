@@ -3408,9 +3408,10 @@ archives a session only when all of these hold, read fresh in the same run, with
    whether it catches up at the turn's end). To keep (b) cheap, the command center asks for
    it while the session's cache is still warm, right after the session says it is done (its
    📋 standup on the PR, which the command center reads after its own `#N merged at <sha>`
-   message or a check-in, or its "nothing left"), never by waking one that has sat idle past an hour. A
+   message or a check-in, or its "nothing left" in its summary or on its PR), never by waking one that has sat idle past an hour. A
    session idle past an hour with no such reply on record stays, and goes on the owner's
-   list. A session can also say it discarded its work while it still holds some: the
+   list. A merge made outside the command center may first be seen at the next check-in, two
+   hours apart, so its session can miss that window; it fails safe and goes on the owner's list. A session can also say it discarded its work while it still holds some: the
    2026-11-27 Compose session still held a local branch and a stash, and its flag read
    `true`.
 5. Its leftovers are durable (check 2 above): every follow-up its summary names is found on
