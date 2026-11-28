@@ -482,7 +482,8 @@ export function DriftDemo() {
 			<MiniSlideRow slides={DRIFTED} label="Four people, four blank canvases" />
 			<MiniSlideRow slides={ALIGNED} label="The same four slides, one Lattice palette" />
 			<figcaption className="m-0 text-[13px] text-muted-foreground">
-				An illustration: the same deck, made twice.
+				Top row: the title font, brand color, logo corner and page number change on every slide. Bottom row: none of
+				them move, because the theme sets them, not the author.
 			</figcaption>
 		</figure>
 	);
