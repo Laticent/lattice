@@ -92,9 +92,11 @@ export const REASONING = ['auto', 'none', 'low', 'minimal', 'medium', 'high', 'd
  */
 export const REASONING_BUDGET = 1500;
 /**
- * Models `auto` runs with reasoning off, each measured to accept it. DeepSeek V4.1 Flash with `none`
- * (run 46099333931) asked for kit files on 7 of 10 decks and never ran out of budget; at `minimal`
- * (46099331532) it asked for none, so the retrieval arm tested nothing on it. Any other model keeps
+ * Models `auto` runs with reasoning off, each measured to accept it. The reason is coverage, not
+ * quality: DeepSeek V4.1 Flash with `none` (run 46099333931) asked for kit files on 7 of 10 decks,
+ * while at `minimal` (46099331532) it asked for none, so the retrieval arm tested nothing. Its pass
+ * rates, 5 of 10 against 7 of 10, are too few to tell apart. Haiku with its budget fetched nothing
+ * either (46099328828); whether it would with reasoning off is not yet measured. Any other model keeps
  * `minimal`, since a model that must reason rejects `none`.
  */
 export const REASONING_OFF = new Set([MODELS.deepseek]);

@@ -368,8 +368,10 @@ whole effort, and real evidence over claims. So `tools/agent-pack-eval.mjs` chan
 
   So `--reasoning auto`, the default, now gives an Anthropic model a hard budget,
   `reasoning: { max_tokens: 1500 }`. OpenRouter passes that to Anthropic exactly (minimum 1,024).
-  DeepSeek gets `effort: 'none'` (`REASONING_OFF`). With it, DeepSeek asked for kit files on 7 of 10
-  decks; at `minimal` it asked for none, so the retrieval arm tested nothing. Every other model gets
+  DeepSeek gets `effort: 'none'` (`REASONING_OFF`), for coverage rather than quality. With it, DeepSeek
+  asked for kit files on 7 of 10 decks; at `minimal` it asked for none, so the retrieval arm tested
+  nothing. Its pass rates (5 against 7 of 10) are too few to tell apart. Haiku with its budget
+  fetched no files either; whether it would with reasoning off is not yet measured. Every other model gets
   `effort: 'minimal'`, because for an effort-only model OpenRouter only picks an effort from a token
   budget, and a model that must reason rejects `none`. The decks that passed wrote their text in about 800 to 1,500
   tokens, so 4,500 is enough room. `max_tokens` stays at 6,000, so the cost ceiling does not move.
