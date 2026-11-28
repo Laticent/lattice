@@ -113,18 +113,25 @@ async function openStudioDeck(page: Page, source: string = deck) {
 	// The resize re-fits the scaled frame; click only once its box has stopped moving, and only a frame laid out for THIS
 	// viewport. Right after a resize to a phone the desktop frame can still be the live one: revealed, steady across two
 	// reads, and with its photos off the phone's screen. A loaded run tapped x 833 on a 393 px phone and nothing opened.
+	// The two equal reads must both see the collage packed, in the frame that is live then: the wait above may have
+	// read a frame the resize is about to replace, and a point read while measuring holds still too.
 	let last = '';
 	await expect
 		.poll(async () => {
-			const now = JSON.stringify(await photoPoint(page, 0));
-			const same = now !== 'null' && now === last;
-			last = now;
-			const onScreen = await page.evaluate(() => {
+			const point = await photoPoint(page, 0);
+			const { onScreen, packed } = await page.evaluate(() => {
 				const fr = document.querySelector('iframe.live') as HTMLIFrameElement | null;
 				const r = fr?.getBoundingClientRect();
-				return !!r && r.width > 0 && r.left >= 0 && r.right <= window.innerWidth + 1;
+				const lists = Array.from(fr?.contentDocument?.querySelectorAll('ul.collage-list') ?? []);
+				return {
+					onScreen: !!r && r.width > 0 && r.left >= 0 && r.right <= window.innerWidth + 1,
+					packed: lists.length > 0 && lists.every((l) => /^(packed|fallback)$/.test(l.getAttribute('data-collage') ?? '')),
+				};
 			});
-			const p = now === 'null' ? null : (JSON.parse(now) as { x: number; y: number });
+			const now = point && packed ? JSON.stringify(point) : 'null';
+			const same = now !== 'null' && now === last;
+			last = now;
+			const p = point;
 			return same && onScreen && !!p && p.x >= 0 && p.x <= target.width && p.y >= 0 && p.y <= target.height;
 		}, { intervals: [250], timeout: 15_000, message: 'the preview never settled on screen at this viewport' })
 		.toBe(true);
