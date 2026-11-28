@@ -23,6 +23,9 @@ import { applyStepAt, stepEnter, stepsOfSection } from '../../../lib/core/step-s
 
 /** The tab's mark that the preview's Reload button reloaded it (DeckPreview `reloaded`). Per tab, so sessionStorage. */
 const RELOADED_KEY = 'lattice-preview-engine-reloaded';
+// How long a render on a loader host may go unsettled before the preview shows its failure card with Retry (owner,
+// 2026-11-28, D4). The card clears itself if that render settles later.
+const HUNG_RENDER_MS = 30000;
 
 /** Read the three deck-level motion front-matter keys into a resolved `DeckMotion`. */
 function deckMotionOf(src: string): DeckMotion {
@@ -300,7 +303,8 @@ export function DeckPreview({
 	// happened" timer, which would drop the skeleton onto a not-yet-good slide.
 	const [painted, setPainted] = React.useState(false);
 	// #1164 — terminal FAILURE state for a NON-LOADER host. A loader host that never paints keeps
-	// its skeleton spinning (honest, by the skeleton contract); a non-loader host (landing /
+	// its skeleton spinning (honest, by the skeleton contract), unless its render has not SETTLED after 30 s
+	// (`stalled` below, owner 2026-11-28); a non-loader host (landing /
 	// showcase / specimen — a KNOWN static sample with no meaningful load gap) had NO failure
 	// surface: a render that errors, or a pathological srcdoc whose `.lattice` never paints, left
 	// the iframe parked at opacity:0 forever — an indefinitely blank box with no signal. Two honest
@@ -348,6 +352,13 @@ export function DeckPreview({
 	// The failure is the ENGINE's (its import failed), not one render's. Kept so a slide that reveals after the failure
 	// (the bake, landing late) turns the full card into the bar instead of being covered by it.
 	const [engineFailed, setEngineFailed] = React.useState(false);
+	// A render on a LOADER host that has not settled after HUNG_RENDER_MS (owner, 2026-11-28, D4: "card + Retry at 30 s").
+	// #1164 let a loader host spin for good when it never painted; a render that hangs (a request that never answers:
+	// the iPad's first-render stall, followups.d/3368-p1) then left a person with a spinner and no way out. Like an engine
+	// failure, a slide that reveals meanwhile (the bake) keeps the failure as the bar; only a settled render clears it.
+	// engineering/decisions/2026-11-28-hung-first-render-card.md.
+	const [stalled, setStalled] = React.useState(false);
+	const renderClockRef = React.useRef(0);
 	// The engine failed again after the author pressed Retry. An in-page retry imports the entry under a fresh URL, but
 	// the entry's own sub-files keep theirs, and whether a browser fetches a failed sub-file again depends on its build:
 	// measured on PR #3385, Playwright 1.65's Chromium and Gecko did on Retry and its WebKit on a reload, while 1.56's
@@ -598,13 +609,13 @@ export function DeckPreview({
 	// An ENGINE failure is different on every host: a slide that reveals then is one the engine did not draw (the
 	// newcomer bake), and the engine is still missing, so the failure stays and becomes the bar along that slide's foot.
 	React.useEffect(() => {
-		if (!failed || (loader && !engineFailed)) return;
+		if (!failed || (loader && !engineFailed && !stalled)) return;
 		const host = stageRef.current;
 		if (!host) return;
 		const clearOnReveal = () => {
 			const fr = host.querySelector<HTMLIFrameElement>('iframe.live');
 			if (fr?.style.opacity && fr.style.opacity !== '0') {
-				if (engineFailed) {
+				if (engineFailed || stalled) {
 					setFailedOverSlide(true);
 					return true;
 				}
@@ -621,7 +632,7 @@ export function DeckPreview({
 		});
 		mo.observe(host, { subtree: true, childList: true, attributes: true, attributeFilter: ['style'] });
 		return () => mo.disconnect();
-	}, [loader, failed, engineFailed]);
+	}, [loader, failed, engineFailed, stalled]);
 
 	// #1164 a11y — while the failure card owns the surface, hide the PARKED opacity:0 `iframe.live`
 	// from the accessibility tree. Opacity doesn't remove an element from that tree, so without this a
@@ -820,7 +831,7 @@ export function DeckPreview({
 	// reaches the current palette/mode. whenReady() may reject (bundle load) — the
 	// scheduler's own `.catch` swallows it, so no unhandled rejection.
 	const runRenderRef = React.useRef<() => Promise<{ heavy: boolean } | undefined>>(async () => undefined);
-	runRenderRef.current = async () => {
+	const renderOnce = async () => {
 		const host = stageRef.current as (HTMLElement & { __latticeCoalesce?: number }) | null;
 		if (host) host.__latticeCoalesce = coalesceRef.current || 1;
 		coalesceRef.current = 0;
@@ -868,6 +879,7 @@ export function DeckPreview({
 			const afterRetry = retriedRef.current;
 			retriedRef.current = false;
 			setEngineFailed(true);
+			setStalled(false);
 			setReloadNeeded((was) => was || afterRetry || reloaded);
 			setFailed(true);
 			setFailedWhy('the slide engine did not load; check the connection, then Retry');
@@ -903,6 +915,7 @@ export function DeckPreview({
 			}
 			setFailed(isFailure);
 			setFailedOverSlide(false);
+			setStalled(false);
 			setFailedWhy(isFailure ? String(status.error ?? '') : '');
 			// A render ran, so the engine is loaded.
 			retriedRef.current = false;
@@ -944,6 +957,27 @@ export function DeckPreview({
 		if (status) firePaint();
 		if (status) watchOverflow();
 		return { heavy: status?.writePath === 'write' };
+	};
+	// The hung-render clock (`stalled` above): armed for each render on a loader host, cleared when it settles either way.
+	// A newer render takes the clock over, so a render the frame scheduler's watchdog gave up on cannot raise the card
+	// over a newer one that is still inside its 30 s.
+	runRenderRef.current = async () => {
+		const clock = ++renderClockRef.current;
+		const timer = loader
+			? window.setTimeout(() => {
+					if (renderClockRef.current !== clock) return;
+					const shown = stageRef.current?.querySelector<HTMLIFrameElement>('iframe.live');
+					setFailedOverSlide(!!(shown?.style.opacity && shown.style.opacity !== '0'));
+					setStalled(true);
+					setFailedWhy('the slide did not finish loading; check the connection, then Retry');
+					setFailed(true);
+				}, HUNG_RENDER_MS)
+			: 0;
+		try {
+			return await renderOnce();
+		} finally {
+			window.clearTimeout(timer);
+		}
 	};
 
 	// One scheduler instance per host (created once; drives runRenderRef via a stable thunk
@@ -1112,6 +1146,7 @@ export function DeckPreview({
 		retriedRef.current = true;
 		setFailed(false);
 		setFailedOverSlide(false);
+		setStalled(false);
 		setFailedWhy('');
 		schedulerRef.current?.schedule();
 	}, []);
@@ -1199,7 +1234,9 @@ export function DeckPreview({
 									: 'This preview couldn’t render — the slide engine still did not load; save your work, then reload the page or open it in a new tab.'
 							: failedOverSlide
 								? // The slide on screen is correct; what fails is everything after it. Short, so the bar stays one row.
-									'The slide engine did not load, so edits will not show here.'
+									stalled
+									? 'The preview stopped loading, so edits will not show here.'
+									: 'The slide engine did not load, so edits will not show here.'
 								: failedWhy
 									? `This preview couldn’t render — ${failedWhy}.`
 									: 'This preview couldn’t render.'}

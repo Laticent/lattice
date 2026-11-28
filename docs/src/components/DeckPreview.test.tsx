@@ -355,6 +355,88 @@ describe('DeckPreview — render failure affordance (#1164)', () => {
 		await waitFor(() => expect(container.querySelector('.nacre-failed')).toBeNull());
 	});
 
+	// D4 (owner, 2026-11-28): a render on a LOADER host that has not settled after 30 s shows the failure card with Retry,
+	// and the card clears itself if that render settles later. Fake time drives the 30 s (HARD RULE #32).
+	describe('a render that hangs on a LOADER host', () => {
+		const hang = () => {
+			let settle: (v: { ok: boolean; slides: number; error: string | null }) => void = () => {};
+			renderInto.mockImplementationOnce(() => new Promise((res) => (settle = res)));
+			return (v = { ok: true, slides: 1, error: null as string | null }) => act(async () => settle(v));
+		};
+		const text = (c: HTMLElement) => c.querySelector('.nacre-failed__text')?.textContent;
+
+		it('shows nothing before 30 s, then the card with Retry; the card goes when the render settles', async () => {
+			vi.useFakeTimers();
+			const release = hang();
+			const { container } = render(<DeckPreview options={opts} sample="# A" drawn={false} loader aria-label="p" />);
+			await advance(29999);
+			expect(renderInto).toHaveBeenCalledTimes(1);
+			expect(container.querySelector('.nacre-failed')).toBeNull();
+			await advance(1);
+			expect(text(container)).toBe('This preview couldn’t render — the slide did not finish loading; check the connection, then Retry.');
+			expect(container.querySelector('.nacre-failed__retry')?.textContent).toBe('Retry');
+			await release();
+			await advance(0);
+			expect(container.querySelector('.nacre-failed')).toBeNull();
+			vi.useRealTimers();
+		});
+
+		it('over a slide already showing (the bake) it is the bar, and stays until a render settles', async () => {
+			vi.useFakeTimers();
+			const release = hang();
+			const { container } = render(<DeckPreview options={opts} sample="# A" drawn={false} loader aria-label="p" />);
+			const fr = document.createElement('iframe');
+			fr.className = 'live';
+			fr.style.opacity = '1';
+			container.querySelector('figure')?.appendChild(fr);
+			await advance(30000);
+			expect(container.querySelector('.nacre-failed')?.classList.contains('nacre-failed--bar')).toBe(true);
+			expect(text(container)).toBe('The preview stopped loading, so edits will not show here.');
+			expect(fr.hasAttribute('aria-hidden')).toBe(false);
+			await release();
+			await advance(0);
+			expect(container.querySelector('.nacre-failed')).toBeNull();
+			vi.useRealTimers();
+		});
+
+		it('Retry starts a fresh render, and the card goes when it settles', async () => {
+			vi.useFakeTimers();
+			hang();
+			const { container, getByText } = render(<DeckPreview options={opts} sample="# A" drawn={false} loader aria-label="p" />);
+			await advance(30000);
+			expect(container.querySelector('.nacre-failed')).toBeTruthy();
+			fireEvent.click(getByText('Retry'));
+			await advance(16);
+			expect(renderInto).toHaveBeenCalledTimes(2);
+			expect(container.querySelector('.nacre-failed')).toBeNull();
+			vi.useRealTimers();
+		});
+
+		it('a hung render whose clock is overtaken by a newer render that settled raises no card', async () => {
+			vi.useFakeTimers();
+			hang();
+			const { container, rerender } = render(<DeckPreview options={opts} sample="# A" drawn={false} loader aria-label="p" />);
+			// Past the frame scheduler's 4 s watchdog, so an edit starts a NEW render while the first still hangs.
+			await advance(5000);
+			rerender(<DeckPreview options={opts} sample="# B" drawn={false} loader aria-label="p" />);
+			await advance(16);
+			expect(renderInto).toHaveBeenCalledTimes(2);
+			// 30 s after the FIRST render began: its clock is stale, and the newer render settled fine.
+			await advance(25000);
+			expect(container.querySelector('.nacre-failed')).toBeNull();
+			vi.useRealTimers();
+		});
+
+		it('a NON-loader host keeps its own never-paint ceiling: no hung-render card at 30 s', async () => {
+			vi.useFakeTimers();
+			hang();
+			const { container } = render(<DeckPreview options={opts} sample="# A" drawn={false} aria-label="p" />);
+			await advance(30000);
+			expect(text(container) ?? '').not.toContain('did not finish loading');
+			vi.useRealTimers();
+		});
+	});
+
 	it('an engine that fails while a slide is ALREADY SHOWING (the newcomer bake) leaves the slide visible: a bar, not a cover', async () => {
 		// Measured on Chromium and WebKit: the head seed's bake had painted a correct slide when the engine import failed,
 		// and the full card hid it. Now the card is a bar along the slide's foot and the slide stays in the a11y tree.
