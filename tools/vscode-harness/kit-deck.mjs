@@ -24,9 +24,14 @@ if (!fm) throw new Error(`${src} has no front matter`);
 let head = fm[0].replace(/^theme:.*$/m, `theme: ${theme}`);
 if (!/^theme:/m.test(head)) head = head.replace(/\n---\n$/, `\ntheme: ${theme}\n---\n`);
 if (size) head = /^size:/m.test(head) ? head.replace(/^size:.*$/m, `size: ${size}`) : head.replace(/\n---\n$/, `\nsize: ${size}\n---\n`);
+// The asset lines the bundle writes, word for word (tools/export-marp.js): dropped by exact match, not by an HTML
+// pattern, then the kit's own versions close the deck. Anything else stays as written.
+const SCRIPTS = ['mermaid-v11-min.js', 'lattice-dagre-min.js', 'lattice-runtime-min.js'].map((s) => `<script src="${s}"></script>`);
+const BUNDLE_ASSETS = new Set(['<link rel="stylesheet" href="lattice-vscode.css">', ...SCRIPTS]);
 const body = md
 	.slice(fm[0].length)
-	.replace(/^<script\b[^>]*>\s*<\/script>\s*$/gm, '')
-	.replace(/^<link\b[^>]*stylesheet[^>]*>\s*$/gm, '');
-md = `${head}${body.trimEnd()}\n\n<link rel="stylesheet" href="lattice-vscode-min.css">\n<script src="mermaid-v11-min.js"></script>\n<script src="lattice-dagre-min.js"></script>\n<script src="lattice-runtime-min.js"></script>\n`;
+	.split('\n')
+	.filter((line) => !BUNDLE_ASSETS.has(line.trim()))
+	.join('\n');
+md = `${head}${body.trimEnd()}\n\n<link rel="stylesheet" href="lattice-vscode-min.css">\n${SCRIPTS.join('\n')}\n`;
 fs.writeFileSync(out, md);
