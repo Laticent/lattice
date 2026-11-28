@@ -659,12 +659,13 @@ function modelFor(text: string, prev: DeckModel | undefined): DeckModel {
 const rootOf = /* @__PURE__ */ new WeakMap<DeckModel, { tree: Tree; parser: InlineParser }>();
 
 // ONE KEYSTROKE, ONE DECK UPDATE, HOWEVER CODEMIRROR SLICES THE PARSE. CodeMirror gives a transaction's parse 20 ms
-// (`Work.Apply`). When the deck update spends it, `takeTree` stops the nested HTML parse where it stood (the comment
-// in the edited slide) and keeps a tree that ends there; the next slice (`ensureSyntaxTree`, or the idle-time worker)
-// starts a new parse from the fragments, and so calls this parser again on text the fragments' model has already
-// read. That call returns the top node the first one built: no update counted, no slide counted twice, and the slide
-// subtrees and the HTML mounts on them are the same objects either way. Before this, a slow machine paid the update's
-// bookkeeping twice per keystroke (#3593's queue run: 2 updates for 1 keystroke).
+// (`Work.Apply`). When the deck update spends it, `takeTree` cuts the tree at the parse's `parsedPos`: 0 while the HTML
+// wrapper still has a nested parse to run, else where the front matter's YAML starts (4 in the gallery, whose front
+// matter tree is built afresh each time and so is always parsed again). The next slice (`ensureSyntaxTree`, or the
+// idle-time worker) starts a new parse from the fragments, and so calls this parser again on text the fragments' model
+// has already read. That call returns the top node the first one built: no update counted, no slide counted twice.
+// The nested HTML and YAML regions are still parsed again by that slice; only the deck work is saved. Before this, a
+// slow machine paid the deck update's bookkeeping twice per keystroke (#3593's queue run: 2 updates for 1 keystroke).
 class DeckParse implements PartialParse {
 	parsedPos = 0;
 	stoppedAt: number | null = null;

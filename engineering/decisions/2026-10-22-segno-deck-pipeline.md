@@ -1363,11 +1363,13 @@ from nothing, one slide subtree built (38 of the tree's 4,071 nodes) and 119 reu
 `deck-language.test.ts` holds them.
 
 **A sliced parse costs one update (2026-11-28).** CodeMirror gives a transaction's parse 20 ms. When a stall spends it,
-the parse stops in the edited slide's nested HTML and the next slice calls the deck parser again on the same text.
+`takeTree` cuts the tree where a nested parse is pending (the document's start while an HTML parse waits, else the
+front matter's YAML) and the next slice calls the deck parser again on the same text.
 That call used to count a second update and walk every slide again: "a keystroke, counted" read 2 updates for 1
 keystroke, 2 runs in 30 on clean `main` under load, and ejected #3593 from the queue. Now `DeckParse` returns the top node it built for
 that model, keyed also by the inline parser so a change in the admitted plugins still rebuilds, and counts it in
-`deckTreeStats.repeats`. A test with a clock that jumps 1 s per read forces the split on every run.
+`deckTreeStats.repeats`. That slice still parses the nested HTML and YAML again; only the deck work is saved. Two
+tests with a clock that jumps 1 s per read force the split on every run, one through each kind of cut.
 
 **Proof.** `deck-language.test.ts`: on 603 committed decks the tree is well formed, and every block range and inline
 structure the model holds is a node with its range; 60 random edits on the gallery give the tree a build from nothing
