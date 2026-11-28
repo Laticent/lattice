@@ -139,6 +139,12 @@ describe('trackConnections', () => {
 });
 
 // The deadline that replaced cli.test.js's fixed 10 s total (F4): a child fails for a hang, never for a slow machine.
+// Without /proc (macOS, Windows, or `watchProc: false`) the wall-clock ceiling is the only check; this arm runs on every
+// platform, so it proves a hang is still caught there.
+test('failing arm: with no /proc to watch by, the ceiling alone still kills a spinning child', async () => {
+  await assert.rejects(runNode('-e', ['for (;;) {}'], { watchProc: false, cpuBudgetMs: 100, stallMs: 100, ceilingMs: 1000 }), /still running after 1 s/);
+});
+
 // ci-skip: every CI unit job runs on ubuntu-24.04, where this block runs; only a macOS or Windows box (no /proc) skips it.
 describe('runNode', { skip: process.platform !== 'linux' && 'watches /proc, which only Linux has; elsewhere it is a wall-clock total' }, () => {
   test('reads a process\'s own CPU time from /proc', () => {

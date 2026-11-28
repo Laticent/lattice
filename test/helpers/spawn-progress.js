@@ -13,12 +13,14 @@
  *     never answers).
  * A starved child is neither. The scheduler gives a runnable process a share of every second, so its CPU time keeps
  * rising, slowly, and it is never killed for the machine's load. Each limit is the old 10 s, so a real hang is
- * reported as fast as before on an idle machine.
+ * reported as fast as before on an idle machine; the CPU budget is twelve times the worst idle CPU cost measured below.
  *
  * Two more ways out, so that no child can keep a test waiting forever:
  *   - a CEILING, `ceilingMs`, on every platform: a wall-clock total sized for the slowest runner, not the median.
- *     120 s is twelve times the old deadline and about three hundred times these paths' idle cost (0.27 to 0.43 s).
- *     Where `/proc` is missing (macOS, Windows) it is the only check. On Linux it catches a child the two checks above
+ *     120 s is twelve times the old deadline, and more than two hundred times the worst idle run of the four paths
+ *     cli.test.js once timed out on (0.56 s wall, 0.82 s CPU, 20 runs each, 2026-11-28). Where `/proc` is missing
+ *     (macOS, Windows) it is the only check, so a hang there takes 120 s to report, not 10. No CI job runs these tests
+ *     off Linux (.github/platform-suites.json), so that cost falls only on an author's laptop. On Linux it catches a child the two checks above
  *     miss: one that polls, using a little CPU every half second forever, so its CPU time never stalls and takes
  *     minutes to reach the budget (the checker's finding);
  *   - an ORPHANED PIPE: the child has exited but its output never closes, because a grandchild it started still holds
@@ -32,6 +34,9 @@ const { spawn } = require('node:child_process');
 
 /** Clock ticks per second for `/proc/<pid>/stat`. USER_HZ is 100 on every Linux ABI Node ships for. */
 const USER_HZ = 100;
+/** Whether this machine has `/proc` to watch a child by. `watchProc: false` turns the watch off, so a test can show the
+ * ceiling alone still catches a hang, as it must on macOS and Windows. */
+const HAS_PROC = fs.existsSync('/proc/self/stat');
 
 /** The child's CPU time in ms, or null when `/proc` cannot say (not Linux, or the child has already gone). */
 function cpuMs(pid) {
@@ -52,11 +57,11 @@ function cpuMs(pid) {
  * Run `node <script> <args>` and resolve `{ status, stdout, stderr }`, or reject when it hangs.
  * @param {string} script
  * @param {string[]} [args]
- * @param {{ cwd?: string, env?: object, cpuBudgetMs?: number, stallMs?: number, ceilingMs?: number, pollMs?: number }} [opts]
+ * @param {{ cwd?: string, env?: object, cpuBudgetMs?: number, stallMs?: number, ceilingMs?: number, pollMs?: number, watchProc?: boolean }} [opts]
  * @returns {Promise<{ status: number | null, stdout: string, stderr: string }>}
  */
 function runNode(script, args = [], opts = {}) {
-  const { cwd, env = process.env, cpuBudgetMs = 10_000, stallMs = 10_000, ceilingMs = 120_000, pollMs = 250 } = opts;
+  const { cwd, env = process.env, cpuBudgetMs = 10_000, stallMs = 10_000, ceilingMs = 120_000, pollMs = 250, watchProc = HAS_PROC } = opts;
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [script, ...args], { cwd, env });
     let stdout = '';
@@ -82,9 +87,8 @@ function runNode(script, args = [], opts = {}) {
     });
     let lastCpu = -1;
     let lastMove = Date.now();
-    const watchable = fs.existsSync('/proc/self/stat');
     const poll = setInterval(() => {
-      if (!watchable) return clearInterval(poll); // no /proc: the ceiling is the only check
+      if (!watchProc) return clearInterval(poll); // no /proc: the ceiling is the only check
       const used = cpuMs(child.pid);
       if (used === null) return; // it exited between the poll and the read; `exit` handles the rest
       const now = Date.now();
