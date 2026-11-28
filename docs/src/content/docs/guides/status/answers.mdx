@@ -5,7 +5,7 @@ description: Six state markers, one meaning each, in every layout. What each ans
 
 import CraftLab from '../../../../components/craft/CraftLab.astro';
 
-export const LAB_CHECKLIST = `<!-- _class: checklist -->
+export const LAB_CHECKLIST = `<!-- @meta{layout=checklist} -->
 
 ## Launch readiness.
 
@@ -17,7 +17,7 @@ export const LAB_CHECKLIST = `<!-- _class: checklist -->
 - [/] Legacy batch retired, no cutover needed
 `;
 
-export const LAB_TABLE = `<!-- _class: table state-cells -->
+export const LAB_TABLE = `<!-- @meta{layout=table, class=state-cells} -->
 
 ## Where each vendor lands.
 

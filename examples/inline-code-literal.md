@@ -74,7 +74,7 @@ One line of front matter, and every backtick span goes back to being text.
 - Chrome is markdown too — `header:` and `footer:` render inline like a paragraph.
 - So a literal deck silences those too, or a foreign running header still draws.
 - Look at the running header on the slides that carry one: `{DEMO}` and `[x]`, as characters.
-- Scope it to a single slide with `<!-- _class: inline-code-literal -->`.
+- Scope it to a single slide with `<!-- @meta{class=inline-code-literal} -->`.
 
 ---
 

@@ -5,9 +5,9 @@ pagination: true
 header: "Lattice · Restore tokens"
 spectrum: solid left
 card-spectrum: solid top
-rule: accent
+heading-rule: accent
 eyebrow: dot
-headline: center
+headline-align: center
 ---
 
 <!-- @meta{layout=title, class=silent} -->
@@ -50,23 +50,23 @@ The deck runs `spectrum: solid`. `with-spectrum` returns this slide to the theme
 
 ---
 
-<!-- @meta{layout=content, class=rule-auto eyebrow-plain} -->
+<!-- @meta{layout=content, class=heading-rule-auto eyebrow-plain} -->
 
-`rule-auto · eyebrow-plain`
+`heading-rule-auto · eyebrow-plain`
 
 ## A plain label and the masthead's own rule
 
-`rule-auto` drops the deck's accent rule for the default hairline, and `eyebrow-plain` drops the dot before this label. Each token resets only its own register.
+`heading-rule-auto` drops the deck's accent rule for the default hairline, and `eyebrow-plain` drops the dot before this label. Each token resets only its own register.
 
 ---
 
-<!-- @meta{layout=content, class=head-auto} -->
+<!-- @meta{layout=content, class=headline-align-auto} -->
 
-`head-auto`
+`headline-align-auto`
 
 ## The layout chooses its own alignment again
 
-The deck centers every heading with `headline: center`. `head-auto` hands this slide back to the layout, so the masthead sits on the left as it does by default.
+The deck centers every heading with `headline-align: center`. `headline-align-auto` hands this slide back to the layout, so the masthead sits on the left as it does by default.
 
 ---
 

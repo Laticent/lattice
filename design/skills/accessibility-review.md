@@ -128,7 +128,7 @@ Review in this order: the cheap machine pass first, then the human passes it can
 **An `@alt` per slide**, written as what a sighted reader sees, in plain sentences:
 
 ```markdown
-<!-- _class: table -->
+<!-- @meta{layout=table} -->
 
 `Site readiness · September`
 
@@ -151,7 +151,7 @@ the six exact forms dispatch, and a screen reader says their names: `[x]` yes,
 **A placed photo, named and covered by `@alt`:**
 
 ```markdown
-<!-- _class: image -->
+<!-- @meta{layout=image} -->
 
 `Turin · loading dock`
 

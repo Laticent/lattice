@@ -17,12 +17,12 @@ import { analysisText } from './payload-elision';
 
 const LONG = `${'QUJD'.repeat(1500)}iVBO+w0/Zg==`;
 const FORMS = [
-	`<!-- _class: image -->\n\n## Photo\n\n![bg](data:image/png;base64,${LONG})`,
+	`<!-- @meta{layout=image} -->\n\n## Photo\n\n![bg](data:image/png;base64,${LONG})`,
 	`## Inline\n\nAn inline ![a](data:image/jpeg;base64,${LONG}) in prose.`,
 	`## Tag\n\n<img src="data:image/png;base64,${LONG}" alt="x">`,
 	`## Styled\n\n<div style="background-image:url('data:image/png;base64,${LONG}')">S</div>`,
 	`## Fence\n\n\`\`\`\n![bg](data:image/png;base64,${LONG})\n\`\`\``,
-	`<!-- _class: decision -->\n\n## T\n\n- One &lt;img src=data:image/png;base64,${LONG}&gt;\n  - body\n- Two\n  - body`,
+	`<!-- @meta{layout=decision} -->\n\n## T\n\n- One &lt;img src=data:image/png;base64,${LONG}&gt;\n  - body\n- Two\n  - body`,
 	`## Math\n\n$x$ and ![m](data:image/png;base64,${LONG})`,
 ];
 

@@ -124,7 +124,7 @@ In the **editor** (the Markdown source and the CSS fields):
 | Esc | Close the suggestions |
 
 Where nothing completes, the editor says "No suggestions here". On a blank line of a slide, the key offers what a line
-starts with: a layout directive, a record, a say line, a note, a heading, a list item, a fence, a new slide.
+starts with: a `@meta{…}` record, a say line, a note, a heading, a list item, a fence, a new slide.
 
 In the **slide strip** (Tab to a slide, then):
 
@@ -246,7 +246,7 @@ pagination: true
 header: "Trailhead · Launch plan"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Trailhead Launch
 
@@ -256,7 +256,7 @@ We open the beta to three cities in April, and the board decides the fourth.
 
 ---
 
-<!-- _class: big-number -->
+<!-- @meta{layout=big-number} -->
 
 `Beta waitlist`
 
@@ -267,7 +267,7 @@ We open the beta to three cities in April, and the board decides the fourth.
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 ## Pick the fourth city by March.
 

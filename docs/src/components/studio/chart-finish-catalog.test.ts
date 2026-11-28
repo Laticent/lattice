@@ -35,7 +35,7 @@ import { chartFinishValue, deckChartFinish, parseChartFinishValue } from './char
 
 // Rot-guard: the Studio display catalog MUST stay in step with the engine register.
 // Without it, a register change silently drifts the picker — a value that renders but
-// isn't offered, or a catalog entry pointing at a dead name. Mirrors corners-catalog.test.ts.
+// isn't offered, or a catalog entry pointing at a dead name. Mirrors slide-corners-catalog.test.ts.
 describe('chart-finish-catalog ↔ CHART_FINISH_NAMES', () => {
 	const names = new Set<string>(CHART_FINISH_NAMES);
 

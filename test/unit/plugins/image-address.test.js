@@ -25,7 +25,7 @@ const recordDeck = (cls, body) => {
   const [layout, ...rest] = cls.split(' ');
   return `---\ntheme: indaco\n---\n\n<!-- @meta{layout=${layout}${rest.length ? `, class="${rest.join(' ')}"` : ''}} -->\n\n## T\n\n${body}\n`;
 };
-const deck = legacyDeck;
+const deck = recordDeck;
 const html = (md) => engine.render(md).html;
 
 describe('the address comes only from the author\'s record (§4.5)', () => {
@@ -92,13 +92,13 @@ describe('Marp\'s keywords to Markdown\'s picture, the record\'s shortcut (§8 d
 
   test('the class line gains the word once', () => {
     // Written as a record (the one spelling Lattice writes, record note §15): an old class comment moves into one.
-    assert.equal(classLineWith('<!-- _class: image -->', 'mirror'), '<!-- @meta{layout=image, class=mirror} -->');
-    assert.equal(classLineWith('<!-- _class: image mirror -->', 'mirror'), '<!-- _class: image mirror -->');
+    assert.equal(classLineWith('<!-- @meta{layout=image} -->', 'mirror'), '<!-- @meta{layout=image, class=mirror} -->');
+    assert.equal(classLineWith('<!-- @meta{layout=image, class=mirror} -->', 'mirror'), '<!-- @meta{layout=image, class=mirror} -->');
     assert.equal(classLineWith('<!-- @meta{layout=image} -->', 'mirror'), '<!-- @meta{layout=image, class=mirror} -->');
     assert.equal(classLineWith('<!-- @meta{layout=image, class=dark, footer=Q3} -->', 'mirror'), '<!-- @meta{layout=image, class=dark mirror, footer=Q3} -->');
     assert.equal(classLineWith('<!-- @meta{layout=image, class=mirror} -->', 'mirror'), '<!-- @meta{layout=image, class=mirror} -->');
     assert.equal(classLineWith('Not a comment', 'mirror'), null);
-    assert.equal(classLineWith('<!-- class: image -->', 'mirror'), null, 'a running class is not the slide\'s own');
+    assert.equal(classLineWith('<!-- @meta{layout=image, carry} -->', 'mirror'), null, 'a running class is not the slide\'s own');
   });
 
 });
@@ -179,7 +179,7 @@ describe('every `![bg]` the engine no longer reads is named, and `--fix` only re
   });
 
   test('a Library photo described "BG …" is the author\'s words, so it is still placed', () => {
-    const out = engine.render('<!-- _class: image -->\n\n# Team\n\n![](asset:team)\n', undefined, { assetUrls: { team: 'https://x.example/t.jpg' }, assetAlts: { team: 'BG team at the offsite' } }).html;
+    const out = engine.render('<!-- @meta{layout=image} -->\n\n# Team\n\n![](asset:team)\n', undefined, { assetUrls: { team: 'https://x.example/t.jpg' }, assetAlts: { team: 'BG team at the offsite' } }).html;
     assert.match(out, /class="lattice-bg /);
   });
 });
@@ -235,7 +235,7 @@ describe('the trio\'s findings on slice 3 stay fixed', () => {
 
   test('the Marp translation follows the engine\'s class rules and its allowlist', () => {
     const ctx = ctxFor('image');
-    const md = (fm, cls, body) => `---\n${fm}\n---\n\n<!-- _class: ${cls} -->\n\n${body}\n`;
+    const md = (fm, cls, body) => `---\n${fm}\n---\n\n<!-- @meta{class=${cls}} -->\n\n${body}\n`;
     assert.match(withImageMarkdown(md('class: bleed', 'content', '`@image{p.jpg}`'), {}, ctx), /^!\[bg\]\(p\.jpg\)$/m, 'a deck-wide bleed is appended');
     assert.match(withImageMarkdown(md('class: image', 'content', '`@image{p.jpg}`'), {}, ctx), /^!\[\]\(p\.jpg\)$/m, 'a deck-wide component name is dropped');
     const refused = md('theme: indaco', 'content', '`@image{"javascript:alert(1)"}`');
@@ -245,7 +245,7 @@ describe('the trio\'s findings on slice 3 stay fixed', () => {
   test('the migration refuses to rewrite what it would change, and never edits a second directive', () => {
     assert.ok(migrateBgLine('![bg](x&#39;a.jpg)', ['image']).unsafe);
     assert.equal(migrateBgLine('    ![bg](a.jpg)', ['content']), null, 'an indented code block');
-    assert.equal(classLineWith('<!-- _class: content --><!-- _paginate: false -->', 'bleed'), null);
+    assert.equal(classLineWith('<!-- @meta{layout=content} --><!-- @meta{paginate=false} -->', 'bleed'), null);
   });
 });
 
@@ -327,7 +327,7 @@ describe('Markdown\'s picture is the record\'s shortcut on a slide that places o
 
 describe('Export-to-Marp places the shortcut as it places the record', () => {
   test('a lone `![…](…)` on an image or bleed slide becomes `![bg]` with its destination as written; elsewhere it is untouched', () => {
-    const md = '---\ntheme: indaco\n---\n\n<!-- _class: image -->\n\n## T\n\n![A lake](sample:photo-wide.jpg "Dawn")\n\n---\n\n<!-- _class: content -->\n\n![A lake](a.jpg)\n\n---\n\n<!-- _class: content bleed -->\n\n![bg left](b.jpg)\n';
+    const md = '---\ntheme: indaco\n---\n\n<!-- @meta{layout=image} -->\n\n## T\n\n![A lake](sample:photo-wide.jpg "Dawn")\n\n---\n\n<!-- @meta{layout=content} -->\n\n![A lake](a.jpg)\n\n---\n\n<!-- @meta{layout=content, class=bleed} -->\n\n![bg left](b.jpg)\n';
     const out = withImageMarkdown(md, {}, ctxFor('image'));
     assert.match(out, /^!\[bg\]\(sample:photo-wide\.jpg "Dawn"\)$/m);
     assert.match(out, /^!\[A lake\]\(a\.jpg\)$/m);
@@ -335,9 +335,9 @@ describe('Export-to-Marp places the shortcut as it places the record', () => {
   });
 
   test('two lone pictures on a slide, or a collage, stay Markdown pictures in the bundle, as the engine leaves them', () => {
-    const two = '---\ntheme: indaco\n---\n\n<!-- _class: image -->\n\n![a](1.jpg)\n\n![b](2.jpg)\n';
+    const two = '---\ntheme: indaco\n---\n\n<!-- @meta{layout=image} -->\n\n![a](1.jpg)\n\n![b](2.jpg)\n';
     assert.equal(withImageMarkdown(two, {}, ctxFor('image')), two);
-    const col = '---\ntheme: indaco\n---\n\n<!-- _class: collage image -->\n\n![a](1.jpg)\n';
+    const col = '---\ntheme: indaco\n---\n\n<!-- @meta{layout=collage, class=image} -->\n\n![a](1.jpg)\n';
     assert.equal(withImageMarkdown(col, {}, ctxFor('image')), col);
   });
 });
@@ -365,22 +365,22 @@ describe('Export-to-Marp writes a placed picture its own line pattern cannot rea
   // `![bg](…)` up to the first `)` (lib/core/bg-directive.js); with the title kept, the panel's address came out
   // `photo.jpg %22Dawn (east` (found by the export comparison on #3132).
   test('a title with parentheses becomes a clean `![bg](address)`', () => {
-    const md = '---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## T\n\n![Harbor](https://x.test/p.jpg "Dawn (east)")\n';
+    const md = '---\ntheme: indaco\n---\n\n<!-- @meta{layout=image} -->\n## T\n\n![Harbor](https://x.test/p.jpg "Dawn (east)")\n';
     const out = withImageMarkdown(md, {}, ctxFor('image'));
     assert.match(out, /^!\[bg\]\(https:\/\/x\.test\/p\.jpg\)$/m);
   });
   test('an address in angle brackets is written from the parse, never with its brackets', () => {
-    const md = '---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## T\n\n![Harbor](<https://x.test/a b.jpg>)\n';
+    const md = '---\ntheme: indaco\n---\n\n<!-- @meta{layout=image} -->\n## T\n\n![Harbor](<https://x.test/a b.jpg>)\n';
     assert.match(withImageMarkdown(md, {}, ctxFor('image')), /^!\[bg\]\(https:\/\/x\.test\/a%20b\.jpg\)$/m);
   });
   test('an indented closing fence above it does not hide a picture the parse places', () => {
-    const md = '---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## T\n\n- ```\n  x\n  ```\n\n![H](https://x.test/c.jpg)\n';
+    const md = '---\ntheme: indaco\n---\n\n<!-- @meta{layout=image} -->\n## T\n\n- ```\n  x\n  ```\n\n![H](https://x.test/c.jpg)\n';
     assert.match(withImageMarkdown(md, {}, ctxFor('image')), /^!\[bg\]\(https:\/\/x\.test\/c\.jpg\)$/m);
   });
   test('a line of text right under it is kept out of the panel\'s HTML block by a blank line', () => {
     // The bundle lifts `![bg]` into a raw `<div>` line, and an HTML block runs to the next blank line: without one, a list
     // right under the picture printed as the text `- a point` in a marp-cli render.
-    const md = '---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## T\n\n![Harbor](https://x.test/p.jpg)\n- a point\n';
+    const md = '---\ntheme: indaco\n---\n\n<!-- @meta{layout=image} -->\n## T\n\n![Harbor](https://x.test/p.jpg)\n- a point\n';
     assert.match(withImageMarkdown(md, {}, ctxFor('image')), /^!\[bg\]\(https:\/\/x\.test\/p\.jpg\)\n\n- a point$/m);
   });
 });
@@ -406,7 +406,7 @@ describe('the shortcut hands its record a marker, not a pasted photo\'s address 
   // so the record path is the one that meets the whole address.
   const payload = Buffer.alloc(150_000, 0).map((_, i) => (i * 31) & 255).toString('base64');
   const photo = `data:image/png;base64,${payload}`;
-  const slide = (cls, line) => `---\ntheme: indaco\n---\n\n<!-- _class: ${cls} -->\n\n# Photo\n\n${line}\n`;
+  const slide = (cls, line) => `---\ntheme: indaco\n---\n\n<!-- @meta{class=${cls}} -->\n\n# Photo\n\n${line}\n`;
 
   test('the record reader reads a short record, and the figure carries the whole address', () => {
     const before = readStats.recordChars;
@@ -445,10 +445,10 @@ describe('a unit the engine draws as several slides is cut where the engine cuts
     const { headingPartStarts, slidePictureCount } = await import('../../../lib/core/placed-picture.mjs');
     const { boundaryParser } = await import('../../../lib/core/boundary-parser.mjs');
     const photo = `data:image/png;base64,${'QUJD'.repeat(3000)}`;
-    const unit = `<!-- class: image -->\n## One\n\n![A](${photo})\n\n<!-- _class: image mirror -->\n## Two\n\n![B](b.jpg)\n`;
+    const unit = `<!-- @meta{layout=image, carry} -->\n## One\n\n![A](${photo})\n\n<!-- @meta{layout=image, class=mirror} -->\n## Two\n\n![B](b.jpg)\n`;
     const starts = headingPartStarts(unit, boundaryParser);
     // The second part starts at its lead-in comment, which the engine pulls back onto the heading's slide.
-    assert.deepEqual(starts, [0, unit.indexOf('<!-- _class: image mirror')]);
+    assert.deepEqual(starts, [0, unit.indexOf('<!-- @meta{layout=image, class=mirror}')]);
     assert.deepEqual(starts.map((s, k) => slidePictureCount(unit.slice(s, starts[k + 1]), boundaryParser)), [1, 1]);
     // One heading, or a heading in a fence, is one part.
     assert.deepEqual(headingPartStarts('## One\n\ntext\n', boundaryParser), [0]);

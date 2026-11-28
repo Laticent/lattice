@@ -10,8 +10,8 @@ const { createEngine } = require('../../../lib/engine');
 const { engineTokens } = require('../../../lib/engine/test-seams.js');
 
 // The same deck twice: directive comments, then records. CRLF on purpose: the hooks run after the line-ending fold.
-const COMMENTS = ['---', 'size: 4:3', '---', '', '<!-- _class: columns -->', '', '## Two panes.', '', '<!-- _pane: list -->', '### Left', '', '- One', '', '<!-- _pane: list -->', '### Right', '', '- Two', ''].join('\r\n');
-const RECORDS = ['---', 'size: 4:3', '---', '', '<!-- {layout=columns} -->', '', '## Two panes.', '', '<!-- {pane=list} -->', '### Left', '', '- One', '', '<!-- @meta{pane=list} -->', '### Right', '', '- Two', ''].join('\r\n');
+const COMMENTS = ['---', 'size: 4:3', '---', '', '<!-- @meta{layout=columns} -->', '', '## Two panes.', '', '<!-- @meta{pane=list} -->', '### Left', '', '- One', '', '<!-- @meta{pane=list} -->', '### Right', '', '- Two', ''].join('\r\n');
+const RECORDS = ['---', 'size: 4:3', '---', '', '<!-- @meta{layout=columns} -->', '', '## Two panes.', '', '<!-- @meta{pane=list} -->', '### Left', '', '- One', '', '<!-- @meta{pane=list} -->', '### Right', '', '- Two', ''].join('\r\n');
 
 describe('every engine door reads records as it reads directive comments', () => {
   const engine = createEngine();

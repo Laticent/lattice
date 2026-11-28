@@ -1,5 +1,5 @@
 /**
- * HIDDEN SLIDES (`<!-- hide -->`, engineering/decisions/2026-11-06-hidden-slides.md).
+ * HIDDEN SLIDES (`<!-- @meta{hide} -->`, engineering/decisions/2026-11-06-hidden-slides.md).
  *
  * A hidden slide stays in the rendered document, marked `data-lattice-hidden`, so the editor can show it; it
  * takes no page number, is not in the total, and a hidden divider opens no section. The Studio's slice path
@@ -29,9 +29,9 @@ const marker = (html) => (html.match(/<span class="divider-marker-count">([^<]*)
 const stamp = (html) => (html.match(/data-lat-section="([^"]*)"/) || ['', ''])[1];
 const topicEyebrow = (html) => (html.match(/<p data-derived="section"><code>([^<]*)</) || ['', ''])[1];
 
-const BODY = (n) => `<!-- _class: form watermark -->\n\n## Body ${n}.`;
-const DIVIDER = (n) => `<!-- _class: divider -->\n\n# Part ${n}`;
-const hide = (slide, form = '<!-- hide -->') => `${form}\n${slide}`;
+const BODY = (n) => `<!-- @meta{class=form watermark} -->\n\n## Body ${n}.`;
+const DIVIDER = (n) => `<!-- @meta{layout=divider} -->\n\n# Part ${n}`;
+const hide = (slide, form = '<!-- @meta{hide} -->') => `${form}\n${slide}`;
 
 describe('hideOn: the value rule', () => {
   test('bare or an explicit on hides; anything else shows', () => {
@@ -41,7 +41,7 @@ describe('hideOn: the value rule', () => {
 });
 
 describe('engine: a hidden slide is marked and takes no number', () => {
-  const forms = ['<!-- hide -->', '<!-- _hide -->', '<!-- _hide: true -->', '<!-- hide: yes -->'];
+  const forms = ['<!-- @meta{hide} -->', '<!-- @meta{hide} -->', '<!-- @meta{hide=true} -->', '<!-- @meta{hide=yes} -->'];
   for (const form of forms) {
     test(`${form} hides the slide and the shown slides number 1..N`, () => {
       const html = createEngine().render(deckOf([BODY(1), hide(BODY(2), form), BODY(3)]), 'lattice').html;
@@ -56,7 +56,7 @@ describe('engine: a hidden slide is marked and takes no number', () => {
   }
 
   test('`_hide: false` shows the slide', () => {
-    const s = sectionsOf(createEngine().render(deckOf([BODY(1), hide(BODY(2), '<!-- _hide: false -->')]), 'lattice').html);
+    const s = sectionsOf(createEngine().render(deckOf([BODY(1), hide(BODY(2), '<!-- @meta{hide=false} -->')]), 'lattice').html);
     assert.equal(attr(s[1], 'data-lattice-hidden'), undefined);
     assert.equal(attr(s[1], 'data-lattice-pagination'), '2');
   });
@@ -77,8 +77,8 @@ describe('engine: a hidden slide is marked and takes no number', () => {
   });
 
   test('a hidden divider draws no marker and advances neither the numeral nor a topic eyebrow', () => {
-    const NUMBERED = (n) => `<!-- _class: divider numbered -->\n\n## Part ${n}`;
-    const TOPIC = '<!-- _class: topic -->\n\n## A topic\n\nBody.';
+    const NUMBERED = (n) => `<!-- @meta{layout=divider, class=numbered} -->\n\n## Part ${n}`;
+    const TOPIC = '<!-- @meta{layout=topic} -->\n\n## A topic\n\nBody.';
     const s = sectionsOf(createEngine().render(deckOf([NUMBERED(1), TOPIC, hide(NUMBERED(2)), TOPIC, NUMBERED(3), TOPIC], RAIL_ON), 'lattice').html);
     assert.deepEqual([marker(s[0]), marker(s[2]), marker(s[4])], ['1/2', '', '2/2']);
     assert.deepEqual([stamp(s[0]), stamp(s[4])], ['01', '02'], 'the third divider is the second shown one');
@@ -87,7 +87,7 @@ describe('engine: a hidden slide is marked and takes no number', () => {
   });
 
   test('a hidden divider does not split the topic track: its topics stay in the shown section', () => {
-    const TOPIC = (n) => `<!-- _class: topic -->\n\n## ${n}\n\nBody.`;
+    const TOPIC = (n) => `<!-- @meta{layout=topic} -->\n\n## ${n}\n\nBody.`;
     const s = sectionsOf(createEngine().render(deckOf([DIVIDER(1), TOPIC('Alpha'), DIVIDER(2), TOPIC('Bravo'), TOPIC('Charlie'),
       hide(DIVIDER(3)), TOPIC('Delta'), TOPIC('Echo')], RAIL_ON), 'lattice').html);
     const track = (html) => [...html.matchAll(/<li[^>]*>([^<]*)</g)].map((m) => m[1]);
@@ -99,12 +99,12 @@ describe('the checker\'s findings, pinned', () => {
   const marks = (md) => sectionsOf(createEngine().render(md, 'lattice').html).map((x) => (attr(x, 'data-lattice-hidden') ? 'H' : attr(x, 'data-lattice-pagination') ?? '-'));
 
   test('split: headings — a hide anywhere in a `---` block hides every part of it', () => {
-    const md = '---\ntheme: indaco\nsplit: headings\npagination: true\n---\n\n## A\n\n---\n\n<!-- hide -->\n## C1\n\nc\n\n## C2\n\n---\n\n## D1\n\n<!-- hide -->\n## D2\n\n---\n\n## E\n';
+    const md = '---\ntheme: indaco\nsplit: headings\npagination: true\n---\n\n## A\n\n---\n\n<!-- @meta{hide} -->\n## C1\n\nc\n\n## C2\n\n---\n\n## D1\n\n<!-- @meta{hide} -->\n## D2\n\n---\n\n## E\n';
     assert.deepEqual(marks(md), ['1', 'H', 'H', 'H', 'H', '2']);
   });
 
   test('a hidden pane-split slide hides every pane page', () => {
-    const md = '---\ntheme: indaco\npagination: true\nsize: square\n---\n\n# A\n\n---\n\n<!-- hide -->\n## Panes.\n\n<!-- _class: columns ratio-55-45 -->\n<!-- _pane: bar -->\n\np95.\n\n- Before `840`\n- After `190`\n\n<!-- _pane: list -->\n\n- one\n- two\n\n---\n\n# C\n';
+    const md = '---\ntheme: indaco\npagination: true\nsize: square\n---\n\n# A\n\n---\n\n<!-- @meta{hide} -->\n## Panes.\n\n<!-- @meta{layout=columns, class=ratio-55-45} -->\n<!-- @meta{pane=bar} -->\n\np95.\n\n- Before `840`\n- After `190`\n\n<!-- @meta{pane=list} -->\n\n- one\n- two\n\n---\n\n# C\n';
     const m = marks(md);
     assert.deepEqual([m[0], m[m.length - 1]], ['1', '2']);
     assert.ok(m.slice(1, -1).length >= 1 && m.slice(1, -1).every((x) => x === 'H'), m.join(' '));
@@ -113,9 +113,9 @@ describe('the checker\'s findings, pinned', () => {
   });
 
   test('a hide inside a line of text is not a directive, in the engine or the source reader', () => {
-    const md = deckOf([BODY(1), '## B with inline <!-- hide --> comment', BODY(3)]);
+    const md = deckOf([BODY(1), '## B with inline <!-- @meta{hide} --> comment', BODY(3)]);
     assert.deepEqual(marks(md), ['1', '2', '3']);
-    assert.equal(core.slideSourceHidden('## B with inline <!-- hide --> comment'), false);
+    assert.equal(core.slideSourceHidden('## B with inline <!-- @meta{hide} --> comment'), false);
   });
 
   test('front-matter `hide:` hides nothing: hide is a slide key', () => {
@@ -124,29 +124,29 @@ describe('the checker\'s findings, pinned', () => {
   });
 
   test('a note that starts with the word does not hide the slide', () => {
-    assert.deepEqual(marks(deckOf([BODY(1), hide(BODY(2), '<!-- hide: if short on time -->')])), ['1', '2']);
-    assert.equal(core.slideSourceHidden('<!-- hide: if short on time -->\n## B'), false);
+    assert.deepEqual(marks(deckOf([BODY(1), hide(BODY(2), '<!-- @meta{hide=if short on time} -->')])), ['1', '2']);
+    assert.equal(core.slideSourceHidden('<!-- @meta{hide=if short on time} -->\n## B'), false);
   });
 });
 
 describe('the second checker\'s findings, pinned', () => {
   const marks = (md) => sectionsOf(createEngine().render(md, 'lattice').html).map((x) => (attr(x, 'data-lattice-hidden') ? 'H' : attr(x, 'data-lattice-pagination') ?? '-'));
 
-  test('`> <!-- hide -->` is not a directive, in the engine or the source reader', () => {
-    const quoted = '> <!-- hide -->\n> quoted\n\n## B';
+  test('`> <!-- @meta{hide} -->` is not a directive, in the engine or the source reader', () => {
+    const quoted = '> <!-- @meta{hide} -->\n> quoted\n\n## B';
     assert.deepEqual(marks(deckOf([BODY(1), quoted, BODY(3)])), ['1', '2', '3']);
     assert.equal(core.slideSourceHidden(quoted), false);
   });
 
   test('split: headings — a block is shown or hidden WHOLE, whichever part its comments sit in', () => {
-    const md = '---\ntheme: indaco\nsplit: headings\npagination: true\n---\n\n<!-- hide -->\n## B1\n\nb\n\n<!-- _hide: false -->\n## B2\n\n---\n\n## C\n';
+    const md = '---\ntheme: indaco\nsplit: headings\npagination: true\n---\n\n<!-- @meta{hide} -->\n## B1\n\nb\n\n<!-- @meta{hide=false} -->\n## B2\n\n---\n\n## C\n';
     assert.deepEqual(marks(md), ['1', '2', '3']);
   });
 
-  test('`<!-- hide: if short on time -->` stays a speaker note and hides nothing', () => {
-    const { html } = createEngine().render(deckOf([BODY(1), '<!-- hide: if short on time -->\n## B']), 'lattice');
+  test('`<!-- @meta{hide=if short on time} -->` stays a speaker note and hides nothing', () => {
+    const { html } = createEngine().render(deckOf([BODY(1), '<!-- @meta{hide=if short on time} -->\n## B']), 'lattice');
     assert.match(html, /hide: if short on time/);
-    assert.deepEqual(marks(deckOf([BODY(1), '<!-- hide: if short on time -->\n## B'])), ['1', '2']);
+    assert.deepEqual(marks(deckOf([BODY(1), '<!-- @meta{hide=if short on time} -->\n## B'])), ['1', '2']);
   });
 });
 
@@ -155,8 +155,8 @@ describe('slice path: the supplied position == the whole-deck render', () => {
     ['hidden in the middle', [BODY(1), hide(BODY(2)), BODY(3), BODY(4)]],
     ['hidden first', [hide(BODY(1)), BODY(2), BODY(3)]],
     ['hidden last', [BODY(1), BODY(2), hide(BODY(3))]],
-    ['two hidden in a row, spot form', [BODY(1), hide(BODY(2), '<!-- _hide -->'), hide(BODY(3), '<!-- _hide: true -->'), BODY(4)]],
-    ['explicitly shown', [BODY(1), hide(BODY(2), '<!-- _hide: false -->'), BODY(3)]],
+    ['two hidden in a row, spot form', [BODY(1), hide(BODY(2), '<!-- @meta{hide} -->'), hide(BODY(3), '<!-- @meta{hide=true} -->'), BODY(4)]],
+    ['explicitly shown', [BODY(1), hide(BODY(2), '<!-- @meta{hide=false} -->'), BODY(3)]],
     ['hidden divider', [DIVIDER(1), BODY(1), hide(DIVIDER(2)), BODY(2), DIVIDER(3), BODY(3)]],
     ['hidden divider, rail on', [DIVIDER(1), BODY(1), hide(DIVIDER(2)), BODY(2), DIVIDER(3), BODY(3)], RAIL_ON],
   ];
@@ -164,7 +164,7 @@ describe('slice path: the supplied position == the whole-deck render', () => {
   test('a `hide` shown inside code is not a directive, and the slice path still positions every slide', () => {
     // The source reader PARSES (lib/core/hide-directive.mjs via the boundary parser), so a fenced sample is code to it
     // exactly as it is to the engine: no refusal, and the supplied position is the whole-deck one.
-    const slides = [BODY(1), '## Teaching\n\n```md\n<!-- hide -->\n```', BODY(3)];
+    const slides = [BODY(1), '## Teaching\n\n```md\n<!-- @meta{hide} -->\n```', BODY(3)];
     const deck = deckOf(slides);
     const full = sectionsOf(createEngine().render(deck, 'lattice').html);
     assert.deepEqual(full.map((x) => attr(x, 'data-lattice-pagination')), ['1', '2', '3']);

@@ -1,5 +1,5 @@
 import { schedulerDrained } from './barriers';
-import { expect, gotoStudio, setEditorContent, slideCount, test } from './studio-fixture';
+import { expect, gotoStudio, recordToasts, setEditorContent, slideCount, test } from './studio-fixture';
 
 // ── THE STAGE — the window the ROOM looks at ─────────────────────────────────
 //
@@ -469,17 +469,7 @@ test('a Stage the presenter closes by hand reverts the console — and says noth
 	//
 	// So watch from BEFORE the close and keep what was seen: a toast that appears and
 	// auto-dismisses still leaves its text in the log.
-	const seen = async () => page.evaluate(() => (window as unknown as { __toastLog?: string[] }).__toastLog ?? []);
-	await page.evaluate(() => {
-		const w = window as unknown as { __toastLog?: string[] };
-		w.__toastLog = [];
-		new MutationObserver(() => {
-			for (const el of document.querySelectorAll('[data-sonner-toast]')) {
-				const t = (el.textContent ?? '').trim();
-				if (t && !w.__toastLog?.includes(t)) w.__toastLog?.push(t);
-			}
-		}).observe(document.body, { childList: true, subtree: true });
-	});
+	const seen = await recordToasts(page);
 
 	// The `{stage:'closed'}` unload beat, on the real window. Polling `win.closed` would report
 	// this up to a poll late — mid-sentence, on the one control a presenter is looking at to
@@ -705,7 +695,7 @@ test('a multi-line speaker note is never painted in the Stage caption crawl', as
 		[
 			'---', 'theme: indaco', '---', '',
 			'# Cover', '', 'Opening body text for the cover slide.', '',
-			'---', '<!-- _class: funnel -->', '# Signup funnel', '',
+			'---', '<!-- @meta{layout=funnel} -->', '# Signup funnel', '',
 			// MULTI-LINE, as an `@note` the author typed across lines.
 			'<!-- @note{', `${SECRET} churn is forty percent and legal has not cleared it`, '} -->', '',
 			'- Visitors `1000`', '- Signups `500`', '- Paid `100`', '',

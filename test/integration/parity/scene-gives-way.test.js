@@ -27,7 +27,7 @@ theme: indaco
 size: square
 ---
 
-<!-- _class: scene -->
+<!-- @meta{class=scene} -->
 
 ## The pipeline assembles, stage by stage.
 
@@ -37,7 +37,7 @@ An extreme aspect would waste a card, so the resolver upgrades to **split** — 
 
 ---
 
-<!-- _class: scene mirror -->
+<!-- @meta{class=scene mirror} -->
 
 ## Every scene reduces to its still.
 

@@ -42,7 +42,7 @@ function formDeck(sample) {
 }
 
 // A fitting diagram: a small flowchart + a one-line Key Insight (the sample shape).
-const FITTING = `<!-- _class: diagram -->
+const FITTING = `<!-- @meta{layout=diagram} -->
 
 ## How a signal moves from input to decision.
 
@@ -64,7 +64,7 @@ const KEY_INSIGHT = Array.from(
     `Sentence ${i + 1} of a very long key insight that runs on across many wrapped lines and pushes the stage content well past its bottom edge.`,
 ).join(' ');
 
-const OVER_TALL = `<!-- _class: diagram -->
+const OVER_TALL = `<!-- @meta{layout=diagram} -->
 
 ## A fitting diagram with an over-tall Key Insight.
 

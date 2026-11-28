@@ -7,7 +7,10 @@
 // Five categories, five different storage mechanisms:
 //   · Decks           localStorage, lattice-studio-* (studio-store.ts owns it), plus
 //                     IndexedDB for versions (checkpoint-store.ts) and chats (chat-store.ts)
-//   · Library assets  IndexedDB, lattice-workbench   (asset-store.js owns it)
+//   · Library assets  IndexedDB, lattice-workbench   (asset-store.js owns it); a photo's or
+//                      video's bytes in the storage vault (media-vault.ts): OPFS, or IndexedDB
+//                      lattice-vault-blobs where OPFS is refused, indexed in lattice-vault
+//   · Move backup      the zip the move into the vault made (media-vault-move.ts), in the vault
 //   · AI keys          localStorage, lattice-db-or-* and lattice-db-<provider>-key
 //                      (lib/openrouter-key.js owns them; disconnectAllProviders removes the
 //                      OpenRouter key and every direct provider key)
@@ -94,6 +97,8 @@ export type GovernanceStats = {
 	models: { count: number; bytes: number };
 	siteCache: { count: number; bytes: number };
 	narration: { count: number; bytes: number };
+	/** The backup the move into the storage vault made (media-vault-move.ts), or null when there is none. */
+	moveBackup: { bytes: number } | null;
 	/** How full this browser's localStorage allowance is: deck text and settings share it, and a deck
 	 *  edit stops saving when it fills. The tab warns past `LOCAL_WARN_AT` (local-quota.ts). */
 	local: LocalStorageUse;
@@ -110,11 +115,12 @@ export async function loadGovernanceStats(): Promise<GovernanceStats> {
 	await hydrateCheckpoints().catch(() => undefined);
 	// The same for chats (chat-store.ts): a failed read leaves the stat short, never blocked.
 	await hydrateAllChats().catch(() => undefined);
-	const [deck, assets, names, narration] = await Promise.all([
+	const [deck, assets, names, narration, moveBackup] = await Promise.all([
 		Promise.resolve(deckContentStats()),
 		listAssets().catch(() => []),
 		cacheNames(),
 		clipStats().catch(() => ({ count: 0, bytes: 0 })),
+		import('./media-vault-move').then((m) => m.preMoveBackup()).catch(() => null),
 	]);
 	let libraryBytes = 0;
 	try {
@@ -123,7 +129,10 @@ export async function loadGovernanceStats(): Promise<GovernanceStats> {
 			// counted as nothing, in the one panel that exists to show what is using storage.
 			const blob = (a as { blob?: unknown }).blob;
 			const data = (a as { data?: unknown }).data;
-			if (blob instanceof Blob) libraryBytes += blob.size + JSON.stringify({ ...a, blob: undefined }).length;
+			// A photo whose bytes are in the storage vault (media-vault.ts) carries their size as `bytes`.
+			const inVault = typeof (a as { vault?: unknown }).vault === 'string';
+			if (inVault) libraryBytes += (Number((a as { bytes?: unknown }).bytes) || 0) + JSON.stringify(a).length;
+			else if (blob instanceof Blob) libraryBytes += blob.size + JSON.stringify({ ...a, blob: undefined }).length;
 			else if (data instanceof ArrayBuffer) libraryBytes += data.byteLength + JSON.stringify({ ...a, data: undefined }).length;
 			else libraryBytes += JSON.stringify(a).length;
 		}
@@ -143,7 +152,7 @@ export async function loadGovernanceStats(): Promise<GovernanceStats> {
 	const library = { count: assets.length, bytes: libraryBytes };
 	const models = { count: modelNames.length, bytes: modelBytes };
 	const siteCache = { count: siteCacheNames.length, bytes: siteCacheBytesTotal };
-	return { decks: deckWithCrash, library, models, siteCache, narration, local: localStorageUse(), totalBytes: deckWithCrash.bytes + library.bytes + models.bytes + siteCache.bytes + narration.bytes };
+	return { decks: deckWithCrash, library, models, siteCache, narration, moveBackup, local: localStorageUse(), totalBytes: deckWithCrash.bytes + library.bytes + models.bytes + siteCache.bytes + narration.bytes + (moveBackup?.bytes ?? 0) };
 }
 
 /** "Clear decks": the decks go, and so do the photos kept to a single deck, which would otherwise be
@@ -168,6 +177,9 @@ export async function clearDecksAndTheirPhotos(): Promise<void> {
 export async function clearLibraryAssets(): Promise<void> {
 	const all = await listAssets();
 	await Promise.all(all.map((a: { id: string }) => deleteAsset(a.id)));
+	// A save that died between its file and its row leaves a file no row names (media-store `saveMedia`). Clearing
+	// the Library means every photo, so the media folders are emptied too, not only the files rows name.
+	await (await import('./media-vault')).clearMediaFolders();
 }
 
 export async function clearDownloadedModels(): Promise<void> {
@@ -250,6 +262,8 @@ export async function clearEverything(): Promise<ClearEverythingResult> {
 		['models', clearDownloadedModels],
 		['cache', clearSiteCache],
 		['narration', clearNarrationAudio],
+		// The move's backup holds a copy of every deck and photo: clearing everything has to reach it.
+		['backup', () => import('./media-vault-move').then((m) => m.deletePreMoveBackup())],
 		['retired', clearRetiredDrawingBoardData],
 	];
 	const results = await Promise.allSettled(tasks.map(([, fn]) => fn()));

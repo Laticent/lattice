@@ -12,7 +12,7 @@ const deckFor = (placement: string): string => [
 	'title: Card tags',
 	'---',
 	'',
-	`<!-- _class: decision ${placement} -->`,
+	`<!-- @meta{class=decision ${placement}} -->`,
 	'',
 	'## Every tag takes the widest tag’s size.',
 	'',
@@ -84,10 +84,10 @@ test('every card tag on a slide is one size in the live preview @webkit-tablet',
 // decision cards share the row equally, so bands match in width as well.
 // Each case first proves the placement took effect, so a stale build cannot pass it vacuously.
 const PLACED: Record<string, (cs: { position: string; bottom: string; right: string; transform: string }) => boolean> = {
-	'tag-foot': (cs) => cs.position === 'absolute' && cs.bottom === '0px',
-	'tag-notch': (cs) => cs.position === 'absolute' && cs.transform !== 'none',
-	'tag-band': (cs) => cs.position === 'absolute' && cs.right === '0px',
-	'tag-inline': (cs) => cs.position === 'static',
+	'card-tag-foot': (cs) => cs.position === 'absolute' && cs.bottom === '0px',
+	'card-tag-notch': (cs) => cs.position === 'absolute' && cs.transform !== 'none',
+	'card-tag-band': (cs) => cs.position === 'absolute' && cs.right === '0px',
+	'card-tag-inline': (cs) => cs.position === 'static',
 };
 // Each runs twice: untagged for Chromium desktop, and as an @webkit-tablet twin at that project's
 // iPad-landscape box, because the measure reads computed styles WebKit resolves on its own.
@@ -95,7 +95,7 @@ for (const [engine, width, height] of [
 	['', 1440, 900],
 	[' @webkit-tablet', 1180, 703],
 ] as const) {
-	for (const placement of ['tag-foot', 'tag-notch', 'tag-band', 'tag-inline'] as const) {
+	for (const placement of ['card-tag-foot', 'card-tag-notch', 'card-tag-band', 'card-tag-inline'] as const) {
 	test(`every card tag on a slide is one size at ${placement} in the live preview${engine}`, async ({ page }, info) => {
 		await expectOneTagSize(page, info, `${placement}${engine ? '-webkit' : ''}`, width, height, deckFor(placement));
 		const cs = await livePreview(page)

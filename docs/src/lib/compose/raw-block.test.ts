@@ -101,6 +101,8 @@ describe('the paste gates', () => {
 	it('refuse what would forge deck structure', () => {
 		expect(isRawBlockText('html', '<div>\n\n---\n\n<b>x</b>')).toBe(false);
 		expect(isRawBlockText('html', '<div>\n---\n</div>')).toBe(false);
+		expect(isRawBlockText('html', '<div><!-- @meta{background-image="url(https://evil/x)"} --></div>')).toBe(false);
+		// The old comment sets nothing since the cut, and the gate still refuses it: a pasted page carries no settings.
 		expect(isRawBlockText('html', '<div><!-- _backgroundImage: url(https://evil/x) --></div>')).toBe(false);
 		expect(isRawBlockText('html', 'plain words')).toBe(false);
 		expect(isRawBlockText('math', '$$\n---\n$$')).toBe(false);

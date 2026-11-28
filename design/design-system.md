@@ -121,10 +121,10 @@ backdrops), each its own front-matter key, palette-blind, defaulting to today's 
 | **Spectrum** | `spectrum:` | the stripe on the slide edge, one word per axis: style (`rainbow`/`solid`/`duo`/`mono`/`off`), edge (`top`/`left`/`right`/`bottom`), weight (`regular`/`hairline`/`band`) |
 | **Card spectrum** | `card-spectrum:` | a stripe on card surfaces with its own style, never the slide edge's, one word per axis: style (`off`/`rainbow`/`solid`/`duo`/`mono`), edge (`left`/`top`/`right`/`bottom`), weight (`regular`/`hairline`/`band`) |
 | **Trim spectrum** | `trim-spectrum:` | the style of the structural accents (`quiet`/`rainbow`/`solid`/`duo`/`mono`), never the slide edge's — quiet = an accent-tint hairline by default |
-| **Corners** | `corners:` | whether the slide's own surface is square or rounded (`square`/`rounded`) — square is the default; the engine sets how round, and clips with `clip-path` so the brand bar follows |
-| **Heading rule** | `rule:` | the heading underline (`auto`/`full`/`short`/`accent`/`none`) |
+| **Corners** | `slide-corners:` | whether the slide's own surface is square or rounded (`square`/`rounded`) — square is the default; the engine sets how round, and clips with `clip-path` so the brand bar follows |
+| **Heading rule** | `heading-rule:` | the heading underline (`auto`/`full`/`short`/`accent`/`none`) |
 | **Eyebrow** | `eyebrow:` | the kicker's mark (`plain`/`dot`/`bar`/`arrow`/`underline`); its face comes from `typography:` |
-| **Headline alignment** | `headline:` | the framing-text cluster's horizontal alignment (`auto`/`left`/`center`/`right`) — `auto` keeps each component's own default; `left`/`center`/`right` pin the whole cluster, even on a layout whose default is the other way |
+| **Headline alignment** | `headline-align:` | the framing-text cluster's horizontal alignment (`auto`/`left`/`center`/`right`) — `auto` keeps each component's own default; `left`/`center`/`right` pin the whole cluster, even on a layout whose default is the other way |
 
 The accent registers are documented for authors in `lib/base/base.registers.docs.md`; design in
 `engineering/decisions/2026-07-15-accent-finish-consolidation.md`.
@@ -235,7 +235,7 @@ the engine's only plugin point.
 
 | Substance     | Author writes…                              | Renderer                                            |
 |---------------|---------------------------------------------|-----------------------------------------------------|
-| **prose**     | Headings, paragraphs, inline emphasis       | Marp markdown → semantic HTML; CSS does everything  |
+| **prose**     | Headings, paragraphs, inline emphasis       | Markdown → semantic HTML; CSS does everything       |
 | **structure** | Headings + nested lists with conventions    | `lib/*.js` post-processor rewrites lists into purpose-built DOM |
 | **series**    | Tabular DSL (axes + datapoints as bullets)  | `lib/plugins/chart-family/chart-family.dispatch.js` + per-chart kernel |
 | **graph**     | External graph language (Mermaid today)     | External tool (mmdc) → SVG, palette injected        |
@@ -368,12 +368,12 @@ Lattice follows the same pattern. The four-layer model organizes
 authoring grammar. Authors write:
 
 ```markdown
-<!-- _class: cards-grid compact dark -->
+<!-- @meta{layout=cards-grid, class=compact dark} -->
 ```
 
-The first token is the **component name** (the layout). The rest are
-**modifiers** (the variants). This is exactly how it has always
-worked. Nothing to migrate.
+`layout=` names the **component** (the layout). The `class=` words are
+**modifiers** (the variants). A deck in the old `<!-- _class: cards-grid compact dark -->`
+form, where the first word was the component, migrates with `lattice migrate meta`.
 
 ### What's new
 
@@ -398,7 +398,7 @@ lib/components/cards-grid.json
     "cards":  { "selector": "ul > li",    "required": true,  "description": "Each list item becomes one card. A top-level bullet is the card title (renders bold); an indented bullet underneath carries the body text." },
     "insight":{ "selector": "blockquote", "required": false, "description": "Optional key-insight panel above the cards." }
   },
-  "skeleton": "<!-- _class: cards-grid -->\n\n## Slide heading.\n\n- First card title\n  - Body text for the first card, one sentence.\n- Second card title\n  - Body text for the second card, one sentence.\n- Third card title\n  - Body text for the third card, one sentence.\n- Fourth card title\n  - Body text for the fourth card, one sentence.\n",
+  "skeleton": "<!-- @meta{layout=cards-grid} -->\n\n## Slide heading.\n\n- First card title\n  - Body text for the first card, one sentence.\n- Second card title\n  - Body text for the second card, one sentence.\n- Third card title\n  - Body text for the third card, one sentence.\n- Fourth card title\n  - Body text for the fourth card, one sentence.\n",
   "example": "examples/snippets/cards-grid.md",
   "anatomyBlock": "T7-card-grid-2x2"
 }
@@ -472,7 +472,7 @@ are the author surface of the `claim:` register (`design/concepts.md`;
 `engineering/decisions/2026-07-03-claim-content-claims-the-stage.md`).
 
 **Chrome control is per-slide OR deck-wide.** The Chrome tokens above are
-per-slide (`<!-- _class: no-footer -->`). Each chrome element also has a
+per-slide (`<!-- @meta{class=no-footer} -->`). Each chrome element also has a
 deck-wide control in the front-matter, so an author can set the baseline once
 and opt individual slides out:
 
@@ -486,11 +486,11 @@ and opt individual slides out:
 
 Every one is a SWITCH (lib/core/switches.mjs): `no-X` turns the band off, `with-X`
 brings it back on one slide. A deck-wide `class:` reaches every slide, including
-one that names its own `_class` (the slide's classes ADD to the deck's, never
+one that names its own `class=` in its `@meta` record (the slide's classes ADD to the deck's, never
 replace them), and the slide's `with-X` wins over the deck's `no-X`. `silent`
 turns the header, footer, page number and rail off together for one slide; each
 `with-X` beats it too, so a clean slide can keep its page number with
-`<!-- _class: content silent with-pagination -->`. The full list of switches,
+`<!-- @meta{layout=content, class=silent with-pagination} -->`. The full list of switches,
 chrome and beyond, is `lib/base/base.docs.md` § Switches; the Studio controls
 that emit them are in the authoring guide (`docs/src/content/docs/guides/authoring.md`).
 
@@ -536,8 +536,8 @@ listing them risks drift if the universal set changes later.
 **Which modifiers a component is offered: surfaces, not lists.** Every modifier
 a slide accepts without a manifest declaring it lives in ONE grouped registry,
 `MODIFIER_GROUPS` in `lib/components/index.js`: the Tier 1 and Tier 2 sets above,
-plus the register tokens (`rule-*`, `eyebrow-*`, `head-*`, `cards-*`,
-`lifted`/`flat`, `corners-*`, the `spectrum-*` bar and card rail, `stamp-*`/`tone-*`
+plus the register tokens (`heading-rule-*`, `eyebrow-*`, `headline-align-*`, `cards-*`,
+`card-lift-on`/`card-lift-off`, `slide-corners-*`, the `spectrum-*` bar and card rail, `stamp-shape-*`/`tone-*`
 shapes), the stage-frame controls (`align-*`, `fill-*`, `footer-inset`) and the
 motion hooks. Each group names the **surface** it acts on, meaning the part of the
 slide it changes:
@@ -545,11 +545,11 @@ slide it changes:
 | Surface | Modifiers acting on it | Which components have it |
 |---|---|---|
 | slide | `dark`, `light`, `silent`, `no-*`, state stamps, `tone-*`, brand bar, tints, frame, `scale-*` | every component |
-| heading | `rule-*`, `head-*`, `with-period` / `no-period` | a slot selects an h1–h6, or the sample writes one |
+| heading | `heading-rule-*`, `headline-align-*`, `with-period` / `no-period` | a slot selects an h1–h6, or the sample writes one |
 | eyebrow | `eyebrow-*` | the sample opens a block with a lone inline-code line |
 | table | `table-plain`, `table-fill`, `state-cells`, `with-row-label` | a slot selects a table, or the sample writes one |
 | card-row | `cards-*` | the manifest declares a `cards` composition |
-| card-surface | `lifted`, `flat` | the stylesheet reads `--elevation-card` |
+| card-surface | `card-lift-on`, `card-lift-off` | the stylesheet reads `--elevation-card` |
 | card-rail | `card-spectrum-*` | named in the card-rail paint rule |
 | chart-marks | `motion-*`, `chart-anima` | the render draws `data-mark` SVG or a scene |
 | key-insight · below-note | `note-warn` · `no-note` | `authoring.blocks` |
@@ -562,7 +562,7 @@ lists modifiers. `lib/components/surfaces.js` derives each component's surfaces 
 facts that already exist, and **the render proof corrects the derivation**.
 `npm run check:modifier-effects` renders every component's sample bare and with each
 modifier, fingerprints the result, and records per component which probed surfaces
-actually change. It also re-probes each declared variant, so `lifted` is offered
+actually change. It also re-probes each declared variant, so `card-lift-on` is offered
 after `kpi ops` (whose stylesheet reads the lift there) and not after plain `kpi`.
 The measurement, `lib/core/modifier-effects.generated.json`, is the source for the
 surfaces it probes. A component it has not measured yet falls back to the
@@ -583,9 +583,10 @@ shape and lives in the engine (`lib/core/bleed-frames.js`). Generated into
 deliberately ignores a modifier on (`claim-bleed` on a dense table). It takes a
 group name or a single token, and the validator rejects anything else.
 
-**How the editor completes a `_class:` line.** By position, the way a shell
-completes a command line: the first word is a component, and every later word is
-only what THAT component accepts. The menu lists, in order:
+**How the editor completes a slide's record.** Inside `<!-- @meta{…} -->`, a field
+name completes after `{` or `, `, and a value after `field=`: `layout=` offers the
+components, and `class=` completes by position, the way a shell completes a command
+line: every word is only what THE SLIDE'S component accepts. The menu lists, in order:
 
 1. the dependents of a token just typed (`tint-corner` → `at-tl` …)
 2. the component's own variants
@@ -600,8 +601,8 @@ A table, heading or eyebrow in its body turns that surface on, unless the proof
 measured it inert on this component. Inside
 each section, modifiers are ranked by how often the example decks use them. A token
 already on the line drops out, and so does every other member of an exclusive axis
-once you pick one. Once the first word names no component, it completes as the default `content`
-slide, so `_class: dark` keeps working. A bare space opens no menu: the
+once you pick one. With no `layout=`, `class=` completes as the default `content`
+slide, so `class=dark` works. A bare space opens no menu: the
 default look is the component with nothing after it, so Enter there stays a newline.
 The menu opens on the first letter, or on Ctrl-Space. The kernel is
 `classTokenResult` in `docs/src/playground/slide-context.js` (the options plus the
@@ -637,7 +638,8 @@ VS Code inserts them as written. The same file ships in the copy-and-go Marp kit
 Export-to-Marp bundle (`.vscode/lattice.code-snippets`). Generated from the manifests; never
 hand-edited.
 
-Layout NAMES complete as you type inside `<!-- _class: ` through a small VS Code extension,
+In the Marp kit and an Export-to-Marp bundle, which use Marp's own comment form, layout NAMES
+complete as you type inside `<!-- _class: ` through a small VS Code extension,
 `lattice-layouts.vsix`, which the Marp kit ships and the bundle's README links to. Its completion
 provider answers only inside a class directive, so prose never opens a menu
 (`kit/vscode/`, `engineering/decisions/2026-11-11-vscode-layout-completions.md`).
@@ -686,6 +688,34 @@ allow-listed in `SINGLETON_TAGS`. Tags surface in the generated
 `<name>.docs.md`, the aggregated `dist/docs/components.md`, and as
 chips + a live filter facet on the docs-site component pages.
 
+### Search terms — the words a person actually types
+
+Tags are a **controlled** vocabulary, which is exactly why they cannot
+carry everyday words: "grades", "movie", "data" or "photos" would never
+cluster as facets. `searchTerms` is the other half (2026-11-23,
+`engineering/decisions/2026-11-23-search-by-meaning.md`): **3–12 plain
+English words or short phrases** an author would type into the Studio's
+slide gallery to find this component, without knowing its name.
+
+- **Free, per manifest.** Not drawn from `TAG_GROUPS`, and they may
+  repeat across components ("data" is on every chart that shows data).
+- **Required for the shipped catalog, optional in the schema.** A unit
+  test fails if any in-tree manifest lacks them, so a new component cannot
+  ship unfindable. The schema leaves them optional so a component an
+  author makes in the Studio is not rejected for lacking them.
+- **Plain words only:** lowercase letters, digits, spaces and hyphens
+  (write `qa`, not `q&a`).
+- **Stemmed, so list a word once.** "grade" also finds "grades".
+- **Meaning pass only.** The Workspace "literal only" search turns the
+  meaning pass off, and `searchTerms` with it.
+- **Measured.** `tools/intent-bakeoff` scores them on an everyday-words
+  query set and a held-out set, and `docs/src/lib/search-everyday.test.ts`
+  holds the floor: everyday one-word queries went from 44% to 89% top-1
+  (tuning set) and from 22% to 66% (held-out).
+
+General English that belongs to no single component (pic, vid, vs) lives
+in the ranker's small `SYNONYMS` table instead (`intent-search.ts`).
+
 ### For agents
 
 AI agents authoring decks get a discovery surface and a validation loop:
@@ -699,6 +729,13 @@ AI agents authoring decks get a discovery surface and a validation loop:
   plus the controlled vocabularies. This is what TOOLS load; at 95k tokens it is not a
   document to read for a pick. Both are generated alongside `components.md/.html` by
   `tools/build-docs-portal.js`.
+- **`components.json` is versioned.** Its top-level `schemaVersion` is an integer
+  (today `1`). A new field keeps the version, so a reader ignores fields it does not
+  know. Removing or renaming a field, or changing what one means, bumps it, so a
+  reader checks `schemaVersion` before it trusts a field. The bump is
+  `COMPONENTS_JSON_SCHEMA_VERSION` in `tools/build-docs-portal.js`.
+  `test/unit/cli/components-json-schema-version.test.js` fails when a field in
+  `test/fixtures/components-json-fields.json` disappears without one.
 - **Capacity — pick by content shape.** A layout overflows when it holds more
   elements than it's built for — the most common authoring slip. A component's
   optional `capacity` block (`{ axis, sweet, soft, hard, escalateTo }`) declares
@@ -758,8 +795,9 @@ npm run new:slide -- compare-prose    # generate the skeleton
 to use) lives in `design/skill.md` and the visual gallery; it is not
 encoded in the directive name.
 
-Existing authors continue to write `<!-- _class: cards-grid -->` as
-they always have. Nothing breaks. Nothing changes.
+Authors write `<!-- @meta{layout=cards-grid} -->`. The engine no longer
+reads the old `<!-- _class: cards-grid -->` comment: it is a lint error, and
+`lattice migrate meta` rewrites a whole deck.
 
 ### 8.2 Theme designers — Finish ownership
 
@@ -886,7 +924,7 @@ The bucket layout is reflected in three places only:
 - the filesystem path
 - `groupByBucket()` in `lib/components/index.js`
 
-Everything else — including the `<!-- _class: name -->` invocation —
+Everything else — including the `<!-- @meta{layout=name} -->` invocation —
 is unchanged. Authors never type a bucket name.
 
 ### Per-bucket survey galleries
@@ -1069,11 +1107,11 @@ which sits in `@layer components` alongside the migrated files.
 | **Short component names + variant props** (this proposal) | shadcn, Chakra, Mantine, Slidev, Notion blocks | Terse author syntax. Familiar pattern. Discovery via tooling. | Two namespaces (components + variants) to learn. |
 | Dotted/categorical names (`inventory.grid.cards`) | none in practice — was tried in commit `0ec93da`, reverted | Self-documenting at the call site. | Verbose. Authors learn ~70 path combinations vs ~35 names. Implementation surfaces (e.g. `evidence.canvas.chart.progress` for what used to be `progress`). |
 | Atomic utility classes | Tailwind | Maximal composability. | Wrong layer — Lattice is at the slide level, not the property level. |
-| HTML/JSX components | Spectacle, MDX decks | Slot semantics are explicit. Type-checkable. | Loses the Marp markdown-first contract. |
+| HTML/JSX components | Spectacle, MDX decks | Slot semantics are explicit. Type-checkable. | Loses the Markdown-first contract. |
 | Visual layout picker | PowerPoint, Keynote | Best discovery. | Requires a GUI; can't ship in a CLI tool. |
 
 The short-name + manifest approach is the lowest-friction model that
-keeps Marp markdown as the source format. The manifest layer adds the
+keeps Markdown as the source format. The manifest layer adds the
 discovery story that markdown alone can't provide.
 
 ---

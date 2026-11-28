@@ -244,6 +244,29 @@ brand-new package's first version published under `next`; if it does, `npx
    11.5.1 or later, Node 22 ships 10.9, and that upgrade step is slice F's PR. Revoke
    the token once it has merged.
 
+## Before a release: the agent-pack check on a capable model
+
+The nightly agent-pack eval runs small models (Haiku 5.5 and DeepSeek V4.1 Flash, one a night).
+Once per release, check that a capable model still writes passing decks from the kit the release
+ships: **Actions → Agent pack eval nightly → *Run workflow*** on `main` with
+
+| input | value |
+|---|---|
+| `arm` | `retrieval` |
+| `model` | `anthropic/claude-sonnet-5.5` |
+| `max_usd` | `1.75` |
+
+That is ten decks, one per fixed brief, two turns each (the model reads `start.md`, may ask for the
+kit files it links to, then writes the deck). Priced from OpenRouter's list on 2026-11-27, a two-turn
+Sonnet deck costs about USD 0.10 to 0.15, so the run costs about USD 1.0 to 1.5; it is cheaper only if
+the model reads less of the kit. The tool checks every call against `max_usd` before it goes, priced
+at the dearest provider, and prints OpenRouter's own figure. It spends OUR key (HARD RULE #24), so it
+runs only by this dispatch. Read the summary table in the run: the pass count, and in `fetched`
+whether the model read `layouts.md`, the full layout reference `start.md` points to. It is a smoke
+check on ten decks, not a statistical gate, and it does not block the release.
+The same run from a terminal that holds the key:
+`OPENROUTER_ALLOW_SPEND=1 node tools/agent-pack-eval.mjs --arm retrieval --model anthropic/claude-sonnet-5.5 --max-usd 1.75`.
+
 ## How to cut a release
 
 **Primary path — the Release workflows.**

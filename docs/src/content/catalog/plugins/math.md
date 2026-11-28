@@ -38,7 +38,7 @@ examples:
     label: On a math slide
     caption: The math slide frames one equation and explains its terms.
     sample: |
-      <!-- _class: math -->
+      <!-- @meta{layout=math} -->
 
       ## The scoring model fits on one line.
 
@@ -62,7 +62,7 @@ examples:
     label: A matrix
     caption: Environments like pmatrix work, and a lone = line stays math, never a heading.
     sample: |
-      <!-- _class: math -->
+      <!-- @meta{layout=math} -->
 
       ## A matrix, factored.
 
@@ -116,7 +116,7 @@ $$
 To make an equation the subject of a slide, use the `math` slide, which frames the equation and explains its terms:
 
 ```markdown
-<!-- _class: math -->
+<!-- @meta{layout=math} -->
 
 ## The energy-mass equivalence.
 

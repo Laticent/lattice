@@ -32,7 +32,7 @@ theme: indaco
 size: square
 ${venue ? `venue: ${venue}\n` : ''}---
 
-<!-- _class: image split -->
+<!-- @meta{class=image split} -->
 
 \`Raster sample\`
 
@@ -44,7 +44,7 @@ ${venue ? `venue: ${venue}\n` : ''}---
 
 ---
 
-<!-- _class: image gallery -->
+<!-- @meta{class=image gallery} -->
 
 \`Offsite · The Artifact\`
 
@@ -56,7 +56,7 @@ Shown whole, on a matte, with a placard — evidence handling for a whiteboard t
 
 ---
 
-<!-- _class: image mirror -->
+<!-- @meta{class=image mirror} -->
 
 \`Offsite · Day Two\`
 

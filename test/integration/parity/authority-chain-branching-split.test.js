@@ -29,7 +29,7 @@ theme: indaco
 size: square
 ---
 
-<!-- _class: authority-chain branching -->
+<!-- @meta{class=authority-chain branching} -->
 
 ## branching forks the chain where authority splits.
 

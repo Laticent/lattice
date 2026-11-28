@@ -225,23 +225,22 @@ function vscodeSettings() {
  * "If you only want to make decks, nothing about this constrains you," which is
  * too broad. Measured on a real marp-cli render: `--pdf` carries no engine code
  * at all (no CSS rule, no `@theme` directive survives), but `--html` inlines
- * ~852 KB of engine stylesheet into the output file. The exception is written
- * for assets *Lattice's own export pipeline* embeds, and marp-cli is not that —
- * so publishing a `marp --html` file is, on a literal reading, outside it. That
- * gap is unresolved and is the OWNER's call, not this file's: see
+ * ~852 KB of engine stylesheet into the output file. Version 1.1 of the
+ * exception was written for assets *Lattice's own export pipeline* embeds, and
+ * marp-cli is not that, so publishing a `marp --html` file was, on a literal
+ * reading, outside it. That gap was the OWNER's call, not this file's: see
  * engineering/decisions/2026-08-04-marp-render-output-exception.md.
  *
- * KEEP THIS PARAGRAPH FACTUAL — it must stay true under BOTH resolutions of that
- * question, and an earlier draft did not. It said the gap "is an open question on
- * our side" and told recipients to treat a published `.html` as carrying LICENSE
- * terms "until it is settled." A Munger inversion killed that: this is a
- * COPY-AND-GO folder with no update channel, so whatever it says today, the
- * copies people took say forever. If the exception is later extended, a shipped
- * warning that publishing conveys code outside it becomes wrong — permanently,
- * in every copy. What survives both outcomes is only the measurement (`--pdf`
- * carries nothing, `--html` inlines the stylesheet) and the neutral pointer to
- * LICENSE. Do not add a verdict here, in either direction, and do not re-broaden
- * it to the old reassurance either.
+ * RESOLVED 2026-11-28: the owner extended the exception to Marp renders
+ * (option A of the note above; `LICENSE-EXCEPTIONS` version 1.2, "Marp
+ * renders"). The `--html` bullet now states that grant. It says "version
+ * 1.2", never "and later": no copy can promise a version nobody has written.
+ * It names the version on purpose: this is a COPY-AND-GO folder with no
+ * update channel, and it ships its own copy of `LICENSE-EXCEPTIONS`, so the sentence and the grant it cites
+ * travel together and stay true in every copy. Do not re-broaden it past what
+ * that file grants: modified kit CSS or JavaScript, a tool that is not a named
+ * Marp Tool, extracted assets and the loose folder itself stay outside it. A
+ * unit test (marp-kit.test.js) keeps this version equal to the file's header.
  */
 function notice() {
   return `# Notices
@@ -259,11 +258,13 @@ and \`lattice-runtime.js\`, included for reading rather than running. They are
 built from the Lattice repository, https://github.com/Laticent/lattice, which is
 where their source is.
 
-**The output exception does not apply to this folder.** Lattice grants an
-exception for engine assets its export pipeline embeds *inside a rendered deck*.
-This kit is deliberately the other thing — the engine handed over loose, for
-reuse — so the AGPL applies to it in full. Slides you write are yours and were
-never covered either way; the terms here are about redistributing these files.
+**Apart from the files a rendered deck loads (see below), the output exception
+does not apply to this folder.** Lattice grants an exception, in
+\`LICENSE-EXCEPTIONS\`, for engine assets embedded *inside a rendered deck*.
+This kit is the other thing: the engine handed over loose, for reuse, so the
+AGPL applies to the folder itself. Slides you write are yours and
+were never covered either way; the terms here are about redistributing these
+files.
 
 **Rendering is worth one more paragraph**, because the two routes differ and only
 one of them puts engine code in your hands to pass on:
@@ -277,9 +278,14 @@ one of them puts engine code in your hands to pass on:
   Render either way and share the file however you like. (The one route not
   measured is \`--pptx-editable\`, which converts through LibreOffice.)
 - **\`marp --html\` inlines the engine stylesheet** — about 852 KB of it — into
-  the output file. Keeping that file to yourself conveys nothing to anyone.
-  Publishing it conveys the engine in object form, so if that is your plan, read
-  \`LICENSE\` first. Rendering to PDF instead avoids the question entirely.
+  the output file, and the file loads \`lattice-runtime-min.js\` and the other
+  script and stylesheet files from beside it. If you leave this kit's CSS and
+  JavaScript unmodified and render with Marp CLI or Marp for VS Code, run with
+  the configuration this kit ships, the output exception (version 1.2, in
+  \`LICENSE-EXCEPTIONS\` beside this file) covers that file and the files it
+  loads: you may publish them together under terms of your choice, with no duty
+  to offer their source. Lifting the CSS or scripts out for other use is not
+  covered.
 
 If you plan to redistribute the kit itself, or ship a service built on it, read
 \`LICENSE\`.
@@ -549,11 +555,9 @@ function buildKit() {
   out.set(VSIX, buildVsix());
   out.set('README.md', readme());
   out.set('NOTICE.md', notice());
-  // Verbatim, not summarized: an AGPL conveyance has to carry the actual text.
-  out.set('LICENSE', fs.readFileSync(path.join(ROOT, 'LICENSE')));
-  // The exception NOTICE.md reasons about, so a recipient can check the claim
-  // rather than take it on trust.
-  out.set('LICENSE-EXCEPTIONS', fs.readFileSync(path.join(ROOT, 'LICENSE-EXCEPTIONS')));
+  // LICENSE and LICENSE-EXCEPTIONS arrive through STATIC_ASSETS above, verbatim, the same
+  // files the Export-to-Marp bundle carries (#3598): an AGPL conveyance has to carry the
+  // actual text, and NOTICE.md cites the exception by version.
   // THIRD-PARTY-LICENSES.txt arrives through STATIC_ASSETS above, the same file the
   // Export-to-Marp bundle carries (lib/export/third-party-licenses.js, #1354). MIT and
   // OFL both require their TEXT to travel with the files, not merely a mention.

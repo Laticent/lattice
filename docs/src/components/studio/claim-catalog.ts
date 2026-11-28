@@ -1,6 +1,6 @@
 // The Studio claim catalog — DISPLAY metadata for the `claim:` register (how much frame
 // a slide's content sits inside: the standard frame, a quieter one, a hero, or full
-// bleed). Sibling of mode-catalog.ts / corners-catalog.ts. The engine's single source of
+// bleed). Sibling of mode-catalog.ts / slide-corners-catalog.ts. The engine's single source of
 // truth is CLAIM_REGISTER (lib/core/resolve-claim.js); THIS file adds only the human
 // layer the picker needs. Rot-guard: claim-catalog.test.ts.
 //

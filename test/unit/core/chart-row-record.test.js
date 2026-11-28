@@ -58,7 +58,7 @@ const { narrateChart } = require('../../../lib/core/chart-narration.js');
 const { bootRuntime } = require('../../helpers/runtime-boot');
 const { scanWork } = require('../../helpers/work-count');
 
-const deck = (cls, body) => `---\nmarp: true\n---\n\n<!-- _class: ${cls} -->\n\n## A\n\n${body}\n`;
+const deck = (cls, body) => `---\nmarp: true\n---\n\n<!-- @meta{class=${cls}} -->\n\n## A\n\n${body}\n`;
 const render = (src) => engine.render(src, {}).html;
 
 // ── work counts for the hostile-input arms (HARD RULE #32: counted, not timed) ──────────────────────────────────
@@ -420,7 +420,7 @@ describe('the paths agree on the data row', () => {
   });
 
   test('a slide the chart declines shows the old-form list, not the braces', () => {
-    const bare = (body) => `---\nmarp: true\n---\n\n<!-- _class: bar -->\n\n${body}\n`; // no h2: the bar chart declines
+    const bare = (body) => `---\nmarp: true\n---\n\n<!-- @meta{layout=bar} -->\n\n${body}\n`; // no h2: the bar chart declines
     const old = render(bare('- EMEA `4.2`'));
     assert.doesNotMatch(old, /chart-frame/, 'control: the bar declines a slide without a heading');
     assert.equal(render(bare('- EMEA `{4.2}`')), old);
@@ -487,11 +487,11 @@ describe('the paths agree on the data row', () => {
   });
 
   test('a raw list or table ahead of the chart\'s own makes it the second one on every path', () => {
-    const raw = (cls, rows) => `---\nmarp: true\n---\n\n<!-- _class: ${cls} -->\n\n## R\n\n<ul><li>raw</li></ul>\n\n${rows}\n`;
+    const raw = (cls, rows) => `---\nmarp: true\n---\n\n<!-- @meta{class=${cls}} -->\n\n## R\n\n<ul><li>raw</li></ul>\n\n${rows}\n`;
     const html = engine.render(raw('bar', '- EMEA `{4.2}`\n- APAC `{1.8}`'), {}).html;
     assert.doesNotMatch(html, /<code>\{4\.2\}<\/code>/, 'no raw braces');
     assert.match(html, /lat-pill/, 'a pill, as on main');
-    const grid = engine.render(`---\nmarp: true\n---\n\n<!-- _class: heatmap -->\n\n## R\n\n<table><tr><td>x</td></tr></table>\n\n| | Mon |\n|---|---|\n| AM | \`{3}\` |\n`, {}).html;
+    const grid = engine.render(`---\nmarp: true\n---\n\n<!-- @meta{layout=heatmap} -->\n\n## R\n\n<table><tr><td>x</td></tr></table>\n\n| | Mon |\n|---|---|\n| AM | \`{3}\` |\n`, {}).html;
     assert.doesNotMatch(grid, /<code>\{3\}<\/code>/);
     assert.ok(findings(raw('bar', '- EMEA `{4.2}`')).length === 0, 'lint agrees it is a pill');
   });
@@ -652,7 +652,7 @@ describe('the paths agree on the data row', () => {
   });
 
   test('a literal-mode slide narrates its spans as written', () => {
-    const slide = (cls) => `<!-- _class: ${cls} -->\n\n## A\n\n- EMEA \`{3.5}\`\n- APAC \`2\`\n`;
+    const slide = (cls) => `<!-- @meta{class=${cls}} -->\n\n## A\n\n- EMEA \`{3.5}\`\n- APAC \`2\`\n`;
     assert.notEqual(narrateChart(slide('line inline-code-literal')), narrateChart(slide('line')));
   });
 
@@ -698,14 +698,14 @@ describe('the paths agree on the data row', () => {
   });
 
   test('inline code that mentions a list tag is no list ahead, for the narrator', () => {
-    const slide = (v) => `<!-- _class: bullet -->\n\n## A\n\nUse \`<ul>\` for lists.\n\n- EMEA ${v('4', 'target=5')}\n- APAC ${v('3', 'target=6')}\n`;
+    const slide = (v) => `<!-- @meta{layout=bullet} -->\n\n## A\n\nUse \`<ul>\` for lists.\n\n- EMEA ${v('4', 'target=5')}\n- APAC ${v('3', 'target=6')}\n`;
     const rec = narrateChart(slide((n, t) => `\`{${n}, ${t}}\``));
     assert.ok(rec);
     assert.equal(rec, narrateChart(slide((n, t) => `\`${n}\` \`${t.replace('target=', '')}\``)));
   });
 
   test('a deck-wide inline-code: literal register narrates the spans as written', () => {
-    const deckSrc = (reg) => `---\nmarp: true\n${reg}---\n\n<!-- _class: bullet -->\n\n## A\n\n- EMEA \`{4, target=5}\`\n- APAC \`{3, target=6}\`\n`;
+    const deckSrc = (reg) => `---\nmarp: true\n${reg}---\n\n<!-- @meta{layout=bullet} -->\n\n## A\n\n- EMEA \`{4, target=5}\`\n- APAC \`{3, target=6}\`\n`;
     // The chart is not drawn in literal mode, so the narration must not describe one (the plain deck's does: "against a five target").
     assert.match(narrateChart(deckSrc('')), /against a five target/, 'control: the plain deck narrates the chart');
     assert.doesNotMatch(narrateChart(deckSrc('inline-code: literal\n')), /against a five target/);
@@ -736,7 +736,7 @@ describe('the paths agree on the data row', () => {
     // parent. Today a child costs lint at most 8,044 characters, the engine 4,474 and the narrator 1,270. Rereading
     // the parent's 400 spans for each child cost 195,000 to 395,000 per child (8.6 s of lint).
     for (const [label, v] of [['no record', (i) => `${i}`], ['records', (i) => `{${i}}`]]) {
-      const src = (n) => `<!-- _class: bar -->\n\n## A\n\n- P ${pills}\n${kids(v, n)}\n`;
+      const src = (n) => `<!-- @meta{layout=bar} -->\n\n## A\n\n- P ${pills}\n${kids(v, n)}\n`;
       for (const [path, run, bound] of [['lint', lintText, 12000], ['engine', render, 8000], ['narration', narrateChart, 4000]]) {
         const perKid = perUnit(charsRead, (n) => run(src(n)), 100, 400);
         assert.ok(perKid <= bound, `${label}, ${path}: read ${perKid} characters per child`);
@@ -747,7 +747,7 @@ describe('the paths agree on the data row', () => {
   test('the pipe lint reads each table row once, however many delimiter-like rows the body has', () => {
     const { lintText } = require('../../../lib/authoring/lint.js');
     const row = `|${'-|'.repeat(20)}`;
-    const src = (n) => `<!-- _class: heatmap -->\n\n## A\n\n| a | b \`{> x}\` |\n${Array(n).fill(row).join('\n')}\n`;
+    const src = (n) => `<!-- @meta{layout=heatmap} -->\n\n## A\n\n| a | b \`{> x}\` |\n${Array(n).fill(row).join('\n')}\n`;
     // Counted, not timed: what one more row costs, between 1,000 and 4,000. Today 19,910 characters per row, for
     // all of lint. A pipe lint that rescans the rest of the body from every delimiter-like row costs 125,000.
     const perRow = perUnit(charsRead, (n) => lintText(src(n)), 1000, 4000);
@@ -911,14 +911,14 @@ describe('the paths agree on the data row', () => {
     });
 
     test('a BOM does not hide the front matter from the pipe lint either', () => {
-      const body = '---\nmarp: true\n---\n\n<!-- _class: heatmap -->\n\n## H\n\n| | A |\n|---|---|\n| E | `{> up | down}` |\n\n---\n\n<!-- _class: radar -->\n\n## R\n\n- Us\n  - Speed `4`\n';
+      const body = '---\nmarp: true\n---\n\n<!-- @meta{layout=heatmap} -->\n\n## H\n\n| | A |\n|---|---|\n| E | `{> up | down}` |\n\n---\n\n<!-- @meta{layout=radar} -->\n\n## R\n\n- Us\n  - Speed `4`\n';
       const pipes = (s) => lintText(s).filter((f) => f.rule === 'chart-table-unescaped-pipe').length;
       assert.equal(pipes(body), 1, 'control');
       assert.equal(pipes('\uFEFF' + body), 1);
     });
 
     test('a BOM before the front matter does not shift lint\'s slide numbering (no false unread-record warnings)', () => {
-      const body = ['---\nmarp: true\n---\n', '<!-- _class: radar -->\n\n## R\n\n- Speed `4`\n- Cost `3`\n- Fit `5`\n', '<!-- _class: quadrant -->\n\n`[{Effort, 0..10}, {Reach, 0..100}]`\n\n## Q\n\n- Bets\n  - Scoring `{3, 70}`\n  - Vendor `{2, 30}`\n'].join('\n---\n');
+      const body = ['---\nmarp: true\n---\n', '<!-- @meta{layout=radar} -->\n\n## R\n\n- Speed `4`\n- Cost `3`\n- Fit `5`\n', '<!-- @meta{layout=quadrant} -->\n\n`[{Effort, 0..10}, {Reach, 0..100}]`\n\n## Q\n\n- Bets\n  - Scoring `{3, 70}`\n  - Vendor `{2, 30}`\n'].join('\n---\n');
       const unread = (s) => lintText(s).filter((f) => f.rule === 'chart-row-record-unread').length;
       assert.equal(unread('﻿' + body), unread(body));
     });
@@ -938,7 +938,7 @@ describe('the paths agree on the data row', () => {
     });
 
     test('a slide with mixed line endings keeps each line\'s own ending, so it narrates as the old form does', () => {
-      const old = '<!-- _class: progress -->\n\n## A\n\n- EMEA `1%` `on-track`\r\n\r\n- APAC `2%` `on-track`\r\n';
+      const old = '<!-- @meta{layout=progress} -->\n\n## A\n\n- EMEA `1%` `on-track`\r\n\r\n- APAC `2%` `on-track`\r\n';
       const rec = old.replace('`1%` `on-track`', '`{1%, on-track}`').replace('`2%` `on-track`', '`{2%, on-track}`');
       assert.equal(narrateChart(rec), narrateChart(old));
       assert.equal(bridgeRecordsSource(rec, ['progress']), old);

@@ -15,7 +15,7 @@ const { lintText } = require(path.join(ROOT, 'lib/authoring/lint.js'));
 const { trailWordBudget } = require(path.join(ROOT, 'lib/authoring/lint-core.js'));
 
 const deck = ({ fm = [], cls = 'authority-chain trail', tiers }) => ['---', 'theme: indaco', ...fm, '---', '',
-  `<!-- _class: ${cls} -->`, '', '## Trail.', '',
+  `<!-- @meta{class=${cls}} -->`, '', '## Trail.', '',
   ...tiers.flatMap(([label, cite], i) => [`${i + 1}. ${label}`, `   - \`${cite}\``, '   - Gloss.']), ''].join('\n');
 const found = (opts) => lintText(deck(opts)).filter((f) => f.rule === 'trail-budget');
 const four = (cite, label = 'Case') => [['Statute', 'A'], ['Regulation', 'B'], ['Guidance', 'C'], [label, cite]];
@@ -77,15 +77,15 @@ test('trail-budget: reads the tiers the engine renders', () => {
   const lint = (lines, extra = []) => lintText([...fm, ...extra, '---', '', ...lines, ''].join('\n'))
     .filter((f) => f.rule === 'trail-budget');
   // A second list after the tiers is not more tiers: two tiers hold 30 at hall.
-  assert.equal(lint(['<!-- _class: authority-chain trail -->', '', '## T.', '', '1. Statute', `   - \`${'X'.repeat(20)}\``,
+  assert.equal(lint(['<!-- @meta{layout=authority-chain, class=trail} -->', '', '## T.', '', '1. Statute', `   - \`${'X'.repeat(20)}\``,
     '2. Case', '   - `B`', '', '- one', '- two', '- three', '- four']).length, 0);
   // A lazy continuation line joins the label, as the lift does.
-  assert.equal(lint(['<!-- _class: authority-chain trail -->', '', '## T.', '', '1. Statute', '   Jurisprudence',
+  assert.equal(lint(['<!-- @meta{layout=authority-chain, class=trail} -->', '', '## T.', '', '1. Statute', '   Jurisprudence',
     '   - `A`', '2. B', '   - `B`', '3. C', '   - `C`', '4. D', '   - `D`']).length, 1);
   // A double-backtick citation is still a citation.
-  assert.equal(lint(['<!-- _class: authority-chain trail -->', '', '## T.', '', '1. A', `   - \`\` ${long} \`\``,
+  assert.equal(lint(['<!-- @meta{layout=authority-chain, class=trail} -->', '', '## T.', '', '1. A', `   - \`\` ${long} \`\``,
     '2. B', '   - `B`', '3. C', '   - `C`', '4. D', '   - `D`']).length, 1);
   // The variant may come from the deck's `class:`.
-  assert.equal(lint(['<!-- _class: authority-chain -->', '', '## T.', '', '1. A', `   - \`${long}\``,
+  assert.equal(lint(['<!-- @meta{layout=authority-chain} -->', '', '## T.', '', '1. A', `   - \`${long}\``,
     '2. B', '   - `B`', '3. C', '   - `C`', '4. D', '   - `D`'], ['class: trail']).length, 1);
 });

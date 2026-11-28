@@ -65,7 +65,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/owner-merge-gate.mjs\""
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/owner-merge-gate.mjs\"",
+            "timeout": 45
           }
         ]
       }

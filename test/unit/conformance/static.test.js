@@ -69,8 +69,8 @@ describe('conformance: the deck-setting MEASUREMENT can produce a failing fact',
     for (const id of ['deck-setting.read', 'deck-setting.spec-row', 'deck-setting.documented', 'deck-setting.lint-knows-key']) assert.ok(failing.includes(id), id);
   });
   test('a real key is measured as read, specified and cased', () => {
-    const lift = contract.measure('lift', { key: 'lift' }, ctx);
-    assert.ok(lift.readers.includes('lib/core/resolve-lift.js'), lift.readers.join(', '));
+    const lift = contract.measure('card-lift', { key: 'lift' }, ctx);
+    assert.ok(lift.readers.includes('lib/core/resolve-card-lift.js'), lift.readers.join(', '));
     assert.equal(lift.inSpec, true);
     assert.ok(lift.specCases >= 1);
   });
@@ -91,7 +91,7 @@ describe('conformance: the component MEASUREMENT can produce failing facts', () 
     capacity: { axis: 'item', soft: 6, hard: 4, escalateTo: ['nosuch-component'] },
   }));
   put('b/zz-bad/zz-bad.styles.css', 'section.zz-bad { margin-inline-start: 1px; }\n');
-  put('b/zz-bad/zz-bad.gallery.md', '---\nmarp: true\n---\n\n<!-- _class: zz-bad tall -->\n\n## A\n');
+  put('b/zz-bad/zz-bad.gallery.md', '---\nmarp: true\n---\n\n<!-- @meta{class=zz-bad tall} -->\n\n## A\n');
   put('b/_shared/stray.css', 'x { color: red; }\n');
   put('zzflat/zzflat.styles.css', 'a { margin: 0 0 0 4px; }\n');
   const ctx = contract.contextAt(root);

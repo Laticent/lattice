@@ -3,7 +3,7 @@ import { EditorState } from '@codemirror/state';
 import { describe, expect, it } from 'vitest';
 import { keepTooltipOnSameDiagnostics } from './lint-tooltip-keep';
 
-const DOC = 'line one\n<!-- _class: image spotlight image-card-clear -->\nline three\n';
+const DOC = 'line one\n<!-- @meta{layout=image, class=spotlight image-card-clear} -->\nline three\n';
 const at = DOC.indexOf('<!--');
 const end = DOC.indexOf('-->') + 3;
 const thin = (): Diagnostic => ({ from: at, to: end, severity: 'warning', source: 'thin-card-no-ink', message: 'A spotlight card at 0%.' });

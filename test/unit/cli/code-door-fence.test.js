@@ -128,7 +128,7 @@ describe('what a renderer is handed', () => {
 });
 
 describe('the inline door: `@kind{…}` spans (2026-10-14-plugin-inline-door.md §4.4)', () => {
-  const md = '---\ntheme: indaco\n---\n\n## One\n\n- Build `@gantt-bar{Design, 2}` then `@gantt-bar{Ship, 3}`\n- Escaped `\\@gantt-bar{x}`, prose `@gantt-bar{a} b`, a mention `@ada`\n\n```gantt\nA 1\n```\n\n```md\n`@gantt-bar{in a fence}`\n```\n\n---\n\n<!-- _class: tally -->\n\n## Claimed\n\n- `@gantt-bar{C}`\n';
+  const md = '---\ntheme: indaco\n---\n\n## One\n\n- Build `@gantt-bar{Design, 2}` then `@gantt-bar{Ship, 3}`\n- Escaped `\\@gantt-bar{x}`, prose `@gantt-bar{a} b`, a mention `@ada`\n\n```gantt\nA 1\n```\n\n```md\n`@gantt-bar{in a fence}`\n```\n\n---\n\n<!-- @meta{class=tally} -->\n\n## Claimed\n\n- `@gantt-bar{C}`\n';
   const fences = new Map([['gantt', 'gantt-plugin']]);
   const kinds = new Map([['gantt-bar', 'gantt-plugin']]);
   const slides = { names: ['tally'], engineClaims: ENGINE_CLAIMS };
@@ -206,7 +206,7 @@ describe('the inline door: `@kind{…}` spans (2026-10-14-plugin-inline-door.md 
 });
 
 describe('through the real engine: capture, then substitute', () => {
-  const md = '---\ntheme: indaco\n---\n\n## One\n\n```gantt\nA 1\n```\n\n---\n\n## Two\n\n```js\nconst x = 1;\n```\n\n```gantt\nB <2>\n```\n\n---\n\n<!-- _class: tally -->\n\n## Claimed\n\n```gantt\nC 3\n```\n';
+  const md = '---\ntheme: indaco\n---\n\n## One\n\n```gantt\nA 1\n```\n\n---\n\n## Two\n\n```js\nconst x = 1;\n```\n\n```gantt\nB <2>\n```\n\n---\n\n<!-- @meta{class=tally} -->\n\n## Claimed\n\n```gantt\nC 3\n```\n';
   const fences = new Map([['gantt', 'gantt-plugin']]);
   const slides = { names: ['tally'], engineClaims: ENGINE_CLAIMS };
   const render = (src, door) => engine.createEngine().render(src, 'indaco', { codeFences: door }).html;
@@ -266,7 +266,7 @@ describe('through the real engine: capture, then substitute', () => {
     // `team-profile` and the charts rebuild from their bullets. Each reader now masks `[data-lattice-plugin]` subtrees
     // (`maskPluginSubtrees`), held by `checkSlideTextAddressReaders`, so the door draws everywhere (spec/LPM.md §10).
     for (const classes of ['closing qr', 'divider qr', 'team-profile', 'kanban', 'cycle', 'logo-wall', 'scene', 'premise', 'video']) {
-      const src = `---\ntheme: indaco\n---\n\n<!-- _class: ${classes} -->\n\n## Slide\n\n- https://example.com/author\n- Second\n\n\`\`\`gantt\nx\n\`\`\`\n`;
+      const src = `---\ntheme: indaco\n---\n\n<!-- @meta{class=${classes}} -->\n\n## Slide\n\n- https://example.com/author\n- Second\n\n\`\`\`gantt\nx\n\`\`\`\n`;
       const cap = captureFences(fences, slides);
       render(src, cap);
       assert.equal(cap.claims.length, 1, `${classes}: the fence is the plugin's`);
@@ -278,7 +278,7 @@ describe('through the real engine: capture, then substitute', () => {
     // Not a shadow: `renderCard` replaces the slide with the card built from its field bullets, and a plain ```js block
     // is dropped the same way. The door finds nothing to claim and says nothing.
     for (const classes of ['contact', 'wifi']) {
-      const src = `---\ntheme: indaco\n---\n\n<!-- _class: ${classes} -->\n\n## Slide\n\n- Ada \`name\`\n- Net \`ssid\`\n\n\`\`\`gantt\nx\n\`\`\`\n`;
+      const src = `---\ntheme: indaco\n---\n\n<!-- @meta{class=${classes}} -->\n\n## Slide\n\n- Ada \`name\`\n- Net \`ssid\`\n\n\`\`\`gantt\nx\n\`\`\`\n`;
       const cap = captureFences(fences, slides);
       const html = render(src, cap);
       assert.equal(cap.claims.length, 0, classes);
@@ -301,7 +301,7 @@ describe('through the real engine: capture, then substitute', () => {
     // literal in a `data-label` beside the span it drew, and a code block quoting the syntax is the author's.
     const { fenceCaptureNotes } = await import('../../../lib/packages/code-door-fence.mjs');
     const kinds = new Map([['tag', 'tag-plugin']]);
-    const src = (cls) => `---\ntheme: indaco\n---\n\n<!-- _class: ${cls} -->\n\n## T\n\n- Alpha \`@tag{hot}\`: 60\n- Beta: 40\n\n\`\`\`js\n@tag{quoted}\n\`\`\`\n`;
+    const src = (cls) => `---\ntheme: indaco\n---\n\n<!-- @meta{class=${cls}} -->\n\n## T\n\n- Alpha \`@tag{hot}\`: 60\n- Beta: 40\n\n\`\`\`js\n@tag{quoted}\n\`\`\`\n`;
     for (const [cls, drawn, warned] of [['piechart', 0, 1], ['funnel', 0, 1], ['kanban', 1, 0], ['content', 1, 0]]) {
       const cap = captureFences(new Map(), { ...slides, kinds });
       render(src(cls), cap);
@@ -314,7 +314,7 @@ describe('through the real engine: capture, then substitute', () => {
 
   test('an ordinary slide, a layout class and a modifier get their fences drawn', () => {
     for (const classes of ['content', 'closing', 'split-panel', 'dark', 'content dark']) {
-      const src = `---\ntheme: indaco\n---\n\n<!-- _class: ${classes} -->\n\n## Slide\n\n\`\`\`gantt\nx\n\`\`\`\n`;
+      const src = `---\ntheme: indaco\n---\n\n<!-- @meta{class=${classes}} -->\n\n## Slide\n\n\`\`\`gantt\nx\n\`\`\`\n`;
       const cap = captureFences(fences, slides);
       render(src, cap);
       assert.equal(cap.claims.length, 1, `${classes}: claimed`);
@@ -322,7 +322,7 @@ describe('through the real engine: capture, then substitute', () => {
   });
 
   test('two panes of one slide, each with a fence, get two ids; the same text twice gets two', () => {
-    const src = '---\ntheme: indaco\n---\n\n## Host\n\n<!-- panes: 50/50 -->\n<!-- pane: bullets -->\n\n```gantt\nsame\n```\n\n<!-- pane: bullets -->\n\n```gantt\nsame\n```\n';
+    const src = '---\ntheme: indaco\n---\n\n## Host\n\n<!-- @meta{panes=50/50} -->\n<!-- @meta{pane=bullets} -->\n\n```gantt\nsame\n```\n\n<!-- @meta{pane=bullets} -->\n\n```gantt\nsame\n```\n';
     const cap = captureFences(fences, slides);
     render(src, cap);
     assert.equal(cap.claims.length, 2);

@@ -29,7 +29,7 @@ const DECK = [
 	'plugins: [gantt-plugin]',
 	'---',
 	'',
-	'<!-- _class: video qr -->',
+	'<!-- @meta{layout=video, class=qr} -->',
 	'',
 	'## Clip',
 	'',

@@ -3,7 +3,7 @@ import { findInSlide, literalMatcher, matchSnippet, replaceInSlide, slideSegment
 
 // The "Oct. Tenth" slide from #3208's session, with every field the term turned up in.
 const SLIDE = [
-	'<!-- _class: quote -->',
+	'<!-- @meta{layout=quote} -->',
 	'`OCT. TENTH LAUNCH`',
 	'',
 	'## What happened Oct. Tenth',
@@ -35,11 +35,13 @@ describe('slideSegments / findInSlide', () => {
 	it('never searches a link or image target, or a directive', () => {
 		const hits = findInSlide(SLIDE, 'oct.-tenth');
 		expect(hits).toEqual([]);
-		expect(findInSlide(SLIDE, 'quote').map((m) => m.field)).toEqual([]); // `_class: quote` is a directive
+		// The slide's layout is a record now (record note §15): found, never replaced. An old directive comment is never searched.
+		expect(findInSlide(SLIDE, 'quote')).toEqual([expect.objectContaining({ field: 'record', replaceable: false })]);
+		expect(findInSlide(SLIDE.replace('<!-- @meta{layout=quote} -->', '<!-- _class: quote -->'), 'quote')).toEqual([]);
 	});
 
 	it('marks code and records as found but not replaceable', () => {
-		const rec = '## A\n\n<!-- {footer="Oct. Tenth was busy"} -->';
+		const rec = '## A\n\n<!-- @meta{footer="Oct. Tenth was busy"} -->';
 		expect(findInSlide(rec, 'Oct. Tenth')).toEqual([expect.objectContaining({ field: 'record', replaceable: false })]);
 		expect(findInSlide(SLIDE, 'code sample')).toEqual([expect.objectContaining({ field: 'code', replaceable: false })]);
 	});
@@ -71,7 +73,7 @@ describe('replaceInSlide', () => {
 		expect(r.text).toContain('<!-- @say{On October tenth, we sold out by noon. October Tenth was the day.} -->');
 		expect(r.text).toContain('![The October Tenth queue](photos/oct.-tenth.jpg)');
 		expect(r.text).toContain('(https://example.com/oct.-tenth)');
-		expect(r.text).toContain('<!-- _class: quote -->');
+		expect(r.text).toContain('<!-- @meta{layout=quote} -->');
 		expect(r.text).toContain('Oct. Tenth in a code sample');
 	});
 
@@ -102,9 +104,10 @@ describe('replaceInSlide refuses what changes structure (the checker on #3208)',
 	});
 
 	it('never turns a comment into a directive, a hide, a note or a pane marker, nor a note into a comment', () => {
-		for (const rep of ['_class: lead', 'hide', '@say{hi}']) expect(unchanged('## A\n\n<!-- Oct -->', 'Oct', rep).blocked).toBeTruthy();
+		for (const rep of ['_class: lead', '@meta{layout=lead}', 'hide', '@say{hi}']) expect(unchanged('## A\n\n<!-- Oct -->', 'Oct', rep).blocked).toBeTruthy();
 		// A brace that does not balance would end the note's body early, and the slide would lose the note.
 		for (const rep of ['}', '{']) expect(unchanged('## A\n\n<!-- @say{Oct} -->', 'Oct', rep).blocked).toBeTruthy();
+		// The subject is the old spelling: cutting the words would turn a plain comment into a `pane:` marker.
 		expect(unchanged('## A\n\n<!-- pane: check the numbers -->', ' the numbers', '').blocked).toBeTruthy();
 	});
 

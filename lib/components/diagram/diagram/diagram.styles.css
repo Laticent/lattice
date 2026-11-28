@@ -56,8 +56,8 @@ section.diagram > .cell-stage > p { font-size:var(--fs-meta); line-height:var(--
    title's left edge. Form-scoped: a non-Form diagram has no masthead lift and keeps
    its centered title, so the dek must stay centered to match it. (Under the Form the
    dek always hoists into `.cell-stage`, so only the `> .cell-stage > p` arm is live.) */
-/* The dek follows the headline-alignment seam (`headline:`). Left fallback preserves the
- * 2026-07-04 form-left fix; `head-left` pins it left with the title as one cluster. */
+/* The dek follows the headline-alignment seam (`headline-align:`). Left fallback preserves the
+ * 2026-07-04 form-left fix; `headline-align-left` pins it left with the title as one cluster. */
 section.form.diagram > .cell-stage > p { align-self:stretch; text-align:var(--headline-align, left); }
 /* Hug the title band when a subtitle leads — mirror of the chart-frame rule: the
    masthead clearance is right below a bare title, too loose below a leading dek. The

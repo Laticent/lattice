@@ -283,15 +283,15 @@ section .cell-coda > blockquote {
    * the slide ends with an insight, a note, or both (lib/forms/cell/coda/coda.css).
    * Never a `margin-top` — HARD RULE #20. */
   flex-shrink:0;
-  /* The framing text follows the headline-alignment seam (`headline:` register); text-align
+  /* The framing text follows the headline-alignment seam (`headline-align:` register); text-align
    * inherits to the KEY INSIGHT label, body, and list. `auto`/no register → the fallback
-   * `left` (today's render, byte-identical); `head-left` pins it left. */
+   * `left` (today's render, byte-identical); `headline-align-left` pins it left. */
   text-align:var(--headline-align, left);
 }
 section .cell-coda > blockquote::before {
   /* Default 'KEY INSIGHT'; an `insight-*` modifier on the slide _class (or a
    * deck-wide frontmatter `class:`) overrides via the shared --insight-label
-   * seam — the same custom-property idiom the stamp-* markers use
+   * seam — the same custom-property idiom the stamp-shape-* markers use
    * (base.variants.css § INSIGHT LABEL). The split-compare verdict tag reads
    * the SAME token (default 'RECOMMENDATION'), so one vocabulary drives both:
    * the recommendation is a Key Insight variant, not a split-compare special. */
@@ -2435,7 +2435,7 @@ section.divider.numbered :is(h1, h2)::after {
    * oversized marks this engine draws, all of them `--font-display`:
    *
    *     form watermark Tile ........ 44cqi     wt 700
-   *     stamp-mark (DRAFT) ......... 16cqi     wt 900   (rotated, full-slide)
+   *     stamp-shape-mark (DRAFT) ......... 16cqi     wt 900   (rotated, full-slide)
    *     split-panel pullquote " .... 17.19cqi  wt 700
    *     split-panel section numeral  11.46cqi  wt 700
    *     split-panel steps eyebrow .. --fs-hero wt 900
@@ -2896,7 +2896,7 @@ section.illegible > .marker-rail > .illegible-tab {
    a container cannot collide with each other and a single centered box has one neighbor
    set to clear rather than two.
 
-   `stamp-notch`, the one shape that reserved anything after the move, reserves nothing
+   `stamp-shape-notch`, the one shape that reserved anything after the move, reserves nothing
    now: it is a band across the TOP edge and the capsule berths at the BOTTOM. */
 
 section:not(.illegible) > .marker-rail > .illegible-tab { display: none; }
@@ -4430,11 +4430,11 @@ section.form.lat-split-cards.lat-split-cards > .below-note.lat-split-note > p:no
 section.form.lat-split-cards.lat-split-cards > .lat-split-note > .below-note > p:not(:has(> em:only-child)) {
   font-size: var(--fs-body-compact);
 }
-/* ── THE SLIDE'S CORNER — the `corners:` register ──────────────────────────────
-   Whether the slide's own surface is square or rounded. `corners: square` (the
-   default and the whole prior behavior) → nothing here applies; `corners: rounded`
-   → the deck stamps `corners-rounded` on every section and the slide rounds.
-   Kernel + why the register exists: lib/core/resolve-corners.js.
+/* ── THE SLIDE'S CORNER — the `slide-corners:` register ──────────────────────────────
+   Whether the slide's own surface is square or rounded. `slide-corners: square` (the
+   default and the whole prior behavior) → nothing here applies; `slide-corners: rounded`
+   → the deck stamps `slide-corners-rounded` on every section and the slide rounds.
+   Kernel + why the register exists: lib/core/resolve-slide-corners.js.
 
    WHY `clip-path` AND NOT `border-radius`. The slide's brand bar is the section's
    own `border-top` painted with `border-image-source: var(--spectrum)`, and a
@@ -4469,7 +4469,7 @@ section.form.lat-split-cards.lat-split-cards > .lat-split-note > .below-note > p
    is how the Studio's preview chrome follows the deck's corner instead of imposing
    a fixed 12px of its own (#1649). It also rounds the surface a second time, which
    is harmless and identical. */
-section.corners-rounded {
+section.slide-corners-rounded {
   /* The one place the corner gets a length. Anchored to `--_sec-1cqi` and declared HERE,
      on a section selector, for the reason `--slide-radius`'s own note gives: the value is
      consumed by the section's own clip, and a section cannot query its own container, so a
@@ -4487,10 +4487,10 @@ section.corners-rounded {
   border-radius: max(0px, calc(var(--slide-radius) - var(--_edge-w, 0px) * 1000));
 }
 /* A slide opting OUT of a rounded deck. The propagation kernels already EVICT the
-   deck's `corners-rounded` when a slide names `corners-square`, so this rule
+   deck's `slide-corners-rounded` when a slide names `slide-corners-square`, so this rule
    normally has nothing to undo — it is here for the hand-written section that
    carries both, where the two would otherwise resolve by source order. */
-section.corners-square {
+section.slide-corners-square {
   /* `0px`, not `0` — see the token's own note. A unitless zero here would break the
      corner-berth insets on exactly the slides that opted OUT of rounding. */
   --slide-radius: 0px;
@@ -4499,7 +4499,7 @@ section.corners-square {
 }
 /* PRINT SQUARES THE CORNER. A printed page is paper: a rounded corner there is a hole
    that fills with white, so the slide reads as four pale notches rather than a card.
-   The export pipelines already evict `corners-rounded` before they capture — see
+   The export pipelines already evict `slide-corners-rounded` before they capture — see
    lib/core/corner-export-capability.mjs — but this covers the paths where there IS no
    capture to evict from, because the document stays LIVE all the way to the printer:
    the Studio's Print button (`exportPrint`, which calls `win.print()` on the preview
@@ -4515,7 +4515,7 @@ section.corners-square {
 
    Record: engineering/decisions/2026-08-17-corner-export-capability.md */
 @media print {
-  section.corners-rounded {
+  section.slide-corners-rounded {
     --slide-radius: 0px;
     clip-path: none;
     border-radius: 0;
@@ -4540,7 +4540,7 @@ section.corners-square {
  * a positioned child: an inset box-shadow is under all content, and even an `outline` is
  * painted before positioned descendants — measured, a split panel's positioned half covered
  * the section's outline completely. Inside the slide, so no host box can clip it, and its
- * corner is the section's own (`border-radius: inherit`, `corners-rounded`) — the gantt
+ * corner is the section's own (`border-radius: inherit`, `slide-corners-rounded`) — the gantt
  * accent's lesson: keep the mark inside the shape, so the shape bounds it.
  *
  * THE SPECTRUM STAYS THE EDGE on whichever side it sits. The keyline is a border whose

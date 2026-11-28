@@ -93,7 +93,7 @@ const F = String.fromCharCode(96, 96, 96);
 const DECK = [
 	'---', 'theme: indaco', '---', '',
 	'# Cover', '',
-	'---', '', '<!-- _class: diagram -->', '', '## The diagram', '',
+	'---', '', '<!-- @meta{layout=diagram} -->', '', '## The diagram', '',
 	`${F}mermaid`, 'flowchart LR', `  A["${SENTINEL}"] --> B["Second"]`, F, '',
 ].join('\n');
 

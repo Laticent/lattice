@@ -216,7 +216,7 @@ for (const name of targets) {
     console.log(`${name.padEnd(24)} UNMEASURED — no builder and no gallery example`);
     continue;
   }
-  const slides = cases.map(({ dir, share }) => `## ${name} · ${dir} ${share}%\n\n<!-- panes: ${dir === 'stack' ? 'stack ' : ''}${share}/${100 - share} -->\n\n<!-- pane: ${name} -->\n\n${(dir === 'stack' ? stacked : made).body}\n\n<!-- pane: content -->\n\nOne short line.\n`);
+  const slides = cases.map(({ dir, share }) => `## ${name} · ${dir} ${share}%\n\n<!-- @meta{panes="${dir === 'stack' ? 'stack ' : ''}${share}/${100 - share}"} -->\n\n<!-- @meta{pane=${name}} -->\n\n${(dir === 'stack' ? stacked : made).body}\n\n<!-- @meta{pane=content} -->\n\nOne short line.\n`);
   // Page numbers and a footer, as nearly every real deck carries: the footer band takes stage
   // height, and a first review deck with them clipped what a bare deck had passed.
   const deck = `---\nsize: hd\npagination: true\nfooter: "Footer"\n---\n\n${slides.join('\n---\n\n')}`;

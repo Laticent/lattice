@@ -11,7 +11,7 @@ const COMPOSE = 'Compose — rich editor';
 const SOURCE = 'Markdown source';
 
 /** A deck with one finding the lint core fixes on its own: a card-style item written inline. */
-const FIXABLE = '<!-- _class: cards-grid -->\n\n# Three things\n\n- **Speed.** It renders fast.\n- **Taste.** It looks right.\n- **Trust.** It never surprises.\n';
+const FIXABLE = '<!-- @meta{layout=cards-grid} -->\n\n# Three things\n\n- **Speed.** It renders fast.\n- **Taste.** It looks right.\n- **Trust.** It never surprises.\n';
 
 async function openFresh(page: Page, seed: Record<string, string> = {}): Promise<void> {
 	if (Object.keys(seed).length) {
@@ -84,7 +84,7 @@ test('@crosswidth @gecko @webkit-tablet Fix all works in Compose', async ({ page
 // guards: a result computed from a text that has since changed is not written, and says so; a second press while a run
 // is going starts nothing. 501 inline-title cards on one slide need 500 passes, so the run is long enough to act inside.
 const LONG = [
-	'<!-- _class: cards-grid -->', '', '# Bets', '',
+	'<!-- @meta{layout=cards-grid} -->', '', '# Bets', '',
 	...Array.from({ length: 501 }, (_, i) => `- **Bet ${i}.** body ${i}`),
 	'',
 ].join('\n');

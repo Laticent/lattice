@@ -10,7 +10,7 @@ The plugin harness (`test/unit/plugins/conformance.test.js`) runs every case bel
 ## a record on an ordinary slide is a figure in its flow
 
 ```markdown
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## The team
 
@@ -26,7 +26,7 @@ The plugin harness (`test/unit/plugins/conformance.test.js`) runs every case bel
 ## a record on an image slide is the layout's photo panel
 
 ```markdown
-<!-- _class: image -->
+<!-- @meta{layout=image} -->
 
 ## The team
 
@@ -41,7 +41,7 @@ The plugin harness (`test/unit/plugins/conformance.test.js`) runs every case bel
 ## mirror puts the panel on the left
 
 ```markdown
-<!-- _class: image mirror -->
+<!-- @meta{layout=image, class=mirror} -->
 
 `@image{photo.jpg}`
 ```
@@ -52,7 +52,7 @@ The plugin harness (`test/unit/plugins/conformance.test.js`) runs every case bel
 ## bleed makes the picture the slide's background
 
 ```markdown
-<!-- _class: content dark bleed -->
+<!-- @meta{layout=content, class=dark bleed} -->
 
 ## Over the photo
 

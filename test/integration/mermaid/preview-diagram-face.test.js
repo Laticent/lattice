@@ -186,7 +186,7 @@ theme: indaco
 mode: sketch
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{class=diagram} -->
 
 ## Sequence
 
@@ -200,7 +200,7 @@ sequenceDiagram
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{class=diagram} -->
 
 ## Journey
 
@@ -216,7 +216,7 @@ journey
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{class=diagram} -->
 
 ## Timeline
 
@@ -230,7 +230,7 @@ timeline
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{class=diagram} -->
 
 ## C4 context
 

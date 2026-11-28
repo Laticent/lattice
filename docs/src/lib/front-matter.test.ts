@@ -5,7 +5,7 @@ import { parseLensRegistry, upsertLensRegistry } from '@/lib/lente';
 import { acronymEntries, lexiconMap, termEntries } from '@/lib/resolve-narration';
 import { frontMatterBlock, getFrontMatter, innerFrontMatter, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatterAcronyms, setFrontMatterBlock, setFrontMatterTerms, stripFrontMatter, writeFrontMatterLine } from './front-matter';
 
-const BODY = '<!-- _class: title -->\n\n# Hello\n\n---\n\n## Second';
+const BODY = '<!-- @meta{layout=title} -->\n\n# Hello\n\n---\n\n## Second';
 
 // The exact reconstruction the shell uses to persist a registry edit: extract the inner front matter,
 // let Lente (the sole registry serializer) rewrite the `lenses:` block, re-wrap in `---` delimiters.
@@ -358,8 +358,8 @@ function linesExcept(source: string, key: string): string[] {
 // (the class-token helpers) + `finish`, which the EXPORT path also clears.
 const DECK_SCOPE_KEYS = [
 	'theme', 'color-mode', 'finish', 'mode', 'motion', 'motion-style', 'motion-speed',
-	'spectrum', 'card-spectrum', 'rule', 'eyebrow',
-	'headline', 'trim-spectrum', 'debug', 'lang', 'size', 'paginate', 'lift', 'header',
+	'spectrum', 'card-spectrum', 'heading-rule', 'eyebrow',
+	'headline-align', 'trim-spectrum', 'debug', 'lang', 'size', 'paginate', 'card-lift', 'header',
 	'footer', 'title', 'class',
 ];
 
@@ -434,7 +434,7 @@ describe('every deck-scope directive writes losslessly (#1256)', () => {
 	it('a deck whose leading `---` is a slide separator keeps that slide', () => {
 		// FM_RE cannot tell a separator from front matter, so slide 1 is "inside the block".
 		// A splice can at worst edit the wrong line; the rebuild deleted the slide outright.
-		const sep = '---\n\n<!-- _class: title -->\n\n# Cover slide\n\nRevenue up 12 percent.\n\n---\n\n# Second slide\n';
+		const sep = '---\n\n<!-- @meta{layout=title} -->\n\n# Cover slide\n\nRevenue up 12 percent.\n\n---\n\n# Second slide\n';
 		for (const key of DECK_SCOPE_KEYS) {
 			const out = writeFrontMatterLine(sep, key, 'x-value');
 			expect(out, key).toContain('# Cover slide');
@@ -475,24 +475,24 @@ describe('every deck-scope directive writes losslessly (#1256)', () => {
 describe('block scalars — `style: |` lines are body, never directives (followups.d/2391-p3)', () => {
 	// The CSS lines here are named like registers on purpose. Before, the reader read them as
 	// `lift` and `rule`, and a write or removal of either rewrote the author's CSS.
-	const DECK = '---\ntheme: indaco\nstyle: |\n  lift: on\n  rule: short\n\n  section { color: red; }\nfooter: Q4\n---\n\n# Hi\n';
+	const DECK = '---\ntheme: indaco\nstyle: |\n  card-lift: on\n  heading-rule: short\n\n  section { color: red; }\nfooter: Q4\n---\n\n# Hi\n';
 
 	it('the reader does not read a body line as a directive, and still reads the header and the keys after it', () => {
-		expect(getFrontMatter(DECK, 'lift')).toBeUndefined();
-		expect(getFrontMatter(DECK, 'rule')).toBeUndefined();
+		expect(getFrontMatter(DECK, 'card-lift')).toBeUndefined();
+		expect(getFrontMatter(DECK, 'heading-rule')).toBeUndefined();
 		expect(getFrontMatter(DECK, 'style')).toBe('|');
 		expect(getFrontMatter(DECK, 'footer')).toBe('Q4');
 	});
 
 	it('removing a key the body names leaves the body untouched', () => {
-		expect(writeFrontMatterLine(DECK, 'lift', null)).toBe(DECK);
-		expect(writeFrontMatterLine(DECK, 'rule', null)).toBe(DECK);
+		expect(writeFrontMatterLine(DECK, 'card-lift', null)).toBe(DECK);
+		expect(writeFrontMatterLine(DECK, 'heading-rule', null)).toBe(DECK);
 	});
 
 	it('writing a key the body names adds a top-level line and never edits the body', () => {
-		const out = writeFrontMatterLine(DECK, 'lift', 'off');
-		expect(out).toBe('---\ntheme: indaco\nstyle: |\n  lift: on\n  rule: short\n\n  section { color: red; }\nfooter: Q4\nlift: off\n---\n\n# Hi\n');
-		expect(getFrontMatter(out, 'lift')).toBe('off');
+		const out = writeFrontMatterLine(DECK, 'card-lift', 'off');
+		expect(out).toBe('---\ntheme: indaco\nstyle: |\n  card-lift: on\n  heading-rule: short\n\n  section { color: red; }\nfooter: Q4\ncard-lift: off\n---\n\n# Hi\n');
+		expect(getFrontMatter(out, 'card-lift')).toBe('off');
 		// …and the key after the block is still reachable for a splice.
 		expect(writeFrontMatterLine(DECK, 'footer', 'Q1')).toBe(DECK.replace('footer: Q4', 'footer: Q1'));
 	});
@@ -500,16 +500,16 @@ describe('block scalars — `style: |` lines are body, never directives (followu
 	it('reads the other indicators too (`>`, `|-`, `>+2`, a trailing comment), and CRLF', () => {
 		for (const head of ['>', '|-', '>+2', '|  # deck css']) {
 			const src = DECK.replace('style: |', `style: ${head}`);
-			expect(getFrontMatter(src, 'lift'), head).toBeUndefined();
-			expect(writeFrontMatterLine(src, 'rule', null), head).toBe(src);
+			expect(getFrontMatter(src, 'card-lift'), head).toBeUndefined();
+			expect(writeFrontMatterLine(src, 'heading-rule', null), head).toBe(src);
 		}
 		const crlf = DECK.replace(/\n/g, '\r\n');
-		expect(getFrontMatter(crlf, 'lift')).toBeUndefined();
-		expect(writeFrontMatterLine(crlf, 'lift', null)).toBe(crlf);
+		expect(getFrontMatter(crlf, 'card-lift')).toBeUndefined();
+		expect(writeFrontMatterLine(crlf, 'card-lift', null)).toBe(crlf);
 	});
 
 	it('a header with trailing blanks still reads; a long run of spaces before U+2028 is linear, not a header', () => {
-		expect(getFrontMatter(DECK.replace('style: |', 'style: |   '), 'lift')).toBeUndefined();
+		expect(getFrontMatter(DECK.replace('style: |', 'style: |   '), 'card-lift')).toBeUndefined();
 		// The old tail `(?:[ \t]+#.*)?[ \t]*\r?$` backtracked quadratically here (460 ms at 20K).
 		const hostile = `---\nstyle: | #${' '.repeat(40000)}\u2028x\nfooter: Q4\n---\n`;
 		// A hang guard sized by F4 (HARD RULE #32), not a count: the line reader's `/^([A-Za-z][\w-]*)\s*:\s*(.*)$/` is
@@ -521,9 +521,9 @@ describe('block scalars — `style: |` lines are body, never directives (followu
 
 	it('a nested-block writer re-emits the scalar verbatim instead of flattening its body', () => {
 		const out = setFrontMatterBlock(DECK, 'lexicon', [['α', 'alpha']]);
-		expect(out).toContain('style: |\n  lift: on\n  rule: short\n\n  section { color: red; }\n');
+		expect(out).toContain('style: |\n  card-lift: on\n  heading-rule: short\n\n  section { color: red; }\n');
 		expect(out).not.toContain('style: "|"');
-		expect(setFrontMatterAcronyms(DECK, [['CRO', { expansion: 'chief revenue officer' }]])).toContain('style: |\n  lift: on\n');
+		expect(setFrontMatterAcronyms(DECK, [['CRO', { expansion: 'chief revenue officer' }]])).toContain('style: |\n  card-lift: on\n');
 	});
 });
 

@@ -33,14 +33,14 @@ test('completion: `<!-- @m` offers the record, inside it its fields, then a regi
 	await expect(editorText(page)).toContainText('<!-- @meta{}');
 	await expect(menu.getByRole('option', { name: /^layout/ })).toBeVisible();
 	await page.keyboard.type('headl');
-	await expect(menu.getByRole('option', { name: /^headline/ })).toBeVisible();
+	await expect(menu.getByRole('option', { name: /^headline-align/ })).toBeVisible();
 	await acceptCompletion(page);
-	await expect(editorText(page)).toContainText('<!-- @meta{headline=}');
+	await expect(editorText(page)).toContainText('<!-- @meta{headline-align=}');
 	// After `=`, the register's own words: `l` narrows to `left`.
 	await page.keyboard.type('l');
 	await expect(menu.getByRole('option', { name: /^left/ })).toBeVisible();
 	await acceptCompletion(page);
-	await expect(editorText(page)).toContainText('<!-- @meta{headline=left}');
+	await expect(editorText(page)).toContainText('<!-- @meta{headline-align=left}');
 });
 
 test('completion: the retired bare `<!-- {` offers no record fields @crosswidth @gecko', async ({ page }) => {
@@ -60,7 +60,7 @@ test('on a record slide, each note editor writes its own @note and leaves the re
 	// A record holds settings only (engineering/decisions/2026-11-20-four-notes.md): the four notes are their own
 	// comments, so writing one never edits the record, and the record's settings survive every write.
 	await gotoStudio(page);
-	await typeDeck(page, '---\ntitle: Record\n---\n\n<!-- {layout=kpi, footer=Q3} -->\n\n## Revenue\n');
+	await typeDeck(page, '---\ntitle: Record\n---\n\n<!-- @meta{layout=kpi, footer=Q3} -->\n\n## Revenue\n');
 	// The deck is saved before the panel is edited: a save landing after the fill re-renders the field over it (HARD RULE #32,
 	// wait for the signal, not a duration).
 	await expect.poll(() => persistedSource(page)).toContain('footer=Q3');
@@ -77,5 +77,5 @@ test('on a record slide, each note editor writes its own @note and leaves the re
 		await box.blur();
 		await expect.poll(() => persistedSource(page)).toContain(written);
 	}
-	expect(await persistedSource(page)).toContain('<!-- {layout=kpi, footer=Q3} -->');
+	expect(await persistedSource(page)).toContain('<!-- @meta{layout=kpi, footer=Q3} -->');
 });

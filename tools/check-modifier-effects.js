@@ -30,7 +30,7 @@
  *
  * DECLARED VARIANTS are re-probed for the surfaces the component's own rendering
  * owns (card row, card lift, card rail): `kpi` reads the card lift only under
- * `ops`, so `lifted` is offered after `kpi ops` and not after plain `kpi`.
+ * `ops`, so `card-lift-on` is offered after `kpi ops` and not after plain `kpi`.
  *
  * The result is committed as lib/core/modifier-effects.generated.json, and it is the
  * SOURCE for the probed surfaces: tools/build-docs-portal.js publishes it to the
@@ -84,7 +84,7 @@ function probeDeck(m, probes) {
   const slides = [];
   const add = (sample, si, token) => {
     const cls = [m.name, ...sample.tokens, ...(token ? [token] : [])].join(' ');
-    slides.push(`<!-- _class: ${cls} -->\n\n${sample.body}\n`);
+    slides.push(`<!-- @meta{class="${cls}"} -->\n\n${sample.body}\n`);
     roster.push({ sample: si, token });
   };
   samples.forEach((s, si) => {

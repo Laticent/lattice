@@ -384,3 +384,27 @@ sit beside a wrong base. Both are `followups.d/3362-p3-claim-budget-gaps.md`.
 **Applied to the showcase deck,** the three suggested claims cleared every body clip; only the two footer-only pages
 remain, as designed.
 
+
+## 10. Re-verified in a real VS Code at the shipped code (2026-11-28)
+
+§8's real-VS-Code check ran at an earlier head. Three merges from `main` then regenerated the CSS bundle Marp loads and
+changed `lib/core/carousel.js`, so the claim was UNVERIFIED at the code that shipped (`2aee2ef`). It was re-run there in
+VS Code desktop 1.142.0 with marp-vscode 3.6.1, through `tools/vscode-harness/probes/coda-parity.mjs`. That probe reads
+every slide's key insight, note and source line in the preview and in the engine's own `.html` render with one reader.
+Evidence and screenshots: `2026-11-28-coda-marp-reverify/README.md`.
+
+- **A record deck needs the bridge.** The demo deck is in `@meta` form, and plain Marp shows a record as nothing
+  (`2026-10-17-meta-record.md` §7): opened raw, every slide drew as `content`. So the run goes through Export-to-Marp,
+  both as its own bundle and re-pointed at the copy-and-go kit.
+- **Runtime on (Disable): parity.** 58 runs over 56 decks (the demo deck, a split-width deck, the main gallery, the
+  data-viz gallery and all 52 component galleries), 801 slides: every key insight, note and source line matches the
+  engine word for word (53, 38 and 7), and every coda cell sits inside its slide.
+- **Strict: as documented.** 8 runs, 201 slides: the runtime does not run, the kit's notice draws, and every beat's words
+  are still on the slide, as plain Markdown.
+- **Portrait splits are engine-only.** Marp never auto-splits (`lib/core/carousel.js` runs in the engine, not the runtime,
+  and Export-to-Marp bakes only `split: headings`). A portrait split-panel or split-compare slide that the engine turns
+  into a run stays one slide on Marp, and its coda falls off the bottom: on all 9 slides of the split-width deck at
+  `size: portrait` the coda cell measured outside the slide, and the note is not visible. The same slides without beats
+  fit. The runtime flags it ("Content clipped"). Open for the owner; not yet in the Marp fidelity ledger.
+- **Found and fixed on the engine path:** a portrait split-panel run printed its note ABOVE its key insight on the last
+  page (`foldBeats`, `lib/core/split-envelope.js`).

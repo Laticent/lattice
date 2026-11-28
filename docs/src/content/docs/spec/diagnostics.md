@@ -168,7 +168,7 @@ distinct, stable ID.
 | `map-highlight-implied` | info | — | A `map highlight` slide whose values are labels (or absent), so the data already fills it by category and the class says nothing. |
 | `trail-budget` | warning | — | A word in an `authority-chain trail` column too long for the column, which squeezes the others. |
 | `tag-budget` | warning | — | On `decision` and `compare-prose` (not `axis`), a card tag long enough to wrap, or a band label long enough to run past two lines, which grows every tag on the slide and pushes the cards down. |
-| `tag-alias` | info | — | `banner-tag`, the old name for `tag-band`. |
+| `tag-alias` | info | — | `banner-tag`, the old name for `card-tag-band`. |
 | `empty-section` | warning | — | A divider straight after another divider, so the section before it holds no slide, its mark on the section rail never lights, and the first rail a reader sees can say `2 / 4`. |
 | `label-set-above-body` | warning | — | A label list naming key entries, placed above the chart: there it names the axes instead of relabeling the key, or shows as text if it has more items than the chart has axes. |
 | `label-set-unbound` | warning | — | A bracketed label list that relabels nothing: on a component with no key, an entry that is not one of the component's key members, or a key named twice (the last wins). |
@@ -194,7 +194,6 @@ distinct, stable ID.
 | `spot-scale` | warning / info | — | A `scale-*` or `venue-*` class on some slides only, so type size jumps between slides. |
 | `code-line-clipped` | info | — | A code line wider than the pane it renders into, so its end is cut off. |
 | `pane-layout` | warning | — | A pane layout that does not lay out as written: set deck-wide or for a run of slides, fewer than two or more than two panes, a ratio that is not a class name, off the 25–75 grid in 5% steps, or more than one ratio, both `columns` and `rows`, a `###` above the title, or a class token, slide layout or modifier a pane cannot use. |
-| `pane-syntax` | warning | — | The old pane syntax (`<!-- panes: -->`, `<!-- pane: -->`), which still works but may be removed. |
 | `pane-title` | suggestion | — | A pill or label above a pane title that joins the title on one line. |
 | `pane-insight` | warning | — | More than one Key Insight on a panes slide; they all show together below the panes. |
 | `pane-arrange` | suggestion | — | Panes that will render reoriented, or split into one slide per pane, rather than as written. |
@@ -240,17 +239,17 @@ distinct, stable ID.
 | `unknown-fit` | warning | — | A `fit:` value the engine does not know; the deck uses `heal`. |
 | `unknown-split` | warning | ✓ | A `split:` value the engine does not know; the deck uses `headings`. |
 | `unknown-claim` | warning | ✓ | A `claim:` value the engine does not know; the deck uses `framed`. |
-| `unknown-stamp` | warning | ✓ | A `stamp:` value the engine does not know; markers use the `tab` shape. |
+| `unknown-stamp-shape` | warning | ✓ | A `stamp-shape:` value the engine does not know; markers use the `tab` shape. |
 | `unknown-tone` | warning | ✓ | A `tone:` value the engine does not know; markers use the `rail` shape. |
-| `unknown-rule` | warning | ✓ | A `rule:` value the engine does not know; headings keep the default underline. |
+| `unknown-heading-rule` | warning | ✓ | A `heading-rule:` value the engine does not know; headings keep the default underline. |
 | `unknown-inline-code` | warning | ✓ | An `inline-code:` value the engine does not know; pills and marks keep rendering. |
 | `unknown-font-embedding` | warning | — | A word in the deck's `font-embedding:` line that is not `exact`, `used`, `full` or `system` (alone or with an `-emoji` suffix); the exports ignore it. |
 | `key-renamed` | error | ✓ | A deck key renamed with no alias, one row per rename in `KEY_RENAMES` (lib/authoring/lint-core.js): `paginate:` → `pagination:`, `fonts:` → `font-embedding:`, `guards:` → `fit:` (`strict` becomes `trim`; any other value, the default, drops the line) and `cover:` → `cover-layout:`. The engine reads only the new key. The fix renames the key and keeps the value; when the deck also sets the new key and it decides, it deletes the old line; when the new key is there but decides nothing (empty, a comment, or for `font-embedding:` no tier), there is no fix, because either edit would lose the words. |
 | `unknown-images` | warning | — | A word in the deck's `images:` line that is not `optimized`, `original` or a JPEG quality from 1 to 100; the exports ignore it. |
 | `unknown-eyebrow` | warning | ✓ | An `eyebrow:` value the engine does not know; eyebrows render as the bare label. |
-| `unknown-headline` | warning | ✓ | A `headline:` value the engine does not know; each layout keeps its own alignment. |
-| `unknown-corners` | warning | — | A `corners:` value the engine does not know; corners render square. |
-| `unknown-lift` | warning | ✓ | A `lift:` value the engine does not know; cards render flat. |
+| `unknown-headline-align` | warning | ✓ | A `headline-align:` value the engine does not know; each layout keeps its own alignment. |
+| `unknown-slide-corners` | warning | — | A `slide-corners:` value the engine does not know; corners render square. |
+| `unknown-card-lift` | warning | ✓ | A `card-lift:` value the engine does not know; cards render flat. |
 | `unknown-venue` | warning | ✓ | A `venue:` value the engine does not know; the deck renders at the designed size. |
 | `handheld-chrome-hidden` | info | — | A square, portrait or story deck read in a hand (the phone venue by default, or `venue: phone` / `tablet`) that writes `footer:` or `header:`: a phone page hides that running text, so only chart, code and math pages show it. `venue: laptop` or the deck class `with-footer` / `with-header` keeps it. |
 | `typography-style-override` | warning | — | The deck's own `style:` re-points a face or voice token the `typography:` set owns (`--font-display`, `--font-body`, `--eyebrow-*`, `--chart-text-face`, `--chart-figure-face`), so the set's audit no longer covers the deck. |
@@ -258,7 +257,7 @@ distinct, stable ID.
 | `unknown-color-intensity` | warning | ✓ | A `color-intensity:` value other than `muted` or `vivid`; the deck wears `muted`. |
 | `chart-finish-source-needs-tone` | warning | — | A `chart-finish:` source (`ink`, `accent`) under a finish other than `tone`. Only tone draws one hue, so the word changes nothing; write `chart-finish: tone ink`, or drop the word. |
 | `unknown-backdrop` | warning | ✓ | A `backdrop:` word that is neither a strength nor a mask, or a second word for an axis already set. |
-| `unknown-tag` | warning | ✓ | A `tag:` word the engine does not know, or a second word for an axis already set. |
+| `unknown-card-tag` | warning | ✓ | A `card-tag:` word the engine does not know, or a second word for an axis already set. |
 | `unknown-<axis register>` | warning | ✓ | A family: one ID per axis register (`unknown-align`, `unknown-spark`, `unknown-cover-layout`, the three spectrum keys `unknown-spectrum`, `unknown-card-spectrum` and `unknown-trim-spectrum`, and one per register a plugin declares, such as `unknown-icon`). An unknown word, or a second word for an axis already set. |
 | `unknown-<setting>` | warning | ✓ | A family: one ID per key whose value list the deck-settings table holds (`lib/core/deck-settings.js`, `generic: true`): `unknown-theme`, `unknown-size`, `unknown-motion`, `unknown-motion-style`, `unknown-motion-speed`, `unknown-player-motion`, `unknown-glossary`, `unknown-typography`, `unknown-logo-finish` (an axis register: a word outside the vocabulary, or two words on one axis). A value the key's reader does not accept; the deck uses the default (for `theme:`, the command line refuses it). |
 | `unknown-key` | warning | ✓ | A top-level front-matter key that no reader reads and no plugin declares; the deck ignores the whole line. Carries a did-you-mean. |
@@ -434,13 +433,13 @@ literal text and is never reported.
 
 | Rule ID | Severity | Autofix | What it catches |
 |---|---|---|---|
-| `meta-opener-bare` | error | — | A bare `<!--` with the record on the next line: the comment is a note, not a record. |
+| `meta-opener-bare` | error | ✓ | A bare record (`<!-- {layout=cards} -->`), or a bare `<!--` with the record on the next line: a plain comment that sets nothing. The fix (on the one-line form) writes `@meta` before the `{` with the rest of the deck's migration. |
 | `meta-not-own-line` | error | — | A record inside a list item or blockquote. |
 | `meta-in-html-block` | error | — | A record directly under an HTML line with no blank line between, so both become one HTML block. |
 | `meta-block-in-container` | error | — | A multi-line record holding a blank line inside a list or blockquote, where the comment ends early. |
-| `meta-class-overridden` | warning | — | Two comments on one slide each set the slide's class (a `_class:` comment, a record's `layout`, `class` or register field); the last wins, so the earlier one's words are dropped. |
-| `meta-record` | error | — | A record the engine reads but cannot apply in full: an unknown field, a value outside its register, braces or a quote that never close, a deck-only key, a repeated field, a note field (`note=`, `say=`, `describe=`, `reader=`: a note is its own comment, LFM-2.0 §3.5). The finding's token names the door's code (`meta-unknown-key`, `meta-field-value`, `meta-note-field`, `unterminated-record`, …). |
-| `legacy-directive-comment` | warning | ✓ | An old-form directive comment (`<!-- _class: x -->`), on every deck. The fix rewrites every old comment in the deck as a `<!-- @meta{…} -->` record, the same text `lattice migrate meta` writes. It becomes an error when the engine stops reading the form. |
+| `meta-class-overridden` | warning | — | Two `@meta` records on one slide each set the slide's class (a record's `layout`, `class` or register field); the last wins, so the earlier one's words are dropped. An old `_class:` comment sets nothing and is never counted; `legacy-directive-comment` names it. |
+| `meta-record` | error | ✓ | A record the engine reads but cannot apply in full: an unknown field, a value outside its register, braces or a quote that never close, a deck-only key, a repeated field, a note field (`note=`, `say=`, `describe=`, `reader=`: a note is its own comment, LFM-2.0 §3.5). The finding's token names the door's code (`meta-unknown-key`, `meta-field-value`, `meta-note-field`, `unterminated-record`, …). A field a key rename retired (`@meta{headline=left}`) is fixed to its new name (`@meta{headline-align=left}`) when the record is the whole line. |
+| `legacy-directive-comment` | error | ✓ | An old setting comment (`<!-- _class: x -->`, a pane marker such as `<!-- _pane: bar -->` or `<!-- panes: 60/40 -->`, the bare marker `<!-- stress-slide -->`), on every deck. The engine reads none of them, so the slide renders its default. The fix rewrites every old comment in the deck as a `<!-- @meta{…} -->` record, the same text `lattice migrate meta` writes. |
 
 > **Autofix is per-finding, not per-rule.** The ✓ marks rules that *can* offer a
 > deterministic autofix; whether a given finding carries one depends on its
@@ -450,7 +449,7 @@ literal text and is never reported.
 > `..`; `quadrant-retired-axis` rewrites the old axis format; `spark-too-big`
 > resizes the spark; `mixed-spelling` rewrites to the deck's majority spelling.
 > A rule with a did-you-mean (`unknown-class`, `unknown-plugin` and the
-> `unknown-*` rules marked ✓; not `unknown-fit`, `unknown-corners` or
+> `unknown-*` rules marked ✓; not `unknown-fit`, `unknown-slide-corners` or
 > `unknown-debug-facet`) autofixes only when a valid name is close enough to
 > suggest, and never for a second word on an axis already set; the finding then
 > carries `replace: { from, to }`. `unknown-map-region` names its did-you-mean in
@@ -538,7 +537,9 @@ The reference engine is `lintTextWith(source, vocab)` in `lint-core.js`:
   `legacy-directive-comment` (off by default). It then adds `meta-record`, the door's own
   findings on a record it reads, and `meta-class-overridden`. Then `legacy-directive-comment`
   turns on for every deck with a whole-deck autofix (record note §15). `@meta` is the one record
-  spelling; a warning on the bare form joins at the cut.
+  spelling. At the cut (slice E) `legacy-directive-comment` becomes an error and also names the old pane markers and
+  the bare marker, `meta-opener-bare` names the bare record with its fix, and `pane-syntax` is retired (the old pane
+  syntax is a `legacy-directive-comment`).
 - **1.1 (2026-10-08).** The registry catches up with the reference
   implementation: 13 rows became 181: all 178 literal rule IDs plus three families, grouped by
   what they check (§3), and a test now pins the registry to the code. Two

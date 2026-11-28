@@ -8,12 +8,12 @@ import { getSlideNote, type NoteName, setSlideNote } from './slide-notes';
 // (engineering/decisions/2026-11-20-four-notes.md). Each is read and written on its own, and no
 // write ever touches a comment that is not that note.
 
-const SLIDE = '<!-- _class: kpi -->\n\n## Revenue\n\n1. $4M\n   - Net';
+const SLIDE = '<!-- @meta{layout=kpi} -->\n\n## Revenue\n\n1. $4M\n   - Net';
 const NAMES: NoteName[] = ['note', 'say', 'alt', 'handout'];
 
 describe('one note at a time', () => {
 	it('reads nothing on a slide with no notes, whatever other comments it has', () => {
-		const slide = `${SLIDE}\n\n<!-- remember to smile -->\n\n<!-- {footer="Q3"} -->`;
+		const slide = `${SLIDE}\n\n<!-- remember to smile -->\n\n<!-- @meta{footer="Q3"} -->`;
 		for (const name of NAMES) expect(getSlideNote(slide, name)).toBe('');
 	});
 
@@ -58,7 +58,7 @@ describe('one note at a time', () => {
 
 describe('a plain comment is not a note', () => {
 	it('is never read as the speaker note', () => {
-		expect(getSlideNote('<!-- _class: title -->\n\n# Hi\n\n<!-- remember to smile -->', 'note')).toBe('');
+		expect(getSlideNote('<!-- @meta{layout=title} -->\n\n# Hi\n\n<!-- remember to smile -->', 'note')).toBe('');
 	});
 
 	it('survives every write, so an author’s own comment is never deleted', () => {
@@ -83,11 +83,11 @@ describe('a plain comment is not a note', () => {
 	});
 
 	it('a record and a panes marker are structure, kept through every write', () => {
-		const panes = '## Title\n\n<!-- panes: 35/65 -->\n<!-- pane: list -->\n\n- a\n\n<!-- {footer=x, pane="table"} -->\n\n| a |\n|---|\n| 1 |';
+		const panes = '## Title\n\n<!-- @meta{panes=35/65} -->\n<!-- @meta{pane=list} -->\n\n- a\n\n<!-- @meta{footer=x, pane="table"} -->\n\n| a |\n|---|\n| 1 |';
 		const out = setSlideNote(panes, 'note', 'say the total');
-		expect(out).toContain('<!-- panes: 35/65 -->');
-		expect(out).toContain('<!-- pane: list -->');
-		expect(out).toContain('<!-- {footer=x, pane="table"} -->');
+		expect(out).toContain('<!-- @meta{panes=35/65} -->');
+		expect(out).toContain('<!-- @meta{pane=list} -->');
+		expect(out).toContain('<!-- @meta{footer=x, pane="table"} -->');
 		expect(getSlideNote(out, 'note')).toBe('say the total');
 		expect(setSlideNote(out, 'note', '')).toBe(panes);
 	});

@@ -27,7 +27,7 @@ describe('deck-canon', () => {
   const RULE_LITERAL = /rule:\s*['"]([\w-]+)['"]/g;
 
   test('RUBRIC covers every rule reviewText can emit (drift gate)', () => {
-    // Every quoted `rule:` literal in review-core's source must have a RUBRIC entry, so the
+    // Every quoted `heading-rule:` literal in review-core's source must have a RUBRIC entry, so the
     // taught rubric can't silently fall behind the checked one. (The `verbose-*` budget
     // family uses a computed id — covered by the collective 'verbose-*' entry + the
     // variable-binding guard below.)

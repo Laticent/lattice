@@ -20,33 +20,33 @@ describe('deck-preset — the Studio agrees with the engine about a preset', () 
 			const engine = frontMatterName(fmOf(src), key);
 			if (engine !== null) expect(registerValue(src, key)).toBe(engine);
 		}
-		expect(registerValue(src, 'rule')).toBe('short');
-		expect(registerValue(deck('preset: editorial', 'rule: none'), 'rule')).toBe('none');
-		expect(registerValue(deck(), 'rule')).toBe('auto');
+		expect(registerValue(src, 'heading-rule')).toBe('short');
+		expect(registerValue(deck('preset: editorial', 'heading-rule: none'), 'heading-rule')).toBe('none');
+		expect(registerValue(deck(), 'heading-rule')).toBe('auto');
 	});
 
 	it('writing the preset value clears the override instead of restating it', () => {
-		const src = deck('preset: editorial', 'rule: none');
-		expect(writeRegister(src, 'rule', 'short')).toBe(deck('preset: editorial'));
+		const src = deck('preset: editorial', 'heading-rule: none');
+		expect(writeRegister(src, 'heading-rule', 'short')).toBe(deck('preset: editorial'));
 		// The engine default is a real override under a preset that changes it…
-		expect(writeRegister(deck('preset: editorial'), 'rule', 'auto')).toBe(deck('preset: editorial', 'rule: auto'));
+		expect(writeRegister(deck('preset: editorial'), 'heading-rule', 'auto')).toBe(deck('preset: editorial', 'heading-rule: auto'));
 		// …and a no-op write with no preset, exactly as before presets existed.
-		expect(writeRegister(deck(), 'rule', 'auto')).toBe(deck());
+		expect(writeRegister(deck(), 'heading-rule', 'auto')).toBe(deck());
 	});
 
 	it('counts the drift from the preset, and Reset clears exactly that family', () => {
-		const src = deck('preset: brand', 'rule: none', 'eyebrow: dot', 'footer: Confidential');
+		const src = deck('preset: brand', 'heading-rule: none', 'eyebrow: dot', 'footer: Confidential');
 		// `eyebrow: dot` restates Brand-forward's own value, so it is not a change.
-		expect(presetChanges(src)).toEqual(['rule']);
+		expect(presetChanges(src)).toEqual(['heading-rule']);
 		expect(clearPresetOverrides(src)).toBe(deck('preset: brand', 'footer: Confidential'));
 	});
 
 	it('picking a preset keeps what the author wrote; the default writes no key', () => {
 		// The picker selects on arrow-key focus, so a pick must never delete the author's keys.
-		const src = deck('preset: editorial', 'rule: none', 'lift: off');
+		const src = deck('preset: editorial', 'heading-rule: none', 'card-lift: off');
 		const picked = applyPreset(src, 'minimal');
-		expect(picked).toBe(deck('preset: minimal', 'rule: none', 'lift: off'));
-		// `rule: none` is Minimal's own value, so it stops counting as a change; `lift: off` too.
+		expect(picked).toBe(deck('preset: minimal', 'heading-rule: none', 'card-lift: off'));
+		// `heading-rule: none` is Minimal's own value, so it stops counting as a change; `card-lift: off` too.
 		expect(presetChanges(picked)).toEqual([]);
 		expect(applyPreset(deck('preset: minimal'), 'classic')).toBe(deck());
 	});
@@ -59,18 +59,18 @@ describe('deck-preset — the Studio agrees with the engine about a preset', () 
 	it('reads a key the way the engine does — comment stripped, empty means the preset', () => {
 		const ed = (...fm: string[]) => deck('preset: editorial', ...fm);
 		for (const [src, rendered] of [
-			[ed('rule: short  # house'), 'short'],
+			[ed('heading-rule: short  # house'), 'short'],
 			[ed('rule:'), 'short'],
 			[ed('rule: # todo'), 'short'],
-			[ed('rule: none # x'), 'none'],
+			[ed('heading-rule: none # x'), 'none'],
 		] as const) {
-			expect(frontMatterName(fmOf(src), 'rule')).toBe(rendered);
-			expect(registerValue(src, 'rule')).toBe(rendered);
+			expect(frontMatterName(fmOf(src), 'heading-rule')).toBe(rendered);
+			expect(registerValue(src, 'heading-rule')).toBe(rendered);
 		}
 		// A restated value with a comment is not a change; an empty key is not one either.
-		expect(presetChanges(ed('rule: short  # house'))).toEqual([]);
+		expect(presetChanges(ed('heading-rule: short  # house'))).toEqual([]);
 		expect(presetChanges(ed('rule:'))).toEqual([]);
-		expect(presetChanges(ed('rule: none'))).toEqual(['rule']);
+		expect(presetChanges(ed('heading-rule: none'))).toEqual(['heading-rule']);
 	});
 
 	it('a nested preset: is not the deck preset, for the Studio as for the engine', () => {
@@ -81,7 +81,7 @@ describe('deck-preset — the Studio agrees with the engine about a preset', () 
 
 
 	it('a picker tile renders the deck in its own theme and mode, at 16:9, showing the pure preset', () => {
-		const fm = '---\ntheme: cuoio\ncolor-mode: dark\nsize: 4k\npreset: brand\nrule: none\nfinish: halo\n---';
+		const fm = '---\ntheme: cuoio\ncolor-mode: dark\nsize: 4k\npreset: brand\nheading-rule: none\nfinish: halo\n---';
 		const tile = presetSampleDeck(fm, 'editorial');
 		const head = tile.split('\n---\n')[0];
 		// The deck's theme and mode ride along, so the tile looks like THIS deck…
@@ -90,7 +90,7 @@ describe('deck-preset — the Studio agrees with the engine about a preset', () 
 		expect(head).not.toContain('size:');
 		// …the preset is the tile's, and the author's overrides are gone, so it shows the look itself.
 		expect(head).toContain('preset: editorial');
-		expect(head).not.toMatch(/rule:|finish:|preset: brand/);
+		expect(head).not.toMatch(/heading-rule:|finish:|preset: brand/);
 		expect(tile.endsWith(PRESET_SAMPLE)).toBe(true);
 		// Classic writes no key; a deck with no front matter still gets a well-formed block.
 		expect(presetSampleDeck(fm, 'classic')).not.toContain('preset:');
@@ -100,9 +100,9 @@ describe('deck-preset — the Studio agrees with the engine about a preset', () 
 
 describe('deck-preset — Reset never reaches into a `style: |` block (followups.d/2391-p3)', () => {
 	it('clears the real overrides and leaves CSS lines named like registers alone', () => {
-		const src = deck('preset: brand', 'lift: off', 'style: |', '  lift: on', '  rule: short');
-		expect(presetChanges(deck('preset: brand', 'style: |', '  lift: on', '  rule: short'))).toEqual([]);
-		expect(clearPresetOverrides(src)).toBe(deck('preset: brand', 'style: |', '  lift: on', '  rule: short'));
+		const src = deck('preset: brand', 'card-lift: off', 'style: |', '  card-lift: on', '  heading-rule: short');
+		expect(presetChanges(deck('preset: brand', 'style: |', '  card-lift: on', '  heading-rule: short'))).toEqual([]);
+		expect(clearPresetOverrides(src)).toBe(deck('preset: brand', 'style: |', '  card-lift: on', '  heading-rule: short'));
 	});
 });
 
@@ -119,7 +119,7 @@ describe('deck-preset — the recommendation keys (P0)', () => {
 		expect(registerValue(bare('backdrop: 40 clear'), 'backdrop')).toBe('40 clear');
 		expect(registerValue(bare('theme: NoirStudio'), 'theme')).toBe('NoirStudio');
 		// Control: a single-word key still reads as the bare, lower-cased name it always did.
-		expect(registerValue(bare('rule: Short'), 'rule')).toBe('short');
+		expect(registerValue(bare('heading-rule: Short'), 'heading-rule')).toBe('short');
 		// A top-level key nested under another block is not the deck's key.
 		expect(registerValue(bare('foo:', '  backdrop: 40'), 'backdrop')).toBe('');
 	});
@@ -174,12 +174,12 @@ describe('deck-preset — the recommendation keys (P0)', () => {
 	it('Reset and the drift count never touch the author theme or color mode', () => {
 		expect(AUTHOR_KEYS).toEqual(['theme', 'color-mode']);
 		withProbe(() => {
-			const src = bare('preset: probe', 'theme: indaco', 'color-mode: light', 'chart-finish: etch', 'rule: none');
-			expect(presetChanges(src)).toEqual(['rule', 'chart-finish']);
+			const src = bare('preset: probe', 'theme: indaco', 'color-mode: light', 'chart-finish: etch', 'heading-rule: none');
+			expect(presetChanges(src)).toEqual(['heading-rule', 'chart-finish']);
 			expect(clearPresetOverrides(src)).toBe(bare('preset: probe', 'theme: indaco', 'color-mode: light'));
 		});
 		// Control: with no preset at all, Reset still keeps them.
-		expect(clearPresetOverrides(bare('theme: indaco', 'color-mode: dark', 'rule: none'))).toBe(bare('theme: indaco', 'color-mode: dark'));
+		expect(clearPresetOverrides(bare('theme: indaco', 'color-mode: dark', 'heading-rule: none'))).toBe(bare('theme: indaco', 'color-mode: dark'));
 	});
 
 	it('a picker tile keeps the deck theme and color mode, and drops every other override', () => {

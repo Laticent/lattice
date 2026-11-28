@@ -138,7 +138,7 @@ export function presetBaseline(source: string, key: string): string {
 /**
  * What the deck ITSELF says about `key`, read the way the engine reads it
  * (`frontMatterValue` in lib/core/front-matter-key.js):
- *   · `undefined` — absent, or written empty / comment-only (`rule:`, `rule: # todo`), so the
+ *   · `undefined` — absent, or written empty / comment-only (`heading-rule:`, `rule: # todo`), so the
  *     preset applies;
  *   · `''` — written, but not a name the engine accepts, so the engine renders the default;
  *   · otherwise the value, lower-cased, with any trailing comment stripped.

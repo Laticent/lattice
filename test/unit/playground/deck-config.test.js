@@ -79,12 +79,12 @@ describe('readFrontMatter', () => {
 
   test('lift toggle: on/true/yes → true (boolean); off/absent → false; on counts as configured', async () => {
     const { readFrontMatter } = await import(MOD);
-    assert.equal(readFrontMatter('---\nmarp: true\nlift: on\n---\n').lift, true);
-    assert.equal(readFrontMatter('---\nmarp: true\nlift: true\n---\n').lift, true);
-    assert.equal(readFrontMatter('---\nmarp: true\nlift: ON\n---\n').lift, true); // case-insensitive
-    assert.equal(readFrontMatter('---\nmarp: true\nlift: off\n---\n').lift, false);
-    assert.equal(readFrontMatter(CLEAN).lift, false);
-    assert.equal(readFrontMatter('---\nmarp: true\nlift: on\n---\n').configured, true);
+    assert.equal(readFrontMatter('---\nmarp: true\ncard-lift: on\n---\n')['card-lift'], true);
+    assert.equal(readFrontMatter('---\nmarp: true\ncard-lift: true\n---\n')['card-lift'], true);
+    assert.equal(readFrontMatter('---\nmarp: true\ncard-lift: ON\n---\n')['card-lift'], true); // case-insensitive
+    assert.equal(readFrontMatter('---\nmarp: true\ncard-lift: off\n---\n')['card-lift'], false);
+    assert.equal(readFrontMatter(CLEAN)['card-lift'], false);
+    assert.equal(readFrontMatter('---\nmarp: true\ncard-lift: on\n---\n').configured, true);
   });
 
   test('validate: default ON; off/false/no → false and counts as configured', async () => {
@@ -145,20 +145,20 @@ describe('writeFrontMatter', () => {
   test('lift: writes the canonical on; a falsy value omits it; sits after glossary, before size', async () => {
     const { writeFrontMatter, readFrontMatter } = await import(MOD);
     // Boolean true (the switch) canonicalises to `on`.
-    assert.ok(writeFrontMatter(CLEAN, 'lift', true).includes('lift: on\n'));
-    assert.ok(writeFrontMatter(CLEAN, 'lift', 'yes').includes('lift: on\n'));
+    assert.ok(writeFrontMatter(CLEAN, 'card-lift', true).includes('card-lift: on\n'));
+    assert.ok(writeFrontMatter(CLEAN, 'card-lift', 'yes').includes('card-lift: on\n'));
     // off / false is the default → no key.
-    assert.equal(writeFrontMatter(CLEAN, 'lift', false), CLEAN);
-    assert.equal(writeFrontMatter(CLEAN, 'lift', 'off'), CLEAN);
+    assert.equal(writeFrontMatter(CLEAN, 'card-lift', false), CLEAN);
+    assert.equal(writeFrontMatter(CLEAN, 'card-lift', 'off'), CLEAN);
     // canonical slot: glossary, then lift, then size.
     let src = writeFrontMatter(CLEAN, 'size', 'portrait');
     src = writeFrontMatter(src, 'glossary', true);
-    src = writeFrontMatter(src, 'lift', true);
+    src = writeFrontMatter(src, 'card-lift', true);
     const block = src.slice(0, src.indexOf('\n---\n'));
-    assert.equal(block, '---\nmarp: true\nglossary: auto\nlift: on\nsize: portrait');
+    assert.equal(block, '---\nmarp: true\nglossary: auto\ncard-lift: on\nsize: portrait');
     // round-trips, and switching it off over an existing on clears it.
-    assert.equal(readFrontMatter(writeFrontMatter(CLEAN, 'lift', true)).lift, true);
-    assert.ok(!writeFrontMatter(writeFrontMatter(CLEAN, 'lift', true), 'lift', false).includes('lift'));
+    assert.equal(readFrontMatter(writeFrontMatter(CLEAN, 'card-lift', true))['card-lift'], true);
+    assert.ok(!writeFrontMatter(writeFrontMatter(CLEAN, 'card-lift', true), 'card-lift', false).includes('card-lift'));
   });
 
   test('validate: default ON is omitted; only an opt-out writes the canonical off', async () => {
@@ -393,10 +393,10 @@ describe('a deck preset (preset:) sets the baseline for finish and lift', () => 
   test('the sheet shows the backdrop and lift the preset gives', async () => {
     const { readFrontMatter } = await import(MOD);
     assert.equal(readFrontMatter(ED).finish, 'ledger');
-    assert.equal(readFrontMatter(ED).lift, true);
+    assert.equal(readFrontMatter(ED)['card-lift'], true);
     // Control: without a preset the baselines are none / off, as before.
     assert.equal(readFrontMatter(PLAIN).finish, '');
-    assert.equal(readFrontMatter(PLAIN).lift, false);
+    assert.equal(readFrontMatter(PLAIN)['card-lift'], false);
   });
 
   test('None and off under the preset are written as overrides; the preset value clears the key', async () => {
@@ -405,14 +405,14 @@ describe('a deck preset (preset:) sets the baseline for finish and lift', () => 
     assert.match(none, /\nfinish: none\n/);
     assert.equal(readFrontMatter(none).finish, 'none');
     assert.doesNotMatch(writeFrontMatter(none, 'finish', 'ledger'), /finish:/);
-    assert.match(writeFrontMatter(ED, 'lift', false), /\nlift: off\n/);
+    assert.match(writeFrontMatter(ED, 'card-lift', false), /\ncard-lift: off\n/);
     // Control: without a preset, none / off are the omitted defaults, exactly as before.
     assert.doesNotMatch(writeFrontMatter(PLAIN, 'finish', 'none'), /finish:/);
-    assert.doesNotMatch(writeFrontMatter(PLAIN, 'lift', false), /lift:/);
+    assert.doesNotMatch(writeFrontMatter(PLAIN, 'card-lift', false), /lift:/);
   });
 });
 
-describe('the look registers (preset:, headline:, rule:, eyebrow:, corners:, venue:)', () => {
+describe('the look registers (preset:, headline-align:, heading-rule:, eyebrow:, slide-corners:, venue:)', () => {
   const PLAIN = '---\nmarp: true\ntheme: indaco\n---\n\n# Hi\n';
   const ED = '---\nmarp: true\ntheme: indaco\npreset: editorial\n---\n\n# Hi\n';
 
@@ -420,19 +420,19 @@ describe('the look registers (preset:, headline:, rule:, eyebrow:, corners:, ven
     const { readFrontMatter } = await import(MOD);
     const p = readFrontMatter(PLAIN);
     // `venue` reads empty when unset: the default depends on the deck's shape (laptop on 16:9, phone on a social one).
-    assert.deepEqual([p.preset, p.headline, p.rule, p.eyebrow, p.corners, p.venue], ['', 'auto', 'auto', 'plain', 'square', '']);
+    assert.deepEqual([p.preset, p['headline-align'], p['heading-rule'], p.eyebrow, p['slide-corners'], p.venue], ['', 'auto', 'auto', 'plain', 'square', '']);
     const e = readFrontMatter(ED);
-    assert.deepEqual([e.preset, e.headline, e.rule, e.eyebrow, e.corners], ['editorial', 'left', 'short', 'bar', 'square']);
+    assert.deepEqual([e.preset, e['headline-align'], e['heading-rule'], e.eyebrow, e['slide-corners']], ['editorial', 'left', 'short', 'bar', 'square']);
   });
 
   test('a value is written only when it differs from the preset; the default clears it', async () => {
     const { writeFrontMatter } = await import(MOD);
-    assert.match(writeFrontMatter(PLAIN, 'headline', 'center'), /\nheadline: center\n/);
-    assert.doesNotMatch(writeFrontMatter(PLAIN, 'headline', 'auto'), /headline:/);
+    assert.match(writeFrontMatter(PLAIN, 'headline-align', 'center'), /\nheadline-align: center\n/);
+    assert.doesNotMatch(writeFrontMatter(PLAIN, 'headline-align', 'auto'), /headline-align:/);
     // Under editorial, `left` IS the preset's value — no key; `auto` is the override.
-    assert.doesNotMatch(writeFrontMatter(ED, 'headline', 'left'), /headline:/);
-    assert.match(writeFrontMatter(ED, 'headline', 'auto'), /\nheadline: auto\n/);
-    assert.match(writeFrontMatter(PLAIN, 'corners', 'rounded'), /\ncorners: rounded\n/);
+    assert.doesNotMatch(writeFrontMatter(ED, 'headline-align', 'left'), /headline-align:/);
+    assert.match(writeFrontMatter(ED, 'headline-align', 'auto'), /\nheadline-align: auto\n/);
+    assert.match(writeFrontMatter(PLAIN, 'slide-corners', 'rounded'), /\nslide-corners: rounded\n/);
     assert.match(writeFrontMatter(PLAIN, 'venue', 'hall'), /\nvenue: hall\n/);
     // Unset is the SHAPE's default (laptop on 16:9, phone on a social shape), so `laptop` is a choice
     // like any other and is written; only an empty value clears the key (fit-everywhere-model.md §18).
@@ -444,23 +444,23 @@ describe('the look registers (preset:, headline:, rule:, eyebrow:, corners:, ven
   test('the keys land in a stable order after theme', async () => {
     const { writeFrontMatter } = await import(MOD);
     let src = writeFrontMatter(PLAIN, 'venue', 'hall');
-    src = writeFrontMatter(src, 'rule', 'none');
+    src = writeFrontMatter(src, 'heading-rule', 'none');
     src = writeFrontMatter(src, 'eyebrow', 'dot');
-    assert.match(src, /theme: indaco\nrule: none\neyebrow: dot\nvenue: hall\n/);
+    assert.match(src, /theme: indaco\nheading-rule: none\neyebrow: dot\nvenue: hall\n/);
     // Minimal's own rule is `none`, so under it the line is redundant and goes; the rest stay.
     src = writeFrontMatter(src, 'preset', 'minimal');
     assert.match(src, /theme: indaco\npreset: minimal\neyebrow: dot\nvenue: hall\n/);
-    assert.equal((await import(MOD)).readFrontMatter(src).rule, 'none');
+    assert.equal((await import(MOD)).readFrontMatter(src)['heading-rule'], 'none');
   });
 });
 
 describe('switching preset keeps the author’s own look values', () => {
   test('an explicit headline that matched the OLD preset survives a switch to one that differs', async () => {
     const { writeFrontMatter, readFrontMatter } = await import(MOD);
-    const src = '---\nmarp: true\npreset: editorial\nheadline: left\n---\n\n# Hi\n';
+    const src = '---\nmarp: true\npreset: editorial\nheadline-align: left\n---\n\n# Hi\n';
     const out = writeFrontMatter(src, 'preset', 'brand');
     assert.match(out, /\npreset: brand\n/);
-    assert.match(out, /\nheadline: left\n/);
-    assert.equal(readFrontMatter(out).headline, 'left');
+    assert.match(out, /\nheadline-align: left\n/);
+    assert.equal(readFrontMatter(out)['headline-align'], 'left');
   });
 });

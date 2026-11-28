@@ -323,7 +323,7 @@ describe('measureNarration — the pre-flight', () => {
 	it("narrates a heatmap callout only while the deck's callouts are on", async () => {
 		// A slide is narrated split from its deck, so the bake hands the narrator the front matter:
 		// with `callout: off` the callout is not drawn, and it must not be read aloud either.
-		const deck = (fm: string) => ['---', `theme: indaco${fm}`, '---', '', '<!-- _class: heatmap -->', '', '## R', '', '| | M0 | M1 |', '| --- | --: | --: |', '| Jan | 100 | 62 |', '', '`@callout{{Dip in the second month, row=Jan, col=M1}}`', ''].join('\n');
+		const deck = (fm: string) => ['---', `theme: indaco${fm}`, '---', '', '<!-- @meta{layout=heatmap} -->', '', '## R', '', '| | M0 | M1 |', '| --- | --: | --: |', '| Jan | 100 | 62 |', '', '`@callout{{Dip in the second month, row=Jan, col=M1}}`', ''].join('\n');
 		const on = await measureNarration(deck(''), undefined, VOICE);
 		const off = await measureNarration(deck('\ncallout: off'), undefined, VOICE);
 		expect(on.totalChars - off.totalChars, 'the callout sentence is the whole difference').toBeGreaterThanOrEqual('Dip in the second month'.length);

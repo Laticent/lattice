@@ -72,17 +72,17 @@ describe('WebpageOptionsPanel — notes and narration are independent channels',
 // actually animates, so it is conditional — and the condition has to track BOTH ways an
 // author opts in, the deck-level `motion:` key and a per-slide marker, or a deck that
 // animates on one path silently loses the choice on the other.
-const MOTION_DECK = '---\ntheme: indaco\nmotion: on\n---\n\n<!-- _class: funnel -->\n\n## F\n\n- A `1`\n';
-const SLIDE_MOTION_DECK = '---\ntheme: indaco\n---\n\n<!-- _class: funnel with-motion -->\n\n## F\n\n- A `1`\n';
+const MOTION_DECK = '---\ntheme: indaco\nmotion: on\n---\n\n<!-- @meta{layout=funnel} -->\n\n## F\n\n- A `1`\n';
+const SLIDE_MOTION_DECK = '---\ntheme: indaco\n---\n\n<!-- @meta{layout=funnel, class=with-motion} -->\n\n## F\n\n- A `1`\n';
 // A STYLE token is not a Play switch. This deck must NOT get the row: it would ship the
 // player and never move. The first version of this file used `motion-build` here and
 // asserted the row DID appear — a test that was not vacuous, just correct about a wrong
 // specification, which is the harder kind to notice.
-const STYLE_ONLY_DECK = '---\ntheme: indaco\n---\n\n<!-- _class: funnel motion-build -->\n\n## F\n\n- A `1`\n';
+const STYLE_ONLY_DECK = '---\ntheme: indaco\n---\n\n<!-- @meta{layout=funnel, class=motion-build} -->\n\n## F\n\n- A `1`\n';
 // The legacy alias still opts in, and forgetting it made a live deck export a still.
-const LEGACY_DECK = '---\ntheme: indaco\n---\n\n<!-- _class: funnel chart-anima -->\n\n## F\n\n- A `1`\n';
+const LEGACY_DECK = '---\ntheme: indaco\n---\n\n<!-- @meta{layout=funnel, class=chart-anima} -->\n\n## F\n\n- A `1`\n';
 // `parseDeckMotion` lower-cases, so the panel must too.
-const CAPITALIZED_DECK = '---\ntheme: indaco\nmotion: On\n---\n\n<!-- _class: funnel -->\n\n## F\n\n- A `1`\n';
+const CAPITALIZED_DECK = '---\ntheme: indaco\nmotion: On\n---\n\n<!-- @meta{layout=funnel} -->\n\n## F\n\n- A `1`\n';
 
 function panelWith(source: string) {
 	return render(

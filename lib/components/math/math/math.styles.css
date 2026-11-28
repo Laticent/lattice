@@ -200,7 +200,7 @@ section.math.form.feature > .cell-stage > :is(ul, ol) {
  * the universal modifiers move it: `align-left` / `align-center` / `align-right` and `align-top` /
  * `align-middle` / `align-bottom`, deck-wide through `class:` or on one slide, exactly as on any other
  * layout (`stage.css` §Universal ALIGNMENT). Note the universal contract's own default is top-left, so
- * naming one axis puts the other back at its default; name both to place it. The `headline:` register
+ * naming one axis puts the other back at its default; name both to place it. The `headline-align:` register
  * moves the framing text only and never touched this block.
  *
  * `:has()` on the STAGE'S children, not a class, so a legend added later brings the split back with

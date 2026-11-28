@@ -26,12 +26,12 @@ describe('export: the --fluid viewer redraws a bar chart for its box', () => {
 	const TIMEOUT = 240000;
 	const DECK = [
 		'---\ntheme: indaco\n---\n',
-		'## Growth is concentrated in two regions.\n\n<!-- _class: bar -->\n\n- North America `$4.2M`\n  - Two renewals landed in Q4\n- EMEA `$3.1M`\n- APAC `$1.8M`\n- LATAM `$0.6M`\n',
-		'## Q3 carried the year.\n\n<!-- _class: rows -->\n<!-- _pane: content -->\n\nRevenue by quarter.\n\n<!-- _pane: bar -->\n\n- Q1 `12`\n- Q2 `18`\n- Q3 `26`\n',
+		'## Growth is concentrated in two regions.\n\n<!-- @meta{layout=bar} -->\n\n- North America `$4.2M`\n  - Two renewals landed in Q4\n- EMEA `$3.1M`\n- APAC `$1.8M`\n- LATAM `$0.6M`\n',
+		'## Q3 carried the year.\n\n<!-- @meta{layout=rows} -->\n<!-- @meta{pane=content} -->\n\nRevenue by quarter.\n\n<!-- @meta{pane=bar} -->\n\n- Q1 `12`\n- Q2 `18`\n- Q3 `26`\n',
 		// Grouped: the checker's runaway (a redraw that resized its own box and drew again, to 1px text).
-		'## We beat plan everywhere but APAC.\n\n<!-- _class: bar grouped -->\n\n- Americas\n  - Plan `3.2`\n  - Actual `3.9`\n- EMEA\n  - Plan `2.6`\n  - Actual `3.1`\n',
+		'## We beat plan everywhere but APAC.\n\n<!-- @meta{layout=bar, class=grouped} -->\n\n- Americas\n  - Plan `3.2`\n  - Actual `3.9`\n- EMEA\n  - Plan `2.6`\n  - Actual `3.1`\n',
 		// A focus a redraw from the marks cannot carry: this chart keeps its exported drawing.
-		'## Q4 led.\n\n<!-- _class: bar -->\n<!-- _focus: mark 2 -->\n\n- Q3 `18`\n- Q4 `26`\n',
+		'## Q4 led.\n\n<!-- @meta{layout=bar} -->\n<!-- @meta{focus=mark 2} -->\n\n- Q3 `18`\n- Q4 `26`\n',
 	].join('\n---\n\n');
 	const REDRAWN = 3; // the first three charts redraw on a phone; the focused one keeps its drawing
 
@@ -110,15 +110,15 @@ describe('export: the --fluid viewer redraws a bar chart for its box', () => {
 	test('a phone redraws a line, a pie and a roadmap; the desktop gets each exported drawing back', { timeout: TIMEOUT }, async () => {
 		const deck = [
 			'---\ntheme: indaco\n---\n',
-			'## Services caught enterprise.\n\n<!-- _class: line -->\n\n- Q1\n  - Enterprise `4.1`\n  - Services `1.2`\n- Q2\n  - Enterprise `4.4`\n  - Services `1.6`\n- Q3\n  - Enterprise `4.2`\n  - Services `2.3`\n',
-			'## Decks took half the hours.\n\n<!-- _class: piechart -->\n\n- Deck production `46%`\n- Meetings `22%`\n- Realigning `18%`\n- Deciding `14%`\n',
-			'## The roadmap grids workstreams against phases.\n\n<!-- _class: roadmap -->\n\n| Workstream | Foundation `{Q2 2026}` | Hardening `{Q3 2026}` | Scale `{Q4 2026}` |\n| --- | --- | --- | --- |\n| Framework | [x] Signal taxonomy | [-] Scoring model v2 | [ ] Per-team weights |\n| Tooling | [!] Intake form | [/] Dashboards | [ ] Self-serve |\n',
+			'## Services caught enterprise.\n\n<!-- @meta{layout=line} -->\n\n- Q1\n  - Enterprise `4.1`\n  - Services `1.2`\n- Q2\n  - Enterprise `4.4`\n  - Services `1.6`\n- Q3\n  - Enterprise `4.2`\n  - Services `2.3`\n',
+			'## Decks took half the hours.\n\n<!-- @meta{layout=piechart} -->\n\n- Deck production `46%`\n- Meetings `22%`\n- Realigning `18%`\n- Deciding `14%`\n',
+			'## The roadmap grids workstreams against phases.\n\n<!-- @meta{layout=roadmap} -->\n\n| Workstream | Foundation `{Q2 2026}` | Hardening `{Q3 2026}` | Scale `{Q4 2026}` |\n| --- | --- | --- | --- |\n| Framework | [x] Signal taxonomy | [-] Scoring model v2 | [ ] Per-team weights |\n| Tooling | [!] Intake form | [/] Dashboards | [ ] Self-serve |\n',
 			// A roadmap in a PANE keeps its exported grid: the `horizons` card styles are scoped to a slide, and
 			// a pane redrew as unstyled cards (the checker's repro).
 			// A tower whose narrowest canvas dropped a share's label (Helios Re's 20%) and shortened "Open 25%":
 			// the redraw widens until every label the export printed prints (the owner's look at the phone render).
-			'## Six reinsurers carry $310M above a $50M retention.\n\n<!-- _class: tower -->\n\n- Layer 3 `$200M xs $160M`\n  - Acme Re `30%`\n  - Globex Re `25%`\n  - Helios Re `20%`\n- Layer 2 `$70M xs $90M`\n  - Acme Re `40%`\n  - Vantage Re `35%`\n  - Umbra Re `25%`\n- Layer 1 `$40M xs $50M`\n  - Globex Re `60%`\n  - Meridian Re `40%`\n- Retention `$50M`\n',
-			'## Roadmap in a pane.\n\n<!-- _class: columns ratio-30-70 -->\n<!-- _pane: list -->\n\n- Some framing text for the left pane.\n\n<!-- _pane: roadmap -->\n\n| Workstream | Foundation `{Q2 2026}` | Hardening `{Q3 2026}` |\n| --- | --- | --- |\n| Framework | [x] Signal taxonomy | [-] Scoring model v2 |\n| Tooling | [!] Intake form | [/] Dashboards |\n',
+			'## Six reinsurers carry $310M above a $50M retention.\n\n<!-- @meta{layout=tower} -->\n\n- Layer 3 `$200M xs $160M`\n  - Acme Re `30%`\n  - Globex Re `25%`\n  - Helios Re `20%`\n- Layer 2 `$70M xs $90M`\n  - Acme Re `40%`\n  - Vantage Re `35%`\n  - Umbra Re `25%`\n- Layer 1 `$40M xs $50M`\n  - Globex Re `60%`\n  - Meridian Re `40%`\n- Retention `$50M`\n',
+			'## Roadmap in a pane.\n\n<!-- @meta{layout=columns, class=ratio-30-70} -->\n<!-- @meta{pane=list} -->\n\n- Some framing text for the left pane.\n\n<!-- @meta{pane=roadmap} -->\n\n| Workstream | Foundation `{Q2 2026}` | Hardening `{Q3 2026}` |\n| --- | --- | --- |\n| Framework | [x] Signal taxonomy | [-] Scoring model v2 |\n| Tooling | [!] Intake form | [/] Dashboards |\n',
 		].join('\n---\n\n');
 		fs.writeFileSync(path.join(dir, 'kinds.md'), deck);
 		const out = path.join(dir, 'kinds.html');
@@ -182,7 +182,7 @@ describe('export: the --fluid viewer redraws a bar chart for its box', () => {
 	// a chart whose drawing later changed is a flash. Without script the charts show as exported.
 	test('a phone that opens the export never paints the exported chart first', { timeout: TIMEOUT }, async () => {
 		// Its own export: a line chart, which redraws on a phone.
-		fs.writeFileSync(path.join(dir, 'flash.md'), '---\ntheme: indaco\n---\n\n## Services caught enterprise.\n\n<!-- _class: line -->\n\n- Q1\n  - Enterprise `4.1`\n  - Services `1.2`\n- Q2\n  - Enterprise `4.4`\n  - Services `1.6`\n- Q3\n  - Enterprise `4.2`\n  - Services `2.3`\n');
+		fs.writeFileSync(path.join(dir, 'flash.md'), '---\ntheme: indaco\n---\n\n## Services caught enterprise.\n\n<!-- @meta{layout=line} -->\n\n- Q1\n  - Enterprise `4.1`\n  - Services `1.2`\n- Q2\n  - Enterprise `4.4`\n  - Services `1.6`\n- Q3\n  - Enterprise `4.2`\n  - Services `2.3`\n');
 		const out = path.join(dir, 'flash.html');
 		const r = spawnSync(process.execPath, [path.join(ROOT, 'lattice.js'), path.join(dir, 'flash.md'), out, '--quiet', '--fluid'], {
 			cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,

@@ -16,7 +16,7 @@ const { blockSpans, deriveAxis, splitEnvelope, chromeOf } = require('../../../li
 const { planSlide } = require('@laticent/fluido');
 
 const sectionOf = (body) => {
-  const { html } = createEngine().render(`---\ntheme: indaco\n---\n\n<!-- _class: content -->\n\n${body}\n`, 'indaco');
+  const { html } = createEngine().render(`---\ntheme: indaco\n---\n\n<!-- @meta{class=content} -->\n\n${body}\n`, 'indaco');
   const [s] = splitSections(html).filter((p) => p.type === 'section');
   return s;
 };

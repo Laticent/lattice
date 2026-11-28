@@ -165,7 +165,7 @@ describe('contrast', () => {
         assert.ok(ratio >= AA_THRESHOLD, `${name} (${mode}): on-accent (${text}) on accent (${fill}) = ${ratio.toFixed(2)}:1 (< ${AA_THRESHOLD})`);
       });
 
-      // The `tag:` register's two neutral pairs (lib/base/base.card-tag.css § REGISTER):
+      // The `card-tag:` register's two neutral pairs (lib/base/base.card-tag.css § REGISTER):
       // `plain` is body ink on the page fill; `none` is the secondary ink straight on the
       // card, whose fill is --bg-alt.
       for (const [label, fillKey, textKey] of [['plain', 'bg', 'text-body'], ['none', 'bg-alt', 'text-secondary']]) {

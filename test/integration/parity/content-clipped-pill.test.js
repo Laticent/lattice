@@ -67,7 +67,7 @@ const deckWithFooter = (body) => `---\nmarp: true\ntheme: indaco\nfooter: "${FOO
 // An ellipsed label. The section fits, the cell fits; only the <strong> loses text —
 // and it has no element children, which is the shape that made this case unreachable
 // until the clipSuspect test moved above the childless skip.
-const ELLIPSIS = `<!-- _class: content -->
+const ELLIPSIS = `<!-- @meta{layout=content} -->
 
 ## A slide that cuts content without overflowing its frame.
 
@@ -77,7 +77,7 @@ const ELLIPSIS = `<!-- _class: content -->
 // The #1299 shape: split-panel's left panel over-stuffed. With `safe` alignment the
 // loss moves to the TAIL and grows scrollHeight; the point of the assertion is that
 // the slide is reported at all, on the surface a reader looks at.
-const SHEAR = `<!-- _class: split-panel -->
+const SHEAR = `<!-- @meta{layout=split-panel} -->
 
 \`Program review\`
 
@@ -91,7 +91,7 @@ The program has been running for eleven quarters and now covers a materially wid
   - Unit handling cost is down 12% year over year.
 `;
 
-const CLEAN = `<!-- _class: content -->
+const CLEAN = `<!-- @meta{layout=content} -->
 
 ## A slide that fits.
 
@@ -315,7 +315,7 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
   // All five were the same shape — boxes competing for one corner of the slide, with
   // arithmetic to keep them apart:
   //   1. the reader pill was moved into the top-right corner on a survey that missed the
-  //      status stamp, and `stamp-notch` swallowed it whole — a SILENT CLIP, the one
+  //      status stamp, and `stamp-shape-notch` swallowed it whole — a SILENT CLIP, the one
   //      outcome this register exists to prevent;
   //   2. the first de-collision pushed all 21 stamp CLASS NAMES by a fixed row, measured
   //      wrong on 8 of the 13 SHAPES (six sit ~43px lower and were pushed INTO);
@@ -330,7 +330,7 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
   //
   // The capsule ended the whole class: two segments in one container cannot collide with
   // each other, and one centered box has one neighbor set to clear instead of four.
-  const CORNER = (cls) => `<!-- _class: ${cls} -->
+  const CORNER = (cls) => `<!-- @meta{class=${cls}} -->
 
 ## A slide that cuts content and shrinks its figure.
 
@@ -426,20 +426,20 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
 
   test('CAPSULE — no stamp shape displaces the marker, notch included', async () => {
     // The whole reason the berth moved, and then merged. `confidential` with no shape class
-    // is the default corner tab; `stamp-flag` and `stamp-pin` are the tall off-axis shapes
-    // that once needed a 200% reserve; `stamp-notch` is the full-width top band that was
+    // is the default corner tab; `stamp-shape-flag` and `stamp-shape-pin` are the tall off-axis shapes
+    // that once needed a 200% reserve; `stamp-shape-notch` is the full-width top band that was
     // the LAST shape still reserving anything. The capsule berths at the bottom edge, so a
     // stamp painted along the top shares no band with it and must move it by nothing.
     const plain = await corners('content', 'capsule-ref');
     assert.ok(plain.rail, 'the reference render must draw the capsule');
     for (const [cls, key, painted] of [
       ['content confidential', 'capsule-stamp-default', true],
-      ['content confidential stamp-flag', 'capsule-stamp-flag', true],
-      ['content confidential stamp-pin', 'capsule-stamp-pin', true],
-      ['content confidential stamp-notch', 'capsule-stamp-notch', true],
+      ['content confidential stamp-shape-flag', 'capsule-stamp-flag', true],
+      ['content confidential stamp-shape-pin', 'capsule-stamp-pin', true],
+      ['content confidential stamp-shape-notch', 'capsule-stamp-notch', true],
       // A shape class with no semantic class paints NOTHING — `--stamp-label` comes from
       // the semantic class alone — so this row must not assert a stamp it does not have.
-      ['content stamp-notch', 'capsule-shape-only', false],
+      ['content stamp-shape-notch', 'capsule-shape-only', false],
     ]) {
       const v = await corners(cls, key);
       assert.ok(v.rail && v.clip && v.leg, `the capsule must be DRAWN on "${cls}" — got ${JSON.stringify(v)}`);
@@ -614,7 +614,7 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
   // Centering those two deleted their insets, which would have deleted the gate with
   // them. `.fixme-tab` still insets (bottom-right is a corner, and an alarm must not be
   // sliced by a shape the deck chose), so the trap is still live on exactly one berth and
-  // needs exactly one absolute measurement. `resolve-corners.test.js` does not cover it —
+  // needs exactly one absolute measurement. `resolve-slide-corners.test.js` does not cover it —
   // its `/--slide-radius:\s*0/` matches `0px` and a bare `0` identically.
   //
   // SQUARE is the case under test, deliberately: it is the default, every deck that

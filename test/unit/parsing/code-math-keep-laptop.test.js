@@ -20,9 +20,9 @@ const sections = (md) => [...render(md).html.matchAll(/<section[^>]*\sclass="([^
 const venues = (cls) => cls.filter((c) => c.startsWith('venue-'));
 const keeps = (cls) => cls.includes('keeps-laptop');
 const deck = (fm, ...slides) => `---\nmarp: true\nsize: square\n${fm}---\n\n${slides.join('\n\n---\n\n')}\n`;
-const CODE = '<!-- _class: code -->\n\n## A listing.\n\n```js\nconst a = 1;\n```';
-const MATH = '<!-- _class: math -->\n\n## An identity.\n\n$$a^2 + b^2 = c^2$$';
-const COMPARE = '<!-- _class: compare-code -->\n\n## Before and after.\n\n```js\nconst a = 1;\n```\n\n```js\nconst a = 2;\n```';
+const CODE = '<!-- @meta{class=code} -->\n\n## A listing.\n\n```js\nconst a = 1;\n```';
+const MATH = '<!-- @meta{class=math} -->\n\n## An identity.\n\n$$a^2 + b^2 = c^2$$';
+const COMPARE = '<!-- @meta{class=compare-code} -->\n\n## Before and after.\n\n```js\nconst a = 1;\n```\n\n```js\nconst a = 2;\n```';
 const PROSE = '## A plain slide.\n\nSome words.';
 
 test('the helper: a laptop-keeping component with no venue takes keeps-laptop, and nothing else does', () => {
@@ -46,9 +46,9 @@ test('NO-TOKENS: a deck that sets no deck token still marks its code, compare-co
 });
 
 test('DECK-TOKENS: with other deck registers set, the marker still lands', () => {
-  const [code, prose] = sections(deck('lift: on\n', CODE, PROSE));
+  const [code, prose] = sections(deck('card-lift: on\n', CODE, PROSE));
   assert.ok(keeps(code));
-  assert.ok(code.includes('lifted'), 'the deck register merged too');
+  assert.ok(code.includes('card-lift-on'), 'the deck register merged too');
   assert.ok(!keeps(prose));
 });
 
@@ -57,7 +57,7 @@ test('AUTHORED: a deck venue or a slide venue the author writes still applies, u
   assert.deepEqual(venues(code), ['venue-phone'], 'the deck said phone');
   assert.ok(!keeps(code));
   assert.deepEqual(venues(prose), ['venue-phone']);
-  const [own] = sections(deck('', '<!-- _class: code venue-hall -->\n\n## A listing.\n\n```js\nconst a = 1;\n```'));
+  const [own] = sections(deck('', '<!-- @meta{class=code venue-hall} -->\n\n## A listing.\n\n```js\nconst a = 1;\n```'));
   assert.deepEqual(venues(own), ['venue-hall'], 'the slide said hall');
   assert.ok(!keeps(own));
 });

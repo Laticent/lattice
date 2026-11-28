@@ -9,7 +9,7 @@ const COMPOSE = 'Compose — rich editor';
 
 const DECK = [
 	'---', 'marp: true', 'theme: indaco', '---', '',
-	'<!-- _class: checklist -->', '', '## Launch gates.', '',
+	'<!-- @meta{layout=checklist} -->', '', '## Launch gates.', '',
 	'- [x] Security review', '- [ ] Legal sign-off', '- [!] Pricing', '- [?] Date', '- [-] Docs', '- [/] Translations', '',
 ].join('\n');
 
@@ -66,7 +66,7 @@ const MIXED = [
 	'---', 'marp: true', 'theme: indaco', '---', '',
 	'## A content slide.', '', '- [x] plain bullet', '- [ ] another', '',
 	'---', '',
-	'<!-- _class: checklist -->', '', '## Launch gates.', '', '- [x] Security review', '- [ ] Legal sign-off', '',
+	'<!-- @meta{layout=checklist} -->', '', '## Launch gates.', '', '- [x] Security review', '- [ ] Legal sign-off', '',
 ].join('\n');
 
 test('@crosswidth @gecko @webkit-tablet only a slide whose layout draws markers gets chips', async ({ page }) => {
@@ -86,9 +86,9 @@ test('@crosswidth @gecko @webkit-tablet only a slide whose layout draws markers 
 // it reads every class token, so a modifier before the component still counts (checker finding on #2882).
 const DEPTH = [
 	'---', 'marp: true', 'theme: indaco', '---', '',
-	'<!-- _class: compact checklist -->', '', '## Gates.', '', '- [x] Top item', '  - [ ] Nested item', '',
+	'<!-- @meta{class=compact checklist} -->', '', '## Gates.', '', '- [x] Top item', '  - [ ] Nested item', '',
 	'---', '',
-	'<!-- _class: verdict-grid -->', '', '## Verdicts.', '', '- [x] Card title', '  - [x] Nested badge', '',
+	'<!-- @meta{layout=verdict-grid} -->', '', '## Verdicts.', '', '- [x] Card title', '  - [x] Nested badge', '',
 ].join('\n');
 
 test('@crosswidth @gecko @webkit-tablet a chip shows at the depth the slide draws it, and a modifier before the component still counts', async ({ page }) => {

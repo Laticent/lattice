@@ -25,7 +25,7 @@ No diagram yet.
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{class=diagram} -->
 
 ## Signals move from input to decision.
 

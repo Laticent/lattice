@@ -590,7 +590,8 @@ function narrowToSlide(html: string, index: number, slideCount?: number, deck = 
  *  applies (the checker on #3433). */
 function slideRecords(text: string): Array<{ words: Set<string>; carry: boolean }> {
 	const out: Array<{ words: Set<string>; carry: boolean }> = [];
-	const opener = /<!--(?=\s*(?:@meta)?\{)/g;
+	// `@meta{` only: the engine reads nothing from the retired bare `{…}` record (record note §15, D5 amended).
+	const opener = /<!--(?=\s*@meta\{)/g;
 	for (let m = opener.exec(text); m; m = opener.exec(text)) {
 		const end = text.indexOf('-->', m.index + 4);
 		if (end < 0) break;
@@ -682,9 +683,10 @@ export const DECK_DERIVED_FACTS: ReadonlyArray<{
 	},
 	{
 		fact: 'running-global directive',
-		why: 'a directive comment without the `_` spot prefix (other than header and footer, and a paginate comment, which does nothing) applies to its slide AND every one after, so a slice loses what it inherited',
-		// A record that carries (`<!-- @meta{class=dark, carry} -->`) is the same running global in the record spelling.
-		probes: [/<!--\s*(?!_)[a-zA-Z][\w-]*\s*:/],
+		why: 'a record that carries (`<!-- @meta{class=dark, carry} -->`) applies to its slide AND every one after, so a slice loses what it inherited',
+		// Since the cut (record note §15) only a record carries: an old running-global comment (`<!-- class: dark -->`) sets
+		// nothing, so it no longer buys the whole-deck render.
+		probes: [],
 		test: (deck) => slideRecords(deck).some((r) => r.carry),
 	},
 
@@ -741,8 +743,7 @@ export const DECK_DERIVED_FACTS: ReadonlyArray<{
 		fact: 'split-panel proof run',
 		why: 'cat-N is assigned from the slide\'s ordinal among the deck\'s proof slides, so a lone slice always takes cat-1',
 		probes: [
-			/<!--\s*_?class\s*:[^>]*\b(?:proof|capstone)\b/, // directive comment
-			/^\s*class\s*:[^\n]*\b(?:proof|capstone)\b/m, // front matter / global
+			/^\s*class\s*:[^\n]*\b(?:proof|capstone)\b/m, // front matter (an old `_class` comment sets nothing since the cut)
 		],
 		// A slide record (`<!-- @meta{layout=split-panel, class=proof} -->`), by its class words only.
 		test: (deck) => slideRecords(deck).some((r) => r.words.has('proof') || r.words.has('capstone')),
@@ -1342,7 +1343,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			// TRANSPARENT, so nothing of this document's own sits BEHIND the slide. It used to
 			// paint the engine's generic `#e7e7ea` / `#0c0c0c` — a fixed gray belonging to
 			// neither the deck nor the app, invisible only for as long as the slide covered the
-			// frame exactly. `corners: rounded` makes it visible by construction: the slide's
+			// frame exactly. `slide-corners: rounded` makes it visible by construction: the slide's
 			// clip exposes whatever is behind it at every corner, and a stray gray arc there is
 			// precisely the artifact this register exists to remove (#1649). With nothing here,
 			// the corner shows the HOST's surface, which is the honest answer — outside the

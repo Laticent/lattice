@@ -70,7 +70,11 @@ describe('stripClassComments matches the old regex', () => {
       directives += (src.match(OLD) || []).length;
       assert.equal(stripClassComments(src), viaOld(src), path.relative(ROOT, f));
     }
-    assert.ok(directives > 100, `the corpus carries real directives (${directives})`);
+    // The floor was 100 before the cut (meta-record §15, slice E) moved every deck to `@meta` records. Re-measured
+    // 2026-11-27: 28 old directives remain, in docs and demo decks that quote the old form on purpose (migration
+    // examples, lint teaching). The fuzz above carries the edge cases; this floor only proves the walk still reads
+    // real files that hold the form.
+    assert.ok(directives > 10, `the corpus carries real directives (${directives})`);
   });
 });
 

@@ -10,7 +10,7 @@ import { expect, test } from './studio-fixture';
  * Design: engineering/decisions/2026-10-21-compose-point-and-click.md §5.
  */
 
-const DECK = ['<!-- _class: content -->', '', '## Plan', '', 'Lead of the project.', '', '---', '', '<!-- _class: title -->', '', '# Hello', '', 'A subtitle line.'].join('\n');
+const DECK = ['<!-- @meta{layout=content} -->', '', '## Plan', '', 'Lead of the project.', '', '---', '', '<!-- @meta{layout=title} -->', '', '# Hello', '', 'A subtitle line.'].join('\n');
 
 test.describe('compose insert menu', () => {
 	test('@smoke the menu names every thing an author can put on a slide, and the blocks it writes are tagged and ready to edit', async ({ page }) => {

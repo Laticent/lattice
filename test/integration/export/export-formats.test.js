@@ -18,6 +18,7 @@ const path   = require('path');
 const fs     = require('fs');
 const os     = require('os');
 const { spawnSync, execFileSync } = require('child_process');
+const { runNode, runNodeSync, EXPORT_WATCH } = require('../../helpers/spawn-progress');
 
 /**
  * The text of the PDF attachment named `name`, or null when there is none. Walks the catalog's
@@ -45,18 +46,23 @@ describe('export-formats', () => {
   // A deck carrying one keyed chart + one Mermaid diagram — exercises the image
   // set's standalone-SVG extraction (both kinds), which the no-Mermaid FIXTURE can't.
   const CHART_DIAGRAM_FIXTURE = path.join(ROOT, 'test', 'fixtures', 'chart-diagram-deck.md');
-  const TIMEOUT  = 60000;
+  // Every lattice.js run here is watched for a HANG, not timed (F4, engineering/decisions/2026-11-06-flaky-tests.md):
+  // runNodeSync fails it when its process tree, Chromium included, spins past its CPU budget or uses no more CPU than
+  // an idle process for 10 s, and at a wall-clock ceiling sized for the slowest runner. So no test below carries a
+  // `timeout` of its own: a fixed total measured the machine's load (this file's tests ran 4.5x over under 64 CPU
+  // burners), and spawnSync blocks the event loop, so a test timeout could only fire between runs anyway.
+  const WATCH = EXPORT_WATCH;
 
   function tmpDir() {
     return fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-export-'));
   }
 
   function run(out, extra = []) {
-    return spawnSync(process.execPath, [EMULATOR, FIXTURE, out, '--quiet', ...extra], {
+    return runNodeSync(EMULATOR, [FIXTURE, out, '--quiet', ...extra], {
       cwd: ROOT,
       encoding: 'utf8',
       env: { ...process.env },
-      timeout: TIMEOUT,
+      ...WATCH,
     });
   }
 
@@ -66,7 +72,7 @@ describe('export-formats', () => {
     return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) };
   }
 
-  test('renders a valid vector PDF (regression guard)', { timeout: TIMEOUT }, () => {
+  test('renders a valid vector PDF (regression guard)', () => {
     const out = path.join(tmpDir(), 'deck.pdf');
     const r = run(out);
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
@@ -74,7 +80,7 @@ describe('export-formats', () => {
     assert.equal(fs.readFileSync(out).subarray(0, 5).toString(), '%PDF-', 'not a PDF');
   });
 
-  test('creates a missing output folder instead of crashing after the render', { timeout: TIMEOUT }, () => {
+  test('creates a missing output folder instead of crashing after the render', () => {
     // A batch loop writes `out/<name>.pdf`; the folder may not exist yet. This used to
     // die on ENOENT with a Node stack trace at the first write, after the whole render.
     const out = path.join(tmpDir(), 'nested', 'out', 'deck.pdf');
@@ -84,10 +90,10 @@ describe('export-formats', () => {
     assert.equal(fs.readFileSync(out).subarray(0, 5).toString(), '%PDF-', 'not a PDF');
   });
 
-  test('--paper fits each slide onto a standard sheet with a baked paper MediaBox', { timeout: TIMEOUT }, () => {
+  test('--paper fits each slide onto a standard sheet with a baked paper MediaBox', () => {
     const out = path.join(tmpDir(), 'paper.pdf');
-    const r = spawnSync(process.execPath, [EMULATOR, FIXTURE, out, '--quiet', '--paper', 'a4', '--orientation', 'portrait'], {
-      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    const r = runNodeSync(EMULATOR, [FIXTURE, out, '--quiet', '--paper', 'a4', '--orientation', 'portrait'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, ...WATCH,
     });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     // pdf-lib writes object streams (compressed), so read the geometry with poppler's
@@ -100,14 +106,14 @@ describe('export-formats', () => {
 
   test('--paper rejects an unknown sheet', () => {
     const out = path.join(tmpDir(), 'bad.pdf');
-    const r = spawnSync(process.execPath, [EMULATOR, FIXTURE, out, '--quiet', '--paper', 'tabloid'], {
-      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    const r = runNodeSync(EMULATOR, [FIXTURE, out, '--quiet', '--paper', 'tabloid'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, ...WATCH,
     });
     assert.notEqual(r.status, 0, 'should exit non-zero on an invalid --paper');
     assert.match(r.stderr, /--paper must be one of/);
   });
 
-  test('renders an OOXML .pptx with one slide + image per slide', { timeout: TIMEOUT }, async () => {
+  test('renders an OOXML .pptx with one slide + image per slide', async () => {
     const out = path.join(tmpDir(), 'deck.pptx');
     const r = run(out);
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
@@ -125,7 +131,7 @@ describe('export-formats', () => {
     assert.equal(media.length, 3, `expected 3 images, got ${media.length}`);
   });
 
-  test('renders an OpenDocument .odp with one page + picture per slide', { timeout: TIMEOUT }, async () => {
+  test('renders an OpenDocument .odp with one page + picture per slide', async () => {
     const out = path.join(tmpDir(), 'deck.odp');
     const r = run(out);
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
@@ -143,7 +149,7 @@ describe('export-formats', () => {
     assert.equal(pictures.length, 3, `expected 3 pictures, got ${pictures.length}`);
   });
 
-  test('--editable .odp: real text boxes over text-free pictures, fonts embedded', { timeout: TIMEOUT }, async () => {
+  test('--editable .odp: real text boxes over text-free pictures, fonts embedded', async () => {
     const out = path.join(tmpDir(), 'deck.odp');
     const r = run(out, ['--editable']);
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
@@ -157,7 +163,7 @@ describe('export-formats', () => {
     assert.match(content, /style:font-name="/, 'runs name an embedded face');
   });
 
-  test('--editable .pptx: text boxes over each picture; plain .pptx stays image-only', { timeout: TIMEOUT }, async () => {
+  test('--editable .pptx: text boxes over each picture; plain .pptx stays image-only', async () => {
     const JSZip = require('jszip');
     const edited = path.join(tmpDir(), 'deck.pptx');
     assert.equal(run(edited, ['--editable']).status, 0);
@@ -171,19 +177,19 @@ describe('export-formats', () => {
 
   // The source CLI passed while the PUBLISHED bundle crashed: esbuild wrapped a default
   // import (woff2-encoder) so that `--editable` died on "decompress is not a function".
-  test('the published CLI bundle writes an editable .odp too', { timeout: TIMEOUT }, async (t) => {
+  test('the published CLI bundle writes an editable .odp too', async (t) => {
     const bundle = path.join(ROOT, 'dist', 'lattice.js');
     const why = skipUnlessCI(!fs.existsSync(bundle), 'dist/lattice.js not built');
     if (why) return t.skip(why);
     const out = path.join(tmpDir(), 'deck.odp');
-    const r = spawnSync(process.execPath, [bundle, FIXTURE, out, '--quiet', '--editable'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT });
+    const r = runNodeSync(bundle, [FIXTURE, out, '--quiet', '--editable'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, ...WATCH });
     assert.equal(r.status, 0, `bundled CLI failed: ${r.stderr}`);
     const JSZip = require('jszip');
     const zip = await JSZip.loadAsync(fs.readFileSync(out));
     assert.ok(Object.keys(zip.files).some((n) => n.startsWith('Fonts/')), 'fonts embedded by the bundle');
   });
 
-  test('--editable on another format warns and is ignored', { timeout: TIMEOUT }, () => {
+  test('--editable on another format warns and is ignored', () => {
     const out = path.join(tmpDir(), 'deck.png');
     const r = run(out, ['--editable']);
     assert.equal(r.status, 0);
@@ -223,7 +229,7 @@ describe('export-formats', () => {
     return n;
   }
 
-  test('warns on overflow but keeps the ring out of the exported PDF — even when the deck loads the live runtime', { timeout: TIMEOUT }, () => {
+  test('warns on overflow but keeps the ring out of the exported PDF — even when the deck loads the live runtime', () => {
     // The red inset ring + "OVERFLOWS" tab is the AUTHORING signal; a delivered PDF
     // must not carry it — a red QA box in front of a board is worse than the silent
     // clip overflow:hidden already applies. That is now the DEFAULT (`reader`)
@@ -249,15 +255,15 @@ describe('export-formats', () => {
     ).join('\n');
     fs.writeFileSync(
       src,
-      `<!-- _class: content -->\n\n## A slide that cannot possibly fit\n\n${wall}\n\n<script src="lattice-runtime.js"></script>\n`,
+      `<!-- @meta{layout=content} -->\n\n## A slide that cannot possibly fit\n\n${wall}\n\n<script src="lattice-runtime.js"></script>\n`,
     );
 
     const out = path.join(dir, 'overflow.pdf');
-    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], {
+    const r = runNodeSync(EMULATOR, [src, out, '--quiet'], {
       // Neutralize the ambient standing default — this test is about the DEFAULT,
       // so a developer with LATTICE_OVERFLOW_MARKER set in their shell must not
       // change what it measures.
-      cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_OVERFLOW_MARKER: '' }, timeout: TIMEOUT,
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_OVERFLOW_MARKER: '' }, ...WATCH,
     });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     assert.match(r.stderr, /OVERFLOW/, 'expected the emulator to warn about overflow on stderr');
@@ -271,18 +277,18 @@ describe('export-formats', () => {
   // The setting is READ on this path — the point of wiring it here. A setting the
   // primary export ignores is not a setting, and `--overflow-marker=author` silently
   // doing nothing in a PDF was the state before this.
-  test('the emulator reads --overflow-marker: author draws the ring, off draws nothing', { timeout: TIMEOUT }, () => {
+  test('the emulator reads --overflow-marker: author draws the ring, off draws nothing', () => {
     const dir = tmpDir();
     const src = path.join(dir, 'lvl.md');
     const wall = Array.from({ length: 40 }, (_, i) =>
       `- Point ${i + 1}: a deliberately long line of body copy engineered to push this slide's content well past the bottom of the frame so the overflow watcher fires.`,
     ).join('\n');
-    fs.writeFileSync(src, `<!-- _class: content -->\n\n## A slide that cannot possibly fit\n\n${wall}\n`);
+    fs.writeFileSync(src, `<!-- @meta{layout=content} -->\n\n## A slide that cannot possibly fit\n\n${wall}\n`);
 
     const render = (level) => {
       const out = path.join(dir, `${level}.pdf`);
-      const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet', `--overflow-marker=${level}`], {
-        cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_OVERFLOW_MARKER: '' }, timeout: TIMEOUT,
+      const r = runNodeSync(EMULATOR, [src, out, '--quiet', `--overflow-marker=${level}`], {
+        cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_OVERFLOW_MARKER: '' }, ...WATCH,
       });
       assert.equal(r.status, 0, `emulator failed at ${level}: ${r.stderr}`);
       // The console channel is unconditional — it is the author's, at every level.
@@ -322,23 +328,22 @@ describe('export-formats', () => {
   // assembled from the pre-browser static render, which no overflow watcher had ever
   // touched, so `--player` was permanently equal to `off` whatever the flag said. That
   // is invisible from the PDF assertions above, hence its own test.
-  // THREE full player renders, so it gets three times the budget. At the shared
-  // per-test TIMEOUT this measured 59.2s of 60s — a runner 10% slower than this box
-  // red-lines, and the failure is misleading: spawnSync carries the same timeout, so
-  // a slow render returns status null and the assertion reports "render failed" with
-  // an empty stderr, which reads as a render bug rather than a clock.
-  test('--player bakes the resolved overflow-marker level into the shipped HTML', { timeout: TIMEOUT * 3 }, () => {
+  // THREE full player renders. This test once measured 59.2s of a 60s budget, and tripling
+  // the budget only moved the line: a loaded runner ran it to 140s per render. Each render is
+  // now watched for a hang by runNodeSync (see WATCH above), which reports the reason ("spun",
+  // "used no more CPU than an idle process") instead of a status-null "render failed".
+  test('--player bakes the resolved overflow-marker level into the shipped HTML', () => {
     const dir = tmpDir();
     const src = path.join(dir, 'pl.md');
     const wall = Array.from({ length: 40 }, (_, i) =>
       `- Point ${i + 1}: a deliberately long line of body copy engineered to push this slide's content well past the bottom of the frame so the overflow watcher fires.`,
     ).join('\n');
-    fs.writeFileSync(src, `<!-- _class: content -->\n\n## A slide that cannot possibly fit\n\n${wall}\n`);
+    fs.writeFileSync(src, `<!-- @meta{layout=content} -->\n\n## A slide that cannot possibly fit\n\n${wall}\n`);
 
     const play = (level) => {
       const out = path.join(dir, `${level}.pdf`);
-      const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet', '--player', `--overflow-marker=${level}`], {
-        cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_OVERFLOW_MARKER: '' }, timeout: TIMEOUT,
+      const r = runNodeSync(EMULATOR, [src, out, '--quiet', '--player', `--overflow-marker=${level}`], {
+        cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_OVERFLOW_MARKER: '' }, ...WATCH,
       });
       assert.equal(r.status, 0, `player render failed at ${level}: ${r.stderr}`);
       return fs.readFileSync(out.replace(/\.pdf$/, '.html'), 'utf8');
@@ -390,12 +395,12 @@ describe('export-formats', () => {
     const src = path.join(dir, 'deck.md');
     fs.writeFileSync(src, [
       '---', 'pagination: true', '---', '',
-      '<!-- _class: image -->', '',
+      '<!-- @meta{layout=image} -->', '',
       '![A photo](photo.svg)', '',
       '# SVG background', '',
       `<!-- @note{${NOTE_MARKER}} -->`, '',
       '---', '',
-      '<!-- _class: content -->', '',
+      '<!-- @meta{layout=content} -->', '',
       '## Inline SVG image', '',
       `${SOURCE_MARKER}`, '',
       '![sample](photo.svg)', '',
@@ -409,12 +414,12 @@ describe('export-formats', () => {
     return out.split('\n').slice(2).filter((l) => l.trim());
   }
 
-  test('rasterizes SVG images in the vector PDF by default (#690 iOS Quartz portability)', { timeout: TIMEOUT }, () => {
+  test('rasterizes SVG images in the vector PDF by default (#690 iOS Quartz portability)', () => {
     const dir = tmpDir();
     const src = writeSvgFixture(dir);
     const out = path.join(dir, 'deck.pdf');
-    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], {
-      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    const r = runNodeSync(EMULATOR, [src, out, '--quiet'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, ...WATCH,
     });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     // Every SVG placement must land as a plain raster image XObject — the
@@ -427,14 +432,14 @@ describe('export-formats', () => {
     assert.match(text, /Inline SVG image/, 'vector text should survive the SVG swap');
   });
 
-  test('--keep-vector-images keeps the SVG placements vector (opt-out)', { timeout: TIMEOUT }, () => {
+  test('--keep-vector-images keeps the SVG placements vector (opt-out)', () => {
     const dir = tmpDir();
     const src = writeSvgFixture(dir);
     const out = path.join(dir, 'deck.pdf');
     // --keep-vector-images governs Chrome's printer: the shared writer always lays a photo
     // under the page, so the raster-count assertion below is about --chrome-pdf.
-    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet', '--keep-vector-images', '--chrome-pdf'], {
-      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    const r = runNodeSync(EMULATOR, [src, out, '--quiet', '--keep-vector-images', '--chrome-pdf'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, ...WATCH,
     });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     assert.equal(pdfImageRows(out).length, 0, 'opt-out export should carry no raster image XObjects');
@@ -446,7 +451,7 @@ describe('export-formats', () => {
     fs.writeFileSync(src, [
       '---', 'marp: true', 'theme: indaco', 'finish: atrium', 'backdrop: clear', '---', '',
       '# Baked finish one', '', 'Body text stays vector.', '', '---', '',
-      '<!-- _class: no-finish -->', '', '# Opted out', '', '---', '',
+      '<!-- @meta{class=no-finish} -->', '', '# Opted out', '', '---', '',
       '# Baked finish two', '',
     ].join('\n'));
     return src;
@@ -467,11 +472,11 @@ describe('export-formats', () => {
     return sum / n;
   }
 
-  test('composes the PDF with the shared writer: the finish drawn, a photo only where nothing is, real tagged text on top', { timeout: TIMEOUT }, () => {
+  test('composes the PDF with the shared writer: the finish drawn, a photo only where nothing is, real tagged text on top', () => {
     const dir = tmpDir();
     const out = path.join(dir, 'deck.pdf');
-    const r = spawnSync(process.execPath, [EMULATOR, writeFinishFixture(dir), out], {
-      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    const r = runNodeSync(EMULATOR, [writeFinishFixture(dir), out], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, ...WATCH,
     });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     assert.match(r.stdout, /PDF writer: \d+ words/, `the shared writer must run, not fall back to Chrome:\n${r.stdout}`);
@@ -504,15 +509,15 @@ describe('export-formats', () => {
     assert.match(tree, /^\s+P\b[^\n]*\n\s+"Body/m, 'the body copy is a P');
   });
 
-  test('print mode exports no finish at all', { timeout: TIMEOUT }, () => {
+  test('print mode exports no finish at all', () => {
     const dir = tmpDir();
     const src = writeFinishFixture(dir);
     const rich = path.join(dir, 'rich.pdf');
-    assert.equal(spawnSync(process.execPath, [EMULATOR, src, rich, '--quiet'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT }).status, 0);
+    assert.equal(runNodeSync(EMULATOR, [src, rich, '--quiet'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, ...WATCH }).status, 0);
     fs.writeFileSync(src, fs.readFileSync(src, 'utf8').replace('backdrop: clear', 'backdrop: clear\ncolor-mode: print'));
     const out = path.join(dir, 'deck.pdf');
-    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], {
-      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    const r = runNodeSync(EMULATOR, [src, out, '--quiet'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, ...WATCH,
     });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     // The finish's corner glow is gone from the photo: the empty top-right corner of a
@@ -522,12 +527,12 @@ describe('export-formats', () => {
     assert.ok(richCorner < printCorner, `the color page carries a finish there (${richCorner.toFixed(1)} vs ${printCorner.toFixed(1)}) — else this test proves nothing`);
   });
 
-  test('card borders are drawn as vectors, not left in the photo to blur on a big screen', { timeout: TIMEOUT }, () => {
+  test('card borders are drawn as vectors, not left in the photo to blur on a big screen', () => {
     const dir = tmpDir();
     const src = path.join(dir, 'cards.md');
-    fs.writeFileSync(src, '---\ntheme: cuoio\ncolor-mode: dark\n---\n\n<!-- _class: stats -->\n\n## Four cards\n\n1. $14.2M\n   - revenue\n2. 118%\n   - retention\n3. 3.1%\n   - churn\n4. 41\n   - logos\n');
+    fs.writeFileSync(src, '---\ntheme: cuoio\ncolor-mode: dark\n---\n\n<!-- @meta{layout=stats} -->\n\n## Four cards\n\n1. $14.2M\n   - revenue\n2. 118%\n   - retention\n3. 3.1%\n   - churn\n4. 41\n   - logos\n');
     const out = path.join(dir, 'cards.pdf'), rep = path.join(dir, 'report.json');
-    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_PDF_REPORT: rep }, timeout: TIMEOUT });
+    const r = runNodeSync(EMULATOR, [src, out, '--quiet'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_PDF_REPORT: rep }, ...WATCH });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     const report = JSON.parse(fs.readFileSync(rep, 'utf8'));
     // The slide has no SVG, so every shape is a lifted border: one ring per card at least.
@@ -535,7 +540,7 @@ describe('export-formats', () => {
     assert.deepEqual(Object.keys(report.refusedShapes || {}).filter((k) => k.startsWith('border-')), [], 'no card border is left in the photo');
   });
 
-  test('a border the writer cannot draw exactly stays in the photo', { timeout: TIMEOUT }, () => {
+  test('a border the writer cannot draw exactly stays in the photo', () => {
     // Each slide is a case the checker broke (2026-09-27): drawn over the photo, the border
     // came out wrong, so it must be refused and left where the browser painted it.
     const dir = tmpDir();
@@ -552,7 +557,7 @@ describe('export-formats', () => {
     ];
     fs.writeFileSync(src, `---\ntheme: cuoio\n---\n\n${slides.map((h, i) => `## Case ${i + 1}\n\n${h}`).join('\n\n---\n\n')}\n`);
     const out = path.join(dir, 'refuse.pdf'), rep = path.join(dir, 'report.json');
-    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_PDF_REPORT: rep }, timeout: TIMEOUT });
+    const r = runNodeSync(EMULATOR, [src, out, '--quiet'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_PDF_REPORT: rep }, ...WATCH });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     const refused = JSON.parse(fs.readFileSync(rep, 'utf8')).refusedShapes || {};
     for (const why of ['border-opacity', 'border-wrapped', 'border-collapsed-table', 'border-covered']) {
@@ -560,7 +565,7 @@ describe('export-formats', () => {
     }
   });
 
-  test('an empty overlay does not push text out of the text layer, and an escaped SVG is still drawn', { timeout: TIMEOUT }, () => {
+  test('an empty overlay does not push text out of the text layer, and an escaped SVG is still drawn', () => {
     // Two regressions from the second checker's fixes (caught by the third, 2026-09-27):
     // making everything hit-testable let an empty pointer-events:none SVG (sketch mode's ink
     // layer) 'cover' the words under it; and clipping SVG to every overflow ancestor, rather
@@ -573,7 +578,7 @@ describe('export-formats', () => {
       '---\n\n## Escape\n\n<div style="overflow:hidden;width:200px;height:100px"><div style="position:absolute;left:600px;top:250px"><svg width="80" height="80"><rect width="80" height="80" fill="#c00"/></svg></div></div>\n',
     ].join('\n'));
     const out = path.join(dir, 'overlay.pdf'), rep = path.join(dir, 'report.json');
-    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_PDF_REPORT: rep }, timeout: TIMEOUT });
+    const r = runNodeSync(EMULATOR, [src, out, '--quiet'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_PDF_REPORT: rep }, ...WATCH });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     const page1 = execFileSync('pdftotext', ['-f', '1', '-l', '1', out, '-'], { encoding: 'utf8' });
     assert.match(page1, /Quartzite halyard zephyr marmot\./, 'the words under an empty overlay stay real text');
@@ -588,27 +593,27 @@ describe('export-formats', () => {
     assert.ok(R > 150 && G < 80 && B < 80, `the escaped SVG square is drawn (rgb ${R},${G},${B})`);
   });
 
-  test('a tall KaTeX matrix bracket leaves the page drawable', { timeout: TIMEOUT }, () => {
+  test('a tall KaTeX matrix bracket leaves the page drawable', () => {
     // Its path data breaks a line after a comma before a negative number. pdf-lib once read
     // that as NaN, and poppler then stopped drawing the rest of the slide: a blank page.
     const dir = tmpDir();
     const src = path.join(dir, 'matrix.md');
     fs.writeFileSync(src, '---\ntheme: cuoio\nmath: katex\n---\n\n## Matrix\n\n$$X = \\begin{pmatrix} 1 & x_{11} \\\\ 1 & x_{21} \\\\ \\vdots & \\vdots \\\\ 1 & x_{n1} \\end{pmatrix}$$\n');
     const out = path.join(dir, 'matrix.pdf');
-    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT });
+    const r = runNodeSync(EMULATOR, [src, out, '--quiet'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, ...WATCH });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     const raster = spawnSync('pdftoppm', ['-r', '20', '-png', out, path.join(dir, 'r')], { encoding: 'utf8' });
     assert.doesNotMatch(raster.stderr, /Error/, `poppler reads every operator on the page:\n${raster.stderr}`);
   });
 
-  test('a card laid over a diagram stays on top of it', { timeout: TIMEOUT }, () => {
+  test('a card laid over a diagram stays on top of it', () => {
     // SVG shapes are drawn over the photo; one that something paints ABOVE must stay in the
     // photo, or it buries the card (scene.gallery slide 5, found by the thin-line sweep).
     const dir = tmpDir();
     const src = path.join(dir, 'stack.md');
     fs.writeFileSync(src, '---\ntheme: cuoio\n---\n\n## Stack\n\n<div style="position:relative;width:600px;height:300px"><svg width="400" height="200"><rect x="0" y="0" width="400" height="200" fill="#c00"/></svg><div style="position:absolute;left:0;top:100px;width:600px;height:200px;background:#fff"></div></div>\n');
     const out = path.join(dir, 'stack.pdf');
-    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT });
+    const r = runNodeSync(EMULATOR, [src, out, '--quiet'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, ...WATCH });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     const base = path.join(dir, 'p');
     execFileSync('pdftoppm', ['-r', '96', '-singlefile', out, base]);
@@ -623,7 +628,7 @@ describe('export-formats', () => {
     assert.ok(px[o] > 230 && px[o + 1] > 230 && px[o + 2] > 230, `the card covers the diagram (rgb ${px[o]},${px[o + 1]},${px[o + 2]})`);
   });
 
-  test('the fourth checker pass: collapsed matrices, nested SVGs, pseudo-element overlays, small badges', { timeout: TIMEOUT }, () => {
+  test('the fourth checker pass: collapsed matrices, nested SVGs, pseudo-element overlays, small badges', () => {
     const dir = tmpDir();
     const src = path.join(dir, 'fourth.md');
     const slides = [
@@ -639,7 +644,7 @@ describe('export-formats', () => {
     ];
     fs.writeFileSync(src, `---\ntheme: cuoio\n---\n\n${slides.map((h, i) => `## Case ${i + 1}\n\n${h}`).join('\n\n---\n\n')}\n`);
     const out = path.join(dir, 'fourth.pdf'), rep = path.join(dir, 'report.json');
-    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_PDF_REPORT: rep }, timeout: TIMEOUT });
+    const r = runNodeSync(EMULATOR, [src, out, '--quiet'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_PDF_REPORT: rep }, ...WATCH });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     const raster = spawnSync('pdftoppm', ['-r', '20', '-png', out, path.join(dir, 'r')], { encoding: 'utf8' });
     assert.doesNotMatch(raster.stderr, /Error/, `poppler reads every operator:\n${raster.stderr}`);
@@ -654,7 +659,7 @@ describe('export-formats', () => {
     assert.ok(!perSlide.some((p) => p.slide === 2 && p.why && p.why['bad-path']), 'the nested SVG itself is drawable');
   });
 
-  test('a KaTeX square root keeps its bar inside the root, as the browser clips it', { timeout: TIMEOUT }, () => {
+  test('a KaTeX square root keeps its bar inside the root, as the browser clips it', () => {
     // KaTeX draws the bar 400em wide and crops it with the SVG viewport and an overflow:hidden
     // span; the writer once ignored both and ran the bar to the edge of the page.
     const dir = tmpDir();
@@ -674,13 +679,13 @@ describe('export-formats', () => {
     };
     const mine = path.join(dir, 'writer.pdf'), chrome = path.join(dir, 'chrome.pdf');
     for (const [out, extra] of [[mine, []], [chrome, ['--chrome-pdf']]]) {
-      const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet', ...extra], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT });
+      const r = runNodeSync(EMULATOR, [src, out, '--quiet', ...extra], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, ...WATCH });
       assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     }
     assert.ok(inkRight(mine) <= inkRight(chrome) + 5, `no bar runs to the page edge (${inkRight(mine)} dark px vs Chrome's ${inkRight(chrome)})`);
   });
 
-  test('a Mermaid flowchart keeps its edges and arrowheads', { timeout: TIMEOUT }, () => {
+  test('a Mermaid flowchart keeps its edges and arrowheads', () => {
     const dir = tmpDir();
     const src = path.join(dir, 'flow.md');
     fs.writeFileSync(src, '---\ntheme: indaco\n---\n\n## Flow\n\n```mermaid\nflowchart LR\n  A[Start] --> B[Middle] --> C[End]\n```\n');
@@ -697,20 +702,20 @@ describe('export-formats', () => {
     };
     const mine = path.join(dir, 'writer.pdf'), chrome = path.join(dir, 'chrome.pdf');
     for (const [out, extra] of [[mine, []], [chrome, ['--chrome-pdf']]]) {
-      const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet', ...extra], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT });
+      const r = runNodeSync(EMULATOR, [src, out, '--quiet', ...extra], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, ...WATCH });
       assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     }
     const a = ink(mine), b = ink(chrome);
     assert.ok(a >= b * 0.9, `the writer's page carries the diagram's ink (${a} dark px vs Chrome's ${b})`);
   });
 
-  test('when the writer fails mid-compose, the Chrome fallback prints the slides whole, not hidden', { timeout: TIMEOUT }, () => {
+  test('when the writer fails mid-compose, the Chrome fallback prints the slides whole, not hidden', () => {
     const dir = tmpDir();
     const out = path.join(dir, 'fallback.pdf');
     // LATTICE_PDF_TEST_FAIL=after-hide throws with every drawn word and shape hidden — the state
     // a watchdog timeout left behind, which printed a blank deck (the checker's repro).
-    const r = spawnSync(process.execPath, [EMULATOR, writeFinishFixture(dir), out], {
-      cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_PDF_TEST_FAIL: 'after-hide' }, timeout: TIMEOUT,
+    const r = runNodeSync(EMULATOR, [writeFinishFixture(dir), out], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_PDF_TEST_FAIL: 'after-hide' }, ...WATCH,
     });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     assert.match(r.stderr, /PDF writer failed[^\n]*printing with Chrome instead/, 'the fallback is announced');
@@ -718,19 +723,19 @@ describe('export-formats', () => {
     assert.equal(pdfImageRows(out).filter((row) => /\bimage\s+1280\s+720\s/.test(row)).length, 0, 'and it is Chrome\'s print, with no slide photo');
   });
 
-  test('text something paints over stays hidden: not drawn on top, not in the text layer', { timeout: TIMEOUT }, () => {
+  test('text something paints over stays hidden: not drawn on top, not in the text layer', () => {
     const dir = tmpDir();
     const src = path.join(dir, 'covered.md');
     // A redaction bar over the title band. Chrome's printer hides the title; a writer that drew
     // every word on top of the photo would show it — and let a reader copy it out.
     fs.writeFileSync(src, '---\nhtml: true\ntheme: indaco\n---\n\n# Classified title\n\n<div style="position:absolute;top:0;left:0;width:100%;height:150px;background:#c0392b;z-index:9"></div>\n');
     const out = path.join(dir, 'covered.pdf');
-    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT });
+    const r = runNodeSync(EMULATOR, [src, out, '--quiet'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, ...WATCH });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     assert.doesNotMatch(execFileSync('pdftotext', [out, '-'], { encoding: 'utf8' }), /Classified/, 'covered text must not reach the text layer');
   });
 
-  test('a spotlight backdrop fades softly in the PDF (the hard-arc bug this writer began from)', { timeout: TIMEOUT }, () => {
+  test('a spotlight backdrop fades softly in the PDF (the hard-arc bug this writer began from)', () => {
     const dir = tmpDir();
     const src = path.join(dir, 'spot.md');
     fs.writeFileSync(src, '---\ntheme: cuoio\nfinish: nimbus\nbackdrop: "full spot-tr"\n---\n\n## A spotlight slide\n\nText.\n');
@@ -749,7 +754,7 @@ describe('export-formats', () => {
     };
     const mine = path.join(dir, 'writer.pdf'), chrome = path.join(dir, 'chrome.pdf');
     for (const [out, extra] of [[mine, []], [chrome, ['--chrome-pdf']]]) {
-      const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet', ...extra], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT });
+      const r = runNodeSync(EMULATOR, [src, out, '--quiet', ...extra], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, ...WATCH });
       assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     }
     // Measured 2026-09-27: 1 for the writer (the export face's feathered spotlight), 63 for
@@ -759,7 +764,7 @@ describe('export-formats', () => {
     assert.ok(maxStep(mine) <= 6, `the writer's spotlight fades softly, largest step ${maxStep(mine)}`);
   });
 
-  test('an image is embedded at its own bytes unless something paints over it — on any slide', { timeout: TIMEOUT }, () => {
+  test('an image is embedded at its own bytes unless something paints over it — on any slide', () => {
     const dir = tmpDir();
     // A 4x4 opaque blue PNG, well formed (every CRC and the zlib checksum right), so the export's metadata cleaner keeps it.
     fs.writeFileSync(path.join(dir, 'blue.png'), Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAAEElEQVR4nGNgYPiPhIjiAACOsw/xs6MvMwAAAABJRU5ErkJggg==', 'base64'));
@@ -776,8 +781,8 @@ describe('export-formats', () => {
     ].join('\n'));
     const out = path.join(dir, 'images.pdf');
     const report = path.join(dir, 'report.json');
-    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], {
-      cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_PDF_REPORT: report }, timeout: TIMEOUT,
+    const r = runNodeSync(EMULATOR, [src, out, '--quiet'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_PDF_REPORT: report }, ...WATCH,
     });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     const rep = JSON.parse(fs.readFileSync(report, 'utf8'));
@@ -789,7 +794,7 @@ describe('export-formats', () => {
     assert.ok(rows.some((row) => /^\s*2\s.*\bimage\s+2560\s+1440\b/.test(row)), `slide 2's photo is 2x:\n${rows.join('\n')}`);
   });
 
-  test('a damaged PNG a browser still draws stays in the photo, never embedded unchecked', { timeout: TIMEOUT }, () => {
+  test('a damaged PNG a browser still draws stays in the photo, never embedded unchecked', () => {
     const dir = tmpDir();
     // A 4x4 PNG with a wrong IDAT CRC, a wrong zlib checksum and a cut IEND. Chromium draws it; lastra's cleaner
     // refuses it, so the PDF keeps its pixels in the slide's photo instead of shipping bytes nobody checked.
@@ -798,8 +803,8 @@ describe('export-formats', () => {
     fs.writeFileSync(src, ['---', 'html: true', 'pagination: false', '---', '', '## Damaged image', '', '<img src="damaged.png" style="width:200px;height:200px">', ''].join('\n'));
     const out = path.join(dir, 'damaged.pdf');
     const report = path.join(dir, 'report.json');
-    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], {
-      cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_PDF_REPORT: report }, timeout: TIMEOUT,
+    const r = runNodeSync(EMULATOR, [src, out, '--quiet'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_PDF_REPORT: report }, ...WATCH,
     });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     const rep = JSON.parse(fs.readFileSync(report, 'utf8'));
@@ -808,7 +813,7 @@ describe('export-formats', () => {
     assert.ok(!pdfImageRows(out).some((row) => /\bimage\s+4\s+4\b/.test(row)), 'no 4x4 image stream reaches the PDF');
   });
 
-  test('a small JPEG stored rotated (EXIF Orientation 6) is embedded and drawn through its turn, not left in the photo', { timeout: TIMEOUT }, () => {
+  test('a small JPEG stored rotated (EXIF Orientation 6) is embedded and drawn through its turn, not left in the photo', () => {
     const dir = tmpDir();
     // The same sample twice: once as shipped (Orientation 6), once with its Exif segment removed.
     // Both are embedded at their own bytes, and the rotated one is drawn through its turn (the eight-orientation test
@@ -832,8 +837,8 @@ describe('export-formats', () => {
     ].join('\n'));
     const out = path.join(dir, 'rotated.pdf');
     const report = path.join(dir, 'report.json');
-    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], {
-      cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_PDF_REPORT: report }, timeout: TIMEOUT,
+    const r = runNodeSync(EMULATOR, [src, out, '--quiet'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_PDF_REPORT: report }, ...WATCH,
     });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     const rep = JSON.parse(fs.readFileSync(report, 'utf8'));
@@ -842,7 +847,7 @@ describe('export-formats', () => {
     assert.equal(rep.refusedImages.rotated, undefined);
   });
 
-  test('a JPEG whose Exif sits after its frame header is drawn through its turn; a PNG turned by eXIf stays in the photo', { timeout: TIMEOUT }, () => {
+  test('a JPEG whose Exif sits after its frame header is drawn through its turn; a PNG turned by eXIf stays in the photo', () => {
     // Every engine turns the JPEG, so the writer draws it through its turn (write-pdf.mjs `turnMatrix`). Chromium and
     // Firefox turn the PNG but WebKit does not (docs/src/lib/lastra/read.test.ts), and the Studio exports in WebKit too,
     // so the PNG stays in the photo, which is what the browser painted (compose.mjs `drawableTurned`).
@@ -879,8 +884,8 @@ describe('export-formats', () => {
     ].join('\n'));
     const out = path.join(dir, 'turned.pdf');
     const report = path.join(dir, 'report.json');
-    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], {
-      cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_PDF_REPORT: report }, timeout: TIMEOUT,
+    const r = runNodeSync(EMULATOR, [src, out, '--quiet'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_PDF_REPORT: report }, ...WATCH,
     });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     const rep = JSON.parse(fs.readFileSync(report, 'utf8'));
@@ -889,7 +894,7 @@ describe('export-formats', () => {
     assert.equal(rep.images, 2, `the late-Exif JPEG and the plain PNG are embedded at their own bytes: ${JSON.stringify(rep)}`);
   });
 
-  test('a JPEG in each of the eight EXIF orientations lands upright and unmirrored in the PDF, drawn from its own bytes', { timeout: TIMEOUT }, () => {
+  test('a JPEG in each of the eight EXIF orientations lands upright and unmirrored in the PDF, drawn from its own bytes', () => {
     // Each JPEG stores its pixels turned the inverse of its EXIF orientation, so all eight SHOW the same picture: red top
     // left, green top right, blue bottom left, yellow bottom right. The PDF is rasterized and each color's center found.
     const dir = tmpDir();
@@ -926,8 +931,8 @@ describe('export-formats', () => {
     fs.writeFileSync(src, ['---', 'html: true', 'pagination: false', '---', '', ...slides].join('\n'));
     const out = path.join(dir, 'turns.pdf');
     const report = path.join(dir, 'report.json');
-    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], {
-      cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_PDF_REPORT: report }, timeout: TIMEOUT,
+    const r = runNodeSync(EMULATOR, [src, out, '--quiet'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_PDF_REPORT: report }, ...WATCH,
     });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     const rep = JSON.parse(fs.readFileSync(report, 'utf8'));
@@ -936,7 +941,7 @@ describe('export-formats', () => {
     // The same deck printed by Chrome itself (`--chrome-pdf`) is what the browser paints: both must pass the same check,
     // so the writer's turn is held to Chromium's, not only to the EXIF table.
     const chromeOut = path.join(dir, 'turns-chrome.pdf');
-    const rc = spawnSync(process.execPath, [EMULATOR, src, chromeOut, '--quiet', '--chrome-pdf'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT });
+    const rc = runNodeSync(EMULATOR, [src, chromeOut, '--quiet', '--chrome-pdf'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, ...WATCH });
     assert.equal(rc.status, 0, `emulator --chrome-pdf failed: ${rc.stderr}`);
     for (const [pdf, prefix, who] of [[out, 'p', 'the writer'], [chromeOut, 'c', 'Chrome']]) {
     execFileSync('pdftoppm', ['-r', '36', pdf, path.join(dir, prefix)]);
@@ -967,7 +972,7 @@ describe('export-formats', () => {
     }
   });
 
-  test('a turned picture the PDF cannot draw safely stays in the photo: a large one under the policy, a background, orientation none, an Exif after XMP', { timeout: TIMEOUT }, () => {
+  test('a turned picture the PDF cannot draw safely stays in the photo: a large one under the policy, a background, orientation none, an Exif after XMP', () => {
     // compose.mjs `drawableTurned`. Under `images: optimized` the policy never re-encodes a turned picture, so a phone
     // photo larger than the policy's size would go in at full size; it stays in the photo, which is capped, unless the
     // deck asks for originals. A CSS background's box and an `image-orientation: none` are not trusted to match the turn.
@@ -998,8 +1003,8 @@ describe('export-formats', () => {
       const src = path.join(dir, `${name}.md`);
       fs.writeFileSync(src, ['---', 'html: true', 'pagination: false', ...front, '---', '', ...slides].join('\n'));
       const report = path.join(dir, `${name}.json`);
-      const r = spawnSync(process.execPath, [EMULATOR, src, path.join(dir, `${name}.pdf`), '--quiet'], {
-        cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_PDF_REPORT: report }, timeout: TIMEOUT,
+      const r = runNodeSync(EMULATOR, [src, path.join(dir, `${name}.pdf`), '--quiet'], {
+        cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_PDF_REPORT: report }, ...WATCH,
       });
       assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
       return JSON.parse(fs.readFileSync(report, 'utf8'));
@@ -1019,11 +1024,11 @@ describe('export-formats', () => {
     assert.equal(others.turnedImages, undefined);
   });
 
-  test('--chrome-pdf prints with Chrome: the finish stays vector drawing, nothing is photographed', { timeout: TIMEOUT }, () => {
+  test('--chrome-pdf prints with Chrome: the finish stays vector drawing, nothing is photographed', () => {
     const dir = tmpDir();
     const out = path.join(dir, 'deck.pdf');
-    const r = spawnSync(process.execPath, [EMULATOR, writeFinishFixture(dir), out, '--quiet', '--chrome-pdf'], {
-      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    const r = runNodeSync(EMULATOR, [writeFinishFixture(dir), out, '--quiet', '--chrome-pdf'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, ...WATCH,
     });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     // Chrome rasterizes the blurred `clear` layer on its own (#2400); what it never does is
@@ -1034,12 +1039,12 @@ describe('export-formats', () => {
     assert.match(text, /Body text stays vector/);
   });
 
-  test('--raster prints one full-page JPEG per slide; notes + --embed-source still apply', { timeout: TIMEOUT }, async () => {
+  test('--raster prints one full-page JPEG per slide; notes + --embed-source still apply', async () => {
     const dir = tmpDir();
     const src = writeSvgFixture(dir);
     const out = path.join(dir, 'deck.pdf');
-    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet', '--raster', '--embed-source'], {
-      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    const r = runNodeSync(EMULATOR, [src, out, '--quiet', '--raster', '--embed-source'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, ...WATCH,
     });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
 
@@ -1074,7 +1079,7 @@ describe('export-formats', () => {
     assert.equal(extracted, fs.readFileSync(src, 'utf8'), 'attachment must be byte-identical to the source');
   });
 
-  test('SVG swap is layout-neutral and robust: <img> box pinned, gradient scrims survive, malformed URLs skipped', { timeout: TIMEOUT }, () => {
+  test('SVG swap is layout-neutral and robust: <img> box pinned, gradient scrims survive, malformed URLs skipped', () => {
     // Three checker-found failure modes pinned by one render:
     //  (a) an intrinsically-sized <img> must NOT re-lay-out at the twin's 2×
     //      natural size — pass 3 pins the element to its laid-out box;
@@ -1090,18 +1095,18 @@ describe('export-formats', () => {
     const src = path.join(dir, 'robust.md');
     fs.writeFileSync(src, [
       '---', 'html: true', 'pagination: false', '---', '',
-      '<!-- _class: content -->', '',
+      '<!-- @meta{layout=content} -->', '',
       '## Intrinsic pin', '',
       '![red](small-red.svg)', '',
       '---', '',
-      '<!-- _class: content -->', '',
+      '<!-- @meta{layout=content} -->', '',
       '## Scrim and bad URL', '',
       `<div style="width:200px;height:150px;background-image:linear-gradient(rgba(0,0,255,0.5),rgba(0,0,255,0.5)),url('small-red.svg')"></div>`, '',
       `<div style="width:10px;height:10px;background-image:url('http://[bad/x.svg')"></div>`, '',
     ].join('\n'));
     const out = path.join(dir, 'robust.pdf');
-    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], {
-      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    const r = runNodeSync(EMULATOR, [src, out, '--quiet'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, ...WATCH,
     });
     // (c) the malformed URL must not abort the render.
     assert.equal(r.status, 0, `emulator failed (malformed URL should be skipped, not fatal): ${r.stderr}`);
@@ -1131,7 +1136,7 @@ describe('export-formats', () => {
   // wrote PDF BYTES into `deck.html` and put the real HTML in a second
   // `deck.html.html`. Both halves are asserted: the deliverable is HTML, and the
   // doubled-extension file does not exist.
-  test('.html output is HTML, not a PDF wearing an .html name, and writes no deck.html.html', { timeout: TIMEOUT }, () => {
+  test('.html output is HTML, not a PDF wearing an .html name, and writes no deck.html.html', () => {
     const dir = tmpDir();
     const out = path.join(dir, 'deck.html');
     const r = run(out);
@@ -1158,14 +1163,14 @@ describe('export-formats', () => {
   // examples/auto-split.md is `size: portrait` and logs "1 slide(s) divided to fit",
   // taking 6 authored slides to 9 rendered pages — so the counts only agree if the
   // written .html is genuinely the post-split document.
-  test('.html carries the post-split render — section count equals the PDF page count', { timeout: TIMEOUT * 2 }, () => {
+  test('.html carries the post-split render — section count equals the PDF page count', () => {
     const dir = tmpDir();
     const html = path.join(dir, 'deck.html');
     const pdf = path.join(dir, 'out.pdf');
     const SPLIT_DECK = path.join(ROOT, 'examples', 'auto-split.md');
     const renderSplit = (out) =>
-      spawnSync(process.execPath, [EMULATOR, SPLIT_DECK, out, '--quiet'], {
-        cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+      runNodeSync(EMULATOR, [SPLIT_DECK, out, '--quiet'], {
+        cwd: ROOT, encoding: 'utf8', env: { ...process.env }, ...WATCH,
       });
     assert.equal(renderSplit(html).status, 0, 'html render failed');
     assert.equal(renderSplit(pdf).status, 0, 'pdf render failed');
@@ -1188,14 +1193,14 @@ describe('export-formats', () => {
   // `materializedNotes` (all-null under the flag), so the same deck+flags STRIPPED as
   // .pdf and LEAKED the full note text as .html. Both arms are asserted, because the
   // bug is precisely that the two formats disagreed.
-  test('--strip-notes scrubs the notes sidecar for .html exactly as it does for .pdf', { timeout: TIMEOUT * 2 }, () => {
+  test('--strip-notes scrubs the notes sidecar for .html exactly as it does for .pdf', () => {
     const dir = tmpDir();
     const deck = path.join(dir, 'deck.md');
     const SECRET = 'CONFIDENTIAL board compensation figure';
     fs.writeFileSync(deck, `${fs.readFileSync(FIXTURE, 'utf8')}\n\n<!-- @note{${SECRET}} -->\n`);
     const render = (out) =>
-      spawnSync(process.execPath, [EMULATOR, deck, out, '--notes', '--strip-notes', '--quiet'], {
-        cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+      runNodeSync(EMULATOR, [deck, out, '--notes', '--strip-notes', '--quiet'], {
+        cwd: ROOT, encoding: 'utf8', env: { ...process.env }, ...WATCH,
       });
 
     for (const ext of ['html', 'pdf']) {
@@ -1211,7 +1216,7 @@ describe('export-formats', () => {
     }
   });
 
-  test('renders one PNG per slide at the 2× raster size', { timeout: TIMEOUT }, () => {
+  test('renders one PNG per slide at the 2× raster size', () => {
     const dir = tmpDir();
     const out = path.join(dir, 'deck.png');
     const r = run(out);
@@ -1227,7 +1232,7 @@ describe('export-formats', () => {
     }
   });
 
-  test('renders a .zip image set — slides + thumbnails + manifest, defaults to lossless PNG', { timeout: TIMEOUT }, async () => {
+  test('renders a .zip image set — slides + thumbnails + manifest, defaults to lossless PNG', async () => {
     const dir = tmpDir();
     const out = path.join(dir, 'deck.zip');
     const r = run(out);
@@ -1260,11 +1265,11 @@ describe('export-formats', () => {
     assert.equal(manifest.colorMode, 'light');
   });
 
-  test('--image-mode dark with no dark companion renders light and the manifest says so (no lie)', { timeout: TIMEOUT }, async () => {
+  test('--image-mode dark with no dark companion renders light and the manifest says so (no lie)', async () => {
     // a11y-* palettes ship no `-dark` companion; the export falls back to the base (light) palette.
     const out = path.join(tmpDir(), 'deck.zip');
-    const r = spawnSync(process.execPath, [EMULATOR, FIXTURE, out, '--quiet', '--image-mode', 'dark', '-p', 'a11y-deuteranopia'], {
-      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    const r = runNodeSync(EMULATOR, [FIXTURE, out, '--quiet', '--image-mode', 'dark', '-p', 'a11y-deuteranopia'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, ...WATCH,
     });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     const JSZip = require('jszip');
@@ -1273,11 +1278,11 @@ describe('export-formats', () => {
     assert.equal(manifest.colorMode, 'light', 'manifest must record the scheme actually rendered, not the requested dark');
   });
 
-  test('image set honors --image-format jpeg, --image-size 1x, and --no-thumbnails', { timeout: TIMEOUT }, async () => {
+  test('image set honors --image-format jpeg, --image-size 1x, and --no-thumbnails', async () => {
     const dir = tmpDir();
     const out = path.join(dir, 'deck.zip');
-    const r = spawnSync(process.execPath, [EMULATOR, FIXTURE, out, '--quiet', '--image-format', 'jpeg', '--image-size', '1x', '--no-thumbnails'], {
-      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    const r = runNodeSync(EMULATOR, [FIXTURE, out, '--quiet', '--image-format', 'jpeg', '--image-size', '1x', '--no-thumbnails'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, ...WATCH,
     });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
 
@@ -1295,11 +1300,11 @@ describe('export-formats', () => {
     assert.equal(manifest.pixel.scale, 1, '--image-size 1x rasters at 1×');
   });
 
-  test('image set extracts standalone SVGs for BOTH keyed charts and Mermaid diagrams', { timeout: TIMEOUT }, async () => {
+  test('image set extracts standalone SVGs for BOTH keyed charts and Mermaid diagrams', async () => {
     const dir = tmpDir();
     const out = path.join(dir, 'deck.zip');
-    const r = spawnSync(process.execPath, [EMULATOR, CHART_DIAGRAM_FIXTURE, out, '--quiet'], {
-      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    const r = runNodeSync(EMULATOR, [CHART_DIAGRAM_FIXTURE, out, '--quiet'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, ...WATCH,
     });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
 
@@ -1325,11 +1330,11 @@ describe('export-formats', () => {
     assert.deepEqual(manifest.assets.map((x) => x.kind).sort(), ['chart', 'diagram']);
   });
 
-  test('--no-svg omits the standalone SVG assets', { timeout: TIMEOUT }, async () => {
+  test('--no-svg omits the standalone SVG assets', async () => {
     const dir = tmpDir();
     const out = path.join(dir, 'deck.zip');
-    const r = spawnSync(process.execPath, [EMULATOR, CHART_DIAGRAM_FIXTURE, out, '--quiet', '--no-svg'], {
-      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    const r = runNodeSync(EMULATOR, [CHART_DIAGRAM_FIXTURE, out, '--quiet', '--no-svg'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, ...WATCH,
     });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     const JSZip = require('jszip');
@@ -1340,11 +1345,11 @@ describe('export-formats', () => {
     assert.equal(manifest.counts.assets, 0);
   });
 
-  test('--image-mode dark renders the dark palette; --svg-background bakes a canvas', { timeout: TIMEOUT }, async () => {
+  test('--image-mode dark renders the dark palette; --svg-background bakes a canvas', async () => {
     const dir = tmpDir();
     const out = path.join(dir, 'deck.zip');
-    const r = spawnSync(process.execPath, [EMULATOR, CHART_DIAGRAM_FIXTURE, out, '--quiet', '--image-mode', 'dark', '--svg-background', 'dark'], {
-      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    const r = runNodeSync(EMULATOR, [CHART_DIAGRAM_FIXTURE, out, '--quiet', '--image-mode', 'dark', '--svg-background', 'dark'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, ...WATCH,
     });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     const JSZip = require('jszip');
@@ -1361,12 +1366,21 @@ describe('export-formats', () => {
     }
   });
 
-  test('SVG look renders the chart/diagram independent of the slides (color slides + print SVGs)', { timeout: TIMEOUT }, async () => {
+  test('SVG look renders the chart/diagram independent of the slides (color slides + print SVGs)', async () => {
     const JSZip = require('jszip');
+    // The chart slide alone. Every assertion below reads the pie chart; the fixture's Mermaid
+    // slide added a diagram render, plus a print re-bake, to each export: two of the three
+    // Chromium launches a print export makes. The print look's diagram re-bake has its own
+    // tests further down ("a dark-source deck exports a print-safe (B&W) Mermaid diagram").
+    const chartOnly = path.join(tmpDir(), 'chart.md');
+    const chartSlide = fs.readFileSync(CHART_DIAGRAM_FIXTURE, 'utf8').split(/\n---\n\n<!-- @meta\{layout=diagram\}/)[0];
+    assert.match(chartSlide, /@meta\{layout=piechart\}/, 'the fixture still opens with its pie chart');
+    assert.doesNotMatch(chartSlide, /```mermaid/, 'the chart-only deck carries no diagram');
+    fs.writeFileSync(chartOnly, chartSlide);
     const chartSvg = async (svgBackground) => {
       const out = path.join(tmpDir(), 'deck.zip');
-      const r = spawnSync(process.execPath, [EMULATOR, CHART_DIAGRAM_FIXTURE, out, '--quiet', '--image-mode', 'light', '--svg-background', svgBackground], {
-        cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+      const r = runNodeSync(EMULATOR, [chartOnly, out, '--quiet', '--image-mode', 'light', '--svg-background', svgBackground], {
+        cwd: ROOT, encoding: 'utf8', env: { ...process.env }, ...WATCH,
       });
       assert.equal(r.status, 0, `emulator failed (${svgBackground}): ${r.stderr}`);
       const zip = await JSZip.loadAsync(fs.readFileSync(out));
@@ -1391,11 +1405,11 @@ describe('export-formats', () => {
     assert.equal(printLook.manifest.svgBackground, 'print');
   });
 
-  test('--image-mode print stamps the B&W handout canvas', { timeout: TIMEOUT }, async () => {
+  test('--image-mode print stamps the B&W handout canvas', async () => {
     const dir = tmpDir();
     const out = path.join(dir, 'deck.zip');
-    const r = spawnSync(process.execPath, [EMULATOR, CHART_DIAGRAM_FIXTURE, out, '--quiet', '--image-mode', 'print'], {
-      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    const r = runNodeSync(EMULATOR, [CHART_DIAGRAM_FIXTURE, out, '--quiet', '--image-mode', 'print'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, ...WATCH,
     });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     const JSZip = require('jszip');
@@ -1409,7 +1423,7 @@ describe('export-formats', () => {
     }
   });
 
-  test('a dark-source deck exports a print-safe (B&W) Mermaid diagram under --svg-background print', { timeout: TIMEOUT }, async () => {
+  test('a dark-source deck exports a print-safe (B&W) Mermaid diagram under --svg-background print', async () => {
     // The gap this closes: mmdc bakes diagram colors at render time, so a dark deck's diagram used to
     // export in its dark scheme (light text) even when the SVG look is print. The CLI now RE-BAKES the
     // diagram print-safe. Assert the standalone diagram carries dark ink, not the dark-scheme light text.
@@ -1417,8 +1431,8 @@ describe('export-formats', () => {
     const src = path.join(dir, 'darkdeck.md');
     fs.writeFileSync(src, '---\ntheme: indaco\ncolor-mode: dark\n---\n\n# Dark deck\n\n```mermaid\nflowchart LR\n  A[Start] --> B{Go}\n  B -->|yes| C[Ship]\n```\n');
     const out = path.join(dir, 'deck.zip');
-    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet', '--image-mode', 'dark', '--svg-background', 'print'], {
-      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    const r = runNodeSync(EMULATOR, [src, out, '--quiet', '--image-mode', 'dark', '--svg-background', 'print'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, ...WATCH,
     });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     const JSZip = require('jszip');
@@ -1441,7 +1455,7 @@ describe('export-formats', () => {
     assert.doesNotMatch(svg, saturatedRe, 'the dark/color node color was converted to grayscale by the print re-bake');
   });
 
-  test('multi-diagram dark deck → print: each plain diagram converts; an author-themed one is flagged not converted', { timeout: TIMEOUT }, async () => {
+  test('multi-diagram dark deck → print: each plain diagram converts; an author-themed one is flagged not converted', async () => {
     // Exercises per-index alignment across MULTIPLE diagrams AND the honesty guard: a plain diagram
     // re-bakes to grayscale, while an author `%%{init}%%`-themed diagram keeps its colors and the CLI
     // warns rather than claiming a conversion it can't make.
@@ -1453,8 +1467,8 @@ describe('export-formats', () => {
       '---\n\n# Two\n\n```mermaid\nflowchart LR\n  C[Gamma] --> D[Delta]\n```\n\n' +
       "---\n\n# Three\n\n```mermaid\n%%{init: {'theme':'forest'}}%%\nflowchart LR\n  E[Epsilon] --> F[Zeta]\n```\n");
     const out = path.join(dir, 'deck.zip');
-    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--image-mode', 'dark', '--svg-background', 'print'], {
-      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    const r = runNodeSync(EMULATOR, [src, out, '--image-mode', 'dark', '--svg-background', 'print'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, ...WATCH,
     });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     // The author-themed diagram is flagged, ungated by --quiet (it was NOT passed here anyway).
@@ -1474,7 +1488,7 @@ describe('export-formats', () => {
     assert.match(await zip.file(`deck/${diagrams[2].file}`).async('string'), forestRe, 'the author-themed diagram kept its own colors');
   });
 
-  test('a dark-source deck re-renders its Mermaid diagram to the LIGHT look (dark ink on light)', { timeout: TIMEOUT }, async () => {
+  test('a dark-source deck re-renders its Mermaid diagram to the LIGHT look (dark ink on light)', async () => {
     // Light/dark cross-scheme parity: mmdc bakes diagram colors from the deck's palette, so a dark
     // deck's diagram is baked with WHITE text. Under `--svg-background light` the CLI re-renders the
     // diagram with the LIGHT palette's theme vars in an isolated light-scheme page, so it exports as
@@ -1483,8 +1497,8 @@ describe('export-formats', () => {
     const src = path.join(dir, 'darkdeck.md');
     fs.writeFileSync(src, '---\ntheme: indaco\ncolor-mode: dark\n---\n\n# Dark deck\n\n```mermaid\nflowchart LR\n  A[Start] --> B{Go}\n  B -->|yes| C[Ship]\n```\n');
     const out = path.join(dir, 'deck.zip');
-    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet', '--image-mode', 'dark', '--svg-background', 'light'], {
-      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    const r = runNodeSync(EMULATOR, [src, out, '--quiet', '--image-mode', 'dark', '--svg-background', 'light'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, ...WATCH,
     });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     const JSZip = require('jszip');
@@ -1499,7 +1513,7 @@ describe('export-formats', () => {
     assert.match(svg, darkInkRe, 'the light-look diagram carries dark ink (recolored to light, not the dark bake)');
   });
 
-  test('a `color-mode: dark` deck re-renders its diagram to light even WITHOUT --image-mode dark', { timeout: TIMEOUT }, async () => {
+  test('a `color-mode: dark` deck re-renders its diagram to light even WITHOUT --image-mode dark', async () => {
     // Regression guard: the re-render is keyed on the diagram's real BAKE scheme (the deck's
     // `color-mode:`), not the palette-derived scheme. Without `--image-mode dark` the palette is the
     // light `indaco`, so a palette-keyed guard reads 'light' == the look and would SKIP the re-render,
@@ -1508,8 +1522,8 @@ describe('export-formats', () => {
     const src = path.join(dir, 'darkdeck.md');
     fs.writeFileSync(src, '---\ntheme: indaco\ncolor-mode: dark\n---\n\n# Dark deck\n\n```mermaid\nflowchart LR\n  A[Start] --> B{Go}\n  B -->|yes| C[Ship]\n```\n');
     const out = path.join(dir, 'deck.zip');
-    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet', '--svg-background', 'light'], {
-      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    const r = runNodeSync(EMULATOR, [src, out, '--quiet', '--svg-background', 'light'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, ...WATCH,
     });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     const JSZip = require('jszip');
@@ -1525,15 +1539,15 @@ describe('export-formats', () => {
     assert.match(svg, darkInkRe, 'the diagram was re-rendered to light despite the palette-derived scheme matching the look');
   });
 
-  test('a light-source deck re-renders its Mermaid diagram to the DARK look', { timeout: TIMEOUT }, async () => {
+  test('a light-source deck re-renders its Mermaid diagram to the DARK look', async () => {
     // The symmetric direction: a light deck's diagram is baked with dark ink; `--svg-background dark`
     // re-renders it with the dark palette's theme vars, so it exports as light text on a dark scheme.
     const dir = tmpDir();
     const src = path.join(dir, 'lightdeck.md');
     fs.writeFileSync(src, '---\ntheme: indaco\n---\n\n# Light deck\n\n```mermaid\nflowchart LR\n  A[Start] --> B{Go}\n  B -->|yes| C[Ship]\n```\n');
     const out = path.join(dir, 'deck.zip');
-    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet', '--svg-background', 'dark'], {
-      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    const r = runNodeSync(EMULATOR, [src, out, '--quiet', '--svg-background', 'dark'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, ...WATCH,
     });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     const JSZip = require('jszip');
@@ -1545,14 +1559,14 @@ describe('export-formats', () => {
     assert.match(svg, /fill\s*[:=]\s*["']?\s*(?:rgb\(\s*255\s*,\s*255\s*,\s*255\s*\)|#ffffff|#fff\b|white)\b/i, 'the dark-look diagram carries light text (recolored to dark)');
   });
 
-  test('the standalone --print flag (not --image-mode) is authoritative for the manifest scheme', { timeout: TIMEOUT }, async () => {
+  test('the standalone --print flag (not --image-mode) is authoritative for the manifest scheme', async () => {
     // `deck.md out.zip --print` stamps the print canvas (WANT_PRINT) but leaves --image-mode at
     // its 'inherit' default — the manifest must still record 'print' to match the ink-on-white
     // pixels, not the palette-derived light/dark.
     const dir = tmpDir();
     const out = path.join(dir, 'deck.zip');
-    const r = spawnSync(process.execPath, [EMULATOR, CHART_DIAGRAM_FIXTURE, out, '--quiet', '--print'], {
-      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    const r = runNodeSync(EMULATOR, [CHART_DIAGRAM_FIXTURE, out, '--quiet', '--print'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, ...WATCH,
     });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     const JSZip = require('jszip');
@@ -1561,11 +1575,11 @@ describe('export-formats', () => {
     assert.equal(manifest.colorMode, 'print', 'manifest must record print when --print rendered the print canvas');
   });
 
-  test('image set writes a v2 manifest (metadata, dpi, orientation) + embeds DPI in the PNG bytes', { timeout: TIMEOUT }, async () => {
+  test('image set writes a v2 manifest (metadata, dpi, orientation) + embeds DPI in the PNG bytes', async () => {
     const dir = tmpDir();
     const out = path.join(dir, 'deck.zip');
-    const r = spawnSync(process.execPath, [EMULATOR, CHART_DIAGRAM_FIXTURE, out, '--quiet'], {
-      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    const r = runNodeSync(EMULATOR, [CHART_DIAGRAM_FIXTURE, out, '--quiet'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, ...WATCH,
     });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     const JSZip = require('jszip');
@@ -1601,12 +1615,12 @@ describe('export-formats', () => {
     assert.equal(png[pHYs + 12], 1, 'pHYs unit = meter');
   });
 
-  test('--image-format webp + --image-quality + --thumb-width produce the requested set', { timeout: TIMEOUT }, async () => {
+  test('--image-format webp + --image-quality + --thumb-width produce the requested set', async () => {
     const dir = tmpDir();
     const out = path.join(dir, 'deck.zip');
-    const r = spawnSync(process.execPath, [EMULATOR, CHART_DIAGRAM_FIXTURE, out, '--quiet',
+    const r = runNodeSync(EMULATOR, [CHART_DIAGRAM_FIXTURE, out, '--quiet',
       '--image-format', 'webp', '--image-quality', '70', '--thumb-width', '640'], {
-      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, ...WATCH,
     });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     const JSZip = require('jszip');
@@ -1632,8 +1646,8 @@ describe('export-formats', () => {
   // caller asked for. `lattice deck.md out.webp` wrote PDF bytes into `out.webp`, and
   // nothing anywhere said so: exit 0, a file at the requested path, `file(1)` reading
   // "PDF document". Every assertion below is about the REFUSAL, and refusing has to be
-  // cheap: the check runs before Chromium is launched, which is why these tests carry
-  // no timeout while every render test above needs 60s.
+  // cheap: the check runs before Chromium is launched, so each refusal returns in well
+  // under a second.
   describe('an unsupported output extension is refused, never mislabeled', () => {
     test('.webp exits non-zero, names the supported set, and writes nothing', () => {
       const out = path.join(tmpDir(), 'deck.webp');
@@ -1683,7 +1697,7 @@ describe('export-formats', () => {
     // sidecar and the PDF is a byproduct, so the output path carries no extension on
     // purpose. Nothing is mislabeled when nothing is labeled — and refusing it broke both
     // tools, which are the committed HARD RULE #23 evidence for the exported player.
-    test('an output path with NO extension still renders (the sidecar idiom)', { timeout: TIMEOUT }, () => {
+    test('an output path with NO extension still renders (the sidecar idiom)', () => {
       const out = path.join(tmpDir(), 'sidecar-deck');
       const r = run(out);
       assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
@@ -1694,17 +1708,13 @@ describe('export-formats', () => {
     // The byproduct sidecar used to be `<out>.html`: an author's `deck.html` beside `deck.md`
     // was overwritten and then deleted by every .pdf/.pptx/.odp/.png export, and two exports
     // of one deck raced on it. It now carries a name only this run owns.
-    test('an export never overwrites or deletes a sibling deck.html, and parallel exports both succeed', { timeout: TIMEOUT * 2 }, async () => {
+    test('an export never overwrites or deletes a sibling deck.html, and parallel exports both succeed', async () => {
       const dir = tmpDir();
       const md = path.join(dir, 'd.md');
       fs.copyFileSync(FIXTURE, md);
       const SENTINEL = 'author file, not ours';
-      const exportOnce = (out, extra = []) => new Promise((resolve) => {
-        const p = require('child_process').spawn(process.execPath, [EMULATOR, md, out, '--quiet', ...extra], { cwd: ROOT });
-        let stderr = '';
-        p.stderr.on('data', (c) => { stderr += c; });
-        p.on('close', (status) => resolve({ status, stderr }));
-      });
+      // Async, so the two parallel exports below really overlap; watched for a hang like every run here.
+      const exportOnce = (out, extra = []) => runNode(EMULATOR, [md, out, '--quiet', ...extra], { cwd: ROOT, ...WATCH });
       for (const [name, extra] of [['d.pptx', ['--editable']], ['d.pdf', []], ['d.odp', ['--editable']]]) {
         fs.writeFileSync(path.join(dir, 'd.html'), SENTINEL);
         const r = await exportOnce(path.join(dir, name), extra);
@@ -1716,12 +1726,12 @@ describe('export-formats', () => {
       assert.deepEqual(fs.readdirSync(dir).filter((f) => f.endsWith('.html')), ['d.html'], 'no sidecar left behind');
     });
 
-    test('a failed export leaves no unique-named sidecar behind', { timeout: TIMEOUT }, () => {
+    test('a failed export leaves no unique-named sidecar behind', () => {
       const dir = tmpDir();
       const md = path.join(dir, 'f.md');
       fs.copyFileSync(FIXTURE, md);
-      const r = spawnSync(process.execPath, [EMULATOR, md, path.join(dir, 'f.pdf'), '--quiet'], {
-        cwd: ROOT, encoding: 'utf8', timeout: TIMEOUT,
+      const r = runNodeSync(EMULATOR, [md, path.join(dir, 'f.pdf'), '--quiet'], {
+        cwd: ROOT, encoding: 'utf8', ...WATCH,
         env: { ...process.env, CHROME_PATH: '/bin/false', PUPPETEER_EXECUTABLE_PATH: '/bin/false' },
       });
       assert.notEqual(r.status, 0, 'the export was meant to fail');
@@ -1737,12 +1747,12 @@ describe('export-formats', () => {
   // screen reader announces both (was a tracked gap — untagged PDF, no /Lang, no title;
   // semantic-html-accessibility.md G1/G2). Chrome's print-to-PDF lifts them from the
   // shell's <title> + <html lang>.
-  test('the exported PDF carries an accessible /Lang + title (WCAG 2.4.2 / 3.1.1)', { timeout: TIMEOUT }, async () => {
+  test('the exported PDF carries an accessible /Lang + title (WCAG 2.4.2 / 3.1.1)', async () => {
     const dir = tmpDir();
     const src = path.join(dir, 'titled.md');
     fs.writeFileSync(src, '---\ntitle: Q3 Board Review\nlang: fr\ntheme: indaco\n---\n\n# Hello\n\nSome text.\n');
     const out = path.join(dir, 'titled.pdf');
-    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT });
+    const r = runNodeSync(EMULATOR, [src, out, '--quiet'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, ...WATCH });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     // Read through a PDF parser: the shared writer packs the catalog into an object stream.
     const { PDFDocument, PDFName } = require('pdf-lib');

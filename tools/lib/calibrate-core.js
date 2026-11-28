@@ -275,14 +275,14 @@ const VENUE_FOR_SCALE = Object.freeze({ l: 'huddle', xl: 'conference', '2xl': 'h
 function gradedDeck({ comp, size, steps, slideFor, scale = null, eyebrow = false }) {
   const slides = steps.map((step, i) => {
     const made = slideFor(step);
-    if (made.slide != null) return `<!-- _class: ${comp} -->\n\n${made.slide.trim()}\n`;
+    if (made.slide != null) return `<!-- @meta{class="${comp}"} -->\n\n${made.slide.trim()}\n`;
     const heading = `## Calibration step ${i + 1} — ${made.label}.`;
     // `eyebrow` adds the one-line label most real slides carry above the heading. It is
     // off by default because `capacity` is measured without it (2026-07-28-capacity-basis.md);
     // the code pane's scale budget is measured both ways because the eyebrow costs it
     // one to two whole lines, which is the difference between a warning and silence.
     const lead = eyebrow ? '`Calibration · eyebrow`\n\n' : '';
-    return `<!-- _class: ${comp} -->\n\n${lead}${heading}\n\n${made.body}`;
+    return `<!-- @meta{class="${comp}"} -->\n\n${lead}${heading}\n\n${made.body}`;
   });
   // `scale` puts the VENUE for that rung in the front matter (l → huddle, xl → conference,
   // 2xl → hall), so a ceiling is measured at what a deck at that venue renders. It used to write

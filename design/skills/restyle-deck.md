@@ -13,7 +13,7 @@ studio: true
 **Read this when** the ask is "make it darker", "use our brand palette", "make
 it feel more editorial", "give it a backdrop", "this slide would work better as
 cards", or "it's going to a big room". **You'll produce** the same deck with a
-changed front-matter block and, where needed, changed `<!-- _class: … -->` lines.
+changed front-matter block and, where needed, changed `<!-- @meta{…} -->` records.
 The text of every slide is untouched.
 
 To change what the deck says, use `edit-deck.md`. To build a new palette or
@@ -24,7 +24,7 @@ backdrop, use `theme.md` or `finish.md`.
 ## The 10/10 bar
 
 - **Content is invariant.** Headings, bodies, numbers and notes come back
-  byte-identical. A restyle diff lives in front matter and `_class:` lines.
+  byte-identical. A restyle diff lives in front matter and `@meta` records.
 - **One decision, one key.** Each look change is one front-matter key at deck
   level, not the same modifier pasted on every slide.
 - **Deck first, slide second.** A per-slide modifier is an exception you can
@@ -34,7 +34,7 @@ backdrop, use `theme.md` or `finish.md`.
 - **It still fits.** A larger `venue:` or `scale-*` makes text bigger, never
   smaller, so a full slide can clip. Render and look.
 
-Mediocre looks like: `dark` added to every `_class:` line instead of
+Mediocre looks like: `dark` added to every slide's `@meta` record instead of
 `color-mode: dark`, a finish with no reason behind it, three registers fighting
 a preset, or a layout swap that quietly cut a bullet.
 
@@ -52,20 +52,20 @@ A slide's look is a stack of independent choices, and each has one home:
 | **Backdrop** | atmosphere behind content | `finish:` `none` · `atrium` · `meridian` · `strata` · `halo` · `ledger` · `nimbus` · `loom` · `savile` · `gallery` |
 | **Hand** | clean or hand-drawn | `mode:` `boardroom` · `sketch` · `sketch-clean` |
 | **Room** | how big type renders | `venue:` `laptop` · `huddle` · `conference` · `hall` |
-| **Details** | heading rule, kicker, alignment, card lift, corners | `rule:` · `eyebrow:` · `headline:` · `lift:` · `corners:` |
-| **Layout** | the slide's shape | the component in `<!-- _class: name -->` |
-| **Slide exceptions** | one slide differs | modifiers on that slide's `_class:` line |
+| **Details** | heading rule, kicker, alignment, card lift, corners | `heading-rule:` · `eyebrow:` · `headline-align:` · `card-lift:` · `slide-corners:` |
+| **Layout** | the slide's shape | the component in `<!-- @meta{layout=name} -->` |
+| **Slide exceptions** | one slide differs | modifiers in that slide's `@meta{class=…}` |
 
 They compose: `theme: cuoio` + `color-mode: dark` + `finish: atrium` +
 `mode: sketch` is a hand-drawn dark deck on a glow backdrop in the cuoio
 palette.
 
 **A preset is a starting point; an explicit key beats it.** `preset: editorial`
-sets `finish: ledger`, `headline: left`, `rule: short`, `eyebrow: bar`,
-`trim-spectrum: mono` and `lift: on`. Write `rule: none` beside it and you
+sets `finish: ledger`, `headline-align: left`, `heading-rule: short`, `eyebrow: bar`,
+`trim-spectrum: mono` and `card-lift: on`. Write `heading-rule: none` beside it and you
 get everything from Editorial except the heading rule.
 
-**Per-slide tokens win over deck keys.** `<!-- _class: content light -->` puts
+**Per-slide tokens win over deck keys.** `<!-- @meta{layout=content, class=light} -->` puts
 one bright slide in a `color-mode: dark` deck. `no-finish` takes one slide out
 of a deck-wide finish; `finish-<name>` on a slide replaces the deck's finish
 for that slide.
@@ -151,7 +151,7 @@ header: "Harbor Analytics · Pricing review"
 One bright slide inside that dark deck:
 
 ```markdown
-<!-- _class: content light -->
+<!-- @meta{layout=content, class=light} -->
 
 ## Small teams leave when one busy month doubles their bill.
 
@@ -162,7 +162,7 @@ A layout swap: five reference rows were crammed into `cards-grid` (hard cap 4).
 Same words, poured into `list-tabular`, which takes numbered rows:
 
 ```markdown
-<!-- _class: list-tabular -->
+<!-- @meta{layout=list-tabular} -->
 
 ## Usage pricing moved revenue toward our largest accounts.
 
@@ -191,7 +191,7 @@ pagination: true
 header: "Harbor Analytics · Pricing review"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Harbor Analytics
 
@@ -201,7 +201,7 @@ Usage pricing grew revenue, but small teams need a cap before renewal season.
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 `Section 01`
 
@@ -209,7 +209,7 @@ Usage pricing grew revenue, but small teams need a cap before renewal season.
 
 ---
 
-<!-- _class: list-tabular -->
+<!-- @meta{layout=list-tabular} -->
 
 ## Usage pricing moved revenue toward our largest accounts.
 
@@ -226,7 +226,7 @@ Usage pricing grew revenue, but small teams need a cap before renewal season.
 
 ---
 
-<!-- _class: content light -->
+<!-- @meta{layout=content, class=light} -->
 
 ## Small teams leave when one busy month doubles their bill.
 
@@ -234,7 +234,7 @@ Exit interviews name surprise invoices first, ahead of price and features.
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 ## Cap small-team bills and protect renewals.
 
@@ -247,21 +247,21 @@ We recommend a monthly cap before renewals open in March.
 
 ## What good looks like
 
-- "Make it dark" is one line: `color-mode: dark`. No slide's `_class:` changed.
+- "Make it dark" is one line: `color-mode: dark`. No slide's `@meta` record changed.
 - "More editorial, but no heading rule" is two lines: `preset: editorial` and
-  `rule: none`.
+  `heading-rule: none`.
 - A finish was chosen for a reason the author can repeat ("the ledger lines
   suit a finance review"), and the closing slide still reads cleanly over it.
 - The one bright slide in a dark deck carries `light`, and it is the slide the
   speaker wants the room to stop on.
-- A layout swap kept every word; the diff shows only the `_class:` line and
+- A layout swap kept every word; the diff shows only the `@meta` record and
   the list markers.
 
 ---
 
 ## What bad looks like
 
-- `<!-- _class: content dark -->` on all 14 slides. Fix: `color-mode: dark`
+- `<!-- @meta{layout=content, class=dark} -->` on all 14 slides. Fix: `color-mode: dark`
   once, and drop the per-slide tokens.
 - `finish: atriumm` — warned as `unknown-finish`, renders no backdrop. Fix the
   spelling; the warning lists the valid names.
@@ -319,8 +319,8 @@ We recommend a monthly cap before renewals open in March.
 ## Canonical sources
 
 - `lib/base/base.registers.docs.md` — every front-matter register: `preset:`,
-  `mode:`, `finish:`, `fit:`, `split:`, `rule:`, `eyebrow:`, `headline:`,
-  `lift:`, `venue:`, `corners:` and the rest.
+  `mode:`, `finish:`, `fit:`, `split:`, `heading-rule:`, `eyebrow:`, `headline-align:`,
+  `card-lift:`, `venue:`, `slide-corners:` and the rest.
 - `lib/base/base.docs.md` § Common modifiers and § Switches — per-slide modifiers.
 - `design/theming.md` — palettes and the four ways to a dark canvas.
 - `lib/core/deck-settings.js` — the list of front-matter keys the linter knows.

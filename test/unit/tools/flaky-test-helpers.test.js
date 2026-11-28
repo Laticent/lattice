@@ -8,6 +8,10 @@ const { JSDOM } = require('jsdom');
 const { scanWork, charReads } = require('../../helpers/work-count');
 const { virtualClock } = require('../../helpers/runtime-boot');
 const { trackConnections } = require('../../helpers/request-log');
+const { runNode, runNodeSync, cpuMs, treeCpu } = require('../../helpers/spawn-progress');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 const net = require('node:net');
 const { EventEmitter, once } = require('node:events');
 
@@ -134,5 +138,191 @@ describe('trackConnections', () => {
     server.emit('connection', fakeSocket(() => port));
     await waiting;
     assert.equal(done, true);
+  });
+});
+
+// The deadline that replaced cli.test.js's fixed 10 s total (F4): a child fails for a hang, never for a slow machine.
+// Without /proc (macOS, Windows, or `watchProc: false`) the wall-clock ceiling is the only check; this arm runs on every
+// platform, so it proves a hang is still caught there.
+test('failing arm: with no /proc to watch by, the ceiling alone still kills a spinning child', async () => {
+  await assert.rejects(runNode('-e', ['for (;;) {}'], { watchProc: false, cpuBudgetMs: 100, stallMs: 100, ceilingMs: 1000 }), /still running after 1 s/);
+});
+
+// ci-skip: every CI unit job runs on ubuntu-24.04, where this block runs; only a macOS or Windows box (no /proc) skips it.
+describe('runNode', { skip: process.platform !== 'linux' && 'watches /proc, which only Linux has; elsewhere it is a wall-clock total' }, () => {
+  test('reads a process\'s own CPU time from /proc', () => {
+    const t = cpuMs(process.pid);
+    assert.ok(Number.isFinite(t) && t > 0, `cpu ${t}`);
+    assert.equal(cpuMs(2 ** 22 + 7), null, 'a pid that does not exist reads as null');
+  });
+
+  test('a child that exits is resolved with its status and output', async () => {
+    const r = await runNode('-e', ['console.log("out"); console.error("err"); process.exit(3)']);
+    assert.deepEqual(r, { status: 3, stdout: 'out\n', stderr: 'err\n' });
+  });
+
+  test('failing arm: a child that spins is killed once it has used its CPU budget', async () => {
+    await assert.rejects(runNode('-e', ['for (;;) {}'], { cpuBudgetMs: 500, stallMs: 60_000 }), /spun \d+ s of CPU without exiting/);
+  });
+
+  test('failing arm: a child that waits forever and uses no CPU is killed after the stall limit', async () => {
+    await assert.rejects(runNode('-e', ['setInterval(() => {}, 1e9)'], { cpuBudgetMs: 60_000, stallMs: 1000 }), /used no CPU for \d+ s/);
+  });
+
+  test('failing arm: a child that polls forever, its CPU never stalling, is killed at the ceiling', async () => {
+    const poller = 'setInterval(() => { const end = Date.now() + 5; while (Date.now() < end); }, 100);';
+    await assert.rejects(runNode('-e', [poller], { cpuBudgetMs: 60_000, stallMs: 60_000, ceilingMs: 1500 }), /still running after 1.5 s/);
+  });
+
+  test('failing arm: a child that exits while a process it started holds its output is reported, not waited on', async () => {
+    const orphan = "require('node:child_process').spawn(process.execPath, ['-e', 'setTimeout(() => {}, 3000)'], { stdio: 'inherit', detached: true }).unref();";
+    await assert.rejects(runNode('-e', [orphan], { stallMs: 1000 }), /exited, but its output was still open/);
+  });
+
+  test('a slow child that keeps working is never killed, though it runs longer than the stall limit', async () => {
+    // Runs about 2.3 s and never sits idle for more than 0.2 s: a starved process looks like this, a hung one does not.
+    const slow = 'let n = 0; const step = () => { const end = Date.now() + 30; while (Date.now() < end); if (++n < 10) setTimeout(step, 200); else console.log("done"); }; step();';
+    const r = await runNode('-e', [slow], { cpuBudgetMs: 60_000, stallMs: 1500 });
+    assert.deepEqual(r, { status: 0, stdout: 'done\n', stderr: '' });
+  });
+  // A child that starts processes (lattice.js starts Chromium) is judged by its whole tree, not by its own CPU alone.
+  // Each grandchild below is a plain Node process, so the arms run in a unit job; the real-Chromium arms live in
+  // test/integration/export/spawn-progress-chromium.test.js. Every child below is fixed source; what varies (the
+  // grandchild's code, a file path) reaches it in argv, never spliced into the source text.
+  const SPAWN_GRANDCHILD = "require('node:child_process').spawn(process.execPath, ['-e', process.argv[1]], { stdio: 'ignore' }); setInterval(() => {}, 1e9);";
+  const grandchild = (code) => [SPAWN_GRANDCHILD, code];
+
+  test('failing arm: a grandchild that spins while the child waits on it counts as the child spinning', async () => {
+    await assert.rejects(runNode('-e', grandchild('for (;;) {}'), { cpuBudgetMs: 500, stallMs: 60_000, ceilingMs: 20_000 }), /spun \d+ s of CPU without exiting/);
+  });
+
+  test('failing arm: a tree that only ticks, under the stall floor, is stuck though its CPU never stands still', async () => {
+    // 5 ms of work every 200 ms: about 25 ms per second, the shape of an idle Chromium waiting on a page that never loads.
+    const ticker = 'setInterval(() => { const end = Date.now() + 5; while (Date.now() < end); }, 200);';
+    await assert.rejects(runNode('-e', grandchild(ticker), { cpuBudgetMs: 60_000, stallMs: 2000, stallCpuMs: 200, ceilingMs: 20_000 }), /used \d+ ms of CPU in 2 s, no more than an idle process/);
+  });
+
+  test('a hung tree is killed whole: no grandchild outlives the test', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'spawn-progress-'));
+    const pidFile = path.join(dir, 'grandchild.pid');
+    const code = "const c = require('node:child_process').spawn(process.execPath, ['-e', 'setInterval(() => {}, 1e9)'], { stdio: 'ignore' }); require('node:fs').writeFileSync(process.argv[1], String(c.pid)); setInterval(() => {}, 1e9);";
+    // A 2 s window: the child's own start-up, which writes the pid file, always uses CPU inside it.
+    await assert.rejects(runNode('-e', [code, pidFile], { stallMs: 2000 }), /used no CPU for \d+ s/);
+    const pid = Number(fs.readFileSync(pidFile, 'utf8'));
+    // runNode rejects only once the tree is dead, so this reads the state right after the hang, with no wait.
+    let state = 'gone';
+    try { state = fs.readFileSync(`/proc/${pid}/stat`, 'utf8').split(') ')[1][0]; } catch { /* reaped */ }
+    assert.ok(state === 'gone' || state === 'Z', `grandchild ${pid} survived its tree's hang (state ${state})`);
+  });
+
+  test('the tree count keeps a grandchild\'s work after it exits', async () => {
+    // The grandchild works until it has used 400 ms of CPU (CPU, not wall time, so a starved box still gives it the
+    // full 400) and exits; the child says "gone" once it has, then waits. The count is read every 20 ms until then,
+    // and once after: it must never fall, and must still hold the grandchild's work at the end.
+    const work = 'while (process.cpuUsage().user + process.cpuUsage().system < 400_000);';
+    const code = "require('node:child_process').spawn(process.execPath, ['-e', process.argv[1]], { stdio: 'ignore' }).on('exit', () => console.log('gone')); setInterval(() => {}, 1e9);";
+    const child = require('node:child_process').spawn(process.execPath, ['-e', code, work]);
+    const reads = [];
+    let sample;
+    try {
+      const tree = treeCpu(child.pid); // inside the try, so a helper that throws still kills the child below
+      sample = setInterval(() => reads.push(tree.read()), 20);
+      await once(child.stdout, 'data'); // "gone": the grandchild has exited
+      clearInterval(sample);
+      reads.push(tree.read());
+      for (let i = 1; i < reads.length; i++) assert.ok(reads[i] >= reads[i - 1], `the count went down: ${reads[i - 1]} → ${reads[i]}`);
+      assert.ok(reads.at(-1) >= 300, `the grandchild's 400 ms of work reads as ${reads.at(-1)} ms once it has exited`);
+    } finally {
+      clearInterval(sample);
+      child.kill('SIGKILL');
+    }
+  });
+
+  test('runNodeSync relays status and output, and throws, with the reason, when the child hangs', () => {
+    const r = runNodeSync('-e', ['console.log("out"); console.error("err"); process.exit(3)']);
+    assert.deepEqual(r, { status: 3, stdout: 'out\n', stderr: 'err\n' });
+    assert.throws(() => runNodeSync('-e', ['console.error("before"); for (;;) {}'], { cpuBudgetMs: 500, stallMs: 60_000 }), /spun \d+ s of CPU without exiting[\s\S]*--- its stderr ---\nbefore/);
+  });
+
+  test('runNodeSync refuses a wall-clock timeout, the F4 shape it replaces, and any option it would drop', () => {
+    assert.throws(() => runNodeSync('-e', ['0'], { timeout: 60_000 }), /takes no `timeout`/);
+    assert.throws(() => runNodeSync('-e', ['0'], { input: 'x' }), /does not take `input`/);
+  });
+
+  test('failing arm: a grandchild that holds the pipe after the child exits is killed, and does not hold the test', () => {
+    // The child starts a grandchild that inherits its output, then exits at once: before any poll can see the
+    // grandchild. The grandchild writes its pid, and if it lives out 30 s it writes `finished`. runNodeSync must report
+    // the orphaned pipe and leave the grandchild dead, killed rather than finished. No clock: a helper that waits on
+    // the pipe sees `finished` appear; one that returns without killing finds the pid still running.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'spawn-progress-'));
+    const pidFile = path.join(dir, 'holder.pid');
+    const finished = path.join(dir, 'finished');
+    const holder = "const fs = require('node:fs'); fs.writeFileSync(process.argv[1], String(process.pid)); setTimeout(() => fs.writeFileSync(process.argv[2], 'yes'), 30_000);";
+    const code = "require('node:child_process').spawn(process.execPath, ['-e', process.argv[1], process.argv[2], process.argv[3]], { stdio: 'inherit' }).unref();";
+    let pid = null;
+    try {
+      assert.throws(() => runNodeSync('-e', [code, holder, pidFile, finished], { stallMs: 1000 }), /exited, but its output was still open/);
+      assert.equal(fs.existsSync(finished), false, 'the grandchild lived out its 30 s: runNodeSync waited on it');
+      pid = Number(fs.readFileSync(pidFile, 'utf8'));
+      let state = 'gone';
+      try { state = fs.readFileSync(`/proc/${pid}/stat`, 'utf8').split(') ')[1][0]; } catch { /* reaped */ }
+      assert.ok(state === 'gone' || state === 'Z', `the grandchild ${pid} holding the pipe survived (state ${state})`);
+    } finally {
+      if (pid) try { process.kill(pid, 'SIGKILL'); } catch { /* already gone */ } // never leak it, pass or fail
+    }
+  });
+
+  test('runNodeSync says so when its watcher dies, instead of passing that off as the child\'s result', () => {
+    // A watcher whose Node refuses to start (a bad NODE_OPTIONS) writes no verdict: that is the watcher dying, and it
+    // must not come back as the child's own exit status and stderr.
+    assert.throws(() => runNodeSync('-e', ['0'], { env: { ...process.env, NODE_OPTIONS: '--no-such-node-flag' } }), /watcher died/);
+  });
+
+  test('a test process blocked in runNodeSync still dies at once on SIGTERM, even after runNode ran in it', async () => {
+    // runNode used to arm SIGTERM handlers in the test process. While runNodeSync then blocked the event loop, a
+    // JavaScript handler could not run, so the signal waited for the child: up to the ceiling, then exit 1. With no
+    // handler there the default action ends it, so it dies BY the signal. The signal it ends by is the assertion.
+    const helper = path.join(__dirname, '..', '..', 'helpers', 'spawn-progress.js');
+    const parent = "const { runNode, runNodeSync } = require(process.argv[1]); runNode('-e', ['0']).then(() => { console.log('blocking'); runNodeSync('-e', ['setInterval(() => {}, 1e9)'], { stallMs: 20_000, ceilingMs: 20_000 }); });";
+    const p = require('node:child_process').spawn(process.execPath, ['-e', parent, helper]);
+    try {
+      await once(p.stdout, 'data'); // "blocking": runNodeSync is about to block
+      p.kill('SIGTERM');
+      const [code, signal] = await once(p, 'exit');
+      assert.deepEqual({ code, signal }, { code: null, signal: 'SIGTERM' });
+    } finally {
+      p.kill('SIGKILL');
+    }
+  });
+
+  test('a test\'s own runNode child stays in its process group, so Ctrl-C reaches it; a runNodeSync child gets its own', async () => {
+    // The terminal's Ctrl-C goes to its foreground group. A child moved to a group of its own would miss it, and a test
+    // process cannot pass it on without holding back SIGTERM during runNodeSync. So: same group under runNode, its own
+    // group only under runNodeSync, whose watcher passes the signal on.
+    const pgidOf = "const s = require('node:fs').readFileSync('/proc/self/stat', 'utf8'); console.log(s.slice(s.lastIndexOf(')') + 2).split(' ')[2], process.pid);";
+    const ownPgid = fs.readFileSync('/proc/self/stat', 'utf8').split(') ')[1].split(' ')[2];
+    const direct = (await runNode('-e', [pgidOf])).stdout.trim().split(' ');
+    assert.equal(direct[0], ownPgid, 'a runNode child left the test\'s process group');
+    const [pgid, pid] = runNodeSync('-e', [pgidOf]).stdout.trim().split(' ');
+    assert.equal(pgid, pid, 'a runNodeSync child is not the leader of a group of its own');
+  });
+
+  test('a child cannot fake a hang by what it prints', () => {
+    // The verdict travels on fd 3, which the child never has: whatever it writes is only output.
+    const r = runNodeSync('-e', ['console.error("\\n[spawn-progress] boom"); console.error(JSON.stringify({ hung: "boom" })); process.exit(2)']);
+    assert.equal(r.status, 2);
+    assert.match(r.stderr, /boom/);
+  });
+
+  test('runNodeSync reports the signal that ended a child, as spawnSync does', () => {
+    const r = runNodeSync('-e', ['process.kill(process.pid, "SIGTERM")']);
+    assert.deepEqual({ status: r.status, signal: r.signal }, { status: null, signal: 'SIGTERM' });
+  });
+
+  test('output decodes whole across chunk boundaries', () => {
+    // 600 KB of a three-byte character arrives in many chunks; a per-chunk decode splits some and prints U+FFFD.
+    const r = runNodeSync('-e', ['process.stdout.write("\u2014".repeat(200000))']);
+    assert.equal(r.stdout.length, 200000);
+    assert.ok(!r.stdout.includes('\ufffd'), 'a character split across chunks decoded as U+FFFD');
   });
 });

@@ -5,10 +5,10 @@
  * That one pins the kernel's decisions; this one pins that the decisions are
  * actually WIRED. A kernel returning the right answer into a call site nobody
  * added is the defect shape `inline-code-register-paths.test.js` exists for, and
- * `corners:` — the register this one was modeled on — has no such test, which is
+ * `slide-corners:` — the register this one was modeled on — has no such test, which is
  * a gap rather than a precedent.
  *
- * It matters more for this register than for a cosmetic one. `corners:` landing on
+ * It matters more for this register than for a cosmetic one. `slide-corners:` landing on
  * one path only makes a slide's corner disagree between the PDF and the exported
  * HTML. `fit:` landing on one path only means one of them REMOVES TEXT the
  * other keeps, from the same source, with no signal that the two differ.
@@ -73,7 +73,7 @@ test('the retired guards: spelling stamps nothing (renames decision D2)', () => 
 test('a per-slide fit-heal evicts the deck-wide token rather than sitting beside it', () => {
   // Both rules land at the same specificity, so side-by-side would let CSS source
   // order decide whether this slide keeps its text. The engine must EVICT.
-  const body = '# One\n\nProse.\n\n---\n\n<!-- _class: fit-heal -->\n\n## Two\n\nProse.';
+  const body = '# One\n\nProse.\n\n---\n\n<!-- @meta{class=fit-heal} -->\n\n## Two\n\nProse.';
   const [first, second] = classesOf(['fit: trim'], body);
 
   assert.ok(first.includes('fit-trim'), 'the deck token must reach an ordinary slide');
@@ -85,7 +85,7 @@ test('a per-slide fit-heal evicts the deck-wide token rather than sitting beside
 test('the kernel agrees with what the engine stamped — one answer, not two', () => {
   // `trimEnabled` is what a render path asks at trim time. If it disagreed with
   // the class the engine wrote, the register would be decorative.
-  const body = '# One\n\nProse.\n\n---\n\n<!-- _class: fit-heal -->\n\n## Two\n\nProse.';
+  const body = '# One\n\nProse.\n\n---\n\n<!-- @meta{class=fit-heal} -->\n\n## Two\n\nProse.';
   const [first, second] = classesOf(['fit: trim'], body);
 
   assert.equal(trimEnabled(first), true);

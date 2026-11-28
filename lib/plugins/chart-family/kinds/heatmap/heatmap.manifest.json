@@ -56,6 +56,7 @@
 		"assessment",
 		"positioning"
 	],
+	"searchTerms": ["heatmap", "matrix", "intensity", "density", "risks", "regions", "data"],
 	"description": "A numeric matrix read as intensity — where the value concentrates across two dimensions.",
 	"purpose": "Use when the question is 'where does this concentrate', not 'how do these compare'. Every row-by-column crossing carries a number, and one sequential ramp turns the whole grid into a shape a reader takes in at once — a retention cliff, a risk cluster, a quiet quarter.",
 	"slots": {

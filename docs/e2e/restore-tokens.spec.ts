@@ -6,7 +6,7 @@ import { CHROME, expect, gotoStudio, livePreview, openSection, persistedSource, 
 // preview draws that slide's bar back on top. The engine half is test/unit/core/restore-tokens-paths.test.js;
 // this pins the surface an author uses.
 
-const DECK = '---\ntitle: Restore\nspectrum: left\nheadline: center\n---\n\n<!-- _class: content -->\n\n## One slide\n\nBody.\n';
+const DECK = '---\ntitle: Restore\nspectrum: left\nheadline-align: center\n---\n\n<!-- @meta{layout=content} -->\n\n## One slide\n\nBody.\n';
 
 async function choose(page: Page, label: string, option: string): Promise<void> {
 	await page.getByRole('combobox', { name: label }).filter({ visible: true }).first().click();
@@ -35,7 +35,7 @@ for (const tag of ['', ' @webkit-tablet']) {
 		// The head names what the slide inherits; the default is listed as a choice of its own.
 		await expect(page.getByRole('combobox', { name: 'Spectrum edge' }).filter({ visible: true }).first()).toContainText('Auto — Left');
 		await choose(page, 'Spectrum edge', 'Top');
-		await expect.poll(() => persistedSource(page)).toContain('layout=content, class=spectrum-top');
+		await expect.poll(() => persistedSource(page)).toContain('layout=content, spectrum=top');
 		await expect.poll(async () => (await painted(page)).classes).toContain('spectrum-top');
 		const after = await painted(page);
 		expect(after.classes).not.toContain('spectrum-left');

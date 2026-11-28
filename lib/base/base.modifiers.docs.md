@@ -8,11 +8,11 @@ Every class word a slide accepts without a component declaring it, by group, and
 
 | Kind | The test |
 |---|---|
-| component | The first `_class` word: a key of the component catalog (`kpi`, `cards-grid`). |
+| component | The first word of the slide's class (`@meta{layout=…}`): a key of the component catalog (`kpi`, `cards-grid`). |
 | variant | In this component's own `variants`; legal only after that component (`kpi spotlight`). |
-| modifier | In a group of this manifest; it acts on a surface, and is offered where the component has that surface (`dark`, `rule-accent`). |
+| modifier | In a group of this manifest; it acts on a surface, and is offered where the component has that surface (`dark`, `heading-rule-accent`). |
 | switch | A modifier spelled `no-X` or `with-X`, X a name in lib/core/switches.mjs (`no-footer`, `with-period`). |
-| register | A front-matter key (`spectrum:`, `tag:`); it stamps the words of the groups it names below on every slide. |
+| register | A front-matter key (`spectrum:`, `card-tag:`); it stamps the words of the groups it names below on every slide. |
 | universal content | Markdown the engine detects (the eyebrow, the coda, the below-note, pills, marks) and `_directive:` comments; never a class word. |
 | engine class | Stamped by the engine (`lat-*`, `cat-N`, `progress-N`, `color-*`); an author never types it, and lint flags one that is typed. |
 
@@ -109,21 +109,21 @@ Acts on: chart-marks. Not offered. Pick one.
 
 - `chart-finish-ink` · `chart-finish-accent`
 
-### Headline — `headline`
+### Headline — `headline-align`
 
 The heading's treatment.
 
 Acts on: heading. Pick one.
 
-- `head-auto` · `head-left` · `head-center` · `head-right`
+- `headline-align-auto` · `headline-align-left` · `headline-align-center` · `headline-align-right`
 
-### Heading rule — `rule`
+### Heading rule — `heading-rule`
 
 The line beneath the heading.
 
 Acts on: heading. Pick one.
 
-- `rule-auto` · `rule-full` · `rule-short` · `rule-accent` · `no-heading-rule` · `with-heading-rule`
+- `heading-rule-auto` · `heading-rule-full` · `heading-rule-short` · `heading-rule-accent` · `no-heading-rule` · `with-heading-rule`
 
 ### Eyebrow — `eyebrow`
 
@@ -183,13 +183,13 @@ Acts on: the slide. Pick one.
 
 - `tone-pass` · `tone-warn` · `tone-fail` · `tone-skip`
 
-### Stamp shape — `stamp-style`
+### Stamp shape — `stamp-shape`
 
 The shape a state stamp draws in.
 
 Acts on: the slide. Pick one.
 
-- `stamp-tab` · `stamp-notch` · `stamp-bracket` · `stamp-seal` · `stamp-pill` · `stamp-ribbon` · `stamp-flag` · `stamp-underline` · `stamp-dot` · `stamp-mark` · `stamp-veil` · `stamp-bar` · `stamp-pin`
+- `stamp-shape-tab` · `stamp-shape-notch` · `stamp-shape-bracket` · `stamp-shape-seal` · `stamp-shape-pill` · `stamp-shape-ribbon` · `stamp-shape-flag` · `stamp-shape-underline` · `stamp-shape-dot` · `stamp-shape-mark` · `stamp-shape-veil` · `stamp-shape-bar` · `stamp-shape-pin`
 
 ### Tone shape — `tone-style`
 
@@ -208,21 +208,21 @@ Acts on: the slide.
 - one of `align-top` · `align-middle` · `align-bottom` · `align-spread` · `align-fill`
 - one of `align-left` · `align-center` · `align-right` · `align-full`
 
-### Card lift — `lift`
+### Card lift — `card-lift`
 
 The cards' elevation.
 
 Acts on: card-surface. Pick one.
 
-- `lifted` · `flat`
+- `card-lift-on` · `card-lift-off`
 
-### Corners — `corners`
+### Corners — `slide-corners`
 
 Rounded or square corners.
 
 Acts on: the slide. Pick one.
 
-- `corners-rounded` · `corners-square`
+- `slide-corners-rounded` · `slide-corners-square`
 
 ### Fit — `fit`
 
@@ -247,10 +247,10 @@ The tag on a card: color, size, placement, alignment.
 
 Acts on: the slide.
 
-- one of `tag-color` · `tag-plain` · `tag-bare`
-- one of `tag-small` · `tag-regular` · `tag-large`
-- one of `tag-corner` · `tag-foot` · `tag-notch` · `tag-band` · `tag-inline`
-- one of `tag-start` · `tag-center` · `tag-end`
+- one of `card-tag-color` · `card-tag-plain` · `card-tag-bare`
+- one of `card-tag-small` · `card-tag-regular` · `card-tag-large`
+- one of `card-tag-corner` · `card-tag-foot` · `card-tag-notch` · `card-tag-band` · `card-tag-inline`
+- one of `card-tag-start` · `card-tag-center` · `card-tag-end`
 
 ### Avatars — `avatar`
 
@@ -450,7 +450,7 @@ Acts on: chart-marks.
 
 ### Aliases — `aliases`
 
-Component-scoped words lint accepts on any slide: the components that own them list them as variants. `banner-tag` is the old name of `tag-band`.
+Component-scoped words lint accepts on any slide: the components that own them list them as variants. `banner-tag` is the old name of `card-tag-band`.
 
 Acts on: the slide. Not offered.
 
@@ -466,24 +466,24 @@ A register is a front-matter key. It stamps its value as class words on every sl
 | `venue:` | `venue` |  |
 | `typography:` | `type-set` |  |
 | `inline-code:` | `inline-code` |  |
-| `lift:` | `lift` |  |
+| `card-lift:` | `card-lift` |  |
 | `align:` | `align` |  |
-| `corners:` | `corners` |  |
+| `slide-corners:` | `slide-corners` |  |
 | `claim:` | `claim` |  |
 | `fit:` | `fit` |  |
 | `spectrum:` | `spectrum` |  |
 | `card-spectrum:` | `card-spectrum` |  |
 | `trim-spectrum:` | `trim-spectrum` |  |
-| `rule:` | `rule` |  |
+| `heading-rule:` | `heading-rule` |  |
 | `eyebrow:` | `eyebrow` |  |
-| `headline:` | `headline` |  |
-| `stamp:` | `stamp-style` |  |
+| `headline-align:` | `headline-align` |  |
+| `stamp-shape:` | `stamp-shape` |  |
 | `tone:` | `tone-style` |  |
 | `motion:` | `motion` |  |
 | `motion-style:` | `motion` |  |
 | `motion-speed:` | `motion` |  |
 | `backdrop:` | `backdrop` |  |
-| `tag:` | `card-tag` |  |
+| `card-tag:` | `card-tag` |  |
 | `agenda:` | `agenda` |  |
 | `chart-finish:` | `chart-finish`, `chart-finish-source` |  |
 | `color-intensity:` | `color-intensity` |  |

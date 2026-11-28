@@ -11,7 +11,7 @@ describe('mayReferenceWebImage', () => {
 	});
 
 	it("sees a video record's `poster=` word", () => {
-		expect(mayReferenceWebImage('<!-- _class: video -->\n\n## Tour\n\n`@video{"https://youtu.be/dQw4w9WgXcQ", poster="https://example.com/still.jpg"}`\n')).toBe(true);
+		expect(mayReferenceWebImage('<!-- @meta{layout=video} -->\n\n## Tour\n\n`@video{"https://youtu.be/dQw4w9WgXcQ", poster="https://example.com/still.jpg"}`\n')).toBe(true);
 		expect(mayReferenceWebImage('`@video{"https://youtu.be/dQw4w9WgXcQ", poster=//cdn.example.com/still.jpg}`')).toBe(true);
 	});
 

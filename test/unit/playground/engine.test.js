@@ -40,7 +40,7 @@ describe('playground engine', () => {
   test('renders verdict-grid checks in pills (token plugins are wired)', async () => {
     const pg = await loadEngine();
     const md = [
-      '<!-- _class: verdict-grid -->',
+      '<!-- @meta{layout=verdict-grid} -->',
       '',
       '## Which option meets the criteria.',
       '',
@@ -72,7 +72,7 @@ describe('playground engine', () => {
 
   test('checklist state markers are decoded (shared plugin parity)', async () => {
     const pg = await loadEngine();
-    const md = ['<!-- _class: checklist -->', '', '## Done', '', '- [x] Shipped', '- [ ] Pending'].join('\n');
+    const md = ['<!-- @meta{layout=checklist} -->', '', '## Done', '', '- [x] Shipped', '- [ ] Pending'].join('\n');
     const { html } = pg.render(md, 'cuoio');
     assert.match(html, /class="[^"]*state pass state-full[^"]*"/, 'checklist pass state applied');
   });

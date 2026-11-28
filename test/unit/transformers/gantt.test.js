@@ -102,7 +102,7 @@ const round3 = (n) => Math.round(n * 1000) / 1000;
 const GANTT_VOCAB = { names: new Set(['gantt', 'list']), modifiers: new Set() };
 const lintGantt = (deck) =>
   core.lintTextWith(deck, GANTT_VOCAB).filter((f) => f.classToken === 'gantt');
-const deck = (body) => `---\nmarp: true\n---\n\n<!-- _class: gantt -->\n\n${body}\n`;
+const deck = (body) => `---\nmarp: true\n---\n\n<!-- @meta{layout=gantt} -->\n\n${body}\n`;
 
 describe('gantt renderer — continuous time scale', () => {
   test('inclusive ordinal span: Q1..Q2 covers two of four quarters', () => {
@@ -1062,7 +1062,7 @@ describe('gantt — bracketed axis alongside the pills', () => {
 
   test('lint reads the list window for the mixed-time check', () => {
     const vocab = { names: new Set(['gantt']), modifiers: new Set() };
-    const deck = (axis) => `<!-- _class: gantt -->\n\n\`${axis}\`\n\n## H\n\n- Lane\n  - A \`Q1..Q2\`\n`;
+    const deck = (axis) => `<!-- @meta{layout=gantt} -->\n\n\`${axis}\`\n\n## H\n\n- Lane\n  - A \`Q1..Q2\`\n`;
     const rules = (axis) => core.lintTextWith(deck(axis), vocab).filter((f) => f.rule === 'gantt-mixed-time').length;
     assert.equal(rules('[{Timeline, 2026-01-01..2026-06-01}]'), 1);
     assert.equal(rules('2026-01-01 .. 2026-06-01'), 0, 'the retired eyebrow pill is not a window');

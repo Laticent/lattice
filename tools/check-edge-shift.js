@@ -158,7 +158,7 @@ const FIXED = [
   { label: 'content+fit-marked', cls: 'content', forceMark: 'fit-marked' },
   // One slide per stamp STYLE, each carrying a state, so every anchor shape (a corner tab, a full-width band,
   // a full-slide wash, a ribbon, a pin) is measured against every bar placement.
-  ...require('../lib/core/resolve-stamp.js').STAMP_STYLE_NAMES.map((n) => ({ label: `content+stamp-${n}`, cls: `content confidential stamp-${n}` })),
+  ...require('../lib/core/resolve-stamp-shape.js').STAMP_SHAPE_NAMES.map((n) => ({ label: `content+stamp-shape-${n}`, cls: `content confidential stamp-shape-${n}` })),
 ].map((s) => ({ ...s, body: STAMP_BODY }));
 
 function slideList() {
@@ -208,7 +208,7 @@ function deckFor(slides, placement) {
     ...EXTRA_FRONT_MATTER,
     '---',
   ].join('\n');
-  return `${fm}\n\n${slides.map((s) => `<!-- _class: ${s.cls}${EXTRA_CLASSES && !s.probe ? ` ${EXTRA_CLASSES}` : ''} -->\n\n${s.body}\n`).join('\n---\n\n')}`;
+  return `${fm}\n\n${slides.map((s) => `<!-- @meta{class="${s.cls}${EXTRA_CLASSES && !s.probe ? ` ${EXTRA_CLASSES}` : ''}"} -->\n\n${s.body}\n`).join('\n---\n\n')}`;
 }
 
 // ── the measurement, run inside the page ───────────────────────────────────────────────────
@@ -488,7 +488,7 @@ async function main() {
         // chrome (header, footer, page number, the alarm rail itself) is still measured.
         if (/\b(clip-marked|illegible)\b/.test(sec.cls) && (e.kind === 'content' || e.kind === 'heading')) continue;
         for (const [side, t] of Object.entries(thick)) {
-          // A band or wash that spans the whole slide across the bar (a full-width `stamp-notch`, a `stamp-veil`)
+          // A band or wash that spans the whole slide across the bar (a full-width `stamp-shape-notch`, a `stamp-shape-veil`)
           // lies UNDER the bar by design: the bar paints above it. Only an element that stops short of the far
           // edge, so it hangs near the bar, can crowd it.
           const across = side === 'left' || side === 'right' ? 0 : 1;

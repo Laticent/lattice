@@ -96,7 +96,6 @@ import { applyProfileToSource, assessDeck, type CoachAssessment, type CoachCard,
 import { FindingCard, type FindingFixState } from './coach/FindingCard';
 import { PHOTO_RULE, usePhotoContrast } from './coach/photo-contrast-watch';
 import { listStudioComponents, type StudioComponent } from './component-library';
-import { activeCorners, CORNERS } from './corners-catalog';
 import { BACKDROP_MASKS, BACKDROP_STRENGTHS, backdropDeckValue, CARD_TAG_AXES, type CardTagAxis, cardTagDeckValue, deckBackdrop, deckCardTag, deckImageCard, type ImageCardAxis, imageCardDeckValue, imageCardWords } from './deck-axes';
 import { useDeckFileDrop } from './deck-drop';
 import { addAfterAt, addBeforeAt, deleteAt, deleteTargetName, duplicateAt, flatOfSlide, isHiddenAt, moveAt, moveToAt, renderedCount, replaceSlide, SLIDE_SEP, type SlideAt } from './deck-ops';
@@ -116,7 +115,8 @@ import { coerceRecipe, generateSwatch as finishSwatch, generateFinishCss, mergeF
 import { deleteStudioFinish, listStudioFinishes, type StudioFinish } from './finish-library';
 import { afterFirstSlideAndPause, firstSlideShown, heldWarmPanels, markFirstSlideShown, noteActivity, useFirstSlideShown, whenQuiet } from './first-slide';
 import { activeFit, FIT } from './fit-catalog';
-import { activeHeadline, HEADLINES } from './headline-catalog';
+import { activeHeadingRule, HEADING_RULES } from './heading-rule-catalog';
+import { activeHeadlineAlign, HEADLINE_ALIGNS } from './headline-align-catalog';
 import { IntentTag } from './IntentTag';
 import { ChatIcon, FeedbackIcon, LensIcon, PreviewIcon } from './icons';
 import { CardBackingControl } from './image-card-backing';
@@ -143,7 +143,7 @@ import { type DiagramError, extractDiagrams } from './mermaid-check';
 import { readTargets, setSlideMotionOff } from './motion-sheet';
 import { NewSlideButton, type NewSlideSide } from './NewSlideButton';
 import { takeNewcomerBake } from './newcomer-bake';
-import { DEFAULT_STAMP, DEFAULT_TONE, glyphs, imageGlyph, logoGlyph, optionGlyph, SizeChip, tagGlyph } from './option-glyphs';
+import { DEFAULT_STAMP_SHAPE, DEFAULT_TONE, glyphs, imageGlyph, logoGlyph, optionGlyph, SizeChip, tagGlyph } from './option-glyphs';
 import { PresetPicker } from './PresetPicker';
 import { mayHavePaneSlides } from './pane-probe';
 import { ChatShell, LensesShell, LibraryShell, ShareShell, type SlideBaseline, SlideSettingsShell, WorkspaceShell } from './panel-shells';
@@ -153,7 +153,6 @@ import { PreviewPool } from './preview-pool';
 import { PREVIEW_CHROME, PREVIEW_RECT_KEY, STUDIO_SPLIT_KEY, STUDIO_SPLIT_PANEL_IDS } from './preview-rect';
 import { type ProgressRailAxis, parseProgressRail, progressRailLabel, progressRailOptions, progressRailValue } from './progress-rail';
 import { ReshapePicker } from './ReshapePicker';
-import { activeRule, RULES } from './rule-catalog';
 import { type ComponentEntry, SlidePicker } from './SlidePicker';
 import { SlideRail } from './SlideRail';
 import { DRAWER_LABEL, StudioDrawer } from './StudioDrawer';
@@ -161,6 +160,7 @@ import { listStudioScenes, type StudioScene } from './scene-library';
 import { ScrollFade } from './scroll-fade';
 import { SettingsDock } from './settings-dock';
 import { COMMENTS_EVENT, importComments, listComments, mergeSessionComments, setCommentRelay } from './slide-comments';
+import { activeSlideCorners, SLIDE_CORNERS } from './slide-corners-catalog';
 import { deckCaption, sizeRatio } from './slide-size';
 import { hasDrawnFence } from './slide-thumb';
 
@@ -326,7 +326,7 @@ type DeckTab = 'look' | 'chrome' | 'content' | 'general' | 'brand' | 'image' | '
 // without touching the list would render a section unreachable in grouped view. The pill
 // strip is derived from `deckSections` at its call site instead.
 
-// The head value for a register with NO named baseline (`stamp:`, `tone:`): absent means
+// The head value for a register with NO named baseline (`stamp-shape:`, `tone:`): absent means
 // "the engine's own default shape", which is not a value the register can spell. Radix
 // Select rejects an empty value, so the head needs a non-empty sentinel.
 /** The profile choices offered in the Coach, mirroring lib/authoring/deck-profiles.js.
@@ -2729,10 +2729,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const deckSize = getFrontMatter(source, 'size') || DEFAULT_SIZE;
 	// Page numbers are on unless the front matter says `pagination: false` (the owner's ruling, 2026-10-20).
 	const pageNumbers = paginateOn(getFrontMatter(source, 'pagination'));
-	// Card lift — the opt-in "Struck" elevation (`lift: on`). Off is the default;
-	// the toggle writes / clears the canonical `on`. Per-slide `_class: lifted`/`flat`
-	// override it in the source. (resolve-lift.js.)
-	const lift = registerValue(source, 'lift') === 'on';
+	// Card lift — the opt-in "Struck" elevation (`card-lift: on`). Off is the default;
+	// the toggle writes / clears the canonical `on`. Per-slide `_class: card-lift-on`/`card-lift-off`
+	// override it in the source. (resolve-card-lift.js.)
+	const lift = registerValue(source, 'card-lift') === 'on';
 	// Header & footer are DECLARATIONS, not toggles: the author types the running
 	// text that rides along the top / bottom of every slide. The band is on exactly
 	// when it carries text — an empty field clears the directive (the band is off).
@@ -2868,21 +2868,21 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		settingsWrite(`${label} → ${value}`, (s) => writeSpectrumAxis(s, key, axis, value));
 	const spectrumStyle = spectrumWord('spectrum', 'style');
 	const cardSpectrumStyle = spectrumWord('card-spectrum', 'style');
-	const headingRule = registerValue(source, 'rule');
-	const setHeadingRule = (value: string) => settingsWrite(`Heading rule → ${value}`, (s) => writeRegister(s, 'rule', value));
+	const headingRule = registerValue(source, 'heading-rule');
+	const setHeadingRule = (value: string) => settingsWrite(`Heading rule → ${value}`, (s) => writeRegister(s, 'heading-rule', value));
 	const eyebrow = registerValue(source, 'eyebrow');
 	const setEyebrow = (value: string) => settingsWrite(`Eyebrow → ${value}`, (s) => writeRegister(s, 'eyebrow', value));
-	const headline = registerValue(source, 'headline');
-	const setHeadline = (value: string) => settingsWrite(`Headline → ${value}`, (s) => writeRegister(s, 'headline', value));
+	const headline = registerValue(source, 'headline-align');
+	const setHeadline = (value: string) => settingsWrite(`Headline → ${value}`, (s) => writeRegister(s, 'headline-align', value));
 	// ── The registers the Inspector gained in the coverage audit ────────────────────
 	// Each one the engine already reads and no panel offered (see
 	// engineering/decisions/2026-08-18-settings-panel-coverage-and-ux.md §2.2). Same
 	// shape as every register above: read with a named baseline, and write `null` at
 	// that baseline so a default deck carries no key.
 
-	// Corners (`corners:`) — whether the slide surface itself is rounded. lib/core/resolve-corners.js.
-	const corners = registerValue(source, 'corners');
-	const setCorners = (value: string) => settingsWrite(`Corners → ${value}`, (s) => writeRegister(s, 'corners', value));
+	// Corners (`slide-corners:`) — whether the slide surface itself is rounded. lib/core/resolve-slide-corners.js.
+	const corners = registerValue(source, 'slide-corners');
+	const setCorners = (value: string) => settingsWrite(`Corners → ${value}`, (s) => writeRegister(s, 'slide-corners', value));
 	// The default finish REMOVES the line rather than writing `chart-finish: pigment`: a deck that says
 	// nothing wears it, and writeRegister drops a line only at the baseline ''.
 	// The value carries one word per axis (`tone ink`), so it is read by axis, and choosing a finish keeps tone's
@@ -2924,12 +2924,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		const withoutOld = writeFrontMatterLine(s, 'guards', null);
 		return writeFrontMatterLine(withoutOld, 'fit', value === 'pack' ? null : value);
 	});
-	// Deck-wide stamp SHAPE (`stamp:`) and tone SHAPE (`tone:`). These are the DECK
+	// Deck-wide stamp SHAPE (`stamp-shape:`) and tone SHAPE (`tone:`). These are the DECK
 	// halves of two axes whose per-slide overrides the slide Inspector has offered all
 	// along — the asymmetry the audit found. An absent key means the engine's own default
 	// shape (`tab`, `rail`), which the Auto head names; choosing it removes the key.
-	const stampStyleFM = getFrontMatter(source, 'stamp') || '';
-	const setStampStyleFM = (value: string) => settingsWrite(`Stamp shape → ${value}`, (s) => writeFrontMatterLine(s, 'stamp', value === DEFAULT_STAMP ? null : value));
+	const stampShapeFM = getFrontMatter(source, 'stamp-shape') || '';
+	const setStampShapeFM = (value: string) => settingsWrite(`Stamp shape → ${value}`, (s) => writeFrontMatterLine(s, 'stamp-shape', value === DEFAULT_STAMP_SHAPE ? null : value));
 	const toneStyleFM = getFrontMatter(source, 'tone') || '';
 	const setToneStyleFM = (value: string) => settingsWrite(`Tone shape → ${value}`, (s) => writeFrontMatterLine(s, 'tone', value === DEFAULT_TONE ? null : value));
 	// Pace (`pace:`) — how long a self-presenting deck holds on a new slide before it
@@ -2989,7 +2989,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// The stamp / tone SHAPE vocabularies come from the generated lint vocab — the same
 	// source the slide Inspector's per-slide pickers read, so the deck default and the
 	// per-slide override can never offer different shapes.
-	const stampVocab = (lintVocab as { stampStyles?: { boardroom: string[]; range: string[] } } | null)?.stampStyles ?? { boardroom: [], range: [] };
+	const stampVocab = (lintVocab as { stampShapes?: { boardroom: string[]; range: string[] } } | null)?.stampShapes ?? { boardroom: [], range: [] };
 	const toneVocab = (lintVocab as { toneStyles?: string[] } | null)?.toneStyles ?? [];
 	// The Content tab's switches own their tokens in the same key, for the same reason.
 	const OWNED_CLASS = new Set(['no-progress', ...CONTENT_SWITCH_TOKENS]);
@@ -3262,12 +3262,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		const next = { ...deckBd, [axis]: v === AUTO_VALUE ? undefined : v };
 		settingsWrite('Backdrop', (s) => writeFrontMatterLine(s, 'backdrop', backdropDeckValue(next.strength, next.mask)));
 	};
-	// Card tags — the deck `tag:` register (lib/core/resolve-card-tag.js): ONE line holding up to
+	// Card tags — the deck `card-tag:` register (lib/core/resolve-card-tag.js): ONE line holding up to
 	// four words (color, size, placement, alignment). Auto on an axis leaves its word out.
 	const deckTag = deckCardTag(source);
 	const setDeckTag = (axis: CardTagAxis, v: string) => {
 		const next = { ...deckTag, [axis]: v === AUTO_VALUE ? undefined : v };
-		settingsWrite('Card tags', (s) => writeFrontMatterLine(s, 'tag', cardTagDeckValue(next)));
+		settingsWrite('Card tags', (s) => writeFrontMatterLine(s, 'card-tag', cardTagDeckValue(next)));
 	};
 	// Image card — the deck `image-card:` register (lib/core/resolve-image-card.js): ONE line
 	// holding up to five words (placement, backing, ink, size, density). The default on an axis
@@ -3277,7 +3277,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		const next = { ...deckImage, [axis]: v === AUTO_VALUE ? undefined : v };
 		settingsWrite('Image card', (s) => writeFrontMatterLine(s, 'image-card', imageCardDeckValue(next)));
 	};
-	const toggleLift = () => settingsWrite(lift ? 'Card lift off' : 'Card lift on', (s) => writeRegister(s, 'lift', lift ? 'off' : 'on'));
+	const toggleLift = () => settingsWrite(lift ? 'Card lift off' : 'Card lift on', (s) => writeRegister(s, 'card-lift', lift ? 'off' : 'on'));
 	// Write the declared text (trimmed); a blank field clears the directive so the
 	// band turns off — no separate toggle, the presence of text IS the switch.
 	// The deck's SHELF NAME — `title:` front matter. This is the only way to CREATE the
@@ -4253,7 +4253,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				});
 		});
 	}, []);
-	// Storage durability — two quiet moves on boot. (1) Ask the browser to mark
+	// Storage durability — three quiet moves on boot. (1) Ask the browser to mark
 	// this origin's storage persistent (best-effort; silently denied where
 	// unsupported). (2) The EARNED backup nudge: only when real unbacked-up work
 	// exists, at most once per 14 days (shouldNudgeBackup) — ownership framing,
@@ -4265,6 +4265,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		} catch {
 			/* no Storage API here */
 		}
+		// (3) Library photos and videos move into the storage vault once, behind one automatic backup, or back out
+		// on the undo path (media-vault-move.ts `settleMediaStorage`). Off the boot path: it waits for an idle moment, and every photo still reads
+		// from where it is until its own move lands, so nothing on screen waits for it.
+		const move = () => void import('./media-vault-move').then((m) => m.settleMediaStorage()).catch(() => {});
+		const ric = (globalThis as { requestIdleCallback?: (fn: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
+		if (typeof ric === 'function') ric(move, { timeout: 5000 });
+		else setTimeout(move, 0);
 		const now = Date.now();
 		if (shouldNudgeBackup(now)) {
 			markBackupNudged(now);
@@ -6115,8 +6122,16 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			stop?.();
 		};
 	}, []);
-	const checkpoint = React.useCallback((label: string) => setCheckpoints(saveCheckpoint(deck.id, source, label, Date.now())), [deck.id, source]);
-	const saveVersion = () => { checkpoint('Saved version'); notify('Version saved to history.'); };
+	// "Saved" only once the version is durable. It used to show at the click, so a save the browser refused showed both
+	// "Version saved to history." and the storage-full notice, and a second refusal inside the notice's one-a-minute
+	// limit showed only "saved". The version is listed at once either way (the store's cache holds it until a reload).
+	const saveVersion = () => {
+		const saved = saveCheckpointDurably(deck.id, source, 'Saved version', Date.now());
+		setCheckpoints(loadCheckpoints(deck.id));
+		void saved.then((ok) => {
+			if (ok) notify('Version saved to history.');
+		}, () => {});
+	};
 	function restoreCheckpoint(cp: Checkpoint) {
 		// Snapshot the current state first so a restore is itself reversible.
 		saveCheckpoint(deck.id, source, 'Before restore', Date.now());
@@ -6946,8 +6961,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					</SettingsBlock>
 				)}
 				{/* Card lift — the opt-in "Struck" elevation. A deck-wide surface toggle
-				    alongside Finish; per-slide `_class: lifted`/`flat` override. */}
-				<Field label="Card lift" desc="A soft shadow under card surfaces." find="shadow elevation struck" help={<>The "Struck" elevation — a zero-blur shadow that lifts cards, KPI tiles and stats off the slide. It reads in both light and dark and survives the PDF export. A slide opts out with <code>_class: flat</code>.</>}><Toggle label="Card lift" on={lift} onClick={toggleLift} /></Field>
+				    alongside Finish; per-slide `_class: card-lift-on`/`card-lift-off` override. */}
+				<Field label="Card lift" desc="A soft shadow under card surfaces." find="shadow elevation struck" help={<>The "Struck" elevation — a zero-blur shadow that lifts cards, KPI tiles and stats off the slide. It reads in both light and dark and survives the PDF export. A slide opts out with <code>_class: card-lift-off</code>.</>}><Toggle label="Card lift" on={lift} onClick={toggleLift} /></Field>
 				{/* Chart finish — how every chart spends its color. Deck-wide here; a slide
 				    overrides it from its own settings (`_class: chart-finish-*`). */}
 				<Field label="Marks" desc="How every chart spends its color." find="chart finish pigment etch tone color charts" help={<>How every chart on the deck spends its color. <strong>Pigment</strong> (the default) puts it in the body: full-strength, flat color. <strong>Etch</strong> puts it in the line: a whisper of color under a doubled edge. <strong>Tone</strong> puts it in value: one hue in stepped shades. Every mark keeps an ink edge, and the a11y themes keep their patterns, under every finish. A slide overrides it with <code>_class: chart-finish-*</code>.</>}>
@@ -6973,7 +6988,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						);
 					})}
 				</SubGroup>
-				{/* The deck `tag:` register — ONE line, four axes, so four rows of one select each
+				{/* The deck `card-tag:` register — ONE line, four axes, so four rows of one select each
 				    (the Backdrop pattern). Auto on every axis removes the key. */}
 				<SubGroup label="Card tags">
 					{CARD_TAG_ROWS.map((row) => (
@@ -6989,8 +7004,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					))}
 				</SubGroup>
 				<SubGroup label="Frame and fit">
-					<Field label="Corners" desc="Square or rounded slide corners." help={<>Rounds the <strong>slide surface itself</strong> — a lighter, more screen-native frame. Square is the default. A slide opts back out with <code>_class: corners-square</code>.</>}>
-						<CatalogSelect ariaLabel="Choose corners" className="w-full" {...autoField(activeCorners(corners).name, activeCorners(presetBaseline(source, 'corners')).name, setCorners, [{ options: catalogOptions(CORNERS, glyphs('corners')) }])} />
+					<Field label="Corners" desc="Square or rounded slide corners." help={<>Rounds the <strong>slide surface itself</strong> — a lighter, more screen-native frame. Square is the default. A slide opts back out with <code>_class: slide-corners-square</code>.</>}>
+						<CatalogSelect ariaLabel="Choose corners" className="w-full" {...autoField(activeSlideCorners(corners).name, activeSlideCorners(presetBaseline(source, 'slide-corners')).name, setCorners, [{ options: catalogOptions(SLIDE_CORNERS, glyphs('slide-corners')) }])} />
 					</Field>
 					<Field label="Claim" desc="How much frame content sits inside." help={<>How much of the slide the content claims. <strong>Framed</strong> is the standard margin. <strong>Quiet</strong> pulls the frame back for dense or serial slides, <strong>Hero</strong> pushes it out for a statement, and <strong>Bleed</strong> runs content to the edges with no frame at all.</>}>
 						<CatalogSelect ariaLabel="Choose claim" className="w-full" {...autoField(activeClaim(claim).name, 'framed', setClaim, [{ options: catalogOptions(CLAIMS) }])} />
@@ -7226,13 +7241,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					<CatalogSelect ariaLabel="Choose trim spectrum" className="w-full" {...autoField(spectrumWord('trim-spectrum', 'style'), spectrumAuto('trim-spectrum', 'style'), setSpectrumWord('trim-spectrum', 'style', 'Trim spectrum'), [{ options: catalogOptions(TRIM_SPECTRA) }])} />
 				</Field>
 				<Field label="Heading rule" desc="The underline under a heading." help={<>A full hairline, a short rule, an accent segment, or none. <strong>Auto</strong> draws one only where the masthead already does.</>}>
-					<CatalogSelect ariaLabel="Choose heading rule" className="w-full" {...autoField(activeRule(headingRule).name, activeRule(presetBaseline(source, 'rule')).name, setHeadingRule, [{ options: catalogOptions(RULES) }])} />
+					<CatalogSelect ariaLabel="Choose heading rule" className="w-full" {...autoField(activeHeadingRule(headingRule).name, activeHeadingRule(presetBaseline(source, 'heading-rule')).name, setHeadingRule, [{ options: catalogOptions(HEADING_RULES) }])} />
 				</Field>
 				<Field label="Eyebrow" desc="The mark on the kicker line." help={<>The kicker is the small line above a heading, set in the type set's italic (Look → Typography). This is the mark that leads it — a dot, bar, arrow, underline, or plain.</>}>
 					<CatalogSelect ariaLabel="Choose eyebrow" className="w-full" {...autoField(activeEyebrow(eyebrow).name, activeEyebrow(presetBaseline(source, 'eyebrow')).name, setEyebrow, [{ options: catalogOptions(EYEBROWS) }])} />
 				</Field>
 				<Field label="Headline alignment" desc="Auto, or pin left / center / right." help={<>Aligns the whole framing cluster together — eyebrow, heading, rule, subtitle, note, key insight, caption. <strong>Auto</strong> keeps each component's own default.</>}>
-					<CatalogSelect ariaLabel="Choose headline alignment" className="w-full" {...autoField(activeHeadline(headline).name, activeHeadline(presetBaseline(source, 'headline')).name, setHeadline, [{ options: catalogOptions(HEADLINES, glyphs('align')) }])} />
+					<CatalogSelect ariaLabel="Choose headline alignment" className="w-full" {...autoField(activeHeadlineAlign(headline).name, activeHeadlineAlign(presetBaseline(source, 'headline-align')).name, setHeadline, [{ options: catalogOptions(HEADLINE_ALIGNS, glyphs('align')) }])} />
 				</Field>
 				{(stampVocab.boardroom.length > 0 || stampVocab.range.length > 0 || toneVocab.length > 0) && <SubGroup label="Badges">
 					{(stampVocab.boardroom.length > 0 || stampVocab.range.length > 0) && (
@@ -7240,9 +7255,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 							<CatalogSelect
 								ariaLabel="Choose stamp shape"
 								className="w-full"
-								{...autoField(stampStyleFM, DEFAULT_STAMP, setStampStyleFM, [
-									{ label: 'Boardroom', options: stampVocab.boardroom.map((n) => ({ value: n, label: cap(n), icon: optionGlyph('stamp', n) })) },
-									...(stampVocab.range.length ? [{ label: 'More', options: stampVocab.range.map((n) => ({ value: n, label: cap(n), icon: optionGlyph('stamp', n) })) }] : []),
+								{...autoField(stampShapeFM, DEFAULT_STAMP_SHAPE, setStampShapeFM, [
+									{ label: 'Boardroom', options: stampVocab.boardroom.map((n) => ({ value: n, label: cap(n), icon: optionGlyph('stamp-shape', n) })) },
+									...(stampVocab.range.length ? [{ label: 'More', options: stampVocab.range.map((n) => ({ value: n, label: cap(n), icon: optionGlyph('stamp-shape', n) })) }] : []),
 								])}
 							/>
 						</Field>

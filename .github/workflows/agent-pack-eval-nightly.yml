@@ -1,15 +1,22 @@
 name: Agent pack eval nightly
 
-# Does the agent pack make a model write a good deck? A model gets ONE pack file as its whole
-# system prompt (start.md for a capable model, the solo paste text for a small one), writes a
-# deck from each of three fixed briefs, and every deck goes through lint:deck and a real render.
-# tools/agent-pack-eval.mjs holds the briefs and the pass bar.
-# engineering/decisions/2026-11-17-agent-pack.md §4.5; the owner chose a nightly CI eval.
+# Does the agent pack make a model write a good deck? tools/agent-pack-eval.mjs gives a model the
+# agent kit's start.md, lets it read the kit files start.md links to (the retrieval arm: two turns),
+# and judges every deck with lint:deck and a real render. It holds the ten fixed briefs and the pass bar.
+# engineering/decisions/2026-11-17-agent-pack.md §4.5 and §4.10.
+#
+# Nightly: the retrieval arm, ten briefs, ONE model a night: Haiku 5.5 and DeepSeek V4.1 Flash
+# alternate by day (`--model nightly`; the owner's call, desk session_015KSkL4AtPNjvKkBShG56Nu,
+# 2026-11-27: "mix it up, not stack"). Dispatch runs anything else, e.g. the per-release Sonnet check
+# (RELEASE.md) or a paired old-vs-new start.md comparison (old_ref).
 #
 # Spends OUR OpenRouter key (HARD RULE #24), so it is nightly + dispatch only, never on the PR
 # path, and sanctioned in tools/check-ownership.js (SANCTIONED_OPENROUTER_WORKFLOWS). It FAILS
-# when the secret is unset rather than skipping green (#1931). Cost: six completions over an
-# ~11k-token prompt, about USD 0.15 to 0.26 a night (measured 2026-11-19); the tool prints the real figure.
+# when the secret is unset rather than skipping green (#1931). The tool stops hard at --max-usd
+# (USD 0.25 a night), pricing each call's worst case at the model's dearest provider, and prints
+# OpenRouter's own figure. Cost: about USD 0.02 to 0.06 a night on either model at the cheapest
+# provider, which the request asks for first; priced 2026-11-27 from OpenRouter's live list for ten
+# two-turn decks over the ~11.7k-token start.md. Replace it with R1's measured figure once that run reports.
 
 on:
   schedule:
@@ -17,9 +24,38 @@ on:
   workflow_dispatch:
     inputs:
       arm:
-        description: 'One arm only: start or small. Empty = both.'
+        description: 'start, small or retrieval. Empty = retrieval.'
         required: false
         default: ''
+      model:
+        description: 'An OpenRouter model id, or "nightly" (Haiku and DeepSeek by day). Empty = nightly.'
+        required: false
+        default: ''
+      repeat:
+        description: 'Runs per brief (seed = repeat index). Use temperature above 0 with more than 1.'
+        required: false
+        default: '1'
+      temperature:
+        description: 'Sampling temperature.'
+        required: false
+        default: '0'
+      reasoning:
+        description: 'Reasoning: auto (off for Haiku and DeepSeek, a 1,500-token budget for other Anthropic models, effort minimal for the rest), none (off; a model that must reason refuses it), low, minimal, medium, high, or default (send nothing).'
+        required: false
+        default: 'auto'
+      max_usd:
+        description: 'Hard cap in USD; the run stops before a call could cross it.'
+        required: false
+        default: '0.25'
+      old_ref:
+        description: 'Paired mode: a git ref whose built start.md is the OLD arm (the new one is this checkout).'
+        required: false
+        default: ''
+      probe:
+        description: 'Only count prompt tokens (one max_tokens-1 call per start.md); no decks.'
+        type: boolean
+        required: false
+        default: false
       stop_probe:
         description: 'Run tools/stop-billing-probe.mjs (cap USD 0.10) instead of the eval: how OpenRouter bills a stopped chat request (#3533).'
         type: boolean
@@ -29,15 +65,19 @@ on:
 permissions:
   contents: read
 
+# A manual dispatch gets a group of its own, so it never cancels another. GitHub keeps one PENDING
+# run per group and drops older pending ones, so a shared group let one dispatch silently cancel
+# the next (run 46064627987, 2026-11-27). Each dispatch spends up to its own max_usd. Scheduled
+# nights share one group and never overlap.
 concurrency:
-  group: agent-pack-eval-nightly
+  group: agent-pack-eval-${{ github.event_name == 'workflow_dispatch' && github.run_id || 'nightly' }}
   cancel-in-progress: false
 
 jobs:
   eval:
     if: ${{ !inputs.stop_probe }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 90 # a paired run (60 decks plus a second build) is estimated near an hour; a nightly ~15 min
     steps:
       - name: Require the OpenRouter key
         run: |
@@ -64,17 +104,66 @@ jobs:
         timeout-minutes: 5 # a stalled download fails here, not at the job cap
       - name: Build the agent kit and the CLI
         run: npm run build
+      # Paired mode: check the old ref out beside this one, build it with its own dependencies,
+      # and keep only its start.md. The judge (lint:deck, the render) stays this checkout's.
+      # actions/checkout's `ref` reads a short sha as a branch name and fails (run 46107299456),
+      # so the old tree takes full history and git resolves the ref: a branch, a tag, or a sha of
+      # any length.
+      - uses: actions/checkout@v4
+        if: ${{ inputs.old_ref != '' }}
+        with:
+          path: old-tree
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Build the old start.md
+        if: ${{ inputs.old_ref != '' }}
+        env:
+          OLD_REF: ${{ inputs.old_ref }}
+        run: |
+          set -euo pipefail
+          sha=$(git -C old-tree rev-parse --verify --quiet --end-of-options "${OLD_REF}^{commit}" ||
+                git -C old-tree rev-parse --verify --quiet --end-of-options "origin/${OLD_REF}^{commit}") ||
+            { echo "::error::old_ref '${OLD_REF}' is not a commit, branch or tag in this repository"; exit 1; }
+          git -C old-tree checkout --quiet --detach "$sha"
+          echo "old start.md from $(git -C old-tree rev-parse HEAD)" | tee -a "$GITHUB_STEP_SUMMARY"
+          (cd old-tree && npm ci && npm run build)
+          cp old-tree/dist/agent-kit/start.md "$RUNNER_TEMP/old-start.md"
       - name: Run the eval
         env:
           OPEN_ROUTER_KEY: ${{ secrets.OPEN_ROUTER_KEY }}
           OPENROUTER_ALLOW_SPEND: '1'
           ARM: ${{ inputs.arm }}
-        # pipefail: without it the step takes tee's exit code, and a failed deck goes green.
+          MODEL: ${{ inputs.model }}
+          REPEAT: ${{ inputs.repeat }}
+          TEMPERATURE: ${{ inputs.temperature }}
+          REASONING: ${{ inputs.reasoning }}
+          MAX_USD: ${{ inputs.max_usd }}
+          OLD_REF: ${{ inputs.old_ref }}
+          PROBE: ${{ inputs.probe }}
+        # A schedule run has no inputs, so every one falls back to the nightly default here.
+        # Red means the run broke, not that a deck failed (owner's D2, 2026-11-28). The tool exits 10
+        # (DECKS_FAILED) when the decks ran and some failed their checks, which pass rates of 5 to 9
+        # in 10 make nearly every night. The step reads 10 alone as green and leaves the deck table
+        # in the step summary. Every other non-zero code stays red, including Node's own 1. Only one
+        # line in the tool returns 10, so no crash can pass for a result. PIPESTATUS[0] is the
+        # tool's own code, not tee's.
         run: |
-          set -euo pipefail
-          args=(--out eval-out)
-          if [ -n "${ARM:-}" ]; then args+=(--arm "$ARM"); fi
+          set -uo pipefail
+          args=(--out eval-out --arm "${ARM:-retrieval}" --model "${MODEL:-nightly}" --repeat "${REPEAT:-1}"
+                --temperature "${TEMPERATURE:-0}" --reasoning "${REASONING:-auto}" --max-usd "${MAX_USD:-0.25}")
+          if [ -n "${OLD_REF:-}" ]; then args+=(--old "$RUNNER_TEMP/old-start.md"); fi
+          if [ "${PROBE:-false}" = 'true' ]; then args+=(--probe); fi
+          # GitHub runs this as `bash -e {0}`, and pipefail is set above, so without +e a non-zero tool
+          # exit kills the step before the next line reads it (run 46142692312 went red on exit 10).
+          set +e
           node tools/agent-pack-eval.mjs "${args[@]}" | tee -a "$GITHUB_STEP_SUMMARY"
+          code=${PIPESTATUS[0]}
+          set -e
+          if [ "$code" -eq 10 ]; then
+            echo "::notice title=Decks failed::at least one deck failed; the table above is the result, and the run itself is sound"
+            exit 0
+          fi
+          exit "$code"
       - name: Upload the decks, PDFs and summary
         if: always()
         uses: actions/upload-artifact@v4

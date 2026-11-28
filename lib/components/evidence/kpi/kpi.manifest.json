@@ -72,6 +72,7 @@
     "metric",
     "okr"
   ],
+  "searchTerms": ["metrics", "kpi", "numbers", "dashboard", "scores", "results", "performance", "grade", "target"],
   "description": "Executive KPI system — one base, five layout modifiers.",
   "purpose": "Use for KPI dashboards with status framing — current value, target, trend, attention-needed. Bare `kpi` resolves to the briefing layout; the five modifiers tune the visual emphasis for different audiences (ops, compliance, investor, headline).",
   "variants": [

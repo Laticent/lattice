@@ -9,7 +9,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { findBareRowPills } = require('../../../lib/authoring/bare-row-pill.js');
 
-const deck = (klass, body) => `---\nmarp: true\n---\n\n<!-- _class: ${klass} -->\n\n${body}\n`;
+const deck = (klass, body) => `---\nmarp: true\n---\n\n<!-- @meta{class=${klass}} -->\n\n${body}\n`;
 const spans = (klass, body) => findBareRowPills(deck(klass, body)).map((f) => f.span);
 
 test('a trailing span on a card title is a bare pill, and the fix names the notation', () => {
@@ -69,7 +69,7 @@ test('the components the old universal rule reached are covered, not only the on
 });
 
 test('a deck whose register is `inline-code: literal` is not advised to write braces', () => {
-  const md = '---\ninline-code: literal\n---\n\n<!-- _class: cards-stack -->\n\n## T\n\n- Row `shipped`\n';
+  const md = '---\ninline-code: literal\n---\n\n<!-- @meta{layout=cards-stack} -->\n\n## T\n\n- Row `shipped`\n';
   assert.deepEqual(findBareRowPills(md), []);
 });
 

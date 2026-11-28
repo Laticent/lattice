@@ -113,7 +113,7 @@ describe('unknownComponents (fuzz)', () => {
 	it('flags exactly the names not in the known set — never throws', () => {
 		fc.assert(
 			fc.property(fc.array(nameArb, { maxLength: 12 }), (names) => {
-				const src = names.map((n) => `<!-- _class: ${n} -->\n# ${n}`).join('\n---\n');
+				const src = names.map((n) => `<!-- @meta{class=${n}} -->\n# ${n}`).join('\n---\n');
 				const flagged = unknownComponents(src, KNOWN);
 				const expected = names.filter((n) => !KNOWN.includes(n));
 				expect(flagged).toEqual(expected);
@@ -131,7 +131,7 @@ describe('unknownComponents (fuzz)', () => {
 	it('a deck of only-known components has zero issues', () => {
 		fc.assert(
 			fc.property(fc.array(fc.constantFrom(...KNOWN), { minLength: 1, maxLength: 10 }), (names) => {
-				const src = names.map((n) => `<!-- _class: ${n} -->`).join('\n---\n');
+				const src = names.map((n) => `<!-- @meta{class=${n}} -->`).join('\n---\n');
 				expect(unknownComponents(src, KNOWN)).toEqual([]);
 			}),
 			FC,
@@ -152,7 +152,7 @@ describe('slideClass (fuzz)', () => {
 	it("returns the slide's first `_class`, or `text` for a bare slide — never throws", () => {
 		fc.assert(
 			fc.property(nameArb, bodyArb, (name, body) => {
-				expect(slideClass(`<!-- _class: ${name} -->\n${body}`)).toBe(name);
+				expect(slideClass(`<!-- @meta{class=${name}} -->\n${body}`)).toBe(name);
 			}),
 			FC,
 		);
@@ -168,32 +168,32 @@ describe('slideClass (fuzz)', () => {
 	// slide the LAST `_class` wins. A slide "somehow carries two" whenever an author deletes
 	// a `---` to merge two slides, so the rail was naming the slide that got absorbed.
 	it('names a panes slide `panes`: its two components are the panes\', not the slide\'s', () => {
-		expect(slideClass('## Title\n\n<!-- pane: list -->\n\n- a\n\n<!-- pane: table -->\n\n| a |\n|---|\n| 1 |\n')).toBe('panes');
-		expect(slideClass('## Title\n\n<!-- pane: list -->\n\n- a\n')).toBe('content'); // one marker carves nothing
+		expect(slideClass('## Title\n\n<!-- @meta{pane=list} -->\n\n- a\n\n<!-- @meta{pane=table} -->\n\n| a |\n|---|\n| 1 |\n')).toBe('panes');
+		expect(slideClass('## Title\n\n<!-- @meta{pane=list} -->\n\n- a\n')).toBe('content'); // one marker carves nothing
 	});
 
 	// Every marker spelling is read by the one shared reader (lib/core/meta-door.mjs `parsePaneMarker`, record note §5.4.1).
 	it('names a panes slide `panes` in every marker spelling', () => {
 		const two = (a: string, b: string) => `## Title\n\n${a}\n\n- a\n\n${b}\n\n- b\n`;
-		expect(slideClass(two('<!-- _pane: list -->', '<!-- _pane: table no-title -->'))).toBe('panes');
-		expect(slideClass(two('<!-- {pane="list"} -->', '<!-- {pane="table no-title"} -->'))).toBe('panes');
+		expect(slideClass(two('<!-- @meta{pane=list} -->', '<!-- @meta{pane=table no-title} -->'))).toBe('panes');
+		expect(slideClass(two('<!-- @meta{pane="list"} -->', '<!-- @meta{pane="table no-title"} -->'))).toBe('panes');
 		expect(slideClass(two('<!-- @meta{pane="list"} -->', '<!-- @meta{pane="table"} -->'))).toBe('panes');
-		expect(slideClass(two('<!-- {footer=x, pane="list"} -->', '<!-- {pane="table", footer=y} -->'))).toBe('panes');
+		expect(slideClass(two('<!-- @meta{footer=x, pane="list"} -->', '<!-- @meta{pane="table", footer=y} -->'))).toBe('panes');
 		expect(slideClass(two('<!-- lat-meta: {"carry":false,"d":{"pane":"list"}} -->', '<!-- lat-meta: {"carry":false,"d":{"pane":"table"}} -->'))).toBe('panes');
-		expect(slideClass(two('<!-- _pane: list -->', '<!-- {pane="table"} -->'))).toBe('panes');
-		expect(slideClass('## Title\n\n<!-- {pane="list"} -->\n\n- a\n')).toBe('content');
-		expect(slideClass(two('<!-- {footer=x} -->', '<!-- {footer=y} -->'))).toBe('content');
+		expect(slideClass(two('<!-- @meta{pane=list} -->', '<!-- @meta{pane="table"} -->'))).toBe('panes');
+		expect(slideClass('## Title\n\n<!-- @meta{pane="list"} -->\n\n- a\n')).toBe('content');
+		expect(slideClass(two('<!-- @meta{footer=x} -->', '<!-- @meta{footer=y} -->'))).toBe('content');
 	});
 
 	it('reads the LAST class when a slide carries two — the one the engine applies', () => {
-		expect(slideClass('<!-- _class: kpi -->\n<!-- _class: quote -->\n\ntext\n')).toBe('quote');
+		expect(slideClass('<!-- @meta{layout=kpi} -->\n<!-- @meta{layout=quote} -->\n\ntext\n')).toBe('quote');
 	});
 });
 
 describe('slideTitle (reader-facing navigator label)', () => {
 	it("returns the slide's first heading, past directives, stripped of inline syntax", () => {
-		expect(slideTitle('<!-- _class: title -->\n\n# Welcome to Lattice')).toBe('Welcome to Lattice');
-		expect(slideTitle('<!-- _class: big-number -->\n\n## What’s in the box')).toBe('What’s in the box');
+		expect(slideTitle('<!-- @meta{layout=title} -->\n\n# Welcome to Lattice')).toBe('Welcome to Lattice');
+		expect(slideTitle('<!-- @meta{layout=big-number} -->\n\n## What’s in the box')).toBe('What’s in the box');
 		// Inline emphasis / code / links are stripped to plain text.
 		expect(slideTitle('# The **bold** `truth` and a [link](https://x.io)')).toBe('The bold truth and a link');
 		// A closing-hash ATX heading trims the trailing hashes.
@@ -201,7 +201,7 @@ describe('slideTitle (reader-facing navigator label)', () => {
 	});
 
 	it('returns empty string when the slide has no heading (caller falls back to "Slide N") — never throws', () => {
-		expect(slideTitle('<!-- _class: quote -->\n\nJust a pull quote, no heading.')).toBe('');
+		expect(slideTitle('<!-- @meta{layout=quote} -->\n\nJust a pull quote, no heading.')).toBe('');
 		expect(slideTitle('')).toBe('');
 		expect(slideTitle(undefined as unknown as string)).toBe('');
 		// A `#` without the required space is not an ATX heading.
@@ -289,7 +289,7 @@ describe('slideIndexAt / slideStartOffset (editor↔preview sync, fuzz)', () => 
 	});
 
 	it('slide 0 starts after the front matter, not at offset 0', () => {
-		const src = `${FM}<!-- _class: title -->\n\n# Title`;
+		const src = `${FM}<!-- @meta{layout=title} -->\n\n# Title`;
 		expect(slideStartOffset(src, 0)).toBe(FM.length);
 		expect(slideIndexAt(src, FM.length)).toBe(0);
 		// A caret INSIDE the front matter clamps to slide 0 rather than naming a slide that isn't there.
@@ -405,7 +405,7 @@ describe('presentationSet (reader lenses)', () => {
 	};
 
 	it('`full` is the whole deck; an unknown lens with no registry falls back to the whole deck', () => {
-		const slideArb = fc.array(fc.constantFrom('title', 'kpi', 'quote', 'stats', 'closing'), { minLength: 1, maxLength: 8 }).map((cs) => cs.map((c) => `<!-- _class: ${c} -->\n# ${c}`));
+		const slideArb = fc.array(fc.constantFrom('title', 'kpi', 'quote', 'stats', 'closing'), { minLength: 1, maxLength: 8 }).map((cs) => cs.map((c) => `<!-- @meta{class=${c}} -->\n# ${c}`));
 		fc.assert(
 			fc.property(slideArb, (slides) => {
 				expect(presentationSet(slides, 'full')).toEqual(slides);
@@ -421,7 +421,7 @@ describe('presentationSet (reader lenses)', () => {
 	});
 
 	it('under `full`, presentationIndices is the identity 0..n-1', () => {
-		const slides = ['<!-- _class: title -->\n# a', '<!-- _class: kpi -->\n# b', '<!-- _class: quote -->\n# c'];
+		const slides = ['<!-- @meta{layout=title} -->\n# a', '<!-- @meta{layout=kpi} -->\n# b', '<!-- @meta{layout=quote} -->\n# c'];
 		expect(presentationIndices(slides, 'full')).toEqual([0, 1, 2]);
 	});
 
@@ -431,9 +431,9 @@ describe('presentationSet (reader lenses)', () => {
 	// index, not the set position.
 	it('projects a registry (tag-driven) lens via the library, preserving author indices', () => {
 		const slides = [
-			'<!-- _class: title -->\n<!-- _lens: brief -->\n# t', // 0 — tagged into brief
-			'<!-- _class: quote -->\n# q', // 1 — not in brief (dropped)
-			'<!-- _class: kpi -->\n<!-- _lens: brief -->\n# k', // 2 — tagged into brief
+			'<!-- @meta{layout=title} -->\n<!-- @meta{lens=brief} -->\n# t', // 0 — tagged into brief
+			'<!-- @meta{layout=quote} -->\n# q', // 1 — not in brief (dropped)
+			'<!-- @meta{layout=kpi} -->\n<!-- @meta{lens=brief} -->\n# k', // 2 — tagged into brief
 		];
 		expect(presentationSet(slides, 'brief', registry)).toEqual([slides[0], slides[2]]);
 		// The second SHOWN slide is authored slide 3 (index 2) → its number-keyed caption resolves via
@@ -442,7 +442,7 @@ describe('presentationSet (reader lenses)', () => {
 		// A registry lens with no members projects an EMPTY set (honest, not fail-open to the whole deck)
 		// — the reader path renders "unavailable"; a fail-open here would show slides the author
 		// scoped out of that view.
-		expect(presentationSet(['<!-- _class: title -->\n# t'], 'brief', registry)).toEqual([]);
+		expect(presentationSet(['<!-- @meta{layout=title} -->\n# t'], 'brief', registry)).toEqual([]);
 	});
 });
 
@@ -462,16 +462,11 @@ describe('presentationSet (reader lenses)', () => {
 // carrying a fifth copy of the parse.
 describe('usedComponents / slideClass agree with the engine about what a directive is', () => {
 	const HONORED: Array<[string, string, string]> = [
-		['the plain shape', '<!-- _class: title -->\n\n# Hi\n', 'title'],
-		['trailing spaces after the close', '<!-- _class: title -->   \n\n# Hi\n', 'title'],
-		['extra modifier tokens', '<!-- _class: kpi dark scale-xl -->\n\n# Hi\n', 'kpi'],
-		['below the slide’s content', '# Hi\n\n<!-- _class: title -->\n', 'title'],
-		// The four the column-0 anchor lost. markdown-it opens the html_block INSIDE the
-		// container, so every one of these renders the class.
-		['a bullet prefix', '- <!-- _class: kpi -->\n\n# Hi\n', 'kpi'],
-		['a blockquote prefix', '> <!-- _class: kpi -->\n\n# Hi\n', 'kpi'],
-		['an ordered-list prefix', '1. <!-- _class: kpi -->\n\n# Hi\n', 'kpi'],
-		['a running global (no underscore)', '<!-- class: kpi -->\n\n# Hi\n', 'kpi'],
+		['the plain shape', '<!-- @meta{layout=title} -->\n\n# Hi\n', 'title'],
+		['trailing spaces after the close', '<!-- @meta{layout=title} -->   \n\n# Hi\n', 'title'],
+		['extra modifier tokens', '<!-- @meta{layout=kpi, class=dark scale-xl} -->\n\n# Hi\n', 'kpi'],
+		['below the slide’s content', '# Hi\n\n<!-- @meta{layout=title} -->\n', 'title'],
+		['a running global (no underscore)', '<!-- @meta{layout=kpi, carry} -->\n\n# Hi\n', 'kpi'],
 	];
 	for (const [what, src, cls] of HONORED) {
 		it(`honors ${what}`, () => {
@@ -482,15 +477,22 @@ describe('usedComponents / slideClass agree with the engine about what a directi
 
 	const IGNORED: Array<[string, string]> = [
 		// The one a stray keystroke produces. Engine: `content form`.
-		['one character after the close', '<!-- _class: title -->.\n\n# Hi\n'],
-		['words after the close', '<!-- _class: title --> trailing\n\n# Hi\n'],
-		['prose before the open', 'text <!-- _class: title -->\n\n# Hi\n'],
+		['one character after the close', '<!-- @meta{layout=title} -->.\n\n# Hi\n'],
+		['words after the close', '<!-- @meta{layout=title} --> trailing\n\n# Hi\n'],
+		['prose before the open', 'text <!-- @meta{layout=title} -->\n\n# Hi\n'],
 		// A deck that documents Lattice quotes a directive. Engine: `content form`.
-		['a directive quoted inside a fence', '```md\n<!-- _class: kpi -->\n```\n\n# Hi\n'],
-		['a directive inside a tilde fence', '~~~\n<!-- _class: kpi -->\n~~~\n\n# Hi\n'],
+		['a directive quoted inside a fence', '```md\n<!-- @meta{layout=kpi} -->\n```\n\n# Hi\n'],
+		['a directive inside a tilde fence', '~~~\n<!-- @meta{layout=kpi} -->\n~~~\n\n# Hi\n'],
 		// A TAB indent is an indented code block to markdown-it, so this is not a directive.
-		['a tab-indented directive', '\t<!-- _class: kpi -->\n\n# Hi\n'],
-		['a four-space-indented directive', '    <!-- _class: kpi -->\n\n# Hi\n'],
+		['a tab-indented directive', '\t<!-- @meta{layout=kpi} -->\n\n# Hi\n'],
+		['a four-space-indented directive', '    <!-- @meta{layout=kpi} -->\n\n# Hi\n'],
+		// A record inside a list item or a blockquote applies nothing (record note D1). Before the cut an old
+		// `_class` comment there did set the class, because markdown-it opens the html_block inside the container.
+		['a record behind a bullet prefix', '- <!-- @meta{layout=kpi} -->\n\n# Hi\n'],
+		['a record behind a blockquote prefix', '> <!-- @meta{layout=kpi} -->\n\n# Hi\n'],
+		['a record behind an ordered-list prefix', '1. <!-- @meta{layout=kpi} -->\n\n# Hi\n'],
+		// The old comment sets nothing anywhere since the cut (record note §15).
+		['an old `_class` comment', '<!-- _class: kpi -->\n\n# Hi\n'],
 	];
 	for (const [what, src] of IGNORED) {
 		it(`ignores ${what}`, () => {
@@ -500,7 +502,7 @@ describe('usedComponents / slideClass agree with the engine about what a directi
 	}
 
 	it('reads every honored directive in a multi-slide deck, in order', () => {
-		const deck = '<!-- _class: title -->\n\n# A\n\n---\n\n```md\n<!-- _class: quote -->\n```\n\n---\n\n<!-- _class: kpi -->\n\n# C\n';
+		const deck = '<!-- @meta{layout=title} -->\n\n# A\n\n---\n\n```md\n<!-- @meta{layout=quote} -->\n```\n\n---\n\n<!-- @meta{layout=kpi} -->\n\n# C\n';
 		expect(usedComponents(deck)).toEqual(['title', 'kpi']);
 		expect(unknownComponents(deck, KNOWN)).toEqual([]);
 	});
@@ -509,7 +511,7 @@ describe('usedComponents / slideClass agree with the engine about what a directi
 	// CHUNK. `usedComponents` counts DIRECTIVE LINES, because `issues` is a count of things
 	// an author has to go and fix — one typo'd global is one problem, not one per slide.
 	it('counts a running global once, not once per slide it governs', () => {
-		expect(usedComponents('<!-- class: kpi -->\n\n# A\n\n---\n\n# B\n\n---\n\n# C\n')).toEqual(['kpi']);
+		expect(usedComponents('<!-- @meta{layout=kpi, carry} -->\n\n# A\n\n---\n\n# B\n\n---\n\n# C\n')).toEqual(['kpi']);
 	});
 
 	// Two directives on ONE slide — what deleting a `---` to merge two slides produces. The
@@ -517,7 +519,7 @@ describe('usedComponents / slideClass agree with the engine about what a directi
 	// rail must name that one or it names a slide that was absorbed. The overridden directive
 	// is not reported either: the engine never applies it, so it is not a lint target.
 	it('takes the directive the engine applies — the last one on the slide', () => {
-		const merged = '<!-- _class: big-number -->\n\n- 0\n  - x\n\n<!-- _class: stats -->\n\ntext here\n';
+		const merged = '<!-- @meta{layout=big-number} -->\n\n- 0\n  - x\n\n<!-- @meta{layout=stats} -->\n\ntext here\n';
 		expect(slideClass(merged)).toBe('stats');
 		expect(usedComponents(merged)).toEqual(['stats']);
 	});
@@ -525,21 +527,21 @@ describe('usedComponents / slideClass agree with the engine about what a directi
 
 describe('slideClasses: a slide that only inherits a running class is named by it (PR #3239)', () => {
 	it('carries a running class across heading parts and `---` slides, and a spot class stays on its slide', () => {
-		const parts = ['<!-- class: image -->\n## One\n\n![A](a.jpg)', '## Two\n\n![B](b.jpg)', '<!-- _class: kpi -->\n## Three', '## Four'];
+		const parts = ['<!-- @meta{layout=image, carry} -->\n## One\n\n![A](a.jpg)', '## Two\n\n![B](b.jpg)', '<!-- @meta{layout=kpi} -->\n## Three', '## Four'];
 		expect(slideClasses(parts)).toEqual(['image', 'image', 'kpi', 'image']);
-		expect(slideClasses(['<!-- _class: image -->\n## A', '## B'])).toEqual(['image', 'content']);
+		expect(slideClasses(['<!-- @meta{layout=image} -->\n## A', '## B'])).toEqual(['image', 'content']);
 	});
 	it('reads one slide as `slideClass` does, and a pasted photo is cut short before the scan', () => {
-		expect(slideClasses(['<!-- _class: quote -->\n> x'])).toEqual(['quote']);
+		expect(slideClasses(['<!-- @meta{layout=quote} -->\n> x'])).toEqual(['quote']);
 		const photo = `![P](data:image/png;base64,${'QUJD'.repeat(2000)})`;
-		expect(slideClasses([`<!-- class: image -->\n## A\n\n${photo}`, `## B\n\n${photo}`])).toEqual(['image', 'image']);
+		expect(slideClasses([`<!-- @meta{layout=image, carry} -->\n## A\n\n${photo}`, `## B\n\n${photo}`])).toEqual(['image', 'image']);
 	});
 });
 
 describe('slideClasses reads a deck of pasted photos once, not on every keystroke (the checker on #3239)', () => {
 	it('cuts each slide once, and a slide with no comment is never read for payloads', () => {
 		const photo = `![P](data:image/png;base64,${'QUJD'.repeat(50_000)})`;
-		const slides = [`<!-- class: image -->\n## A\n\n${photo}`, `## B\n\n${photo}`, `<!-- _class: quote -->\n## C\n\n${photo}`];
+		const slides = [`<!-- @meta{layout=image, carry} -->\n## A\n\n${photo}`, `## B\n\n${photo}`, `<!-- @meta{layout=quote} -->\n## C\n\n${photo}`];
 		const before = slideClassesStats.charsCut;
 		expect(slideClasses(slides)).toEqual(['image', 'image', 'quote']);
 		const first = slideClassesStats.charsCut - before;

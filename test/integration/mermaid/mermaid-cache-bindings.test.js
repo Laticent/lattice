@@ -31,7 +31,7 @@ const TIP = 'Opens the API reference';
 
 const DECK = [
   '---', 'theme: indaco', '---', '',
-  '<!-- _class: diagram -->', '',
+  '<!-- @meta{layout=diagram} -->', '',
   '## Linked', '',
   '```mermaid', 'flowchart LR',
   '  A["Web App"] -->|calls| B["API"]',
@@ -115,7 +115,7 @@ const GANTT_VARIANTS = [
   { name: 'capitalized Click', headline: 'gantt', click: 'Click' },
 ];
 const gantt = (v, name, task, url) => [
-  '<!-- _class: diagram -->', '', `## ${name}`, '', '```mermaid', v.headline,
+  '<!-- @meta{layout=diagram} -->', '', `## ${name}`, '', '```mermaid', v.headline,
   '  dateFormat YYYY-MM-DD', `  title ${name}`, '  section S', `  ${task} :${task}, 2024-01-01, 3d`,
   `  ${v.click} ${task} href "${url}"`, '```', '',
 ];

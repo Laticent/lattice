@@ -71,13 +71,13 @@ The same edge word on the **bottom** edge. Use `spectrum: off` to drop the bar e
 
 ---
 
-<!-- @meta{layout=content, class=rule-accent} -->
+<!-- @meta{layout=content, class=heading-rule-accent} -->
 
 `Heading rule · accent`
 
 ## The heading rule is its own finish
 
-The `rule:` key controls the underline beneath a heading: `full`, `short`, an `accent`-colored segment (this slide), or `none`. A short accent rule gives a masthead a signature without shouting.
+The `heading-rule:` key controls the underline beneath a heading: `full`, `short`, an `accent`-colored segment (this slide), or `none`. A short accent rule gives a masthead a signature without shouting.
 
 - Restrained by default
   - `auto` keeps today's full hairline where it already draws.

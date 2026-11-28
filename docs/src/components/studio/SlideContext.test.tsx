@@ -44,7 +44,7 @@ const lintVocab = {
 	},
 	semiUniversalVariants: ['compact', 'accent'],
 	finishNames: ['atrium', 'meridian'],
-	stampStyles: { boardroom: ['tab', 'notch', 'bracket', 'seal', 'pill'], range: ['ribbon', 'dot'] },
+	stampShapes: { boardroom: ['tab', 'notch', 'bracket', 'seal', 'pill'], range: ['ribbon', 'dot'] },
 	toneStyles: ['tone-rail', 'tone-edge', 'tone-glow'],
 };
 const catalog = [{ name: 'kpi', effectiveVariants: ['compact', 'accent'] }];
@@ -113,7 +113,7 @@ describe('SlideContextBody controls', () => {
 	it('shows a Comments tab only with a deckId, and adds a comment for the slide', async () => {
 		const onMutate = vi.fn();
 		render(
-			<SlideContextBody open deckId="d1" chunk="<!-- _class: kpi -->\n\n# Hi" source="<!-- _class: kpi -->\n\n# Hi" slideNumber={3} lintVocab={lintVocab} catalog={catalog} onMutate={onMutate} view="group" tier="advanced" onTierChange={vi.fn()} query="" />,
+			<SlideContextBody open deckId="d1" chunk="<!-- @meta{layout=kpi} -->\n\n# Hi" source="<!-- @meta{layout=kpi} -->\n\n# Hi" slideNumber={3} lintVocab={lintVocab} catalog={catalog} onMutate={onMutate} view="group" tier="advanced" onTierChange={vi.fn()} query="" />,
 		);
 		await goTab('Comments');
 		fireEvent.change(screen.getByRole('textbox', { name: 'New comment for this slide' }), { target: { value: 'Check this figure.' } });
@@ -126,32 +126,32 @@ describe('SlideContextBody controls', () => {
 	});
 
 	it('has no Comments tab without a deckId', () => {
-		setup('<!-- _class: kpi -->\n\n# Hi'); // setup passes no deckId
+		setup('<!-- @meta{layout=kpi} -->\n\n# Hi'); // setup passes no deckId
 		expect(screen.queryByRole('tab', { name: 'Comments' })).toBeNull();
 	});
 
 	it('sets the slide canvas to dark', () => {
-		const { onMutate, applied } = setup('<!-- _class: kpi -->\n\n# Hi');
+		const { onMutate, applied } = setup('<!-- @meta{layout=kpi} -->\n\n# Hi');
 		fireEvent.click(screen.getByRole('radio', { name: 'Dark' }));
 		expect(onMutate).toHaveBeenCalled();
 		expect(applied()).toContain('dark');
 	});
 
 	it('pins the slide canvas to LIGHT even inside a dark deck', () => {
-		const { applied } = setup('<!-- _class: kpi -->\n\n# Hi', '---\nclass: dark\n---\n\n<!-- _class: kpi -->\n\n# Hi');
+		const { applied } = setup('<!-- @meta{layout=kpi} -->\n\n# Hi', '---\nclass: dark\n---\n\n<!-- @meta{layout=kpi} -->\n\n# Hi');
 		fireEvent.click(screen.getByRole('radio', { name: 'Light' }));
 		expect(applied()).toContain('light');
 		expect(applied()).not.toContain('dark');
 	});
 
 	it('sets a type scale via the segmented control', () => {
-		const { applied } = setup('<!-- _class: kpi -->\n\n# Hi');
+		const { applied } = setup('<!-- @meta{layout=kpi} -->\n\n# Hi');
 		fireEvent.click(screen.getByRole('radio', { name: 'XL' }));
 		expect(applied()).toEqual(['kpi', 'scale-xl']);
 	});
 
 	it('single-selects a tone (and swaps, not stacks)', async () => {
-		const { applied } = setup('<!-- _class: kpi tone-warn -->\n\n# Hi');
+		const { applied } = setup('<!-- @meta{layout=kpi, class=tone-warn} -->\n\n# Hi');
 		await goTab('Marks');
 		fireEvent.click(screen.getByRole('radio', { name: 'Fail' }));
 		const toks = applied();
@@ -160,7 +160,7 @@ describe('SlideContextBody controls', () => {
 	});
 
 	it('sets a per-slide spectrum style from the Accent tab', async () => {
-		const { applied } = setup('<!-- _class: kpi -->\n\n# Hi');
+		const { applied } = setup('<!-- @meta{layout=kpi} -->\n\n# Hi');
 		await goTab('Accent');
 		await pickOption(/^spectrum style$/i, 'None');
 		expect(applied()).toContain('no-spectrum');
@@ -170,8 +170,8 @@ describe('SlideContextBody controls', () => {
 	// not a word an author should have to know (#1293). It names what Auto RESOLVES to,
 	// so the deck's value is readable without opening the deck Inspector.
 	it('reads the spectrum style as Auto, naming the deck `spectrum:` value it resolves to', async () => {
-		const src = '---\nspectrum: solid\n---\n\n<!-- _class: kpi -->\n\n# Hi';
-		setup('<!-- _class: kpi -->\n\n# Hi', src);
+		const src = '---\nspectrum: solid\n---\n\n<!-- @meta{layout=kpi} -->\n\n# Hi';
+		setup('<!-- @meta{layout=kpi} -->\n\n# Hi', src);
 		await goTab('Accent');
 		const label = await selectedOptionText(/^spectrum style$/i);
 		expect(label).toMatch(/^Auto — Solid accent$/);
@@ -184,7 +184,7 @@ describe('SlideContextBody controls', () => {
 	// some didn't, for a reason no reader could see. Each of those four now supplies an
 	// `autoLabel` naming what its auto LANDS ON, so every head reads one shape.
 	it('resolves the head past a value that is itself "Auto", instead of collapsing to a bare word', async () => {
-		setup('<!-- _class: kpi -->\n\n# Hi');
+		setup('<!-- @meta{layout=kpi} -->\n\n# Hi');
 		await goTab('Accent');
 		// `rule`'s auto entry is labeled "Auto" and carries autoLabel 'masthead default'.
 		expect(await selectedOptionText(/heading rule/i)).toBe('Auto — Hairline');
@@ -193,7 +193,7 @@ describe('SlideContextBody controls', () => {
 	// The whole point of the rework: NO head is a bare "Auto" any more. A reader can tell
 	// what a slide will get without opening the deck Inspector, on every axis alike.
 	it('every Accent head carries what it resolves to', async () => {
-		setup('<!-- _class: kpi -->\n\n# Hi');
+		setup('<!-- @meta{layout=kpi} -->\n\n# Hi');
 		await goTab('Accent');
 		for (const axis of [/^spectrum style$/i, /^spectrum edge$/i, /^spectrum weight$/i, /^trim spectrum$/i, /heading rule/i, /eyebrow/i, /headline alignment/i]) {
 			const label = await selectedOptionText(axis);
@@ -229,30 +229,30 @@ describe('SlideContextBody controls', () => {
 			}
 		};
 		const deck = '---\nfinish: atrium\nmotion: on\n---\n\n';
-		setup('<!-- _class: image spotlight -->\n\n# Hi', `${deck}<!-- _class: image spotlight -->\n\n# Hi`);
+		setup('<!-- @meta{layout=image, class=spotlight} -->\n\n# Hi', `${deck}<!-- @meta{layout=image, class=spotlight} -->\n\n# Hi`);
 		await walk();
 		cleanup();
-		setup('<!-- _class: bar confidential tone-pass -->\n\n# Hi', `${deck}<!-- _class: bar confidential tone-pass -->\n\n# Hi`);
+		setup('<!-- @meta{layout=bar, class=confidential tone-pass} -->\n\n# Hi', `${deck}<!-- @meta{layout=bar, class=confidential tone-pass} -->\n\n# Hi`);
 		await walk();
 		expect(seen.length).toBeGreaterThanOrEqual(15);
 	}, 60_000);
 
 	it('overrides the stamp SHAPE from the Stamp style picker', async () => {
-		const { applied } = setup('<!-- _class: kpi confidential -->\n\n# Hi');
+		const { applied } = setup('<!-- @meta{layout=kpi, class=confidential} -->\n\n# Hi');
 		await goTab('Marks');
 		await pickOption(/stamp style/i, 'Seal');
-		expect(applied()).toContain('stamp-seal');
+		expect(applied()).toContain('stamp-shape-seal');
 	});
 
 	it('picking the inherited/default stamp head clears the per-slide shape', async () => {
-		const { applied } = setup('<!-- _class: kpi confidential stamp-notch -->\n\n# Hi');
+		const { applied } = setup('<!-- @meta{layout=kpi, class=confidential stamp-shape-notch} -->\n\n# Hi');
 		await goTab('Marks');
 		await pickOption(/stamp style/i, 'Auto — Tab');
-		expect(applied().some((t) => t.startsWith('stamp-'))).toBe(false);
+		expect(applied().some((t) => t.startsWith('stamp-shape-'))).toBe(false);
 	});
 
 	it('sets the tone SHAPE without disturbing the semantic tone', async () => {
-		const { applied } = setup('<!-- _class: kpi tone-pass -->\n\n# Hi');
+		const { applied } = setup('<!-- @meta{layout=kpi, class=tone-pass} -->\n\n# Hi');
 		await goTab('Marks');
 		await pickOption(/tone style/i, 'Edge');
 		const toks = applied();
@@ -260,9 +260,9 @@ describe('SlideContextBody controls', () => {
 		expect(toks).toContain('tone-edge');
 	});
 
-	it('reads the stamp shape as Auto, naming the deck `stamp:` value it resolves to', async () => {
-		const src = '---\nstamp: seal\n---\n\n<!-- _class: kpi confidential -->\n\n# Hi';
-		setup('<!-- _class: kpi confidential -->\n\n# Hi', src);
+	it('reads the stamp shape as Auto, naming the deck `stamp-shape:` value it resolves to', async () => {
+		const src = '---\nstamp-shape: seal\n---\n\n<!-- @meta{layout=kpi, class=confidential} -->\n\n# Hi';
+		setup('<!-- @meta{layout=kpi, class=confidential} -->\n\n# Hi', src);
 		await goTab('Marks');
 		const label = await selectedOptionText(/stamp style/i);
 		expect(label).toMatch(/^Auto — Seal$/);
@@ -270,22 +270,22 @@ describe('SlideContextBody controls', () => {
 	});
 
 	it('toggles the silent chrome switch', async () => {
-		const { applied } = setup('<!-- _class: kpi -->\n\n# Hi');
+		const { applied } = setup('<!-- @meta{layout=kpi} -->\n\n# Hi');
 		await goTab('Chrome');
 		fireEvent.click(screen.getByRole('switch', { name: /silent/i }));
 		expect(applied()).toContain('silent');
 	});
 
 	it('toggles the section rail off (no-progress), independent of silent', async () => {
-		const { applied } = setup('<!-- _class: kpi -->\n\n# Hi');
+		const { applied } = setup('<!-- @meta{layout=kpi} -->\n\n# Hi');
 		await goTab('Chrome');
 		fireEvent.click(screen.getByRole('switch', { name: /hide section rail/i }));
 		expect(applied()).toContain('no-progress');
 	});
 
 	it('a switch row reads the deck class, and turning it back on writes with-X (the switch precedence)', async () => {
-		const deck = '---\nclass: no-progress\n---\n\n<!-- _class: kpi -->\n\n# Hi';
-		const { applied } = setup('<!-- _class: kpi -->\n\n# Hi', deck);
+		const deck = '---\nclass: no-progress\n---\n\n<!-- @meta{layout=kpi} -->\n\n# Hi';
+		const { applied } = setup('<!-- @meta{layout=kpi} -->\n\n# Hi', deck);
 		await goTab('Chrome');
 		const rail = screen.getByRole('switch', { name: /hide section rail/i });
 		expect(rail.getAttribute('aria-checked')).toBe('true');
@@ -295,7 +295,7 @@ describe('SlideContextBody controls', () => {
 	});
 
 	it('on a silent slide each band row shows hidden, and bringing one back writes with-X', async () => {
-		const { applied } = setup('<!-- _class: kpi silent -->\n\n# Hi');
+		const { applied } = setup('<!-- @meta{layout=kpi, class=silent} -->\n\n# Hi');
 		await goTab('Chrome');
 		const pag = screen.getByRole('switch', { name: /hide pagination/i });
 		expect(pag.getAttribute('aria-checked')).toBe('true');
@@ -304,7 +304,7 @@ describe('SlideContextBody controls', () => {
 	});
 
 	it('the page-number row follows the engine: a title slide and a paginate: false deck show none', async () => {
-		const { applied } = setup('<!-- _class: title -->\n\n# Hi');
+		const { applied } = setup('<!-- @meta{layout=title} -->\n\n# Hi');
 		await goTab('Chrome');
 		const pag = screen.getByRole('switch', { name: /hide pagination/i });
 		expect(pag.getAttribute('aria-checked')).toBe('true');
@@ -313,19 +313,19 @@ describe('SlideContextBody controls', () => {
 	});
 
 	it('reads a deck-wide paginate: false as hidden on a plain slide', async () => {
-		setup('<!-- _class: kpi -->\n\n# Hi', '---\npagination: false\n---\n\n<!-- _class: kpi -->\n\n# Hi');
+		setup('<!-- @meta{layout=kpi} -->\n\n# Hi', '---\npagination: false\n---\n\n<!-- @meta{layout=kpi} -->\n\n# Hi');
 		await goTab('Chrome');
 		expect(screen.getByRole('switch', { name: /hide pagination/i }).getAttribute('aria-checked')).toBe('true');
 	});
 
 	it('sets a per-slide finish from the picker', async () => {
-		const { applied } = setup('<!-- _class: kpi -->\n\n# Hi');
+		const { applied } = setup('<!-- @meta{layout=kpi} -->\n\n# Hi');
 		await pickOption(/finish/i, 'Meridian');
 		expect(applied()).toContain('finish-meridian');
 	});
 
 	it('writes a SAVED finish as bare finish-<name>, not a double prefix', async () => {
-		const { applied } = setup('<!-- _class: kpi -->\n\n# Hi', '<!-- _class: kpi -->\n\n# Hi', ['velvet']);
+		const { applied } = setup('<!-- @meta{layout=kpi} -->\n\n# Hi', '<!-- @meta{layout=kpi} -->\n\n# Hi', ['velvet']);
 		await pickOption(/finish/i, 'Velvet');
 		const toks = applied();
 		expect(toks).toContain('finish-velvet');
@@ -333,7 +333,7 @@ describe('SlideContextBody controls', () => {
 	});
 
 	it('applies a decoration tint phrase (token + placement together)', async () => {
-		const { applied } = setup('<!-- _class: kpi -->\n\n# Hi');
+		const { applied } = setup('<!-- @meta{layout=kpi} -->\n\n# Hi');
 		await goTab('Marks');
 		fireEvent.click(screen.getByRole('radio', { name: 'Edge' }));
 		const toks = applied();
@@ -346,8 +346,8 @@ describe('SlideContextBody controls', () => {
 	const lastReset = (fn: ReturnType<typeof vi.fn>) => fn.mock.calls.at(-1)?.[0] as { dirty: boolean; reset: () => void } | null;
 
 	it('Reset is disabled until an edit lands, then reverts to the original slide', () => {
-		const orig = '<!-- _class: kpi -->\n\n# Hi';
-		const edited = '<!-- _class: kpi dark scale-xl -->\n\n# Hi';
+		const orig = '<!-- @meta{layout=kpi} -->\n\n# Hi';
+		const edited = '<!-- @meta{layout=kpi, class=dark scale-xl} -->\n\n# Hi';
 		const onMutate = vi.fn();
 		const onResetChange = vi.fn();
 		const { rerender } = render(
@@ -369,8 +369,8 @@ describe('SlideContextBody controls', () => {
 	// must still be undone by Reset, so the panel starts from the shell's baseline, not from the
 	// slide as it is when the code lands. engineering/decisions/2026-09-26-studio-panel-lazy-loading.md
 	it("Reset reverts to the slide as it was when the panel opened, even when its code arrived after an edit", () => {
-		const orig = '<!-- _class: kpi -->\n\n# Hi';
-		const editedWhileLoading = '<!-- _class: kpi dark -->\n\n# Hi';
+		const orig = '<!-- @meta{layout=kpi} -->\n\n# Hi';
+		const editedWhileLoading = '<!-- @meta{layout=kpi, class=dark} -->\n\n# Hi';
 		const baselineRef = { current: { slide: 1, chunk: orig } };
 		const onMutate = vi.fn();
 		const onResetChange = vi.fn();
@@ -385,7 +385,7 @@ describe('SlideContextBody controls', () => {
 	});
 
 	it('ignores a recorded baseline for a different slide', () => {
-		const chunk = '<!-- _class: kpi -->\n\n# Hi';
+		const chunk = '<!-- @meta{layout=kpi} -->\n\n# Hi';
 		const baselineRef = { current: { slide: 4, chunk: '# Another slide' } };
 		const onResetChange = vi.fn();
 		render(
@@ -395,18 +395,18 @@ describe('SlideContextBody controls', () => {
 	});
 
 	it('shows the emitted @meta record, typed, for a slide written either way', () => {
-		setup('<!-- _class: kpi dark -->\n\n# Hi');
+		setup('<!-- @meta{layout=kpi, class=dark} -->\n\n# Hi');
 		expect(screen.getByText(/layout=kpi, class=dark/)).toBeTruthy();
 	});
 
 	it('goes read-only on a non-editable class shape', () => {
-		setup('<!-- _class: [kpi, dark] -->\n\n# Hi');
+		setup('<!-- @meta{layout=kpi} -->\n\n# Hi\n\n<!-- @meta{layout=title} -->'); // two records set the class: the editor leaves it to the markdown
 		expect(screen.getByText(/hand-authored/i)).toBeTruthy();
 		expect(screen.queryByRole('radio', { name: 'Auto' })).toBeNull();
 	});
 
 	it('editable slide defaults to the Look tab; Notes is behind a tab', () => {
-		setup('<!-- _class: kpi -->\n\n# Hi');
+		setup('<!-- @meta{layout=kpi} -->\n\n# Hi');
 		// Look controls are visible immediately (default tab); the note is NOT (its own tab).
 		expect(screen.getByRole('radio', { name: 'Auto' })).toBeTruthy();
 		expect(screen.queryByRole('textbox', { name: 'Speaker notes for this slide' })).toBeNull();
@@ -416,7 +416,7 @@ describe('SlideContextBody controls', () => {
 	});
 
 	it('a non-editable slide collapses to the note only (no look/status/chrome tabs)', () => {
-		setup('<!-- _class: [kpi, dark] -->\n\n# Hi');
+		setup('<!-- @meta{layout=kpi} -->\n\n# Hi\n\n<!-- @meta{layout=title} -->'); // two records set the class: the editor leaves it to the markdown
 		// No tab bar (single Notes panel); the note + reason show directly.
 		expect(screen.queryByRole('tab', { name: 'Look' })).toBeNull();
 		expect(screen.queryByRole('tab', { name: 'Chrome' })).toBeNull();
@@ -424,7 +424,7 @@ describe('SlideContextBody controls', () => {
 	});
 
 	it('each tab explains itself — a tab intro plus per-control help text', async () => {
-		setup('<!-- _class: kpi -->\n\n# Hi');
+		setup('<!-- @meta{layout=kpi} -->\n\n# Hi');
 		// Look tab (default): the group intro + a field-level description are both present.
 		expect(screen.getByText(/how this one slide looks/i)).toBeTruthy();
 		expect(screen.getByText(/light or dark, for this slide alone/i)).toBeTruthy();
@@ -438,7 +438,7 @@ describe('SlideContextBody controls', () => {
 	});
 
 	it('authors alt text as an @alt note under the Notes tab', async () => {
-		const { sourceOut } = setup('<!-- _class: kpi -->\n\n# Q3');
+		const { sourceOut } = setup('<!-- @meta{layout=kpi} -->\n\n# Q3');
 		await goTab('Notes');
 		const box = screen.getByRole('textbox', { name: 'Alt text for this slide' });
 		fireEvent.change(box, { target: { value: 'A bar chart, revenue up 40%.' } });
@@ -450,7 +450,7 @@ describe('SlideContextBody controls', () => {
 	});
 
 	it('authors a read-as line as an @say note under the Notes tab', async () => {
-		const { sourceOut } = setup('<!-- _class: kpi -->\n\n# Q3');
+		const { sourceOut } = setup('<!-- @meta{layout=kpi} -->\n\n# Q3');
 		await goTab('Notes');
 		const box = screen.getByRole('textbox', { name: 'Say (voice and captions) for this slide' });
 		fireEvent.change(box, { target: { value: 'Revenue grew forty percent across three quarters.' } });
@@ -467,7 +467,7 @@ describe('SlideContextBody controls', () => {
 		// remark reached a recipient's `.vtt`. A note is not a narration source now, so there
 		// is nothing for a caption to override and nothing to read aloud, and the copy has to
 		// say so on the one surface where an author decides what to put in that box.
-		setup('<!-- _class: kpi -->\n\n# Q3');
+		setup('<!-- @meta{layout=kpi} -->\n\n# Q3');
 		await goTab('Notes');
 		expect(screen.getByText(/Never read aloud, never in the captions/i)).toBeTruthy();
 		expect(screen.queryByText(/Read aloud in Present/i)).toBeNull();
@@ -476,14 +476,14 @@ describe('SlideContextBody controls', () => {
 	it('says the same thing WITH a caption set — the two channels are independent', async () => {
 		// The copy no longer varies on the caption, because the relationship it described is
 		// gone: a caption replaces the GENERATED narration, and the note was never part of it.
-		setup('<!-- _class: kpi -->\n\n# Q3\n\n<!-- @say{The board-facing line.} -->');
+		setup('<!-- @meta{layout=kpi} -->\n\n# Q3\n\n<!-- @say{The board-facing line.} -->');
 		await goTab('Notes');
 		expect(screen.getByText(/Never read aloud, never in the captions/i)).toBeTruthy();
 		expect(screen.queryByText(/overrides the note/i)).toBeNull();
 	});
 
 	it('the say field is separate from the speaker note (both notes coexist)', async () => {
-		const { sourceOut } = setup('<!-- _class: kpi -->\n\n# Q3\n\n<!-- @note{Say this warmly.} -->');
+		const { sourceOut } = setup('<!-- @meta{layout=kpi} -->\n\n# Q3\n\n<!-- @note{Say this warmly.} -->');
 		await goTab('Notes');
 		const cap = screen.getByRole('textbox', { name: 'Say (voice and captions) for this slide' });
 		fireEvent.change(cap, { target: { value: 'The board-facing line.' } });
@@ -494,7 +494,7 @@ describe('SlideContextBody controls', () => {
 	});
 
 	it('the speaker notes field writes an @note and leaves the author’s plain comment alone', async () => {
-		const { sourceOut } = setup('<!-- _class: kpi -->\n\n# Q3\n\n<!-- TODO: check the Q3 number -->');
+		const { sourceOut } = setup('<!-- @meta{layout=kpi} -->\n\n# Q3\n\n<!-- TODO: check the Q3 number -->');
 		await goTab('Notes');
 		const note = screen.getByRole('textbox', { name: 'Speaker notes for this slide' });
 		fireEvent.change(note, { target: { value: 'Pause here.' } });
@@ -508,7 +508,7 @@ describe('SlideContextBody controls', () => {
 	});
 
 	it('authors a handout note as an @handout note under the Notes tab', async () => {
-		const { sourceOut } = setup('<!-- _class: kpi -->\n\n# Q3\n\n<!-- @note{Pause here.} -->');
+		const { sourceOut } = setup('<!-- @meta{layout=kpi} -->\n\n# Q3\n\n<!-- @note{Pause here.} -->');
 		await goTab('Notes');
 		const box = screen.getByRole('textbox', { name: 'Handout for this slide' });
 		fireEvent.change(box, { target: { value: 'Measured over 30 days.' } });
@@ -520,7 +520,7 @@ describe('SlideContextBody controls', () => {
 
 	it('an UNCONFIRMED AI draft does NOT commit on blur (a wrong alt is worse than none)', async () => {
 		mockGenerate.mockResolvedValue({ status: 'ok', text: 'AI-suggested description.' });
-		const { onMutate } = setup('<!-- _class: kpi -->\n\n# Q3');
+		const { onMutate } = setup('<!-- @meta{layout=kpi} -->\n\n# Q3');
 		await goTab('Notes');
 		fireEvent.click(screen.getByRole('button', { name: /generate/i }));
 		// The draft lands in the field and the confirm affordance appears…
@@ -533,7 +533,7 @@ describe('SlideContextBody controls', () => {
 
 	it('clicking "Use it" commits the AI draft as an @alt note', async () => {
 		mockGenerate.mockResolvedValue({ status: 'ok', text: 'AI-suggested description.' });
-		const { onMutate, sourceOut } = setup('<!-- _class: kpi -->\n\n# Q3');
+		const { onMutate, sourceOut } = setup('<!-- @meta{layout=kpi} -->\n\n# Q3');
 		await goTab('Notes');
 		fireEvent.click(screen.getByRole('button', { name: /generate/i }));
 		fireEvent.click(await screen.findByRole('button', { name: /use it/i }));
@@ -543,7 +543,7 @@ describe('SlideContextBody controls', () => {
 
 	it('editing the AI draft by hand takes ownership — a subsequent blur DOES commit', async () => {
 		mockGenerate.mockResolvedValue({ status: 'ok', text: 'AI-suggested description.' });
-		const { onMutate, sourceOut } = setup('<!-- _class: kpi -->\n\n# Q3');
+		const { onMutate, sourceOut } = setup('<!-- @meta{layout=kpi} -->\n\n# Q3');
 		await goTab('Notes');
 		fireEvent.click(screen.getByRole('button', { name: /generate/i }));
 		const box = await screen.findByRole('textbox', { name: 'Alt text for this slide' });
@@ -557,7 +557,7 @@ describe('SlideContextBody controls', () => {
 
 	it('with no cloud model, the Description offers a Connect button instead of Generate', async () => {
 		mockStatus.mockReturnValue({ openRouterReady: false } as ReturnType<typeof useArchitectStatus>);
-		setup('<!-- _class: kpi -->\n\n# Q3');
+		setup('<!-- @meta{layout=kpi} -->\n\n# Q3');
 		await goTab('Notes');
 		// Generate is gone (it can't work without cloud); a one-tap Connect stands in.
 		expect(screen.queryByRole('button', { name: /generate/i })).toBeNull();
@@ -568,7 +568,7 @@ describe('SlideContextBody controls', () => {
 
 	it('once a cloud model is connected, the Description shows Generate (not Connect)', async () => {
 		mockStatus.mockReturnValue({ openRouterReady: true } as ReturnType<typeof useArchitectStatus>);
-		setup('<!-- _class: kpi -->\n\n# Q3');
+		setup('<!-- @meta{layout=kpi} -->\n\n# Q3');
 		await goTab('Notes');
 		expect(screen.getByRole('button', { name: /generate/i })).toBeTruthy();
 		expect(screen.queryByRole('button', { name: /connect a cloud model/i })).toBeNull();
@@ -585,12 +585,12 @@ describe('SlideContextBody controls', () => {
 	// shell. What belongs here is what this body does with a query it is handed.
 	it('a query reaches a control in a section that is not open', () => {
 		const { rerender } = render(
-			<SlideContextBody open chunk="<!-- _class: kpi -->\n\n# Hi" source="<!-- _class: kpi -->\n\n# Hi" slideNumber={1} lintVocab={lintVocab} catalog={catalog} onMutate={vi.fn()} view="group" tier="advanced" onTierChange={vi.fn()} query="" />,
+			<SlideContextBody open chunk="<!-- @meta{layout=kpi} -->\n\n# Hi" source="<!-- @meta{layout=kpi} -->\n\n# Hi" slideNumber={1} lintVocab={lintVocab} catalog={catalog} onMutate={vi.fn()} view="group" tier="advanced" onTierChange={vi.fn()} query="" />,
 		);
 		// Look is the open section, so Chrome's rows are not rendered at all.
 		expect(screen.queryByRole('switch', { name: 'Hide pagination' })).toBeNull();
 		rerender(
-			<SlideContextBody open chunk="<!-- _class: kpi -->\n\n# Hi" source="<!-- _class: kpi -->\n\n# Hi" slideNumber={1} lintVocab={lintVocab} catalog={catalog} onMutate={vi.fn()} view="group" tier="advanced" onTierChange={vi.fn()} query="page number" />,
+			<SlideContextBody open chunk="<!-- @meta{layout=kpi} -->\n\n# Hi" source="<!-- @meta{layout=kpi} -->\n\n# Hi" slideNumber={1} lintVocab={lintVocab} catalog={catalog} onMutate={vi.fn()} view="group" tier="advanced" onTierChange={vi.fn()} query="page number" />,
 		);
 		expect(screen.getByRole('switch', { name: 'Hide pagination' })).toBeTruthy();
 		expect(screen.queryByRole('radio', { name: 'Dark' })).toBeNull();
@@ -600,7 +600,7 @@ describe('SlideContextBody controls', () => {
 		// "presenter" belongs to the NOTE block alone — the Notes section's own keywords
 		// carry "speaker", which would (correctly) show the section entire and prove
 		// nothing about the block-level filter.
-		setup('<!-- _class: kpi -->\n\n# Hi', undefined, [], 'presenter');
+		setup('<!-- @meta{layout=kpi} -->\n\n# Hi', undefined, [], 'presenter');
 		expect(screen.getByRole('textbox', { name: 'Speaker notes for this slide' })).toBeTruthy();
 		// Its two neighbors in the same section stay out: a block filters like a row.
 		expect(screen.queryByRole('textbox', { name: 'Say (voice and captions) for this slide' })).toBeNull();
@@ -612,7 +612,7 @@ describe('SlideContextBody controls', () => {
 		// 14 rows here compute `hint={inherited ? 'from deck' : undefined}`. While `hint`
 		// was searched, "deck" returned every axis currently INHERITING and none you had
 		// overridden — a search index that changes as you edit the thing being searched.
-		setup('<!-- _class: kpi -->\n\n# Hi', undefined, [], 'deck');
+		setup('<!-- @meta{layout=kpi} -->\n\n# Hi', undefined, [], 'deck');
 		// The inherit hint is not a search term, so nothing is surfaced by the word alone.
 		expect(screen.queryByLabelText('Slide canvas')).toBeNull();
 		expect(screen.queryByLabelText('Spectrum style')).toBeNull();
@@ -622,7 +622,7 @@ describe('SlideContextBody controls', () => {
 		// The Chrome indent scope was labeled "Hide header footer page number" — a
 		// concatenation of its children. A matched group makes every child a hit, so typing
 		// one row's name returned all three, and the row-level filter was bypassed.
-		setup('<!-- _class: kpi -->\n\n# Hi', undefined, [], 'page number');
+		setup('<!-- @meta{layout=kpi} -->\n\n# Hi', undefined, [], 'page number');
 		expect(screen.getByRole('switch', { name: 'Hide pagination' })).toBeTruthy();
 		expect(screen.queryByRole('switch', { name: 'Hide header' })).toBeNull();
 		expect(screen.queryByRole('switch', { name: 'Hide footer' })).toBeNull();
@@ -631,7 +631,7 @@ describe('SlideContextBody controls', () => {
 	it('the list view drops the tabs and renders every section at once', () => {
 		const onMutate = vi.fn();
 		render(
-			<SlideContextBody open chunk="<!-- _class: kpi -->\n\n# Hi" source="<!-- _class: kpi -->\n\n# Hi" slideNumber={1} lintVocab={lintVocab} catalog={catalog} onMutate={onMutate} view="list" tier="advanced" onTierChange={vi.fn()} query="" />,
+			<SlideContextBody open chunk="<!-- @meta{layout=kpi} -->\n\n# Hi" source="<!-- @meta{layout=kpi} -->\n\n# Hi" slideNumber={1} lintVocab={lintVocab} catalog={catalog} onMutate={onMutate} view="list" tier="advanced" onTierChange={vi.fn()} query="" />,
 		);
 		expect(screen.queryByRole('tab', { name: 'Look' })).toBeNull();
 		expect(screen.getByRole('radio', { name: 'Dark' })).toBeTruthy(); // Look
@@ -642,7 +642,7 @@ describe('SlideContextBody controls', () => {
 	it('the Basic tier is a short list with no tabs — canvas, type scale, clean slide and the note', async () => {
 		const onTierChange = vi.fn();
 		render(
-			<SlideContextBody open chunk="<!-- _class: kpi -->\n\n# Hi" source="<!-- _class: kpi -->\n\n# Hi" slideNumber={1} lintVocab={lintVocab} catalog={catalog} onMutate={vi.fn()} view="group" tier="basic" onTierChange={onTierChange} query="" />,
+			<SlideContextBody open chunk="<!-- @meta{layout=kpi} -->\n\n# Hi" source="<!-- @meta{layout=kpi} -->\n\n# Hi" slideNumber={1} lintVocab={lintVocab} catalog={catalog} onMutate={vi.fn()} view="group" tier="basic" onTierChange={onTierChange} query="" />,
 		);
 		expect(screen.queryByRole('tab', { name: 'Look' })).toBeNull();
 		expect(screen.getByRole('radio', { name: 'Dark' })).toBeTruthy(); // Canvas
@@ -656,8 +656,8 @@ describe('SlideContextBody controls', () => {
 	});
 
 	it('an un-pinned slide reads Auto and shows the deck canvas it inherits', () => {
-		const src = '---\nclass: dark\n---\n\n<!-- _class: kpi -->\n\n# Hi';
-		setup('<!-- _class: kpi -->\n\n# Hi', src);
+		const src = '---\nclass: dark\n---\n\n<!-- @meta{layout=kpi} -->\n\n# Hi';
+		setup('<!-- @meta{layout=kpi} -->\n\n# Hi', src);
 		// The canvas control is a real 3-way selector (Auto/Light/Dark), even under a
 		// dark deck — Light stays a live choice — with an "inherits dark" hint on Auto.
 		expect(screen.getByRole('radio', { name: 'Auto' })).toBeTruthy();

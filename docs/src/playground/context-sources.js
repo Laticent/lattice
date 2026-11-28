@@ -27,7 +27,7 @@
 
 import { insertCompletionText, pickedCompletion, startCompletion } from '@codemirror/autocomplete';
 import { KNOWN_KEYS } from '../../../lib/core/meta-keys.mjs';
-import { COMMENT_KEYS, DIRECTIVE_NAMES, FOCUS_AXIS_VALUES, FOCUS_STYLE_VALUES, loadFenceLanguages, MERMAID_KEYWORDS, NOTE_KEYS } from './grammar-vocab.js';
+import { FOCUS_AXIS_VALUES, FOCUS_STYLE_VALUES, loadFenceLanguages, MERMAID_KEYWORDS, NOTE_KEYS } from './grammar-vocab.js';
 import {
 	backdropAxisPosition,
 	blankBodyPartial,
@@ -45,10 +45,9 @@ import {
 
 const TOKEN = /^[\w-]*$/;
 const DIRECTIVE_TOKEN = /^(?:_?[\w-]*|@[\w-]*)$/;
-const DIRECTIVE_OPTIONS = [
-	...DIRECTIVE_NAMES.map((d) => ({ label: d, type: 'keyword', detail: 'directive' })),
-	// `<!-- p` → `panes: `: the key writes its colon and space, so the author types the value straight away.
-	...COMMENT_KEYS.map((k) => ({ label: k.name, type: 'keyword', detail: k.kind, apply: `${k.name}: ` })),
+// After `<!-- `, only the record and the notes: the old directive names (`_class`, `_footer`) and pane keys (`panes:`)
+// set nothing since the cut, so the editor no longer offers them (slice E).
+export const DIRECTIVE_OPTIONS = [
 	// `<!-- @m` → `@meta{|}`: the slide record, both braces written and the caret between them, and its fields open at
 	// once (recordCompletion answers inside the braces).
 	{

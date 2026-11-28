@@ -17,7 +17,7 @@ const core = require('../../../lib/authoring/lint-core');
 const { buildVocab } = require('../../../lib/authoring/lint');
 
 const vocab = buildVocab();
-const deck = (fm) => `---\ntheme: indaco\n${fm}\n---\n\n<!-- _class: content -->\n\n## A slide\n\nBody text here.\n`;
+const deck = (fm) => `---\ntheme: indaco\n${fm}\n---\n\n<!-- @meta{class=content} -->\n\n## A slide\n\nBody text here.\n`;
 const found = (fm) => core.lintTextWith(deck(fm), vocab).filter((f) => f.rule === 'handheld-chrome-hidden');
 
 test('FIRES: a portrait deck with a footer and no venue gets one info finding that names the line and the fix', () => {

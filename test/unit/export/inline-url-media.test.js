@@ -123,10 +123,10 @@ test('engine output: a directive background, a bleed photo, an image panel and a
 	const engine = require('../../../lib/engine');
 	const md = [
 		'---', 'theme: indaco', '---', '',
-		'<!-- _backgroundImage: url(/img/directive.webp) -->', '', '# Directive', '', '---', '',
-		'<!-- _class: content bleed -->', '', '![Full](/img/full.webp)', '', '# Full', '', '---', '',
-		'<!-- _class: image mirror -->', '', '![Half](/img/half.webp)', '', '# Half', '', '---', '',
-		'<!-- _class: video -->', '', '## Watch.', '', '`@video{"https://www.youtube.com/watch?v=aqz-KE-bpKQ", poster="/img/poster.webp"}`', '',
+		'<!-- @meta{background-image="url(/img/directive.webp)"} -->', '', '# Directive', '', '---', '',
+		'<!-- @meta{layout=content, class=bleed} -->', '', '![Full](/img/full.webp)', '', '# Full', '', '---', '',
+		'<!-- @meta{layout=image, class=mirror} -->', '', '![Half](/img/half.webp)', '', '# Half', '', '---', '',
+		'<!-- @meta{layout=video} -->', '', '## Watch.', '', '`@video{"https://www.youtube.com/watch?v=aqz-KE-bpKQ", poster="/img/poster.webp"}`', '',
 	].join('\n');
 	const { html } = await engine.render(md);
 	assert.match(html, /--background-image:&quot;url\(/, 'the informational string this guards is in the engine output');

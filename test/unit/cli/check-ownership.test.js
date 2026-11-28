@@ -617,11 +617,11 @@ describe('check-ownership', () => {
       assert.ok(v['--z-chrome'] >= 10, 'the local 0-9 band fits between content and chrome');
       // MARK OVER ALARM. This pair was briefly inverted, on the reasoning that an authoring
       // tab should beat a stamp and that the corner stack separated them geometrically anyway.
-      // Both were wrong: the full-bleed shapes (stamp-veil, stamp-mark) are `inset: 0` and
+      // Both were wrong: the full-bleed shapes (stamp-shape-veil, stamp-shape-mark) are `inset: 0` and
       // clear nothing, and the marker that SHIPS is the reader-mode pill, not the authoring
       // tabs — so the inversion punched an engine marker through a redaction wash in the
-      // delivered PDF (10,136 pixels on `confidential stamp-veil` with `overflow-marker:
-      // reader`; a `stamp-ribbon` cut in half). A classification marking outranks an engine
+      // delivered PDF (10,136 pixels on `confidential stamp-shape-veil` with `overflow-marker:
+      // reader`; a `stamp-shape-ribbon` cut in half). A classification marking outranks an engine
       // annotation on a delivered artifact.
       assert.ok(v['--z-mark'] > v['--z-alarm'],
         'a status stamp must paint OVER an engine marker — it ships in the export, the marker annotates it');

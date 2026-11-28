@@ -21,8 +21,8 @@ import { expect, gotoStudio, persistedSource, setEditorContent, test } from './s
  */
 
 const FM = ['---', 'theme: indaco', 'pagination: true', '---', ''].join('\n');
-const WALL_DECK = [FM, '<!-- _class: logo-wall -->', '', '`Trusted by`', '', '## Six partners already run the program.', '', ...['acme', 'globex', 'vantage', 'umbra', 'meridian', 'helios'].map((n) => `- ![${n}](sample:logo-${n}.svg)`), ''].join('\n');
-const MAP_DECK = [FM, '<!-- _class: map world highlight -->', '', '## Where the program runs.', '', '- Kenya `4.2`', '- Nigeria `3.1`', '- India `2.8`', ''].join('\n');
+const WALL_DECK = [FM, '<!-- @meta{layout=logo-wall} -->', '', '`Trusted by`', '', '## Six partners already run the program.', '', ...['acme', 'globex', 'vantage', 'umbra', 'meridian', 'helios'].map((n) => `- ![${n}](sample:logo-${n}.svg)`), ''].join('\n');
+const MAP_DECK = [FM, '<!-- @meta{layout=map, class=world highlight} -->', '', '## Where the program runs.', '', '- Kenya `4.2`', '- Nigeria `3.1`', '- India `2.8`', ''].join('\n');
 
 /** The class tokens of the persisted deck's only slide, in either spelling: a Reshape writes them as a record
  *  (`<!-- @meta{layout=map, class=world highlight} -->`, record note §15), and the deck starts as an old comment. */
@@ -71,7 +71,7 @@ test('Default keeps the universal slide settings it never offered @studio', asyn
 	// from any Reshape tile. Default used to delete them along with the component's looks —
 	// silent data loss with no affordance to undo it, on all 38 components with variants.
 	await gotoStudio(page);
-	await setEditorContent(page, [FM, '<!-- _class: kpi ops scale-xl no-period dark -->', '', '## Revenue ahead of plan.', '', '1. $2.4B', '   - Total revenue', ''].join('\n'));
+	await setEditorContent(page, [FM, '<!-- @meta{layout=kpi, class=ops scale-xl no-period dark} -->', '', '## Revenue ahead of plan.', '', '1. $2.4B', '   - Total revenue', ''].join('\n'));
 	await settled(page).toEqual(['kpi', 'ops', 'scale-xl', 'no-period', 'dark']);
 
 	await pick(page, 'Reshape to Default');
@@ -83,7 +83,7 @@ test('the Default tile only claims "Current" when clicking really is a no-op @st
 	// then clicking it wrote `map world`, because Default restores the axis default. The
 	// badge now asks the model whether the click changes anything.
 	await gotoStudio(page);
-	await setEditorContent(page, [FM, '<!-- _class: map -->', '', '## Where the program runs.', '', '- Kenya `4.2`', '- Nigeria `3.1`', ''].join('\n'));
+	await setEditorContent(page, [FM, '<!-- @meta{layout=map} -->', '', '## Where the program runs.', '', '- Kenya `4.2`', '- Nigeria `3.1`', ''].join('\n'));
 	await settled(page).toEqual(['map']);
 
 	await page.getByRole('button', { name: 'Reshape slide' }).click();

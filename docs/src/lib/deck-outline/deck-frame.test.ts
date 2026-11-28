@@ -3,7 +3,7 @@ import { lineAt, placeAt } from '../fuoco/place';
 import { deckFrame, deckTitleEnd } from './deck-frame';
 import { buildDeckIndex, DECK_KINDS } from './deck-outline';
 
-const deck = ['---', 'theme: indaco', '---', '', '<!-- _class: title -->', '# First', 'body', '', '---', '', '## Second', 'text', '', '---', '', '# Third', 'x', '## Third b', 'y', ''].join('\n');
+const deck = ['---', 'theme: indaco', '---', '', '<!-- @meta{layout=title} -->', '# First', 'body', '', '---', '', '## Second', 'text', '', '---', '', '# Third', 'x', '## Third b', 'y', ''].join('\n');
 const ix = buildDeckIndex(deck);
 const lines = deck.split('\n');
 const lineOf = (needle: string) => lines.indexOf(needle) + 1;
@@ -60,7 +60,7 @@ describe('deckTitleEnd never lands on a separator it can avoid', () => {
 		// A slide with no line at all (`---` straight onto `---`) has nowhere safe to put a caret.
 	});
 	it('a directive-only slide lands at its start, never inside the directive', () => {
-		const src = '# A\n\n---\n\n<!-- _class: x -->\n\n---\n\n# C\n';
+		const src = '# A\n\n---\n\n<!-- @meta{class=x} -->\n\n---\n\n# C\n';
 		const at = deckTitleEnd(buildDeckIndex(src), 1);
 		expect(at).toBeLessThan(src.indexOf('<!--') + 1);
 	});

@@ -7,8 +7,8 @@
  */
 
 /* align-items (the flex cross-axis = horizontal, this is a column) + the h1/p text-align read
- * the headline-alignment seam (`headline:` register). `auto`/no register → the fallback `center`
- * applies, byte-identical to the centered title bookend. head-left/right re-anchor the whole
+ * the headline-alignment seam (`headline-align:` register). `auto`/no register → the fallback `center`
+ * applies, byte-identical to the centered title bookend. headline-align-left/right re-anchor the whole
  * cluster (heading, eyebrow, hr, dek) as one. */
 /* THE SCHEME TRAVELS WITH THE SURFACE. Painting `--surface-inverse` without also declaring
  * `color-scheme: dark` leaves every `light-dark()` token on this slide resolving to its
@@ -142,9 +142,9 @@ section.title-lede > .title-lede-page > p + p { padding-top: var(--sp-md); }
  * (base.modifiers.css, the light-cover block), so each composition reads on either surface in
  * either color mode without a rule of its own.
  *
- * ALIGNMENT IS A DEFAULT, NOT AN ORDER. A left-set composition sets the `headline:` seam's two
- * tokens inside `:where()`, at (0,0,1), so the deck's `headline:` register (`section.head-center`,
- * (0,1,1)) still wins: `headline: center` centers a masthead. No margin (HARD RULE #20): every gap
+ * ALIGNMENT IS A DEFAULT, NOT AN ORDER. A left-set composition sets the `headline-align:` seam's two
+ * tokens inside `:where()`, at (0,0,1), so the deck's `headline-align:` register (`section.headline-align-center`,
+ * (0,1,1)) still wins: `headline-align: center` centers a masthead. No margin (HARD RULE #20): every gap
  * is padding. */
 /* The four left-set compositions. */
 section:where(.title.cover-masthead), section:where(.title.cover-column), section:where(.title.cover-label), section:where(.title.cover-poster) { --headline-align: left; --headline-justify: flex-start; }

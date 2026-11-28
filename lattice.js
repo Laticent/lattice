@@ -467,6 +467,11 @@ VIDEO
                      (the Studio's) to an MP4 (H.264, AAC, a caption track) and a
                      .vtt sidecar. See lattice video --help
 
+MCP
+  lattice mcp        Reserved for the MCP server, which is not available in this
+                     version: it says so and exits 1. A deck file named mcp
+                     renders as lattice ./mcp
+
 EXAMPLES
   lattice deck.md out.pdf
   lattice deck.md out.pptx          # PowerPoint (image slides)
@@ -515,6 +520,7 @@ MORE
   lattice video …      Render a deck to an MP4 with a voice-over
   lattice lint …       Check a deck without rendering; --fix applies the fixes
   lattice completion   Tab completion for bash, zsh, fish or PowerShell
+  lattice mcp          Reserved for the MCP server; not available in this version
 
   lattice --help all   Every option (image sets, captions, the player, plugins, …)
   Guide:  https://lattice.style/guides/cli/
@@ -584,6 +590,15 @@ if (process.argv[2] === 'lint') {
   const r = require('node:child_process').spawnSync(process.execPath, [path.join(PKG_ROOT, 'lib/cli/lint-deck.js'), ...process.argv.slice(3)], { stdio: 'inherit' });
   if (r.error) console.error(`error: ${r.error.message}`);
   process.exit(r.status ?? 1);
+}
+
+// `lattice mcp` — RESERVED, not built. The verb is held for the MCP server the use-case layer plans
+// (engineering/decisions/2026-11-17-use-case-layer.md §10 step 6) so it is no breaking change when it
+// lands: before this, `lattice mcp` read `mcp` as a deck file. It says so and exits 1, before the help
+// check, so `lattice mcp --help` says the same. A deck file named `mcp` still renders as `lattice ./mcp`.
+if (process.argv[2] === 'mcp') {
+  console.error('lattice mcp: the MCP server is not available in this version. See https://lattice.style/reference/cli/#lattice-mcp');
+  process.exit(1);
 }
 
 // `--help` / `-h` is one screen; `--help all` (`-h all`, `--help=all`, any case) is the full
@@ -1079,7 +1094,7 @@ const IMAGE_SET_OPTS = normalizeImageSetOptions({
 // only output whose capability depends on a flag, because the image format IS the choice
 // (png/webp carry alpha, jpeg has no such channel). Everything else is fixed by the
 // container. The capability table and the per-format measurements live in
-// lib/core/corner-export-capability.mjs — NOT in resolve-corners.js, which answers the
+// lib/core/corner-export-capability.mjs — NOT in resolve-slide-corners.js, which answers the
 // different question of what the DECK asked for.
 const { cornerSurvivesExport, isFlatExportTarget } = require('./lib/core/corner-export-capability.mjs');
 const CORNER_TARGET = OUT_FORMAT === 'imageset' ? IMAGE_SET_OPTS.format : OUT_FORMAT;
@@ -5080,7 +5095,7 @@ async function renderBody(browser, g, closeBrowser) {
   // (resetting border-radius on a clone, say) is what left the two exporters disagreeing:
   // `clip-path` does the real rounding here, `border-radius` only rides along for
   // consumers to read back, so a reset that names one and not the other flattens nothing.
-  // Evicting the token is the whole fix, and it covers a per-slide `_class: corners-rounded`
+  // Evicting the token is the whole fix, and it covers a per-slide `_class: slide-corners-rounded`
   // opt-in for free — that is the same token, on the same element.
   //
   // This runs IN THE PAGE, not on the emitted HTML, and that is deliberate: the `.html`
@@ -5117,8 +5132,8 @@ async function renderBody(browser, g, closeBrowser) {
   // the per-slide list and the pages differ in length (the inversion, 2026-11-10).
   const byStepPages = (list) => (STEP_COUNTS && Array.isArray(list) && list.length === STEP_COUNTS.length ? list.flatMap((v, i) => Array(STEP_COUNTS[i]).fill(v)) : list);
   const roundedSlides = await g(() => page.evaluate((squareNow) => {
-    const hit = document.querySelectorAll('section.corners-rounded');
-    if (squareNow) for (const s of hit) s.classList.remove('corners-rounded');
+    const hit = document.querySelectorAll('section.slide-corners-rounded');
+    if (squareNow) for (const s of hit) s.classList.remove('slide-corners-rounded');
     return hit.length;
   }, !CORNER_SURVIVES), 'resolve corners for the export target');
   if (roundedSlides && !CORNER_SURVIVES && !QUIET) {

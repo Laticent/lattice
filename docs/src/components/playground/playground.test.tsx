@@ -12,16 +12,16 @@ import {
 
 const catalog: Catalog = {
 	'verdict-grid': {
-		skeleton: '<!-- _class: verdict-grid -->\n\n# skeleton\n',
-		sample: '<!-- _class: verdict-grid -->\n\n# sample\n',
+		skeleton: '<!-- @meta{layout=verdict-grid} -->\n\n# skeleton\n',
+		sample: '<!-- @meta{layout=verdict-grid} -->\n\n# sample\n',
 		variants: [
-			{ key: 'compact', label: 'compact', caption: 'tighter rows', sample: '<!-- _class: verdict-grid compact -->\n' },
-			{ key: 'wide', label: 'wide', caption: '', sample: '<!-- _class: verdict-grid wide -->\n' },
+			{ key: 'compact', label: 'compact', caption: 'tighter rows', sample: '<!-- @meta{layout=verdict-grid, class=compact} -->\n' },
+			{ key: 'wide', label: 'wide', caption: '', sample: '<!-- @meta{layout=verdict-grid, class=wide} -->\n' },
 		],
 	},
 	'big-number': {
-		skeleton: '<!-- _class: big-number -->\n',
-		sample: '<!-- _class: big-number -->\n\n# 42\n',
+		skeleton: '<!-- @meta{layout=big-number} -->\n',
+		sample: '<!-- @meta{layout=big-number} -->\n\n# 42\n',
 		variants: [],
 	},
 };
@@ -35,18 +35,18 @@ describe('detectComponent', () => {
 	});
 
 	it('returns null when no token names a known component', () => {
-		expect(detectComponent(catalog, '<!-- _class: unknown thing -->')).toBeNull();
+		expect(detectComponent(catalog, '<!-- @meta{class=unknown thing} -->')).toBeNull();
 	});
 
 	it('detects the component and defaults the variant', () => {
-		expect(detectComponent(catalog, '<!-- _class: verdict-grid -->\n# x')).toEqual({
+		expect(detectComponent(catalog, '<!-- @meta{layout=verdict-grid} -->\n# x')).toEqual({
 			name: 'verdict-grid',
 			variant: 'default',
 		});
 	});
 
 	it('detects a documented variant token alongside the component', () => {
-		expect(detectComponent(catalog, '<!-- _class: verdict-grid compact -->')).toEqual({
+		expect(detectComponent(catalog, '<!-- @meta{layout=verdict-grid, class=compact} -->')).toEqual({
 			name: 'verdict-grid',
 			variant: 'compact',
 		});
@@ -54,7 +54,7 @@ describe('detectComponent', () => {
 
 	it('picks the first component token when several appear', () => {
 		// base modifiers (e.g. `dark`) precede; the component is still found.
-		expect(detectComponent(catalog, '<!-- _class: dark verdict-grid wide -->')?.name).toBe('verdict-grid');
+		expect(detectComponent(catalog, '<!-- @meta{class=dark verdict-grid wide} -->')?.name).toBe('verdict-grid');
 	});
 });
 

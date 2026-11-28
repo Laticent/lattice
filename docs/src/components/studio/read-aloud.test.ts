@@ -151,7 +151,7 @@ const synthForCalls: Record<string, unknown>[] = [];
 // no engine, no DOM.
 describe('slideToSpeech — Markdown → readable narration', () => {
 	it('drops the _class directive, keeps the prose', () => {
-		const out = slideToSpeech('<!-- _class: kpi -->\n\n## Revenue is up\n\nWe grew 40% this quarter.');
+		const out = slideToSpeech('<!-- @meta{layout=kpi} -->\n\n## Revenue is up\n\nWe grew 40% this quarter.');
 		expect(out).toContain('Revenue is up');
 		expect(out).toContain('We grew 40% this quarter.');
 		expect(out).not.toContain('_class');
@@ -183,7 +183,7 @@ describe('slideToSpeech — Markdown → readable narration', () => {
 	it('returns empty string for image-only / empty slides', () => {
 		expect(slideToSpeech('![bg](a.svg)')).toBe('');
 		expect(slideToSpeech('')).toBe('');
-		expect(slideToSpeech('<!-- _class: cover -->')).toBe('');
+		expect(slideToSpeech('<!-- @meta{class=cover} -->')).toBe('');
 	});
 
 	it('punctuates list items and headings so they read as separate clauses', () => {

@@ -672,7 +672,11 @@ describe('DeckPreview — onPaint waits for the frame to show the render', () =>
 			doc = document.implementation.createHTMLDocument('b');
 			frame?.dispatchEvent(new Event('load'));
 		};
-		return { mount, navigate };
+		/** The frame's document changes with no `load` yet (another write's navigation committing). */
+		const swap = () => {
+			doc = document.implementation.createHTMLDocument('c');
+		};
+		return { mount, navigate, swap };
 	}
 
 	it('fires at commit when the render patched the document already in the frame', async () => {
@@ -700,11 +704,61 @@ describe('DeckPreview — onPaint waits for the frame to show the render', () =>
 		const { rerender } = render(<DeckPreview options={opts} sample="# A" drawn={false} onRender={onRender} onPaint={onPaint} aria-label="p" />);
 		await waitFor(() => expect(onRender).toHaveBeenCalledTimes(1));
 		expect(onPaint).toHaveBeenCalledTimes(1);
+		// The paint names the source the render was issued with (the preview pool reads it, #3507).
+		expect(onPaint).toHaveBeenLastCalledWith({ sample: '# A', extraCss: undefined });
 		renderInto.mockImplementation(() => Promise.resolve({ ok: true, slides: 1, error: null, writePath: 'write' }));
 		rerender(<DeckPreview options={opts} sample="# B" drawn={false} onRender={onRender} onPaint={onPaint} aria-label="p" />);
 		await waitFor(() => expect(onRender).toHaveBeenCalledTimes(2));
 		expect(onPaint).toHaveBeenCalledTimes(1);
 		act(() => f.navigate());
-		expect(onPaint).toHaveBeenCalledTimes(2);
+		// The load listener reports a tick later, after the engine's own onload has run.
+		await waitFor(() => expect(onPaint).toHaveBeenCalledTimes(2));
+		expect(onPaint).toHaveBeenLastCalledWith({ sample: '# B', extraCss: undefined });
+	});
+
+	it('does not report a write while the engine says its document is still loading, even if the frame holds a newer one', async () => {
+		const f = frameWithDocs();
+		let host: (HTMLElement & { __latticePendingLoad?: boolean }) | null = null;
+		renderInto.mockImplementationOnce((h: HTMLElement) => {
+			host = h;
+			f.mount(h);
+			return Promise.resolve({ ok: true, slides: 1, error: null, writePath: 'patch' });
+		});
+		const onPaint = vi.fn();
+		const onRender = vi.fn();
+		const { rerender } = render(<DeckPreview options={opts} sample="# A" drawn={false} onRender={onRender} onPaint={onPaint} aria-label="p" />);
+		await waitFor(() => expect(onPaint).toHaveBeenCalledTimes(1));
+		// A full write for B: the frame's document has already changed (an EARLIER write committed), but the engine still
+		// marks B's write as loading. Document identity alone would call this painted.
+		renderInto.mockImplementation((h: HTMLElement) => {
+			(h as typeof host & object).__latticePendingLoad = true;
+			f.swap();
+			return Promise.resolve({ ok: true, slides: 1, error: null, writePath: 'write' });
+		});
+		rerender(<DeckPreview options={opts} sample="# B" drawn={false} onRender={onRender} onPaint={onPaint} aria-label="p" />);
+		await waitFor(() => expect(onRender).toHaveBeenCalledTimes(2));
+		expect(onPaint, 'reported B while its write was still loading').toHaveBeenCalledTimes(1);
+		act(() => {
+			if (host) host.__latticePendingLoad = false;
+			f.navigate();
+		});
+		await waitFor(() => expect(onPaint).toHaveBeenCalledTimes(2));
+		expect(onPaint).toHaveBeenLastCalledWith({ sample: '# B', extraCss: undefined });
+	});
+
+	it('does not report a render the engine abandoned', async () => {
+		const f = frameWithDocs();
+		renderInto.mockImplementationOnce((h: HTMLElement) => {
+			f.mount(h);
+			return Promise.resolve({ ok: true, slides: 1, error: null, writePath: 'patch' });
+		});
+		const onPaint = vi.fn();
+		const onRender = vi.fn();
+		const { rerender } = render(<DeckPreview options={opts} sample="# A" drawn={false} onRender={onRender} onPaint={onPaint} aria-label="p" />);
+		await waitFor(() => expect(onPaint).toHaveBeenCalledTimes(1));
+		renderInto.mockImplementation(() => Promise.resolve({ ok: false, slides: 0, error: 'renderer disposed', writePath: 'patch' }));
+		rerender(<DeckPreview options={opts} sample="# B" drawn={false} onRender={onRender} onPaint={onPaint} aria-label="p" />);
+		await waitFor(() => expect(onRender).toHaveBeenCalledTimes(2));
+		expect(onPaint, 'an abandoned render reported a paint of a slide it never drew').toHaveBeenCalledTimes(1);
 	});
 });

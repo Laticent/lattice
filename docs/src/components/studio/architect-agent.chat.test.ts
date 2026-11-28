@@ -7,7 +7,7 @@ import { architectModel, chatComplete, requestFindingFix } from './architect';
 type Opts = { messages: { role: string }[]; tools?: unknown[]; toolChoice?: string; onToolCalls?: (c: unknown[]) => void; onToolStart?: (n: string) => void; onToken?: (t: string) => void };
 type Hooks = { __setBackend: (b: unknown) => void };
 
-const DECK = '---\ntheme: indaco\n---\n\n<!-- _class: title -->\n# Q3 review\n\n---\n\n<!-- _class: content -->\n## Next\n\n- Hire two';
+const DECK = '---\ntheme: indaco\n---\n\n<!-- @meta{layout=title} -->\n# Q3 review\n\n---\n\n<!-- @meta{layout=content} -->\n## Next\n\n- Hire two';
 
 async function withBackend(complete: (o: Opts) => Promise<string>) {
 	const m = (await architectModel()) as unknown as Hooks;
@@ -24,7 +24,7 @@ describe('chatComplete — the cloud agent', () => {
 		await withBackend(async (o) => {
 			seen.push(o);
 			if (seen.length === 1) {
-				o.onToolCalls?.([{ id: 't1', type: 'function', function: { name: 'set_front_matter', arguments: '{"key":"finish","value":"atrium"}' } }]);
+				o.onToolCalls?.([{ id: 't1', type: 'function', function: { name: 'set_front_matter', arguments: '{"key":"finish","value":"atrium","summary":"Test edit"}' } }]);
 				return '';
 			}
 			o.onToken?.('Set the atrium finish.');
@@ -78,7 +78,7 @@ describe('chatComplete — activity labels (the status line is never blank)', ()
 			n++;
 			if (n === 1) {
 				o.onToolStart?.('edit_slides');
-				o.onToolCalls?.([{ id: 't1', type: 'function', function: { name: 'set_front_matter', arguments: '{"key":"finish","value":"atrium"}' } }]);
+				o.onToolCalls?.([{ id: 't1', type: 'function', function: { name: 'set_front_matter', arguments: '{"key":"finish","value":"atrium","summary":"Test edit"}' } }]);
 				return '';
 			}
 			o.onToken?.('Done.');

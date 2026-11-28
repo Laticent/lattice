@@ -355,7 +355,7 @@ const VAR_COMBO_CAP = 4000;
  * token-dependent deaths the first is blind to by construction. Both real finds came
  * from it and neither is theoretical: `--elevation-card` defaults to `none`, and
  * `none` is only legal as box-shadow's SOLE value, so pricing's elevated-tier accent
- * ring was dead on every deck without `lift: on`; `--fin-frame: none` in the
+ * ring was dead on every deck without `card-lift: on`; `--fin-frame: none` in the
  * `no-finish` opt-out killed the composed tone rail the same way, six lines under a
  * comment stating the exact invariant it broke.
  *

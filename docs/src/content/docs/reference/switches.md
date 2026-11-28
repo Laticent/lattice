@@ -13,14 +13,14 @@ the same way:
 Turn a switch off for the whole deck with `class: no-X` in the front matter (or,
 for a setting that has its own key, its plain word, such as `motion: off`). A
 deck's `class:` reaches every slide, including one that sets its own
-`<!-- _class: … -->`. One slide then brings it back:
+`class=` in its `<!-- @meta{…} -->` record. One slide then brings it back:
 
 ```markdown
 ---
 class: no-progress
 ---
 
-<!-- _class: content with-progress -->
+<!-- @meta{layout=content, class=with-progress} -->
 
 # This slide keeps its section rail
 ```
@@ -41,7 +41,7 @@ Studio, the Playground, the command line and an exported Marp bundle.
 
 `silent` is the one word for a clean slide: it turns the header, footer, page
 number and rail off together. Any one comes back with its own `with-X`:
-`<!-- _class: content silent with-pagination -->`.
+`<!-- @meta{layout=content, class=silent with-pagination} -->`.
 
 ## Content
 
@@ -60,7 +60,7 @@ number and rail off together. Any one comes back with its own `with-X`:
 |---|---|---|---|
 | Spectrum | `no-spectrum` | `with-spectrum` | Also `spectrum: off` for the deck. `with-spectrum` is the rainbow default. |
 | Card spectrum | `no-card-spectrum` | `with-card-spectrum` | `card-spectrum: rainbow` stamps `with-card-spectrum`. |
-| Heading rule | `no-heading-rule` | `with-heading-rule` | Also `rule: none` for the deck. |
+| Heading rule | `no-heading-rule` | `with-heading-rule` | Also `heading-rule: none` for the deck. |
 | Finish | `no-finish` | `with-finish` | Also `finish: none` for the deck. |
 | Finish backdrop | `no-backdrop` | `with-backdrop` | Keeps the finish, drops its backdrop. |
 | Tints and marks | `no-treatment` | `with-treatment` | Clears every `tint-*` and `mark-*` on the slide. |
@@ -99,4 +99,4 @@ The spectrum classes were renamed again on 2026-11-21, to follow the keys `spect
 | `finish-none` | `no-finish` |
 | `backdrop-none` | `no-backdrop` |
 | `treatment-none` | `no-treatment` |
-| `tag-none`, `tag: none` | `tag-bare`, `tag: bare` (the tag's bare-text style, not a switch) |
+| `tag-none`, `card-tag: none` | `card-tag-bare`, `card-tag: bare` (the tag's bare-text style, not a switch) |
