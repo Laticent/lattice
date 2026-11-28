@@ -1,6 +1,6 @@
 ---
 status: proposed
-summary: The slide spine, designed on Segno's deck model. One lib/core module owns what a deck's slides are (written slides, heading sections, panes, hidden slides), gives each written slide a session id that its own edits carry exactly, addresses slides by id or fingerprint, carries a content revision, applies structural ops atomically with receipts, and replaces the splitters that disagree on numbering. It settles use-case-layer §10 step 0, was hardened by the adversarial trio, and leaves four forks to the owner.
+summary: The slide spine, designed on Segno's deck model. One lib/core module owns what a deck's slides are (written slides, heading sections, panes, hidden slides), gives each written slide a session id that its own edits carry exactly, addresses slides by id or fingerprint, carries a content revision, applies structural ops atomically with receipts, and replaces the splitters that disagree on numbering. It settles use-case-layer §10 step 0, was hardened by the adversarial trio, and put four forks to the owner, who settled two (ids in memory; the spine counts source pages).
 ---
 
 # The slide spine, on Segno (2026-11-28)
@@ -301,6 +301,16 @@ test runs lint, render, narration and every count over its deck and asserts they
 | F10 | A comment on slide 3, then a move of slide 3 to the front | disagreement 8 |
 
 ## 11. The forks for the owner
+
+**Answered (the owner, 2026-11-28, about 11:35 UTC, in the command center's question round, relayed to
+this session):**
+
+- **Fork 2: A.** Ids stay in memory; a reconnecting client finds slides by fingerprint.
+- **Fork 3: D** (the ❓ card's option A). The spine counts source-side pages; one function maps a render's
+  stamps back to slides.
+
+**Open:** fork 1 (the owner asked whether this is Lente's expansion; the answer went back through the
+command center) and fork 4.
 
 | Fork | Options | Recommendation | Cost |
 |---|---|---|---|
