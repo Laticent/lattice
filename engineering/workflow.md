@@ -2147,12 +2147,6 @@ comments, and it is the object the standup is about.
 
 - **One comment, both cards**, standup first, each in its own fence. (When a ❓ decision card is posted at the same moment it goes first in that comment; §❓ Decision card.) Not two
   comments — I read them together or not at all.
-- **After a merge, the comment ends with the archive check.** Below the 🎯 brief, a third
-  fence headed `git (archive check 4b)` holds the output of `git status -sb`, `git stash list`,
-  `git worktree list`, `git log --oneline --branches --not --remotes` and `git log --oneline
-  HEAD --not --remotes`, run just before posting. The command center reads it there for
-  auto-archive (§Desks, "Auto-archive", check 4(b)), so the session sends it no message.
-  Chat gets the cards only.
 - **Same wording as the chat copy.** If the two ever differ, **the comment is the
   record** and the chat copy is the convenience. That ordering is what makes the
   durable surface worth having.
@@ -3411,20 +3405,13 @@ archives a session only when all of these hold, read fresh in the same run, with
    alone is not enough: on 2026-11-27 this command center wrote an untracked file into its
    own checkout and `get_session` still read `"unpushed_work": false`, so the flag missed an
    untracked file (at least while that turn was still running; nobody has yet checked
-   whether it catches up at the turn's end). The output comes one of two ways, and both are
-   the session's own word (owner's go, 2026-11-28):
-   - **On the PR, with no message.** After a merge, the session puts the output of those five
-     commands in a `git (archive check 4b)` fenced block under its 📋 standup on the PR
-     (§Post-merge standup). The command center reads it there, at any time. It counts only
-     while the session has not worked since: the session's `updated_at` (`get_session`) is no
-     later than the comment's time. If the session worked after the comment, the block is
-     stale and the command center uses the second way.
-   - **As a reply.** The command center asks while the session's cache is still warm, right
-     after the session says it is done (its "nothing left" in its summary or on its PR), and
-     never wakes a session that has sat idle past an hour to ask.
-
-   A session with neither a current block nor a reply on record stays, and goes on the owner's
-   list. A session can also say it discarded its work while it still holds some: the
+   whether it catches up at the turn's end). To keep (b) cheap, the command center asks for
+   it while the session's cache is still warm, right after the session says it is done (its
+   📋 standup on the PR, which the command center reads after its own `#N merged at <sha>`
+   message or a check-in, or its "nothing left" in its summary or on its PR), never by waking one that has sat idle past an hour. A
+   session idle past an hour with no such reply on record stays, and goes on the owner's
+   list. A merge made outside the command center may first be seen at the next check-in, two
+   hours apart, so its session can miss that window; it fails safe and goes on the owner's list. A session can also say it discarded its work while it still holds some: the
    2026-11-27 Compose session still held a local branch and a stash, and its flag read
    `true`.
 5. Its leftovers are durable (check 2 above): every follow-up its summary names is found on
