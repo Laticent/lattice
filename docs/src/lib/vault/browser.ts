@@ -1,5 +1,6 @@
 /**
- * The browser backing: bytes in OPFS, written through a dedicated worker; the index and the journal in
+ * The browser backing: bytes in OPFS, written through a dedicated worker (or, where OPFS is refused, in
+ * IndexedDB `lattice-vault-blobs`: `idb-blobs.ts`); the index and the journal in
  * IndexedDB `lattice-vault`; changes to other tabs over a BroadcastChannel; locks from `navigator.locks`.
  *
  * Reads come straight from the main thread (`getFile()` is a file-backed Blob on every engine). Only
@@ -7,6 +8,7 @@
  */
 import type { BlobStore } from './backing';
 import { type OpenOptions, openVault } from './core';
+import { idbBlobs, VAULT_BLOB_DB } from './idb-blobs';
 import { idbIndex, VAULT_DB } from './idb-index';
 import { BLOB_DIR, blobDir, type WritePath } from './opfs-write';
 import { VaultError, type VaultHandle } from './types';
@@ -125,45 +127,99 @@ export function opfsBlobs(root: () => Promise<FileSystemDirectoryHandle>, writer
 	};
 }
 
+/** Where a browser vault keeps its bytes: OPFS files, or rows of `lattice-vault-blobs` where OPFS is refused. */
+export type BlobBacking = 'opfs' | 'indexeddb';
+
+/** The index meta key that records which blob store a vault chose. Set once, never changed. */
+export const BLOB_BACKING_KEY = 'blobBacking';
+
+/** Can this browser hold a vault at all? IndexedDB is the floor: OPFS and workers are preferred, not required. */
 export function browserVaultSupported(): boolean {
-	return (
-		typeof navigator !== 'undefined' &&
-		typeof navigator.storage?.getDirectory === 'function' &&
-		typeof indexedDB !== 'undefined' &&
-		typeof Worker !== 'undefined'
-	);
+	return typeof indexedDB !== 'undefined';
 }
+
+const opfsPossible = () => typeof navigator !== 'undefined' && typeof navigator.storage?.getDirectory === 'function' && typeof Worker !== 'undefined';
 
 export interface BrowserVault extends VaultHandle {
-	/** How many blob writes took each OPFS write path this session. */
+	/** Where this vault keeps its bytes. */
+	readonly blobBacking: BlobBacking;
+	/** How many blob writes took each OPFS write path this session (zeros on the IndexedDB blob store). */
 	readonly writePaths: Readonly<Record<WritePath, number>>;
-	/** Ask the worker which write path this engine offers. */
-	probeWritePath(): Promise<WritePath>;
+	/** Which write path this engine offers: the worker's answer on OPFS, `indexeddb` otherwise. */
+	probeWritePath(): Promise<WritePath | 'indexeddb'>;
 }
 
-/** Open the browser vault. Throws `unavailable` on an engine without OPFS, IndexedDB or workers. */
-export async function openBrowserVault(opts: Partial<OpenOptions> & { dbName?: string; root?: string } = {}): Promise<BrowserVault> {
-	if (!browserVaultSupported()) throw new VaultError('unavailable', 'vault: this browser has no OPFS, IndexedDB or workers');
+/**
+ * Open the browser vault. Bytes go to OPFS where the engine allows it and to IndexedDB where it refuses
+ * (D1 on #3442). Throws `unavailable` only without IndexedDB, or when a vault that chose OPFS finds it refused.
+ *
+ * THE CHOICE IS RECORDED AND KEPT. The first open writes `blobBacking` into the index's meta, and every later
+ * open uses that store. Falling back per open would be unsafe: an OPFS refusal that passes (a storage hiccup, a
+ * private window over a normal profile's index) would open an empty blob store, and the startup scan would then
+ * mark every file damaged. A vault that chose IndexedDB stays there even once OPFS works, for the same reason.
+ */
+export async function openBrowserVault(
+	opts: Partial<OpenOptions> & { dbName?: string; blobDbName?: string; root?: string; forceBlobBacking?: BlobBacking } = {},
+): Promise<BrowserVault> {
+	if (!browserVaultSupported()) throw new VaultError('unavailable', 'vault: this browser has no IndexedDB');
 	const rootName = opts.root ?? VAULT_ROOT;
+	const dbName = opts.dbName ?? VAULT_DB;
 	// Probe OPFS before anything else. An engine can expose `getDirectory` and still refuse it: WebKit
 	// does in an ephemeral session (Playwright's default WebKit context throws UnknownError, measured
-	// 2026-11-22), and a private window may too. Refuse with a typed `unavailable` so a host can fall back.
-	let top: FileSystemDirectoryHandle;
-	try {
-		top = await navigator.storage.getDirectory();
-	} catch (err) {
-		throw new VaultError('unavailable', `vault: this browser refused OPFS (${(err as Error)?.name ?? 'Error'}: ${(err as Error)?.message ?? err})`);
+	// 2026-11-22), and a private window may too.
+	let top: FileSystemDirectoryHandle | null = null;
+	let refusal = 'this browser has no OPFS or workers';
+	if (opts.forceBlobBacking !== 'indexeddb' && opfsPossible()) {
+		try {
+			top = await navigator.storage.getDirectory();
+		} catch (err) {
+			refusal = `this browser refused OPFS (${(err as Error)?.name ?? 'Error'}: ${(err as Error)?.message ?? err})`;
+		}
 	}
-	let rootP: Promise<FileSystemDirectoryHandle> | null = null;
-	const root = () => {
-		rootP ??= top.getDirectoryHandle(rootName, { create: true });
-		return rootP;
+	const index = opts.index ?? idbIndex(dbName);
+	let backing: BlobBacking;
+	try {
+		let recorded = await index.getMeta<BlobBacking>(BLOB_BACKING_KEY);
+		// A slice-1 vault recorded nothing and kept its bytes in OPFS. If it holds anything (a journal line, or a record
+		// once a journal is trimmed), it chose OPFS.
+		if (recorded === undefined && !top && ((await index.journal(0)).length > 0 || (await index.under('')).length > 0)) recorded = 'opfs';
+		backing = recorded ?? (await index.metaOnce<BlobBacking>(BLOB_BACKING_KEY, () => (top ? 'opfs' : 'indexeddb')));
+		if (backing === 'opfs' && !top) throw new VaultError('unavailable', `vault: this vault keeps its files in OPFS, and ${refusal}`);
+	} catch (err) {
+		if (!opts.index) index.close();
+		throw err;
+	}
+	const channel = opts.channel !== undefined ? opts.channel : typeof BroadcastChannel === 'function' ? new BroadcastChannel(dbName) : null;
+	let writer: BlobWriter | null = null;
+	let blobs: BlobStore & { close?: () => void };
+	let writePaths: Record<WritePath, number> = { 'sync-access-handle': 0, writable: 0 };
+	if (backing === 'opfs' && top) {
+		const dir = top;
+		let rootP: Promise<FileSystemDirectoryHandle> | null = null;
+		const root = () => {
+			rootP ??= dir.getDirectoryHandle(rootName, { create: true });
+			return rootP;
+		};
+		let worker: Worker;
+		try {
+			worker = new Worker(new URL('./opfs.worker.ts', import.meta.url), { type: 'module', name: 'lattice-vault' });
+		} catch (err) {
+			// A refused worker (a CSP, a SecurityError) must not leak the channel and index opened above.
+			channel?.close();
+			if (!opts.index) index.close();
+			throw err;
+		}
+		writer = workerWriter(worker, rootName);
+		const opfs = opfsBlobs(root, writer);
+		writePaths = opfs.paths;
+		blobs = opfs;
+	} else {
+		blobs = idbBlobs(opts.blobDbName ?? VAULT_BLOB_DB);
+	}
+	const release = () => {
+		writer?.close();
+		blobs.close?.();
 	};
-	const worker = new Worker(new URL('./opfs.worker.ts', import.meta.url), { type: 'module', name: 'lattice-vault' });
-	const writer = workerWriter(worker, rootName);
-	const blobs = opfsBlobs(root, writer);
-	const channel = opts.channel !== undefined ? opts.channel : typeof BroadcastChannel === 'function' ? new BroadcastChannel(opts.dbName ?? VAULT_DB) : null;
-	const index = opts.index ?? idbIndex(opts.dbName ?? VAULT_DB);
 	let vault: VaultHandle;
 	try {
 		vault = await openVault({
@@ -172,16 +228,21 @@ export async function openBrowserVault(opts: Partial<OpenOptions> & { dbName?: s
 			index,
 			channel,
 			onClose: () => {
-				writer.close();
+				release();
 				opts.onClose?.();
 			},
 		});
 	} catch (err) {
 		// The startup scan failed: nothing will call close(), so release what this call opened.
-		writer.close();
+		release();
 		channel?.close();
 		index.close();
 		throw err;
 	}
-	return Object.assign(vault, { writePaths: blobs.paths, probeWritePath: () => writer.probe() });
+	const w = writer;
+	return Object.assign(vault, {
+		blobBacking: backing,
+		writePaths,
+		probeWritePath: () => (w ? w.probe() : Promise.resolve('indexeddb' as const)),
+	});
 }

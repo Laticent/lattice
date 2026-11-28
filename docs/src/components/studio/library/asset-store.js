@@ -378,6 +378,24 @@ export async function restoreAssetVersion(version) {
  */
 export async function deleteAsset(id) {
   const db = await openDB();
-  await reqAsPromise(tx(db, 'readwrite').delete(id));
+  // A photo or video keeps its bytes in the storage vault (media-vault.ts), named by `vault`. The row goes
+  // first: a crash after it leaks a file no row names (Clear Library and Delete everything empty the media
+  // folders), never a row whose file is gone.
+  // Read and delete in ONE transaction: the move into the vault swaps a row in a transaction of its own, so
+  // either the swap lands first (and this sees `vault`) or the delete does (and the swap finds no row and
+  // removes its file). Two transactions let the swap land between them and leaked the file.
+  const store = tx(db, 'readwrite');
+  const row = await new Promise((resolve, reject) => {
+    let found;
+    const get = store.get(id);
+    get.onsuccess = () => {
+      found = get.result;
+      store.delete(id);
+    };
+    store.transaction.oncomplete = () => resolve(found);
+    store.transaction.onerror = store.transaction.onabort = () => reject(store.transaction.error);
+  });
   await deleteAssetVersions(id);
+  // Loaded only for a vault row, so the Studio's eager bundle does not carry the vault (check:route-budget).
+  if (row && typeof row.vault === 'string') await (await import('../media-vault')).removeVaultFile(row.vault);
 }

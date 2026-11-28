@@ -260,6 +260,8 @@ Maximum permissive, easy adoption, easy enterprise upsell. The
 eventual enterprise tier sells *features and support*, not the
 license itself.
 
+> **Superseded:** the repo is AGPL-3.0-only; Desktop licensing is decided under #3541/#3546.
+
 ### Repository structure
 
 > **Superseded 2026-10-06 — the desktop app lives in `laticent/lattice`.** The plan
@@ -314,6 +316,8 @@ in the Gaps section.
 6. **GitHub Sponsors** — funding signal before any paid tier exists.
 
 ### Eventual enterprise tier — what it might add
+
+> **Superseded:** the repo is AGPL-3.0-only; Desktop licensing is decided under #3541/#3546.
 
 Open core stays MIT and free. Enterprise tier sells features and
 support that organizations specifically need:
@@ -2488,6 +2492,7 @@ Honest health check on the plan as it stands. Aggregate score:
   enterprise tier later. Three v1.0 seams (policy tier,
   audit-event emission, identity hub) cost almost nothing now and
   preserve enterprise optionality.
+  *Superseded: the repo is AGPL-3.0-only; Desktop licensing is decided under #3541/#3546.*
 - **Adoption (5 → 7).** Channels named explicitly: GitHub
   presence as marketing surface, conference talks, Lattice
   ecosystem effect, viral "made with Laticent" PDF badge,
