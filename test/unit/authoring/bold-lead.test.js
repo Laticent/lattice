@@ -40,8 +40,8 @@ describe('findBoldLeads: each bold-lead shape and its rewrite', () => {
   test('a bold run with more text over a nested body is emphasis: not reported', () => {
     assert.deepEqual(findBoldLeads('- **Build** in region\n  - why'), []);
   });
-  test('a nested item, a mid-sentence bold, a fenced line and a non-item are left alone', () => {
-    assert.deepEqual(findBoldLeads('- plain **x**\n  - **nested** y\n```\n- **fenced** z\n```\n**not an item**'), []);
+  test('a nested item, a mid-sentence bold and a non-item are left alone', () => {
+    assert.deepEqual(findBoldLeads('- plain **x**\n  - **nested** y\n**not an item**'), []);
   });
   test('a bold word that opens a phrase is emphasis: not split (red team / checker, W3 round 2)', () => {
     assert.deepEqual(findBoldLeads('- **Faster** onboarding for every rep'), []);
@@ -54,9 +54,12 @@ describe('findBoldLeads: each bold-lead shape and its rewrite', () => {
     assert.deepEqual(findBoldLeads('- ***Bold italic*** lead text'), []);
     assert.deepEqual(findBoldTheoremLabels('> ***Theorem.*** It holds.'), []);
   });
-  test('an HTML comment (a speaker note) is never rewritten', () => {
-    assert.deepEqual(findBoldLeads('<!--\n- **Say** this loudly.\n-->\n<!-- - **One.** line -->'), []);
-    assert.deepEqual(rewrites('<!-- note -->\n- **Lead.** detail'), ['- Lead\n  - detail']);
+  test('a line its masked body changed (a note, fenced code) is skipped; the others are read raw', () => {
+    // The body is the slide with comments and fences blanked, line for line (lint-core `renderedBody`).
+    const slide = '<!--\n- **Say.** this loudly.\n-->\n```\n- **Code.** z\n```\n<!-- note -->\n- **Lead.** detail';
+    const body = slide.replace(/<!--[\s\S]*?-->|```[\s\S]*?```/g, (m) => m.replace(/[^\n]/g, ' '));
+    assert.deepEqual(findBoldLeads(slide, { body }).map((h) => h.replaceLine), ['- Lead\n  - detail']);
+    assert.deepEqual(findBoldTheoremLabels('<!-- > **Theorem.** x -->', '                         '), []);
   });
   test('on a value layout the bold run was the value: `1. **$4.2M** ARR` splits, with or without a body', () => {
     const r = (md) => findBoldLeads(md, { tagLayout: true }).map((h) => h.replaceLine);
@@ -103,6 +106,15 @@ describe('the bold-lead rule and its fix', () => {
       assert.equal(f.severity, 'error');
       assert.equal(f.autofixable, true);
     }
+  });
+  test('a speaker note and fenced code on the slide are never reported or rewritten', () => {
+    const md = `${FM}<!-- @meta{layout=inventory} -->\n\n## Parts\n\n<!--\n- **Say.** this loudly.\n-->\n\n\`\`\`md\n- **Code.** sample\n\`\`\`\n\n- **Lead.** detail\n`;
+    const hits = lintText(md, { vocab }).filter((f) => f.rule === 'bold-lead');
+    assert.deepEqual(hits.map((f) => f.line), ['- **Lead.** detail']);
+    const fixed = lintCore.applyAllFixes(md, vocab);
+    assert.match(fixed, /- \*\*Say\.\*\* this loudly\./);
+    assert.match(fixed, /- \*\*Code\.\*\* sample/);
+    assert.match(fixed, /^- Lead\n {2}- detail$/m);
   });
   test('a wholly bold lead over a nested body is a WARNING: it renders the same', () => {
     const md = `${FM}<!-- @meta{layout=inventory} -->\n\n## Parts\n\n- **Planning.**\n  - Sets targets.\n`;
