@@ -22,14 +22,15 @@ open      — deck-register-gap.spec.ts:99 (desktop): red only under full-suite 
             all-projects run on PR #3480's merged tree (main 7c252ae + the PR), 2026-11-27: the tap on the avatar
             never showed the popover within 15 s. It passed every run after that: 10 of 10 alone (--repeat-each=10),
             5 of 5 at --workers=4 --repeat-each=5, and 15 of 15 at --workers=4 on a fresh `build:e2e`
-            (the log of that run does not record the extra CPU load it ran under, or its commit). Cause unknown; no claim on it. The owner chose to record it here
-            rather than hold #3480 (2026-11-27).
+            (the log of that run does not record the extra CPU load it ran under, or its commit). Cause unknown; no
+            claim on it. The owner chose to record it here rather than hold #3480 (2026-11-27).
             WebKit and Gecko, the paragraphs below (another session owns those projects). The same #3480 run also
             met plugin-admission.spec.ts:375 (webkit-tablet, Preview button click timeout) and
             compose-layout-button.spec.ts:85 (gecko), red once each and green alone and under load since.
-            2026-11-28, PR #3491's branch (f3222b0), --workers=4, two runs that together cover every project (the
-            first stopped at 2,565 of 3,621 tests; the second ran webkit-phone, webkit-tablet and gecko, 1,301 of 1,311
-            passed): four reds, each 3 of 3 alone after:
+            2026-11-28, PR #3491's branch (f3222b0), --workers=4, two runs over desktop, tablet, mobile,
+            webkit-phone, webkit-tablet and gecko (the first stopped at 2,565 of 3,621 tests; the second ran the last
+            three, 1,301 of 1,311 passed; compose-default, player-parity, minfont and the three -touch projects did
+            not run, so the avatar test above got no new run): four reds, each 3 of 3 alone after:
             deck-register-gap.spec.ts:21 (desktop, `align: spread` never became `"spread right"`) and
             compose-layout-button.spec.ts:85 (gecko again, "Replace text" never appeared), both given to
             session_015KSkL5qA3FjXiw1Cr933XL; filo-undo.spec.ts:80 (webkit-tablet, ⌘Z from the rail left the edit)
