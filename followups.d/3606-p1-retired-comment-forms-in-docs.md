@@ -5,7 +5,7 @@ recorded: 2026-11-28
 area: docs
 severity: medium
 swimlane: spec/diagnostics.md
-deferred: blocked — spec desk #3554 owns spec/diagnostics.md and its docs copy; desk:agent-native sent it the list
+deferred: blocked — #3554 (spec desk) rewrites rows 160/166/183/272 and #3607 rewrites row 440 with its lint-core rule; both are open PRs
 source: https://github.com/Laticent/lattice/pull/3606
 ---
 

@@ -63,7 +63,7 @@ const SANCTIONED = {
     keys: { form: 1 },
   },
   'docs/src/content/docs/spec/lfm.md': {
-    why: 'generated from ratified spec/LFM-1.0.md, whose Appendix A deck is read in every environment, Marp included. TEMPORARY for `_class`: #3554 regenerates this page with @meta examples; the stale-entry check removes the `_class` count when it lands',
+    why: "TEMPORARY, the whole entry: generated from spec/LFM-1.0.md, which #3554 (the spec desk) regenerates with @meta examples and no `paginate:` or `_class` taught as current (checked against #3554's head). Whichever of #3554 and #3606 lands second deletes this entry; the stale-entry check forces it",
     keys: { paginate: 2, _class: 5 },
   },
   'lib/base/base.registers.docs.md': {
@@ -83,7 +83,7 @@ const SANCTIONED = {
     keys: { say: 1 },
   },
   'docs/src/content/docs/spec/diagnostics.md': {
-    why: "the diagnostics table names what each rule reports: `stray-overflow-marker`'s retired key, and `say:` as an unknown `terms:` field. TEMPORARY for the comment forms: the `meta-class-overridden` (:440), `track-directive` (:160), `one-stepping-directive` (:166), `code-line-range` (:183) and `unknown-debug-facet` (:272) rows still describe an old comment as current, and lint-core.js:1100 still counts `_class` as a class setter; the spec desk owns the fix (followups.d/3606-p1-retired-comment-forms-in-docs.md)",
+    why: "the diagnostics table names what each rule reports: `stray-overflow-marker`'s retired key, and `say:` as an unknown `terms:` field. TEMPORARY for the comment forms, each dropped by the stale-entry check as its fix lands: `_track`, `_build`, `_focus`, `_debug` are the `track-directive` (:160), `one-stepping-directive` (:166), `code-line-range` (:183) and `unknown-debug-facet` (:272) rows, which #3554 (the spec desk) rewrites; `_class` is the `meta-class-overridden` row (:440), which #3607 rewrites with the rule in lint-core.js",
     keys: { 'overflow-marker': 1, say: 1, _class: 1, _track: 1, _build: 1, _focus: 1, _debug: 1 },
   },
   'docs/src/content/catalog/libraries/lente.md': {
@@ -96,7 +96,7 @@ const SANCTIONED = {
 // "before" or "old" on its own appears in plenty of current instructions, and a cue that broad excused
 // `` `guards: loose` is the default `` (lib/base/base.docs.md) because "before #2308" sat in the same paragraph.
 const RETIREMENT_CUE =
-  /\b(?:retired|retirement|renamed|was called|replaced|no longer|legacy|migrat\w*|rewrites?|deprecated|(?:the|an?) old(?:er)? (?:name|names|key|keys|form|forms|spelling|one|note|syntax|classes)|old names|LFM 1\.x|reaches nothing)\b|`[^`]+`[^.]*\b(?:is|are) not read\b|\b(?:the|an?) old `[^`]+` (?:key|keys|class|classes|name|form|spelling)\b|\b(?:was|formerly) `|→|`[^`]+`[ \t]*(?:becomes|is now|instead of)[ \t]+`/i;
+  /\b(?:retired|retirement|renamed|was called|replaced|no longer|legacy|migrat\w*|rewrites?|deprecated|(?:the|an?) old(?:er)? (?:name|names|key|keys|form|forms|spelling|one|note|syntax|classes)|old names|LFM 1\.x|reaches nothing|MUST NOT apply)\b|\*\*Not read:?\*\*|`[^`]+`[^.]*\b(?:is|are) not read\b|\b(?:the|an?) old `[^`]+` (?:key|keys|class|classes|name|form|spelling|comment|comments)\b|\b(?:was|formerly) `|→|`[^`]+`[ \t]*(?:becomes|is now|instead of)[ \t]+`/i;
 
 const RETIRED = DECK_SETTINGS.filter((r) => r.kind === 'retired').map((r) => r.key);
 // A slide comment the engine no longer reads. The @meta cut (#3563) made `<!-- @meta{…} -->` the one way a slide sets
@@ -327,6 +327,8 @@ test('a mention its paragraph marks as history passes; a front-matter block neve
     assert.equal(retiredKeys(deck).filter((h) => h.key === '_class').length, 1, deck);
   }
   assert.equal(retiredKeys('Write `# Revenue <!-- _class: kpi -->` on the slide.\n').length, 1);
+  // The spec's own phrasing for forms a renderer ignores.
+  assert.deepEqual(retiredKeys('- **Not read:** a directive comment (`<!-- _class: … -->`, `<!-- footer: … -->`).\n  A conformant renderer MUST NOT apply any of them.\n'), []);
   // Two comments on one line: each is read.
   assert.equal(retiredKeys('```markdown\n<!-- _class: kpi --> <!-- _paginate: false -->\n```\n').length, 2);
   // A comment closed with `--!>`, HTML's other comment end, is still a comment.
