@@ -64,7 +64,7 @@ describe('a token\'s per-kind number survives the push that grows the tape', () 
 });
 
 describe('the deck model', () => {
-	const src = '---\ntheme: x\n---\n# A\n<!-- _class: lead -->\n\n---\n\n```js\n---\n```\n\n***\n\n# C\n';
+	const src = '---\ntheme: x\n---\n# A\n<!-- @meta{class=lead} -->\n\n---\n\n```js\n---\n```\n\n***\n\n# C\n';
 	const m = deckModel(src, { parser });
 
 	it('splits front matter as the engine does and numbers body lines from 0', () => {
@@ -211,7 +211,7 @@ describe('updateDeckModel', () => {
 	});
 
 	it('re-reads one slide for a keystroke inside it, and reuses the others', () => {
-		const deck = Array.from({ length: 50 }, (_, i) => `# Slide ${i}\n\n- a\n- b\n\n<!-- _class: x -->`).join('\n\n---\n\n');
+		const deck = Array.from({ length: 50 }, (_, i) => `# Slide ${i}\n\n- a\n- b\n\n<!-- @meta{class=x} -->`).join('\n\n---\n\n');
 		const m = deckModel(deck, { parser });
 		const at = deck.indexOf('Slide 25') + 5;
 		const lines = deckModelStats.reparsedLines;

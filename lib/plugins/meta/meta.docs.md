@@ -4,11 +4,12 @@ How a deck is read. `meta` is the plugin that owns the **slide-metadata vocabula
 author sets on a slide, and the type of each. A slide sets them in one **record** comment:
 
 ```markdown
-<!-- {layout=cards, finish=ledger, footer="Q3 review"} -->
+<!-- @meta{layout=cards, finish=ledger, footer="Q3 review"} -->
 ```
 
-The older directive comments (`<!-- _class: cards -->`, `<!-- _footer: Q3 review -->`) are read too, until the cut
-(design note §9 step 6).
+`<!-- @meta{…} -->` is the only spelling the engine reads. The old forms (a directive comment such as `_class: cards`,
+or a record with no `@meta`) set nothing: the linter flags each one as an error, and `lattice migrate meta` rewrites
+the deck (design note §9 step 6, the cut).
 
 It draws nothing. It is a **data provider**: the build reads its manifest and writes
 `lib/plugins/meta.generated.mjs`, and every reader of those comments (the engine, the linter, the
@@ -18,7 +19,7 @@ the list.
 
 | | |
 |---|---|
-| You write | `<!-- {field=value, …} -->` for this slide; add `carry` for "from here on" |
+| You write | `<!-- @meta{field=value, …} -->` for this slide; add `carry` for "from here on" |
 | Front matter | the deck-only keys (`theme`, `size`, `lang`, `marp`) |
 | Always on | the host refuses to switch it off, in a deck's `plugins:` list or a host setting |
 | Other plugins | every `contributes.registers` joins the vocabulary and is listed by `META_REGISTERS` |
@@ -44,13 +45,13 @@ that the splitter leaves whole. A marker is tooling's, never a speaker note.
 | Field | Takes | Writes |
 |---|---|---|
 | `layout`, `variant`, `universal`, `modifiers`, `class` | class words | the slide's class |
-| `finish`, `headline-align`, `heading-rule`, `eyebrow`, `spectrum`, `spectrum-edge`, `spectrum-card`, `spectrum-card-edge`, `spectrum-trim`, `card-lift`, `stamp-shape`, `tone`, `slide-corners` | the values its front-matter register takes | the word one slide would carry (`{headline-align=left}` is `headline-align-left`; a default is its restore word, `{card-lift=off}` is `card-lift-off`). Derived from each register's resolver by `tools/lib/record-registers.js` |
+| `finish`, `headline-align`, `heading-rule`, `eyebrow`, `spectrum`, `spectrum-edge`, `spectrum-card`, `spectrum-card-edge`, `spectrum-trim`, `card-lift`, `stamp-shape`, `tone`, `slide-corners` | the values its front-matter register takes | the word one slide would carry (`@meta{headline-align=left}` is `headline-align-left`; a default is its restore word, `@meta{card-lift=off}` is `card-lift-off`). Derived from each register's resolver by `tools/lib/record-registers.js` |
 | a plugin's register (`icon`, `spark`, …) | its axis words | `icon-bare`, `icon-etch`, …; `with-<key>` / `no-<key>` for a register with an on/off axis (`callout`) |
 | every other field above, kebab-case (`focus-style`, `background-color`) | its type | the same `data-*` attribute its directive writes |
 | `note`, `reader`, `say`, `describe` | text; a long one on `key: \|` lines | the note channels |
 | `pane`, `panes` | a pane's component, a pane layout | the pane structure |
 
-The linter reports what the engine drops from a record (`meta-record`); the editor completes fields after `<!-- {`
+The linter reports what the engine drops from a record (`meta-record`); the editor completes fields after `<!-- @meta{`
 and values after `field=`; the Studio's drawer and note editors edit a record in place.
 
 ## Who writes the attributes (D11)

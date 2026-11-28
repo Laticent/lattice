@@ -46,7 +46,7 @@ beforeEach(() => {
 // A deck the whole-deck memo actually serves: a running-global header is a deck-derived fact, so
 // `needsDeckContext` is true, the render is NOT sliced, and sibling tiles showing different slides
 // share one memoized parse. This is Present's slide-overview shape.
-const DECK_SCOPED = '<!-- header: Q3 Review -->\n\ndeck body';
+const DECK_SCOPED = '<!-- @meta{header=Q3 Review} -->\n\ndeck body';
 
 // The engine's real output shape for a 3-slide deck. The section COUNT has to match the
 // `slideCount` the caller believes, or narrowing declines and the render falls back to the

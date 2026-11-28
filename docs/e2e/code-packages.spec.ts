@@ -75,7 +75,7 @@ async function tallyZip(code: string): Promise<Buffer> {
 	const zip = new JSZip();
 	zip.file('tally/tally.manifest.json', JSON.stringify({ name: 'tally', type: 'component', format: 1, facts: 1 }));
 	zip.file('tally/tally.styles.css', 'section.tally .tally-marks { display: flex; gap: 0.5em; color: var(--accent); }\n');
-	zip.file('tally/tally.gallery.md', '<!-- _class: tally -->\n\n## Tally\n\n- 3\n');
+	zip.file('tally/tally.gallery.md', '<!-- @meta{class=tally} -->\n\n## Tally\n\n- 3\n');
 	zip.file('tally/tally.transform.js', code);
 	return zip.generateAsync({ type: 'nodebuffer' });
 }
@@ -117,7 +117,7 @@ test(`a code package runs in the Studio only after consent, sandboxed, and reach
 			await expect(page.locator('[data-sonner-toast]').first()).toContainText('1 component(s)');
 			await page.keyboard.press('Escape');
 
-			const deck = '<!-- _class: tally -->\n\n## Three wins\n\n- 3\n\n<!-- the author note -->\n';
+			const deck = '<!-- @meta{class=tally} -->\n\n## Three wins\n\n- 3\n\n<!-- the author note -->\n';
 			await setEditorContent(page, deck);
 			const preview = livePreview(page);
 			const notice = page.locator('[data-slot="code-packages"]');
@@ -186,7 +186,7 @@ test(`a code package runs in the Studio only after consent, sandboxed, and reach
 				);
 				await expect.poll(() => udpHits.length, { timeout: 15_000 }).toBeGreaterThan(0);
 			}
-			await setEditorContent(page, `<!-- _class: tally -->\n\n## Three wins\n\n- 3\n\n![control](${origin}/control.png)\n`);
+			await setEditorContent(page, `<!-- @meta{class=tally} -->\n\n## Three wins\n\n- 3\n\n![control](${origin}/control.png)\n`);
 			const web = page.locator('[data-slot="web-images"]');
 			await expect(web).toHaveAttribute('data-state', 'blocked', { timeout: 30_000 });
 			await web.getByRole('button', { name: /^Load \d+ images? from/ }).click();
@@ -237,7 +237,7 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 			await expect(toast).toContainText(/holds a dynamic `import\(\)` at 2:3/);
 			await page.keyboard.press('Escape');
 
-			await setEditorContent(page, '<!-- _class: tally -->\n\n## Three wins\n\n- 3\n');
+			await setEditorContent(page, '<!-- @meta{class=tally} -->\n\n## Three wins\n\n- 3\n');
 			const preview = livePreview(page);
 			await expect(preview.locator('h2')).toContainText('Three wins', { timeout: 30_000 });
 			await witnessLanded(page.context(), { udp: false });
@@ -286,12 +286,12 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 			const zip = new JSZip();
 			zip.file('dateline/dateline.manifest.json', JSON.stringify({ name: 'dateline', type: 'component', format: 1, facts: 1 }));
 			zip.file('dateline/dateline.styles.css', 'section.dateline .dateline-rows { display: grid; gap: 0.25em; }\n');
-			zip.file('dateline/dateline.gallery.md', '<!-- _class: dateline -->\n\n## Plan\n\n- 2026-01-10 Kickoff\n');
+			zip.file('dateline/dateline.gallery.md', '<!-- @meta{class=dateline} -->\n\n## Plan\n\n- 2026-01-10 Kickoff\n');
 			zip.file('dateline/dateline.transform.js', datelineCode(origin));
 			await page.locator('[data-testid="library-import-input"]').setInputFiles({ name: 'dateline.zip', mimeType: 'application/zip', buffer: await zip.generateAsync({ type: 'nodebuffer' }) });
 			await expect(page.locator('[data-sonner-toast]').first()).toContainText('1 component(s)');
 			await page.keyboard.press('Escape');
-			await setEditorContent(page, '<!-- _class: dateline -->\n\n## Launch plan\n\n- 2026-01-10 **Kickoff**\n- 2026-03-02 Beta & pilot\n- 2026-06-30 [General availability](https://example.test)\n');
+			await setEditorContent(page, '<!-- @meta{class=dateline} -->\n\n## Launch plan\n\n- 2026-01-10 **Kickoff**\n- 2026-03-02 Beta & pilot\n- 2026-06-30 [General availability](https://example.test)\n');
 			const notice = page.locator('[data-slot="code-packages"]');
 			await expect(notice).toHaveAttribute('data-state', 'unapproved', { timeout: 30_000 });
 			await notice.getByRole('button', { name: 'Approve the code of dateline' }).click();

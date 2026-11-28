@@ -355,7 +355,7 @@ describe('runArchitect — honest offline degradation', () => {
 		// No OpenRouter key, no on-device model in the test env → the floor. The
 		// architect must NOT fabricate an edit; it reports offline so the UI can
 		// point the author at Workspace instead of faking a change.
-		const out = await runArchitect('<!-- _class: title -->\n\n# Hello', 'Rewrite slide 1.');
+		const out = await runArchitect('<!-- @meta{layout=title} -->\n\n# Hello', 'Rewrite slide 1.');
 		expect(out.status).toBe('offline');
 	});
 });
@@ -363,12 +363,12 @@ describe('runArchitect — honest offline degradation', () => {
 describe('requestFindingFix — honest per-finding fix', () => {
 	const finding = { slide: 2, rule: 'wall-of-text', severity: 'warning', message: 'Too many words on this slide.' };
 	it('returns `offline` with no model connected — never a fabricated rewrite', async () => {
-		const out = await requestFindingFix('<!-- _class: title -->\n\n# A', finding, []);
+		const out = await requestFindingFix('<!-- @meta{layout=title} -->\n\n# A', finding, []);
 		expect(out.status).toBe('offline');
 	});
 	it('applyDeckEdit splices a replace edit into the right slide', () => {
-		const src = '<!-- _class: title -->\n\n# One\n\n---\n\n<!-- _class: kpi -->\n\n# Two';
-		const next = applyDeckEdit(src, { action: 'replace', slide: 2, body: '<!-- _class: kpi -->\n\n# Rewritten' });
+		const src = '<!-- @meta{layout=title} -->\n\n# One\n\n---\n\n<!-- @meta{layout=kpi} -->\n\n# Two';
+		const next = applyDeckEdit(src, { action: 'replace', slide: 2, body: '<!-- @meta{layout=kpi} -->\n\n# Rewritten' });
 		expect(next).toContain('# Rewritten');
 		expect(next).toContain('# One'); // slide 1 untouched
 		expect(next).not.toContain('# Two');
@@ -410,7 +410,7 @@ describe('generateComponent — silent gate-repair', () => {
 	const draft = (css: string) => ({
 		name: 'neon-console', description: 'A neon terminal panel.', function: 'inventory', form: 'panel',
 		substance: 'structure', bucket: 'inventory', tags: ['neon', 'terminal', 'status'], adapt: { mode: 'native' },
-		capacity: { sweet: 1, soft: 1, hard: 1 }, css, skeleton: '<!-- _class: neon-console -->\n\n## Status\n\n- Core `OK`',
+		capacity: { sweet: 1, soft: 1, hard: 1 }, css, skeleton: '<!-- @meta{class=neon-console} -->\n\n## Status\n\n- Core `OK`',
 	});
 	// The dirty draft trips two gate errors (hex + margin); the clean one is token-only.
 	const DIRTY = draft('section.neon-console > .cell-stage { color:#00ff00; margin:4px; }');
@@ -475,7 +475,7 @@ describe('generateComponent — effort dial (design self-refine)', () => {
 	const draft = (css: string, rating?: number) => ({
 		name: 'kpi-trio', description: 'Three KPIs.', function: 'statement', form: 'canvas', substance: 'structure',
 		bucket: 'statement', tags: ['kpi', 'stat', 'metric'], adapt: { mode: 'native' }, capacity: { sweet: 3, soft: 3, hard: 3 },
-		css: `section.kpi-trio > .cell-stage { ${css} }`, skeleton: '<!-- _class: kpi-trio -->\n\n## Numbers\n\n- 100\n- 200',
+		css: `section.kpi-trio > .cell-stage { ${css} }`, skeleton: '<!-- @meta{class=kpi-trio} -->\n\n## Numbers\n\n- 100\n- 200',
 		...(rating == null ? {} : { rating }),
 	});
 	const GEN = draft('color:var(--pass);'); // the initial (clean) generation
@@ -564,7 +564,7 @@ describe('refineComponent — author-directed nudge', () => {
 	const current = {
 		name: 'kpi-trio', description: 'Three KPIs.', function: 'statement', form: 'canvas', substance: 'structure',
 		bucket: 'statement', tags: ['kpi', 'stat', 'metric'], adapt: { mode: 'native' }, capacity: { sweet: 3, soft: 3, hard: 3 },
-		density: null, css: 'section.kpi-trio > .cell-stage { color:var(--text-body); }', skeleton: '<!-- _class: kpi-trio -->\n\n## Numbers\n\n- 100\n- 200',
+		density: null, css: 'section.kpi-trio > .cell-stage { color:var(--text-body); }', skeleton: '<!-- @meta{class=kpi-trio} -->\n\n## Numbers\n\n- 100\n- 200',
 	} as unknown as Parameters<typeof refineComponent>[1];
 
 	it('returns `nochange` for an empty instruction without touching the model', async () => {
@@ -860,7 +860,7 @@ describe('theme + component AI — a failed model call names its cause', () => {
 	];
 	const current = {
 		name: 'card', description: 'A card.', function: 'inventory', form: 'panel', substance: 'structure', bucket: 'inventory',
-		tags: [], adapt: { mode: 'native' }, capacity: null, density: null, css: 'section.card {}', skeleton: '<!-- _class: card -->',
+		tags: [], adapt: { mode: 'native' }, capacity: null, density: null, css: 'section.card {}', skeleton: '<!-- @meta{class=card} -->',
 	};
 	for (const [label, message, expected] of CASES) {
 		it(`a ${label} reaches generateTheme, generateComponent and refineComponent as its own sentence`, async () => {

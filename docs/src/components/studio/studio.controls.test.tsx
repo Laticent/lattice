@@ -126,8 +126,8 @@ async function openFabricate(user: ReturnType<typeof userEvent.setup>) {
 }
 
 const CATALOG = [
-	{ name: 'kpi', bucket: 'inventory', description: 'Key metrics as big numbers', skeleton: '<!-- _class: kpi -->\n\n## Metrics\n\n1. 100\n   - Done' },
-	{ name: 'quote', bucket: 'statement', description: 'A pull quote', skeleton: '<!-- _class: quote -->\n\n> Words.\n\n— Someone' },
+	{ name: 'kpi', bucket: 'inventory', description: 'Key metrics as big numbers', skeleton: '<!-- @meta{layout=kpi} -->\n\n## Metrics\n\n1. 100\n   - Done' },
+	{ name: 'quote', bucket: 'statement', description: 'A pull quote', skeleton: '<!-- @meta{layout=quote} -->\n\n> Words.\n\n— Someone' },
 ];
 async function setupWithCatalog() {
 	const user = userEvent.setup();
@@ -163,7 +163,7 @@ describe('Studio — every top-bar control responds', () => {
 		// Give it a real title the only way an author would: type it into the deck.
 		const editor = screen.getByLabelText('Deck source');
 		await user.click(editor);
-		await user.paste('<!-- _class: title -->\n\n# Acme Board Pack\n\n');
+		await user.paste('<!-- @meta{layout=title} -->\n\n# Acme Board Pack\n\n');
 		// The switcher (and everything else that shows a deck title) tracks it live.
 		expect(await screen.findByRole('button', { name: /Acme Board Pack/ })).toBeInTheDocument();
 		expect(screen.queryByRole('button', { name: /Untitled deck/ })).not.toBeInTheDocument();
@@ -187,7 +187,7 @@ describe('Studio — every top-bar control responds', () => {
 		const long = 'Project Falcon — the FY26 operating plan and capital allocation review'; // 70 chars
 		const editor = screen.getByLabelText('Deck source');
 		await user.click(editor);
-		await user.paste(`<!-- _class: title -->\n\n# ${long}\n\nbody`);
+		await user.paste(`<!-- @meta{layout=title} -->\n\n# ${long}\n\nbody`);
 
 		// The prompt is prefilled with the whole heading, not the 60-char display title.
 		const prompt = vi.spyOn(window, 'prompt').mockImplementation(() => `${long} II`);
@@ -211,7 +211,7 @@ describe('Studio — every top-bar control responds', () => {
 		await user.click(await screen.findByText('New deck'));
 		const editor = screen.getByLabelText('Deck source');
 		await user.click(editor);
-		await user.paste('---\ntitle: Board pack — Q4 FY26\n---\n\n<!-- _class: title -->\n\n# Q4\n\n');
+		await user.paste('---\ntitle: Board pack — Q4 FY26\n---\n\n<!-- @meta{layout=title} -->\n\n# Q4\n\n');
 		await waitFor(() => {
 			const idx = JSON.parse(localStorage.getItem('lattice-studio-deck-index') ?? '[]') as { title: string; derived?: string }[];
 			// The OVERRIDE, not the cover heading — mirroring "Q4" here would flash the very name
@@ -228,7 +228,7 @@ describe('Studio — every top-bar control responds', () => {
 		const user = await setup();
 		const editor = screen.getByLabelText('Deck source');
 		await user.click(editor);
-		await user.paste('<!-- _class: title -->\n\n# Q4\n\nbody');
+		await user.paste('<!-- @meta{layout=title} -->\n\n# Q4\n\nbody');
 		expect(await screen.findByRole('button', { name: /Q4/ })).toBeInTheDocument();
 
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
@@ -254,7 +254,7 @@ describe('Studio — every top-bar control responds', () => {
 		// three trio lenses independently found that setting a Deck name shredded a real deck's
 		// block. Drive a deck that HAS front matter, or this test proves nothing.
 		const user = await setup();
-		const rich = ['---', '# author note — keep me', 'theme: indaco', '_class: lead', 'style: |', '  section { color: red; }', 'tags: [alpha, beta]', '---', '', '<!-- _class: title -->', '', '# Q4', '', 'body'].join('\n');
+		const rich = ['---', '# author note — keep me', 'theme: indaco', '_class: lead', 'style: |', '  section { color: red; }', 'tags: [alpha, beta]', '---', '', '<!-- @meta{layout=title} -->', '', '# Q4', '', 'body'].join('\n');
 		const editor = screen.getByLabelText('Deck source');
 		await user.click(editor);
 		await user.paste(rich);
@@ -282,7 +282,7 @@ describe('Studio — every top-bar control responds', () => {
 		const user = await setup();
 		const editor = screen.getByLabelText('Deck source');
 		await user.click(editor);
-		await user.paste('---\n\n<!-- _class: title -->\n\n# Cover slide\n\nRevenue up 12 percent.\n\n---\n\n# Second slide\n');
+		await user.paste('---\n\n<!-- @meta{layout=title} -->\n\n# Cover slide\n\nRevenue up 12 percent.\n\n---\n\n# Second slide\n');
 
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
 		await clickSection(user, 'General');
@@ -305,7 +305,7 @@ describe('Studio — every top-bar control responds', () => {
 		const user = await setup();
 		const editor = screen.getByLabelText('Deck source');
 		await user.click(editor);
-		await user.paste('---\ntitle: Board pack — Q4 FY26 (final)\n---\n\n<!-- _class: title -->\n\n# Q4\n\nbody');
+		await user.paste('---\ntitle: Board pack — Q4 FY26 (final)\n---\n\n<!-- @meta{layout=title} -->\n\n# Q4\n\nbody');
 
 		// The switcher trigger carries the override, not the cover heading.
 		const trigger = await screen.findByRole('button', { name: /Board pack — Q4 FY26 \(final\)/ });
@@ -327,9 +327,9 @@ describe('Studio — every top-bar control responds', () => {
 		const user = await setup();
 		// Drive the hidden file input directly (a real <input type=file> change).
 		const input = document.querySelector('input[type="file"]') as HTMLInputElement;
-		const file = new File(['<!-- _class: title -->\n\n# Acme Annual Review\n\nThe year in numbers.'], 'acme.md', { type: 'text/markdown' });
+		const file = new File(['<!-- @meta{layout=title} -->\n\n# Acme Annual Review\n\nThe year in numbers.'], 'acme.md', { type: 'text/markdown' });
 		// jsdom File has no .text() by default in some setups — polyfill for the test.
-		if (!file.text) Object.defineProperty(file, 'text', { value: () => Promise.resolve('<!-- _class: title -->\n\n# Acme Annual Review\n\nThe year in numbers.') });
+		if (!file.text) Object.defineProperty(file, 'text', { value: () => Promise.resolve('<!-- @meta{layout=title} -->\n\n# Acme Annual Review\n\nThe year in numbers.') });
 		// …and no Blob.arrayBuffer, which the importer uses to sniff the first bytes (every
 		// browser has had it since 2020). Patched on the prototype so `slice()` gets it too,
 		// and restored below so the patch never leaks into a later test.
@@ -364,7 +364,7 @@ describe('Studio — every top-bar control responds', () => {
 		await user.click(editor);
 		await user.keyboard('{Control>}a{/Control}');
 		// A card-style inline-title footgun the shared lint-core flags as an error.
-		await user.paste('<!-- _class: cards-grid -->\n\n## Three bets\n\n- **Alpha.** the body text\n');
+		await user.paste('<!-- @meta{layout=cards-grid} -->\n\n## Three bets\n\n- **Alpha.** the body text\n');
 		// The lint-core finding surfaces as an inline diagnostic underline (async:
 		// the authoring-core bundle is imported on first validation).
 		await waitFor(() => expect(document.querySelector('.cm-lintRange')).toBeTruthy(), { timeout: 6000 });
@@ -600,7 +600,7 @@ describe('Studio — every top-bar control responds', () => {
 		await user.click(await within(dialog).findByText('quote'));
 		expect(railCount()).toBe(start + 1);
 		// The inserted slide carries the component's real skeleton class.
-		expect(screen.getByLabelText('Deck source').textContent).toMatch(/_class:\s*quote/);
+		expect(screen.getByLabelText('Deck source').textContent).toMatch(/@meta\{layout=quote\}/);
 	});
 
 	it('the lessons find the chrome they point at, by the selectors they use', async () => {
@@ -622,7 +622,7 @@ describe('Studio — every top-bar control responds', () => {
 		// Edit deck 1 — paste a unique marker into the source.
 		const editor = screen.getByLabelText('Deck source');
 		await user.click(editor);
-		await user.paste('<!-- _class: title -->\n\n# UNIQUE-MARKER-XYZ\n\n');
+		await user.paste('<!-- @meta{layout=title} -->\n\n# UNIQUE-MARKER-XYZ\n\n');
 		// Switch to the second built-in deck, then back to the first. The edited deck is
 		// now NAMED by the pasted heading — a deck's title is its first heading.
 		await user.click(screen.getByRole('button', { name: /UNIQUE-MARKER-XYZ/ }));
@@ -665,7 +665,7 @@ describe('Studio — Architect + editor controls respond', () => {
 		fireEvent.click(screen.getByRole('button', { name: 'Toggle Coach' })); // panels start closed now — the Architect "Fix all" banner needs the coach open
 		const editor = screen.getByLabelText('Deck source');
 		await user.click(editor);
-		await user.paste('<!-- _class: bogus-zzz -->\n# Oops\n\n---\n\n');
+		await user.paste('<!-- @meta{layout=bogus-zzz} -->\n# Oops\n\n---\n\n');
 		// The unknown component surfaces as an inline issue.
 		expect(await screen.findByText(/\d+ issue/)).toBeInTheDocument();
 		// Fix all (Architect banner or Edit header — both fix) clears it.
@@ -900,7 +900,7 @@ describe('Studio — Inspector controls respond', () => {
 		const editor = screen.getByLabelText('Deck source');
 		await user.click(editor);
 		await user.keyboard('{Control>}a{/Control}');
-		await user.paste('<!-- _class: title -->\n\n# TOTALLY DIFFERENT\n');
+		await user.paste('<!-- @meta{layout=title} -->\n\n# TOTALLY DIFFERENT\n');
 		expect(screen.getByLabelText('Deck source').textContent).toMatch(/TOTALLY DIFFERENT/);
 		// Reopen history and restore — the saved content comes back.
 		await user.click(screen.getByRole('button', { name: 'Version history' }));
@@ -924,7 +924,7 @@ describe('Studio — Inspector controls respond', () => {
 		const editor = screen.getByLabelText('Deck source');
 		await user.click(editor);
 		await user.keyboard('{Control>}a{/Control}');
-		await user.paste('<!-- _class: title -->\n\n# TOTALLY DIFFERENT\n');
+		await user.paste('<!-- @meta{layout=title} -->\n\n# TOTALLY DIFFERENT\n');
 		const afterTyping = liveDeckId();
 		expect(afterTyping, 'the stub must actually receive a deckId').not.toBeNull();
 
@@ -1055,7 +1055,7 @@ describe('Studio — Inspector controls respond', () => {
 	// WIRING: that the real drawer controls call the lossless writer, on a real deck that
 	// has something to lose. #1254's control test was vacuous in exactly this way — it drove
 	// a deck with NO front matter, the one input where a whole-block rebuild destroys nothing.
-	const RICH_DECK = ['---', '# legal signed off on this footer', 'theme: indaco', '_class: lead', 'style: |', '  section.title h1 { color: red; }', 'tags: [alpha, beta]', '---', '', '<!-- _class: title -->', '', '# Q4', '', 'body'].join('\n');
+	const RICH_DECK = ['---', '# legal signed off on this footer', 'theme: indaco', '_class: lead', 'style: |', '  section.title h1 { color: red; }', 'tags: [alpha, beta]', '---', '', '<!-- @meta{layout=title} -->', '', '# Q4', '', 'body'].join('\n');
 
 	/** Assert the deck source still carries every construct `parseFm`'s grammar cannot model. */
 	function expectFrontMatterIntact(label: string) {

@@ -44,7 +44,7 @@ So you either send everyone all twenty slides, or you copy the file three times 
 
 A **lens** is a named view of the same slides — "Bottom line", "The evidence", "The ask". The document itself is never copied or edited to make one.
 
-- **Each slide says which lenses it belongs to**, in a comment readers never see: `<!-- _lens: brief story -->`. A lens can start empty and add slides, or start with everything and take some out.
+- **Each slide says which lenses it belongs to**, in a comment readers never see. In Lattice that is the slide's record, `<!-- @meta{lens=brief story} -->`; the package on its own reads a `<!-- _lens: brief story -->` comment, and a host swaps in its own reader with `setLensTagCarrier`. A lens can start empty and add slides, or start with everything and take some out.
 - **Approval is a fingerprint.** When a person approves a lens, Lente records a fingerprint of exactly what that reader will see — a short code computed from the content, which changes if a single character changes.
 - **It refuses rather than over-shares.** Ask for a lens and you get either its slides or a reason you can't have them: not approved yet, changed since approval, empty, or hidden. It *never* falls back to showing the whole document.
 - **It suggests; it never decides.** A separate rule-based helper — no AI, no network — proposes which slides might fit each lens. It writes nothing. A person accepts or rejects.

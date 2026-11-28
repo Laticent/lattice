@@ -34,7 +34,7 @@ const DECK = [
   'spectrum: solid left band', 'card-spectrum: rainbow top hairline', 'trim-spectrum: mono',
   'heading-rule: accent', 'eyebrow: dot', 'headline-align: center',
   '---', '', '## Follows the deck',
-  ...RESTORES.flatMap(([own]) => ['', '---', '', `<!-- _class: content ${own} -->`, '', `## ${own}`]),
+  ...RESTORES.flatMap(([own]) => ['', '---', '', `<!-- @meta{class=content ${own}} -->`, '', `## ${own}`]),
 ].join('\n');
 
 test('the engine drops the deck token on a restore token\'s axis, and keeps every other axis', () => {
@@ -80,7 +80,7 @@ test('the runtime evicts the deck token on a restore token\'s axis too', async (
 
 test('lint: a restore token beside a rival from its axis is a conflict, since the restore always loses', () => {
   const { lintText } = require(path.join(ROOT, 'lib/authoring/lint.js'));
-  const conflicts = (cls) => lintText(`---\ntheme: indaco\n---\n\n<!-- _class: content ${cls} -->\n\n## A\n\nB.\n`)
+  const conflicts = (cls) => lintText(`---\ntheme: indaco\n---\n\n<!-- @meta{class=content ${cls}} -->\n\n## A\n\nB.\n`)
     .filter((f) => f.rule === 'conflicting-variants').map((f) => f.classToken);
   for (const [restore, rival] of RESTORES) {
     assert.deepEqual(conflicts(`${restore} ${rival}`), [rival], `${restore} + ${rival}`);

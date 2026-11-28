@@ -76,7 +76,7 @@ describe('deck-context alignment (real engine, real splitter)', () => {
 		// The harm this used to pin: authored slide 2 became 2 sections, so authored slide 3
 		// ("Omega") lived at section index 3, not 2. Since the walk is a behavior on ONE slide
 		// (engineering/decisions/2026-11-09-steps-as-a-behavior.md), index k is section k again.
-		const src = '---\npagination: true\n---\n\n## Alpha\n\nx\n\n---\n\n<!-- _focusSteps: a | b -->\n\n## Steps\n\n- a\n- b\n\n---\n\n## Omega\n\nEnd.\n';
+		const src = '---\npagination: true\n---\n\n## Alpha\n\nx\n\n---\n\n<!-- @meta{focus-steps="a | b"} -->\n\n## Steps\n\n- a\n- b\n\n---\n\n## Omega\n\nEnd.\n';
 		const { slides, doc } = deckDoc(src);
 		const html = engine.render(doc, 'lattice').html;
 		expect(slides.length).toBe(3);
@@ -162,7 +162,7 @@ describe('a lone authored chunk is not necessarily one section (#1551)', () => {
 		// one is a setext underline under `header: "…"`, which is why the keys render as an
 		// `<h2>` and why the count shifts by one rather than two.
 		const src =
-			'---\ntheme: indaco\npagination: true\n---\n\n---\nmarp: true\ntheme: indaco\npagination: true\nheader: "Pasted deck"\n---\n\n<!-- _class: quadrant -->\n\n## A quadrant that should be reachable.\n\n- Fast\n- Slow\n\n---\n\n## An ordinary second slide.\n\nBody text.\n';
+			'---\ntheme: indaco\npagination: true\n---\n\n---\nmarp: true\ntheme: indaco\npagination: true\nheader: "Pasted deck"\n---\n\n<!-- @meta{layout=quadrant} -->\n\n## A quadrant that should be reachable.\n\n- Fast\n- Slow\n\n---\n\n## An ordinary second slide.\n\nBody text.\n';
 		const { fm, slides } = deckDoc(src);
 
 		// What the fallback actually renders is `frontMatter + chunk` — the deck's own front
@@ -217,7 +217,7 @@ describe('a legitimate 1→N chunk must never be refused (#1551 over-fire)', () 
 	});
 
 	it('a `_focusSteps` chunk expands, and is still a legitimate slide', () => {
-		const src = '---\ntheme: indaco\npagination: true\n---\n\n<!-- _class: content -->\n<!-- _focusSteps: 2 -->\n\n## Focused\n\n- one\n- two\n';
+		const src = '---\ntheme: indaco\npagination: true\n---\n\n<!-- @meta{layout=content} -->\n<!-- @meta{focus-steps=2} -->\n\n## Focused\n\n- one\n- two\n';
 		const { fm, slides } = deckDoc(src);
 		expect(slides.length).toBe(1);
 		// Whatever the expansion count is, the caller still believes it is one slide.

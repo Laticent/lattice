@@ -2,7 +2,7 @@
   "$schema": "./base.manifest.schema.json",
   "description": "The base manifest: every class word a slide accepts WITHOUT a component declaring it, grouped by what it controls, and every front-matter register with the groups it stamps. lib/components/index.js builds MODIFIER_GROUPS from it; tools/build-base-docs.js generates lib/base/base.modifiers.docs.md from it. A group's tokens are listed here, or named by `source` when an engine resolver owns the word list (lib/base/base-manifest.js SOURCES). engineering/decisions/2026-11-19-deterministic-authoring-audit.md W5.",
   "kinds": [
-    { "kind": "component", "test": "The first `_class` word: a key of the component catalog (`kpi`, `cards-grid`)." },
+    { "kind": "component", "test": "The first word of the slide's class (`@meta{layout=…}`): a key of the component catalog (`kpi`, `cards-grid`)." },
     { "kind": "variant", "test": "In this component's own `variants`; legal only after that component (`kpi spotlight`)." },
     { "kind": "modifier", "test": "In a group of this manifest; it acts on a surface, and is offered where the component has that surface (`dark`, `heading-rule-accent`)." },
     { "kind": "switch", "test": "A modifier spelled `no-X` or `with-X`, X a name in lib/core/switches.mjs (`no-footer`, `with-period`)." },

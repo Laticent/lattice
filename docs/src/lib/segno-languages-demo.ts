@@ -20,7 +20,7 @@ Revenue, churn and the plan for Q3.
 
 ---
 
-<!-- _class: compare -->
+<!-- @meta{class=compare} -->
 
 ## Two ways to ship
 

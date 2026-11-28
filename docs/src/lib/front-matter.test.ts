@@ -5,7 +5,7 @@ import { parseLensRegistry, upsertLensRegistry } from '@/lib/lente';
 import { acronymEntries, lexiconMap, termEntries } from '@/lib/resolve-narration';
 import { frontMatterBlock, getFrontMatter, innerFrontMatter, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatterAcronyms, setFrontMatterBlock, setFrontMatterTerms, stripFrontMatter, writeFrontMatterLine } from './front-matter';
 
-const BODY = '<!-- _class: title -->\n\n# Hello\n\n---\n\n## Second';
+const BODY = '<!-- @meta{layout=title} -->\n\n# Hello\n\n---\n\n## Second';
 
 // The exact reconstruction the shell uses to persist a registry edit: extract the inner front matter,
 // let Lente (the sole registry serializer) rewrite the `lenses:` block, re-wrap in `---` delimiters.
@@ -434,7 +434,7 @@ describe('every deck-scope directive writes losslessly (#1256)', () => {
 	it('a deck whose leading `---` is a slide separator keeps that slide', () => {
 		// FM_RE cannot tell a separator from front matter, so slide 1 is "inside the block".
 		// A splice can at worst edit the wrong line; the rebuild deleted the slide outright.
-		const sep = '---\n\n<!-- _class: title -->\n\n# Cover slide\n\nRevenue up 12 percent.\n\n---\n\n# Second slide\n';
+		const sep = '---\n\n<!-- @meta{layout=title} -->\n\n# Cover slide\n\nRevenue up 12 percent.\n\n---\n\n# Second slide\n';
 		for (const key of DECK_SCOPE_KEYS) {
 			const out = writeFrontMatterLine(sep, key, 'x-value');
 			expect(out, key).toContain('# Cover slide');

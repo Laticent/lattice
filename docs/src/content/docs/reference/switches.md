@@ -13,14 +13,14 @@ the same way:
 Turn a switch off for the whole deck with `class: no-X` in the front matter (or,
 for a setting that has its own key, its plain word, such as `motion: off`). A
 deck's `class:` reaches every slide, including one that sets its own
-`<!-- _class: … -->`. One slide then brings it back:
+`class=` in its `<!-- @meta{…} -->` record. One slide then brings it back:
 
 ```markdown
 ---
 class: no-progress
 ---
 
-<!-- _class: content with-progress -->
+<!-- @meta{layout=content, class=with-progress} -->
 
 # This slide keeps its section rail
 ```
@@ -41,7 +41,7 @@ Studio, the Playground, the command line and an exported Marp bundle.
 
 `silent` is the one word for a clean slide: it turns the header, footer, page
 number and rail off together. Any one comes back with its own `with-X`:
-`<!-- _class: content silent with-pagination -->`.
+`<!-- @meta{layout=content, class=silent with-pagination} -->`.
 
 ## Content
 

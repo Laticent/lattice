@@ -143,7 +143,11 @@ describe('ExportOptionsPanel', () => {
 		const { unmount } = render(<ExportOptionsPanel deckId={DECK} source={'# A\n\n---\n\n# B'} onBack={() => {}} onExport={onExport} />);
 		expect(screen.queryByRole('switch', { name: /one page per step/i })).toBeNull();
 		unmount();
-		render(<ExportOptionsPanel deckId={DECK} source={'# A\n\n---\n\n<!-- _build -->\n\n- x\n- y'} onBack={() => {}} onExport={onExport} />);
+		// An old `<!-- _build -->` comment sets nothing since the cut (record note §15), so that deck does not step.
+		const old = render(<ExportOptionsPanel deckId={DECK} source={'# A\n\n---\n\n<!-- _build -->\n\n- x\n- y'} onBack={() => {}} onExport={onExport} />);
+		expect(screen.queryByRole('switch', { name: /one page per step/i })).toBeNull();
+		old.unmount();
+		render(<ExportOptionsPanel deckId={DECK} source={'# A\n\n---\n\n<!-- @meta{build} -->\n\n- x\n- y'} onBack={() => {}} onExport={onExport} />);
 		const toggle = screen.getByRole('switch', { name: /one page per step/i });
 		expect(toggle).toHaveAttribute('aria-checked', 'false');
 		fireEvent.click(toggle);

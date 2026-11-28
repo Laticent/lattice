@@ -29,8 +29,8 @@ pagination: false
 size: portrait
 ---
 
-<!-- _class: compare-code -->
-<!-- _footer: "compare-code · was swallowed into the right-hand column" -->
+<!-- @meta{class=compare-code} -->
+<!-- @meta{footer="compare-code · was swallowed into the right-hand column"} -->
 
 \`Attachment · selector shape vs. a host\`
 
@@ -61,8 +61,8 @@ pagination: true
 size: portrait
 ---
 
-<!-- _class: bar -->
-<!-- _footer: "Source: internal ticket system, FY26 Q3, all regions combined and deduplicated" -->
+<!-- @meta{class=bar} -->
+<!-- @meta{footer="Source: internal ticket system, FY26 Q3, all regions combined and deduplicated"} -->
 
 ## Support load sits with two teams.
 

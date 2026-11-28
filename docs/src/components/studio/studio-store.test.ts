@@ -95,7 +95,7 @@ describe('studio-store — deck index', () => {
 	it('the listed title tracks the deck HEADING, not the stored label (the rename-in-place case)', () => {
 		const d = createDeck('Untitled deck');
 		// The author types a real title into the deck — no rename step.
-		saveSource(d.id, '<!-- _class: title -->\n\n# Q4 Wrap\n\nbody');
+		saveSource(d.id, '<!-- @meta{layout=title} -->\n\n# Q4 Wrap\n\nbody');
 		expect(loadDeckList().find((x) => x.id === d.id)?.title).toBe('Q4 Wrap');
 	});
 
@@ -208,7 +208,7 @@ describe('studio-store — per-deck source', () => {
 	it('round-trips edited source and overrides the canonical', () => {
 		const id = DECKS[0].id;
 		expect(loadSource(id)).toBeNull();
-		saveSource(id, '<!-- _class: title -->\n\n# Edited');
+		saveSource(id, '<!-- @meta{layout=title} -->\n\n# Edited');
 		expect(loadSource(id)).toContain('# Edited');
 		// The list reflects the edit (slide count from the edited source).
 		expect(loadDeckList().find((d) => d.id === id)?.slides[0]).toContain('# Edited');
@@ -269,12 +269,12 @@ describe('studio-store — version history', () => {
 
 describe('studio-store — titleFromSource / retitleSource (the deck\'s name IS its heading)', () => {
 	it('derives a title from the first heading', () => {
-		expect(titleFromSource('<!-- _class: title -->\n\n# Q4 Wrap\n\nbody')).toBe('Q4 Wrap');
+		expect(titleFromSource('<!-- @meta{layout=title} -->\n\n# Q4 Wrap\n\nbody')).toBe('Q4 Wrap');
 		expect(titleFromSource('no heading here')).toBe('Imported deck');
 	});
 
 	it('reads a CRLF (Windows-authored) deck — the `\\r` is not part of the heading', () => {
-		expect(titleFromSource('<!-- _class: title -->\r\n\r\n# Q4 Wrap\r\n\r\nbody')).toBe('Q4 Wrap');
+		expect(titleFromSource('<!-- @meta{layout=title} -->\r\n\r\n# Q4 Wrap\r\n\r\nbody')).toBe('Q4 Wrap');
 		// …and a rewrite leaves the rest of the file's line endings untouched. This is NOT in
 		// tension with the LF-everywhere policy: normalization happens at ingest (see
 		// test/unit/core/line-endings.test.js), so a CRLF source never reaches `retitleSource`
@@ -286,7 +286,7 @@ describe('studio-store — titleFromSource / retitleSource (the deck\'s name IS 
 	});
 
 	it('skips HTML COMMENTS — an authored note is not the deck title, and Rename must not eat it', () => {
-		const src = '<!-- _class: big-number -->\n\n<!-- Notes: # TODO rewrite this cover -->\n\n- 42%\n  - of revenue';
+		const src = '<!-- @meta{layout=big-number} -->\n\n<!-- Notes: # TODO rewrite this cover -->\n\n- 42%\n  - of revenue';
 		expect(titleFromSource(src, 'FALLBACK')).toBe('FALLBACK');
 		expect(retitleSource(src, 'Acme Q4')).toBeNull();
 	});
@@ -302,8 +302,8 @@ describe('studio-store — titleFromSource / retitleSource (the deck\'s name IS 
 	});
 
 	it('flattens a multi-line title — a newline would inject a slide break into the deck', () => {
-		const out = retitleSource('# Old\n\nBody.\n', 'A\n---\n\n<!-- _class: quote -->\n\n# B') ?? '';
-		expect(out.split('\n')[0]).toBe('# A --- <!-- _class: quote --> # B');
+		const out = retitleSource('# Old\n\nBody.\n', 'A\n---\n\n<!-- @meta{layout=quote} -->\n\n# B') ?? '';
+		expect(out.split('\n')[0]).toBe('# A --- <!-- @meta{layout=quote} --> # B');
 		expect(out.match(/^---$/gm)).toBeNull(); // no new slide break
 	});
 
@@ -313,7 +313,7 @@ describe('studio-store — titleFromSource / retitleSource (the deck\'s name IS 
 	});
 
 	it('retitleSource rewrites that heading in place, preserving its level', () => {
-		expect(retitleSource('<!-- _class: title -->\n\n# Old\n\nbody', 'New')).toBe('<!-- _class: title -->\n\n# New\n\nbody');
+		expect(retitleSource('<!-- @meta{layout=title} -->\n\n# Old\n\nbody', 'New')).toBe('<!-- @meta{layout=title} -->\n\n# New\n\nbody');
 		expect(retitleSource('## Old\n\nbody', 'New')).toBe('## New\n\nbody');
 	});
 
@@ -329,7 +329,7 @@ describe('studio-store — titleFromSource / retitleSource (the deck\'s name IS 
 });
 
 describe('studio-store — the `title:` front-matter override (shelf name ≠ cover)', () => {
-	const COVER = '<!-- _class: title -->\n\n# Q4\n\nbody';
+	const COVER = '<!-- @meta{layout=title} -->\n\n# Q4\n\nbody';
 	const OVERRIDDEN = `---\ntitle: Board pack — Q4 FY26 (final)\n---\n\n${COVER}`;
 
 	it('the override wins over the heading, and reports WHERE the title came from', () => {
@@ -373,7 +373,7 @@ describe('studio-store — the `title:` front-matter override (shelf name ≠ co
 
 	it('Rename still rewrites the HEADING when there is no override — it never CREATES one', () => {
 		const out = retitleSource(COVER, 'Q4 Wrap') ?? '';
-		expect(out).toBe('<!-- _class: title -->\n\n# Q4 Wrap\n\nbody');
+		expect(out).toBe('<!-- @meta{layout=title} -->\n\n# Q4 Wrap\n\nbody');
 		expect(out).not.toContain('title:'); // renaming a plain deck must not silently grow front matter
 	});
 
@@ -410,10 +410,10 @@ describe('studio-store — the `title:` front-matter override (shelf name ≠ co
 		it('preserves CRLF — a Windows-authored deck does not come back mixed-EOL', () => {
 			// #1248 built `lineEnd` precisely so Rename could not convert a CRLF line to LF; the
 			// first cut of the override bypassed it and produced an LF block with a CRLF body.
-			const src = '---\r\ntitle: Old Name\r\nsize: 16:9\r\n---\r\n\r\n<!-- _class: title -->\r\n\r\n# Q4\r\n\r\nbody\r\n';
+			const src = '---\r\ntitle: Old Name\r\nsize: 16:9\r\n---\r\n\r\n<!-- @meta{layout=title} -->\r\n\r\n# Q4\r\n\r\nbody\r\n';
 			const out = rename(src);
 			// The value is quoted exactly as `setFrontMatter` would quote it — one convention, not two.
-			expect(out).toBe('---\r\ntitle: "New Name"\r\nsize: 16:9\r\n---\r\n\r\n<!-- _class: title -->\r\n\r\n# Q4\r\n\r\nbody\r\n');
+			expect(out).toBe('---\r\ntitle: "New Name"\r\nsize: 16:9\r\n---\r\n\r\n<!-- @meta{layout=title} -->\r\n\r\n# Q4\r\n\r\nbody\r\n');
 			expect(out).not.toMatch(/[^\r]\n/); // no bare LF anywhere — line endings uniform
 		});
 
@@ -493,7 +493,7 @@ describe('studio-store — the `title:` front-matter override (shelf name ≠ co
 		it('CREATING a name on a deck whose leading `---` is a slide SEPARATOR does not eat slide 1', () => {
 			// FM_RE cannot tell a separator from front matter, so the whole-block rebuild deleted the
 			// swallowed slide outright — verified on the real Studio by two lenses.
-			const src = '---\n\n<!-- _class: title -->\n\n# Cover slide\n\nRevenue up 12 percent.\n\n---\n\n# Second slide\n';
+			const src = '---\n\n<!-- @meta{layout=title} -->\n\n# Cover slide\n\nRevenue up 12 percent.\n\n---\n\n# Second slide\n';
 			const out = writeFrontMatterLine(src, 'title', 'Board pack');
 			expect(out).toContain('# Cover slide');
 			expect(out).toContain('Revenue up 12 percent.');
@@ -815,7 +815,7 @@ describe('studio-store — workspace backup carries both instruction fields', ()
 // (added / restoredCopies / skipped) rather than on the stored string: the user-visible symptom
 // is a duplicate "(restored)" deck appearing for content they already have.
 describe('studio-store — a workspace backup normalizes line endings at ingest', () => {
-	const LF = '<!-- _class: title -->\n\n# Ledger\n\nBody copy.\n';
+	const LF = '<!-- @meta{layout=title} -->\n\n# Ledger\n\nBody copy.\n';
 	const CRLF = LF.replace(/\n/g, '\r\n');
 	/** A backup carrying one deck id with the given source. */
 	const backupOf = (id: string, src: string) => {

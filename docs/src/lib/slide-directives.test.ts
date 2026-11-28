@@ -44,8 +44,8 @@ describe('directive classification', () => {
 
 describe('getClassTokens / readClassDirective', () => {
 	it('reads a single token and a multi-token value', () => {
-		expect(getClassTokens('<!-- _class: kpi -->\n\n# Hi')).toEqual(['kpi']);
-		expect(getClassTokens('<!-- _class: cards-grid dark scale-xl -->\n\n# Hi')).toEqual(['cards-grid', 'dark', 'scale-xl']);
+		expect(getClassTokens('<!-- @meta{layout=kpi} -->\n\n# Hi')).toEqual(['kpi']);
+		expect(getClassTokens('<!-- @meta{layout=cards-grid, class=dark scale-xl} -->\n\n# Hi')).toEqual(['cards-grid', 'dark', 'scale-xl']);
 	});
 	it('returns [] with no directive, marks absent+editable', () => {
 		const d = readClassDirective('# Just prose\n\nno class here');
@@ -53,33 +53,32 @@ describe('getClassTokens / readClassDirective', () => {
 		expect(d.present).toBe(false);
 		expect(d.editable).toBe(true);
 	});
-	it('refuses the YAML array form (read-only)', () => {
+	it('reads the old YAML array comment as no class: since the cut it sets nothing, so the drawer may write a record', () => {
 		const d = readClassDirective('<!-- _class: [kpi, dark] -->\n\n# Hi');
-		expect(d.editable).toBe(false);
-		expect(d.reason).toBe('array-form');
+		expect(d).toMatchObject({ tokens: [], present: false, editable: true });
 	});
 	it('refuses duplicate _class comments (read-only)', () => {
-		const d = readClassDirective('<!-- _class: kpi -->\n\n# Hi\n\n<!-- _class: title -->');
+		const d = readClassDirective('<!-- @meta{layout=kpi} -->\n\n# Hi\n\n<!-- @meta{layout=title} -->');
 		expect(d.editable).toBe(false);
 		expect(d.reason).toBe('duplicate');
 	});
-	it('reads a two-line comment as the engine does: the class swallows the second line', () => {
-		// The engine renders class `kpi dark _paginate: false` and no paginate setting (meta-edit `compound`).
+	it('reads a two-line old comment as the engine does: since the cut it sets no class at all', () => {
+		// The door blanks the old comment (record note §15), so the slide renders with no class and the drawer may write one.
 		const chunk = '<!-- _class: kpi dark\n_paginate: false -->\n\n# Hi';
-		expect(getClassTokens(chunk)).toEqual(['kpi', 'dark', '_paginate:', 'false']);
-		expect(readClassDirective(chunk)).toMatchObject({ present: true, editable: false, reason: 'compound' });
+		expect(getClassTokens(chunk)).toEqual([]);
+		expect(readClassDirective(chunk)).toMatchObject({ present: false, editable: true });
 	});
 });
 
 describe('setClassTokens — span-surgical', () => {
 	it('replaces the value, touching nothing else', () => {
-		const chunk = '<!-- _class: kpi -->\n\n## Revenue\n\n1. $4M\n   - Net';
+		const chunk = '<!-- @meta{layout=kpi} -->\n\n## Revenue\n\n1. $4M\n   - Net';
 		const out = setClassTokens(chunk, ['kpi', 'dark']);
 		// The setting moves into a record, in the comment's place (record note §15).
 		expect(out).toBe('<!-- @meta{layout=kpi, class=dark} -->\n\n## Revenue\n\n1. $4M\n   - Net');
 	});
 	it('preserves unknown / hand-authored tokens verbatim and in order', () => {
-		const chunk = '<!-- _class: kpi tint-corner at-tl my-local-thing -->\n\n# Hi';
+		const chunk = '<!-- @meta{layout=kpi, class=tint-corner at-tl my-local-thing} -->\n\n# Hi';
 		// Toggle `dark` on: append, keep the rest exactly.
 		expect(toggleToken(chunk, 'dark')).toBe('<!-- @meta{layout=kpi, class=tint-corner at-tl my-local-thing dark} -->\n\n# Hi');
 	});
@@ -88,7 +87,7 @@ describe('setClassTokens — span-surgical', () => {
 		expect(setClassTokens('# Bare slide\n\nbody', ['content', 'dark'])).toBe('<!-- @meta{layout=content, class=dark} -->\n\n# Bare slide\n\nbody');
 	});
 	it('removes a sole-directive comment when cleared to empty', () => {
-		expect(setClassTokens('<!-- _class: kpi -->\n\n# Hi', [])).toBe('# Hi');
+		expect(setClassTokens('<!-- @meta{layout=kpi} -->\n\n# Hi', [])).toBe('# Hi');
 	});
 	it('leaves a two-line comment as written when cleared: it is read-only, as the engine reads one class', () => {
 		const chunk = '<!-- _class: kpi\n_paginate: false -->\n\n# Hi';
@@ -100,7 +99,7 @@ describe('setClassTokens — span-surgical', () => {
 		expect(out.split('-->').length - 1).toBe(1); // only the real terminator remains — counted by split, not a `-->` regex (js/bad-tag-filter, #1958 §3, §7)
 	});
 	it('is a no-op on a non-editable shape', () => {
-		const dup = '<!-- _class: kpi -->\n\n# Hi\n\n<!-- _class: title -->';
+		const dup = '<!-- @meta{layout=kpi} -->\n\n# Hi\n\n<!-- @meta{layout=title} -->';
 		expect(setClassTokens(dup, ['x'])).toBe(dup);
 		expect(canEditClass(dup)).toBe(false);
 	});
@@ -109,22 +108,22 @@ describe('setClassTokens — span-surgical', () => {
 describe('setGroupToken — mutually-exclusive axis', () => {
 	const TONE = ['tone-pass', 'tone-warn', 'tone-fail', 'tone-skip'];
 	it('swaps the group member, leaving other tokens untouched', () => {
-		const chunk = '<!-- _class: kpi tone-warn dark -->\n\n# Hi';
+		const chunk = '<!-- @meta{layout=kpi, class=tone-warn dark} -->\n\n# Hi';
 		expect(getClassTokens(setGroupToken(chunk, TONE, 'tone-fail'))).toEqual(['kpi', 'dark', 'tone-fail']);
 	});
 	it('clears the group member with null', () => {
-		const chunk = '<!-- _class: kpi tone-warn dark -->\n\n# Hi';
+		const chunk = '<!-- @meta{layout=kpi, class=tone-warn dark} -->\n\n# Hi';
 		expect(getClassTokens(setGroupToken(chunk, TONE, null))).toEqual(['kpi', 'dark']);
 	});
 });
 
 describe('fence awareness', () => {
 	it('ignores a _class comment shown inside a code fence', () => {
-		const chunk = '<!-- _class: code -->\n\n```md\n<!-- _class: kpi -->\n```';
+		const chunk = '<!-- @meta{layout=code} -->\n\n```md\n<!-- @meta{layout=kpi} -->\n```';
 		expect(getClassTokens(chunk)).toEqual(['code']); // the fenced example is not read
 		// Editing the real directive leaves the fenced example verbatim.
 		const out = setClassTokens(chunk, ['code', 'dark']);
-		expect(out).toContain('```md\n<!-- _class: kpi -->\n```');
+		expect(out).toContain('```md\n<!-- @meta{layout=kpi} -->\n```');
 		expect(out).toContain('<!-- @meta{layout=code, class=dark} -->');
 	});
 	it('marks fenced ranges', () => {
@@ -145,11 +144,11 @@ describe('fence awareness', () => {
 	it('closes a fence nested in a list item at the list content indent', () => {
 		// The closer may sit up to three columns past the list's content column, which the
 		// scanner bounds by the opener's column — else it would mask to the end.
-		const chunk = '1. step\n\n      ```js\n      x()\n      ```\n\n<!-- _class: kpi -->';
+		const chunk = '1. step\n\n      ```js\n      x()\n      ```\n\n<!-- @meta{layout=kpi} -->';
 		expect(fenceRanges(chunk)).toEqual([[chunk.indexOf('      ```js'), chunk.indexOf('\n\n<!--')]]);
 		expect(getClassTokens(chunk)).toEqual(['kpi']);
 		// Content column 2, closer at 5: markdown-it closes here, so the scanner must too.
-		const shallow = '- a\n\n  ```\n  x\n     ```\n\n<!-- _class: kpi -->';
+		const shallow = '- a\n\n  ```\n  x\n     ```\n\n<!-- @meta{layout=kpi} -->';
 		expect(fenceRanges(shallow)).toEqual([[shallow.indexOf('  ```'), shallow.indexOf('\n\n<!--')]]);
 		expect(getClassTokens(shallow)).toEqual(['kpi']);
 	});
@@ -171,11 +170,15 @@ describe('isPaneMarkerBody', () => {
 		expect(isPaneMarkerBody(' pane: list no-title ')).toBe(true);
 		expect(isPaneMarkerBody(' panes: 35/65 ')).toBe(true);
 	});
-	it('reads a record that names a pane or a layout: bare, `@meta`, mixed, wrapped', () => {
-		expect(isPaneMarkerBody(' {pane="bar no-title"} ')).toBe(true);
+	it('reads a record that names a pane or a layout: `@meta`, mixed, wrapped', () => {
+		expect(isPaneMarkerBody(' @meta{pane="bar no-title"} ')).toBe(true);
 		expect(isPaneMarkerBody(' @meta{panes="60/40 stack"} ')).toBe(true);
-		expect(isPaneMarkerBody(' {footer=x, pane="bar"} ')).toBe(true);
-		expect(isPaneMarkerBody(' {pane="bar",\n  footer=x} ')).toBe(true);
+		expect(isPaneMarkerBody(' @meta{footer=x, pane="bar"} ')).toBe(true);
+		expect(isPaneMarkerBody(' @meta{pane="bar",\n  footer=x} ')).toBe(true);
+	});
+	it('reads no pane from the retired bare record: the door blanks it (record note §15, D5 amended)', () => {
+		expect(isPaneMarkerBody(' {pane="bar no-title"} ')).toBe(false);
+		expect(isPaneMarkerBody(' {footer=x, pane="bar"} ')).toBe(false);
 	});
 	it('reads the engine-internal comment the door writes', () => {
 		expect(isPaneMarkerBody(' lat-meta: {"carry":false,"d":{"pane":"bar"}} ')).toBe(true);
@@ -192,22 +195,22 @@ describe('isPaneMarkerBody', () => {
 // A record slide edits as a directive slide does (record note step 3): the drawer writes INTO the record, keeping its
 // typed fields and every other item as the author wrote it.
 describe('the class drawer on a record slide', () => {
-	const slide = '<!-- {layout=cards, footer="Q3, final", finish=ledger} -->\n\n# Hi';
+	const slide = '<!-- @meta{layout=cards, footer="Q3, final", finish=ledger} -->\n\n# Hi';
 	it('reads the record’s class and is editable', () => {
 		expect(getClassTokens(slide)).toEqual(['cards', 'finish', 'finish-ledger']);
 		expect(canEditClass(slide)).toBe(true);
 	});
 	it('a toggled modifier joins the record; a register word is written as its field', () => {
-		expect(toggleToken(slide, 'compact')).toBe('<!-- {layout=cards, footer="Q3, final", finish=ledger, class=compact} -->\n\n# Hi');
-		expect(toggleToken(slide, 'headline-align-left')).toBe('<!-- {layout=cards, footer="Q3, final", finish=ledger, headline-align=left} -->\n\n# Hi');
+		expect(toggleToken(slide, 'compact')).toBe('<!-- @meta{layout=cards, footer="Q3, final", finish=ledger, class=compact} -->\n\n# Hi');
+		expect(toggleToken(slide, 'headline-align-left')).toBe('<!-- @meta{layout=cards, footer="Q3, final", finish=ledger, headline-align=left} -->\n\n# Hi');
 	});
 	it('removing a register word drops its field; swapping the layout keeps it typed', () => {
-		expect(setClassTokens(slide, ['cards'])).toBe('<!-- {layout=cards, footer="Q3, final"} -->\n\n# Hi');
-		expect(setGroupToken(slide, ['cards', 'kpi'], 'kpi')).toBe('<!-- {layout=kpi, footer="Q3, final", finish=ledger} -->\n\n# Hi');
+		expect(setClassTokens(slide, ['cards'])).toBe('<!-- @meta{layout=cards, footer="Q3, final"} -->\n\n# Hi');
+		expect(setGroupToken(slide, ['cards', 'kpi'], 'kpi')).toBe('<!-- @meta{layout=kpi, footer="Q3, final", finish=ledger} -->\n\n# Hi');
 	});
 	it('a record that does not read is left as written; the class lands in a record of its own', () => {
 		// It applies nothing, so the slide has no class to show; the linter names it (`meta-record`).
-		expect(canEditClass('<!-- {layout=cards, footer="open} -->\n\n# Hi')).toBe(true);
-		expect(setClassTokens('<!-- {layout=cards, footer="open} -->\n\n# Hi', ['kpi'])).toContain('<!-- @meta{layout=kpi} -->');
+		expect(canEditClass('<!-- @meta{layout=cards, footer="open} -->\n\n# Hi')).toBe(true);
+		expect(setClassTokens('<!-- @meta{layout=cards, footer="open} -->\n\n# Hi', ['kpi'])).toContain('<!-- @meta{layout=kpi} -->');
 	});
 });

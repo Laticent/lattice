@@ -36,9 +36,9 @@ const cells = (html) => [...html.matchAll(/<lat-pane class="([^"]*)" data-pane="
 const paneRules = (md) => lintText(md).filter((f) => f.rule.startsWith('pane-')).map((f) => f.rule);
 
 const NEW = [
-  '<!-- _class: columns ratio-60-40 -->', '', '`Q3 review`', '## Services outgrew licenses.', '',
-  '<!-- _pane: bar -->', '### Revenue by line', '`$M, trailing four quarters`', '', '- Licenses `42`', '- Services `47`', '',
-  '<!-- _pane: list -->', '### What changed', '', '- Services crossed licenses', '- Training folded in', '',
+  '<!-- @meta{layout=columns, class=ratio-60-40} -->', '', '`Q3 review`', '## Services outgrew licenses.', '',
+  '<!-- @meta{pane=bar} -->', '### Revenue by line', '`$M, trailing four quarters`', '', '- Licenses `42`', '- Services `47`', '',
+  '<!-- @meta{pane=list} -->', '### What changed', '', '- Services crossed licenses', '- Training folded in', '',
   '> The mix shift is structural.', '',
 ].join('\n');
 
@@ -52,7 +52,7 @@ test('_class: columns lays out two panes at its ratio, and names no class of its
 });
 
 test('_class: rows stacks the panes; other classes in the _class stay the slide\'s', () => {
-  const html = render('<!-- _class: rows dark -->\n\n## T\n\n### A\n\nx\n\n### B\n\ny\n');
+  const html = render('<!-- @meta{layout=rows, class=dark} -->\n\n## T\n\n### A\n\nx\n\n### B\n\ny\n');
   assert.match(html, /data-panes="stack"/);
   assert.match(sectionTags(html)[0], /\bdark\b/);
   assert.doesNotMatch(sectionTags(html)[0], /\brows\b/);
@@ -68,22 +68,22 @@ test('each pane\'s head sits in a cell beside its <lat-pane>, never inside it', 
 });
 
 test('with no marker, each top-level ### starts a content pane', () => {
-  const html = render('<!-- _class: columns -->\n\n## Tickets halved.\n\n### Before\n\n- 1,240 a month\n\n### After\n\n- 610 a month\n');
+  const html = render('<!-- @meta{layout=columns} -->\n\n## Tickets halved.\n\n### Before\n\n- 1,240 a month\n\n### After\n\n- 610 a month\n');
   assert.deepEqual(cells(html), ['content', 'content']);
   assert.match(html, /<h3>Before<\/h3>[\s\S]*1,240[\s\S]*<h3>After<\/h3>[\s\S]*610/);
 });
 
 test('every ### is a pane title: adding a marker above one ### of an outline keeps the other a pane', () => {
-  const html = render('<!-- _class: columns -->\n\n## T\n\n### Context\n\n- one\n\n<!-- _pane: bar -->\n### Revenue\n\n- A `4`\n- B `7`\n');
+  const html = render('<!-- @meta{layout=columns} -->\n\n## T\n\n### Context\n\n- one\n\n<!-- @meta{pane=bar} -->\n### Revenue\n\n- A `4`\n- B `7`\n');
   assert.deepEqual(cells(html), ['content', 'bar']);
   assert.match(html, /<h3>Context<\/h3>[\s\S]*<h3>Revenue<\/h3>/);
   // And the reverse: a marker first, then an unmarked ### after its body.
-  const rev = render('<!-- _class: columns -->\n\n## T\n\n<!-- _pane: bar -->\n### Revenue\n\n- A `4`\n\n### Context\n\n- one\n');
+  const rev = render('<!-- @meta{layout=columns} -->\n\n## T\n\n<!-- @meta{pane=bar} -->\n### Revenue\n\n- A `4`\n\n### Context\n\n- one\n');
   assert.deepEqual(cells(rev), ['bar', 'content']);
 });
 
 test('a component that owns its ### keeps them all, and a marker carries its modifiers', () => {
-  const md = '<!-- _class: columns ratio-65-35 -->\n\n## T\n\n<!-- _pane: team-profile sides -->\n\n### Your team\n\n- Ada\n  - `Lead`\n\n### Our team\n\n- Bo\n  - `Rep`\n\n<!-- _pane: list -->\n### Notes\n\n- x\n';
+  const md = '<!-- @meta{layout=columns, class=ratio-65-35} -->\n\n## T\n\n<!-- @meta{pane=team-profile sides} -->\n\n### Your team\n\n- Ada\n  - `Lead`\n\n### Our team\n\n- Bo\n  - `Rep`\n\n<!-- @meta{pane=list} -->\n### Notes\n\n- x\n';
   const html = render(md);
   const team = html.match(/<lat-pane class="([^"]*)" data-pane="team-profile"[\s\S]*?<\/lat-pane>/);
   assert.match(team[1], /\bsides\b/, 'the modifier reaches the pane');
@@ -93,16 +93,16 @@ test('a component that owns its ### keeps them all, and a marker carries its mod
 });
 
 test('no-title hides a pane title from the eye and keeps it in the document', () => {
-  const html = render(NEW.replace('<!-- _pane: list -->', '<!-- _pane: list no-title -->'));
+  const html = render(NEW.replace('<!-- @meta{pane=list} -->', '<!-- @meta{pane=list no-title} -->'));
   assert.match(html, /<div class="lat-pane-cell"><div class="lat-pane-head" data-hidden><h3>What changed<\/h3><\/div>/);
   // `_pane: no-title` names the default component.
-  const plain = render('<!-- _class: columns -->\n\n## T\n\n<!-- _pane: no-title -->\n### Hidden\n\nx\n\n<!-- _pane: list -->\n\n- y\n');
+  const plain = render('<!-- @meta{layout=columns} -->\n\n## T\n\n<!-- @meta{pane=no-title} -->\n### Hidden\n\nx\n\n<!-- @meta{pane=list} -->\n\n- y\n');
   assert.deepEqual(cells(plain), ['content', 'list']);
   assert.match(plain, /data-hidden><h3>Hidden<\/h3>/);
 });
 
 test('a pane\'s trailing Key Insight or note is the slide\'s; a > mid-pane is a quotation and stays', () => {
-  const html = render('<!-- _class: columns -->\n\n## T\n\n### A\n\nSection 12 reads:\n\n> No person shall.\n\nThe court read it narrowly.\n\n> Pane A insight.\n\n### B\n\n- three\n\n— A note.\n');
+  const html = render('<!-- @meta{layout=columns} -->\n\n## T\n\n### A\n\nSection 12 reads:\n\n> No person shall.\n\nThe court read it narrowly.\n\n> Pane A insight.\n\n### B\n\n- three\n\n— A note.\n');
   const host = html.slice(html.indexOf('<section'), html.indexOf('</section>'));
   const panesPart = host.slice(host.indexOf('<div class="lat-panes"'), host.lastIndexOf('</lat-pane>'));
   const slideCoda = host.slice(host.lastIndexOf('</lat-pane>'));
@@ -113,14 +113,14 @@ test('a pane\'s trailing Key Insight or note is the slide\'s; a > mid-pane is a 
 });
 
 test('a component\'s claimed coda stays in its pane (a quote\'s attribution)', () => {
-  const html = render('<!-- _class: columns -->\n\n## T\n\n<!-- _pane: list -->\n\n- a\n- b\n\n<!-- _pane: quote -->\n\n> Ship less, think more.\n\n— Jane Doe, CTO\n');
+  const html = render('<!-- @meta{layout=columns} -->\n\n## T\n\n<!-- @meta{pane=list} -->\n\n- a\n- b\n\n<!-- @meta{pane=quote} -->\n\n> Ship less, think more.\n\n— Jane Doe, CTO\n');
   const quote = html.match(/<lat-pane class="[^"]*quote[\s\S]*?<\/lat-pane>/)[0];
   assert.match(quote, /Ship less/);
   assert.match(quote, /Jane Doe/);
 });
 
 test('a pane that IS one blockquote keeps it as content', () => {
-  const html = render('<!-- _class: columns -->\n\n## T\n\n### A\n\n> Only this.\n\n### B\n\n- x\n');
+  const html = render('<!-- @meta{layout=columns} -->\n\n## T\n\n### A\n\n> Only this.\n\n### B\n\n- x\n');
   assert.match(html.match(/<lat-pane[\s\S]*?<\/lat-pane>/)[0], /Only this/);
 });
 
@@ -128,29 +128,29 @@ test('a titled pane gets a shorter chart canvas than an untitled one', () => {
   const bars = '- A `4`\n- B `7`\n- C `5`';
   // The chart's drawn canvas height (its viewBox), which `data-pane-view` sets for the pane.
   const view = (md) => Number(render(md).match(/class="cart-svg[^"]*"[^>]*viewBox="0 0 [\d.]+ ([\d.]+)"|viewBox="0 0 [\d.]+ ([\d.]+)"[^>]*class="cart-svg/).filter(Boolean)[1]);
-  const titled = view(`<!-- _class: columns -->\n\n## T\n\n<!-- _pane: bar -->\n### Revenue\n\n${bars}\n\n<!-- _pane: list -->\n### Notes\n\n- x\n`);
-  const bare = view(`<!-- _class: columns -->\n\n## T\n\n<!-- _pane: bar -->\n\n${bars}\n\n<!-- _pane: list -->\n\n- x\n`);
+  const titled = view(`<!-- @meta{layout=columns} -->\n\n## T\n\n<!-- @meta{pane=bar} -->\n### Revenue\n\n${bars}\n\n<!-- @meta{pane=list} -->\n### Notes\n\n- x\n`);
+  const bare = view(`<!-- @meta{layout=columns} -->\n\n## T\n\n<!-- @meta{pane=bar} -->\n\n${bars}\n\n<!-- @meta{pane=list} -->\n\n- x\n`);
   assert.ok(titled < bare, `${titled} < ${bare}`);
   // The shared title row: an untitled chart beside a titled pane gives up nothing.
-  const beside = view(`<!-- _class: columns -->\n\n## T\n\n<!-- _pane: bar -->\n\n${bars}\n\n<!-- _pane: list -->\n### Notes\n\n- x\n`);
+  const beside = view(`<!-- @meta{layout=columns} -->\n\n## T\n\n<!-- @meta{pane=bar} -->\n\n${bars}\n\n<!-- @meta{pane=list} -->\n### Notes\n\n- x\n`);
   assert.equal(beside, bare);
 });
 
 test('the alias still renders the same panes as the syntax', () => {
-  const alias = render('## T\n\n<!-- panes: 60/40 -->\n<!-- pane: bar -->\n\n- A `4`\n\n<!-- pane: list -->\n\n- x\n');
-  const now = render('<!-- _class: columns ratio-60-40 -->\n\n## T\n\n<!-- _pane: bar -->\n\n- A `4`\n\n<!-- _pane: list -->\n\n- x\n');
+  const alias = render('## T\n\n<!-- @meta{panes=60/40} -->\n<!-- @meta{pane=bar} -->\n\n- A `4`\n\n<!-- @meta{pane=list} -->\n\n- x\n');
+  const now = render('<!-- @meta{layout=columns, class=ratio-60-40} -->\n\n## T\n\n<!-- @meta{pane=bar} -->\n\n- A `4`\n\n<!-- @meta{pane=list} -->\n\n- x\n');
   const row = (h) => h.match(/<div class="lat-panes"[\s\S]*?<\/section>/)[0];
   assert.equal(row(now), row(alias));
 });
 
 test('a deck that names no layout and no _pane marker renders as it did', () => {
-  const md = '## Plain\n\n### Not a pane\n\n- a\n\n<!-- _class: dark -->\n';
+  const md = '## Plain\n\n### Not a pane\n\n- a\n\n<!-- @meta{class=dark} -->\n';
   assert.doesNotMatch(render(md), /lat-pane/);
   assert.equal(spec.mayHavePanes(md), false);
 });
 
 test('a narrow deck splits each pane onto its own page, its head held together', () => {
-  const html = render(`---\nsize: portrait\n---\n\n${NEW.replace('<!-- _pane: list -->', '<!-- _pane: list no-title -->')}`);
+  const html = render(`---\nsize: portrait\n---\n\n${NEW.replace('<!-- @meta{pane=list} -->', '<!-- @meta{pane=list no-title} -->')}`);
   const tags = sectionTags(html);
   assert.equal(tags.length, 2);
   // A narrow deck gives each pane its OWN PAGE, which is a slide: it is stamped like any other.
@@ -166,9 +166,9 @@ test('a narrow deck splits each pane onto its own page, its head held together',
 test('a pane split onto its own page keeps its one paragraph under its title, not as a footnote', () => {
   // A kpi at 50% reads neither side by side nor stacked, so the slide splits; the content
   // page's only paragraph follows the head <div>, which is a heading, not a structural block.
-  const md = ['<!-- _class: columns -->', '', '## Q3 beat plan.', '', '<!-- _pane: kpi -->', '### Q3 results', '',
+  const md = ['<!-- @meta{layout=columns} -->', '', '## Q3 beat plan.', '', '<!-- @meta{pane=kpi} -->', '### Q3 results', '',
     '1. $2.4B', '   - Total revenue', '2. 42%', '   - Gross margin', '',
-    '<!-- _pane: content -->', '### Context', '', 'Both beat the plan set in January.', ''].join('\n');
+    '<!-- @meta{pane=content} -->', '### Context', '', 'Both beat the plan set in January.', ''].join('\n');
   const html = render(md);
   assert.equal(sectionTags(html).length, 2);
   const flat = html.replace(/>\s+</g, '><');
@@ -185,7 +185,7 @@ test('a pane split onto its own page keeps its one paragraph under its title, no
 });
 
 test('an eyebrow pill above a pane title joins it as one label, above a pane and on a split page', () => {
-  const md = '<!-- _class: columns -->\n\n## T\n\n<!-- _pane: list -->\n`Shortlist`\n### Cleared\n\n- a\n\n<!-- _pane: content -->\n### B\n\ny\n';
+  const md = '<!-- @meta{layout=columns} -->\n\n## T\n\n<!-- @meta{pane=list} -->\n`Shortlist`\n### Cleared\n\n- a\n\n<!-- @meta{pane=content} -->\n### B\n\ny\n';
   const flat = (h) => h.replace(/>\s+</g, '><');
   assert.match(flat(render(md)), /<div class="lat-pane-head"><h3>Shortlist · Cleared<\/h3><\/div>/);
   assert.doesNotMatch(flat(render(md)), /<p><code>Shortlist<\/code><\/p>/);
@@ -195,13 +195,13 @@ test('an eyebrow pill above a pane title joins it as one label, above a pane and
 });
 
 test('lint: a pill above a pane title is a suggestion; a long pane title is not a finding', () => {
-  const f = lintText('<!-- _class: columns -->\n\n## T\n\n<!-- _pane: list -->\n`Shortlist`\n### Cleared\n\n- a\n\n<!-- _pane: content -->\n### What we learned from the pilot\n\ny\n')
+  const f = lintText('<!-- @meta{layout=columns} -->\n\n## T\n\n<!-- @meta{pane=list} -->\n`Shortlist`\n### Cleared\n\n- a\n\n<!-- @meta{pane=content} -->\n### What we learned from the pilot\n\ny\n')
     .filter((x) => x.rule === 'pane-title');
   // The over-five-words branch was deleted (2026-10-06): a long pane title renders fine.
   assert.equal(f.length, 1);
   assert.equal(f[0].severity, 'suggestion');
   assert.match(f[0].fix, /### Shortlist · Cleared/);
-  assert.equal(lintText('<!-- _class: columns -->\n\n## T\n\n<!-- _pane: content no-title -->\n### The Lisbon office in its opening week\n\nx\n\n<!-- _pane: content -->\n### Eleven weeks, lease to open\n\ny\n').filter((x) => x.rule === 'pane-title').length, 0);
+  assert.equal(lintText('<!-- @meta{layout=columns} -->\n\n## T\n\n<!-- @meta{pane=content no-title} -->\n### The Lisbon office in its opening week\n\nx\n\n<!-- @meta{pane=content} -->\n### Eleven weeks, lease to open\n\ny\n').filter((x) => x.rule === 'pane-title').length, 0);
 });
 
 test('lint reads the syntax: a correct slide is clean, and the words are not unknown classes', () => {
@@ -209,7 +209,7 @@ test('lint reads the syntax: a correct slide is clean, and the words are not unk
 });
 
 test('the ratio is a class word, ratio-60-40; a slash is not a class and sets no ratio', () => {
-  const slide = (words) => `<!-- _class: ${words} -->\n\n## T\n\n### A\n\nx\n\n### B\n\ny\n`;
+  const slide = (words) => `<!-- @meta{class=${words}} -->\n\n## T\n\n### A\n\nx\n\n### B\n\ny\n`;
   const cols = (html) => html.match(/--pane-cols:\s*([^;"]+)/)?.[1];
   assert.match(cols(render(slide('columns ratio-60-40'))), /60fr\s+40fr|60.*40/);
   assert.deepEqual(spec.classLayout('columns ratio-60-40 dark'), { spec: '60/40', rest: 'dark', layout: 'columns' });
@@ -230,19 +230,19 @@ test('the ratio is a class word, ratio-60-40; a slash is not a class and sets no
 
 test('a host with fewer than two panes still renders as content; a host inside a pane renders as content', () => {
   const classOfFirst = (html) => html.match(/<section[^>]*class="([^"]*)"/)[1].split(/\s+/);
-  for (const md of ['<!-- _class: columns -->\n\n## H\n\n- one\n- two\n', '<!-- _class: rows -->\n\n## H\n\n### Only\n\n- a\n']) {
+  for (const md of ['<!-- @meta{layout=columns} -->\n\n## H\n\n- one\n- two\n', '<!-- @meta{layout=rows} -->\n\n## H\n\n### Only\n\n- a\n']) {
     assert.ok(classOfFirst(render(md)).includes('content'), md);
   }
-  const inPane = render('<!-- _class: columns -->\n\n## T\n\n<!-- _pane: columns -->\n### A\n\nx\n\n### B\n\ny\n');
+  const inPane = render('<!-- @meta{layout=columns} -->\n\n## T\n\n<!-- @meta{pane=columns} -->\n### A\n\nx\n\n### B\n\ny\n');
   assert.deepEqual([...inPane.matchAll(/<lat-pane class="([^"]*)"/g)].map((m) => m[1].split(' ')[0]), ['content', 'content']);
   assert.equal(sectionTags(inPane).length, 1);
-  const f = lintText('<!-- _class: columns -->\n\n## T\n\n<!-- _pane: columns -->\n### A\n\nx\n\n### B\n\ny\n').filter((x) => x.rule.startsWith('pane-'));
+  const f = lintText('<!-- @meta{layout=columns} -->\n\n## T\n\n<!-- @meta{pane=columns} -->\n### A\n\nx\n\n### B\n\ny\n').filter((x) => x.rule.startsWith('pane-'));
   assert.deepEqual(f.map((x) => x.rule), ['pane-layout']);
   assert.match(f[0].message, /is a slide layout, not a component/);
 });
 
 test('lint: a host in a class: run, or deck-wide, is one warning that says it lays out nothing', () => {
-  const run = lintText('## A\n\n- x\n\n---\n\n<!-- class: rows -->\n\n## B\n\n- y\n').filter((x) => x.rule === 'pane-layout');
+  const run = lintText('## A\n\n- x\n\n---\n\n<!-- @meta{layout=rows, carry} -->\n\n## B\n\n- y\n').filter((x) => x.rule === 'pane-layout');
   assert.equal(run.length, 1);
   assert.match(run[0].message, /lays out none of them/);
   const deck = lintText('---\nclass: columns\n---\n\n## A\n\n- x\n').filter((x) => x.slide === 0 && /columns/.test(x.line || ''));
@@ -250,13 +250,13 @@ test('lint: a host in a class: run, or deck-wide, is one warning that says it la
 });
 
 test('a bare ### under a pill leaves no head on a split page, as on the wide slide', () => {
-  const flat = render('---\nsize: portrait\n---\n\n<!-- _class: columns -->\n\n## T\n\n<!-- _pane: list -->\n`Q3`\n###\n\n- a\n- b\n\n<!-- _pane: content -->\n### B\n\ny\n').replace(/>\s+</g, '><');
+  const flat = render('---\nsize: portrait\n---\n\n<!-- @meta{layout=columns} -->\n\n## T\n\n<!-- @meta{pane=list} -->\n`Q3`\n###\n\n- a\n- b\n\n<!-- @meta{pane=content} -->\n### B\n\ny\n').replace(/>\s+</g, '><');
   assert.doesNotMatch(flat, /<h3><\/h3>/);
   assert.doesNotMatch(flat, /Q3/);
 });
 
 test('lint reads the whole _class: a slash in a multi-line _class, two ratio words, a class: run in code', () => {
-  const two = (cls) => `<!-- _class: ${cls} -->\n\n## T\n\n### A\n\nx\n\n### B\n\ny\n`;
+  const two = (cls) => `<!-- @meta{class=${cls}} -->\n\n## T\n\n### A\n\nx\n\n### B\n\ny\n`;
   const multi = lintText(two('columns\n60/40')).filter((x) => x.rule === 'pane-layout');
   assert.equal(multi.length, 1);
   assert.match(multi[0].fix, /ratio-60-40/);
@@ -270,44 +270,45 @@ test('lint reads the whole _class: a slash in a multi-line _class, two ratio wor
   assert.equal(off.length, 1);
   assert.match(off[0].message, /ratio-80-20/);
   assert.ok(lintText(two('columns\nrows')).some((x) => /both `columns` and `rows`/.test(x.message)));
-  // A `<!-- class: rows -->` quoted in code is not a run.
-  const quoted = lintText('## Docs\n\n```md\n<!-- class: rows -->\n```\n\nWrite `<!-- class: columns -->` never.\n').filter((x) => x.rule === 'pane-layout');
+  // A `<!-- @meta{layout=rows, carry} -->` quoted in code is not a run.
+  const quoted = lintText('## Docs\n\n```md\n<!-- @meta{layout=rows, carry} -->\n```\n\nWrite `<!-- @meta{layout=columns, carry} -->` never.\n').filter((x) => x.rule === 'pane-layout');
   assert.deepEqual(quoted, []);
 });
 
 test('on a split page a bare ### takes its pills with it, and no subtitle reaches the masthead', () => {
-  const flat = render('---\nsize: portrait\n---\n\n<!-- _class: columns -->\n\n## T\n\n<!-- _pane: bar -->\n`Q3`\n###\n`$M sub`\n\n- A `1`\n- B `2`\n\n<!-- _pane: content -->\n### B\n\ny\n').replace(/>\s+</g, '><');
+  const flat = render('---\nsize: portrait\n---\n\n<!-- @meta{layout=columns} -->\n\n## T\n\n<!-- @meta{pane=bar} -->\n`Q3`\n###\n`$M sub`\n\n- A `1`\n- B `2`\n\n<!-- @meta{pane=content} -->\n### B\n\ny\n').replace(/>\s+</g, '><');
   assert.doesNotMatch(flat, /\$M sub/);
   assert.doesNotMatch(flat, /<h3><\/h3>/);
 });
 
-test('lint: the alias gets pane-syntax with the rewrite', () => {
-  const f = lintText('## T\n\n<!-- panes: stack 40/60 -->\n<!-- pane: list -->\n\n- a\n\n<!-- pane: content -->\n\nx\n').find((x) => x.rule === 'pane-syntax');
-  assert.ok(f);
-  assert.equal(f.severity, 'warning'); // promoted from a suggestion ahead of retiring the alias
-  assert.match(f.fix, /<!-- @meta\{layout=rows, class=ratio-40-60\} -->/);
+test('lint: the retired alias is an old setting comment, an error with the whole-deck fix (the cut, slice E)', () => {
+  const src = '## T\n\n<!-- panes: stack 40/60 -->\n<!-- pane: list -->\n\n- a\n\n<!-- pane: content -->\n\nx\n';
+  const f = lintText(src).filter((x) => x.rule === 'legacy-directive-comment');
+  assert.deepEqual(f.map((x) => [x.severity, x.autofixable]), [['error', true], ['error', true], ['error', true]]);
+  assert.equal(lintText(src).some((x) => x.rule === 'pane-syntax'), false, 'pane-syntax is retired with the alias');
+  assert.equal(count(render(src), /<lat-pane\b/g), 0, 'the engine reads none of it');
 });
 
 test('lint: a layout with fewer than two panes, two insights, a component in the layout class', () => {
-  assert.deepEqual(paneRules('<!-- _class: columns -->\n\n## T\n\n### Only one\n\nx\n'), ['pane-layout']);
+  assert.deepEqual(paneRules('<!-- @meta{layout=columns} -->\n\n## T\n\n### Only one\n\nx\n'), ['pane-layout']);
   // `no-title` on a pane with no title hides nothing and harms nothing: not a finding (2026-10-06).
-  assert.equal(lintText('<!-- _class: columns -->\n\n## T\n\n<!-- _pane: content no-title -->\n\nx\n\n<!-- _pane: list -->\n\n- y\n').some((f) => /no-title/.test(f.message)), false);
-  assert.ok(paneRules('<!-- _class: columns -->\n\n## T\n\n### A\n\n- a\n\n> One.\n\n### B\n\n- b\n\n> Two.\n').includes('pane-insight'));
-  assert.ok(lintText('<!-- _class: columns table -->\n\n## T\n\n### A\n\nx\n\n### B\n\ny\n').some((f) => f.rule === 'pane-layout' && f.classToken === 'table'));
+  assert.equal(lintText('<!-- @meta{layout=columns} -->\n\n## T\n\n<!-- @meta{pane=content no-title} -->\n\nx\n\n<!-- @meta{pane=list} -->\n\n- y\n').some((f) => /no-title/.test(f.message)), false);
+  assert.ok(paneRules('<!-- @meta{layout=columns} -->\n\n## T\n\n### A\n\n- a\n\n> One.\n\n### B\n\n- b\n\n> Two.\n').includes('pane-insight'));
+  assert.ok(lintText('<!-- @meta{layout=columns, class=table} -->\n\n## T\n\n### A\n\nx\n\n### B\n\ny\n').some((f) => f.rule === 'pane-layout' && f.classToken === 'table'));
 });
 
 test('lint: a redline pane keeps its old and new quotes, so they are not Key Insights', () => {
   // The carve leaves a blockquote in a pane whose component claims it (lib/core/panes.js `claimsOf`);
   // the lint counted it anyway and warned on every paned redline.
-  const md = '<!-- _class: columns ratio-50-50 -->\n\n## T\n\n<!-- _pane: redline three-col -->\n\n> Old.\n\n> New.\n\n- **Why.** Because.\n\n<!-- _pane: list -->\n\n- a\n';
+  const md = '<!-- @meta{layout=columns, class=ratio-50-50} -->\n\n## T\n\n<!-- @meta{pane=redline three-col} -->\n\n> Old.\n\n> New.\n\n- **Why.** Because.\n\n<!-- @meta{pane=list} -->\n\n- a\n';
   assert.ok(!paneRules(md).includes('pane-insight'));
   // A pane that does not claim them still counts: two insights in list panes still warn.
-  assert.ok(paneRules('<!-- _class: columns -->\n\n<!-- _pane: list -->\n\n- a\n\n> One.\n\n<!-- _pane: list -->\n\n- b\n\n> Two.\n').includes('pane-insight'));
+  assert.ok(paneRules('<!-- @meta{layout=columns} -->\n\n<!-- @meta{pane=list} -->\n\n- a\n\n> One.\n\n<!-- @meta{pane=list} -->\n\n- b\n\n> Two.\n').includes('pane-insight'));
 });
 
 test('lint: a titled pane holds fewer items than an untitled one', () => {
   const items = (n) => Array.from({ length: n }, (_, i) => `- Point ${i + 1}`).join('\n');
-  const md = (title, n) => `<!-- _class: columns -->\n\n## T\n\n<!-- _pane: list -->\n${title}\n\n${items(n)}\n\n<!-- _pane: content -->\n\nx\n`;
+  const md = (title, n) => `<!-- @meta{layout=columns} -->\n\n## T\n\n<!-- @meta{pane=list} -->\n${title}\n\n${items(n)}\n\n<!-- @meta{pane=content} -->\n\nx\n`;
   // Find the untitled hard count, then show the titled pane crosses it one item sooner.
   let hard = 1;
   while (!paneRules(md('', hard + 1)).includes('pane-overflow')) hard++;
@@ -318,32 +319,32 @@ test('lint: the slide\'s eyebrow and Key Insight take height from a pane, and on
   // The four slides of followups.d/2473-p2-pane-budget-counts-slide-chrome.md, each rendered at 1280
   // through the export's overflow probe: the first clips its table's second row; the other three
   // render with room (the third is the rows gallery stress slide, overflowing by padding alone).
-  const table = ['<!-- _pane: table -->', '### By function', '', '| Function | Plan | Hired | Open |', '|---|---|---|---|', '| Engineering | 120 | 118 | 2 |', '| Sales | 60 | 55 | 5 |', ''];
-  const progress = ['<!-- _pane: progress -->', '### Hired against plan', '', '- Engineering `98%`', '- Sales `92%`', ''];
-  const rows = (eyebrow) => ['<!-- _class: rows -->', '', ...(eyebrow ? ['`Q3 hiring`', ''] : []), '## Hiring kept pace with the plan through Q3.', '', ...progress, ...table, '> Sales is the one function still hiring into Q4.', ''].join('\n');
+  const table = ['<!-- @meta{pane=table} -->', '### By function', '', '| Function | Plan | Hired | Open |', '|---|---|---|---|', '| Engineering | 120 | 118 | 2 |', '| Sales | 60 | 55 | 5 |', ''];
+  const progress = ['<!-- @meta{pane=progress} -->', '### Hired against plan', '', '- Engineering `98%`', '- Sales `92%`', ''];
+  const rows = (eyebrow) => ['<!-- @meta{layout=rows} -->', '', ...(eyebrow ? ['`Q3 hiring`', ''] : []), '## Hiring kept pace with the plan through Q3.', '', ...progress, ...table, '> Sales is the one function still hiring into Q4.', ''].join('\n');
   const clipped = lintText(rows(true)).filter((f) => f.rule.startsWith('pane-'));
   assert.deepEqual(clipped.map((f) => [f.rule, f.classToken]), [['pane-overflow', 'table']]);
   assert.match(clipped[0].message, /fits 1 row .* under the slide's eyebrow and Key Insight; this pane has 2/);
   assert.deepEqual(paneRules(rows(false)), []);
-  const text = ['<!-- _class: columns -->', '', '`Support · after the migration`', '', '## The migration halved support tickets.', '', '### Before', '', '- 1,240 tickets a month', '- 31 hours to first reply', '- Four tools to answer one question', '', '### After', '', '- 610 tickets a month', '- 6 hours to first reply', '- One console for every question', ''].join('\n');
+  const text = ['<!-- @meta{layout=columns} -->', '', '`Support · after the migration`', '', '## The migration halved support tickets.', '', '### Before', '', '- 1,240 tickets a month', '- 31 hours to first reply', '- Four tools to answer one question', '', '### After', '', '- 610 tickets a month', '- 6 hours to first reply', '- One console for every question', ''].join('\n');
   assert.deepEqual(paneRules(text), []);
-  const vendors = ['<!-- _class: columns ratio-40-60 -->', '', '`columns · stress`', '', '## Two vendors cleared the security review.', '', '<!-- _pane: list -->', '### Cleared', '', '- Northwind', '- Contoso', '', '<!-- _pane: table -->', '### Findings by vendor', '', '| Vendor | Critical | High | Status |', '|---|---|---|---|', '| Northwind | 0 | 1 | Cleared |', '| Contoso | 0 | 2 | Cleared |', '| Fabrikam | 2 | 4 | Rejected |', '', '> Fabrikam can re-apply after its Q1 fixes.', ''].join('\n');
+  const vendors = ['<!-- @meta{layout=columns, class=ratio-40-60} -->', '', '`columns · stress`', '', '## Two vendors cleared the security review.', '', '<!-- @meta{pane=list} -->', '### Cleared', '', '- Northwind', '- Contoso', '', '<!-- @meta{pane=table} -->', '### Findings by vendor', '', '| Vendor | Critical | High | Status |', '|---|---|---|---|', '| Northwind | 0 | 1 | Cleared |', '| Contoso | 0 | 2 | Cleared |', '| Fabrikam | 2 | 4 | Rejected |', '', '> Fabrikam can re-apply after its Q1 fixes.', ''].join('\n');
   assert.deepEqual(paneRules(vendors), []);
   // A pane that IS one blockquote keeps it as content: no Key Insight, no chrome.
   assert.equal(spec.chromeBudget({ sweet: 3, hard: 4 }, { sweet: 3, hard: 4 }, 'stack', 50, null, {}, 'row').hard, 4);
 });
 
 test('the text scanner and the engine agree on where each pane starts', () => {
-  const slide = '<!-- _class: columns -->\n\n## T\n\n### A\n\nx\n\n### B\n\ny\n';
+  const slide = '<!-- @meta{layout=columns} -->\n\n## T\n\n### A\n\nx\n\n### B\n\ny\n';
   assert.deepEqual(lintCore.paneStarts(slide), [4, 8]);
-  const marked = '## T\n\n<!-- _pane: list -->\n### A\n\n- x\n\n<!-- _pane: content -->\n\ny\n';
+  const marked = '## T\n\n<!-- @meta{pane=list} -->\n### A\n\n- x\n\n<!-- @meta{pane=content} -->\n\ny\n';
   assert.deepEqual(lintCore.paneStarts(marked), [2, 7]);
 });
 
 test('a double-backtick pill above a ### is one pill: linter and engine both count two panes', () => {
   // `` ``a`b`` `` is one code span holding a backtick (CommonMark §6.1). A one-backtick pill regex
   // read it as text, so the scanner started a third pane at the `###` under it.
-  const slide = '<!-- _class: columns -->\n\n## T\n\n<!-- _pane: list -->\n``a`b``\n### One\n\n- x\n\n### Two\n\n- y\n';
+  const slide = '<!-- @meta{layout=columns} -->\n\n## T\n\n<!-- @meta{pane=list} -->\n``a`b``\n### One\n\n- x\n\n### Two\n\n- y\n';
   assert.equal(spec.scanPanes(slide).split.markers, 2);
   assert.deepEqual(lintCore.paneStarts(slide), [4, 10]);
   const html = render(slide);
@@ -358,19 +359,19 @@ test('a double-backtick pill above a ### is one pill: linter and engine both cou
 test('a multi-line note between a marker and its ### does not start a new pane: scanner and engine agree', () => {
   // The scanner tested comments line by line, so a note's first line read as text and `### Rev`
   // started a content pane that folded the `list` marker away; the engine skips the whole comment.
-  const slide = '<!-- _class: columns -->\n\n## H\n\n<!-- _pane: bar -->\n<!-- note\n\nmore -->\n### Rev\n\n- A `1`\n\n<!-- _pane: list -->\n\n- x\n';
+  const slide = '<!-- @meta{layout=columns} -->\n\n## H\n\n<!-- @meta{pane=bar} -->\n<!-- note\n\nmore -->\n### Rev\n\n- A `1`\n\n<!-- @meta{pane=list} -->\n\n- x\n';
   assert.deepEqual(spec.scanPanes(slide).split.panes.map((p) => [p.cls, p.title]), [['bar', 8], ['list', null]]);
   assert.deepEqual(cells(render(slide)), ['bar', 'list']);
 });
 
 test('export-to-Marp drops the layout words and the markers, and keeps the other classes', () => {
-  const out = stripPaneMarkers('<!-- _class: columns ratio-60-40 dark -->\n\n## T\n\n<!-- _pane: bar -->\n\n- A `4`\n\n<!-- _pane: list -->\n\n- x\n');
+  const out = stripPaneMarkers('<!-- @meta{layout=columns, class=ratio-60-40 dark} -->\n\n## T\n\n<!-- @meta{pane=bar} -->\n\n- A `4`\n\n<!-- @meta{pane=list} -->\n\n- x\n');
   assert.match(out, /<!-- _class: dark -->/);
   assert.doesNotMatch(out, /columns|_pane|60\/40/);
 });
 
 test('the slide map reads a split ### slide as two pages, and a wide one as one without the layout words', () => {
-  const md = (size) => `---\nsize: ${size}\n---\n\n<!-- _class: columns dark -->\n\n## T\n\n### A\n\nx\n\n### B\n\ny\n`;
+  const md = (size) => `---\nsize: ${size}\n---\n\n<!-- @meta{layout=columns, class=dark} -->\n\n## T\n\n### A\n\nx\n\n### B\n\ny\n`;
   const wide = slideClassSpans(md('hd')).spans;
   assert.equal(wide.length, 1);
   assert.equal(wide[0].slideClass, 'dark');
@@ -380,7 +381,7 @@ test('the slide map reads a split ### slide as two pages, and a wide one as one 
 
 test('Read view: each pane\'s head reads before its body, hidden or not', async () => {
   const { projectDeckToProse } = await import('../../../lib/transformers/prose-projection.mjs');
-  const html = render(NEW.replace('<!-- _pane: list -->', '<!-- _pane: list no-title -->'));
+  const html = render(NEW.replace('<!-- @meta{pane=list} -->', '<!-- @meta{pane=list no-title} -->'));
   const dom = new JSDOM(`<body>${html.replace(/<section/g, '<section data-lattice-slide')}</body>`);
   const { articleHtml } = projectDeckToProse([...dom.window.document.querySelectorAll('section')]);
   const at = (t) => articleHtml.indexOf(t);
@@ -392,13 +393,13 @@ test('Read view: each pane\'s head reads before its body, hidden or not', async 
 // ── Found by the independent checker (maker-checker) ──────────────────────────────────────────
 
 test('export-to-Marp rewrites a marker-less columns slide too', () => {
-  const out = stripPaneMarkers('<!-- _class: columns ratio-60-40 dark -->\n\n## T\n\n### A\n\n- a\n\n### B\n\n- b\n');
+  const out = stripPaneMarkers('<!-- @meta{layout=columns, class=ratio-60-40 dark} -->\n\n## T\n\n### A\n\n- a\n\n### B\n\n- b\n');
   assert.match(out, /<!-- _class: dark -->/);
   assert.doesNotMatch(out, /columns|60\/40/);
 });
 
 test('a pane that is only a quote and its attribution stays a pane', () => {
-  const html = render('<!-- _class: columns -->\n\n## T\n\n### Voice of customer\n\n> We cut onboarding from 3 weeks to 4 days.\n\n— Jane Doe, CFO\n\n### Numbers\n\n- a\n- b\n');
+  const html = render('<!-- @meta{layout=columns} -->\n\n## T\n\n### Voice of customer\n\n> We cut onboarding from 3 weeks to 4 days.\n\n— Jane Doe, CFO\n\n### Numbers\n\n- a\n- b\n');
   const first = html.match(/<lat-pane[\s\S]*?<\/lat-pane>/)[0];
   assert.match(first, /We cut onboarding/);
   assert.match(first, /Jane Doe/);
@@ -412,36 +413,48 @@ test('lint does not throw on a multi-line _class that also names a component', (
   assert.ok(lintText(md).some((f) => f.rule === 'pane-layout' && f.classToken === 'bar'));
 });
 
-test('the alias keeps the rules it rendered with: a pane ### is its component\'s, pane A keeps its insight', () => {
-  const html = render('## T\n\n<!-- pane: content -->\n\n- x\n\n> Pane A insight.\n\n<!-- pane: team-profile -->\n\n### Your team\n\n- Ada\n  - Lead\n\n### Our team\n\n- Bo\n  - Rep\n');
+test('the retired alias, migrated, renders its panes in the record syntax: a pane ### is its component\'s', () => {
+  // The alias (`<!-- pane: … -->` markers alone) is not read since the cut; `lattice migrate meta` writes each marker as a
+  // `pane` record, which renders the same two panes. One rule differs, and the cut accepts it: the syntax lifts a closing
+  // `>` quote to the slide's insight, where the alias kept it in pane A.
+  const alias = '## T\n\n<!-- pane: content -->\n\n- x\n\n> Pane A insight.\n\n<!-- pane: team-profile -->\n\n### Your team\n\n- Ada\n  - Lead\n\n### Our team\n\n- Bo\n  - Rep\n';
+  assert.equal(count(render(alias), /<lat-pane\b/g), 0);
+  const { migrateMetaSource } = require('../../../lib/authoring/meta-migrate.mjs');
+  const { META_MIGRATE_KIT } = require('../../../lib/core/meta-scan.mjs');
+  const html = render(migrateMetaSource(alias, { kit: META_MIGRATE_KIT }).source);
   assert.doesNotMatch(html, /lat-pane-cell|lat-pane-head/);
   assert.match(html.match(/<lat-pane[\s\S]*?<\/lat-pane>/g)[1], /Your team[\s\S]*Our team/);
-  assert.match(html.match(/<lat-pane[\s\S]*?<\/lat-pane>/)[0], /Pane A insight/);
+  assert.match(html, /Pane A insight/);
 });
 
 test('a lowercase comment that starts with "pane:" is a speaker note, not a marker', () => {
-  const html = render('## T\n\n<!-- pane: check the numbers -->\n\nx\n\n<!-- pane: and the dates -->\n\ny\n');
-  assert.equal(count(html, /<lat-pane\b/g), 0);
+  const src = '## T\n\n<!-- pane: check the numbers -->\n\nx\n\n<!-- pane: and the dates -->\n\ny\n';
+  assert.equal(count(render(src), /<lat-pane\b/g), 0);
   assert.equal(spec.parseMarker('<!-- pane: check the numbers -->'), null);
   assert.deepEqual(spec.parseMarker('<!-- pane: bar no-title -->'), { cls: 'bar', mods: ['no-title'], modifiers: [], legacy: true });
+  // …so it is no old setting either: the linter names nothing, and the migration leaves the note as written.
+  assert.equal(lintText(src).some((x) => x.rule === 'legacy-directive-comment'), false);
+  const { migrateMetaSource } = require('../../../lib/authoring/meta-migrate.mjs');
+  const { META_MIGRATE_KIT } = require('../../../lib/core/meta-scan.mjs');
+  assert.equal(migrateMetaSource(src, { kit: META_MIGRATE_KIT }).source, src);
 });
 
 test('the last _class names the layout, as the last _class is the one applied', () => {
-  const lastDark = '<!-- _class: columns -->\n<!-- _class: dark -->\n\n## T\n\n### A\n\nx\n\n### B\n\ny\n';
+  const lastDark = '<!-- @meta{layout=columns} -->\n<!-- @meta{class=dark} -->\n\n## T\n\n### A\n\nx\n\n### B\n\ny\n';
   assert.equal(count(render(lastDark), /<lat-pane\b/g), 0);
   assert.deepEqual(paneRules(lastDark), []);
-  const lastColumns = render('<!-- _class: dark -->\n<!-- _class: columns -->\n\n## T\n\n### A\n\nx\n\n### B\n\ny\n');
+  const lastColumns = render('<!-- @meta{class=dark} -->\n<!-- @meta{layout=columns} -->\n\n## T\n\n### A\n\nx\n\n### B\n\ny\n');
   assert.equal(count(lastColumns, /<lat-pane\b/g), 2);
   assert.doesNotMatch(sectionTags(lastColumns)[0], /\bdark\b/);
-  const rowsLast = render('<!-- _class: columns -->\n<!-- _class: rows ratio-40-60 -->\n\n## T\n\n### A\n\nx\n\n### B\n\ny\n');
+  const rowsLast = render('<!-- @meta{layout=columns} -->\n<!-- @meta{layout=rows, class=ratio-40-60} -->\n\n## T\n\n### A\n\nx\n\n### B\n\ny\n');
   assert.match(rowsLast, /data-panes="stack"/);
   assert.doesNotMatch(sectionTags(rowsLast)[0], /\bcolumns\b/);
 });
 
 test('lint ignores a _class quoted in a fence, reads a spaced ratio, and counts a quote beside a fence', () => {
-  assert.deepEqual(paneRules('## T\n\n```md\n<!-- _class: columns -->\n```\n'), []);
-  assert.deepEqual(lintText('<!-- _class: columns 60 / 40 -->\n\n## T\n\n### A\n\nx\n\n### B\n\ny\n').filter((f) => f.rule === 'unknown-class'), []);
-  const md = '<!-- _class: columns -->\n\n## T\n\n### A\n\n> One.\n\n```js\nx\n```\n\n### B\n\n- b\n\n> Two.\n';
+  assert.deepEqual(paneRules('## T\n\n```md\n<!-- @meta{layout=columns} -->\n```\n'), []);
+  assert.deepEqual(lintText('<!-- @meta{layout=columns, class=60 / 40} -->\n\n## T\n\n### A\n\nx\n\n### B\n\ny\n').filter((f) => f.rule === 'unknown-class'), []);
+  const md = '<!-- @meta{layout=columns} -->\n\n## T\n\n### A\n\n> One.\n\n```js\nx\n```\n\n### B\n\n- b\n\n> Two.\n';
   assert.ok(paneRules(md).includes('pane-insight'));
 });
 
@@ -454,9 +467,10 @@ test('an author cannot write the internal marker: it is inert, and a pane attrib
 });
 
 test('a columns slide with fewer than two panes keeps columns as the class it was (a Marp deck\'s own)', () => {
-  const html = render('<!-- _class: columns -->\n\n## T\n\n- a list\n\nA paragraph.\n');
+  const html = render('<!-- @meta{layout=columns} -->\n\n## T\n\n- a list\n\nA paragraph.\n');
   assert.match(sectionTags(html)[0], /\bcolumns\b/);
   assert.doesNotMatch(html, /lat-pane/);
+  // Export to Marp runs on the deck in Marp's comments (records go back first, `recordsToComments`).
   const out = stripPaneMarkers('<!-- _class: columns -->\n\n## T\n\n- a\n');
   assert.match(out, /<!-- _class: columns -->/);
 });
@@ -464,11 +478,11 @@ test('a columns slide with fewer than two panes keeps columns as the class it wa
 test('export-to-Marp keeps an empty last _class, as the engine does, so an earlier one does not return', () => {
   const out = stripPaneMarkers('<!-- _class: dark -->\n<!-- _class: columns -->\n\n## T\n\n### A\n\n- a\n\n### B\n\n- b\n');
   assert.match(out, /<!-- _class: dark -->\n<!-- _class:\s*-->/);
-  assert.doesNotMatch(sectionTags(render('<!-- _class: dark -->\n<!-- _class: columns -->\n\n## T\n\n### A\n\n- a\n\n### B\n\n- b\n'))[0], /\bdark\b/);
+  assert.doesNotMatch(sectionTags(render('<!-- @meta{class=dark} -->\n<!-- @meta{layout=columns} -->\n\n## T\n\n### A\n\n- a\n\n### B\n\n- b\n'))[0], /\bdark\b/);
 });
 
 test('a pane pill renders through the host\'s inline rules, as a slide pill does', () => {
-  const pane = render('<!-- _class: columns -->\n\n## T\n\n<!-- _pane: content -->\n`\\{Q3}`\n### A\n\nx\n\n### B\n\ny\n');
+  const pane = render('<!-- @meta{layout=columns} -->\n\n## T\n\n<!-- @meta{pane=content} -->\n`\\{Q3}`\n### A\n\nx\n\n### B\n\ny\n');
   const slide = render('`\\{Q3}`\n\n## T\n\nx\n');
   const pillOf = (h, re) => (h.match(re) || [])[1];
   // The pill joins the title as one label, rendered by the same inline rules and unwrapped from
@@ -479,12 +493,12 @@ test('a pane pill renders through the host\'s inline rules, as a slide pill does
 });
 
 test('lint: a folded marker, columns with rows, a ### above the title, a bare ###', () => {
-  const folded = lintText('<!-- _class: columns -->\n\n## X\n\n<!-- _pane: content -->\n### Plan\n\n- a\n\n### Risks\n\n- r\n\n<!-- _pane: bar -->\n### Revenue\n\n- Q1 `10`\n').find((f) => f.rule === 'pane-layout');
+  const folded = lintText('<!-- @meta{layout=columns} -->\n\n## X\n\n<!-- @meta{pane=content} -->\n### Plan\n\n- a\n\n### Risks\n\n- r\n\n<!-- @meta{pane=bar} -->\n### Revenue\n\n- Q1 `10`\n').find((f) => f.rule === 'pane-layout');
   assert.match(folded.message, /shows as text, not as 'bar'/);
   assert.match(folded.fix, /####/);
-  assert.ok(lintText('<!-- _class: columns rows -->\n\n## X\n\n### A\n\nx\n\n### B\n\ny\n').some((f) => /both `columns` and `rows`/.test(f.message)));
-  assert.ok(lintText('<!-- _class: columns -->\n\n### Kicker\n\n## X\n\n### A\n\nx\n\n### B\n\ny\n').some((f) => /above the slide's `##`/.test(f.message)));
-  assert.doesNotMatch(render('<!-- _class: columns -->\n\n## T\n\n<!-- _pane: content -->\n###\n\nx\n\n### B\n\ny\n'), /<h3><\/h3>/);
+  assert.ok(lintText('<!-- @meta{layout=columns, class=rows} -->\n\n## X\n\n### A\n\nx\n\n### B\n\ny\n').some((f) => /both `columns` and `rows`/.test(f.message)));
+  assert.ok(lintText('<!-- @meta{layout=columns} -->\n\n### Kicker\n\n## X\n\n### A\n\nx\n\n### B\n\ny\n').some((f) => /above the slide's `##`/.test(f.message)));
+  assert.doesNotMatch(render('<!-- @meta{layout=columns} -->\n\n## T\n\n<!-- @meta{pane=content} -->\n###\n\nx\n\n### B\n\ny\n'), /<h3><\/h3>/);
 });
 
 test('lint: a deck-wide class: columns lays out nothing, and says so', () => {

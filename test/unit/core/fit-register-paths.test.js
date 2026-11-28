@@ -73,7 +73,7 @@ test('the retired guards: spelling stamps nothing (renames decision D2)', () => 
 test('a per-slide fit-heal evicts the deck-wide token rather than sitting beside it', () => {
   // Both rules land at the same specificity, so side-by-side would let CSS source
   // order decide whether this slide keeps its text. The engine must EVICT.
-  const body = '# One\n\nProse.\n\n---\n\n<!-- _class: fit-heal -->\n\n## Two\n\nProse.';
+  const body = '# One\n\nProse.\n\n---\n\n<!-- @meta{class=fit-heal} -->\n\n## Two\n\nProse.';
   const [first, second] = classesOf(['fit: trim'], body);
 
   assert.ok(first.includes('fit-trim'), 'the deck token must reach an ordinary slide');
@@ -85,7 +85,7 @@ test('a per-slide fit-heal evicts the deck-wide token rather than sitting beside
 test('the kernel agrees with what the engine stamped — one answer, not two', () => {
   // `trimEnabled` is what a render path asks at trim time. If it disagreed with
   // the class the engine wrote, the register would be decorative.
-  const body = '# One\n\nProse.\n\n---\n\n<!-- _class: fit-heal -->\n\n## Two\n\nProse.';
+  const body = '# One\n\nProse.\n\n---\n\n<!-- @meta{class=fit-heal} -->\n\n## Two\n\nProse.';
   const [first, second] = classesOf(['fit: trim'], body);
 
   assert.equal(trimEnabled(first), true);

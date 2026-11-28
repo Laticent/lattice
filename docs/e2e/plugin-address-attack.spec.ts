@@ -46,7 +46,7 @@ const DECK = [
 	'plugins: [gantt-plugin]',
 	'---',
 	'',
-	'<!-- _class: closing qr -->',
+	'<!-- @meta{layout=closing, class=qr} -->',
 	'',
 	'## Thank you',
 	'',
@@ -56,7 +56,7 @@ const DECK = [
 	'',
 	'---',
 	'',
-	'<!-- _class: closing qr -->',
+	'<!-- @meta{layout=closing, class=qr} -->',
 	'',
 	'## Scan to follow up',
 	'',
@@ -68,7 +68,7 @@ const DECK = [
 	'',
 	'---',
 	'',
-	'<!-- _class: kanban -->',
+	'<!-- @meta{layout=kanban} -->',
 	'',
 	'## Board status today.',
 	'',
@@ -266,7 +266,7 @@ const ORPHAN = `function render(f) {
 }
 export { render as default };
 `;
-const NESTED_DECK = ['---', 'plugins: [gantt-plugin]', '---', '', '<!-- _class: closing qr -->', '', '## Our plan', '', '- Our plan:', '', '  ```gantt', '  SECRET-Q4', '  ```', ''].join('\n');
+const NESTED_DECK = ['---', 'plugins: [gantt-plugin]', '---', '', '<!-- @meta{layout=closing, class=qr} -->', '', '## Our plan', '', '- Our plan:', '', '  ```gantt', '  SECRET-Q4', '  ```', ''].join('\n');
 
 test(`a plugin's bare <li> in a fence nested in a bullet cannot become the author's QR @crosswidth @webkit-tablet @gecko`, async ({ page, context, browserName }) => {
 	const own = page.viewportSize() ?? { width: 1440, height: 900 };

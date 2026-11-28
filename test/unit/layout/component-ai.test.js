@@ -55,7 +55,7 @@ describe('component-ai — coerce', () => {
     function: 'inventory', form: 'grid', substance: 'structure', bucket: 'inventory',
     tags: ['cards', 'verdict', 'grid'],
     css: 'section.verdict-grid > .cell-stage { display:flex; gap:var(--sp-md); }\nsection.verdict-grid li { color:var(--text-body); font-size:var(--fs-body); }',
-    skeleton: '<!-- _class: verdict-grid -->\n\n## Verdicts\n\n- Ship it\n  - All gates green.',
+    skeleton: '<!-- @meta{layout=verdict-grid} -->\n\n## Verdicts\n\n- Ship it\n  - All gates green.',
   };
 
   // LINE ENDINGS AT THE MODEL BOUNDARY. The skeleton is markdown that `addSlideAfter` splices
@@ -65,15 +65,15 @@ describe('component-ai — coerce', () => {
   // caller. CSS is deliberately untouched: it is never spliced into markdown.
   test('normalizes a CRLF skeleton — CSS is deliberately left alone', () => {
     const cssCRLF = 'section.verdict-grid > .cell-stage {\r\n  display:flex;\r\n}';
-    const r = coerceComponent({ ...GOOD, skeleton: '<!-- _class: verdict-grid -->\r\n\r\n## Verdicts\r\n\r\n- Ship it\r\n  - All gates green.', css: cssCRLF });
-    assert.equal(r.skeleton, '<!-- _class: verdict-grid -->\n\n## Verdicts\n\n- Ship it\n  - All gates green.');
+    const r = coerceComponent({ ...GOOD, skeleton: '<!-- @meta{layout=verdict-grid} -->\r\n\r\n## Verdicts\r\n\r\n- Ship it\r\n  - All gates green.', css: cssCRLF });
+    assert.equal(r.skeleton, '<!-- @meta{layout=verdict-grid} -->\n\n## Verdicts\n\n- Ship it\n  - All gates green.');
     assert.equal(/\r/.test(r.skeleton), false, 'no carriage return may reach deck source');
     assert.equal(r.css, cssCRLF, 'CSS endings are not the engine’s business — pinned so the asymmetry is deliberate');
   });
 
   test('a lone-CR skeleton is covered too, which a reader-style `\\r?\\n` could not be', () => {
-    const r = coerceComponent({ ...GOOD, skeleton: '<!-- _class: verdict-grid -->\r\r## Verdicts\r\r- Ship it\r  - All gates green.' });
-    assert.equal(r.skeleton, '<!-- _class: verdict-grid -->\n\n## Verdicts\n\n- Ship it\n  - All gates green.');
+    const r = coerceComponent({ ...GOOD, skeleton: '<!-- @meta{layout=verdict-grid} -->\r\r## Verdicts\r\r- Ship it\r  - All gates green.' });
+    assert.equal(r.skeleton, '<!-- @meta{layout=verdict-grid} -->\n\n## Verdicts\n\n- Ship it\n  - All gates green.');
   });
 
   test('shapes a clean reply: slugged name, enum-snapped axes, adapt/capacity, ok', () => {
@@ -134,7 +134,7 @@ describe('component-ai — coerce', () => {
   });
 
   test('applies the ONE safe fix: inline `- **Title.** body` → nested card form (#5)', () => {
-    const r = coerceComponent({ ...GOOD, skeleton: '<!-- _class: verdict-grid -->\n\n## T\n\n- **Ship it.** All gates green.' });
+    const r = coerceComponent({ ...GOOD, skeleton: '<!-- @meta{layout=verdict-grid} -->\n\n## T\n\n- **Ship it.** All gates green.' });
     assert.ok(r.fixes.includes('card-nesting'));
     assert.match(r.skeleton, /- Ship it\n {2}- All gates green\./);
     assert.doesNotMatch(r.skeleton, /\*\*/);
@@ -163,7 +163,7 @@ describe('component-ai — the worked examples are gate-clean (make-or-break)', 
     manifest: {
       name: 'capability-cards', function: 'inventory', form: 'grid', substance: 'structure', bucket: 'inventory',
       tags: ['cards', 'grid', 'capabilities'], description: 'A 2-up grid of capability cards.',
-      skeleton: '<!-- _class: capability-cards -->\n\n## What the platform does\n\n- Ingests any source\n  - CSV, API, or stream.',
+      skeleton: '<!-- @meta{layout=capability-cards} -->\n\n## What the platform does\n\n- Ingests any source\n  - CSV, API, or stream.',
     },
   };
 
@@ -183,7 +183,7 @@ describe('component-ai — the worked examples are gate-clean (make-or-break)', 
       'section.owner-ledger > .cell-stage > ul > li > code { flex:0 0 auto; font-size:var(--fs-meta); color:var(--text-body); }',
       'section.owner-ledger > .cell-stage > ul > li > ul { flex:0 0 100%; list-style:none; padding:0; margin:0; font-size:var(--fs-body-compact); color:var(--text-body); }',
     ].join('\n'),
-    manifest: { name: 'owner-ledger', function: 'inventory', form: 'ledger', substance: 'structure', bucket: 'inventory', tags: ['ownership', 'roster', 'ledger'], description: 'A roster of responsibilities.', skeleton: '<!-- _class: owner-ledger -->\n\n## Who owns what\n\n- Signal custody `Data lead`\n  - Owns intake quality.' },
+    manifest: { name: 'owner-ledger', function: 'inventory', form: 'ledger', substance: 'structure', bucket: 'inventory', tags: ['ownership', 'roster', 'ledger'], description: 'A roster of responsibilities.', skeleton: '<!-- @meta{layout=owner-ledger} -->\n\n## Who owns what\n\n- Signal custody `Data lead`\n  - Owns intake quality.' },
   };
   const REUSE = {
     css: [
@@ -195,7 +195,7 @@ describe('component-ai — the worked examples are gate-clean (make-or-break)', 
       'section.status-cards > .cell-stage > ul > li.fail { border-left-color:var(--fail); }',
       'section.status-cards.status-cards:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ul > li { width:100%; }',
     ].join('\n'),
-    manifest: { name: 'status-cards', function: 'inventory', form: 'grid', substance: 'structure', bucket: 'inventory', tags: ['cards', 'status', 'grid'], description: 'Status-tagged capability cards.', skeleton: '<!-- _class: status-cards -->\n\n## Capability status\n\n- Ingest pipeline\n- Scoring engine\n- Audit trail' },
+    manifest: { name: 'status-cards', function: 'inventory', form: 'grid', substance: 'structure', bucket: 'inventory', tags: ['cards', 'status', 'grid'], description: 'Status-tagged capability cards.', skeleton: '<!-- @meta{layout=status-cards} -->\n\n## Capability status\n\n- Ingest pipeline\n- Scoring engine\n- Audit trail' },
   };
   test('worked example B (ledger) passes gateComponent', () => {
     assert.equal(gateComponent(LEDGER).ok, true, JSON.stringify(gateComponent(LEDGER).errors));
@@ -213,7 +213,7 @@ describe('component-ai — the worked examples are gate-clean (make-or-break)', 
       'section.build-buy > .cell-stage > ul > li > ul { list-style:none; padding:var(--sp-sm) 0 0 0; margin:0; display:flex; flex-direction:column; gap:var(--sp-xs); font-size:var(--fs-body); font-weight:400; color:var(--text-body); }',
       'section.build-buy.build-buy:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul { grid-template-columns:1fr; }',
     ].join('\n'),
-    manifest: { name: 'build-buy', function: 'comparison', form: 'split', substance: 'structure', bucket: 'comparison', tags: ['comparison', 'two-column', 'tradeoff'], description: 'Two options side by side.', skeleton: '<!-- _class: build-buy -->\n\n## Build vs buy\n\n- Build\n  - Full control\n- Buy\n  - Faster' },
+    manifest: { name: 'build-buy', function: 'comparison', form: 'split', substance: 'structure', bucket: 'comparison', tags: ['comparison', 'two-column', 'tradeoff'], description: 'Two options side by side.', skeleton: '<!-- @meta{layout=build-buy} -->\n\n## Build vs buy\n\n- Build\n  - Full control\n- Buy\n  - Faster' },
   };
   test('worked example D (two-column comparison) passes gateComponent — grid + gap, no margin', () => {
     assert.equal(gateComponent(COMPARE).ok, true, JSON.stringify(gateComponent(COMPARE).errors));
@@ -262,7 +262,7 @@ describe('component-ai — the worked examples are gate-clean (make-or-break)', 
     manifest: {
       name: 'plan-matrix', function: 'comparison', form: 'matrix', substance: 'structure', bucket: 'comparison',
       tags: ['comparison', 'table', 'matrix', 'pricing'], description: 'A feature matrix — features down rows, plans across columns.',
-      skeleton: '<!-- _class: plan-matrix -->\n\n## Plans at a glance\n\n| Feature | Starter | Team |\n| --- | --- | --- |\n| Seats | 3 | 25 |\n| SSO | — | Yes |',
+      skeleton: '<!-- @meta{layout=plan-matrix} -->\n\n## Plans at a glance\n\n| Feature | Starter | Team |\n| --- | --- | --- |\n| Seats | 3 | 25 |\n| SSO | — | Yes |',
     },
   };
   test('worked example E (matrix table) passes gateComponent — native table, token-styled, pure-markdown skeleton', () => {
@@ -288,7 +288,7 @@ describe('component-ai — the worked examples are gate-clean (make-or-break)', 
     manifest: {
       name: 'status-console', function: 'inventory', form: 'panel', substance: 'structure', bucket: 'inventory',
       tags: ['console', 'status', 'terminal'], description: 'A dark diagnostic console — systems each with a status chip.',
-      skeleton: '<!-- _class: status-console -->\n\n`Starbase diagnostic`\n\n## System status\n\n- Warp core `NOMINAL`\n  - Dilithium levels at 94%',
+      skeleton: '<!-- @meta{layout=status-console} -->\n\n`Starbase diagnostic`\n\n## System status\n\n- Warp core `NOMINAL`\n  - Dilithium levels at 94%',
     },
   };
   test('worked example F (terminal console) passes gateComponent — INVERTED tokens, ZERO hex, no margin', () => {
@@ -314,7 +314,7 @@ describe('component-ai — silent gate-repair prompt (askRepairMessages)', () =>
     name: 'neon', description: 'A neon terminal.', function: 'inventory', form: 'panel', substance: 'structure',
     bucket: 'inventory', tags: ['neon', 'terminal', 'status'], adapt: { mode: 'native' },
     capacity: { sweet: 1, soft: 1, hard: 1 }, density: null,
-    css: 'section.neon > .cell-stage { color:#00ff00; margin:4px; }', skeleton: '<!-- _class: neon -->\n\n## X\n\ntext',
+    css: 'section.neon > .cell-stage { color:#00ff00; margin:4px; }', skeleton: '<!-- @meta{layout=neon} -->\n\n## X\n\ntext',
   };
   const findings = [
     { rule: 'no-hex', level: 'error', line: 1, message: 'hex literal "#00ff00" — use a palette token instead.' },
@@ -350,7 +350,7 @@ describe('component-ai — design self-refine (the effort dial)', () => {
   const draft = {
     name: 'kpi-trio', description: 'Three KPIs.', function: 'statement', form: 'canvas', substance: 'structure',
     bucket: 'statement', tags: ['kpi', 'stat', 'metric'], adapt: { mode: 'native' }, capacity: { sweet: 3, soft: 3, hard: 3 },
-    density: null, css: 'section.kpi-trio > .cell-stage { display:flex; }', skeleton: '<!-- _class: kpi-trio -->\n\n## Numbers\n\n- 100\n- 200',
+    density: null, css: 'section.kpi-trio > .cell-stage { display:flex; }', skeleton: '<!-- @meta{layout=kpi-trio} -->\n\n## Numbers\n\n- 100\n- 200',
   };
 
   test('askDesignRefineMessages carries the rubric + the draft, and asks for a rating', () => {
@@ -409,7 +409,7 @@ describe('component-ai — manual refine (askComponentRefineMessages)', () => {
   const draft = {
     name: 'kpi-trio', description: 'Three KPIs.', function: 'statement', form: 'canvas', substance: 'structure',
     bucket: 'statement', tags: ['kpi', 'stat', 'metric'], adapt: { mode: 'native' }, capacity: { sweet: 3, soft: 3, hard: 3 },
-    density: null, css: 'section.kpi-trio > .cell-stage { color:var(--text-body); }', skeleton: '<!-- _class: kpi-trio -->\n\n## Numbers\n\n- 100\n- 200',
+    density: null, css: 'section.kpi-trio > .cell-stage { color:var(--text-body); }', skeleton: '<!-- @meta{layout=kpi-trio} -->\n\n## Numbers\n\n- 100\n- 200',
   };
 
   test('carries the current draft + the author instruction, and preserves the gate rules', () => {
@@ -447,45 +447,45 @@ describe('component-ai — skeleton is pure markdown (no raw HTML; HARD RULE #22
   const errs = skeleton => gateComponent(withSkel(skeleton)).errors.map(e => e.rule);
 
   test('a clean pure-markdown skeleton (list + comment note) passes', () => {
-    const r = gateComponent(withSkel('<!-- _class: t -->\n<!-- present slowly -->\n\n## X\n\n- One\n- Two'));
+    const r = gateComponent(withSkel('<!-- @meta{layout=t} -->\n<!-- present slowly -->\n\n## X\n\n- One\n- Two'));
     assert.equal(r.ok, true, JSON.stringify(r.errors));
   });
   test('a <script> tag is rejected', () => {
-    assert.ok(errs('<!-- _class: t -->\n\n## X\n\n<script>steal()</script>').includes('skeleton-html'));
+    assert.ok(errs('<!-- @meta{layout=t} -->\n\n## X\n\n<script>steal()</script>').includes('skeleton-html'));
   });
   test('a <style> tag is rejected', () => {
-    assert.ok(errs('<!-- _class: t -->\n\n## X\n\n<style>body{}</style>').includes('skeleton-html'));
+    assert.ok(errs('<!-- @meta{layout=t} -->\n\n## X\n\n<style>body{}</style>').includes('skeleton-html'));
   });
   test('benign tags (<div>/<span>/<br>) are rejected too — pure markdown only', () => {
-    assert.ok(errs('<!-- _class: t -->\n\n## X\n\n<div>a</div><br>').includes('skeleton-html'));
+    assert.ok(errs('<!-- @meta{layout=t} -->\n\n## X\n\n<div>a</div><br>').includes('skeleton-html'));
   });
   test('an on*= handler / javascript: URL is rejected', () => {
-    assert.ok(errs('<!-- _class: t -->\n\n## X\n\n[x](javascript:alert(1))').includes('skeleton-script'));
-    assert.ok(errs('<!-- _class: t -->\n\n## X\n\n<img src=x onerror=alert(1)>').length > 0);
+    assert.ok(errs('<!-- @meta{layout=t} -->\n\n## X\n\n[x](javascript:alert(1))').includes('skeleton-script'));
+    assert.ok(errs('<!-- @meta{layout=t} -->\n\n## X\n\n<img src=x onerror=alert(1)>').length > 0);
   });
   test('a tag SHOWN inside a code fence or inline span is allowed (it is escaped text)', () => {
-    assert.equal(gateComponent(withSkel('<!-- _class: t -->\n\n## X\n\n```html\n<script>ok</script>\n```')).ok, true);
-    assert.equal(gateComponent(withSkel('<!-- _class: t -->\n\n## X\n\n- Use `<br>` here')).ok, true);
+    assert.equal(gateComponent(withSkel('<!-- @meta{layout=t} -->\n\n## X\n\n```html\n<script>ok</script>\n```')).ok, true);
+    assert.equal(gateComponent(withSkel('<!-- @meta{layout=t} -->\n\n## X\n\n- Use `<br>` here')).ok, true);
   });
   test('prose with a "less than" comparison is NOT flagged (no space-glued tag)', () => {
-    assert.equal(gateComponent(withSkel('<!-- _class: t -->\n\n## X\n\n- revenue < budget this year\n- a < b and c > d')).ok, true);
+    assert.equal(gateComponent(withSkel('<!-- @meta{layout=t} -->\n\n## X\n\n- revenue < budget this year\n- a < b and c > d')).ok, true);
   });
   test('a benign URL or email autolink is allowed (valid markdown, renders to <a>)', () => {
-    assert.equal(gateComponent(withSkel('<!-- _class: t -->\n\n## X\n\n- See <https://example.com/p?q=1>\n- Mail <a@b.com>')).ok, true);
+    assert.equal(gateComponent(withSkel('<!-- @meta{layout=t} -->\n\n## X\n\n- See <https://example.com/p?q=1>\n- Mail <a@b.com>')).ok, true);
   });
   test('a javascript: autolink is still caught by the scheme rule', () => {
-    assert.ok(errs('<!-- _class: t -->\n\n## X\n\n- <javascript:alert(1)>').includes('skeleton-script'));
+    assert.ok(errs('<!-- @meta{layout=t} -->\n\n## X\n\n- <javascript:alert(1)>').includes('skeleton-script'));
   });
   // Maker-checker found these two HIGH bypasses — regression-locked here.
   test('a <script> hidden via code-wrapped comment delimiters is still caught (strip code before comments)', () => {
-    assert.ok(errs('<!-- _class: t -->\n\n## X\n\n`<!--` <script>alert(1)</script> `-->`').includes('skeleton-html'));
+    assert.ok(errs('<!-- @meta{layout=t} -->\n\n## X\n\n`<!--` <script>alert(1)</script> `-->`').includes('skeleton-html'));
   });
   test('an entity-encoded javascript: scheme is caught (decode entities before the scheme scan)', () => {
-    assert.ok(errs('<!-- _class: t -->\n\n## X\n\n[click](&#106;avascript:alert(1))').includes('skeleton-script'));
-    assert.ok(errs('<!-- _class: t -->\n\n## X\n\n[click](javascript&colon;alert(1))').includes('skeleton-script'));
+    assert.ok(errs('<!-- @meta{layout=t} -->\n\n## X\n\n[click](&#106;avascript:alert(1))').includes('skeleton-script'));
+    assert.ok(errs('<!-- @meta{layout=t} -->\n\n## X\n\n[click](javascript&colon;alert(1))').includes('skeleton-script'));
   });
   test('an entity-encoded < is escaped text, not a live tag — NOT flagged', () => {
-    assert.equal(gateComponent(withSkel('<!-- _class: t -->\n\n## X\n\n- List &lt;int&gt; and 5 &lt; 10')).ok, true);
+    assert.equal(gateComponent(withSkel('<!-- @meta{layout=t} -->\n\n## X\n\n- List &lt;int&gt; and 5 &lt; 10')).ok, true);
   });
 });
 
@@ -495,7 +495,7 @@ describe('component-ai — scope-prefix safe fix (§6, self-verifying)', () => {
       name: 'leaky', function: 'inventory', form: 'grid', substance: 'structure', bucket: 'inventory', tags: ['a', 'b', 'c'],
       description: 'd',
       css: 'section.leaky > .cell-stage { display:flex; }\nul { color:var(--text-body); }',
-      skeleton: '<!-- _class: leaky -->\n\n## T\n\n- a',
+      skeleton: '<!-- @meta{layout=leaky} -->\n\n## T\n\n- a',
     });
     assert.ok(r.fixes.includes('scope-prefix'));
     assert.equal(findUnscopedSelectors(r.css, 'leaky').length, 0, 'the leak is scoped away');

@@ -93,7 +93,7 @@ async function seedDeck(page: Page, source: string): Promise<void> {
 }
 
 const DECK = [
-	'<!-- _class: content -->',
+	'<!-- @meta{layout=content} -->',
 	'',
 	'## A fence on a content slide',
 	'',
@@ -253,7 +253,7 @@ test('the insert door writes a TAGGED fence, defaulted from the slide layout', a
 	await gotoStudio(page);
 	// A diagram slide: its own grammar skeleton opens a ```mermaid fence, so the door
 	// must not ask a question the layout has already answered.
-	await seedDeck(page, ['<!-- _class: diagram -->', '', '## How signals move', '', 'A caption line.'].join('\n').replace('A caption line.', 'A caption line.\n\n```text\nseed\n```'));
+	await seedDeck(page, ['<!-- @meta{layout=diagram} -->', '', '## How signals move', '', 'A caption line.'].join('\n').replace('A caption line.', 'A caption line.\n\n```text\nseed\n```'));
 	await toCompose(page);
 
 	// Caret in the prose, then the door.
@@ -287,7 +287,7 @@ test('an engine sub-language is COLORED — by our own mermaid grammar', async (
 	// `highlight-js.css`'s suppression as a blanket rule — it is scoped to the transient
 	// source <pre> on a diagram SLIDE. `mermaid.highlight.js` exists to color mermaid source.
 	await gotoStudio(page);
-	await seedDeck(page, ['<!-- _class: diagram -->', '', '## D', '', '```mermaid', 'flowchart LR', '  A[Input] --> B{Fits?}', '```'].join('\n'));
+	await seedDeck(page, ['<!-- @meta{layout=diagram} -->', '', '## D', '', '```mermaid', 'flowchart LR', '  A[Input] --> B{Fits?}', '```'].join('\n'));
 	await toCompose(page);
 	const fence = page.locator('.cs-host pre.cs-code[data-lang=mermaid]');
 	await expect(fence).toBeVisible();
@@ -406,7 +406,7 @@ test('a ~~~ fence keeps its tildes when its slide is edited in Compose', async (
 	// is to TOUCH the slide: the edit runs it through the serializer, which used to write
 	// backticks for every code block. examples/mermaid-tilde-fences.md is the shipped case.
 	// (The backtick fence rides along because `seedDeck` waits for one to persist.)
-	const TILDE = ['<!-- _class: diagram -->', '', '## A tilde fence', '', '~~~mermaid', 'flowchart LR', '  A --> B', '~~~', '', '```text', 'seed', '```'].join('\n');
+	const TILDE = ['<!-- @meta{layout=diagram} -->', '', '## A tilde fence', '', '~~~mermaid', 'flowchart LR', '  A --> B', '~~~', '', '```text', 'seed', '```'].join('\n');
 	await gotoStudio(page);
 	await seedDeck(page, TILDE);
 	await toCompose(page);

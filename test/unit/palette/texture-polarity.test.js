@@ -408,8 +408,8 @@ describe('texture-polarity', () => {
     }
     const { html } = engine.render(
       '---\nmarp: true\ntheme: onyx\nclass: print\n---\n\n'
-      + '<!-- _class: diagram -->\n\n## plain\n\ntext\n\n---\n\n'
-      + '<!-- _class: diagram dark -->\n\n## pins its own scheme\n\ntext\n',
+      + '<!-- @meta{layout=diagram} -->\n\n## plain\n\ntext\n\n---\n\n'
+      + '<!-- @meta{layout=diagram, class=dark} -->\n\n## pins its own scheme\n\ntext\n',
       'lattice',
     );
     const classes = [...html.matchAll(/<section[^>]*class="([^"]*)"/g)].map((m) => m[1].split(/\s+/));

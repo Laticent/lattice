@@ -156,18 +156,28 @@ describe('createStyleLoader', () => {
 	it('warm() fetches the modules a class word names but adds nothing to the base', async () => {
 		const s = createStyleLoader('/styles/', { wholeAbove: 1 });
 		await s.ready();
-		s.warm('<!-- _class: card -->\n# hi');
+		s.warm('<!-- @meta{class=card} -->\n# hi');
 		await vi.waitFor(() => expect(fetched).toContain('1-card.css'), { timeout: 10_000, interval: 1 });
 		expect(fetched).toContain('1-card.css');
 		expect(s.css()).not.toContain('.card');
 	});
 
+	it('warm() reads nothing from an old `_class:` comment, which sets nothing since the cut (record note §15)', async () => {
+		const s = createStyleLoader('/styles/', { wholeAbove: 1 });
+		await s.ready();
+		s.warm('<!-- _class: card -->\n# hi');
+		// A control warm-up after it, on the same loaded index: once its module is fetched, the one before it has been read.
+		s.warm('<!-- @meta{layout=chart} -->\n# hi');
+		await vi.waitFor(() => expect(fetched).toContain('2-chart.css'), { timeout: 10_000, interval: 1 });
+		expect(fetched, 'an old comment warms nothing').not.toContain('1-card.css');
+	});
+
 	it('warm() stops reading class words at a comment end, `-->` or `--!>`', async () => {
 		const s = createStyleLoader('/styles/', { wholeAbove: 1 });
 		await s.ready();
-		s.warm('<!-- _class: --!> card -->\n# hi');
+		s.warm('<!-- @meta{class=hero} --!> card -->\n# hi');
 		// A control warm-up after it, on the same loaded index: once its module is fetched, the one before it has been read.
-		s.warm('<!-- _class: chart -->\n# hi');
+		s.warm('<!-- @meta{class=chart} -->\n# hi');
 		await vi.waitFor(() => expect(fetched).toContain('2-chart.css'), { timeout: 10_000, interval: 1 });
 		expect(fetched, 'a word after --!> is not a class').not.toContain('1-card.css');
 	});
@@ -252,7 +262,7 @@ describe('createStyleLoader', () => {
 	describe('predict: guess the first render\'s modules before it runs', () => {
 		it('`source` puts the modules a deck\'s Markdown names into the start-up set, so the first scan finds nothing new', async () => {
 			const s = createStyleLoader('/styles/', { wholeAbove: 1, predict: 'source' });
-			s.hint('<!-- _class: card -->\n# hi');
+			s.hint('<!-- @meta{class=card} -->\n# hi');
 			await s.ready();
 			expect(s.css()).toContain('.card');
 			expect(await s.ensureFor('<article class="lattice"><section class="card">x</section></article>')).toBe('same');
@@ -277,7 +287,7 @@ describe('createStyleLoader', () => {
 
 		it('without `predict`, `hint` changes nothing', async () => {
 			const s = createStyleLoader('/styles/', { wholeAbove: 1 });
-			s.hint('<!-- _class: card -->');
+			s.hint('<!-- @meta{class=card} -->');
 			await s.ready();
 			expect(s.css()).not.toContain('.card');
 		});

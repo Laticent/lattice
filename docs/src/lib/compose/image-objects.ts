@@ -19,8 +19,10 @@ import type { EditorView } from 'prosemirror-view';
 // THE placed-picture rule (lib/core/placed-picture.mjs): whether a picture is the slide's photo is the engine's decision, and
 // Compose asks the same function the engine does rather than spelling it out (engineering/decisions/2026-10-16-media-plugins.md §9, 2026-11-11).
 import { boundaryParser } from '../../../../lib/core/boundary-parser.mjs';
+import { readSettingEntries } from '../../../../lib/core/comment-directive.mjs';
 import frontMatterKey from '../../../../lib/core/front-matter-key.js';
-import { backgroundDirectiveOf, backgroundImagePlaces, headingPartStarts, placedPictureInSlide, slidePictureCount } from '../../../../lib/core/placed-picture.mjs';
+import { CLASS_VOCAB } from '../../../../lib/core/meta-keys.mjs';
+import { backgroundImagePlaces, headingPartStarts, placedPictureInSlide, slidePictureCount } from '../../../../lib/core/placed-picture.mjs';
 import { resolveSplitMode } from '../../../../lib/core/resolve-split.mjs';
 import { slidesCarried } from '../../../../lib/core/slide-carried.mjs';
 // The component names (the stage catalog's keys, as reserved-names.ts reads them): a slide's LAYOUT is its first class word
@@ -226,17 +228,30 @@ export function placeImage(view: EditorView, pos: number, p: Placement): boolean
  */
 function carriedClassBefore(state: EditorState, slideIndex: number): string[] | null {
 	let carried: string[] | null = null;
+	// Since the cut only a record carries (`<!-- @meta{layout=image, carry} -->`, record note §15), and Compose keeps a
+	// slide's records on the node (`directives`, at its head) or, where they could not be lifted, as comments in its body.
+	eachSettingComment(state, slideIndex, (text) => {
+		for (const e of readSettingEntries(text, CLASS_VOCAB)) if (!e.spot) carried = e.value.trim().split(/\s+/).filter(Boolean);
+	});
+	return carried;
+}
+
+/** Every settings comment of slides 0..slideIndex, in the order the serialized deck holds them: a slide's lifted
+ *  directives first, then the comments left in its body. */
+function eachSettingComment(state: EditorState, slideIndex: number, visit: (text: string) => void): void {
 	for (let i = 0; i <= slideIndex && i < state.doc.childCount; i++) {
-		state.doc.child(i).descendants((n) => {
+		const slide = state.doc.child(i);
+		for (const d of (slide.attrs.directives as string[] | null) ?? []) visit(String(d));
+		slide.descendants((n) => {
 			if (n.type.name !== 'comment') return true;
-			const text = String(n.attrs.text ?? '');
-			const payload = /^\s*<!--\s*_/.test(text) ? null : classPayloadOf(text);
-			if (payload !== null) carried = payload.trim().split(/\s+/).filter(Boolean);
+			visit(String(n.attrs.text ?? ''));
 			return false;
 		});
 	}
-	return carried;
 }
+
+/** The background-image slice of the settings vocabulary. */
+const BG_VOCAB = { known: new Set(['backgroundImage']), flags: new Set<string>() };
 
 /**
  * Whether a background image CARRIED to this slide is already its photo, so no picture on it is placed: the front matter's
@@ -245,17 +260,13 @@ function carriedClassBefore(state: EditorState, slideIndex: number): string[] | 
  * the slide's own text). The Studio's text readers ask the same question of lib/core/slide-placing-context.js.
  */
 function carriedBackgroundPlaces(state: EditorState, slideIndex: number): boolean {
-	const own = ((state.doc.child(slideIndex)?.attrs.directives as string[] | null) ?? []).some((d) => backgroundDirectiveOf(d)?.spot);
+	const own = ((state.doc.child(slideIndex)?.attrs.directives as string[] | null) ?? []).some((d) => readSettingEntries(String(d), BG_VOCAB).some((e) => e.spot));
 	if (own) return false;
 	let carried: string | null = frontMatterKey.topLevelFrontMatterValue(String(state.doc.attrs.frontMatter ?? ''), 'backgroundImage');
-	for (let i = 0; i <= slideIndex && i < state.doc.childCount; i++) {
-		state.doc.child(i).descendants((n) => {
-			if (n.type.name !== 'comment') return true;
-			const dir = backgroundDirectiveOf(String(n.attrs.text ?? ''));
-			if (dir && !dir.spot) carried = dir.value;
-			return false;
-		});
-	}
+	// Since the cut only a record carries a background (`<!-- @meta{background-image=…, carry} -->`, record note §15).
+	eachSettingComment(state, slideIndex, (text) => {
+		for (const e of readSettingEntries(text, BG_VOCAB)) if (!e.spot) carried = e.value;
+	});
 	return backgroundImagePlaces(carried);
 }
 

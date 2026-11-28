@@ -54,7 +54,7 @@ const deck = (fm, slides) => ['---', 'marp: true', 'theme: indaco', ...fm, '---'
 describe('deck-class visibility — the resolved class list, not the `_class:` payload', () => {
   test('a deck-wide `class:` token lands on a slide that names its own `_class:`', () => {
     const [own, none] = sections(deck(['class: no-note'], [
-      '<!-- _class: content -->', '', '## Names its own.', '', '- one', '', 'Trailing.', '',
+      '<!-- @meta{layout=content} -->', '', '## Names its own.', '', '- one', '', 'Trailing.', '',
       '---', '', '## Names none.', '', '- one', '', 'Trailing.', '',
     ].join('\n')));
     assert.ok(own.cls.includes('no-note'), `deck token missing from ${own.cls.join(' ')}`);
@@ -66,7 +66,7 @@ describe('deck-class visibility — the resolved class list, not the `_class:` p
     // Pinned, not incidental: this is the exact tag shape that made the naive regex
     // wrong, so if the attribute order or the raw-payload semantics ever change, the
     // reason `readClassAttr` exists changes with it and this test should be revisited.
-    const [own] = sections(deck(['class: no-note'], '<!-- _class: content -->\n\n## H\n\n- one\n\nTrailing.\n'));
+    const [own] = sections(deck(['class: no-note'], '<!-- @meta{layout=content} -->\n\n## H\n\n- one\n\nTrailing.\n'));
     assert.match(own.tag, /data-class="content"/, 'data-class holds the raw `_class:` payload');
     assert.ok(
       own.tag.indexOf('data-class="') < own.tag.indexOf(' class="'),
@@ -86,8 +86,8 @@ describe('deck-class visibility — the resolved class list, not the `_class:` p
 
   test('below-note: deck-wide `no-note` suppresses promotion on a `_class:`-carrying slide', () => {
     const body = '## H.\n\n- one\n- two\n\nTrailing sentence.\n';
-    const [suppressed] = sections(deck(['class: no-note'], `<!-- _class: content -->\n\n${body}`));
-    const [promoted] = sections(deck([], `<!-- _class: content -->\n\n${body}`));
+    const [suppressed] = sections(deck(['class: no-note'], `<!-- @meta{layout=content} -->\n\n${body}`));
+    const [promoted] = sections(deck([], `<!-- @meta{layout=content} -->\n\n${body}`));
     // A DIFFERENCE, not an absence: the control proves the wrap is reachable at all.
     assert.ok(promoted.body.includes('class="below-note"'), 'control: promotion happens without the token');
     assert.ok(!suppressed.body.includes('class="below-note"'), 'deck-wide `no-note` suppresses it');
@@ -106,7 +106,7 @@ describe('deck-class visibility — the resolved class list, not the `_class:` p
     // `statement` variant, and only the resolved list carries both. `data-class`
     // still holds `image` alone, so a transform reading it builds no scrim.
     const body = '![X](x.png)\n\n## Head\n\nProse here.\n';
-    const [slide] = sections(deck(['class: statement'], `<!-- _class: image -->\n\n${body}`));
+    const [slide] = sections(deck(['class: statement'], `<!-- @meta{layout=image} -->\n\n${body}`));
     assert.match(slide.tag, /data-class="image"/, 'the raw payload is missing the deck token');
     assert.ok(slide.cls.includes('statement'), 'sanity: the deck token resolved onto the slide');
     assert.ok(slide.body.includes('class="image-text"'), 'the image panel is built from the resolved list');
@@ -119,7 +119,7 @@ describe('deck-class visibility — the resolved class list, not the `_class:` p
     // `_class: cards-grid` + `class: kpi` puts two components on one section and lets
     // CSS source order pick. Refused at the boundary, so it is never stamped.
     const [own, none] = sections(deck(['class: kpi no-note'], [
-      '<!-- _class: cards-grid -->', '', '## Names its own.', '', '- one', '  - two', '',
+      '<!-- @meta{layout=cards-grid} -->', '', '## Names its own.', '', '- one', '  - two', '',
       '---', '', '## Names none.', '', 'Prose.', '',
     ].join('\n')));
     assert.ok(!own.cls.includes('kpi'), `the deck-wide component is a no-op, got ${own.cls.join(' ')}`);

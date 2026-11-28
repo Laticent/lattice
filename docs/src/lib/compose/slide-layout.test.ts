@@ -17,8 +17,8 @@ const catalog = JSON.parse(readFileSync(join(DIST, 'components.json'), 'utf8'));
 const NEEDS = paneNeedsFrom(grammar.components, Object.fromEntries(catalog.components.map((c: { name: string; substance?: string }) => [c.name, c.substance || ''])));
 const SKELETON: Record<string, string> = Object.fromEntries(grammar.components.map((c: { name: string; skeleton: string }) => [c.name, c.skeleton]));
 
-const STATS = ['<!-- _class: stats -->', '', '`Pilot results`', '', '## By the numbers.', '', '1. 80', '   - components', '2. 12', '   - themes', '', '> Small set, wide reach.', ''].join('\n');
-const PLAIN = ['<!-- _class: content -->', '', '## Why now.', '', '- Costs fell', '- Demand rose', ''].join('\n');
+const STATS = ['<!-- @meta{layout=stats} -->', '', '`Pilot results`', '', '## By the numbers.', '', '1. 80', '   - components', '2. 12', '   - themes', '', '> Small set, wide reach.', ''].join('\n');
+const PLAIN = ['<!-- @meta{layout=content} -->', '', '## Why now.', '', '- Costs fell', '- Demand rose', ''].join('\n');
 
 const stateOf = (src: string) => EditorState.create({ doc: deckToDoc(src) });
 const emit = (state: EditorState, src: EditorState) => emitDeck(state.doc, initBaseline(src.doc));
@@ -54,7 +54,7 @@ describe('applySlideLayout writes one class line and nothing else, unless it is 
 		expect(tr).not.toBeNull();
 		const out = emit(state.apply(tr!), state);
 		// The old comment becomes the record in its place (record note §15); every other byte stays.
-		expect(out).toBe(STATS.replace('<!-- _class: stats -->', '<!-- @meta{layout=big-number} -->'));
+		expect(out).toBe(STATS.replace('<!-- @meta{layout=stats} -->', '<!-- @meta{layout=big-number} -->'));
 	});
 
 	it('swaps the body for a starter and keeps the eyebrow, the heading and the Key Insight', () => {
@@ -74,15 +74,16 @@ describe('applySlideLayout writes one class line and nothing else, unless it is 
 	it('does nothing to a slide that already has that layout, a locked slide, or a compound class comment', () => {
 		expect(applySlideLayout(stateOf(STATS), 0, { tokens: ['stats'], starter: null })).toBeNull();
 		// Strikethrough is a construct Compose cannot round-trip, so the slide is edited in Source.
-		const locked = stateOf('<!-- _class: stats -->\n\n## Gone\n\n~~struck~~\n');
+		const locked = stateOf('<!-- @meta{layout=stats} -->\n\n## Gone\n\n~~struck~~\n');
 		expect(locked.doc.child(0).attrs.locked).toBe(true);
 		expect(applySlideLayout(locked, 0, { tokens: ['big-number'], starter: null })).toBeNull();
 		const src = '<!-- _class: stats\n_paginate: false -->\n\n## By the numbers.\n\n1. 80\n   - components\n';
 		const compound = stateOf(src);
-		// A class comment that also holds `_paginate` is not Compose's to rewrite: the change would drop the other key.
-		expect(applySlideLayout(compound, 0, { tokens: ['big-number'], starter: null })).toBeNull();
-		// …and the button says so rather than doing nothing.
-		expect(layoutBlocker(compound.doc.child(0))).toMatch(/shares a comment/);
+		// An old compound comment sets nothing since the cut (record note §15, slice E), so it blocks nothing either: the
+		// button writes the slide's record, and the dead comment is left for the linter to name.
+		const tr = applySlideLayout(compound, 0, { tokens: ['big-number'], starter: null });
+		expect(tr).not.toBeNull();
+		expect(layoutBlocker(compound.doc.child(0))).toBeNull();
 		expect(layoutBlocker(locked.doc.child(0))).toMatch(/edited in Source/);
 		expect(layoutBlocker(stateOf(STATS).doc.child(0))).toBeNull();
 		expect(src).toContain('_paginate: false');

@@ -29,7 +29,7 @@ export const DECK = [
   '---\ntheme: indaco\nplugins: [gantt-plugin]\n---\n',
   `## Plan\n\n${fence('Design 1 < 2\nBuild 3')}`,
   '## Code\n\n```js\nconst x = 1;\n```\n',
-  `<!-- _class: closing qr -->\n\n## Clip\n\n- https://example.com/v\n\n${fence('https://attacker.test/q')}`,
+  `<!-- @meta{layout=closing, class=qr} -->\n\n## Clip\n\n- https://example.com/v\n\n${fence('https://attacker.test/q')}`,
   `## Nested\n\n<section class="x"><p>raw</p></section>\n\n${fence('nested, drawn')}`,
 ].join('\n---\n\n').replace('\n---\n\n## Plan', '\n## Plan');
 

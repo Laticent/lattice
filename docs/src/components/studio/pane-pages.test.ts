@@ -27,13 +27,13 @@ const PANES = [
 	'',
 	'## EMEA carried the quarter while APAC held flat.',
 	'',
-	'<!-- panes: 35/65 -->',
-	'<!-- pane: list -->',
+	'<!-- @meta{panes=35/65} -->',
+	'<!-- @meta{pane=list} -->',
 	'',
 	'- EMEA closed three late deals',
 	'- APAC renewals slipped',
 	'',
-	'<!-- pane: table -->',
+	'<!-- @meta{pane=table} -->',
 	'',
 	'| Region | Q2 | Q3 |',
 	'|---|---|---|',
@@ -97,7 +97,7 @@ describe('paneSplitCounts (the map) predicts the engine', () => {
 	// Record note §5.4.1: the record spelling is read by the same shared reader as `_pane:`, so the map and the
 	// engine agree on it too.
 	it('a portrait deck written in the record form splits where the engine splits it', () => {
-		const doc = deck('9:16').replace('<!-- panes: 35/65 -->', '<!-- @meta{panes="35/65"} -->').replace('<!-- pane: list -->', '<!-- {pane="list"} -->').replace('<!-- pane: table -->', '<!-- {footer=x, pane="table"} -->');
+		const doc = deck('9:16').replace('<!-- @meta{panes=35/65} -->', '<!-- @meta{panes="35/65"} -->').replace('<!-- @meta{pane=list} -->', '<!-- @meta{pane="list"} -->').replace('<!-- @meta{pane=table} -->', '<!-- @meta{footer=x, pane="table"} -->');
 		const slides = splitSlides(stripFrontMatter(doc));
 		const counts = paneSplitCounts(slides, doc);
 		expect(counts).toEqual([1, 2, 1, 1]);
@@ -115,7 +115,7 @@ describe('panePageOfCaret — which page of the split holds the caret line', () 
 	it('a line in the first pane is page 0, in the second pane page 1', () => {
 		expect(panePageOfCaret(PANES, doc, '- APAC renewals slipped')).toBe(0);
 		expect(panePageOfCaret(PANES, doc, '| EMEA | 4.1 | 5.3 |')).toBe(1);
-		expect(panePageOfCaret(PANES, doc, '<!-- pane: table -->')).toBe(1);
+		expect(panePageOfCaret(PANES, doc, '<!-- @meta{pane=table} -->')).toBe(1);
 	});
 	it('the Compose editor reports plain text, and it places the same way', () => {
 		expect(panePageOfCaret(PANES, doc, 'EMEA closed three late deals')).toBe(0);
@@ -166,10 +166,13 @@ describe('foldPaneSplits — narration keeps projecting through a split', () => 
 
 describe('paneMarkerComponents — the components a deck puts in a pane', () => {
 	it('reads every marker spelling through the shared reader, unique, in order', () => {
-		const src = ['<!-- _pane: bar no-title -->', '<!-- pane: list -->', '<!-- {pane="table"} -->', '<!-- @meta{pane="kpi sides"} -->', '<!-- {footer=x, pane="bar"} -->', '<!-- lat-meta: {"carry":false,"d":{"pane":"quote"}} -->'].join('\n\n');
+		const src = ['<!-- @meta{pane=bar no-title} -->', '<!-- @meta{pane=list} -->', '<!-- @meta{pane="table"} -->', '<!-- @meta{pane="kpi sides"} -->', '<!-- @meta{footer=x, pane="bar"} -->', '<!-- lat-meta: {"carry":false,"d":{"pane":"quote"}} -->'].join('\n\n');
 		expect(paneMarkerComponents(src)).toEqual(['bar', 'list', 'table', 'kpi', 'quote']);
 	});
 	it('names nothing for `no-title` alone, a note, or a record with no pane', () => {
-		expect(paneMarkerComponents('<!-- _pane: no-title -->\n<!-- pane: check the numbers -->\n<!-- {footer=x} -->\n<!-- @meta{panes="60/40"} -->')).toEqual([]);
+		expect(paneMarkerComponents('<!-- @meta{pane=no-title} -->\n<!-- pane: check the numbers -->\n<!-- @meta{footer=x} -->\n<!-- @meta{panes="60/40"} -->')).toEqual([]);
+	});
+	it('names nothing for an old marker comment or a bare record: the door blanks both since the cut (record note §15)', () => {
+		expect(paneMarkerComponents('<!-- _pane: bar -->\n\n<!-- pane: list -->\n\n<!-- {pane="table"} -->')).toEqual([]);
 	});
 });

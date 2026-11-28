@@ -691,12 +691,12 @@ describe('makeAssetCompletion — Library photos', () => {
 	});
 
 	it('on a collage slide a bare list item offers whole photo lines, and elsewhere it does not', async () => {
-		const collage = '<!-- _class: collage -->\n\n## Site walk\n\n- te';
+		const collage = '<!-- @meta{layout=collage} -->\n\n## Site walk\n\n- te';
 		const r = await run(collage);
 		expect(r?.options.map((o) => o.label)).toEqual(['team-photo', 'my-chart']);
 		expect(r?.from).toBe(collage.length - 2);
-		expect(await run('<!-- _class: kpi -->\n\n- te')).toBeNull();
-		expect(await run('<!-- _class: collage -->\n\n---\n\n## Other slide\n\n- te')).toBeNull();
+		expect(await run('<!-- @meta{layout=kpi} -->\n\n- te')).toBeNull();
+		expect(await run('<!-- @meta{layout=collage} -->\n\n---\n\n## Other slide\n\n- te')).toBeNull();
 	});
 
 	/** The longest input each regex (`/source/flags`) was run on while `fn` ran synchronously: the trace is lifted before `fn`'s promise settles, so a regex run after an await is not seen.
@@ -738,13 +738,13 @@ describe('makeAssetCompletion — Library photos', () => {
 	});
 
 	it('an empty bullet opens no menu until Ctrl-Space, so Enter stays a newline', async () => {
-		const doc = '<!-- _class: collage -->\n\n- ';
+		const doc = '<!-- @meta{layout=collage} -->\n\n- ';
 		expect(await run(doc, false)).toBeNull();
 		expect((await run(doc, true))?.options).toHaveLength(2);
 	});
 
 	it('the whole-line option inserts the image with its alt text selected', async () => {
-		const doc = '<!-- _class: collage -->\n\n- te';
+		const doc = '<!-- @meta{layout=collage} -->\n\n- te';
 		const r = await run(doc);
 		const opt = r?.options[0];
 		let tr: { changes: { from: number; to: number; insert: string }; selection: { anchor: number; head: number } } | undefined;
@@ -762,7 +762,7 @@ describe('altFromAssetName / inCollageSlide', () => {
 		expect(altFromAssetName('---')).toBe('Photo');
 	});
 	it('finds the slide’s own _class and stops at the slide break', () => {
-		const lines = ['---', 'theme: x', '---', '<!-- _class: collage -->', '', '- a', '---', '- b'];
+		const lines = ['---', 'theme: x', '---', '<!-- @meta{layout=collage} -->', '', '- a', '---', '- b'];
 		const at = (n: number) => inCollageSlide((i) => lines[i - 1], n);
 		expect(at(6)).toBe(true);
 		expect(at(8)).toBe(false);
@@ -814,10 +814,10 @@ describe('chart-finish: completes one word per axis', () => {
 // source an EXPLICIT question (Ctrl-Space) at the end of `doc`, the way CodeMirror does, and merges what they answer.
 describe('studioCompletionSources ⇄ the Playground (one shared list)', () => {
 	const CATALOG = [
-		{ name: 'cards-grid', bucket: 'inventory', description: 'Cards', skeleton: '<!-- _class: cards-grid -->\n\n## Slide heading.\n\n- First card title\n  - Body.' },
-		{ name: 'table', bucket: 'evidence', description: 'A table', skeleton: '<!-- _class: table -->\n\n| a | b |', focusAxes: ['row', 'col', 'cell'] },
-		{ name: 'map', bucket: 'chart', description: 'A map', skeleton: '<!-- _class: map -->\n\n- California: 4' },
-		{ name: 'flowchart', bucket: 'chart', description: 'A flowchart', skeleton: '<!-- _class: flowchart -->\n\n- A -> B' },
+		{ name: 'cards-grid', bucket: 'inventory', description: 'Cards', skeleton: '<!-- @meta{layout=cards-grid} -->\n\n## Slide heading.\n\n- First card title\n  - Body.' },
+		{ name: 'table', bucket: 'evidence', description: 'A table', skeleton: '<!-- @meta{layout=table} -->\n\n| a | b |', focusAxes: ['row', 'col', 'cell'] },
+		{ name: 'map', bucket: 'chart', description: 'A map', skeleton: '<!-- @meta{layout=map} -->\n\n- California: 4' },
+		{ name: 'flowchart', bucket: 'chart', description: 'A flowchart', skeleton: '<!-- @meta{layout=flowchart} -->\n\n- A -> B' },
 	];
 	const lintVocab = buildVocab();
 	// The flowchart words come through the lint core; here it is loaded directly rather than through the site's lazy door.
@@ -830,28 +830,29 @@ describe('studioCompletionSources ⇄ the Playground (one shared list)', () => {
 		return got.flatMap((r) => (r ? r.options.map((o) => o.label) : []));
 	}
 	const FM = '---\ntitle: T\n---\n\n';
-	const FLOW = `${FM}<!-- _class: flowchart -->\n\n## Flow\n\n- Storefront => Payments\n- Payments\n- Ledger\n- Risk\n  - KYC check\n`;
+	const FLOW = `${FM}<!-- @meta{layout=flowchart} -->\n\n## Flow\n\n- Storefront => Payments\n- Payments\n- Ledger\n- Risk\n  - KYC check\n`;
 	// [what, doc, a label both editors must offer, a label neither may offer]
 	const PROBES: [string, string, string, string | null][] = [
-		['a slide directive name', `${FM}<!-- _`, '_header', null],
+		// Since the cut the record is the only setting offered after `<!-- `: never an old directive name (slice E).
+		['the record after <!--, never an old directive name', `${FM}<!-- @m`, '@meta{', '_header'],
 		['a _focusStyle value', `${FM}<!-- _focusStyle: `, 'spotlight', null],
-		['a _focus axis, narrowed by the layout', `${FM}<!-- _class: table -->\n\n<!-- _focus: `, 'row', 'item'],
+		['a _focus axis, narrowed by the layout', `${FM}<!-- @meta{layout=table} -->\n\n<!-- _focus: `, 'row', 'item'],
 		['a nested backdrop axis, never a deck key', '---\nbackdrop:\n  ', 'strength', 'title'],
 		['a mermaid keyword', `${FM}\`\`\`mermaid\nflow`, 'flowchart', null],
-		['the slot skeleton on an empty classed slide', `${FM}<!-- _class: cards-grid -->\n\n`, 'skeleton', null],
-		['a map region (the lazily loaded data source)', `${FM}<!-- _class: map -->\n\n- Fra`, 'France', null],
+		['the slot skeleton on an empty classed slide', `${FM}<!-- @meta{layout=cards-grid} -->\n\n`, 'skeleton', null],
+		['a map region (the lazily loaded data source)', `${FM}<!-- @meta{layout=map} -->\n\n- Fra`, 'France', null],
 		// Slice 3.
 		['a slide directive value', `${FM}<!-- _pagination: `, 'false', null],
 		['a note after <!--', `${FM}<!-- @sa`, '@say{', null],
 		['the slide record after <!--', `${FM}<!-- @me`, '@meta{', null],
 		['a record field inside @meta, never inside the bare spelling', `${FM}<!-- @meta{lay`, 'layout', null],
 		['a register value inside @meta', `${FM}<!-- @meta{headline-align=`, 'left', null],
-		['a pane key after <!--, and never a retired note key', `${FM}<!-- pa`, 'panes', 'say'],
+		['a pane key inside a record, and never a retired note key', `${FM}<!-- @meta{pa`, 'panes', 'say'],
 		['a TeX command in inline math', `${FM}Growth $g = \\fr`, '\\frac', null],
 		['a TeX command in a display block', `${FM}$$\n\\sum_{i=1}^{n} \\al`, '\\alpha', null],
 		['a TeX command in a math fence', `${FM}\`\`\`math\n\\sq`, '\\sqrt', null],
-		['the insert list on a blank body line', `${FM}# Title\n\n`, '<!-- @meta{layout=} -->', '<!-- _class: -->'],
-		['the record insert, never the bare one', `${FM}# Title\n\n`, '<!-- @meta{} -->', '<!-- { } -->'],
+		['the insert list on a blank body line', `${FM}# Title\n\n`, '<!-- @meta{layout=} -->', '<!-- @meta{class=""} -->'],
+		['the record insert, never the bare one', `${FM}# Title\n\n`, '<!-- @meta{} -->', '<!-- @meta{ } -->'],
 		['the plugin fences after ```', `${FM}\`\`\``, 'functionplot', 'chart'],
 		['a flowchart name after an arrow', `${FLOW}- Storefront -> Le`, 'Ledger', 'Storefront -> Le'],
 		['a flowchart group name after an arrow', `${FLOW}- Ledger => Ri`, 'Risk', null],
@@ -896,7 +897,7 @@ describe('studioCompletionSources ⇄ the Playground (one shared list)', () => {
 	it('the retired bare record `<!-- {` completes no field in either editor (only `@meta{` is taught)', async () => {
 		for (const ed of [studio, playground]) {
 			expect(await ask(ed, `${FM}<!-- {lay`)).not.toContain('layout');
-			expect(await ask(ed, `${FM}<!-- {headline=`)).not.toContain('left');
+			expect(await ask(ed, `${FM}<!-- {headline-align=`)).not.toContain('left');
 		}
 	});
 
@@ -918,7 +919,7 @@ describe('studioCompletionSources ⇄ the Playground (one shared list)', () => {
 	});
 
 	it('the map completer loads only on a map slide', async () => {
-		const elsewhere = await ask(studio, `${FM}<!-- _class: cards-grid -->\n\n- Fra`);
+		const elsewhere = await ask(studio, `${FM}<!-- @meta{layout=cards-grid} -->\n\n- Fra`);
 		expect(elsewhere).not.toContain('France');
 	});
 });

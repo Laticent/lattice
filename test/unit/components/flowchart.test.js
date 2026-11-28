@@ -15,7 +15,7 @@ const { browserJs, installFlowchartLayout } = require('../../../lib/plugins/char
 const { virtualClock } = require('../../helpers/runtime-boot');
 const { parseFlowchart, outlineFromMarkdown } = require('../../../lib/core/flowchart-grammar');
 
-const render = (body, cls = 'flowchart') => String((engine.render(`<!-- _class: ${cls} -->\n\n## A flow.\n\n${body}\n`)).html);
+const render = (body, cls = 'flowchart') => String((engine.render(`<!-- @meta{class=${cls}} -->\n\n## A flow.\n\n${body}\n`)).html);
 const modelOf = (html) => {
   const m = /data-fc-model="([^"]*)"/.exec(html);
   assert.ok(m, 'the figure carries its model');

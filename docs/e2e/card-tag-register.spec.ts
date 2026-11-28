@@ -6,7 +6,7 @@ import { CHROME, expect, gotoStudio, openInspector, persistedSource, setEditorCo
 // settings on a tagged layout. Asserted on the persisted source, which is what the engine reads.
 // Modeled on backdrop-register.spec.ts.
 
-const DECK = '---\ntitle: Tags\n---\n\n<!-- _class: decision -->\n\n## One\n\n- Build\n  - Own it.\n- Buy\n  - Rent it.\n';
+const DECK = '---\ntitle: Tags\n---\n\n<!-- @meta{layout=decision} -->\n\n## One\n\n- Build\n  - Own it.\n- Buy\n  - Rent it.\n';
 
 test.beforeEach(async ({ page }) => {
 	await page.setViewportSize({ width: 1440, height: 900 });
@@ -47,7 +47,7 @@ for (const tag of ['', ' @webkit-tablet']) {
 	});
 
 	test(`slide settings: no Tag rows on a layout without card tags${tag}`, async ({ page }) => {
-		await setEditorContent(page, '---\ntitle: Plain\n---\n\n<!-- _class: content -->\n\n## Prose\n\nBody.\n');
+		await setEditorContent(page, '---\ntitle: Plain\n---\n\n<!-- @meta{layout=content} -->\n\n## Prose\n\nBody.\n');
 		await page.getByRole('button', { name: CHROME.slideSettings }).first().click();
 		await expect(page.getByRole('combobox', { name: 'Tag placement' }).filter({ visible: true })).toHaveCount(0);
 	});

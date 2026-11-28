@@ -23,7 +23,7 @@ const EVIDENCE = process.env.LATTICE_EVIDENCE_DIR || '';
 const SEATS: Array<{ name: string; deck: string; selector: string; check: (html: string) => void }> = [
 	{
 		name: 'image-panel',
-		deck: '---\ntheme: indaco\n---\n\n<!-- _class: image -->\n\n## The panel\n\nA finish on the layout\'s own photo.\n\n`@image{sample:photo-wide.jpg, title="The lake", nimbus}`\n',
+		deck: '---\ntheme: indaco\n---\n\n<!-- @meta{layout=image} -->\n\n## The panel\n\nA finish on the layout\'s own photo.\n\n`@image{sample:photo-wide.jpg, title="The lake", nimbus}`\n',
 		selector: '.lattice-bg[data-lattice-media="image"]',
 		check: (html) => {
 			expect(html).toContain('data-finish="nimbus"');
@@ -33,7 +33,7 @@ const SEATS: Array<{ name: string; deck: string; selector: string; check: (html:
 	},
 	{
 		name: 'flow-figure',
-		deck: '---\ntheme: indaco\n---\n\n<!-- _class: content -->\n\n## A framed figure\n\n`@image{sample:photo-square.jpg, title="The mug", description="On the table", frame=mat, duotone, show=title}`\n',
+		deck: '---\ntheme: indaco\n---\n\n<!-- @meta{layout=content} -->\n\n## A framed figure\n\n`@image{sample:photo-square.jpg, title="The mug", description="On the table", frame=mat, duotone, show=title}`\n',
 		selector: 'figure.lat-media[data-lattice-media="image"]',
 		check: (html) => {
 			expect(html).toContain('data-frame="mat"');
@@ -46,13 +46,13 @@ const SEATS: Array<{ name: string; deck: string; selector: string; check: (html:
 	},
 	{
 		name: 'bleed',
-		deck: '---\ntheme: indaco\n---\n\n<!-- _class: content dark bleed -->\n\n## Over the photo\n\n`@image{sample:photo-pano.jpg, description="A panorama"}`\n',
+		deck: '---\ntheme: indaco\n---\n\n<!-- @meta{layout=content, class=dark bleed} -->\n\n## Over the photo\n\n`@image{sample:photo-pano.jpg, description="A panorama"}`\n',
 		selector: '.lattice-bg[data-lattice-media="image"]',
 		check: (html) => expect(html).toContain('data-lattice-description="A panorama"'),
 	},
 	{
 		name: 'clip',
-		deck: '---\ntheme: indaco\n---\n\n<!-- _class: content -->\n\n## A clip among the words\n\n`>{"https://youtu.be/dQw4w9WgXcQ", title="The tour", poster=sample:photo-wide.jpg, frame=device}`\n',
+		deck: '---\ntheme: indaco\n---\n\n<!-- @meta{layout=content} -->\n\n## A clip among the words\n\n`>{"https://youtu.be/dQw4w9WgXcQ", title="The tour", poster=sample:photo-wide.jpg, frame=device}`\n',
 		selector: 'figure.video-embed[data-lattice-media="video"]',
 		check: (html) => {
 			expect(html).toContain('data-frame="device"');

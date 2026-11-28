@@ -44,9 +44,9 @@ This slide is hidden. If you can read it in the exported PDF, hiding is broken.
 
 ## Write one line to hide a slide
 
-- Put `<!-- hide -->` on the first line of the slide
-- `<!-- _hide -->` and `<!-- _hide: true -->` do the same
-- `<!-- _hide: false -->` shows the slide again
+- Put `<!-- @meta{hide} -->` on the first line of the slide
+- `<!-- @meta{hide=true} -->` does the same
+- `<!-- @meta{hide=false} -->` shows the slide again
 - In the Studio, the slide menu's Hide Slide writes the line for you
 
 ---

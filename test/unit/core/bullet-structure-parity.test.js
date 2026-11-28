@@ -196,7 +196,7 @@ function corpus(count, startSeed = 20260921, mode = 'sparse') {
       }
       if (on('break', i) && i < rows - 1) lines.push(pick(BREAKS));
     }
-    decks.push(`<!-- _class: bullet -->\n\n## H.\n\n${lines.join('\n')}`);
+    decks.push(`<!-- @meta{layout=bullet} -->\n\n## H.\n\n${lines.join('\n')}`);
   }
   return decks;
 }
@@ -394,14 +394,14 @@ const REGRESSION_DECKS = [
     // stop cannot tell a TRUE list end from a false one — a lazy continuation looks
     // identical and keeps one list — so a whole-chart claim after any truncation is
     // a guess. The rows it did read are still read, and the rest is read verbatim.
-    src: '<!-- _class: bullet -->\n\n## H.\n\n- Uptime `99.9%` `99.5%`\n- Latency `180ms` `200ms`\n\nMeasured at quarter end.\n\n- Churn `2%` `3%`',
+    src: '<!-- @meta{layout=bullet} -->\n\n## H.\n\n- Uptime `99.9%` `99.5%`\n- Latency `180ms` `200ms`\n\nMeasured at quarter end.\n\n- Churn `2%` `3%`',
     tally: null,
     // THE NUMBERS SURVIVE THE LOST SENTENCE — the contract the whole refusal rests on.
     speaks: [/Uptime, ninety-nine point nine percent against a ninety-nine point five percent target/i, /Churn 2% 3%/],
   },
   {
     name: 'a lazy line between rows truncates the scan, so no tally',
-    src: '<!-- _class: bullet -->\n\n## H.\n\n- Alpha `5` `4`\n- Beta `9` `4`\n- Methodology\nmeasured at quarter end.\n- Gamma `2` `4`',
+    src: '<!-- @meta{layout=bullet} -->\n\n## H.\n\n- Alpha `5` `4`\n- Beta `9` `4`\n- Methodology\nmeasured at quarter end.\n- Gamma `2` `4`',
     tally: null,
   },
   {
@@ -409,24 +409,24 @@ const REGRESSION_DECKS = [
     // The narrowing that pays for the rule above: a two-space paragraph under an
     // ordinary `- ` row is inside the item, the list continues, and stopping there
     // silenced four correct readings and made the tally speak over a prefix.
-    src: '<!-- _class: bullet -->\n\n## H.\n\n- Alpha `5` `4`\n- Beta `9` `4`\n- Methodology\n\n  Measured at quarter end.\n\n- Gamma `2` `4`\n- Delta `1` `4`',
+    src: '<!-- @meta{layout=bullet} -->\n\n## H.\n\n- Alpha `5` `4`\n- Beta `9` `4`\n- Methodology\n\n  Measured at quarter end.\n\n- Gamma `2` `4`\n- Delta `1` `4`',
     tally: 'two of four cleared the plan line',
   },
   {
     name: 'a fenced block between rows ends the list',
-    src: '<!-- _class: bullet -->\n\n## H.\n\n- Uptime `5` `4`\n\n```\nformat: measure target\n```\n\n- Latency `2` `4`\n- Churn `9` `4`',
+    src: '<!-- @meta{layout=bullet} -->\n\n## H.\n\n- Uptime `5` `4`\n\n```\nformat: measure target\n```\n\n- Latency `2` `4`\n- Churn `9` `4`',
     tally: null,
     silent: true,
   },
   {
     name: 'an ordered list ABOVE the rows is the list the chart draws',
-    src: '<!-- _class: bullet -->\n\n## H.\n\n1. Alpha `5` `4`\n2. Beta `2` `4`\n\n- Churn `2` `3`\n- Renewal `4` `5`',
+    src: '<!-- @meta{layout=bullet} -->\n\n## H.\n\n1. Alpha `5` `4`\n2. Beta `2` `4`\n\n- Churn `2` `3`\n- Renewal `4` `5`',
     tally: null,
     silent: true,
   },
   {
     name: 'an ordinary loose list still reads — the refusal is not total',
-    src: '<!-- _class: bullet -->\n\n## H.\n\n- Uptime `99.9%` `99.5%`\n\n  - Target `99.5%`\n\n- Latency `180ms` `200ms`',
+    src: '<!-- @meta{layout=bullet} -->\n\n## H.\n\n- Uptime `99.9%` `99.5%`\n\n  - Target `99.5%`\n\n- Latency `180ms` `200ms`',
     tally: 'one of two cleared the plan line',
   },
   {
@@ -434,7 +434,7 @@ const REGRESSION_DECKS = [
     // markdown-it makes a marker at indent 1-3 a SIBLING ITEM of the same list, so the
     // chart scores it. `lostRows` keyed on a column-0 `-` reported no loss and the
     // tally spoke over the prefix: "all two cleared their target" on a five-row chart.
-    src: '<!-- _class: bullet -->\n\n## H.\n\n- Alpha `5` `4`\n- Beta `9` `4`\n- Methodology\nmeasured at quarter end.\n - Gamma `2` `4`\n - Delta `1` `4`',
+    src: '<!-- @meta{layout=bullet} -->\n\n## H.\n\n- Alpha `5` `4`\n- Beta `9` `4`\n- Methodology\nmeasured at quarter end.\n - Gamma `2` `4`\n - Delta `1` `4`',
     tally: null,
   },
   {
@@ -444,7 +444,7 @@ const REGRESSION_DECKS = [
     // "is this paragraph inside the item" test the narrowed stop depends on cannot be
     // answered. Round eleven narrowed without checking that and tallied four rows over
     // a chart drawing three.
-    src: '<!-- _class: bullet -->\n\n## H.\n\n- Alpha `5` `4`\n- Beta `9` `4`\n-\tMethodology\n\n  Measured at quarter end.\n\n- Gamma `2` `4`\n- Delta `1` `4`',
+    src: '<!-- @meta{layout=bullet} -->\n\n## H.\n\n- Alpha `5` `4`\n- Beta `9` `4`\n-\tMethodology\n\n  Measured at quarter end.\n\n- Gamma `2` `4`\n- Delta `1` `4`',
     tally: null,
   },
   {
@@ -452,7 +452,7 @@ const REGRESSION_DECKS = [
     // `extractFirstList` takes the first `<ul>` OR `<ol>` and CommonMark allows a
     // marker at indent 1-3. A column-0 anchor walked past this one: "none cleared its
     // target" over a chart whose first row cleared at 125%.
-    src: '<!-- _class: bullet -->\n\n## H.\n\n 1. Alpha `5` `4`\n 2. Beta `2` `4`\n\n- Churn `2` `3`\n- Renewal `4` `5`',
+    src: '<!-- @meta{layout=bullet} -->\n\n## H.\n\n 1. Alpha `5` `4`\n 2. Beta `2` `4`\n\n- Churn `2` `3`\n- Renewal `4` `5`',
     tally: null,
     silent: true,
   },
@@ -463,7 +463,7 @@ const REGRESSION_DECKS = [
     // is what `extractFirstList` hands the chart. Measured on the real export: one bar
     // drawn, and the voice gave plan-line readings to the two rows below it that the
     // chart renders as plain bullets.
-    src: '<!-- _class: bullet -->\n\n## H.\n\n - Alpha `5` `4`\n\n  Inside prose.\n- Beta `9` `4`\n- Gamma `2` `4`',
+    src: '<!-- @meta{layout=bullet} -->\n\n## H.\n\n - Alpha `5` `4`\n\n  Inside prose.\n- Beta `9` `4`\n- Gamma `2` `4`',
     tally: null,
     silent: true,
   },
@@ -472,7 +472,7 @@ const REGRESSION_DECKS = [
     // `* * *` opens with a marker and a space and is an `<hr>`, so the chart's list is
     // COMPLETE. Counting it a lost row put `lostRows` back in the hole it was written to
     // close — a closing note that loses nothing — and silenced a correct 2-of-2 tally.
-    src: '<!-- _class: bullet -->\n\n## H.\n\n- Alpha `5` `4`\n- Beta `9` `4`\n\nA closing note.\n\n* * *',
+    src: '<!-- @meta{layout=bullet} -->\n\n## H.\n\n- Alpha `5` `4`\n- Beta `9` `4`\n\nA closing note.\n\n* * *',
     tally: 'all two cleared their target',
   },
   {
@@ -483,7 +483,7 @@ const REGRESSION_DECKS = [
     // enough to still be INSIDE the tab-indented child, which is the only time the nested
     // entry is the stack top when the rule consults it — the first fixture written for
     // this put the prose at two spaces, which pops back to the row and decides nothing.
-    src: '<!-- _class: bullet -->\n\n## H.\n\n- Row0 `8` `4`\n\t\t- Target `6`\n\n    Prose after a blank.\n\n- Row1 `9` `4`\n  - Target `4`',
+    src: '<!-- @meta{layout=bullet} -->\n\n## H.\n\n- Row0 `8` `4`\n\t\t- Target `6`\n\n    Prose after a blank.\n\n- Row1 `9` `4`\n  - Target `4`',
     tally: null,
     silent: true,
   },
@@ -491,7 +491,7 @@ const REGRESSION_DECKS = [
     name: 'a grandchild is not the row\'s own target',
     // Single-slot enclosure read `4.2M` off a child of `Floor`; the transform reads
     // the row's own `1`.
-    src: '<!-- _class: bullet -->\n\n## H.\n\n- Row0 `1` `4.2M`\n- Row1 `4.2M`\n- Row2 `80%` `1`\n  - `Floor` `5`\n    - note\n    - `Target` `4.2M`',
+    src: '<!-- @meta{layout=bullet} -->\n\n## H.\n\n- Row0 `1` `4.2M`\n- Row1 `4.2M`\n- Row2 `80%` `1`\n  - `Floor` `5`\n    - note\n    - `Target` `4.2M`',
     tally: null,
     silent: true,
   },
@@ -531,15 +531,15 @@ test('a word cloud whose list is cut short names no leader', () => {
   // Every sentence this narrator speaks is a whole-set claim, so a prefix is not
   // quieter, it is wrong. Real render: the canvas drew `delta` at twenty in the
   // accent color while the voice announced `alpha` at nine as the biggest.
-  const src = '<!-- _class: word-cloud -->\n\n## Themes.\n\n- alpha `9`\n- beta `7`\n- gamma\nmeasured at quarter end\n- delta `20`\n- epsilon `1`';
+  const src = '<!-- @meta{layout=word-cloud} -->\n\n## Themes.\n\n- alpha `9`\n- beta `7`\n- gamma\nmeasured at quarter end\n- delta `20`\n- epsilon `1`';
   assert.equal(narrateWordCloud(src), null, 'a truncated cloud must not name a biggest term');
   // …including where the biggest term's marker is INDENTED, which the first cut of
   // `lostRows` could not see: the canvas drew `delta` at twenty in the accent color
   // while the voice announced `alpha` at nine.
-  const indented = '<!-- _class: word-cloud -->\n\n## Themes.\n\n- alpha `9`\n- beta `7`\n- gamma\nmeasured at quarter end\n - delta `20`\n- epsilon `1`';
+  const indented = '<!-- @meta{layout=word-cloud} -->\n\n## Themes.\n\n- alpha `9`\n- beta `7`\n- gamma\nmeasured at quarter end\n - delta `20`\n- epsilon `1`';
   assert.equal(narrateWordCloud(indented), null, 'an indented marker past the boundary is still a lost row');
   // …and an uninterrupted one still does.
-  const whole = '<!-- _class: word-cloud -->\n\n## Themes.\n\n- alpha `9`\n- beta `7`\n- delta `20`\n- epsilon `1`';
+  const whole = '<!-- @meta{layout=word-cloud} -->\n\n## Themes.\n\n- alpha `9`\n- beta `7`\n- delta `20`\n- epsilon `1`';
   assert.match(narrateWordCloud(whole) || '', /delta is the biggest at twenty/i);
 });
 
@@ -556,9 +556,9 @@ test('no narrator ever speaks a fence marker', () => {
   // would leak somewhere else.
   const FENCE = '\n```\nformat: whatever\n```\n';
   const decks = [
-    '<!-- _class: state-chart lr -->\n\n## H.\n\n- Draft `start`\n  - -submit-> In Review\n- In Review\n  - -approve-> Published\n- Published `end`\n',
-    '<!-- _class: bullet -->\n\n## H.\n\n- Alpha `5` `4`\n- Beta `9` `4`\n',
-    '<!-- _class: word-cloud -->\n\n## H.\n\n- alpha `9`\n- beta `7`\n- gamma `3`\n',
+    '<!-- @meta{layout=state-chart, class=lr} -->\n\n## H.\n\n- Draft `start`\n  - -submit-> In Review\n- In Review\n  - -approve-> Published\n- Published `end`\n',
+    '<!-- @meta{layout=bullet} -->\n\n## H.\n\n- Alpha `5` `4`\n- Beta `9` `4`\n',
+    '<!-- @meta{layout=word-cloud} -->\n\n## H.\n\n- alpha `9`\n- beta `7`\n- gamma `3`\n',
   ];
   for (const deck of decks) {
     for (const src of [deck + FENCE, FENCE + deck, deck.replace('## H.\n', `## H.\n${FENCE}`)]) {
@@ -573,14 +573,14 @@ test('the fence boundary is not a bullet-only rule', () => {
   // the `bullet` one was pinned, so dropping the argument at the word-cloud or
   // data-series site left every cell green — a checker's own mutants proved it. These
   // two components read the same interrupted list and must stop at the same place.
-  const cloud = '<!-- _class: word-cloud -->\n\n## Themes.\n\n- alpha `9`\n- beta `7`\n\n```\nformat: term count\n```\n\n- delta `20`\n- epsilon `1`';
+  const cloud = '<!-- @meta{layout=word-cloud} -->\n\n## Themes.\n\n- alpha `9`\n- beta `7`\n\n```\nformat: term count\n```\n\n- delta `20`\n- epsilon `1`';
   const said = narrateChart(cloud) || '';
   // The canvas is built from the first list, so `delta` at twenty is not in the picture
   // and must not be announced as the biggest term.
   assert.doesNotMatch(said, /delta is the biggest/i, 'named a term past the fence as the leader');
   assert.match(said, /alpha/i, 'stopped reading the terms the chart does draw');
 
-  const bar = '<!-- _class: bar -->\n\n## Revenue.\n\n- North `4.2`\n- South `3.1`\n\n```\nformat: region value\n```\n\n- East `9.9`';
+  const bar = '<!-- @meta{layout=bar} -->\n\n## Revenue.\n\n- North `4.2`\n- South `3.1`\n\n```\nformat: region value\n```\n\n- East `9.9`';
   const spoken = narrateChart(bar) || '';
   // `East` is drawn as a plain bullet, so it may be read VERBATIM by the flattener but
   // never as a data value ("East, nine point nine").
@@ -593,11 +593,11 @@ test('a row marker this parser does not read makes the narrator bail, not guess'
   // safe outcome is `null` — `slideToSpeech` then reads the slide as it always has.
   // The unsafe one would be reading SOME rows and tallying over them.
   for (const marker of ['*', '+']) {
-    const src = `<!-- _class: bullet -->\n\n## H.\n\n${marker} A \`5\` \`4\`\n${marker} B \`2\` \`4\``;
+    const src = `<!-- @meta{layout=bullet} -->\n\n## H.\n\n${marker} A \`5\` \`4\`\n${marker} B \`2\` \`4\``;
     assert.equal(narrateBullet(src), null, `${marker} should bail`);
   }
   // …and `-` still narrates.
-  assert.ok(narrateBullet('<!-- _class: bullet -->\n\n## H.\n\n- A `5` `4`\n- B `2` `4`').includes('cleared the plan line'));
+  assert.ok(narrateBullet('<!-- @meta{layout=bullet} -->\n\n## H.\n\n- A `5` `4`\n- B `2` `4`').includes('cleared the plan line'));
 });
 
 test('the corpus reaches every axis a checker has found a defect on', () => {

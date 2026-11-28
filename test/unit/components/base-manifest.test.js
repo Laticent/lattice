@@ -65,7 +65,7 @@ describe('the registers', () => {
 describe('lint closes the open prefixes against the manifest', () => {
   const { lintText, buildVocab } = require('../../../lib/authoring/lint');
   const vocab = buildVocab();
-  const unknown = (cls) => lintText(`---\ntheme: indaco\n---\n\n<!-- _class: content ${cls} -->\n\n## A\n\nText.\n`, { vocab })
+  const unknown = (cls) => lintText(`---\ntheme: indaco\n---\n\n<!-- @meta{class=content ${cls}} -->\n\n## A\n\nText.\n`, { vocab })
     .filter((f) => f.rule === 'unknown-class').map((f) => f.classToken);
   // The audit's eight typo probes, each of which linted clean through an open prefix.
   for (const typo of ['no-heaer', 'with-anything', 'with-finsh', 'tone-blah', 'fill-xyz', 'checks-typo', 'treatment-foo', 'at-nowhere']) {
@@ -80,7 +80,7 @@ describe('lint closes the open prefixes against the manifest', () => {
 describe('a variant is checked against its own component', () => {
   const { lintText, buildVocab } = require('../../../lib/authoring/lint');
   const vocab = buildVocab();
-  const foreign = (cls) => lintText(`---\ntheme: indaco\n---\n\n<!-- _class: ${cls} -->\n\n## A\n\n1. 3\n   - x\n`, { vocab })
+  const foreign = (cls) => lintText(`---\ntheme: indaco\n---\n\n<!-- @meta{class=${cls}} -->\n\n## A\n\n1. 3\n   - x\n`, { vocab })
     .filter((f) => f.rule === 'foreign-variant').map((f) => f.classToken);
   // `gallery` is image's, scene's and video's; on kpi it rendered as plain kpi with no finding.
   test('another layout\'s variant warns', () => assert.deepEqual(foreign('kpi gallery'), ['gallery']));

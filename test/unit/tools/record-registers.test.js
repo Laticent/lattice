@@ -1,6 +1,6 @@
 /**
  * The host's registers as slide-record fields (tools/lib/record-registers.js, record note §4.2, step 3):
- * `{finish=ledger}` writes the class words `_class: finish finish-ledger` does, every value maps to a word the
+ * `@meta{finish=ledger}` writes the class words `class="finish finish-ledger"` does, every value maps to a word the
  * register owns, and a slide written either way renders the same `<section>`.
  */
 const { describe, test } = require('node:test');
@@ -28,22 +28,25 @@ describe('record registers', () => {
   });
 
   test('a register field reads to its class words; a bad value is reported, never applied', () => {
-    assert.equal(readRecord(' {layout=cards, finish=ledger, headline-align=left} ').d.class, 'cards finish finish-ledger headline-align-left');
-    const bad = readRecord(' {heading-rule=bogus} ');
+    assert.equal(readRecord(' @meta{layout=cards, finish=ledger, headline-align=left} ').d.class, 'cards finish finish-ledger headline-align-left');
+    const bad = readRecord(' @meta{heading-rule=bogus} ');
     assert.equal(bad.d.class, undefined);
     assert.equal(bad.diagnostics[0].code, 'meta-field-value');
   });
 
-  test('a record and the `_class` comment it replaces render the same section', () => {
+  test('a register field and the class words it writes render the same section', () => {
     const engine = createEngine();
     const head = '---\ntheme: indaco\nfinish: ledger\n---\n\n';
     const body = '\n\n# Title\n\n- A\n  - a\n- B\n  - b\n';
     for (const r of recordRegisters()) {
       for (const [name, words] of Object.entries(r.values)) {
-        const a = engine.render(`${head}<!-- _class: cards ${words} -->${body}`).html;
-        const b = engine.render(`${head}<!-- {layout=cards, ${r.key}=${name}} -->${body}`).html;
+        const a = engine.render(`${head}<!-- @meta{class="cards ${words}"} -->${body}`).html;
+        const b = engine.render(`${head}<!-- @meta{layout=cards, ${r.key}=${name}} -->${body}`).html;
         assert.equal(b, a, `${r.key}=${name}`);
       }
     }
+    // Since the cut (record note §15, slice E) the old `_class` comment sets nothing: the slide renders as if it were not there.
+    const old = engine.render(`${head}<!-- _class: cards finish finish-ledger -->${body}`).html;
+    assert.equal(old, engine.render(`${head}${body}`).html);
   });
 });

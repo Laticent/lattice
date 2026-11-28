@@ -66,7 +66,7 @@ The section rail answers "which part", and the page number answers "how far".
 
 - `progress-rail: edge` puts it in the right margin, at mid-height
 - It leaves the footer band to the footer words and the page number
-- One slide can move its own rail with `_class: progress-rail-edge`
+- One slide can move its own rail with `class=progress-rail-edge`
 
 ---
 

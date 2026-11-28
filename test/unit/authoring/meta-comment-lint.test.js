@@ -23,7 +23,7 @@ const linted = (src, extra = {}) => core.lintTextWith(src, { ...VOCAB, ...extra 
 test('meta-opener-bare: a bare `<!--` with the record on the next line is not a record', () => {
   const f = findMetaCommentIssues(deck('# One', '<!--\n{layout=kpi}\n-->\n\n# Two'));
   assert.deepEqual(f.map((x) => `${x.slide}:${x.rule}:${x.severity}`), ['2:meta-opener-bare:error']);
-  assert.match(f[0].message, /not a record/);
+  assert.match(f[0].message, /sets nothing/);
   assert.match(f[0].fix, /<!-- @meta\{…\} -->/);
   assert.deepEqual(linted(deck('# One', '<!--\n{layout=kpi}\n-->\n\n# Two')), ['2:meta-opener-bare']);
 });
@@ -99,12 +99,12 @@ test('meta-block-in-container near misses: no blank line inside, and a blank lin
   assert.deepEqual(rules(deck('<!-- @meta{layout=kpi}\nfooter: |\n\n  second para -->\n\n# One')), []);
 });
 
-test('legacy-directive-comment fires on every deck, as a warning, with the whole-deck migration as its fix', () => {
+test('legacy-directive-comment fires on every deck, as an error since the cut, with the whole-deck migration as its fix', () => {
   const src = deck('<!-- _class: kpi -->\n\n# One', '<!-- footer: Q3 -->\n\n# Two');
   assert.deepEqual(rules(src), ['1:legacy-directive-comment', '2:legacy-directive-comment']);
   assert.deepEqual(linted(src), ['1:legacy-directive-comment', '2:legacy-directive-comment']);
   const [f] = findMetaCommentIssues(src, VOCAB);
-  assert.equal(f.severity, 'warning');
+  assert.equal(f.severity, 'error');
   assert.match(f.message, /`_class:`/);
   assert.match(f.message, /@meta/);
   assert.match(f.fix, /lattice migrate meta/);
@@ -154,17 +154,31 @@ test('the quick fix writes the typed layout from the vocab it is given, whatever
   assert.match(core.applyFix(src, f, VOCAB), /<!-- @meta\{layout=kpi, class=dark\} -->/);
 });
 
-test('legacy-directive-comment near misses: a speaker note, a marker, a fenced example, a record', () => {
-  const src = deck('# One\n\n<!-- Remember the Q3 number. -->\n\n<!-- stress-slide -->\n\n```md\n<!-- _class: kpi -->\n```', '<!-- @meta{layout=kpi} -->\n\n# Two');
+test('legacy-directive-comment near misses: a speaker note, a marker in a record, a fenced example, a record', () => {
+  const src = deck('# One\n\n<!-- Remember the Q3 number. -->\n\n<!-- @meta{stress-slide} -->\n\n```md\n<!-- _class: kpi -->\n```', '<!-- @meta{layout=kpi} -->\n\n# Two');
   assert.deepEqual(rules(src), []);
+});
+
+test('the cut: an old marker, an old pane marker and a bare record are errors, and Fix all clears every one', () => {
+  const src = deck('<!-- {layout=cards} -->\n<!-- stress-slide -->\n\n# One', '<!-- @meta{layout=columns} -->\n\n## Two\n\n<!-- _pane: list -->\n### L\n\n- a\n\n<!-- pane: list -->\n### R\n\n- b');
+  const f = core.lintTextWith(src, VOCAB).filter((x) => /legacy-directive-comment|meta-opener-bare/.test(x.rule));
+  assert.deepEqual(f.map((x) => [x.slide, x.rule, x.severity, Boolean(x.autofixable)]), [
+    [1, 'meta-opener-bare', 'error', true], [1, 'legacy-directive-comment', 'error', true],
+    [2, 'legacy-directive-comment', 'error', true], [2, 'legacy-directive-comment', 'error', true],
+  ]);
+  assert.match(f[0].fix, /Write `@meta` before the `\{`/);
+  const fixed = core.applyAllFixes(src, VOCAB);
+  assert.deepEqual(core.lintTextWith(fixed, VOCAB).filter((x) => /legacy-directive-comment|meta-opener-bare/.test(x.rule)), []);
+  assert.match(fixed, /<!-- @meta\{layout=cards, stress-slide\} -->/);
+  assert.match(fixed, /<!-- @meta\{pane=list\} -->\n### L/);
 });
 
 test('the rule takes its severity from one constant, so the cut raises it in one line', () => {
   const fs = require('node:fs');
   const text = fs.readFileSync(require.resolve('../../../lib/authoring/lint-core.js'), 'utf8');
-  assert.equal((text.match(/^const LEGACY_META_SEVERITY = '(warning|error)';$/m) || [])[1], 'warning');
-  // Both shapes of the finding (fixable, and kept as written) read the constant.
-  assert.equal((text.match(/severity: LEGACY_META_SEVERITY/g) || []).length, 2);
+  assert.equal((text.match(/^const LEGACY_META_SEVERITY = '(warning|error)';$/m) || [])[1], 'error');
+  // Every shape of the finding (fixable, kept as written, and an old marker or pane marker) reads the constant.
+  assert.equal((text.match(/severity: LEGACY_META_SEVERITY/g) || []).length, 3);
   assert.doesNotMatch(text, /rule: 'legacy-directive-comment', severity: '/);
 });
 

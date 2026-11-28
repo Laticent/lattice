@@ -91,7 +91,7 @@ describe('conformance: the component MEASUREMENT can produce failing facts', () 
     capacity: { axis: 'item', soft: 6, hard: 4, escalateTo: ['nosuch-component'] },
   }));
   put('b/zz-bad/zz-bad.styles.css', 'section.zz-bad { margin-inline-start: 1px; }\n');
-  put('b/zz-bad/zz-bad.gallery.md', '---\nmarp: true\n---\n\n<!-- _class: zz-bad tall -->\n\n## A\n');
+  put('b/zz-bad/zz-bad.gallery.md', '---\nmarp: true\n---\n\n<!-- @meta{class=zz-bad tall} -->\n\n## A\n');
   put('b/_shared/stray.css', 'x { color: red; }\n');
   put('zzflat/zzflat.styles.css', 'a { margin: 0 0 0 4px; }\n');
   const ctx = contract.contextAt(root);

@@ -411,7 +411,7 @@ describe('budgets on untrusted input', () => {
 describe('lint integration', () => {
   const { findFlowchartIssues } = require('../../../lib/authoring/lint-core');
   test('slide numbers skip the front matter, and comments are not read', () => {
-    const deck = '---\ntheme: indaco\n---\n\n# Title\n\n---\n\n<!-- _class: flowchart -->\n\n## H\n\n- A -> B `diamond`\n<!-- - C -> D `circle` -->\n';
+    const deck = '---\ntheme: indaco\n---\n\n# Title\n\n---\n\n<!-- @meta{layout=flowchart} -->\n\n## H\n\n- A -> B `diamond`\n<!-- - C -> D `circle` -->\n';
     const f = findFlowchartIssues(deck);
     assert.equal(f.length, 1);
     assert.equal(f[0].slide, 2);

@@ -26,7 +26,7 @@ marp: true
 theme: indaco
 ---
 
-<!-- _class: video -->
+<!-- @meta{class=video} -->
 
 ## The clip
 
@@ -34,7 +34,7 @@ theme: indaco
 
 ---
 
-<!-- _class: video -->
+<!-- @meta{class=video} -->
 
 ## Hostile addresses
 
@@ -44,7 +44,7 @@ theme: indaco
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{class=content} -->
 
 ## In running text
 

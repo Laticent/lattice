@@ -23,7 +23,7 @@ import { deckPluginsOff } from '@/lib/plugin-admission';
 // budget, studio eagerJsGz). `architect.ts` already holds all three and passes them in.
 import skillIndex from '../../../../design/skills/index.json';
 import { slideClassValue } from '../../../../lib/core/class-entries.mjs';
-import { GLOBAL_ONLY_KEYS, LOCAL_KEYS } from '../../../../lib/core/meta-keys.mjs';
+import { isRecordOpener, readRecord } from '../../../../lib/core/meta-door.mjs';
 import { frontMatterLang, termEntries, termsSpokenMap } from '../../../../lib/core/resolve-narration.mjs';
 import { slideSourceHidden } from '../../../../lib/diagnostics/slice-equivalence-core.mjs';
 import { dispatch } from '../../../../lib/use-cases/dispatch.mjs';
@@ -69,10 +69,14 @@ export type AgentComponent = { name: string; bucket?: string; summary?: string; 
 /** A finding from the deterministic review — same shape the Coach shows. */
 export type AgentFinding = { slide?: number; rule?: string; severity?: string; message: string };
 
-/** A bare (no leading underscore) local directive in an HTML comment: `<!-- class: x -->`. It holds for
- *  every slide after it, where the underscore form (`_class`) holds for its own slide only; a deck-wide
- *  key (`theme`, `size`) in a slide comment reaches every slide too. The keys are the registry's (lib/core/meta-keys.mjs), never a list kept here. */
-const CARRY_FORWARD_DIRECTIVE = new RegExp(`<!--\\s*(?:${[...LOCAL_KEYS, ...GLOBAL_ONLY_KEYS].join('|')})\\s*:`, 'i');
+/** Does this slide text hold a record that carries (`<!-- @meta{class=x, carry} -->`)? It holds for every slide after
+ *  it, where a record without `carry` holds for its own slide only. Read through the engine's own record grammar
+ *  (lib/core/meta-door.mjs): since the cut an old `<!-- class: x -->` comment sets nothing (record note §15), so it
+ *  carries nothing either. Any `carry` counts, a deck-wide key's included: over-triggering is the safe direction. */
+function carriesForward(text: string): boolean {
+	for (const m of text.matchAll(/<!--([\s\S]*?)-->/g)) if (isRecordOpener(m[1]) && readRecord(m[1])?.carry) return true;
+	return false;
+}
 
 /** What `check_deck` gets back from the host: the lint + review findings for a source,
  *  Mermaid's own parse errors, and each slide's fit from a real render of the source
@@ -144,7 +148,7 @@ export function slideWords(slide: string): number {
 	return (text.match(/[\p{L}\p{N}][\p{L}\p{N}'’.,%$€£-]*/gu) || []).length;
 }
 
-/** The class the engine applies to this slide, from a `_class` comment or a record (`@meta{layout=cards}`). */
+/** The class the engine applies to this slide, from its record (`@meta{layout=cards}`). */
 function slideClass(slide: string): string {
 	return slideClassValue(slide).trim();
 }
@@ -284,7 +288,7 @@ export function buildAgentSystem(opts: { canon: string; catalog: AgentComponent[
 		PURPOSE,
 		`AUTHORING CONTRACT\n${rules.trim()}\n- A slide has four notes, each a comment after the slide's content whose whole body is \`@name{…}\`: \`<!-- @note{…} -->\` (speaker notes, for the presenter; detail cut from a slide goes here), \`<!-- @say{…} -->\` (the exact words the voice and the captions read), \`<!-- @alt{…} -->\` (alt text, for someone who cannot see the slide) and \`<!-- @handout{…} -->\` (for someone reading the deck alone, later). Braces in a note must balance. A plain comment reaches nothing; never write one as a note. Read the speaker-notes guide only for \`@say\`, review comments or the notes rubric.`,
 		canon,
-		`COMPONENTS — the value of \`<!-- _class: NAME -->\`. read_component gives the skeleton, variants and budget.\n${index}`,
+		`COMPONENTS — the value of \`layout=\` in \`<!-- @meta{layout=NAME} -->\`. read_component gives the skeleton, variants and budget.\n${index}`,
 		`FRONT MATTER — deck-level keys in the leading \`---\` block. read_front_matter gives a key's values and behavior.\n${fm}`,
 		`THEMES (\`theme:\`): ${opts.themes.join(', ')}`,
 		`FINISHES (\`finish:\`): ${finishes}`,
@@ -338,7 +342,7 @@ export function deckBrief(source: string, opts: { slideWordBudget?: number; prof
 	// Everything quoted from the deck — the class, the title, every front-matter line — is
 	// JSON-quoted: this lands in the SYSTEM turn, which a model weights as instruction, and the
 	// deck may be untrusted (a shared or generated deck). Same rule as buildChatSystem's findings.
-	const outline = slides.map((s, i) => `[${i + 1}] ${JSON.stringify(slideClass(s) || '(no _class)')} — ${JSON.stringify(slideTitle(s))} · ${slideWords(s)}w`).join('\n');
+	const outline = slides.map((s, i) => `[${i + 1}] ${JSON.stringify(slideClass(s) || '(no layout)')} — ${JSON.stringify(slideTitle(s))} · ${slideWords(s)}w`).join('\n');
 	const parts = [
 		`THE DECK — ${slides.length} slide${slides.length === 1 ? '' : 's'}, ${total} words. Budget: ${budget} words per slide (${opts.profileLabel || 'General'} profile).${over.length ? ` Over budget: ${over.map((x) => `slide ${x.n} (${x.w}w)`).join(', ')}.` : ''}`,
 		fm
@@ -462,7 +466,7 @@ export function createToolbox(opts: {
 	};
 
 	async function readComponent(nameRaw: unknown, section?: unknown): Promise<string> {
-		// The model may paste a whole directive (`<!-- _class: cards -->`, `<!-- @meta{layout=cards} -->`): take its first word.
+		// The model may paste a whole record (`<!-- @meta{layout=cards} -->`) or the old directive (`<!-- _class: cards -->`): take its first word.
 		const name = String(nameRaw ?? '').trim().replace(/^<!--\s*(?:_?class:|@meta\{\s*layout\s*=\s*"?)\s*/, '').split(/[\s,"}]+/)[0].toLowerCase();
 		const entry = byName.get(name);
 		if (!entry) {
@@ -915,13 +919,13 @@ export function createToolbox(opts: {
 		// The check that rides an edit measures fit on the slides the turn changed only: the verdict
 		// below already charges nothing else to the turn, and a real render costs the page ~2 s on a
 		// 40-slide deck (decisions/2026-10-19-studio-main-thread-jank.md). `check_deck` measures all.
-		// Not when a slide the turn wrote or removed holds a bare directive comment: `<!-- class: x -->`
-		// and the rest carry forward to every later slide, so the edit can change slides whose text it
-		// never touched (checker). `header:`, `footer:` and `paginate:` no longer carry (audit §11r), so
-		// the probe over-triggers on them, the safe direction. An empty deck has nothing to scope.
+		// Not when a slide the turn wrote or removed holds a record that carries (`<!-- @meta{class=x, carry} -->`): it
+		// reaches every later slide, so the edit can change slides whose text it never touched (checker). A header, footer
+		// or paginate record with `carry` no longer carries (audit §11r), so the probe over-triggers on them, the safe
+		// direction. An empty deck has nothing to scope.
 		const nowText = new Set(now);
 		const touchedText = [...now.filter((t) => !originalSlides.has(t)), ...[...originalSlides].filter((t) => !nowText.has(t))];
-		const fitScope = scoped && fmTouched.size === 0 && now.length > 0 && !touchedText.some((t) => CARRY_FORWARD_DIRECTIVE.test(t)) ? { only: now.map((_, i) => i + 1).filter((n) => mine(n)), slideCount: now.length } : undefined;
+		const fitScope = scoped && fmTouched.size === 0 && now.length > 0 && !touchedText.some(carriesForward) ? { only: now.map((_, i) => i + 1).filter((n) => mine(n)), slideCount: now.length } : undefined;
 		let res: DeckCheck;
 		try {
 			res = await (fitScope ? opts.check(draft, fitScope) : opts.check(draft));

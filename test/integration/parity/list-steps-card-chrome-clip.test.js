@@ -46,7 +46,7 @@ function deck(sample) {
 // Four steps whose bodies fill the cards to the last line at hd. Before the fix
 // this row measured 460.3px against a 438.2px stage — every card lost its bottom
 // border, and no text was clipped at all.
-const DENSE = `<!-- _class: list-steps -->
+const DENSE = `<!-- @meta{layout=list-steps} -->
 
 ## Dense material, four steps.
 
@@ -66,7 +66,7 @@ const DENSE = `<!-- _class: list-steps -->
 
 // Step 01 carries roughly double what a card holds — a real overflow the author
 // must be told about, not a layout the engine can absorb.
-const OVERSTUFFED = `<!-- _class: list-steps -->
+const OVERSTUFFED = `<!-- @meta{layout=list-steps} -->
 
 ## Far over capacity.
 

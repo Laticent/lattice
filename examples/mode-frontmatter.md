@@ -52,12 +52,12 @@ mode — so `cards-grid` here renders as a hand-drawn grid with no extra markup.
 
 Because they're separate registers, a deck can wear both: the sketch *hand* over
 an atrium *backdrop*, with no magic and no fighting for one key. Add a per-slide
-`_class: boardroom` to make one slide clean while the deck stays hand-drawn.
+`class=boardroom` to make one slide clean while the deck stays hand-drawn.
 
 - One deck, both axes
   - `mode: sketch` + `finish: atrium` = a hand-drawn deck on a gridded glow.
 - Opt out per slide
-  - `_class: boardroom` renders that one slide clean, backdrop intact.
+  - `class=boardroom` renders that one slide clean, backdrop intact.
 - No magic
   - The mode and the backdrop each have their own readable key.
 

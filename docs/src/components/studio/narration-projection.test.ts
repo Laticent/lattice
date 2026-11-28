@@ -87,7 +87,7 @@ describe('projectDeckSpeech through a split panes slide (the REAL engine render)
 		const title = 'EMEA carried the quarter while APAC held flat.';
 		const source = [
 			'---\nsize: 9:16\n---\n\n# Opening',
-			`## ${title}\n\n<!-- pane: list -->\n\n- EMEA closed three late deals\n- APAC renewals slipped\n\n<!-- pane: table -->\n\n| Region | Q3 |\n|---|---|\n| EMEA | 5.3 |`,
+			`## ${title}\n\n<!-- @meta{pane=list} -->\n\n- EMEA closed three late deals\n- APAC renewals slipped\n\n<!-- @meta{pane=table} -->\n\n| Region | Q3 |\n|---|---|\n| EMEA | 5.3 |`,
 			'## After the split\n\nThe slide after it.',
 		].join('\n\n---\n\n');
 		html.current = engine.render(source, 'lattice').html;

@@ -38,8 +38,8 @@ const deckOf = (word: string) => Array.from({ length: 8 }, (_, i) => `# ${word} 
 const DECK_A = deckOf('alpha');
 const DECK_B = deckOf('bravo');
 /** A deck-derived fact (a running header) buys the WHOLE-DECK route — the `deckMemo` side. */
-const CONTEXT_A = `<!-- header: Alpha Board Review -->\n\n${DECK_A}`;
-const CONTEXT_B = `<!-- header: Bravo Board Review -->\n\n${DECK_B}`;
+const CONTEXT_A = `<!-- @meta{header=Alpha Board Review} -->\n\n${DECK_A}`;
+const CONTEXT_B = `<!-- @meta{header=Bravo Board Review} -->\n\n${DECK_B}`;
 
 /** The engine stand-in: one section per chunk, titled from that chunk's heading. */
 const titleOf = (chunk: string) => (chunk.split('\n').find((l) => l.startsWith('# ')) ?? '').slice(2).trim();

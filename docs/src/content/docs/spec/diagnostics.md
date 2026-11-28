@@ -194,7 +194,6 @@ distinct, stable ID.
 | `spot-scale` | warning / info | — | A `scale-*` or `venue-*` class on some slides only, so type size jumps between slides. |
 | `code-line-clipped` | info | — | A code line wider than the pane it renders into, so its end is cut off. |
 | `pane-layout` | warning | — | A pane layout that does not lay out as written: set deck-wide or for a run of slides, fewer than two or more than two panes, a ratio that is not a class name, off the 25–75 grid in 5% steps, or more than one ratio, both `columns` and `rows`, a `###` above the title, or a class token, slide layout or modifier a pane cannot use. |
-| `pane-syntax` | warning | — | The old pane syntax (`<!-- panes: -->`, `<!-- pane: -->`), which still works but may be removed. |
 | `pane-title` | suggestion | — | A pill or label above a pane title that joins the title on one line. |
 | `pane-insight` | warning | — | More than one Key Insight on a panes slide; they all show together below the panes. |
 | `pane-arrange` | suggestion | — | Panes that will render reoriented, or split into one slide per pane, rather than as written. |
@@ -434,13 +433,13 @@ literal text and is never reported.
 
 | Rule ID | Severity | Autofix | What it catches |
 |---|---|---|---|
-| `meta-opener-bare` | error | — | A bare `<!--` with the record on the next line: the comment is a note, not a record. |
+| `meta-opener-bare` | error | ✓ | A bare record (`<!-- {layout=cards} -->`), or a bare `<!--` with the record on the next line: a plain comment that sets nothing. The fix (on the one-line form) writes `@meta` before the `{` with the rest of the deck's migration. |
 | `meta-not-own-line` | error | — | A record inside a list item or blockquote. |
 | `meta-in-html-block` | error | — | A record directly under an HTML line with no blank line between, so both become one HTML block. |
 | `meta-block-in-container` | error | — | A multi-line record holding a blank line inside a list or blockquote, where the comment ends early. |
 | `meta-class-overridden` | warning | — | Two comments on one slide each set the slide's class (a `_class:` comment, a record's `layout`, `class` or register field); the last wins, so the earlier one's words are dropped. |
-| `meta-record` | error | ✓ | A record the engine reads but cannot apply in full: an unknown field, a value outside its register, braces or a quote that never close, a deck-only key, a repeated field, a note field (`note=`, `say=`, `describe=`, `reader=`: a note is its own comment, LFM-2.0 §3.5). The finding's token names the door's code (`meta-unknown-key`, `meta-field-value`, `meta-note-field`, `unterminated-record`, …). A field a key rename retired (`{headline=left}`) is fixed to its new name (`{headline-align=left}`) when the record is the whole line. |
-| `legacy-directive-comment` | warning | ✓ | An old-form directive comment (`<!-- _class: x -->`), on every deck. The fix rewrites every old comment in the deck as a `<!-- @meta{…} -->` record, the same text `lattice migrate meta` writes. It becomes an error when the engine stops reading the form. |
+| `meta-record` | error | ✓ | A record the engine reads but cannot apply in full: an unknown field, a value outside its register, braces or a quote that never close, a deck-only key, a repeated field, a note field (`note=`, `say=`, `describe=`, `reader=`: a note is its own comment, LFM-2.0 §3.5). The finding's token names the door's code (`meta-unknown-key`, `meta-field-value`, `meta-note-field`, `unterminated-record`, …). A field a key rename retired (`@meta{headline=left}`) is fixed to its new name (`@meta{headline-align=left}`) when the record is the whole line. |
+| `legacy-directive-comment` | error | ✓ | An old setting comment (`<!-- _class: x -->`, a pane marker such as `<!-- _pane: bar -->` or `<!-- panes: 60/40 -->`, the bare marker `<!-- stress-slide -->`), on every deck. The engine reads none of them, so the slide renders its default. The fix rewrites every old comment in the deck as a `<!-- @meta{…} -->` record, the same text `lattice migrate meta` writes. |
 
 > **Autofix is per-finding, not per-rule.** The ✓ marks rules that *can* offer a
 > deterministic autofix; whether a given finding carries one depends on its
@@ -538,7 +537,9 @@ The reference engine is `lintTextWith(source, vocab)` in `lint-core.js`:
   `legacy-directive-comment` (off by default). It then adds `meta-record`, the door's own
   findings on a record it reads, and `meta-class-overridden`. Then `legacy-directive-comment`
   turns on for every deck with a whole-deck autofix (record note §15). `@meta` is the one record
-  spelling; a warning on the bare form joins at the cut.
+  spelling. At the cut (slice E) `legacy-directive-comment` becomes an error and also names the old pane markers and
+  the bare marker, `meta-opener-bare` names the bare record with its fix, and `pane-syntax` is retired (the old pane
+  syntax is a `legacy-directive-comment`).
 - **1.1 (2026-10-08).** The registry catches up with the reference
   implementation: 13 rows became 181: all 178 literal rule IDs plus three families, grouped by
   what they check (§3), and a test now pins the registry to the code. Two

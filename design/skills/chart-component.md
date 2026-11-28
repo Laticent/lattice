@@ -288,7 +288,7 @@ mud and value-collapse hide there.
 Authoring (what the deck author writes):
 
 ```markdown
-<!-- _class: funnel -->
+<!-- @meta{layout=funnel} -->
 
 `Pipeline · Q2 2026`
 

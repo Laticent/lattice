@@ -96,4 +96,4 @@ A waterfall paints a rise green and a fall red. For a loss ratio, claims or cost
 
 - The colors swap: a rise wears the fail hue and a fall wears pass, in every finish and theme.
 - The direction stays: bars still climb and fall, labels keep their signs, and print textures still mark up and down.
-- Write it as `<!-- _class: waterfall lower-is-better -->`; it combines with `zoom`.
+- Write it as `<!-- @meta{layout=waterfall, class=lower-is-better} -->`; it combines with `zoom`.

@@ -42,19 +42,19 @@ function resolveChrome() {
 
 /** The slides that move, drop or re-add the bar, under each spectrum register. */
 const REGISTER_SLIDES = [
-	'<!-- _class: content -->\n\n## A content slide\n\n- one',
-	'<!-- _class: content accent -->\n\n## An accent slide\n\n- one',
-	'<!-- _class: content tone-warn tone-edge -->\n\n## A tone-edge slide\n\n- one',
-	'<!-- _class: content dark -->\n\n## A dark slide\n\n- one',
-	'<!-- _class: content dark accent -->\n\n## A dark accent slide\n\n- one',
-	'<!-- _class: title -->\n\n# A title',
-	'<!-- _class: divider -->\n\n## A divider',
-	'<!-- _class: divider light -->\n\n## A light divider',
-	'<!-- _class: closing -->\n\n# Thanks',
-	'<!-- _class: big-number claim-bleed -->\n\n`Bleed`\n\n- 42\n  - a claim that bleeds',
-	'<!-- _class: content tone-fail -->\n\n## A tone rail\n\n- one',
-	'<!-- _class: content tone-warn tone-glow -->\n\n## A tone glow\n\n- one',
-	'<!-- _class: content slide-corners-rounded -->\n\n## A rounded slide\n\n- one',
+	'<!-- @meta{layout=content} -->\n\n## A content slide\n\n- one',
+	'<!-- @meta{layout=content, class=accent} -->\n\n## An accent slide\n\n- one',
+	'<!-- @meta{layout=content, class=tone-warn tone-edge} -->\n\n## A tone-edge slide\n\n- one',
+	'<!-- @meta{layout=content, class=dark} -->\n\n## A dark slide\n\n- one',
+	'<!-- @meta{layout=content, class=dark accent} -->\n\n## A dark accent slide\n\n- one',
+	'<!-- @meta{layout=title} -->\n\n# A title',
+	'<!-- @meta{layout=divider} -->\n\n## A divider',
+	'<!-- @meta{layout=divider, class=light} -->\n\n## A light divider',
+	'<!-- @meta{layout=closing} -->\n\n# Thanks',
+	'<!-- @meta{layout=big-number, class=claim-bleed} -->\n\n`Bleed`\n\n- 42\n  - a claim that bleeds',
+	'<!-- @meta{layout=content, class=tone-fail} -->\n\n## A tone rail\n\n- one',
+	'<!-- @meta{layout=content, class=tone-warn tone-glow} -->\n\n## A tone glow\n\n- one',
+	'<!-- @meta{layout=content, class=slide-corners-rounded} -->\n\n## A rounded slide\n\n- one',
 ];
 const REGISTERS = ['', 'spectrum: off', 'spectrum: left', 'spectrum: right', 'spectrum: bottom', 'spectrum: left band', 'spectrum: solid'];
 

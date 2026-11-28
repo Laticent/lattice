@@ -29,7 +29,7 @@ const TALL_BOARD = lane('Backlog') + lane('In progress') + lane('Review');
 const ROOT = path.join(__dirname, '..', '..', '..');
 const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
 
-const chart = (caption) => `---\ntheme: indaco\n---\n\n<!-- _class: state-chart lr -->\n\n## Machine\n\n- Draft \`start\`\n  - -submit-> Live\n- Live \`done\`\n\n${caption}\n`;
+const chart = (caption) => `---\ntheme: indaco\n---\n\n<!-- @meta{layout=state-chart, class=lr} -->\n\n## Machine\n\n- Draft \`start\`\n  - -submit-> Live\n- Live \`done\`\n\n${caption}\n`;
 const captionOf = (md) => new JSDOM(render(md).html).window.document.querySelector('.chart-caption');
 
 describe('chart caption — the lift keeps the prose mark', () => {
@@ -102,7 +102,7 @@ describe('chart lead — every paragraph before the figure renders', () => {
   const docOf = (md) => new JSDOM(render(`---\ntheme: indaco\n---\n\n${md}`).html).window.document;
 
   test('on a chart slide: the first is the subtitle, the rest are leads, in order', () => {
-    const doc = docOf(`<!-- _class: bar -->\n\n## Mix\n\nFirst line.\n\nSecond, with \`code\` in it.\n\nThird.\n\n${bars}`);
+    const doc = docOf(`<!-- @meta{layout=bar} -->\n\n## Mix\n\nFirst line.\n\nSecond, with \`code\` in it.\n\nThird.\n\n${bars}`);
     assert.equal(doc.querySelector('.chart-subtitle').textContent, 'First line.');
     const leads = [...doc.querySelectorAll('.chart-lead')];
     assert.deepEqual(leads.map((p) => p.textContent), ['Second, with code in it.', 'Third.']);
@@ -113,30 +113,30 @@ describe('chart lead — every paragraph before the figure renders', () => {
   });
 
   test('in a chart pane: the same, with no heading of its own', () => {
-    const doc = docOf(`## Mix\n\n<!-- pane: bar -->\n\nFirst line.\n\nSecond line.\n\n${bars}\n<!-- pane: list -->\n\n- x\n`);
+    const doc = docOf(`## Mix\n\n<!-- @meta{pane=bar} -->\n\nFirst line.\n\nSecond line.\n\n${bars}\n<!-- @meta{pane=list} -->\n\n- x\n`);
     assert.equal(doc.querySelector('lat-pane .chart-subtitle').textContent, 'First line.');
     assert.deepEqual([...doc.querySelectorAll('lat-pane .chart-lead')].map((p) => p.textContent), ['Second line.']);
   });
 
   test('one paragraph is still a subtitle alone, and no leads', () => {
-    const doc = docOf(`<!-- _class: bar -->\n\n## Mix\n\nOnly line.\n\n${bars}`);
+    const doc = docOf(`<!-- @meta{layout=bar} -->\n\n## Mix\n\nOnly line.\n\n${bars}`);
     assert.equal(doc.querySelectorAll('.chart-lead').length, 0);
     assert.equal(doc.querySelector('.chart-subtitle').textContent, 'Only line.');
   });
 
   test('only TOP-LEVEL paragraphs lift: a code block and a blockquote are not torn open', () => {
     // A bare `<p[^>]*>` also matches `<pre>`; this lifted half a code block into a lead.
-    const pre = docOf(`<!-- _class: bar -->\n\n## Mix\n\nFirst.\n\n\`\`\`js\nx = 1\n\`\`\`\n\nSecond.\n\n${bars}`);
+    const pre = docOf(`<!-- @meta{layout=bar} -->\n\n## Mix\n\nFirst.\n\n\`\`\`js\nx = 1\n\`\`\`\n\nSecond.\n\n${bars}`);
     assert.deepEqual([...pre.querySelectorAll('.chart-lead')].map((p) => p.textContent), ['Second.']);
     assert.equal(pre.querySelector('.chart-lead code'), null);
     // A paragraph inside a blockquote belongs to it; it is not pulled out as a bare lead.
-    const quote = docOf(`<!-- _class: bar -->\n\n## Mix\n\nFirst.\n\n> Quoted one.\n>\n> Quoted two.\n\nSecond.\n\n${bars}`);
+    const quote = docOf(`<!-- @meta{layout=bar} -->\n\n## Mix\n\nFirst.\n\n> Quoted one.\n>\n> Quoted two.\n\nSecond.\n\n${bars}`);
     assert.deepEqual([...quote.querySelectorAll('.chart-lead')].map((p) => p.textContent), ['Second.']);
   });
 
   test('a split chart carries its leads on the cover, never on every body page', () => {
     const { carouselize } = require('../../../lib/core/carousel');
-    const md = '---\ntheme: indaco\nsize: portrait\n---\n\n<!-- _class: kanban -->\n\n## Board\n\nFirst line.\n\nSecond LEADX line.\n\n'
+    const md = '---\ntheme: indaco\nsize: portrait\n---\n\n<!-- @meta{layout=kanban} -->\n\n## Board\n\nFirst line.\n\nSecond LEADX line.\n\n'
       + TALL_BOARD;
     const m = render(md).html.match(/(<section[^>]*>)([\s\S]*?)<\/section>/);
     const pages = carouselize(m[1], m[2], { strategy: 'kanban-lanes' }, 2, 'kanban');
@@ -161,7 +161,7 @@ describe('chart lead blocks — every block before the figure renders', () => {
     .map((el) => (el.classList.contains('chart-lead') ? `p:${el.textContent}` : el.firstElementChild.tagName.toLowerCase()));
 
   test('a code block, a blockquote, a table and raw HTML render in source order, above the figure', () => {
-    const doc = docOf('<!-- _class: bar -->\n\n## Mix\n\nFirst.\n\n```js\nx = 1\n```\n\nSecond.\n\n> Quoted.\n\n'
+    const doc = docOf('<!-- @meta{layout=bar} -->\n\n## Mix\n\nFirst.\n\n```js\nx = 1\n```\n\nSecond.\n\n> Quoted.\n\n'
       + '| a | b |\n| --- | --- |\n| 1 | 2 |\n\n<div class="note">Raw.</div>\n\n' + bars);
     assert.equal(doc.querySelector('.chart-subtitle').textContent, 'First.');
     assert.deepEqual(kinds(doc), ['pre', 'p:Second.', 'blockquote', 'table', 'div']);
@@ -172,30 +172,30 @@ describe('chart lead blocks — every block before the figure renders', () => {
   });
 
   test('a block with no paragraph before it renders, and there is no subtitle', () => {
-    const doc = docOf(`<!-- _class: bar -->\n\n## Mix\n\n\`\`\`js\nx = 1\n\`\`\`\n\n${bars}`);
+    const doc = docOf(`<!-- @meta{layout=bar} -->\n\n## Mix\n\n\`\`\`js\nx = 1\n\`\`\`\n\n${bars}`);
     assert.equal(doc.querySelector('.chart-subtitle'), null);
     assert.deepEqual(kinds(doc), ['pre']);
   });
 
   test('in a chart pane: the same', () => {
-    const doc = docOf(`## Mix\n\n<!-- pane: bar -->\n\nFirst.\n\n\`\`\`js\nx = 1\n\`\`\`\n\n${bars}\n<!-- pane: list -->\n\n- x\n`);
+    const doc = docOf(`## Mix\n\n<!-- @meta{pane=bar} -->\n\nFirst.\n\n\`\`\`js\nx = 1\n\`\`\`\n\n${bars}\n<!-- @meta{pane=list} -->\n\n- x\n`);
     assert.deepEqual(kinds(doc, 'lat-pane'), ['pre']);
   });
 
   test('a self-closed non-void tag (`<div/>`, `<p/>`) is skipped, never a wrapper the chart falls into', () => {
     // HTML has no self-closing div: emitted inside the wrapper, it left the wrapper open and the
     // chart body inside it, which `claim-hero` would then hide with the lead block.
-    const div = docOf(`<!-- _class: bar -->\n\n## Mix\n\nSub.\n\n<div/>\n\n${bars}`);
+    const div = docOf(`<!-- @meta{layout=bar} -->\n\n## Mix\n\nSub.\n\n<div/>\n\n${bars}`);
     assert.equal(div.querySelector('.chart-body').closest('.chart-lead-block'), null);
     assert.equal(div.querySelectorAll('.chart-lead-block').length, 0);
     // …and a `<p/>` does not steal the subtitle from the real first paragraph.
-    const p = docOf(`<!-- _class: bar -->\n\n## Mix\n\n<p/>\n\nSub.\n\n${bars}`);
+    const p = docOf(`<!-- @meta{layout=bar} -->\n\n## Mix\n\n<p/>\n\nSub.\n\n${bars}`);
     assert.equal(p.querySelector('.chart-subtitle').textContent, 'Sub.');
   });
 
   test('a split chart keeps a lead block on its first body page only, never on every page', () => {
     const { carouselize } = require('../../../lib/core/carousel');
-    const md = '---\ntheme: indaco\nsize: portrait\n---\n\n<!-- _class: kanban -->\n\n## Board\n\nFirst line.\n\n```js\nBLOCKX = 1\n```\n\n'
+    const md = '---\ntheme: indaco\nsize: portrait\n---\n\n<!-- @meta{layout=kanban} -->\n\n## Board\n\nFirst line.\n\n```js\nBLOCKX = 1\n```\n\n'
       + TALL_BOARD;
     const m = render(md).html.match(/(<section[^>]*>)([\s\S]*?)<\/section>/);
     const pages = carouselize(m[1], m[2], { strategy: 'kanban-lanes' }, 2, 'kanban');

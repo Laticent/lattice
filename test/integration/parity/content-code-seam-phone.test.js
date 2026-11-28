@@ -55,8 +55,8 @@ Each line's \`+\` or \`-\` sets its band; the rest of the line is colored as Pyt
 ⚠ deck · deck-wide-component [kpi]
     \`class: kpi\` names a COMPONENT deck-wide — every slide would be a kpi
     slide. It is ignored.
-    fix: Name the layout per slide with \`<!-- _class: kpi -->\`, or once for a
-         run with \`<!-- class: kpi -->\`.
+    fix: Name the layout per slide with \`<!-- @meta{class=kpi} -->\`, or once for a
+         run with \`<!-- @meta{class=kpi, carry} -->\`.
 \`\`\`
 
 ---

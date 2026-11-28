@@ -8,7 +8,7 @@ import { expect, gotoStudio, LIVE_PREVIEW, setEditorContent, test } from './stud
 //      changes to left.
 
 const SPLIT = (edge: string) =>
-	`---\ntitle: Bar\n---\n\n<!-- _class: split-panel spectrum-${edge} -->\n\n## The panel claims\n\n- One\n  - First supporting line.\n- Two\n  - Second supporting line.\n`;
+	`---\ntitle: Bar\n---\n\n<!-- @meta{class=split-panel spectrum-${edge}} -->\n\n## The panel claims\n\n- One\n  - First supporting line.\n- Two\n  - Second supporting line.\n`;
 const CONTENT = (edge: string) =>
 	`---\ntitle: Bar\nspectrum: ${edge}\n---\n\n## A plain heading\n\n- One\n  - First supporting line.\n- Two\n  - Second supporting line.\n`;
 
@@ -59,7 +59,7 @@ for (const tag of ['', ' @webkit-tablet', ' @gecko']) {
 	test(`the Playground preview draws the full-bleed bar as two strips and holds a border frame still${tag}`, async ({ page }) => {
 		const KEY = 'lattice-docs-pg-source';
 		const deck = (edge: string) =>
-			`---\ntitle: Bar\nspectrum: ${edge}\n---\n\n<!-- _class: split-panel -->\n\n## The panel claims\n\n- One\n  - First supporting line.\n\n---\n\n## A plain heading\n\n- One\n  - First supporting line.\n`;
+			`---\ntitle: Bar\nspectrum: ${edge}\n---\n\n<!-- @meta{layout=split-panel} -->\n\n## The panel claims\n\n- One\n  - First supporting line.\n\n---\n\n## A plain heading\n\n- One\n  - First supporting line.\n`;
 		const preview = page.frameLocator('#preview');
 		const load = async (edge: string) => {
 			await page.addInitScript(([k, v]) => { try { localStorage.setItem(k as string, v as string); } catch { /* no store, no seed */ } }, [KEY, deck(edge)]);

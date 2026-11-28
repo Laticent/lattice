@@ -98,7 +98,7 @@ describe('buildVocabSets', () => {
 			packedNames: packVocabNames(live),
 			slotContract: live.slotContract,
 		});
-		const deck = '---\ntheme: indaco\n---\n\n<!-- _class: agenda -->\n\n# A\n\n1. one\n2. two\n\n---\n\n<!-- _class: cards-grid numbered -->\n\n## B\n\n1. x\n   - y\n\n---\n\n<!-- _class: kpi gallery -->\n\n## C\n\n1. 3\n   - x\n';
+		const deck = '---\ntheme: indaco\n---\n\n<!-- @meta{layout=agenda} -->\n\n# A\n\n1. one\n2. two\n\n---\n\n<!-- @meta{layout=cards-grid, class=numbered} -->\n\n## B\n\n1. x\n   - y\n\n---\n\n<!-- @meta{layout=kpi, class=gallery} -->\n\n## C\n\n1. 3\n   - x\n';
 		const rules = (v: unknown) => lintTextWith(deck, v).map((f: { rule: string; slide: number }) => `${f.slide} ${f.rule}`).filter((r: string) => /slot-contract|variant-inert|foreign-variant/.test(r)).sort();
 		expect(rules(buildVocabSets(shipped))).toEqual(['1 slot-contract', '2 variant-inert', '3 foreign-variant']);
 		expect(rules(buildVocabSets(shipped))).toEqual(rules(live));
@@ -114,7 +114,7 @@ describe('buildVocabSets', () => {
 });
 
 describe('findingsToDiagnostics', () => {
-	const src = '<!-- _class: cards-grid -->\n\n## Title\n\n- **A.** body\n';
+	const src = '<!-- @meta{layout=cards-grid} -->\n\n## Title\n\n- **A.** body\n';
 	const d = doc(src);
 
 	it('anchors a finding to its line and underlines the trimmed content', () => {
@@ -163,7 +163,7 @@ describe('findingsToDiagnostics', () => {
 	});
 
 	it('starts the underline past leading indentation', () => {
-		const indented = doc('<!-- _class: kpi -->\n\n  - **A.** body\n');
+		const indented = doc('<!-- @meta{layout=kpi} -->\n\n  - **A.** body\n');
 		const [diag] = findingsToDiagnostics(indented, [
 			{ slide: 1, rule: 'r', severity: 'warning', line: '- **A.** body', message: 'm' },
 		]);
@@ -190,7 +190,7 @@ describe('findingsToDiagnostics', () => {
 	it('falls back to the trimmed match when the verbatim line is not in the document', () => {
 		// The indentation is a preference, not a requirement: a finding quoting `  - **A.**
 		// body` on a document that indents it differently still lands on the line.
-		const indented = doc('<!-- _class: kpi -->\n\n   - **A.** body\n');
+		const indented = doc('<!-- @meta{layout=kpi} -->\n\n   - **A.** body\n');
 		const [diag] = findingsToDiagnostics(indented, [{ slide: 1, rule: 'r', severity: 'warning', line: '  - **A.** body', message: 'm' }]);
 		expect(indented.lineAt(diag.from).number).toBe(3);
 	});
@@ -225,7 +225,7 @@ describe('findingsToDiagnostics', () => {
 		// already does it reads as the tool knowing the answer and making you type it.
 		const [diag] = findingsToDiagnostics(
 			d,
-			[{ slide: 1, rule: 'unknown-class', severity: 'warning', line: '<!-- _class: kpi -->', message: 'unknown', fix: 'Check the spelling.', autofixable: true, didYouMean: 'kpi' }],
+			[{ slide: 1, rule: 'unknown-class', severity: 'warning', line: '<!-- @meta{layout=kpi} -->', message: 'unknown', fix: 'Check the spelling.', autofixable: true, didYouMean: 'kpi' }],
 			{ onFix: () => {} },
 		);
 		expect(diag.actions?.[0].name).toBe('Fix: use “kpi”');
@@ -236,7 +236,7 @@ describe('findingsToDiagnostics', () => {
 	it('keeps the prose fix when the kernel cannot apply it — guidance is all there is', () => {
 		const [diag] = findingsToDiagnostics(
 			d,
-			[{ slide: 1, rule: 'r', severity: 'warning', line: '<!-- _class: kpi -->', message: 'unknown', fix: 'Check the spelling.' }],
+			[{ slide: 1, rule: 'r', severity: 'warning', line: '<!-- @meta{layout=kpi} -->', message: 'unknown', fix: 'Check the spelling.' }],
 			{ onFix: () => {} },
 		);
 		expect(diag.actions).toBeUndefined();
@@ -255,21 +255,21 @@ describe('findingsToDiagnostics', () => {
 	it('offers no button when there is no onFix hook, even for an autofixable finding', () => {
 		// The Architect panel renders the same findings without an editor to dispatch into.
 		const [diag] = findingsToDiagnostics(d, [
-			{ slide: 1, rule: 'unknown-class', severity: 'warning', line: '<!-- _class: kpi -->', message: 'unknown', fix: 'Check the spelling.', autofixable: true, didYouMean: 'kpi' },
+			{ slide: 1, rule: 'unknown-class', severity: 'warning', line: '<!-- @meta{layout=kpi} -->', message: 'unknown', fix: 'Check the spelling.', autofixable: true, didYouMean: 'kpi' },
 		]);
 		expect(diag.actions).toBeUndefined();
 		expect(diag.message).toContain('Fix: Check the spelling.');
 	});
 
 	it('prefers an exact line match over an earlier superset line', () => {
-		const d2 = doc('<!-- _class: cards-grid -->\n\n- foobar baz\n- foo\n');
+		const d2 = doc('<!-- @meta{layout=cards-grid} -->\n\n- foobar baz\n- foo\n');
 		const [diag] = findingsToDiagnostics(d2, [{ slide: 1, rule: 'r', severity: 'warning', line: '- foo', message: 'm' }]);
 		expect(d2.lineAt(diag.from).text).toBe('- foo'); // not the earlier `- foobar baz`
 	});
 
 	it('starts at `chunkLine`, so a finding on a heading-split slide skips the same line above it', () => {
 		// One `---` chunk, two rendered slides (split: headings), the same line on both.
-		const d3 = doc('## A\n\n- **Same.** body\n\n<!-- _class: cards-grid -->\n\n## B\n\n- **Same.** body\n');
+		const d3 = doc('## A\n\n- **Same.** body\n\n<!-- @meta{layout=cards-grid} -->\n\n## B\n\n- **Same.** body\n');
 		const f = { slide: 1, rule: 'r', severity: 'warning', line: '- **Same.** body', message: 'm' } as const;
 		expect(d3.lineAt(findingsToDiagnostics(d3, [f])[0].from).number).toBe(3);
 		expect(d3.lineAt(findingsToDiagnostics(d3, [{ ...f, chunkLine: 4 }])[0].from).number).toBe(9);

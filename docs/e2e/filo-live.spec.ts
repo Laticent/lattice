@@ -16,7 +16,7 @@ import { savedDeck } from './compose-insert';
 import { localRelay } from './live-relay';
 import { editorFocusSettled, expect, gotoStudio, pressSettled, setEditorContent, studioUndo, test, toSourceIfCompose } from './studio-fixture';
 
-const DECK = ['<!-- _class: content -->\n\n# Live deck\n\nBody one.', '<!-- _class: content -->\n\n# Two\n\nBody two.', '<!-- _class: content -->\n\n# Three\n\nBody three.'].join('\n\n---\n\n');
+const DECK = ['<!-- @meta{layout=content} -->\n\n# Live deck\n\nBody one.', '<!-- @meta{layout=content} -->\n\n# Two\n\nBody two.', '<!-- @meta{layout=content} -->\n\n# Three\n\nBody three.'].join('\n\n---\n\n');
 
 /** The deck source this page holds: what the Studio last saved. */
 const sourceOf = (page: Page) => savedDeck(page);

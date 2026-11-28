@@ -38,7 +38,7 @@ const themeFiles = (name, css) => ({ [`${name}.manifest.json`]: JSON.stringify({
 const compFiles = (name, css) => ({
   [`${name}.manifest.json`]: JSON.stringify({ name, type: 'component', format: 1 }),
   [`${name}.styles.css`]: css,
-  [`${name}.gallery.md`]: `<!-- _class: ${name} -->\n\n## ${name}\n`,
+  [`${name}.gallery.md`]: `<!-- @meta{class=${name}} -->\n\n## ${name}\n`,
 });
 
 function render(store, deck) {
@@ -63,7 +63,7 @@ describe('the CLI renders from the package store, and gates it', () => {
     assert.equal(await main(['add', path.join(src, 'probe-brand'), '--packages', store], quiet), 0);
     assert.equal(await main(['add', path.join(src, 'probe-box'), '--packages', store], quiet), 0);
 
-    const r = render(home, '---\ntheme: probe-brand\n---\n\n<!-- _class: probe-box -->\n\n## Boxed\n');
+    const r = render(home, '---\ntheme: probe-brand\n---\n\n<!-- @meta{class=probe-box} -->\n\n## Boxed\n');
     assert.equal(r.status, 0, r.stderr);
     assert.match(r.stdout, /theme: probe-brand \(installed package/);
     assert.match(r.stdout, /components: probe-box \(installed packages\)/);
@@ -84,14 +84,14 @@ describe('the CLI renders from the package store, and gates it', () => {
   test('a component placed in the store by hand that beacons is left out, with a warning', { timeout: TIMEOUT }, () => {
     const home = tmp('home');
     place(path.join(home, 'packages'), 'component', 'beacon-box', compFiles('beacon-box', 'section.beacon-box { background: url(https://evil.invalid/b.png); }'));
-    const r = render(home, '---\ntheme: indaco\n---\n\n<!-- _class: beacon-box -->\n\n## B\n');
+    const r = render(home, '---\ntheme: indaco\n---\n\n<!-- @meta{class=beacon-box} -->\n\n## B\n');
     assert.equal(r.status, 0, r.stderr);
     assert.match(r.stderr, /the installed component beacon-box is refused/);
     assert.doesNotMatch(r.html, /evil\.invalid/);
   });
 
   test('a component the deck names that nobody has is reported, not rendered silently', { timeout: TIMEOUT }, () => {
-    const r = render(tmp('home'), '---\ntheme: indaco\n---\n\n<!-- _class: probe-nowhere -->\n\n## N\n\n---\n\n<!-- _class: kpi finish finish-atrium -->\n\n## K\n');
+    const r = render(tmp('home'), '---\ntheme: indaco\n---\n\n<!-- @meta{class=probe-nowhere} -->\n\n## N\n\n---\n\n<!-- @meta{layout=kpi, class=finish finish-atrium} -->\n\n## K\n');
     assert.equal(r.status, 0, r.stderr);
     assert.match(r.stderr, /no component "probe-nowhere"/);
     assert.match(r.stderr, /lattice packages add probe-nowhere\.lattice-component\.zip/);

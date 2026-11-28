@@ -15,7 +15,7 @@ import { CHROME, expect, gotoStudio, livePreview, setEditorContent, test } from 
 
 const DECOY = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 const DECK = [
-	'<!-- _class: image -->',
+	'<!-- @meta{layout=image} -->',
 	'',
 	'## The lake at dawn',
 	'',

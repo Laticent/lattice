@@ -207,9 +207,9 @@ section.finish-myfinish {
 ```
 
 The author selects it deck-wide (`finish: myfinish`) or per slide
-(`<!-- _class: finish-myfinish -->`), personalizes the mark
+(`<!-- @meta{class=finish-myfinish} -->`), personalizes the mark
 (`section.finish-myfinish { --fin-mark-text: "Q3"; }`), and opts a busy slide out
-with `<!-- _class: no-finish -->`.
+with `<!-- @meta{class=no-finish} -->`.
 
 ---
 

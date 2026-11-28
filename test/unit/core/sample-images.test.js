@@ -61,11 +61,11 @@ describe('sample: — every engine path that paints a picture', () => {
   const render = (md) => engine.render(md, 'indaco', { samplesUrl: S }).html;
 
   test('an image slide\'s photo panel', () => {
-    assert.match(render('<!-- _class: image -->\n\n## T\n\n![Lake](sample:photo-wide.svg)\n'), new RegExp(`url\\('${S}photo-wide\\.svg'\\)`));
+    assert.match(render('<!-- @meta{layout=image} -->\n\n## T\n\n![Lake](sample:photo-wide.svg)\n'), new RegExp(`url\\('${S}photo-wide\\.svg'\\)`));
   });
 
   test('a bleed slide\'s background', () => {
-    assert.match(render('<!-- _class: content bleed -->\n\n## T\n\n![Shore](sample:photo-pano.svg)\n'), new RegExp(`url\\('${S}photo-pano\\.svg'\\)`));
+    assert.match(render('<!-- @meta{layout=content, class=bleed} -->\n\n## T\n\n![Shore](sample:photo-pano.svg)\n'), new RegExp(`url\\('${S}photo-pano\\.svg'\\)`));
   });
 
   test('a prose image', () => {
@@ -73,15 +73,15 @@ describe('sample: — every engine path that paints a picture', () => {
   });
 
   test('a logo-wall mark', () => {
-    assert.match(render('<!-- _class: logo-wall -->\n\n## T\n\n- ![Acme](sample:logo-acme.svg)\n- ![Globex](sample:logo-globex.svg)\n'), new RegExp(`${S}logo-acme\\.svg`));
+    assert.match(render('<!-- @meta{layout=logo-wall} -->\n\n## T\n\n- ![Acme](sample:logo-acme.svg)\n- ![Globex](sample:logo-globex.svg)\n'), new RegExp(`${S}logo-acme\\.svg`));
   });
 
   test('a team-profile portrait', () => {
-    assert.match(render('<!-- _class: team-profile -->\n\n## T\n\n- Ada Okafor\n  - ![](sample:portrait-ada.svg)\n  - `Sponsor`\n'), new RegExp(`class="person-photo" src="${S}portrait-ada\\.svg"`));
+    assert.match(render('<!-- @meta{layout=team-profile} -->\n\n## T\n\n- Ada Okafor\n  - ![](sample:portrait-ada.svg)\n  - `Sponsor`\n'), new RegExp(`class="person-photo" src="${S}portrait-ada\\.svg"`));
   });
 
   test('a video poster', () => {
-    assert.match(render('<!-- _class: video -->\n\n## T\n\n`@video{"https://www.youtube.com/watch?v=dQw4w9WgXcQ", poster="sample:video-poster.svg"}`\n'), new RegExp(`${S}video-poster\\.svg`));
+    assert.match(render('<!-- @meta{layout=video} -->\n\n## T\n\n`@video{"https://www.youtube.com/watch?v=dQw4w9WgXcQ", poster="sample:video-poster.svg"}`\n'), new RegExp(`${S}video-poster\\.svg`));
   });
 
   test('a deck logo', () => {
@@ -89,7 +89,7 @@ describe('sample: — every engine path that paints a picture', () => {
   });
 
   test('no `sample:` survives a render that has a samples folder', () => {
-    const out = render('<!-- _class: image -->\n\n## T\n\n![bg](sample:photo-wide.svg)\n\n---\n\n## U\n\n![A](sample:photo-tall.svg)\n');
+    const out = render('<!-- @meta{layout=image} -->\n\n## T\n\n![bg](sample:photo-wide.svg)\n\n---\n\n## U\n\n![A](sample:photo-tall.svg)\n');
     assert.doesNotMatch(out, /sample:/);
   });
 });
@@ -129,7 +129,7 @@ describe('sample: — the preview counts the site itself as allowed', () => {
   });
 
   test('a staged sample is no longer hatched as a web image; a third-party one still is', () => {
-    const html = engine.render('<!-- _class: team-profile -->\n\n## T\n\n- Ada\n  - ![](sample:portrait-ada.svg)\n- Bo\n  - ![](https://tracker.test/p.svg)\n', 'indaco', { samplesUrl: S }).html;
+    const html = engine.render('<!-- @meta{layout=team-profile} -->\n\n## T\n\n- Ada\n  - ![](sample:portrait-ada.svg)\n- Bo\n  - ![](https://tracker.test/p.svg)\n', 'indaco', { samplesUrl: S }).html;
     const shown = remoteRef.blockWebImages(html, remoteRef.withOwnOrigin([], 'https://site.test'));
     assert.deepEqual(shown.blocked.map((b) => b.origin), ['https://tracker.test']);
     assert.match(shown.html, new RegExp(`${S}portrait-ada\\.svg`));
