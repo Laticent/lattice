@@ -759,8 +759,20 @@ describe('export-formats', () => {
     }
     // Measured 2026-09-27: 1 for the writer (the export face's feathered spotlight), 63 for
     // Chrome's printer (the print face's hard ellipse). The Chrome render is the control that
-    // proves this measure can see an arc at all.
-    assert.ok(maxStep(chrome) > 20, 'control: Chrome\'s print face draws the hard arc');
+    // proves this measure can see an arc at all. 2026-11-28, Linux: 1 and 173 (poppler 24.02),
+    // 1 and 208 (mupdf 1.23).
+    //
+    // The control holds only where Chrome's PDF has the arc to see. On Linux, Chrome prints the
+    // masked radials as vector shadings (14 shadings, no images, 31 KB), and their hard edge is the
+    // bug. On macOS, Chrome prints them as image soft masks (2 shadings, 12 images, 350 KB): no
+    // vector edge, so the bug does not exist there and the control cannot pass. The writer's
+    // assertion below runs on every platform.
+    // disabled: tried the control on macos-26 (harness on #3612): both poppler 26.11 and mupdf 1.28
+    // read Chrome's step as 4, and origin/main fails the same way; evidence
+    // https://github.com/Laticent/lattice/actions/runs/46141278118 and
+    // https://github.com/Laticent/lattice/actions/runs/46137655665; re-enable when Chrome on macOS prints
+    // the hard ellipse as vector shading again (the step reads > 20 there).
+    if (process.platform === 'linux') assert.ok(maxStep(chrome) > 20, 'control: Chrome\'s print face draws the hard arc');
     assert.ok(maxStep(mine) <= 6, `the writer's spotlight fades softly, largest step ${maxStep(mine)}`);
   });
 
