@@ -23,11 +23,13 @@ export function readSlides() {
 	return [...document.querySelectorAll('section')]
 		.filter((s) => !s.closest('section section') && s.parentElement?.closest('section') == null)
 		.map((s, i) => {
-			const cell = s.querySelector('.cell-coda');
+			// Every coda cell on the slide: a split run's folded page can carry the insight and the note in a cell each.
+			const cells = [...s.querySelectorAll('.cell-coda')];
 			const sr = s.getBoundingClientRect();
-			const insight = cell?.querySelector(':scope > blockquote, :scope blockquote');
-			const note = cell?.querySelector('.below-note:not(.is-annotation)') || s.querySelector('figcaption .below-note:not(.is-annotation), .below-note:not(.is-annotation)');
-			const source = cell?.querySelector('.below-note.is-annotation') || s.querySelector('.below-note.is-annotation');
+			const inCell = (sel) => cells.map((c) => c.querySelector(sel)).find(Boolean);
+			const insight = inCell('blockquote');
+			const note = inCell('.below-note:not(.is-annotation)') || s.querySelector('figcaption .below-note:not(.is-annotation), .below-note:not(.is-annotation)');
+			const source = inCell('.below-note.is-annotation') || s.querySelector('.below-note.is-annotation');
 			return {
 				i: i + 1,
 				cls: (s.getAttribute('data-class') || s.className || '').replace(/\s+/g, ' ').trim(),
@@ -35,7 +37,7 @@ export function readSlides() {
 				insight: text(insight),
 				note: text(note),
 				source: text(source),
-				codaInside: cell ? inside(cell.getBoundingClientRect(), sr) : null,
+				codaInside: cells.length ? cells.every((c) => inside(c.getBoundingClientRect(), sr)) : null,
 				all: text(s),
 			};
 		});
@@ -111,6 +113,13 @@ export async function probe({ page, frame, sleep }) {
 			if (k >= 0) from = k + (e.head ? 1 : 0);
 			pairs.push([e, k >= 0 ? slides[k] : null]);
 		}
+	}
+	// Hand back only once the preview frame holds still for a second: scrolling it for the screenshots can make VS Code
+	// re-create it, and the harness reads its own state from the frame right after this returns.
+	for (let i = 0; i < 20; i++) {
+		const a = await live(page);
+		await sleep(1000);
+		if (a && a === (await live(page)) && (await a.evaluate(() => true).catch(() => false))) break;
 	}
 	const mismatches = [];
 	if (expect && expect.length !== slides.length) mismatches.push({ note: 'slide counts differ; paired by heading', engine: expect.length, vscode: slides.length });

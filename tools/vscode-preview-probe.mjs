@@ -193,7 +193,14 @@ async function step(ctx, label) {
 	const result = ctx.probe ? await ctx.probe({ page: ctx.page, frame, sleep, label }) : {};
 	// VS Code can re-create the preview frame while a probe waits (measured at `strict`, during the runtime-off notice's
 	// 1.5 s fade-in, PR 3362), so read the state from the live frame when this one is gone.
-	const state = await runtimeState(frame).catch(async () => runtimeState(await previewFrame(ctx.page)));
+	// A probe that scrolls the preview can leave it mid-re-creation more than once, so the fallback finds the live frame
+	// again until a read lands (bounded at about 10 s; coda-parity probe, 2026-11-27).
+	let state = await runtimeState(frame).catch(() => null);
+	for (let i = 0; !state && i < 20; i++) {
+		await sleep(500);
+		state = await runtimeState(await previewFrame(ctx.page)).catch(() => null);
+	}
+	if (!state) throw new Error('the preview frame never held still long enough to read the runtime state');
 	// A HOLLOW PASS GUARD. VS Code's built-in Mermaid extension draws a fence too, with its own
 	// click handling, so drawn SVGs prove nothing on their own. Every expected diagram must be a
 	// fence OUR runtime settled, or the step fails however well the probe did. (Measured: with

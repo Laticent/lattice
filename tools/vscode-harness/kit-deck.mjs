@@ -1,10 +1,12 @@
 #!/usr/bin/env node
-// Turn a repo deck into a copy-and-go kit deck, so tools/vscode-preview-probe.mjs shows it the way an author's kit deck
-// shows: the palette becomes one the kit ships (`--theme`, default cuoio), the deck's own <script>/<link> lines (repo
-// paths such as ../dist/lattice-runtime.js) go, and the kit's stylesheet link and three scripts close the deck, as in
-// dist/marp-kit/Sample-Deck.md. `--size` overrides the deck's `size:` (e.g. portrait, to see a split run on Marp).
+// Re-point a Marp deck at the copy-and-go kit, so tools/vscode-preview-probe.mjs shows it the way an author's kit deck
+// shows. The input is the deck an Export-to-Marp bundle wrote (`npm run export:marp`): its `@meta` records are already
+// compiled to Marp's `_class` comments, which plain Marp needs (engineering/decisions/2026-10-17-meta-record.md §7).
+// Here the palette becomes one the kit ships (`--theme`, default cuoio), the deck's own <script src>/<link> lines go, and
+// the kit's stylesheet link and three scripts close the deck, as in dist/marp-kit/Sample-Deck.md. `--size` overrides the
+// deck's `size:`.
 //
-//   node tools/vscode-harness/kit-deck.mjs <in.md> <out.md> [--theme cuoio] [--size portrait]
+//   node tools/vscode-harness/kit-deck.mjs <bundle-deck.md> <out.md> [--theme cuoio] [--size portrait]
 import fs from 'node:fs';
 
 const [src, out, ...rest] = process.argv.slice(2);
