@@ -528,7 +528,7 @@ const WHY_CARDS: WhyCard[] = [
 	{
 		id: 'no-service',
 		title: 'No account, and nothing reported back.',
-		body: 'Lattice runs on your own machine, or in your own build, and reports nothing back. Your deck leaves it only when you share a live link or ask an AI assistant for help.',
+		body: 'Lattice runs on your own machine, or in your own build, and reports nothing back. Your deck leaves it only when you share a live link or use an AI feature on your own account.',
 	},
 ];
 
