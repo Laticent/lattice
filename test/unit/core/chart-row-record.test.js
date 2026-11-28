@@ -45,6 +45,7 @@ const RENDER_PATH_ALLOW = {
   "/<svg\\b|<\\/svg\\s*>/gi": SAFE_OUTSIDE_LIB,
   "/^\\s*<p(?:\\s[^>]*)?>\\s*<code[^>]*>(?:(?!<\\/code>)[\\s\\S])*<\\/code>\\s*<\\/p>/": "masthead.transform.js, regex-ok: anchored at ^ with no m flag, so it is tried at one position, and each piece is deterministic",
   "/(?<!\\s)\\s+data-debug(?:=\"[^\"]*\")?/g": "lib/engine/index.js, regex-ok: (?<!\\s) starts a match only at a blank run's first character, so each run is tried once",
+  "/<!--\\s*(?:\\{|@meta\\{|lat-|_?[A-Za-z][\\w-]*\\s*(?::|-->))/gi": "lib/core/code-ranges.mjs CANDIDATE, built at run time from meta-door.mjs MAY_NEED_DOOR's source with `gi` (#3595); recheck 4.6.2 automaton: safe, 2026-11-28",
 };
 // The bound, written out, not read from the module it guards: read from `rows.RAW_SCAN_BUDGET`, a raised budget raised
 // the bound with it and the scan tests passed on `Infinity`. A deliberate change to the budget changes this line too.
