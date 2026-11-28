@@ -9,13 +9,18 @@
       "required": ["from", "to"],
       "properties": { "from": { "type": "string" }, "to": { "type": "string" } }
     },
+    "position": {
+      "type": "object",
+      "required": ["line", "col"],
+      "properties": { "line": { "type": "integer", "minimum": 0 }, "col": { "type": "integer", "minimum": 0 } }
+    },
     "finding": {
       "type": "object",
       "required": ["slide", "rule", "severity", "message"],
       "properties": {
         "slide": { "type": "integer", "minimum": 0 },
         "rule": { "type": "string", "pattern": "^(?:[a-z][a-z0-9-]*/)?[a-z][a-z0-9-]*$" },
-        "severity": { "enum": ["error", "warning", "info", "suggestion"] },
+        "severity": { "type": "string", "minLength": 1, "description": "error, warning, info or suggestion in 1.0; a reader treats one it does not know as info (§2)" },
         "message": { "type": "string", "minLength": 1 },
         "classToken": { "type": "string" },
         "line": { "type": "string" },
@@ -28,7 +33,12 @@
         "span": { "type": "string" },
         "chunkLine": { "type": "integer", "minimum": 0 },
         "shapeChange": { "type": "boolean" },
-        "file": { "type": "string" }
+        "file": { "type": "string" },
+        "range": {
+          "type": "object",
+          "description": "Reserved for a minor version (§1): the offending text as line and column positions.",
+          "properties": { "start": { "$ref": "#/$defs/position" }, "end": { "$ref": "#/$defs/position" } }
+        }
       }
     },
     "report": {
@@ -53,8 +63,9 @@
               "type": "array",
               "items": {
                 "type": "object",
-                "required": ["rule", "why"],
-                "properties": { "rule": { "type": "string" }, "why": { "type": "string" } }
+                "required": ["why"],
+                "anyOf": [{ "required": ["rule"] }, { "required": ["tier"] }],
+                "properties": { "rule": { "type": "string" }, "tier": { "type": "string" }, "why": { "type": "string" } }
               }
             }
           }

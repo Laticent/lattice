@@ -14,6 +14,17 @@ describe('LFM conformance: every shared case passes on the reference implementat
     const sections = new Set(cases.map((c) => c.expect.section));
     for (const s of ['2.1', '2.2', '2.3', '2.4', '3.1', '3.2', '3.3', '4.2', '5.1', '6.1']) assert.ok(sections.has(s), `§${s} has a case`);
   });
+  test('every case is an LFM 1.0 case and cites a section LFM 1.0 has', () => {
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const spec = fs.readFileSync(path.join(__dirname, '../../../spec/LFM-1.0.md'), 'utf8');
+    for (const c of cases) {
+      assert.equal(c.expect.spec, 'LFM-1.0', `${c.name} says ${c.expect.spec}`);
+      const s = c.expect.section;
+      const heading = s === 'A' ? /^## Appendix A\b/m : new RegExp(`^#{2,3} ${s.replace('.', '\\.')}\\s`, 'm');
+      assert.match(spec, heading, `${c.name} cites §${s}, which LFM 1.0 does not have`);
+    }
+  });
   for (const c of cases) {
     test(c.name, () => assert.deepEqual(runCase(c), []));
   }

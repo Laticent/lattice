@@ -20,7 +20,10 @@ test('readLfmVersion: absent, the same major, a newer major, an older major, and
   assert.deepEqual(readLfmVersion('1'), { stated: true, raw: '1', ok: true, major: 1, minor: 0, problem: null });
   assert.equal(readLfmVersion('2.0').problem, 'newer-major');
   assert.equal(readLfmVersion('0.9').problem, 'older-major');
-  for (const bad of ['one', '1.0.1', 'v1', '1.x', '-1']) assert.equal(readLfmVersion(bad).problem, 'malformed', bad);
+  // A patch version is a version (EXTENDING §7), and any value naming another major is refused, never read as 1.0.
+  assert.deepEqual(readLfmVersion('1.0.1'), { stated: true, raw: '1.0.1', ok: true, major: 1, minor: 0, problem: null });
+  for (const other of ['2.0.0', 'v2', '+2', '2.x']) assert.equal(readLfmVersion(other).problem, 'newer-major', other);
+  for (const bad of ['one', 'v1', '1.x', '-1']) assert.equal(readLfmVersion(bad).problem, 'malformed', bad);
   assert.equal(lfmVersionMessage(readLfmVersion('1.0')), null);
   assert.match(lfmVersionMessage(readLfmVersion('2.0')), /LFM 2\.0.*LFM 1\.x/);
 });
@@ -57,4 +60,23 @@ test('command line: refuses an unknown major before rendering, and says why', ()
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
+});
+
+// The engine refuses too, so every host (the Studio, the docs preview, the CLI) shows the same answer (HARD RULE #1).
+// Failing arm: remove the `lfmRefusalOf` block from lib/engine/index.js `render` and the deck renders as LFM 1.0.
+test('the engine renders a notice, not the deck, for another major, and escapes the value it quotes', () => {
+  const { render } = require('../../../lib/engine');
+  const refused = render('---\ntheme: cuoio\nlfm: 2.0\n---\n\n# Secret plan\n');
+  assert.deepEqual(refused.diagnostics.map((d) => d.id), ['lfm/major']);
+  assert.match(refused.html, /This deck can.t be shown/);
+  assert.doesNotMatch(refused.html, /Secret plan/);
+  const hostile = render('---\nlfm: 3.0<script>alert(1)</script>\n---\n\n# Hi\n');
+  assert.doesNotMatch(hostile.html, /<script>alert/);
+  // Markdown in the value is literal text too: no link, no emphasis inside the engine's own notice.
+  const phish = render('---\nlfm: 2 [click](https://evil.example) **x**\n---\n\n# Hi\n');
+  assert.doesNotMatch(phish.html, /<a [^>]*evil\.example/);
+  assert.doesNotMatch(phish.html, /<strong>x<\/strong>/);
+  const fine = render('---\nlfm: 1.0.1\n---\n\n# Hi\n');
+  assert.equal(fine.diagnostics, undefined);
+  assert.match(fine.html, /Hi<\/h1>/);
 });

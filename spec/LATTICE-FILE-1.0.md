@@ -128,7 +128,9 @@ return or refuse.
 
 ## 7. Versioning
 
-The manifest's `version` is the file's version.
+The manifest's `version` is the file's major version, a whole number, as
+[EXTENDING §6](./EXTENDING-1.0.md) allows; what a minor would add needs no new number. EXTENDING §7 sets what each
+version may change, and for this file that means:
 
 - **A new version (2):** removing or renaming an entry or a field, changing what one means, or making
   an optional one required. A version-1 reader refuses the file (`newer-version`, §5.4).

@@ -27,17 +27,28 @@ const STYLING_ONLY = Object.freeze({
 
 const TITLED = new Set([...CARD_STYLE_LAYOUTS, ...LEDGER_LAYOUTS, ...SLOT_LAYOUTS, 'list-steps']);
 
-/** The element names (`em`, `strong`) a stylesheet uses as a type selector, outside comments. */
+/**
+ * The element names (`em`, `strong`) a stylesheet uses as a type selector, outside comments, and in `.loose` every
+ * `strong` selector that is not a titled item's LEAD: the lead is reached with the child combinator (`li > strong`,
+ * `.card > strong`). A descendant `li strong` also catches a bold word inside the body,
+ * which is a structural read of its own (the inventory jank #3554 fixed: a mid-sentence bold broke onto its own line).
+ */
 function readsOf(css) {
   const out = new Set();
+  const loose = [];
   const clean = css.replace(/\/\*[\s\S]*?\*\//g, '');
   for (const m of clean.matchAll(/([^{}]+)\{/g)) {
     for (const sel of m[1].split(',')) {
+      const s = sel.trim();
       for (const tag of ['em', 'strong']) {
-        if (new RegExp(`(^|[\\s>+~(])${tag}(?![\\w-])`).test(sel.trim())) out.add(tag);
+        if (!new RegExp(`(^|[\\s>+~(])${tag}(?![\\w-])`).test(s)) continue;
+        out.add(tag);
+        // A lead is reached through `>` (`li > strong`, `.card > strong`); a descendant `li strong` is not.
+        if (tag === 'strong' && (/[^>\s,(]\s+(?::is\(|:where\()?strong(?![\w-])/.test(s) || /[^>\s,(]\s+:(?:is|where)\([^)]*\bstrong\b/.test(s))) loose.push(s);
       }
     }
   }
+  out.loose = loose;
   return out;
 }
 
@@ -52,7 +63,7 @@ test('every stylesheet that reads em or strong declares it', () => {
     const declared = new Set((m.inlineReads || []).map((r) => (/\bstrong\b/.test(r.selector) ? 'strong' : 'em')));
     for (const tag of readsOf(css)) {
       if (declared.has(tag)) continue;
-      if (tag === 'strong' && TITLED.has(m.name)) continue;
+      if (tag === 'strong' && TITLED.has(m.name) && !readsOf(css).loose.length) continue;
       if (STYLING_ONLY[m.name]?.[tag]) continue;
       undeclared.push(`${m.name}: reads \`${tag}\``);
     }
@@ -82,9 +93,10 @@ test('grammar.json publishes the structural reads', () => {
   const grammar = JSON.parse(fs.readFileSync(path.join(ROOT, 'dist/docs/grammar.json'), 'utf8'));
   const by = Object.fromEntries(grammar.components.map((c) => [c.name, c]));
   assert.equal(by.pricing.inlineReads[0].selector, 'ul > li > em');
-  assert.deepEqual(by.inventory.titledItems, { liftsTitle: true });
-  // citation-card's action card needed a typed `**` before LFM 1.0 (§3.1: a renderer must not need it).
-  assert.deepEqual(by['citation-card'].titledItems, { liftsTitle: true });
+  assert.deepEqual(by.inventory.titledItems, { liftsTitle: true, needsBody: true });
+  // citation-card's bold lead is a declared read (the action card), not a lift: a plain item with a body is a gloss.
+  assert.deepEqual(by['citation-card'].titledItems, { liftsTitle: false });
+  assert.match(by['citation-card'].inlineReads[0].selector, /strong:first-child/);
   assert.deepEqual(by['cards-grid'].titledItems, { liftsTitle: false });
   assert.deepEqual(by['list-steps'].titledItems.liftVariants, ['chevron', 'converge', 'ghost']);
   assert.equal(by.title.titledItems, null);

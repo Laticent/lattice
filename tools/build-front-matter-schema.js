@@ -53,12 +53,13 @@ function profileOf(row) {
 }
 
 /** A prefixed key (`acme.tally`) belongs to the plugin of that name (spec/EXTENDING-1.0.md §4): allowed, not listed. */
-const PREFIXED_KEY = '^[a-z][a-z0-9-]*\\.[a-z][a-z0-9-]*$';
+const { PREFIXED_KEY } = require('../lib/core/deck-settings');
 
 /** One property's schema for a row. Throws on a row the schema cannot express. */
 function propertyFor(row, lists) {
   if (!KINDS.has(row.kind)) throw new Error(`${row.key}: unknown kind '${row.kind}'`);
-  const base = { description: row.info, 'x-lattice-profile': profileOf(row), ...(row.default && row.default !== 'none' ? { $comment: `default: ${row.default}` } : {}) };
+  // EXTENDING §3: every entry says the registry version that added it (`since`, 1.0 for every key 1.0 ships).
+  const base = { description: row.info, 'x-lattice-profile': profileOf(row), 'x-lattice-since': row.since || REGISTRY_VERSION, ...(row.default && row.default !== 'none' ? { $comment: `default: ${row.default}` } : {}) };
   const names = settingValues(row, lists);
   switch (row.kind) {
     case 'register':
@@ -81,13 +82,39 @@ function propertyFor(row, lists) {
     case 'map':
       return { ...base, type: 'object' };
     case 'retired':
-      return { ...base, deprecated: true, ...(row.replacement ? { 'x-lattice-replacement': row.replacement } : {}) };
+      // JSON Schema's own `deprecated` stays a boolean; EXTENDING §3's version of it is `x-lattice-deprecated`.
+      return { ...base, deprecated: true, 'x-lattice-deprecated': row.deprecatedIn || REGISTRY_VERSION, ...(row.replacement ? { 'x-lattice-replacement': row.replacement } : {}) };
     case 'marp':
       return base;
     default:
       return { ...base, ...(row.complete ? { examples: [...row.complete] } : {}) };
   }
 }
+
+/**
+ * The registry's version (EXTENDING §3). A registry minor adds or retires an entry; a major removes one. Raise it with
+ * the change that needs it; test/unit/tools/registry-names.test.js fails when an entry 1.0 listed disappears.
+ */
+const REGISTRY_VERSION = '1.0';
+
+/**
+ * Record fields that are not front-matter keys (LFM 1.0 §2.3): the slide's own settings. The rest of a record's fields
+ * share their name with a front-matter key, which `properties` lists. A record writes a key in kebab case
+ * (`focus-steps`, `background-image`).
+ */
+const RECORD_ONLY_FIELDS = Object.freeze({
+  layout: 'The component the slide uses (LFM §4.1).',
+  class: 'The modifier tokens after the component.',
+  variant: 'A component variant, written as a class word.',
+  universal: 'A base modifier, written as a class word.',
+  modifiers: 'Modifier tokens, written as class words.',
+  carry: 'The record runs on to every later slide, as a front-matter key would from that slide on.',
+  hide: 'The slide is left out of the rendered deck.',
+  lens: 'The reader lenses the slide is in or out of (LFM §6.1).',
+  pane: 'The component a pane of a `columns` or `rows` slide uses.',
+  panes: 'The ratio of a `columns` or `rows` slide\'s panes.',
+  'focus-steps': 'The focus walk the slide steps through.',
+});
 
 /** The whole schema, in memory. */
 function buildSchema() {
@@ -99,11 +126,14 @@ function buildSchema() {
     $schema: 'https://json-schema.org/draft/2020-12/schema',
     $id: 'https://lattice.style/schemas/front-matter.schema.json',
     title: 'Lattice deck front matter',
+    'x-lattice-version': REGISTRY_VERSION,
     description: 'The keys a Lattice deck\'s leading YAML block may carry. Generated from lib/core/deck-settings.js by tools/build-front-matter-schema.js; do not edit.',
     type: 'object',
     properties,
     patternProperties: { [PREFIXED_KEY]: {} },
+    // An authoring tool validates with this; a reader never refuses to render over an unknown key (EXTENDING §5).
     additionalProperties: false,
+    'x-lattice-record-fields': Object.fromEntries(Object.entries(RECORD_ONLY_FIELDS).map(([k, d]) => [k, { description: d, 'x-lattice-since': REGISTRY_VERSION }])),
   };
 }
 
@@ -127,4 +157,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { buildSchema, propertyFor, profileOf, PREFIXED_KEY };
+module.exports = { buildSchema, propertyFor, profileOf, PREFIXED_KEY, REGISTRY_VERSION, RECORD_ONLY_FIELDS };

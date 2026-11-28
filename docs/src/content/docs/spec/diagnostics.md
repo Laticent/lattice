@@ -30,7 +30,7 @@ findings and quick-fixes — in an editor, a CI check, a PR bot, or a host like
 GitHub. This protocol is the foundation of a future LFM Language Server (§6).
 
 The reference implementation is `lib/authoring/lint-core.js` (pure, fs-free,
-shared by the CLI `tools/lint-deck.js`, the engine's `validate()`, and the
+shared by the CLI `lattice lint` (`lib/cli/lint-deck.js`), the engine's `validate()`, and the
 browser panels in the Studio and the Playground). This document *publishes* that implementation's
 contract; the contract, not the implementation, is the standard.
 
@@ -97,13 +97,16 @@ A tool that reports on a whole deck (a CLI, a CI check, an agent tool) returns o
 `coverage.profiles` names the LFM parts whose rules the tool ran. **An empty `findings` list means clean only for what
 `scope` and `coverage` name**: a part the tool did not run is unknown, never a pass. A tool that skipped a rule it
 would otherwise run (a rule that needs a browser, say) MUST list it in `coverage.skipped`, an array of
-`{ "rule": string, "why": string }`. A reader MUST refuse a report whose major version it does not know.
+`{ "rule": string, "why": string }`, or `{ "tier": string, "why": string }` for a whole group of rules it left out. A reader MUST refuse a report whose major version it does not know.
 
-The reference CLI, `tools/lint-deck.js --json`, emits this report, with three counts beside it (`files`, `errors`,
-`warnings`, `suggestions`) and `reviewFindings`, the review tier (§3.9). Its schema is
+The reference CLI, `lattice lint --json` (`npm run lint:deck -- --json` in a checkout), emits this report, with four
+counts beside it (`files`, `errors`, `warnings`, `suggestions`) and `reviewFindings`, the review tier (§3.9). It lists the
+`review` tier in `coverage.skipped` when that tier is off, and always lists `fit`, the browser-based fit checks, which run only in its text report (`--fit`). Its schema is
 [`spec/diagnostics.schema.json`](https://github.com/Laticent/lattice/blob/main/spec/diagnostics.schema.json).
 
 ## 2. Severities
+
+A reader that meets a severity this list does not name MUST treat it as `info`, so a later minor can add one.
 
 - **`error`** — the slide will render visibly wrong (a slot inherits the wrong
   weight, a grid row splits, a required slot renders empty). Authors SHOULD
@@ -159,7 +162,7 @@ distinct, stable ID.
 
 | Rule ID | Severity | Autofix | What it catches |
 |---|---|---|---|
-| `unknown-class` | warning | ✓ | A `_class` token that is not a known component or modifier, or one that was renamed. Carries a did-you-mean. |
+| `unknown-class` | warning | ✓ | A word in a record's `layout` or `class` that is not a known component or modifier, or one that was renamed. Carries a did-you-mean. |
 | `agenda-empty` | warning | — | An `agenda` slide with no list, in a deck with fewer than two shown `divider` slides, so the engine has nothing to fill it from and it renders as a heading over an empty slide (`lib/core/agenda-autofill.js`). |
 | `agenda-retired-style` | warning | ✓ | An `agenda` slide naming the retired `rail` or `cards` style; it renders as the default ledger. The fix rewrites `rail` to `circles` and removes `cards`. |
 | `conflicting-variants` | warning | — | Two tokens on one slide from an axis that takes one value at a time (two variants, two finishes); only one wins. |
@@ -197,13 +200,13 @@ distinct, stable ID.
 | `collage-hint` | warning | — | A trailing hint span after a `collage` photo that is not `hero`, one focal word (`top`, `bottom`, `left`, `right`, `center`) and a ratio such as `3:2`; the whole span is ignored and nothing is drawn for it. |
 | `collage-tail` | warning | — | Text after a `collage` photo that is not a clean hint span; a collage draws no per-photo text, and any hint on that line is ignored. |
 | `collage-hero-dup` | warning | — | More than one `collage` photo marked `hero`; only the first counts. |
-| `track-directive` | warning | — | A bare `track:` (deck-wide from that slide on) where `_track:` was meant, `_track` on a slide that is not `topic` or on `topic fact`, a track with fewer than two labels (none is drawn), or a track with no current topic. |
+| `track-directive` | warning | — | A record's `track` with `carry` (it runs on to every later slide) where one slide was meant, a `track` on a slide that is not `topic` or on `topic fact`, a track with fewer than two labels (none is drawn), or a track with no current topic. |
 | `track-list` | warning | — | A list on a `topic` slide, which shows as plain content; the track is built from the section's headings. |
 | `focus-spec` | warning | — | A malformed `_focus` directive; it silently does nothing at render. |
 | `focus-style` | warning | — | A `_focusStyle` value that is not `spotlight`, `ring`, `list-fill`, `blur` or `highlight`. |
 | `focus-steps` | warning | — | A `_focusSteps` step that is not a valid `_focus` spec (only the first bad step is reported). |
 | `focus-with-steps` | warning | — | A slide carries both a static `_focus` and a `_focusSteps` walk; the walk wins and the `_focus` is ignored. |
-| `one-stepping-directive` | error | — | A slide carries both `_build` and `_focusSteps` (a deck-wide `build:` counts; `_build: none` opts out). A slide takes one stepping directive (engineering/decisions/2026-11-09-steps-as-a-behavior.md §1). |
+| `one-stepping-directive` | error | — | A slide's record sets both `build` and `focus-steps` (a deck-wide `build:` counts; `build=none` opts out). A slide takes one stepping setting (engineering/decisions/2026-11-09-steps-as-a-behavior.md §1). |
 | `unknown-map-region` | warning | — | A `map` list item whose lead name the basemap can't resolve. Carries a did-you-mean against the basemap vocabulary. |
 | `map-highlight-implied` | info | — | A `map highlight` slide whose values are labels (or absent), so the data already fills it by category and the class says nothing. |
 | `trail-budget` | warning | — | A word in an `authority-chain trail` column too long for the column, which squeezes the others. |
@@ -220,7 +223,7 @@ distinct, stable ID.
 | `markup-unsure` | warning | — | Raw HTML a browser may build differently from how the preview's reader reads it (an unclosed comment, HTML inside `<svg>` or `<math>`, a `<select>`, a `<noscript>`): the preview asks the browser's own parser there. |
 | `code-record` | warning | — | An `@code{…}` record above a fence that does not read: an unknown word, a bad line range, a width out of range. The render ignores what it cannot read. |
 | `code-record-orphan` | warning | — | An `@code{…}` record line with no fence after it, so it configures nothing and renders as inline code. |
-| `code-line-range` | warning | — | A line reference past the end of its code block: `focus=` or `mark=` in a record, or a slide's `_focus: line` against its first fence. It marks nothing. Not checked on a formatted block, whose lines the formatter decides. |
+| `code-line-range` | warning | — | A line reference past the end of its code block: `focus=` or `mark=` in a record, or a record's `focus=line …` against the slide's first fence. It marks nothing. Not checked on a formatted block, whose lines the formatter decides. |
 | `code-format-unsupported` | warning | — | A block whose own `@code{…}` record asks for `format` in a language no formatter reads; it keeps its text. |
 
 ### 3.2 Fit and capacity
@@ -310,7 +313,7 @@ distinct, stable ID.
 | `unknown-color-mode` | warning | ✓ | A `color-mode:` value the engine does not know; the deck uses the theme's default colors. |
 | `unknown-delivery` | warning | ✓ | A `delivery:` value the engine does not know; the deck uses `restrained`. |
 | `unknown-pace` | warning | ✓ | A `pace:` value the engine does not know; playback uses each viewer's own setting. |
-| `unknown-debug-facet` | warning | — | A word in a front-matter `debug:` value or a `<!-- _debug: -->` directive that the engine does not know; the overlay falls back to on-hover. |
+| `unknown-debug-facet` | warning | — | A word in a front-matter `debug:` value or a record's `debug` field that the engine does not know; the overlay falls back to on-hover. |
 | `deck-wide-component` | warning | — | A component named in the deck-wide `class:` register (every slide would become it), or a class `color-mode:` overrides. Ignored. |
 | `bad-render-target-value` | warning | — | A render-target setting that is neither on nor off; the export treats it as off. |
 | `nested-render-target-key` | warning | — | An indented render-target key that the export still reads as the deck setting. |

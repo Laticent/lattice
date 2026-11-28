@@ -11,7 +11,7 @@ footer: "Lattice · titled items, nested"
 
 `LFM 1.0 · §3.1 and §3.4`
 
-On a card or ledger layout, the bullet is the title and its body nests under it. No layout needs `**` to find a title.
+On a card or ledger layout, the bullet is the title and its body nests under it. Where bold means more, the layout declares it.
 
 ---
 
@@ -83,16 +83,31 @@ On a card or ledger layout, the bullet is the title and its body nests under it.
 
 ---
 
+<!-- @meta{layout=list-steps} -->
+
+## A bold word in a step stays inline.
+
+1. Freeze
+   - Integrations stop **two weeks** before cutover.
+2. Migrate
+   - Data moves in **three** waves, smallest first.
+3. Verify
+   - Each wave is checked against the source.
+4. Cut over
+   - Traffic moves on a **Tuesday** morning.
+
+---
+
 <!-- @meta{layout=citation-card} -->
 
-## The action card needs no bold label.
+## The bold lead marks the action card.
 
 `Cal. Civ. Code §1798.140(o) · CCPA/CPRA`
 
 > "Personal information" means information that identifies, relates to, describes, is reasonably capable of being associated with, or could reasonably be linked, directly or indirectly, with a particular consumer or household.
 
 - In plain English: any data tied to a household or device, not just a named person.
-- What we must do
+- **What we must do**
   - Treat household-level identifiers as PI in our notice, retention and DSAR workflows.
 
 ---

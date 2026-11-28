@@ -45,6 +45,8 @@ test('the reference CLI report validates, and front-matter findings sit on slide
   const report = lintJson(DECK);
   assert.ok(validate(report), JSON.stringify(validate.errors, null, 2));
   assert.equal(report.version, '1.0');
+  // §1.1: a tier the run left out is listed. The fit checks need a browser, so a JSON report always names them.
+  assert.deepEqual(report.coverage.skipped.map((x) => x.tier), ['fit']);
   const all = [...report.findings, ...report.reviewFindings];
   const rules = all.map((f) => f.rule);
   for (const r of ['key-renamed', 'unknown-key', 'pagination-unsupported-value']) assert.ok(rules.includes(r), `${r} in ${rules}`);
@@ -53,6 +55,20 @@ test('the reference CLI report validates, and front-matter findings sit on slide
   }
   const renamed = report.findings.find((f) => f.rule === 'key-renamed');
   assert.deepEqual(renamed.replacement, { from: 'paginate', to: 'pagination' });
+});
+
+test('--no-review lists the review tier in coverage.skipped', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'diag-skip-'));
+  try {
+    const file = path.join(dir, 'deck.md');
+    fs.writeFileSync(file, DECK);
+    const r = spawnSync(process.execPath, [path.join(ROOT, 'tools/lint-deck.js'), '--json', '--no-review', file], { encoding: 'utf8' });
+    const report = JSON.parse(r.stdout);
+    assert.ok(validate(report), JSON.stringify(validate.errors));
+    assert.deepEqual(report.coverage.skipped.map((x) => x.tier).sort(), ['fit', 'review']);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('the schema refuses a finding with no message and a report with no coverage', () => {

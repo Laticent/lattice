@@ -72,12 +72,16 @@ A leading YAML front-matter block carries deck-wide settings. The settings a rea
 **settings registry**, `dist/schemas/front-matter.schema.json`, generated from the reference implementation's
 `lib/core/deck-settings.js`; each entry names its key, its values, the part of LFM it belongs to
 (`x-lattice-profile`: `core`, `presentation`, `notation`, `lens`, `timing`, or `application` for a host's own key)
-and, for a retired key, `deprecated` with its replacement (`x-lattice-replacement`). A prefixed key matches the
-registry's `patternProperties` and is otherwise unlisted. This document states the rules every key follows; the registry lists the keys (§4.2).
+and the registry version that added it (`x-lattice-since`); a retired key also names the version that retired it
+(`x-lattice-deprecated`) and its replacement (`x-lattice-replacement`). The record fields that are not front-matter keys
+(`layout`, `class`, `carry`, `lens`, `pane`, `focus-steps`, …) are listed under `x-lattice-record-fields`. A prefixed
+key matches the registry's `patternProperties` and is otherwise unlisted. The registry refuses an unknown key so an
+authoring tool can validate against it; a renderer still ignores one (below). This document states the rules every key follows; the registry lists the keys (§4.2).
 
 - **The version line.** A deck MAY state the LFM version it was written for: `lfm: 1.0`. A deck that states none is
   read as LFM 1.0. A reader MUST read any 1.x deck, applying the unknown-key rule below to what it does not know, and
-  MUST refuse a deck whose major version it does not implement, with a message that says a newer reader is needed
+  MUST refuse a deck whose major version it does not implement, with a message that says this reader cannot read that
+  version
   ([EXTENDING §6](https://github.com/Laticent/lattice/blob/main/spec/EXTENDING-1.0.md)).
 - **An unknown key** (one neither this spec nor its registries name) MUST NOT change the render. A tool that writes
   the deck back (an editor, an export, a migration) MUST keep it as it found it. An L2 tool SHOULD report it as
@@ -87,8 +91,9 @@ registry's `patternProperties` and is otherwise unlisted. This document states t
   key: reading one is a 1.x addition.
 - **A host application** MAY read its own keys (the Lattice Studio reads `title:` to name a deck); they are
   application metadata, listed in the registry so they do not warn.
-- **A retired key** (`paginate:`, `marks:`) is listed in the registry with its replacement. A renderer ignores it; an L2
-  tool reports it as `key-renamed`, with a fix that renames it.
+- **A retired key** (`paginate:`, `marks:`) is listed in the registry, with its replacement where one exists. A renderer
+  ignores it. An L2 tool reports it: `key-renamed`, with a fix that renames it, for a one-to-one rename; a rule of its
+  own where the key split in two (`marks:` is `marks-split`) or left nothing in its place (`autosplit:`).
 
 - **Degrades to:** front matter is hidden or shown as a metadata table, depending on the
   host. **L0-clean.**
@@ -113,8 +118,8 @@ A renderer also starts a slide at a heading unless the deck sets `split: rule` (
 each `---`-separated section, every `#` or `##` after the section's first heading starts a new
 slide; `###` and deeper never do (on `columns` and `rows`, a `###` starts a pane within the slide, §3.4). A `---` still divides with headings on. So a deck whose every
 `---`-separated section holds at most one `#` or `##` has the same slides either way, and a deck
-with more does not. A slide's lead-in (its record, and an eyebrow written above the
-heading) belongs to the heading's slide, not the one before.
+with more does not. A slide's lead-in (its record, and a paragraph that is one inline-code span
+alone, written directly above the heading) belongs to the heading's slide, not the one before.
 
 - **Degrades to:** horizontal rules. **L0-clean.**
 
@@ -156,7 +161,7 @@ starts with `"` is a JSON string. Any other line is a finding (`meta-block-line`
 a letter, then letters, digits and hyphens.
 
 **Unknown fields.** A field this spec and its registries do not name is ignored by a renderer and kept by a writer
-(§2.1). A field with a prefix (`acme.tally=3`) is reserved for the plugin of that name ([EXTENDING §4](https://github.com/Laticent/lattice/blob/main/spec/EXTENDING-1.0.md)), and in 1.0 a reader refuses it, as Segno 1.0 refuses a dotted name (`bad-name`, [SEGNO §8](https://github.com/Laticent/lattice/blob/main/spec/SEGNO-1.0.md)).
+(§2.1). A record never carries a prefixed field: Segno 1.0 refuses a dotted name and the whole record with it (`bad-name`, [SEGNO §8](https://github.com/Laticent/lattice/blob/main/spec/SEGNO-1.0.md)), so a plugin's per-slide data goes in the plugin's own note ([EXTENDING §4](https://github.com/Laticent/lattice/blob/main/spec/EXTENDING-1.0.md)).
 
 The field registry is `dist/schemas/front-matter.schema.json`: a record field and a front-matter key are one name
 for one setting, so a deck-wide setting and a one-slide override use the same word. The shared cases are
@@ -247,10 +252,12 @@ the layout's **list contract** (`lists` in `grammar.json`): on a `neutral` layou
 render the same, on a `numbered-tags` layout `1.` turns on the number tags, and on a
 `prose` layout they are an ordinary bulleted or numbered list.
 
-The title is the item's own text, and a renderer MUST NOT need `**` to recognize it.
+The title is the item's own text, and a renderer MUST NOT need `**` to recognize it. The one
+exception is a component that declares a bold lead as a `meaning` read (§3.4): on `citation-card`,
+`- **What we must do**` is the action card, and an item without the bold is a plain gloss.
 `grammar.json` publishes each layout's `titledItems`. Where `liftsTitle` is true, the
-engine sets an item's title in `<strong>` itself whenever a body is nested under it, so an
-author's `**` around the whole title changes nothing. Elsewhere the layout's stylesheet
+engine sets each top-level item's lead in `<strong>` itself (with `needsBody`, only an item
+with a list nested directly under it), so an author's `**` around the whole title changes nothing. Elsewhere the layout's stylesheet
 sets the title's weight, and an author's `**` keeps its ordinary meaning: it adds stress.
 
 - **Degrades to:** a nested bullet list — exactly what it reads as. **L0-clean.**
@@ -267,18 +274,18 @@ words (a roadmap's *missed* for `[!]`); it MUST NOT change the answer.
 | Marker | Answer | Notes |
 |---|---|---|
 | `[x]` | yes / done / met | GFM task-list syntax. |
-| `[-]` | partly / in progress | **Not GFM syntax** (see §5.1). |
-| `[!]` | no / failed / not met | **Not GFM syntax** (see §5.1). |
-| `[?]` | unknown — looked at, cannot be settled | **Not GFM syntax** (see §5.1). |
+| `[-]` | partly / in progress | **Not GFM syntax** (see §7.1). |
+| `[!]` | no / failed / not met | **Not GFM syntax** (see §7.1). |
+| `[?]` | unknown — looked at, cannot be settled | **Not GFM syntax** (see §7.1). |
 | `[ ]` | open — not started, not assessed | GFM task-list syntax. |
-| `[/]` | does not apply / out of scope | **Not GFM syntax** (see §5.1). |
+| `[/]` | does not apply / out of scope | **Not GFM syntax** (see §7.1). |
 
 `[X]` (capital) is **not** a marker. GFM reads it as a *checked* box, the
 opposite of what a cross suggests, so LFM leaves it literal.
 
 - **`[x]` / `[ ]` degrade to:** real checkboxes in any GFM host. **L0-clean.**
 - **`[-]` / `[!]` / `[?]` / `[/]` degrade to:** literal text (`[-] …`). Readable
-  but not a checkbox — LFM's only non-GFM-clean construct (§5.1).
+  but not a checkbox — LFM's only non-GFM-clean construct (§7.1).
 
 ### 3.3 Fenced sub-languages (charts, diagrams & motion)
 
@@ -358,7 +365,16 @@ effect there). A component that restyles emphasis while it stays emphasis (a mut
 tail) does not declare it: its meaning has not changed.
 
 **Adding a read** is adding a declaration, which is a registry change (EXTENDING §3), never a
-spec change. A read that is not declared is a defect in the component, not a convention.
+spec change. A read on a component the registry adds in the same version is a registry minor. A
+`meaning` read added to a component that already exists changes what an existing deck shows, so
+it is a registry **major**. A read that is not declared is a defect in the component, not a
+convention.
+
+**Which part reads what.** The rule above is core: a Core-only reader keeps every construct's
+ordinary meaning, which is what it already does. The declarations belong to the components, so a
+reader honors them as part of the Presentation profile. A declaration's `selector` is an
+informative read-out over the reference renderer's output; its `reads` sentence and the
+component's documentation are what a second implementation follows.
 
 - **Degrades to:** the ordinary Markdown it is written in: an eyebrow is inline code, a key
   insight is a blockquote, a ribbon is italic text. **L0-clean** by construction.
@@ -376,11 +392,10 @@ is generated, not enumerated here, so it cannot drift:
   component name, its required and optional **slots** (CSS selector +
   description), its **skeleton**, the **fences/state-markers** it reads, and its
   **data slots** (`dataSlots`, §5.1 rule 4).
-- **Modifiers** — recognized by set membership or by these prefix families:
-  `tint-`, `mark-`, `with-`, `at-`, `no-`, `tone-`, `treatment-`, `checks-`,
-  plus the universal/semi-universal variant sets. The authoritative prefix list
-  is `MODIFIER_PREFIXES` in
-  [`lib/authoring/lint-core.js`](https://github.com/Laticent/lattice/blob/main/lib/authoring/lint-core.js); the enumerated
+- **Modifiers** — recognized by set membership or by a prefix family (`tint-`,
+  `mark-`, `with-`, `no-`, …), plus the universal/semi-universal variant sets. The authoritative prefix list
+  is `vocabularies.modifierPrefixes` in the component registry,
+  `dist/docs/components.json`; the enumerated
   variant tiers are cataloged in
   [`design/design-system.md`](https://github.com/Laticent/lattice/blob/main/design/design-system.md) §6.5.
 
@@ -570,7 +585,9 @@ LFM follows [EXTENDING §7](https://github.com/Laticent/lattice/blob/main/spec/E
 A new component, modifier, register, record field or fence is a **registry** change, not a version of this document.
 The registries (`dist/docs/grammar.json`, `dist/docs/components.json`, `dist/schemas/front-matter.schema.json`) are
 generated from the reference implementation on every build, so they always match the engine that ships beside this
-document.
+document. Each states its version and each entry its `since` ([EXTENDING §3](https://github.com/Laticent/lattice/blob/main/spec/EXTENDING-1.0.md)), and an entry 1.0
+listed is retired, never dropped, in a 1.x: `spec/conformance/registry/1.0.json` holds the names, and a test fails
+when a build drops one.
 
 ## 10. Conformance testing
 
@@ -601,7 +618,7 @@ them as it treats any embedded renderer.
   LFM's; a host MUST NOT widen its file-access surface to render LFM. The
   Lattice reference engine gates local files behind an explicit
   `--allow-local-files` flag.
-- **Treat a prefixed value as untrusted.** A front-matter key, record field or note with a prefix
+- **Treat a prefixed value as untrusted.** A front-matter key or note with a prefix
   (§2.1) reaches only the plugin that owns it, and whatever that plugin returns passes the host's
   markup and stylesheet sanitizers before it reaches a rendered document
   ([EXTENDING §4.1](https://github.com/Laticent/lattice/blob/main/spec/EXTENDING-1.0.md)).
@@ -615,7 +632,7 @@ LFM 1.0 deliberately does **not**:
 - **Define a parser or a formal grammar for the prose layer.** LFM rides CommonMark. `grammar.json` is a structural
   projection (selectors and skeletons), not a parser grammar. The one formal grammar LFM relies on is Segno's (§2.3).
 - **Re-encode the `[-]` / `[!]` / `[?]` / `[/]` state markers** into GFM-clean glyphs (§7.1).
-- **Read prefixed names.** They are reserved for plugins (§2.1); reading them is a 1.x addition.
+- **Read prefixed notes.** They are reserved for plugins (§2.3, EXTENDING §4); reading them is a 1.x addition. A slide record never carries a prefixed field.
 - **Open a registration path** for out-of-tree components, modifiers or fences: new vocabulary enters through the
   registries, which the reference implementation generates.
 - **Ship a Language Server or character-precise diagnostic ranges**; the Diagnostic Protocol is their foundation.
@@ -634,8 +651,8 @@ LFM 1.0 deliberately does **not**:
   implementation is an explicit adoption goal.
 - **Amendments.** Changes follow the rules in §9 and land through the
   project's normal review — a PR against `spec/`, recorded in the history below
-  and in `CHANGELOG.md`. Any change to a normative MUST/MAY requires a version
-  bump per §7.
+  and in a changeset (`.changeset/`). Any change to a normative MUST/MAY requires a version
+  bump per §9.
 
 ### Document history
 

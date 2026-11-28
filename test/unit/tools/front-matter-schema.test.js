@@ -42,3 +42,13 @@ test('every key names its LFM part, and every renamed key its replacement', () =
   assert.equal(schema.properties.marks['x-lattice-replacement'], 'chart-finish color-intensity');
   assert.equal(schema.properties.say['x-lattice-replacement'], '@say');
 });
+
+// Lint reads the same pattern the registry publishes (lib/core/deck-settings.js PREFIXED_KEY), so the two cannot
+// disagree. Failing arm: drop the dot from lint-core's key pattern and `a.b.c` goes unreported again.
+test('lint: a well-formed prefixed key is quiet, a malformed one is unknown-key, and a repeat is duplicate-key', () => {
+  const { lintText } = require('../../../lib/authoring/lint');
+  const rules = (fm) => lintText(`---\n${fm}\n---\n\n# Hi\n`).filter((f) => f.rule === 'unknown-key' || f.rule === 'duplicate-key').map((f) => `${f.rule}:${f.classToken ?? ''}`);
+  assert.deepEqual(rules('acme.tally: 3'), []);
+  for (const bad of ['Acme.Tally', 'a.b.c', 'acme_x.y']) assert.deepEqual(rules(`${bad}: 3`), [`unknown-key:${bad}`]);
+  assert.equal(rules('acme.tally: 1\nacme.tally: 2').filter((r) => r.startsWith('duplicate-key')).length, 1);
+});
