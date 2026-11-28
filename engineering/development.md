@@ -755,7 +755,7 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   it the way a person does: the phone's back button, or the sheet's own close button at iPad Safari's width (a synthetic
   Escape, the old way, was sometimes never honored in the iPad simulator; it is now the last resort). It needs Xcode 26: Xcode 27 replaced Simulator.app and safaridriver then finds no iOS session host. Screenshots
   and the result JSON upload as the run's `platform-suite-…` artifact. `node docs/scripts/ios-safari/probe.selftest.mjs` runs the same
-  probe on Playwright WebKit against a local `preview:e2e`, to prove a probe change before spending a macOS job on it. A simulator
+  probe on Playwright WebKit against a local `preview:e2e`, to prove a probe change before spending a macOS job on it. With `HOLD=<regex>` it never answers matching requests (the service worker blocked), the failing arm for a stall report: `HOLD='/_astro/image-size-memo\.' ONLY=panes-probe.js SHAPES=iPad-Safari-width` must fail with the panes probe's `render gate image chunks`. A simulator
   runs on the Mac's hardware, so it is not a physical device.
   `ios-safari-jpeg-ipad` and `ios-safari-jpeg-iphone` run the same recipe with `PROBE=jpeg`: `jpeg-probe.js` encodes a slide-sized synthetic photograph and four
   committed screenshots with the shared JPEG encoder (`@laticent/lastra` `createJpegEncoder`) and with Safari's own `toBlob`, on a blank page

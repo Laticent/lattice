@@ -150,6 +150,14 @@ async function latticePanesProbe() {
 			// service worker) is one missing here.
 			`engine ${window.LatticePlayground ? 'loaded' : 'NOT loaded'}`,
 			`bake ${box?.getAttribute('data-lattice-bake') ?? 'none'}`,
+			// The step the newest render is waiting on (docs/src/playground/single-slide-render.ts `markGate`). Anything short of
+			// `done` after the 4 s frame-scheduler watchdog is a render that never settled, and nothing will render again unprompted.
+			`render gate ${(() => {
+				// The renderer writes the step as a number (single-slide-render.ts `markGate`); this list names them, in its order.
+				const RENDER_GATE_STEPS = ['theme', 'engine render', 'split', 'image chunks', 'frame load', 'sheet load', 'done', 'stood down', 'failed'];
+				const g = box?.getAttribute('data-lattice-gate');
+				return g ? (RENDER_GATE_STEPS[Number(g)] ?? `step ${g}`) : 'none';
+			})()}`,
 			`finished: ${(() => {
 				try {
 					const done = performance.getEntriesByType('resource').map((e) => e.name);
@@ -157,6 +165,29 @@ async function latticePanesProbe() {
 					// unfetched (the checker on #3368).
 					const absent = done.length >= 250 ? 'not seen (the list holds only 250)' : 'NO';
 					return ['esm/engine.js', 'lattice.css'].map((f) => `${f} ${done.some((n) => n.includes(f)) ? 'yes' : absent}`).join(', ');
+				} catch {
+					return 'unreadable';
+				}
+			})()}`,
+			// THE GATES AFTER THE ENGINE LOADS (run 46081960658: engine loaded, engine.js and lattice.css finished, and still no
+			// frame for 150 s). The first render then waits on the deck's theme CSS (docs/src/lib/theme-fetch.ts) and on the lazy
+			// chunks single-slide-render.ts imports before it writes the frame. Each is named with its time and status, or "not
+			// finished" (pending, failed before a response, or never asked for: a resource entry is written only when a response ends).
+			`after load: ${(() => {
+				try {
+					const all = performance.getEntriesByType('resource');
+					const full = all.length >= 250;
+					const gate = (label, re) => {
+						const hits = all.filter((e) => re.test(e.name));
+						if (!hits.length) return `${label} ${full ? 'not seen (list full)' : 'not listed'}`;
+						return hits
+							.map((e) => `${label === 'theme' ? e.name.replace(/^.*\/themes\//, '') : label} ${Math.round(e.duration)} ms ${e.responseStatus ?? '?'}`)
+							.join(', ');
+					};
+					return [
+						gate('theme', /\/playground\/v\/[^/]+\/themes\/[^/]+\.css/),
+						...['pane-run', 'measured-split', 'split-page-pick', 'remote-ref', 'image-size-memo', 'preview-image-scale'].map((n) => gate(n, new RegExp(`/_astro/${n}\\.[^/]*\\.js`))),
+					].join(', ');
 				} catch {
 					return 'unreadable';
 				}
