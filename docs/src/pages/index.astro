@@ -237,9 +237,11 @@ const nextSteps = nextStepsFor(url);
 		    link with that download. Locally it cost the hero's first slide ~0.2 s and Lighthouse
 		    ~2 s of LCP; on the real CDN both were unchanged within noise (§7). Neutral there, a
 		    win locally, and one download fewer: the iframe fetches the runtime when it needs it. */}
+		{/* The description leads with Compose and names Markdown as Source (owner, 2026-11-28,
+		    PR 3618 "copy 2"): the page's first door is the Studio's writing page. */}
 		<PageMeta
 			title="Lattice — Markdown to boardroom-ready slide decks (PDF, PPTX)"
-			description="Write plain Markdown, pick a layout per slide, and Lattice renders a polished PDF, PPTX, or HTML deck with one palette and zero design work. Free, offline, open source (AGPL-3.0)."
+			description="Write each slide in Compose, like a document, or in Source as Markdown. Pick a layout, and Lattice renders a polished PDF, PowerPoint, or web deck. Free, open source (AGPL-3.0-only)."
 		/>
 		{/* Where an agent starts (#3522 E2-S01): the authoring entry, in the initial HTML. The
 		    llms.txt describedby tag every page carries is written by scripts/md-twins.mjs. The

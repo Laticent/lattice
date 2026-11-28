@@ -55,7 +55,7 @@ export function SectionHead({
 // as the lesser one: Compose is a first-class way to write, not a fallback for people
 // who cannot write Markdown.
 const HOW_STEPS: { verb: string; body: React.ReactNode }[] = [
-	{ verb: 'Write', body: 'in Compose, like a document, or as a few lines of Markdown.' },
+	{ verb: 'Write', body: 'in Compose, like a document, or in Source, as a few lines of Markdown.' },
 	{
 		verb: 'Pick a layout',
 		body: (

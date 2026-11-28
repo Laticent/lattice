@@ -46,11 +46,14 @@ export function HeroCopy() {
 				email), and pick the layout that fits it. Lattice sets every page so your audience gets the point at a
 				glance.
 			</p>
-			{/* The contrast with AI deck generators, at the fold. Both scoring reviews
+			{/* The contrast with AI deck generators, at the fold. Bounded like the proof
+			    strip (owner, 2026-11-28, PR 3618 "copy 1 yes"): the same text and palette give
+			    the same design; never identical pixels on every machine. Both scoring reviews
 			    found it only mid-page; the July note's §7.1 still holds — the page
 			    never lets the product write the deck. */}
 			<p className="m-0 mt-4 max-w-[46ch] text-[15px] font-semibold text-[var(--text-heading)]">
-				Not an AI that guesses your slides: Lattice renders what you wrote, the same way every time.
+				Not an AI that guesses your slides: Lattice renders what you wrote, and the same text and palette give the same
+				design every time.
 			</p>
 		</div>
 	);
