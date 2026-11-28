@@ -96,7 +96,11 @@ const SANCTIONED = {
 // "before" or "old" on its own appears in plenty of current instructions, and a cue that broad excused
 // `` `guards: loose` is the default `` (lib/base/base.docs.md) because "before #2308" sat in the same paragraph.
 const RETIREMENT_CUE =
-  /\b(?:retired|retirement|renamed|was called|replaced|no longer|legacy|migrat\w*|rewrites?|deprecated|(?:the|an?) old(?:er)? (?:name|names|key|keys|form|forms|spelling|one|note|syntax|classes)|old names|LFM 1\.x|reaches nothing|MUST NOT apply)\b|\*\*Not read:?\*\*|`[^`]+`[^.]*\b(?:is|are) not read\b|\b(?:the|an?) old `[^`]+` (?:key|keys|class|classes|name|form|spelling|comment|comments)\b|\b(?:was|formerly) `|→|`[^`]+`[ \t]*(?:becomes|is now|instead of)[ \t]+`/i;
+  /\b(?:retired|retirement|renamed|was called|replaced|no longer|legacy|migrat\w*|rewrites?|deprecated|(?:the|an?) old(?:er)? (?:name|names|key|keys|form|forms|spelling|one|note|syntax|classes)|old names|LFM 1\.x|reaches nothing)\b|`[^`]+`[^.]*\b(?:is|are) not read\b|\b(?:the|an?) old `[^`]+` (?:key|keys|class|classes|name|form|spelling|comment|comments)\b|\b(?:was|formerly) `|→|`[^`]+`[ \t]*(?:becomes|is now|instead of)[ \t]+`/i;
+// The spec's own words for a form a renderer ignores (LFM §2.3, "**Not read:** … MUST NOT apply"). Case-sensitive, so
+// ordinary prose ("the theme must not apply its footer") is no cue.
+const SPEC_CUE = /\*\*Not read:?\*\*|\bMUST NOT apply\b/;
+const isCue = (text) => RETIREMENT_CUE.test(text) || SPEC_CUE.test(text);
 
 const RETIRED = DECK_SETTINGS.filter((r) => r.kind === 'retired').map((r) => r.key);
 // A slide comment the engine no longer reads. The @meta cut (#3563) made `<!-- @meta{…} -->` the one way a slide sets
@@ -187,7 +191,7 @@ function retiredKeys(text) {
   }
   const cued = new Set();
   lines.forEach((line, i) => {
-    if (RETIREMENT_CUE.test(line)) cued.add(unit[i]);
+    if (isCue(line)) cued.add(unit[i]);
   });
   let inFence = false;
   let inYaml = false; // inside a ```yaml fence: every line is a settings line, with or without `---`
@@ -245,7 +249,7 @@ function sentenceAround(text, at) {
  * @returns {string[]} the keys, one per mention
  */
 function bareRetiredKeys(text) {
-  return [...text.matchAll(BARE)].filter((m) => !RETIREMENT_CUE.test(sentenceAround(text, m.index))).map((m) => m[1]);
+  return [...text.matchAll(BARE)].filter((m) => !isCue(sentenceAround(text, m.index))).map((m) => m[1]);
 }
 
 /** The findings in one source file, as `{ line, key, shape }`. */
@@ -329,6 +333,8 @@ test('a mention its paragraph marks as history passes; a front-matter block neve
   assert.equal(retiredKeys('Write `# Revenue <!-- _class: kpi -->` on the slide.\n').length, 1);
   // The spec's own phrasing for forms a renderer ignores.
   assert.deepEqual(retiredKeys('- **Not read:** a directive comment (`<!-- _class: … -->`, `<!-- footer: … -->`).\n  A conformant renderer MUST NOT apply any of them.\n'), []);
+  // Lowercase "must not apply" is ordinary prose, not the spec's cue.
+  assert.equal(retiredKeys('Put `<!-- _class: kpi -->` on the slide; the theme must not apply its footer.\n').length, 1);
   // Two comments on one line: each is read.
   assert.equal(retiredKeys('```markdown\n<!-- _class: kpi --> <!-- _paginate: false -->\n```\n').length, 2);
   // A comment closed with `--!>`, HTML's other comment end, is still a comment.
