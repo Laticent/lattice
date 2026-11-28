@@ -37,7 +37,7 @@ and what would embarrass us?
 5. **Write back** (through a session you start, counted in the budget). A blocker found becomes a fleet row with an owner; anything deferred past
    the release becomes a `followups.d/` file.
 6. **Report** to the command center: ready or not, the blocker list, the notes draft, and
-   `budget: N/10 today`, with its `meter:` ledger, which also rides on every gate message to the command center (a card announcement, a 🧱 line).
+   `budget: N/10 today`, with its `meter:` ledger, which also rides on every other gate message to the command center (a `card ready` line, a 🧱 line, a ❓ card) and is never sent as a message of its own (`engineering/workflow.md` §Desks, "A worker messages the command center only at a gate").
 
 ## Lane
 
