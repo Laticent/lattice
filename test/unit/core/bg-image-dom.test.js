@@ -127,7 +127,7 @@ describe('image text panel — applyToDom', () => {
   // each slide change. Built from a real engine render, because that is the input that bit.
   test('an engine-wrapped panel is not wrapped again', () => {
     const engine = require('../../../lib/engine');
-    const { html } = engine.render('<!-- _class: image -->\n\n![bg](a.jpg)\n\n## A lake view.\n\nBody prose.\n');
+    const { html } = engine.render('<!-- @meta{layout=image} -->\n\n![bg](a.jpg)\n\n## A lake view.\n\nBody prose.\n');
     const doc = new JSDOM(html).window.document;
     const section = doc.querySelector('section.image');
     assert.equal(section.querySelectorAll('.image-text').length, 1, 'the engine wrapped it once');

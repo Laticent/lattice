@@ -22,7 +22,7 @@ const DECK = (mode: string) => `---
 color-mode: ${mode}
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{class=diagram} -->
 
 # How a deck loads a plugin
 

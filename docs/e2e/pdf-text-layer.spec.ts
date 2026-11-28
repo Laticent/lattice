@@ -31,7 +31,7 @@ test.describe.configure({ timeout: 240_000 });
 const MARKERS = ['Zephyr', 'Quartzite', 'Halyard', 'Bellwether'];
 const DECK = MARKERS.map(
 	(word, i) =>
-		`<!-- _class: big-number -->\n\n\`Section ${i + 1}\`\n\n- ${(i + 1) * 11}\n  - ${word} contracts signed across the northern territories.`,
+		`<!-- @meta{layout=big-number} -->\n\n\`Section ${i + 1}\`\n\n- ${(i + 1) * 11}\n  - ${word} contracts signed across the northern territories.`,
 ).join('\n\n---\n\n');
 
 // A chart, because a chart is where the measurement goes wrong in a way no other slide
@@ -39,7 +39,7 @@ const DECK = MARKERS.map(
 // in USER UNITS while every rect is in CSS px. Reading the two as one unit sized every
 // chart label at a quarter of its own ink, and the only visible symptom in the FILE is
 // the horizontal scale running away to compensate.
-const CHART_DECK = '<!-- _class: bar -->\n\n## Coverage by region\n\n- EMEA `4.2`\n- Americas `3.1`\n- APAC `2.4`\n';
+const CHART_DECK = '<!-- @meta{layout=bar} -->\n\n## Coverage by region\n\n- EMEA `4.2`\n- Americas `3.1`\n- APAC `2.4`\n';
 
 /** `/ToUnicode` back into code → character. The bfchar lines are the two-digit ones. */
 function parseCMap(text: string) {

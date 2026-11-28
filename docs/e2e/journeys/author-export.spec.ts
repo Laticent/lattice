@@ -12,9 +12,9 @@ import { currentSlide, expect, gotoStudio, railButtons, setEditorContent, shareE
 test.describe.configure({ timeout: 120_000 });
 
 const DECK = [
-	'<!-- _class: title -->\n\n# Atlas expansion plan\n\n`Growth · FY27`\n\nThree markets, one playbook.',
-	'<!-- _class: big-number -->\n\n`The headline`\n\n- 3\n  - new markets entered with the same core platform.',
-	'<!-- _class: closing -->\n\n## Approve the Atlas budget and we ship Q1.\n\n`The ask`',
+	'<!-- @meta{layout=title} -->\n\n# Atlas expansion plan\n\n`Growth · FY27`\n\nThree markets, one playbook.',
+	'<!-- @meta{layout=big-number} -->\n\n`The headline`\n\n- 3\n  - new markets entered with the same core platform.',
+	'<!-- @meta{layout=closing} -->\n\n## Approve the Atlas budget and we ship Q1.\n\n`The ask`',
 ].join('\n\n---\n\n');
 
 test.beforeEach(async ({ page }) => {

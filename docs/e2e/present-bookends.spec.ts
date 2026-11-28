@@ -22,7 +22,7 @@ const DECK = [
 	'closing: "Thank you. Questions are welcome."',
 	'---',
 	'',
-	'<!-- _class: title -->',
+	'<!-- @meta{layout=title} -->',
 	'',
 	'---',
 	'',
@@ -32,7 +32,7 @@ const DECK = [
 	'',
 	'---',
 	'',
-	'<!-- _class: closing -->',
+	'<!-- @meta{layout=closing} -->',
 	'',
 ].join('\n');
 

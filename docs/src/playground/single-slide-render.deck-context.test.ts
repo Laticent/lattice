@@ -39,7 +39,7 @@ const opts = { themeBase: 'https://x/themes/', runtimeUrl: 'https://x/rt.js' };
 // lever into that path. It is a DIVIDER deck, not a paginated one: pagination stopped forcing a
 // deck render once the position became something the caller supplies, so `pagination: true` here
 // would quietly take the slice path and these tests would stop exercising narrowing at all.
-const DECK_SCOPED = '<!-- header: Q3 Review -->\n\ndeck body';
+const DECK_SCOPED = '<!-- @meta{header="Q3 Review", carry} -->\n\ndeck body';
 
 // A 3-slide deck exactly as the engine emits one: an `<article class="lattice">` wrapper, one
 // `<section>` per slide carrying its positional `id`, its `data-lattice-pagination` ordinal, the
@@ -207,7 +207,7 @@ describe('deck-context render (renderInto opts.slideIndex)', () => {
 		// guard, every slide fell back to rendering alone and numbered itself 1, while the PDF numbered
 		// it right (followups.d/2436-p3-preview-page-number-glossary-auto.md). The glossary sits AFTER
 		// the authored slides, so section k is still slide k.
-		const GLOSSARY_DECK = '---\npagination: true\nglossary: auto\nacronyms:\n  ARR: { expansion: annual recurring revenue, definition: "Revenue that recurs." }\n---\n\n<!-- header: Q3 -->\n\nOne\n\n---\n\nTwo\n\n---\n\nThree\n';
+		const GLOSSARY_DECK = '---\npagination: true\nglossary: auto\nacronyms:\n  ARR: { expansion: annual recurring revenue, definition: "Revenue that recurs." }\n---\n\n<!-- @meta{header=Q3, carry} -->\n\nOne\n\n---\n\nTwo\n\n---\n\nThree\n';
 		const WITH_GLOSSARY = `<article class="lattice">\n${section(1, 4, 'One')}\n${section(2, 4, 'Two')}\n${section(3, 4, 'Three')}\n${section(4, 4, 'Glossary')}\n</article>`;
 		const calls: string[] = [];
 		(renderMarkdown as unknown as ReturnType<typeof vi.fn>).mockImplementation(async (_pg: unknown, md: string) => {
@@ -230,7 +230,7 @@ describe('deck-context render (renderInto opts.slideIndex)', () => {
 	});
 
 	it('a one-slide `glossary: auto` deck still keeps only its slide, not the glossary after it', async () => {
-		const ONE = '---\nglossary: auto\nacronyms:\n  ARR: { expansion: annual recurring revenue, definition: "Revenue that recurs." }\n---\n\n<!-- header: Q3 -->\n\nOne\n';
+		const ONE = '---\nglossary: auto\nacronyms:\n  ARR: { expansion: annual recurring revenue, definition: "Revenue that recurs." }\n---\n\n<!-- @meta{header=Q3, carry} -->\n\nOne\n';
 		mockRender(`<article class="lattice">\n${section(1, 2, 'One')}\n${section(2, 2, 'Glossary')}\n</article>`);
 		const r = createSingleSlideRenderer(opts);
 		const host = mountHost();
@@ -343,19 +343,19 @@ describe('deck-context gate (needsDeckContext)', () => {
 		const host = mountHost();
 		const mock = renderMarkdown as unknown as ReturnType<typeof vi.fn>;
 		mock.mockClear();
-		const deck = '<!-- header: Q3 -->\n\nbody\n\n---\n\nmore';
+		const deck = '<!-- @meta{header=Q3, carry} -->\n\nbody\n\n---\n\nmore';
 		await r.renderInto(host, deck, false, undefined, undefined, undefined, undefined, { slideIndex: 1, slideCount: 2, slideMarkdown: 'THE SLICE' });
 		expect(mock.mock.calls[0][1]).toBe(deck);
 		expect(mock.mock.calls[0][3]?.page).toBeUndefined();
 	});
 
 	it('renders the DECK when a running-global directive could be inherited', async () => {
-		// A bare running-global directive applies to its slide AND every one after, so a slice loses it. The probe still
-		// matches a bare `header:`, which now sets its own slide only (audit §11r): over-triggering is the cheap direction.
+		// A record that carries applies to its slide AND every one after, so a slice loses it. The test reads `carry` on any
+		// record, a header included, which sets its own slide only (audit §11r): over-triggering is the cheap direction.
 		const r = createSingleSlideRenderer(opts);
 		const host = mountHost();
 		const seen = recordRenders();
-		const deck = 'body\n\n---\n\n<!-- header: Q3 Review -->\n\nmore';
+		const deck = 'body\n\n---\n\n<!-- @meta{header="Q3 Review", carry} -->\n\nmore';
 		await r.renderInto(host, deck, false, undefined, undefined, undefined, undefined, { slideIndex: 1, slideCount: 2, slideMarkdown: 'THE SLICE' });
 		expect(seen[0]).toBe(deck); // the gate chose the deck; a later fallback is the guard's business
 	});
@@ -365,19 +365,19 @@ describe('deck-context gate (needsDeckContext)', () => {
 		const r = createSingleSlideRenderer(opts);
 		const host = mountHost();
 		const seen = recordRenders();
-		const deck = '<!-- _class: agenda -->\n\n## Agenda\n\n---\n\n<!-- _class: divider -->\n\n## One\n\n---\n\n<!-- _class: divider -->\n\n## Two';
+		const deck = '<!-- @meta{layout=agenda} -->\n\n## Agenda\n\n---\n\n<!-- @meta{layout=divider} -->\n\n## One\n\n---\n\n<!-- @meta{layout=divider} -->\n\n## Two';
 		await r.renderInto(host, deck, false, undefined, undefined, undefined, undefined, { slideIndex: 0, slideCount: 3, slideMarkdown: 'THE SLICE' });
 		expect(seen[0]).toBe(deck);
 	});
 
 	it('keeps the SLICE for a hand-written agenda, and an empty one whose only list line is in a note still takes the DECK', async () => {
 		const r = createSingleSlideRenderer(opts);
-		const written = '<!-- _class: agenda -->\n\n## Agenda\n\n1. Mine\n2. Ours\n\n---\n\nbody';
+		const written = '<!-- @meta{layout=agenda} -->\n\n## Agenda\n\n1. Mine\n2. Ours\n\n---\n\nbody';
 		let seen = recordRenders();
 		await r.renderInto(mountHost(), written, false, undefined, undefined, undefined, undefined, { slideIndex: 0, slideCount: 2, slideMarkdown: 'THE SLICE' });
 		expect(seen).toEqual(['THE SLICE']);
 		// A `- ` line inside a speaker note or a fence is not the agenda's list (the checker's miss, 2026-11-08).
-		const noted = '<!-- _class: agenda -->\n\n## Agenda\n\n<!--\n- remember to fill\n-->\n\n---\n\nbody';
+		const noted = '<!-- @meta{layout=agenda} -->\n\n## Agenda\n\n<!--\n- remember to fill\n-->\n\n---\n\nbody';
 		seen = recordRenders();
 		await r.renderInto(mountHost(), noted, false, undefined, undefined, undefined, undefined, { slideIndex: 0, slideCount: 2, slideMarkdown: 'THE SLICE' });
 		expect(seen[0]).toBe(noted);
@@ -392,7 +392,7 @@ describe('deck-context gate (needsDeckContext)', () => {
 		const host = mountHost();
 		const mock = renderMarkdown as unknown as ReturnType<typeof vi.fn>;
 		mock.mockClear();
-		const deck = '<!-- _class: divider -->\n\n# Part One\n\n---\n\nbody';
+		const deck = '<!-- @meta{layout=divider} -->\n\n# Part One\n\n---\n\nbody';
 		await r.renderInto(host, deck, false, undefined, undefined, undefined, undefined, { slideIndex: 1, slideCount: 2, slideMarkdown: 'THE SLICE' });
 		expect(mock.mock.calls[0][1]).toBe('THE SLICE');
 		expect(mock.mock.calls[0][3]?.page?.deckSection).toMatchObject({ index: 1, total: 1 });
@@ -402,7 +402,7 @@ describe('deck-context gate (needsDeckContext)', () => {
 		const r = createSingleSlideRenderer(opts);
 		const host = mountHost();
 		const seen = recordRenders();
-		const deck = 'body\n\n---\n\n<!-- _class: content no-pagination -->\n\nmore';
+		const deck = 'body\n\n---\n\n<!-- @meta{layout=content, class=no-pagination} -->\n\nmore';
 		await r.renderInto(host, deck, false, undefined, undefined, undefined, undefined, { slideIndex: 1, slideCount: 2, slideMarkdown: 'THE SLICE' });
 		expect(seen).toEqual(['THE SLICE']);
 	});
@@ -423,7 +423,7 @@ describe('deck-context gate (needsDeckContext)', () => {
 		const r = createSingleSlideRenderer(opts);
 		const host = mountHost();
 		const seen = recordRenders();
-		const deck = '<!-- _focusSteps: item 1 | item 2 -->\n\n- a\n- b\n\n---\n\nmore';
+		const deck = '<!-- @meta{focus-steps="item 1 | item 2"} -->\n\n- a\n- b\n\n---\n\nmore';
 		await r.renderInto(host, deck, false, undefined, undefined, undefined, undefined, { slideIndex: 1, slideCount: 2, slideMarkdown: 'THE SLICE' });
 		expect(seen).toEqual(['THE SLICE']);
 	});
@@ -453,8 +453,8 @@ describe('whole-deck memo boundedness', () => {
 		// `slideCount: 3` matches the mocked DECK's three sections — with a mismatch `narrowToSlide`
 		// fails closed and the renderer falls back to the slice, which adds a second render per round
 		// and makes the counts unreadable. (It did, the first time this was written.)
-		const deckA = '<!-- header: Q3 Review -->\n\nalpha\n\n---\n\ntwo\n\n---\n\nthree';
-		const deckB = '<!-- header: B -->\n\nbeta\n\n---\n\ntwo\n\n---\n\nthree';
+		const deckA = '<!-- @meta{header="Q3 Review", carry} -->\n\nalpha\n\n---\n\ntwo\n\n---\n\nthree';
+		const deckB = '<!-- @meta{header=B, carry} -->\n\nbeta\n\n---\n\ntwo\n\n---\n\nthree';
 		const arg = { slideIndex: 1, slideCount: 3, slideMarkdown: 'SLICE' };
 		for (let i = 0; i < 6; i++) await r.renderInto(host, i % 2 ? deckA : deckB, false, undefined, undefined, undefined, undefined, arg);
 		// Six alternating renders, six engine calls: a two-entry cache would have served four of them
@@ -470,7 +470,7 @@ describe('whole-deck memo boundedness', () => {
 		const arg = { slideIndex: 1, slideCount: 3, slideMarkdown: 'SLICE' };
 		// A DIVIDER deck, not a paginated one: `paginate` no longer forces the whole-deck render
 		// (the position is supplied instead), so it would take the slice path and never touch the memo.
-		const deck = '<!-- header: Q3 Review -->\n\nalpha\n\n---\n\ntwo\n\n---\n\nthree';
+		const deck = '<!-- @meta{header="Q3 Review", carry} -->\n\nalpha\n\n---\n\ntwo\n\n---\n\nthree';
 		for (let i = 0; i < 4; i++) await r.renderInto(host, deck, false, undefined, undefined, undefined, undefined, arg);
 		expect(seen).toEqual([deck]);
 	});
@@ -482,7 +482,7 @@ describe('whole-deck memo boundedness', () => {
 // panels. It survived the original gate only because the reported deck also paginates.
 describe('deck-context gate — split-panel proof runs', () => {
 	const proofDeck = (extra = '') =>
-		`---\ntheme: indaco${extra}\n---\n\n<!-- _class: split-panel proof -->\n\n## One.\n\n---\n\n<!-- _class: split-panel proof -->\n\n## Two.`;
+		`---\ntheme: indaco${extra}\n---\n\n<!-- @meta{layout=split-panel, class=proof} -->\n\n## One.\n\n---\n\n<!-- @meta{layout=split-panel, class=proof} -->\n\n## Two.`;
 
 	it('renders the DECK for a proof run with NO paginate', async () => {
 		const r = createSingleSlideRenderer(opts);
@@ -497,7 +497,7 @@ describe('deck-context gate — split-panel proof runs', () => {
 		const r = createSingleSlideRenderer(opts);
 		const host = mountHost();
 		const seen = recordRenders();
-		const deck = '<!-- _class: split-panel capstone -->\n\n## One.\n\n---\n\nbody';
+		const deck = '<!-- @meta{layout=split-panel, class=capstone} -->\n\n## One.\n\n---\n\nbody';
 		await r.renderInto(host, deck, false, undefined, undefined, undefined, undefined, { slideIndex: 1, slideCount: 2, slideMarkdown: 'THE SLICE' });
 		expect(seen[0]).toBe(deck);
 	});
@@ -518,7 +518,7 @@ describe('deck-context gate — split-panel proof runs', () => {
 		const r = createSingleSlideRenderer(opts);
 		const host = mountHost();
 		const seen = recordRenders();
-		await r.renderInto(host, '<!-- _class: split-panel -->\n\n## Plain.\n\n---\n\nbody', false, undefined, undefined, undefined, undefined, { slideIndex: 1, slideCount: 2, slideMarkdown: 'THE SLICE' });
+		await r.renderInto(host, '<!-- @meta{layout=split-panel} -->\n\n## Plain.\n\n---\n\nbody', false, undefined, undefined, undefined, undefined, { slideIndex: 1, slideCount: 2, slideMarkdown: 'THE SLICE' });
 		expect(seen).toEqual(['THE SLICE']);
 	});
 });
@@ -537,15 +537,15 @@ describe('deck-derived fact registry', () => {
 		}
 	});
 
-	// The record spelling (`<!-- @meta{…} -->`, engineering/decisions/2026-10-17-meta-record.md §15) trips the same facts
-	// its comment does: a deck swept to records must not lose the whole-deck render it needs.
-	it('a slide record trips the same facts as the comment it replaces', () => {
+	// The record (`<!-- @meta{…} -->`, engineering/decisions/2026-10-17-meta-record.md §15) trips its fact in its plain
+	// form and with other fields beside it (a `>` in a quoted field included): a swept deck keeps the whole-deck render it needs.
+	it('a slide record trips its fact, alone or beside other fields', () => {
 		const pairs: [string, string, string][] = [
-			['running-global directive', '<!-- class: dark -->', '<!-- @meta{class=dark, carry} -->'],
-			['running-global directive', '<!-- class: dark -->', '<!-- @meta{footer="Q3 > Q2", class=dark, carry} -->'],
-			['auto-filled agenda', '<!-- _class: agenda -->', '<!-- @meta{footer="a > b", layout=agenda} -->'],
-			['split-panel proof run', '<!-- _class: split-panel proof -->', '<!-- @meta{layout=split-panel, class=proof} -->'],
-			['auto-filled agenda', '<!-- _class: agenda -->', '<!-- @meta{layout=agenda} -->'],
+			['running-global directive', '<!-- @meta{class=dark, carry} -->', '<!-- @meta{class=dark, carry} -->'],
+			['running-global directive', '<!-- @meta{class=dark, carry} -->', '<!-- @meta{footer="Q3 > Q2", class=dark, carry} -->'],
+			['auto-filled agenda', '<!-- @meta{layout=agenda} -->', '<!-- @meta{footer="a > b", layout=agenda} -->'],
+			['split-panel proof run', '<!-- @meta{layout=split-panel, class=proof} -->', '<!-- @meta{layout=split-panel, class=proof} -->'],
+			['auto-filled agenda', '<!-- @meta{layout=agenda} -->', '<!-- @meta{layout=agenda} -->'],
 		];
 		for (const [fact, comment, record] of pairs) {
 			const deck = (dir: string) => `# A\n\n---\n\n${dir}\n\n## Agenda\n`;
@@ -579,7 +579,7 @@ describe('deck-derived fact registry', () => {
 		const proof = 'Write `<!--` first.\n\n<!-- @meta{layout=split-panel, class=proof} -->\n\n## A\n';
 		expect(deckDerivedFactsFor(proof)).toContain('split-panel proof run');
 		// A bare record and one wrapped across lines read too.
-		expect(deckDerivedFactsFor('<!-- {layout=split-panel, class=proof} -->\n\n## A\n')).toContain('split-panel proof run');
+		expect(deckDerivedFactsFor('<!-- @meta{layout=split-panel, class=proof} -->\n\n## A\n')).toContain('split-panel proof run');
 		expect(deckDerivedFactsFor('<!-- @meta{layout=split-panel,\n  class=proof} -->\n\n## A\n')).toContain('split-panel proof run');
 	});
 
@@ -613,12 +613,12 @@ describe('deck-derived fact registry', () => {
 	it('every probe actually matches something — no dead regex', () => {
 		// A probe that can never fire is worse than no probe: it reads as coverage.
 		const samples = [
-			'<!-- _focusSteps: a | b -->\n\nbody',
+			'<!-- @meta{focus-steps="a | b"} -->\n\nbody',
 			'---\nsplit: headings\n---\n\nbody',
-			'<!-- header: Q3 -->\n\nbody',
+			'<!-- @meta{header=Q3, carry} -->\n\nbody',
 			'---\nglossary: auto\n---\n\nbody',
-			'<!-- _class: split-panel proof -->\n\nbody',
-			'<!-- _class: split-panel capstone -->\n\nbody',
+			'<!-- @meta{layout=split-panel, class=proof} -->\n\nbody',
+			'<!-- @meta{layout=split-panel, class=capstone} -->\n\nbody',
 			'---\nclass: split-panel proof\n---\n\nbody',
 			'<!-- @meta{class=dark, carry} -->\n\nbody',
 			'<!-- @meta{layout=split-panel, class=proof} -->\n\nbody',
@@ -641,7 +641,9 @@ describe('deck-derived fact registry', () => {
 	it('covers the proof run — the fact whose absence was the reported bug', () => {
 		const proof = DECK_DERIVED_FACTS.find((f) => /proof/i.test(f.fact));
 		expect(proof, 'a split-panel proof fact must be registered').toBeDefined();
-		expect(proof?.probes.some((p) => p.test('<!-- _class: split-panel proof -->'))).toBe(true);
+		expect(deckDerivedFactsFor('<!-- @meta{layout=split-panel, class=proof} -->')).toContain(proof?.fact);
+		// An old `_class` comment sets nothing since the cut (record note §15), so it trips nothing.
+		expect(deckDerivedFactsFor('<!-- _class: split-panel proof -->')).toEqual([]);
 	});
 });
 
@@ -730,7 +732,7 @@ describe('supplied SECTION position (the progress rail)', () => {
 		await r.renderInto(host, deck, false, undefined, undefined, undefined, undefined, { slideIndex, slideCount, slideMarkdown: 'THE SLICE' });
 		return mock.mock.calls[0][3]?.page;
 	};
-	const TWO_SECTIONS = '<!-- _class: divider -->\n\n# One\n\n---\n\nbody\n\n---\n\n<!-- _class: divider -->\n\n# Two\n\n---\n\nmore';
+	const TWO_SECTIONS = '<!-- @meta{layout=divider} -->\n\n# One\n\n---\n\nbody\n\n---\n\n<!-- @meta{layout=divider} -->\n\n# Two\n\n---\n\nmore';
 
 	it('counts the dividers at or before the shown slide — where the walk would have arrived', async () => {
 		expect((await pageSent(TWO_SECTIONS, 1, 4))?.deckSection).toMatchObject({ index: 1, total: 2 });
@@ -738,7 +740,7 @@ describe('supplied SECTION position (the progress rail)', () => {
 	});
 
 	it('a slide BEFORE the first divider is in section 0 — no rail, as in the full deck', async () => {
-		const deck = 'intro\n\n---\n\n<!-- _class: divider -->\n\n# One\n\n---\n\nbody';
+		const deck = 'intro\n\n---\n\n<!-- @meta{layout=divider} -->\n\n# One\n\n---\n\nbody';
 		expect((await pageSent(deck, 0, 3))?.deckSection).toMatchObject({ index: 0, total: 1 });
 	});
 
@@ -747,7 +749,7 @@ describe('supplied SECTION position (the progress rail)', () => {
 	});
 
 	it('a divider inside a fenced sample is not a divider', async () => {
-		const deck = 'a\n\n```\n<!-- _class: divider -->\n```\n\n---\n\nb';
+		const deck = 'a\n\n```\n<!-- @meta{layout=divider} -->\n```\n\n---\n\nb';
 		expect((await pageSent(deck, 1, 2))?.deckSection).toBeUndefined();
 	});
 });
@@ -778,15 +780,15 @@ describe('an ambiguous divider count falls back to the deck render', () => {
 		await r.renderInto(host, deck, false, undefined, undefined, undefined, undefined, { slideIndex: 2, slideCount: 3, slideMarkdown: 'THE SLICE' });
 		return { source: mock.mock.calls[0][1], page: mock.mock.calls[0][3]?.page };
 	};
-	const REAL = '<!-- _class: divider -->\n\n# One\n\n---\n\nbody\n\n---\n\n## Tail.\n';
+	const REAL = '<!-- @meta{layout=divider} -->\n\n# One\n\n---\n\nbody\n\n---\n\n## Tail.\n';
 
 	it('renders the DECK when a divider is mentioned in an inline code span', async () => {
-		const deck = '<!-- _class: divider -->\n\n# One\n\n---\n\nWrite `<!-- _class: divider -->` here.\n\n---\n\n## Tail.\n';
+		const deck = '<!-- @meta{layout=divider} -->\n\n# One\n\n---\n\nWrite `<!-- @meta{layout=divider} -->` here.\n\n---\n\n## Tail.\n';
 		expect((await rendered(deck)).source).toBe(deck);
 	});
 
 	it('renders the DECK when a divider is mentioned in an indented code block', async () => {
-		const deck = '<!-- _class: divider -->\n\n# One\n\n---\n\n    <!-- _class: divider -->\n\n---\n\n## Tail.\n';
+		const deck = '<!-- @meta{layout=divider} -->\n\n# One\n\n---\n\n    <!-- @meta{layout=divider} -->\n\n---\n\n## Tail.\n';
 		expect((await rendered(deck)).source).toBe(deck);
 	});
 
@@ -843,7 +845,7 @@ describe('the ambiguity guard is narrow enough to keep the win', () => {
 		// own `---` front matter, which changes the chunk count without touching any divider — and
 		// that bailed on gallery.md, the deck the performance numbers are measured on, silently
 		// reverting the entire win. The question is only "does a divider appear inside code?".
-		const deck = '<!-- _class: divider -->\n\n# One\n\n---\n\n```mermaid\n---\ntitle: x\n---\nflowchart LR\n  A --> B\n```\n\n---\n\n<!-- _class: form -->\n\nbody';
+		const deck = '<!-- @meta{layout=divider} -->\n\n# One\n\n---\n\n```mermaid\n---\ntitle: x\n---\nflowchart LR\n  A --> B\n```\n\n---\n\n<!-- @meta{class=form} -->\n\nbody';
 		const out = await sectionFor(deck, 2);
 		expect(out.source).toBe('THE SLICE'); // still the cheap path
 		expect(out.deckSection).toMatchObject({ index: 1, total: 1 });
@@ -853,7 +855,7 @@ describe('the ambiguity guard is narrow enough to keep the win', () => {
 		// The tiles test `cls.split(/\s+/).includes('divider')`. A substring match counted
 		// `divider-lite` and `section-divider`, so the counter disagreed with the consumer it
 		// stands in for.
-		const deck = '<!-- _class: divider -->\n\n# One\n\n---\n\n<!-- _class: divider-lite -->\n\nbody\n\n---\n\n<!-- _class: form -->\n\ntail';
+		const deck = '<!-- @meta{layout=divider} -->\n\n# One\n\n---\n\n<!-- @meta{class=divider-lite} -->\n\nbody\n\n---\n\n<!-- @meta{class=form} -->\n\ntail';
 		expect((await sectionFor(deck, 2)).deckSection).toMatchObject({ index: 1, total: 1 });
 	});
 });

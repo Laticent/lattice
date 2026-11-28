@@ -8,8 +8,8 @@ import { expect, gotoStudio, openSlideLook, persistedSource, test, typeDeck } fr
 // Asserted on the persisted source, which is what the engine reads. engineering/decisions/2026-10-22-segno-deck-pipeline.md
 // §P3 islands.
 
-const FOLDED = '<div>\n<!-- _class: kpi -->\n</div>\n\n## Folded\n';
-const PLAIN = '<!-- _class: kpi -->\n\n## Plain\n';
+const FOLDED = '<div>\n<!-- @meta{layout=kpi} -->\n</div>\n\n## Folded\n';
+const PLAIN = '<!-- @meta{layout=kpi} -->\n\n## Plain\n';
 
 const compact = (page: Page) => page.getByRole('switch', { name: 'Compact spacing' }).filter({ visible: true }).first();
 
@@ -23,7 +23,7 @@ test('a `_class` folded into a <div> is not the slide\'s class: Compact spacing 
 	// comment inside it are left as written.
 	await expect.poll(() => persistedSource(page)).toContain('<!-- @meta{class=compact} -->');
 	const src = await persistedSource(page);
-	expect(src).toContain('<div>\\n<!-- _class: kpi -->\\n</div>');
+	expect(src).toContain('<div>\\n<!-- @meta{layout=kpi} -->\\n</div>');
 	expect(src).not.toContain('kpi compact');
 });
 
@@ -38,7 +38,7 @@ test('a plain `_class` is the slide\'s class: Compact spacing extends it @crossw
 
 // A RECORD slide (record note step 3): the drawer edits the record in place, keeping its typed fields and every other
 // field as written. Before step 3 the drawer refused to write over a record.
-const RECORD = '<!-- {layout=kpi, footer="Q3, final"} -->\n\n## Record\n';
+const RECORD = '<!-- @meta{layout=kpi, footer="Q3, final"} -->\n\n## Record\n';
 
 test('a record slide: Compact spacing joins the record, keeping its layout and footer @crosswidth @webkit-phone @webkit-tablet @gecko', async ({ page }) => {
 	await gotoStudio(page);
@@ -46,8 +46,8 @@ test('a record slide: Compact spacing joins the record, keeping its layout and f
 	await openSlideLook(page);
 	await expect(compact(page)).not.toBeChecked();
 	await compact(page).click();
-	await expect.poll(() => persistedSource(page)).toContain('<!-- {layout=kpi, footer=\\"Q3, final\\", class=compact} -->');
+	await expect.poll(() => persistedSource(page)).toContain('<!-- @meta{layout=kpi, footer=\\"Q3, final\\", class=compact} -->');
 	await expect(compact(page)).toBeChecked();
 	await compact(page).click();
-	await expect.poll(() => persistedSource(page)).toContain('<!-- {layout=kpi, footer=\\"Q3, final\\"} -->');
+	await expect.poll(() => persistedSource(page)).toContain('<!-- @meta{layout=kpi, footer=\\"Q3, final\\"} -->');
 });

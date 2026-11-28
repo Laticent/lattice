@@ -10,7 +10,7 @@ requirement by that act.
 ## a chart slide is dispatched to its member's kernel and framed
 
 ```markdown
-<!-- _class: bar -->
+<!-- @meta{layout=bar} -->
 
 ## Revenue by region
 
@@ -26,7 +26,7 @@ requirement by that act.
 ## the first chart class on a section wins, in the generated dispatch order
 
 ```markdown
-<!-- _class: radar quadrant -->
+<!-- @meta{layout=radar, class=quadrant} -->
 
 ## Four capabilities, scored.
 

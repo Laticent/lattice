@@ -5,7 +5,7 @@ description: A drawn face the size of a word — write a name in `!{…}` inside
 
 import CraftLab from '../../../../components/craft/CraftLab.astro';
 
-export const LAB_ROSTER = `<!-- _class: team-profile -->
+export const LAB_ROSTER = `<!-- @meta{layout=team-profile} -->
 
 ## Six names and nothing else: the name chose every face.
 
@@ -29,7 +29,7 @@ export const LAB_ROSTER = `<!-- _class: team-profile -->
   - \`Customer Success\`
 `;
 
-export const LAB_TRAITS = `<!-- _class: team-profile -->
+export const LAB_TRAITS = `<!-- @meta{layout=team-profile} -->
 
 ## Pin what makes someone recognizable; the name does the rest.
 
@@ -44,7 +44,7 @@ export const LAB_TRAITS = `<!-- _class: team-profile -->
   - \`Head of Delivery\`
 `;
 
-export const LAB_TILE = `<!-- _class: list-tabular -->
+export const LAB_TILE = `<!-- @meta{layout=list-tabular} -->
 
 ## The tile takes the deck's colors; the face keeps its own.
 
@@ -177,7 +177,7 @@ Write the avatar on the line where the photo goes, and it becomes the portrait. 
 freely with real photos and with monograms for people you describe in neither:
 
 ```markdown
-<!-- _class: team-profile -->
+<!-- @meta{layout=team-profile} -->
 
 - Ada Okafor
   - `!{Ada Okafor, hair=coily, skin=6}`

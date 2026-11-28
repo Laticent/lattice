@@ -90,7 +90,7 @@ const DROP_MANIFEST = {
   projection: { figure: 'flow', data: true },
   tags: ['percentage', 'stoplight', 'status'],
   description: 'A strip of labeled tempo bars, one per item, for the folder-drop proof.',
-  skeleton: `<!-- _class: ${DROP_NAME} -->\n\n## Tempo\n\n- Verse \`4\`\n- Chorus \`8\`\n`,
+  skeleton: `<!-- @meta{class=${DROP_NAME}} -->\n\n## Tempo\n\n- Verse \`4\`\n- Chorus \`8\`\n`,
 };
 
 const DECK_SECTION =
@@ -175,7 +175,7 @@ test('a chart added by folder-drop alone', async (t) => {
     const { render } = require(path.join(SCRATCH, 'lib', 'engine'));
     const md = [
       '---', 'theme: indaco', '---', '',
-      `<!-- _class: ${DROP_NAME} -->`, '',
+      `<!-- @meta{class=${DROP_NAME}} -->`, '',
       '## Tempo', '', '- Verse `4`', '- Chorus `8`', '',
     ].join('\n');
     const { html } = render(md);

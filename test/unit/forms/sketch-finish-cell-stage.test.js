@@ -55,14 +55,14 @@ describe('sketch finish hand-drawn boxes reach through .cell-stage', () => {
 
   test('a real Form-default sketch cards-grid render nests its <li> under .cell-stage AND the box selector still reaches it', () => {
     const md =
-      '---\ntheme: indaco\nclass: sketch\n---\n\n<!-- _class: cards-grid -->\n\n## Cards.\n\n- Row one\n  - detail\n- Row two\n  - detail\n';
+      '---\ntheme: indaco\nclass: sketch\n---\n\n<!-- @meta{layout=cards-grid} -->\n\n## Cards.\n\n- Row one\n  - detail\n- Row two\n  - detail\n';
     const li = firstLi(html(md));
     assert.equal(li.parentElement.parentElement.className, 'cell-stage');
     assert.ok(li.matches('section.sketch.cards-grid > .cell-stage > ul > li'));
   });
 
   test('a real Form-default sketch agenda render nests its <li> under .cell-stage AND the numeral selector still reaches it', () => {
-    const md = '---\ntheme: indaco\nclass: sketch\n---\n\n<!-- _class: agenda -->\n\n## Agenda.\n\n1. One\n2. Two\n';
+    const md = '---\ntheme: indaco\nclass: sketch\n---\n\n<!-- @meta{layout=agenda} -->\n\n## Agenda.\n\n1. One\n2. Two\n';
     const li = firstLi(html(md));
     assert.equal(li.parentElement.parentElement.className, 'cell-stage');
     assert.ok(li.matches('section.sketch.agenda > .cell-stage > ol > li'));
@@ -89,7 +89,7 @@ describe('sketch finish hand-drawn boxes reach through .cell-stage', () => {
 
   test('a real Form-default sketch citation-card render nests its blockquote under .cell-stage AND the box selector still reaches it', () => {
     const md =
-      '---\ntheme: indaco\nclass: sketch\n---\n\n<!-- _class: citation-card -->\n\n## Citation.\n\n> A quote.\n\n_Source: x._\n';
+      '---\ntheme: indaco\nclass: sketch\n---\n\n<!-- @meta{layout=citation-card} -->\n\n## Citation.\n\n> A quote.\n\n_Source: x._\n';
     const bq = new JSDOM(`<!DOCTYPE html><body>${html(md)}</body>`).window.document.querySelector('blockquote');
     assert.equal(bq.parentElement.className, 'cell-stage');
     assert.ok(bq.matches('section.sketch.citation-card > .cell-stage > blockquote'));
@@ -97,7 +97,7 @@ describe('sketch finish hand-drawn boxes reach through .cell-stage', () => {
 
   test('a real Form-default sketch list.principles render nests its <li> under .cell-stage AND the row selector still reaches it (the numbered-list authoring contract — NOT bullets)', () => {
     const md =
-      '---\ntheme: indaco\nclass: sketch\n---\n\n<!-- _class: list principles -->\n\n## Principles.\n\n1. First.\n2. Second.\n';
+      '---\ntheme: indaco\nclass: sketch\n---\n\n<!-- @meta{layout=list, class=principles} -->\n\n## Principles.\n\n1. First.\n2. Second.\n';
     const li = firstLi(html(md));
     assert.equal(li.parentElement.parentElement.className, 'cell-stage');
     assert.equal(li.parentElement.tagName, 'OL');

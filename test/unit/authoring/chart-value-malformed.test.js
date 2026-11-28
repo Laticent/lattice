@@ -15,7 +15,7 @@ const { isValuePill, parseValue, signedValue } = require('../../../lib/core/char
 const { spokenValue } = require('../../../lib/core/chart-values-speech.js');
 
 const vocab = buildVocab(loadAll(path.join(__dirname, '../../../lib/components')));
-const slide = (cls, body) => `<!-- _class: ${cls} -->\n\n## A\n\n${body}\n`;
+const slide = (cls, body) => `<!-- @meta{class=${cls}} -->\n\n## A\n\n${body}\n`;
 const deck = (...slides) => `---\nmarp: true\n---\n\n${slides.join('\n---\n\n')}`;
 const findings = (src) => lintCore.lintTextWith(src, vocab).filter((f) => f.rule === 'chart-value-malformed');
 const html = (src) => { const o = engine.render(src, {}); return typeof o === 'string' ? o : o.html; };

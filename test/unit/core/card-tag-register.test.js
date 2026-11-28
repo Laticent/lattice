@@ -27,7 +27,7 @@ const {
 } = require(path.join(ROOT, 'lib/core/resolve-card-tag.js'));
 const { lintText } = require(path.join(ROOT, 'lib/authoring/lint.js'));
 
-const DECISION = '<!-- _class: decision -->\n\n## One\n\n- Build\n  - Owns it.\n- Buy\n  - Rents it.';
+const DECISION = '<!-- @meta{layout=decision} -->\n\n## One\n\n- Build\n  - Owns it.\n- Buy\n  - Rents it.';
 const deck = (fm, body) =>
   ['---', 'theme: indaco', ...fm, '---', '', body || `${DECISION}\n\n---\n\n## Two\n\nMore prose.`].join('\n');
 const classesOf = (fm, body) => {
@@ -77,7 +77,7 @@ test('engine: stamps the tokens on every slide, and nothing without the key', ()
 });
 
 test('engine: a slide\'s word evicts the deck\'s on its own axis only', () => {
-  const body = `${DECISION}\n\n---\n\n<!-- _class: decision tag-color -->\n\n## Two\n\n- A\n  - b\n\n---\n\n<!-- _class: tag-small -->\n\n## Three\n\nProse.`;
+  const body = `${DECISION}\n\n---\n\n<!-- @meta{layout=decision, class=tag-color} -->\n\n## Two\n\n- A\n  - b\n\n---\n\n<!-- @meta{class=tag-small} -->\n\n## Three\n\nProse.`;
   const [one, two, three] = classesOf(['tag: plain large'], body);
   assert.ok(one.includes('tag-plain') && one.includes('tag-large'), one.join(' '));
   // color replaced, size kept
@@ -87,7 +87,7 @@ test('engine: a slide\'s word evicts the deck\'s on its own axis only', () => {
 });
 
 test('engine: placement and alignment evict on their own axes too', () => {
-  const body = `${DECISION}\n\n---\n\n<!-- _class: decision tag-foot -->\n\n## Two\n\n- A\n  - b\n\n---\n\n<!-- _class: decision tag-end -->\n\n## Three\n\n- A\n  - b`;
+  const body = `${DECISION}\n\n---\n\n<!-- @meta{layout=decision, class=tag-foot} -->\n\n## Two\n\n- A\n  - b\n\n---\n\n<!-- @meta{layout=decision, class=tag-end} -->\n\n## Three\n\n- A\n  - b`;
   const [one, two, three] = classesOf(['tag: band center plain'], body);
   assert.ok(['tag-band', 'tag-center', 'tag-plain'].every((c) => one.includes(c)), one.join(' '));
   assert.ok(two.includes('tag-foot') && !two.includes('tag-band') && two.includes('tag-center'), two.join(' '));
@@ -95,7 +95,7 @@ test('engine: placement and alignment evict on their own axes too', () => {
 });
 
 test('engine: a slide\'s own banner-tag is its placement, so a deck placement word cannot undo it', () => {
-  const body = `<!-- _class: decision banner-tag -->\n\n## One\n\n- A\n  - b\n\n---\n\n<!-- _class: decision -->\n\n## Two\n\n- A\n  - b`;
+  const body = `<!-- @meta{layout=decision, class=banner-tag} -->\n\n## One\n\n- A\n  - b\n\n---\n\n<!-- @meta{layout=decision} -->\n\n## Two\n\n- A\n  - b`;
   const [one, two] = classesOf(['tag: corner plain'], body);
   assert.ok(!one.includes('tag-corner') && one.includes('banner-tag') && one.includes('tag-plain'), one.join(' '));
   assert.ok(two.includes('tag-corner'), two.join(' '));
@@ -117,7 +117,7 @@ test('lint: an unknown word and a doubled axis warn; a clean value is silent', (
 });
 
 test('lint: `tag-*` classes are a closed vocabulary', () => {
-  const unknown = (cls) => lintText(`---\ntheme: indaco\n---\n\n<!-- _class: decision ${cls} -->\n\n## A\n\n- B\n  - c\n`)
+  const unknown = (cls) => lintText(`---\ntheme: indaco\n---\n\n<!-- @meta{class=decision ${cls}} -->\n\n## A\n\n- B\n  - c\n`)
     .filter((f) => f.rule === 'unknown-class').map((f) => f.classToken);
   assert.deepEqual(unknown('tag-plain tag-large'), []);
   assert.deepEqual(unknown('tag-color tag-regular'), []);
@@ -150,7 +150,7 @@ test('lint: a comment-only value is silent (tag: and backdrop: alike)', () => {
 });
 
 test('lint: two words on one axis on a slide conflict; one word per axis is clean', () => {
-  const conflicts = (cls) => lintText(`---\ntheme: indaco\n---\n\n<!-- _class: cards-grid ${cls} -->\n\n## A\n\n1. B\n   - c\n`)
+  const conflicts = (cls) => lintText(`---\ntheme: indaco\n---\n\n<!-- @meta{class=cards-grid ${cls}} -->\n\n## A\n\n1. B\n   - c\n`)
     .filter((f) => f.rule === 'conflicting-variants').map((f) => f.classToken);
   assert.deepEqual(conflicts('tag-plain tag-bare'), ['tag-bare']);
   assert.deepEqual(conflicts('tag-small tag-large'), ['tag-large']);
@@ -235,7 +235,7 @@ test('runtime: stamps the tokens from a baked block, and evicts per axis', async
 
 /* ── tag-budget: a label fits one line of its tag, for the cards in its row ─────────── */
 
-const budgetDeck = (cls, labels, fm = []) => ['---', 'theme: indaco', ...fm, '---', '', `<!-- _class: ${cls} -->`, '', '## A',
+const budgetDeck = (cls, labels, fm = []) => ['---', 'theme: indaco', ...fm, '---', '', `<!-- @meta{class=${cls}} -->`, '', '## A',
   '', ...labels.flatMap((l) => [`- ${l}`, '  - body']), ''].join('\n');
 const overBudget = (...args) => lintText(budgetDeck(...args)).filter((f) => f.rule === 'tag-budget');
 
@@ -267,26 +267,26 @@ test('lint: a band gets two lines; axis labels and other layouts are not tags', 
   assert.equal(overBudget('compare-prose axis', ['x'.repeat(60), 'y']).length, 0);
   assert.equal(overBudget('cards-grid', ['x'.repeat(60), 'y']).length, 0);
   // A list item with no body is not a tag.
-  assert.equal(lintText(['---', 'theme: indaco', '---', '', '<!-- _class: decision -->', '', '## A', '',
+  assert.equal(lintText(['---', 'theme: indaco', '---', '', '<!-- @meta{layout=decision} -->', '', '## A', '',
     `- ${'x'.repeat(60)}`, '- y', ''].join('\n')).filter((f) => f.rule === 'tag-budget').length, 0);
 });
 
 test('lint: tag-budget reads what renders, not the raw source', () => {
   // A deck `class: decision` is refused by the engine, so a cards-grid slide is not a decision.
-  const refused = ['---', 'theme: indaco', 'class: decision', '---', '', '<!-- _class: cards-grid -->', '', '## A', '',
+  const refused = ['---', 'theme: indaco', 'class: decision', '---', '', '<!-- @meta{layout=cards-grid} -->', '', '## A', '',
     `- ${'x'.repeat(60)}`, '  - body', '- y', '  - body', ''].join('\n');
   assert.equal(lintText(refused).filter((f) => f.rule === 'tag-budget').length, 0);
   // A link counts by its text.
   assert.equal(overBudget('decision', ['[Build](https://example.com/a/very/long/path/that/is/not/the/label)', 'y', 'z']).length, 0);
   // A lazy continuation line is prose, so the item lifts no tag.
-  const lazy = ['---', 'theme: indaco', '---', '', '<!-- _class: decision -->', '', '## A', '',
+  const lazy = ['---', 'theme: indaco', '---', '', '<!-- @meta{layout=decision} -->', '', '## A', '',
     `- ${'x'.repeat(60)}`, '  continued prose', '- y', '  - body', ''].join('\n');
   assert.equal(lintText(lazy).filter((f) => f.rule === 'tag-budget').length, 0);
 });
 
 test('lint: tag-budget follows the label lift — continuation lines, tab indents, tag-small', () => {
   const { tagLineBudget } = require(path.join(ROOT, 'lib/authoring/lint-core.js'));
-  const deckOf = (body) => ['---', 'theme: indaco', '---', '', '<!-- _class: decision -->', '', '## A', '', ...body, ''].join('\n');
+  const deckOf = (body) => ['---', 'theme: indaco', '---', '', '<!-- @meta{layout=decision} -->', '', '## A', '', ...body, ''].join('\n');
   const found = (body) => lintText(deckOf(body)).filter((f) => f.rule === 'tag-budget');
   // A lazy continuation line joins the label the engine lifts, so it counts.
   assert.equal(found(['- Short label', '  and a lazy continuation that runs long', '  - body', '- y', '  - body', '- z', '  - body']).length, 1);
@@ -294,14 +294,14 @@ test('lint: tag-budget follows the label lift — continuation lines, tab indent
   assert.equal(found([`- ${'x'.repeat(40)}`, '\t- body', '- y', '\t- body', '- z', '\t- body']).length, 1);
   // A small tag holds more: 33 / 0.85 = 38 characters with 3 cards.
   assert.equal(tagLineBudget(3, 0.85), 38);
-  const small = ['---', 'theme: indaco', '---', '', '<!-- _class: decision tag-small -->', '', '## A', '',
+  const small = ['---', 'theme: indaco', '---', '', '<!-- @meta{layout=decision, class=tag-small} -->', '', '## A', '',
     `- ${'x'.repeat(36)}`, '  - body', '- y', '  - body', '- z', '  - body', ''].join('\n');
   assert.equal(lintText(small).filter((f) => f.rule === 'tag-budget').length, 0);
 });
 
 test('lint: banner-tag gets an advisory tag-alias hint; a placement word silences it; capsule gets none', () => {
   const hints = (cls, body = '- A\n  - b\n- B\n  - c') =>
-    lintText(`---\ntheme: indaco\n---\n\n<!-- _class: ${cls} -->\n\n## A\n\n${body}\n`).filter((f) => f.rule === 'tag-alias');
+    lintText(`---\ntheme: indaco\n---\n\n<!-- @meta{class=${cls}} -->\n\n## A\n\n${body}\n`).filter((f) => f.rule === 'tag-alias');
   const banner = hints('decision banner-tag');
   assert.equal(banner.length, 1);
   assert.equal(banner[0].severity, 'info', 'advice only — --strict never blocks on it');

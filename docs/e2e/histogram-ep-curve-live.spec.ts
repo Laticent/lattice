@@ -19,7 +19,7 @@ theme: indaco
 delivery: expressive
 ---
 
-<!-- _class: histogram -->
+<!-- @meta{class=histogram} -->
 
 \`[{Annual loss, $1M..$250M, log}, {Share of years}]\`
 
@@ -44,7 +44,7 @@ theme: indaco
 delivery: expressive
 ---
 
-<!-- _class: ep-curve -->
+<!-- @meta{class=ep-curve} -->
 
 ## A 1-in-100 year costs $410M.
 

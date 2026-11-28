@@ -53,7 +53,7 @@ describe('the Coach profile control mirrors the engine', () => {
 // agree about EVERY profile the dropdown can offer — so a profile the control can select
 // but the writer cannot persist fails here rather than in a user's front matter.
 describe('the Coach can persist every profile it offers', () => {
-	const deck = '---\nmarp: true\ntheme: indaco\n---\n\n<!-- _class: title -->\n\n# A deck\n\nA framing line.\n';
+	const deck = '---\nmarp: true\ntheme: indaco\n---\n\n<!-- @meta{layout=title} -->\n\n# A deck\n\nA framing line.\n';
 
 	it('writes a declaration the engine reads back, for each dropdown entry', () => {
 		for (const [key] of DECK_PROFILE_CHOICES) {

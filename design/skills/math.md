@@ -90,7 +90,7 @@ can use is KaTeX's (<https://katex.org/docs/supported.html>).
   The grammar is `lib/plugins/math/math.syntax.mjs`; KaTeX is vendored in
   `lib/plugins/math/vendor/`.
 - **Live examples:** `test/integration/baseline-decks/gallery.md` (search
-  `_class: math`), `lib/components/math/math/math.gallery.md`, and the demo decks
+  `layout=math`), `lib/components/math/math/math.gallery.md`, and the demo decks
   `examples/math-bare-equation.md`, `examples/math-split-structure.md`,
   `examples/math-form-frame.md`.
 - **Commands:** `npm run new:slide -- math`; `npm run lint:deck -- deck.md`;
@@ -125,7 +125,7 @@ can use is KaTeX's (<https://katex.org/docs/supported.html>).
 **Hero equation with a legend** (the default `math` layout):
 
 ```markdown
-<!-- _class: math -->
+<!-- @meta{layout=math} -->
 
 `Renewal pricing · OLS`
 
@@ -142,7 +142,7 @@ $$ \hat{p} = \beta_0 + \beta_1 \, \text{claims} + \beta_2 \, \text{tenure} $$
 **An estimate with its uncertainty:**
 
 ```markdown
-<!-- _class: math stats -->
+<!-- @meta{layout=math, class=stats} -->
 
 `Claims effect · 2,418 accounts`
 
@@ -159,7 +159,7 @@ The effect is large and stable across regions, so the committee can price on it 
 **Inline math in prose** (no `math` layout needed):
 
 ```markdown
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Why the model stays linear`
 

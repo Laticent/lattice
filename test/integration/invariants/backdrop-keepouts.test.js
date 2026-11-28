@@ -59,7 +59,7 @@ footer: "Q3 operating review"
 finish: strata
 ---
 
-${SLIDES.map(([cls, body]) => `<!-- _class: ${cls} -->\n\n${body}`).join('\n\n---\n\n')}
+${SLIDES.map(([cls, body]) => `<!-- @meta{class=${cls}} -->\n\n${body}`).join('\n\n---\n\n')}
 `;
 
 describe('backdrop keep-outs (real render)', { skip: skipWithoutChrome(CHROME) }, () => {

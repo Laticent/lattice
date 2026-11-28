@@ -55,7 +55,7 @@ test('glossaryEntries: sorts case-insensitively', () => {
 
 test('buildGlossarySlideMarkdown: emits the glossary component grammar (directive, heading, Term/Definition list)', () => {
   const md = buildGlossarySlideMarkdown([{ term: 'ARR', definition: 'Recurs yearly.' }]);
-  assert.match(md, /<!-- _class: glossary -->/);
+  assert.match(md, /<!-- @meta\{layout=glossary\} -->/);
   assert.match(md, /## Glossary/);
   assert.match(md, /- ARR\n {2}- Recurs yearly\./);
 });
@@ -69,7 +69,7 @@ test('appendAutoGlossary: appends a glossary slide and strips the trigger (idemp
   const src = fm(REGISTRY);
   const out = appendAutoGlossary(src);
   assert.notEqual(out, src);
-  assert.match(out, /<!-- _class: glossary -->/);
+  assert.match(out, /<!-- @meta\{layout=glossary\} -->/);
   assert.match(out, /- ARR\n {2}- Revenue that recurs yearly\./);
   // The trigger is consumed: the emitted source no longer carries `glossary:` …
   assert.ok(!/^\s*glossary:/m.test(out.match(/^---[\s\S]*?---/)[0]));
@@ -119,7 +119,7 @@ test('withoutAutoGlossary: drops exactly the trailing glossary entry, and only t
 // glossary with more terms than the room's budget pages instead of clipping. The budget is the
 // glossary component's measured venueCapacity (venue-capacity.generated.js).
 const manyTerms = (n) => `acronyms:\n${Array.from({ length: n }, (_, i) => `  T${String(i).padStart(2, '0')}: { expansion: term ${i}, definition: "A short definition for term number ${i}." }`).join('\n')}\nglossary: auto`;
-const glossarySlides = (out) => (out.match(/<!-- _class: glossary -->/g) || []).length;
+const glossarySlides = (out) => (out.match(/<!-- @meta\{layout=glossary\} -->/g) || []).length;
 
 test('appendAutoGlossary: a glossary past the venue budget pages, evenly', () => {
   const VC = require('../../../lib/authoring/venue-capacity.generated.js');
@@ -130,7 +130,7 @@ test('appendAutoGlossary: a glossary past the venue budget pages, evenly', () =>
   assert.equal(glossarySlides(out), 2);
   assert.equal(autoGlossarySections(fm(manyTerms(perLaptop + 2))), 2);
   // An even cut: the two pages differ by at most one term.
-  const pages = out.split('<!-- _class: glossary -->').slice(1).map((p) => (p.match(/^- /gm) || []).length);
+  const pages = out.split('<!-- @meta{layout=glossary} -->').slice(1).map((p) => (p.match(/^- /gm) || []).length);
   assert.ok(Math.abs(pages[0] - pages[1]) <= 1, `uneven pages ${pages}`);
   // At or under the budget it stays one slide.
   assert.equal(glossarySlides(appendAutoGlossary(fm(manyTerms(perLaptop)))), 1);
@@ -172,7 +172,7 @@ test('NON_WIDE_SIZES mirrors every size preset that is not in the wide family', 
 
 test('appendAutoGlossary: pages split evenly, not full-then-remainder', () => {
   const out = appendAutoGlossary(fm(`venue: hall\n${manyTerms(10)}`));
-  const pages = out.split('<!-- _class: glossary -->').slice(1).map((p) => (p.match(/^- /gm) || []).length);
+  const pages = out.split('<!-- @meta{layout=glossary} -->').slice(1).map((p) => (p.match(/^- /gm) || []).length);
   assert.ok(Math.max(...pages) - Math.min(...pages) <= 1, `uneven pages ${pages}`);
 });
 

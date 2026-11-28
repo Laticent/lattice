@@ -53,7 +53,7 @@ const GOOD = Object.freeze({
   substance: 'structure',
   tags: ['overview', 'showcase', 'summary'],
   description: 'Cards in a grid.',
-  skeleton: '<!-- _class: cards-grid -->\n\n## Heading.\n',
+  skeleton: '<!-- @meta{layout=cards-grid} -->\n\n## Heading.\n',
 });
 
 // Every declared variant needs a variantDocs entry (total coverage,
@@ -63,7 +63,7 @@ function docsFor(...names) {
   for (const n of names) {
     docs[n] = {
       summary: `What ${n} changes and when to reach for it.`,
-      sample: `<!-- _class: cards-grid ${n} -->\n\n## Heading.\n`,
+      sample: `<!-- @meta{class=cards-grid ${n}} -->\n\n## Heading.\n`,
     };
   }
   return docs;
@@ -76,11 +76,11 @@ describe('component-manifest', () => {
     });
 
     test('stressSample is retired — validate() rejects it', () => {
-      assert.ok(validate({ ...GOOD, stressSample: '<!-- _class: x -->\n\n## …\n' }).some((e) => /retired/.test(e)));
+      assert.ok(validate({ ...GOOD, stressSample: '<!-- @meta{class=x} -->\n\n## …\n' }).some((e) => /retired/.test(e)));
     });
 
     test('capacity without stressDoc is rejected (graduated gate)', () => {
-      const itemsSample = '<!-- _class: cards-grid -->\n\n## H\n\n- A\n  - a\n- B\n  - b\n- C\n  - c\n';
+      const itemsSample = '<!-- @meta{layout=cards-grid} -->\n\n## H\n\n- A\n  - a\n- B\n  - b\n- C\n  - c\n';
       const cap = { axis: 'item', min: 2, sweet: 3, soft: 4, hard: 5, escalateTo: ['split across slides'] };
       assert.ok(validate({ ...GOOD, sample: itemsSample, capacity: cap }).some((e) => /stressDoc is missing/.test(e)));
       const sd = { summary: 'Five items — the ceiling.', sample: itemsSample };
@@ -88,7 +88,7 @@ describe('component-manifest', () => {
     });
 
     test('stressDoc: accepts { summary, sample }, rejects malformed and dual spellings', () => {
-      const sd = { summary: 'Seven items — the ceiling.', sample: '<!-- _class: x -->\n\n## …\n' };
+      const sd = { summary: 'Seven items — the ceiling.', sample: '<!-- @meta{class=x} -->\n\n## …\n' };
       assert.deepEqual(validate({ ...GOOD, stressDoc: sd }), []);
       assert.ok(validate({ ...GOOD, stressDoc: { sample: sd.sample } }).some((e) => /stressDoc\.summary/.test(e)));
       assert.ok(validate({ ...GOOD, stressDoc: { summary: sd.summary } }).some((e) => /stressDoc\.sample/.test(e)));
@@ -162,16 +162,16 @@ describe('component-manifest', () => {
       const m = {
         ...GOOD,
         focusAxes: ['item'],
-        sample: '<!-- _class: cards-grid -->\n\n## H\n\n- A\n  - a\n- B\n  - b\n- C\n  - c\n',
+        sample: '<!-- @meta{layout=cards-grid} -->\n\n## H\n\n- A\n  - a\n- B\n  - b\n- C\n  - c\n',
         capacity: { axis: 'item', min: 2, sweet: 3, soft: 4, hard: 5, escalateTo: ['list-tabular', 'split across slides'], note: 'crowds past four' },
-        stressDoc: { summary: 'Five items — the ceiling.', sample: '<!-- _class: cards-grid -->\n\n## H\n\n- A\n  - a\n- B\n  - b\n- C\n  - c\n- D\n  - d\n- E\n  - e\n' },
+        stressDoc: { summary: 'Five items — the ceiling.', sample: '<!-- @meta{layout=cards-grid} -->\n\n## H\n\n- A\n  - a\n- B\n  - b\n- C\n  - c\n- D\n  - d\n- E\n  - e\n' },
       };
       assert.deepEqual(validate(m), []);
     });
     test('capacity: rejects an inert axis the sample cannot measure', () => {
       // axis 'col' (pipe-table columns) on a layout whose sample is a list →
       // the counter always returns 0, so the rule could never fire.
-      const m = { ...GOOD, sample: '<!-- _class: x -->\n\n## H\n\n- A\n- B\n', capacity: { axis: 'col', soft: 4, hard: 6 } };
+      const m = { ...GOOD, sample: '<!-- @meta{class=x} -->\n\n## H\n\n- A\n- B\n', capacity: { axis: 'col', soft: 4, hard: 6 } };
       assert.ok(validate(m).some((e) => /is not measurable/.test(e)));
     });
     test('capacity: requires soft and hard', () => {
@@ -195,13 +195,13 @@ describe('component-manifest', () => {
     });
 
     // Prose-density budget (phase 2) — 2026-06-30-prose-density-budget.md.
-    const WITH_ITEMS = { ...GOOD, sample: '<!-- _class: cards-grid -->\n\n## H\n\n- A\n  - body\n- B\n  - body\n' };
+    const WITH_ITEMS = { ...GOOD, sample: '<!-- @meta{layout=cards-grid} -->\n\n## H\n\n- A\n  - body\n- B\n  - body\n' };
     test('density: accepts a well-formed block (axis inherited from capacity)', () => {
       const m = {
         ...WITH_ITEMS,
         capacity: { axis: 'item', soft: 4, hard: 6 },
         density: { soft: 12, hard: 20, note: 'one clause' },
-        stressDoc: { summary: 'Six items — the ceiling.', sample: '<!-- _class: cards-grid -->\n\n## H\n\n- A\n- B\n- C\n- D\n- E\n- F\n' },
+        stressDoc: { summary: 'Six items — the ceiling.', sample: '<!-- @meta{layout=cards-grid} -->\n\n## H\n\n- A\n- B\n- C\n- D\n- E\n- F\n' },
       };
       assert.deepEqual(validate(m), []);
     });
@@ -228,11 +228,11 @@ describe('component-manifest', () => {
     test('density: rejects an axis not yet counted (col/cell/line)', () => {
       // col is a SUPPORTED_AXES member but elementWordCounts only does item/row,
       // so a col density block would validate yet never fire — reject it.
-      const m = { ...GOOD, sample: '<!-- _class: x -->\n\n## H\n\n- A\n- B\n', density: { axis: 'col', soft: 4, hard: 6 } };
+      const m = { ...GOOD, sample: '<!-- @meta{class=x} -->\n\n## H\n\n- A\n- B\n', density: { axis: 'col', soft: 4, hard: 6 } };
       assert.ok(validate(m).some((e) => /density\.axis 'col' is not yet counted/.test(e)));
     });
     test('density: rejects an inherited axis not yet counted', () => {
-      const m = { ...GOOD, sample: '<!-- _class: x -->\n\n## H\n\n```\nline one\nline two\n```\n', capacity: { axis: 'line', soft: 4, hard: 6 }, density: { soft: 4, hard: 6 } };
+      const m = { ...GOOD, sample: '<!-- @meta{class=x} -->\n\n## H\n\n```\nline one\nline two\n```\n', capacity: { axis: 'line', soft: 4, hard: 6 }, density: { soft: 4, hard: 6 } };
       assert.ok(validate(m).some((e) => /is not yet counted/.test(e)));
     });
 
@@ -466,7 +466,7 @@ describe('component-manifest', () => {
       const m = {
         ...GOOD,
         name: 'cards-grid', // listed in CARD_STYLE_LAYOUTS
-        sample: '<!-- _class: cards-grid -->\n\n## …\n\n- **Title.** body text on same line.\n',
+        sample: '<!-- @meta{layout=cards-grid} -->\n\n## …\n\n- **Title.** body text on same line.\n',
       };
       const errors = validate(m);
       assert.ok(
@@ -483,7 +483,7 @@ describe('component-manifest', () => {
         variantDocs: {
           three: {
             summary: 'three-column variant',
-            sample: '<!-- _class: cards-grid three -->\n\n- **Title.** body text.\n',
+            sample: '<!-- @meta{layout=cards-grid, class=three} -->\n\n- **Title.** body text.\n',
           },
         },
       };
@@ -498,7 +498,7 @@ describe('component-manifest', () => {
       const m = {
         ...GOOD,
         name: 'cards-grid',
-        sample: '<!-- _class: cards-grid -->\n\n## …\n\n- Title\n  - body text.\n',
+        sample: '<!-- @meta{layout=cards-grid} -->\n\n## …\n\n- Title\n  - body text.\n',
       };
       const errors = validate(m);
       assert.deepEqual(errors, []);
@@ -509,7 +509,7 @@ describe('component-manifest', () => {
       const m = {
         ...GOOD,
         name: 'principles',
-        sample: '<!-- _class: principles -->\n\n## …\n\n1. **Bold lead-in.** breaks the counter grid.\n',
+        sample: '<!-- @meta{class=principles} -->\n\n## …\n\n1. **Bold lead-in.** breaks the counter grid.\n',
       };
       const errors = validate(m);
       assert.ok(
@@ -522,7 +522,7 @@ describe('component-manifest', () => {
       const m = {
         ...GOOD,
         name: 'principles',
-        sample: '<!-- _class: principles -->\n\n## …\n\n1. Default to the cheaper-to-reverse choice.\n',
+        sample: '<!-- @meta{class=principles} -->\n\n## …\n\n1. Default to the cheaper-to-reverse choice.\n',
       };
       assert.ok(!validate(m).some((e) => /ordered-list statement/.test(e)));
     });
@@ -531,7 +531,7 @@ describe('component-manifest', () => {
       const m = {
         ...GOOD,
         name: 'list', // a prose list: its item lead is not a title, so bold reads as emphasis
-        sample: '<!-- _class: list -->\n\n- **Author.** Drafts the deck.\n',
+        sample: '<!-- @meta{layout=list} -->\n\n- **Author.** Drafts the deck.\n',
       };
       const errors = validate(m);
       assert.deepEqual(errors, []);
@@ -541,7 +541,7 @@ describe('component-manifest', () => {
       const m = {
         ...GOOD,
         name: 'actors', // a slot layout: the lead is lifted into the label, so bold taught a retired form
-        sample: '<!-- _class: actors -->\n\n- **Author.** Drafts the deck.\n',
+        sample: '<!-- @meta{layout=actors} -->\n\n- **Author.** Drafts the deck.\n',
       };
       const errors = validate(m);
       assert.ok(errors.some((e) => /bold is emphasis, never a title/.test(e)), JSON.stringify(errors));

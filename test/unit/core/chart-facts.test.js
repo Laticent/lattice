@@ -410,7 +410,7 @@ test('spoken value — a European `1.234,5` is said, and its change measured, as
   assert.equal(parseValue('1.234,5'), 1234.5);
   assert.equal(say('1.234,5'), 'one thousand two hundred thirty-four point five');
   const { narrateChart } = require('../../../lib/core/chart-narration.js');
-  const said = narrateChart('<!-- _class: line -->\n\n## A\n\n- Q1 `1.234,5`\n- Q2 `2.345,5`\n');
+  const said = narrateChart('<!-- @meta{layout=line} -->\n\n## A\n\n- Q1 `1.234,5`\n- Q2 `2.345,5`\n');
   assert.match(said, /rose one thousand one hundred eleven overall/);
   assert.doesNotMatch(said, /1\.234,5/);
 });
@@ -422,7 +422,7 @@ test('spoken value — a decimal comma is said as the decimal the chart plots, s
   assert.equal(say('12,5%'), 'twelve point five percent');
   assert.equal(say('12,000'), 'twelve thousand', 'a US group is unchanged');
   const { narrateChart } = require('../../../lib/core/chart-narration.js');
-  const said = narrateChart('<!-- _class: line -->\n\n## A\n\n- Q1 `1,5`\n- Q2 `2,25`\n');
+  const said = narrateChart('<!-- @meta{layout=line} -->\n\n## A\n\n- Q1 `1,5`\n- Q2 `2,25`\n');
   assert.match(said, /rose zero point seven five overall, from one point five to two point two five/);
 });
 

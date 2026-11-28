@@ -33,6 +33,8 @@ function load() {
   if (engine) return;
   engine = require('../lib/engine');
   lente = require('@laticent/lente');
+  // Lattice's carrier, as every Lattice surface installs it (docs/src/lib/lente-host.ts): a tag is the record's `lens`.
+  lente.setLensTagCarrier(require('../lib/core/lens-carrier.mjs').recordLensCarrier);
   ({ splitTopLevel } = require('../lib/authoring/slide-split.js'));
   lint = require('../lib/authoring/lint.js');
   notes = require('../lib/authoring/notes-core.js');
@@ -211,13 +213,10 @@ function runCase(c) {
     const got = l2(c.source);
     const key = (f) => `${f.rule}|${f.severity}|${f.slide}`;
     const want = (L2.findings || []).map(key).sort();
-    // A case written for LFM 1.x uses 1.x's directive comment (`<!-- _class: … -->`), the spelling its spec defines. The
-    // reference implementation follows the LFM 2.0 draft, which warns on that spelling (`legacy-directive-comment`,
-    // record note §15): a finding about the CASE's spec version, not about what the case checks. So a pre-2.0 case does
-    // not count it; a 2.0 case is written in records and does (meta sweep, slice D). The cut marks these cases
-    // `until: LFM-2.0`.
-    const preRecord = !atOrBelow('LFM-2.0', c.expect.spec || 'LFM-1.0');
-    const have = got.filter((f) => !(preRecord && f.rule === 'legacy-directive-comment')).map(key).sort();
+    // Every case the reference runs is written for LFM 2.0's spelling: a 1.x case that holds a directive comment is
+    // marked `until: LFM-2.0` (the cut, record note §15 slice E) and has a twin in records (`<name>-record`), so an
+    // old-spelling finding here is a real one.
+    const have = got.map(key).sort();
     if (!sameJson(want, have)) fails.push(`L2: findings ${JSON.stringify(have)}, expected ${JSON.stringify(want)}`);
   }
   return fails;

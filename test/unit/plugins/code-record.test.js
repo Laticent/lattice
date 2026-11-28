@@ -119,7 +119,7 @@ describe('rendering a record', () => {
   });
 
   test('a caption span above a fence on a `code` slide is still a caption', () => {
-    const html = render(`<!-- _class: code -->\n\n\`Before · the old load\`\n\n## A\n\n${FENCE}`);
+    const html = render(`<!-- @meta{layout=code} -->\n\n\`Before · the old load\`\n\n## A\n\n${FENCE}`);
     // The layout lifts the lone code span into the masthead as the slide's eyebrow: that is the shape
     // a record must never take, and the one a caption must keep.
     assert.match(html, /<div class="masthead-lede"><p><code>Before · the old load<\/code><\/p><h2>A<\/h2>/);
@@ -135,20 +135,20 @@ describe('rendering a record', () => {
 
 describe('a record and the slide directives share one line model', () => {
   test("a slide's `_focus: line` marks the record's line spans instead of nesting new ones", () => {
-    const html = pre(render(`<!-- _focus: line 4 -->\n\n# A\n\n\`@code{numbers}\`\n${FENCE}`));
+    const html = pre(render(`<!-- @meta{focus=line 4} -->\n\n# A\n\n\`@code{numbers}\`\n${FENCE}`));
     assert.match(html, /<span class="ln lat-focus" data-n="4">/);
     assert.doesNotMatch(html, /<span class="ln[^"]*"><span class="ln/);
   });
 
   test("the block's own `focus=` wins over a slide's `_focus: line`", () => {
-    const html = pre(render(`<!-- _focus: line 1 -->\n\n# A\n\n\`@code{focus=4}\`\n${FENCE}`));
+    const html = pre(render(`<!-- @meta{focus=line 1} -->\n\n# A\n\n\`@code{focus=4}\`\n${FENCE}`));
     assert.match(html, /<span class="ln lat-focus">/);
     assert.equal((html.match(/lat-focus/g) || []).length, 1);
     assert.match(html, /^<pre[^>]*>[\s\S]*<span class="ln lat-recede"><span class="hljs-keyword">const/);
   });
 
   test('`_build: lines` steps the record\'s line spans', () => {
-    const html = pre(render(`<!-- _build: lines -->\n\n# A\n\n\`@code{numbers}\`\n${FENCE}`));
+    const html = pre(render(`<!-- @meta{build=lines} -->\n\n# A\n\n\`@code{numbers}\`\n${FENCE}`));
     assert.match(html, /<span class="ln" data-n="1" data-build-step="1" data-step="1">/);
     assert.match(html, /<span class="ln" data-n="4" data-build-step="4" data-step="4">/);
   });
@@ -164,7 +164,7 @@ describe('lint rule 12c', () => {
   });
   test('a line reference past the end, in a record and in `_focus: line`', () => {
     assert.match(rules(`# A\n\n\`@code{focus=5}\`\n${FENCE}`)[0].message, /names line 5, and the block below has 4 lines/);
-    assert.match(rules(`<!-- _focus: line 3-6 -->\n\n# A\n\n${FENCE}`)[0].message, /names line 5, 6/);
+    assert.match(rules(`<!-- @meta{focus=line 3-6} -->\n\n# A\n\n${FENCE}`)[0].message, /names line 5, 6/);
   });
   test('a record inside a fence is code, not a record', () => {
     assert.deepEqual(rules('# A\n\n````md\n`@code{wat}`\n```ts\nx\n```\n````\n'), []);

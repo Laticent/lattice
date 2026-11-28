@@ -73,9 +73,11 @@ test('a bare record is respelled only where it is a comment block: never in inde
 
 test('mergeAdjacentRecords merges a slide\'s consecutive records into one `@meta` record, keeping the line count', async () => {
   const { mergeAdjacentRecords } = await load();
-  const r = mergeAdjacentRecords(`${FM}<!-- @meta{layout=cards} -->\n<!-- {footer=Q3} -->\n\n# A\n`);
+  const r = mergeAdjacentRecords(`${FM}<!-- @meta{layout=cards} -->\n<!-- @meta{footer=Q3} -->\n\n# A\n`);
   assert.equal(r.source, `${FM}<!-- @meta{layout=cards, footer=Q3} -->\n\n\n# A\n`);
   assert.equal(r.merged, 1);
+  // Since the cut (record note §15, slice E) a bare `<!-- {…} -->` is no record, so there is nothing to merge it into.
+  assert.equal(mergeAdjacentRecords(`${FM}<!-- @meta{layout=cards} -->\n<!-- {footer=Q3} -->\n\n# A\n`).merged, 0);
   // A run breaks at a different scope and at a field already in the run.
   assert.equal(mergeAdjacentRecords(`<!-- @meta{layout=cards} -->\n<!-- @meta{footer=Q3, carry} -->\n`).merged, 0);
   assert.equal(mergeAdjacentRecords(`<!-- @meta{footer=Q3} -->\n<!-- @meta{footer=Q4} -->\n`).merged, 0);

@@ -16,9 +16,9 @@ import { expect, gotoStudio, livePreview, openChat, setEditorContent, test } fro
 // open for a second round instead of ending on the edit. Round two's request is where the
 // verdict is read: it is the tool result the model would act on.
 
-const DECK = ['---', 'theme: indaco', '---', '', '<!-- _class: title -->', '# Fit check', '', '---', '', '<!-- _class: content -->', '## Short and fine', '', '- One line'].join('\n');
+const DECK = ['---', 'theme: indaco', '---', '', '<!-- @meta{layout=title} -->', '# Fit check', '', '---', '', '<!-- @meta{layout=content} -->', '## Short and fine', '', '- One line'].join('\n');
 
-const OVERFULL = ['<!-- _class: content -->', '## Everything we did this quarter, in full', '', ...Array.from({ length: 28 }, (_, i) => `- Item ${i + 1}: a long line that keeps going past the point where any slide could hold it all`)].join('\n');
+const OVERFULL = ['<!-- @meta{layout=content} -->', '## Everything we did this quarter, in full', '', ...Array.from({ length: 28 }, (_, i) => `- Item ${i + 1}: a long line that keeps going past the point where any slide could hold it all`)].join('\n');
 
 function sse(frames: unknown[]): string {
 	return `${frames.map((f) => `data: ${JSON.stringify(f)}\n\n`).join('')}data: [DONE]\n\n`;
@@ -91,7 +91,7 @@ test('an overfull draft slide comes back flagged from a real render, and holds t
 // headings renders as two sections while the agent still counts one slide. Section N is then not slide N, so the
 // scoped check cannot empty "the other slides" by number: it measures the whole deck and reports by section. A
 // real render is the only way to see that the fallback holds.
-const SPLIT_DECK = ['---', 'theme: indaco', '---', '', '<!-- _class: title -->', '# Fit check', '', '---', '', '<!-- _class: content -->', '## First heading', '', '- One line', '', '## Second heading on the same slide', '', '- Another line'].join('\n');
+const SPLIT_DECK = ['---', 'theme: indaco', '---', '', '<!-- @meta{layout=title} -->', '# Fit check', '', '---', '', '<!-- @meta{layout=content} -->', '## First heading', '', '- One line', '', '## Second heading on the same slide', '', '- Another line'].join('\n');
 
 test('a deck that renders more sections than slides is measured whole, and reported by section', async ({ page }) => {
 	test.setTimeout(120_000);

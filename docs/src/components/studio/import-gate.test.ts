@@ -101,51 +101,51 @@ describe('refuseImportedComponent', () => {
 	it('refuses a component whose sample slide loads a remote image', async () => {
 		// Insert makes the gallery the user's own deck content, so it is the same beacon. The
 		// check renders the slide, so a fetch a component transform or front matter adds counts.
-		const r = await refuseImportedComponent('section.w .a{color:var(--accent)}', 'w', '<!-- _class: w -->\n\n<img src="https://evil.example/b.png">');
+		const r = await refuseImportedComponent('section.w .a{color:var(--accent)}', 'w', '<!-- @meta{class=w} -->\n\n<img src="https://evil.example/b.png">');
 		expect(r?.why).toMatch(/sample slide loads https:\/\/evil\.example\/b\.png/);
-		expect(await refuseImportedComponent('section.w .a{color:var(--accent)}', 'w', '<!-- _class: w -->\n\n![x](https://evil.example/b.png)')).not.toBeNull();
-		expect(await refuseImportedComponent('section.w .a{color:var(--accent)}', 'w', '---\nlogo: https://evil.example/l.png\n---\n\n<!-- _class: w -->\n')).not.toBeNull();
+		expect(await refuseImportedComponent('section.w .a{color:var(--accent)}', 'w', '<!-- @meta{class=w} -->\n\n![x](https://evil.example/b.png)')).not.toBeNull();
+		expect(await refuseImportedComponent('section.w .a{color:var(--accent)}', 'w', '---\nlogo: https://evil.example/l.png\n---\n\n<!-- @meta{class=w} -->\n')).not.toBeNull();
 	});
 
 	it('reads a CRLF gallery and a tab-split scheme the way the CLI export will', async () => {
 		const css = 'section.w .a{color:var(--accent)}';
-		const crlf = '<!-- _class: w -->\r\n\r\n<div>\r\n```mermaid\r\nflowchart LR\r\n  A@{ img: "https://evil.example/c.png" } --> B\r\n```\r\n</div>\r\n';
+		const crlf = '<!-- @meta{class=w} -->\r\n\r\n<div>\r\n```mermaid\r\nflowchart LR\r\n  A@{ img: "https://evil.example/c.png" } --> B\r\n```\r\n</div>\r\n';
 		expect((await refuseImportedComponent(css, 'w', crlf))?.why).toMatch(/sample slide uses an image shape/);
-		const tab = '<!-- _class: w -->\n\n```mermaid\nflowchart LR\n  A["<img src=\'ht\ttp:evil.example/t.png\'>"]\n```\n';
+		const tab = '<!-- @meta{class=w} -->\n\n```mermaid\nflowchart LR\n  A["<img src=\'ht\ttp:evil.example/t.png\'>"]\n```\n';
 		expect((await refuseImportedComponent(css, 'w', tab))?.why).toMatch(/sample slide uses an HTML media tag in a label/);
-		expect(await refuseImportedComponent(css, 'w', '<!-- _class: w -->\r\n\r\n```mermaid\r\nflowchart LR\r\n  A-->B\r\n```\r\n')).toBeNull();
+		expect(await refuseImportedComponent(css, 'w', '<!-- @meta{class=w} -->\r\n\r\n```mermaid\r\nflowchart LR\r\n  A-->B\r\n```\r\n')).toBeNull();
 	});
 
 	it('reads front matter as Insert and the CLI will: as a slide, and with no style: key', async () => {
 		const css = 'section.w .a{color:var(--accent)}';
-		expect(await refuseImportedComponent(css, 'w', '---\nx: "![](https://evil.example/fm.png)"\n---\n\n<!-- _class: w -->\n')).not.toBeNull();
-		expect((await refuseImportedComponent(css, 'w', '---\nstyle: "section{color:red}"\n---\n\n<!-- _class: w -->\n'))?.why).toMatch(/style:/);
-		expect(await refuseImportedComponent(css, 'w', '---\nmarp: true\ntheme: indaco\nprofile: teaching\nheader: "Lattice · w"\n---\n\n<!-- _class: w -->\n')).toBeNull();
+		expect(await refuseImportedComponent(css, 'w', '---\nx: "![](https://evil.example/fm.png)"\n---\n\n<!-- @meta{class=w} -->\n')).not.toBeNull();
+		expect((await refuseImportedComponent(css, 'w', '---\nstyle: "section{color:red}"\n---\n\n<!-- @meta{class=w} -->\n'))?.why).toMatch(/style:/);
+		expect(await refuseImportedComponent(css, 'w', '---\nmarp: true\ntheme: indaco\nprofile: teaching\nheader: "Lattice · w"\n---\n\n<!-- @meta{class=w} -->\n')).toBeNull();
 	});
 
 	it('refuses a sample slide that carries script, whichever attribute names its source', async () => {
 		// The Studio door hands the parsed script's text and attributes to the same shared rule
 		// as the CLI's; an SVG <script> names its file in href or xlink:href, not src.
 		const css = 'section.w .a{color:var(--accent)}';
-		expect((await refuseImportedComponent(css, 'w', '<!-- _class: w -->\n\n<script>fetch("https://evil.example/s")</script>'))?.why).toMatch(/inline <script>/);
+		expect((await refuseImportedComponent(css, 'w', '<!-- @meta{class=w} -->\n\n<script>fetch("https://evil.example/s")</script>'))?.why).toMatch(/inline <script>/);
 		for (const attr of ['href', 'xlink:href']) {
-			expect((await refuseImportedComponent(css, 'w', `<!-- _class: w -->\n\n<svg><script ${attr}="data:text/javascript,window.PWN=1"></script></svg>`))?.why).toMatch(/data: or javascript: source/);
+			expect((await refuseImportedComponent(css, 'w', `<!-- @meta{class=w} -->\n\n<svg><script ${attr}="data:text/javascript,window.PWN=1"></script></svg>`))?.why).toMatch(/data: or javascript: source/);
 		}
-		expect((await refuseImportedComponent(css, 'w', '<!-- _class: w -->\n\n<meta http-equiv="refresh" content="0;url=data:text/html,x">'))?.why).toMatch(/refresh/);
+		expect((await refuseImportedComponent(css, 'w', '<!-- @meta{class=w} -->\n\n<meta http-equiv="refresh" content="0;url=data:text/html,x">'))?.why).toMatch(/refresh/);
 	});
 
 	it('refuses, rather than waves through, a sample slide it could not check', async () => {
 		const pg = window.LatticePlayground;
 		(window as unknown as { LatticePlayground: unknown }).LatticePlayground = { render: () => { throw new Error('boom'); }, referenceTargets: () => [], pluginService: () => () => [] };
 		try {
-			expect((await refuseImportedComponent('section.w .a{color:var(--accent)}', 'w', '<!-- _class: w -->'))?.why).toMatch(/could not be checked \(boom\)/);
+			expect((await refuseImportedComponent('section.w .a{color:var(--accent)}', 'w', '<!-- @meta{class=w} -->'))?.why).toMatch(/could not be checked \(boom\)/);
 		} finally {
 			(window as unknown as { LatticePlayground: unknown }).LatticePlayground = pg;
 		}
 	});
 
 	it('allows a sample slide with links, relative images and inline svg', async () => {
-		const md = '<!-- _class: w -->\n\n[site](https://ok.example)\n\n![logo](logo.png)\n\n<svg xmlns="http://www.w3.org/2000/svg"><rect fill="url(#g)"/></svg>';
+		const md = '<!-- @meta{class=w} -->\n\n[site](https://ok.example)\n\n![logo](logo.png)\n\n<svg xmlns="http://www.w3.org/2000/svg"><rect fill="url(#g)"/></svg>';
 		expect(await refuseImportedComponent('section.w .a{color:var(--accent)}', 'w', md)).toBeNull();
 	});
 });

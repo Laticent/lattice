@@ -17,7 +17,7 @@ const engine = latticeEngine.createEngine();
 const html = (md) => engine.render(md).html;
 const sections = (h) => h.split(/(?=<section[\s>])/).filter((s) => /^<section[\s>]/.test(s));
 
-const DECK = `---\ntheme: indaco\npagination: true\n---\n\n<!-- _class: cards-grid -->\n<!-- _focusSteps: item 1 | item 2 | item 3 -->\n<!-- _footer: "Walk" -->\n\n## Four components.\n\n- A\n  - a\n- B\n  - b\n- C\n  - c\n`;
+const DECK = `---\ntheme: indaco\npagination: true\n---\n\n<!-- @meta{layout=cards-grid} -->\n<!-- @meta{focus-steps="item 1 | item 2 | item 3"} -->\n<!-- @meta{footer=Walk} -->\n\n## Four components.\n\n- A\n  - a\n- B\n  - b\n- C\n  - c\n`;
 
 describe('_focusSteps is one slide', () => {
   test('one authored slide renders as one slide, whatever its step count', () => {
@@ -52,7 +52,7 @@ describe('_focusSteps is one slide', () => {
   });
 
   test('page numbers do not jump: a stepping slide is one page', () => {
-    const deck = `---\ntheme: indaco\npagination: true\n---\n\n# One\n\n---\n\n<!-- _class: table -->\n<!-- _focusSteps: row 1 | row 2 | row 3 -->\n\n| a | b |\n|---|---|\n| 1 | 2 |\n| 3 | 4 |\n| 5 | 6 |\n\n---\n\n# Three\n`;
+    const deck = `---\ntheme: indaco\npagination: true\n---\n\n# One\n\n---\n\n<!-- @meta{layout=table} -->\n<!-- @meta{focus-steps="row 1 | row 2 | row 3"} -->\n\n| a | b |\n|---|---|\n| 1 | 2 |\n| 3 | 4 |\n| 5 | 6 |\n\n---\n\n# Three\n`;
     const pages = sections(html(deck)).map((s) => (s.match(/data-lattice-pagination="(\d+)"/) || [])[1]);
     assert.deepEqual(pages, ['1', '2', '3']);
   });
@@ -66,7 +66,7 @@ describe('_focusSteps is one slide', () => {
 });
 
 // The parse-time copy read `_focusSteps` from ANY comment in an html_block, including the second
-// of two on one line (`<!-- _class: table --> <!-- _focusSteps: … -->`). It now reads through the
+// of two on one line (`<!-- @meta{layout=table} --> <!-- @meta{focus-steps="…"} -->`). It now reads through the
 // engine's directive grammar like every other directive, so it follows that grammar's
 // one-comment-per-line rule, the rule `_class` already had on that same line. No committed deck
 // writes two directive comments on one line (checked 2026-11-09 with `git grep`).
@@ -74,7 +74,7 @@ describe('_focusSteps is one slide', () => {
 describe('_focusSteps keeps quoted steps as written (checker round 2)', () => {
   test("`'row 1' | 'row 2'` splits on the pipe and drops the quotes", () => {
     const table = '| A | B |\n|---|---|\n| 1 | 2 |\n| 3 | 4 |\n';
-    const out = latticeEngine.createEngine().render(`<!-- _focusSteps: 'row 1' | 'row 2' -->\n\n${table}`).html;
+    const out = latticeEngine.createEngine().render(`<!-- @meta{focus-steps="row 1' | 'row 2"} -->\n\n${table}`).html;
     assert.match(out, /data-steps="2"/);
     assert.match(out, /data-step-axes="row row"/);
   });
@@ -83,6 +83,7 @@ describe('_focusSteps keeps quoted steps as written (checker round 2)', () => {
 describe('a step lights exactly what the same `_focus` would', () => {
   // The painted step, read off the DOM, must equal the hand-written `_focus` for that step.
   const { applyStepAt } = require('../../../lib/core/step-state.mjs');
+  const { recordValue } = require('../../../lib/authoring/meta-migrate.mjs');
   const dom = (h) => new JSDOM(`<!doctype html><body>${h}</body>`).window.document;
   const marks = (doc) => [...doc.querySelectorAll('li, tr, td, th')].map((el) => (el.classList.contains('lat-focus') ? 'F' : el.classList.contains('lat-recede') ? 'r' : '.')).join('');
   const body = '| a | b |\n|---|---|\n| 1 | 2 |\n| 3 | 4 |\n| 5 | 6 |\n';
@@ -90,10 +91,10 @@ describe('a step lights exactly what the same `_focus` would', () => {
 
   for (const [k, spec] of WALK.entries()) {
     test(`step ${k + 1} (${spec})`, () => {
-      const stepped = dom(html(`<!-- _class: table -->\n<!-- _focusSteps: ${WALK.join(' | ')} -->\n\n${body}`));
+      const stepped = dom(html(`<!-- @meta{layout=table} -->\n<!-- @meta{focus-steps=${recordValue(WALK.join(' | '))}} -->\n\n${body}`));
       const sec = stepped.querySelector('section');
       applyStepAt(sec, k + 1);
-      const single = dom(html(`<!-- _class: table -->\n<!-- _focus: ${spec} -->\n\n${body}`));
+      const single = dom(html(`<!-- @meta{layout=table} -->\n<!-- @meta{focus=${recordValue(spec)}} -->\n\n${body}`));
       assert.equal(marks(stepped), marks(single));
       assert.equal(sec.getAttribute('data-step-at'), String(k + 1));
       assert.equal(sec.getAttribute('data-focus-axis'), single.querySelector('section').getAttribute('data-focus-axis'));
@@ -102,7 +103,7 @@ describe('a step lights exactly what the same `_focus` would', () => {
   }
 
   test('back to rest takes every mark off', () => {
-    const doc = dom(html(`<!-- _class: table -->\n<!-- _focusSteps: ${WALK.join(' | ')} -->\n\n${body}`));
+    const doc = dom(html(`<!-- @meta{layout=table} -->\n<!-- @meta{focus-steps=${recordValue(WALK.join(' | '))}} -->\n\n${body}`));
     const sec = doc.querySelector('section');
     applyStepAt(sec, 2);
     applyStepAt(sec, null);
@@ -112,7 +113,7 @@ describe('a step lights exactly what the same `_focus` would', () => {
   });
 
   test('code lines step too, wrapped once', () => {
-    const md = '<!-- _focusSteps: line 1 | line 2-3 -->\n\n```js\nconst a = 1;\nconst b = 2;\nconst c = 3;\n```\n';
+    const md = '<!-- @meta{focus-steps="line 1 | line 2-3"} -->\n\n```js\nconst a = 1;\nconst b = 2;\nconst c = 3;\n```\n';
     const doc = dom(html(md));
     const sec = doc.querySelector('section');
     applyStepAt(sec, 2);
@@ -123,8 +124,9 @@ describe('a step lights exactly what the same `_focus` would', () => {
 
 describe('a build slide paints by the same kernel', () => {
   const { applyStepAt } = require('../../../lib/core/step-state.mjs');
+  const { recordValue } = require('../../../lib/authoring/meta-migrate.mjs');
   test('step 0 reveals nothing, step N everything, rest everything', () => {
-    const doc = new JSDOM(`<!doctype html><body>${html('<!-- _build -->\n\n- a\n- b\n- c\n')}</body>`).window.document;
+    const doc = new JSDOM(`<!doctype html><body>${html('<!-- @meta{build} -->\n\n- a\n- b\n- c\n')}</body>`).window.document;
     const sec = doc.querySelector('section');
     assert.equal(sec.getAttribute('data-step-kind'), 'build');
     assert.equal(sec.getAttribute('data-steps'), '3');
@@ -144,7 +146,7 @@ describe('a chart kernel that writes its own data attributes keeps them under a 
   // The heatmap's ramp bucket used to be `data-step`, the step contract's own name, so a `_focusSteps` walk over
   // heatmap marks appended to it (`data-step="4 1"`) and the cell lost its fill. The ramp is `data-ramp` now.
   test('heatmap cells keep their ramp and gain only the step tags', () => {
-    const md = '<!-- _class: heatmap -->\n<!-- _focusSteps: mark 2 | mark 4 -->\n\n## Heat\n\n| | A | B |\n|---|---|---|\n| X | 1 | 9 |\n| Y | 5 | 3 |\n';
+    const md = '<!-- @meta{layout=heatmap} -->\n<!-- @meta{focus-steps="mark 2 | mark 4"} -->\n\n## Heat\n\n| | A | B |\n|---|---|---|\n| X | 1 | 9 |\n| Y | 5 | 3 |\n';
     const out = html(md);
     const cells = [...out.matchAll(/<rect class="heatmap-cell"[^>]*>/g)].map((m) => m[0]);
     assert.ok(cells.length >= 4);
@@ -169,7 +171,7 @@ describe('the red team\'s breaks stay fixed (2026-11-09)', () => {
   const items = Array.from({ length: 12 }, (_, i) => `- Item ${i + 1} carries a sentence long enough to fill a line`).join('\n');
 
   test('#1 a split build: every page walks ONLY its own units', () => {
-    const pages = walks(split(`---\ntheme: indaco\nsize: portrait\n---\n\n<!-- _class: list -->\n<!-- _build: item -->\n\n## A long list\n\n${items}\n`));
+    const pages = walks(split(`---\ntheme: indaco\nsize: portrait\n---\n\n<!-- @meta{layout=list} -->\n<!-- @meta{build=item} -->\n\n## A long list\n\n${items}\n`));
     assert.ok(pages.length > 2, 'the slide splits');
     for (const p of pages) {
       // A page's walk has exactly as many steps as it holds units, numbered from 1.
@@ -181,7 +183,7 @@ describe('the red team\'s breaks stay fixed (2026-11-09)', () => {
   });
 
   test('#1 a split focus walk: a page keeps only the steps that light something on it', () => {
-    const pages = walks(split(`---\ntheme: indaco\nsize: portrait\n---\n\n<!-- _class: list -->\n<!-- _focusSteps: item 1 | item 10 | item 12 -->\n\n## A long list\n\n${items}\n`));
+    const pages = walks(split(`---\ntheme: indaco\nsize: portrait\n---\n\n<!-- @meta{layout=list} -->\n<!-- @meta{focus-steps="item 1 | item 10 | item 12"} -->\n\n## A long list\n\n${items}\n`));
     const walking = pages.filter((p) => p.steps !== null);
     assert.equal(walking.length, 3, 'three pages hold a lit item; every other page rests');
     for (const p of walking) assert.equal(p.steps, '1');
@@ -191,21 +193,21 @@ describe('the red team\'s breaks stay fixed (2026-11-09)', () => {
     const t = '| a | b |\n|---|---|\n| 1 | 2 |\n| 3 | 4 |\n';
     const fm = html(`---\nfocusSteps: item 1 | item 2\n---\n\n- x\n- y\n`);
     assert.doesNotMatch(fm, /data-focus-steps/);
-    const bare = sections(html(`<!-- focusSteps: col 1 | col 2 -->\n\n${t}\n---\n\n${t}`));
+    const bare = sections(html(`<!-- @meta{focus-steps="col 1 | col 2"} -->\n\n${t}\n---\n\n${t}`));
     assert.match(bare[0], /data-focus-steps=/);
     assert.doesNotMatch(bare[1], /data-focus-steps=/);
   });
 
   test('#3 double-quoted steps light their target on the string path, as on the DOM path', () => {
-    const [s] = sections(html('<!-- _focusSteps: "item 1" | "item 2" -->\n\n- a\n- b\n'));
+    const [s] = sections(html('<!-- @meta{focus-steps="item 1\\" | \\"item 2"} -->\n\n- a\n- b\n'));
     assert.match(s, /data-step-axes="item item"/);
     assert.deepEqual([...s.matchAll(/<li\b[^>]*\sdata-step="([^"]*)"/g)].map((m) => m[1]), ['1', '2']);
   });
 
   test('#4 a step that lights nothing is no step: no dead presses', () => {
-    const [prose] = sections(html('<!-- _focusSteps: row 1 | item 9 | mark 2 -->\n\n## Just prose\n\nA paragraph.\n'));
+    const [prose] = sections(html('<!-- @meta{focus-steps="row 1 | item 9 | mark 2"} -->\n\n## Just prose\n\nA paragraph.\n'));
     assert.doesNotMatch(prose, /data-steps=/, 'nothing to walk: the slide rests');
-    const [list] = sections(html('<!-- _focusSteps: item 1 | item 9 | item 2 -->\n\n- a\n- b\n'));
+    const [list] = sections(html('<!-- @meta{focus-steps="item 1 | item 9 | item 2"} -->\n\n- a\n- b\n'));
     assert.match(list, /data-steps="2"/);
     assert.match(list, /data-step-axes="item item"/);
   });

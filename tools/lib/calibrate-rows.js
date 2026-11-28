@@ -117,7 +117,7 @@ function probe({ cls, shape, n, eyebrow, callout, ol, note }) {
     // no longer overflowed, and a probe that fits measures nothing. Length does not move the
     // geometry, only whether the stage overflows.
     : `${mark(i)} ${prose(60, i)}.`)).join('\n');
-  return `<!-- _class: ${cls} -->\n\n${eyebrow ? `\`Calibration · ${prose(18).toUpperCase()}\`\n\n` : ''}## ${prose(16)}.\n\n${items}\n${note ? `\n${prose(30, 7)}.\n` : ''}${callout ? `\n> ${prose(22, 5)}.\n` : ''}`;
+  return `<!-- @meta{class="${cls}"} -->\n\n${eyebrow ? `\`Calibration · ${prose(18).toUpperCase()}\`\n\n` : ''}## ${prose(16)}.\n\n${items}\n${note ? `\n${prose(30, 7)}.\n` : ''}${callout ? `\n> ${prose(22, 5)}.\n` : ''}`;
 }
 const VENUES = { laptop: null, huddle: 'l', conference: 'xl', hall: '2xl' };
 
@@ -159,7 +159,7 @@ async function main() {
         }
       }
       const deck = gradedDeck({ comp, size: '4k', scale, steps: probes, slideFor: (p) => ({ slide: p.slide }) })
-        .replace(/<!-- _class: [^>]*-->\n\n<!-- _class:/g, '<!-- _class:');
+        .split(`<!-- @meta{class="${comp}"} -->\n\n<!-- @meta{`).join('<!-- @meta{');
       const r = renderProbe(deck, `${comp}-rows-${venue}`, { format: 'html', keep: true });
       try {
         const page = await browser.newPage();

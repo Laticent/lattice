@@ -79,7 +79,7 @@ function probe({ reg, n, ol, sub, para }) {
   const point = (i) => (GRID[reg] && i === 0 ? `${mark(i)} ${prose(5, 9)}\n${pad(i)}- ${prose(30, 2)}.` : `${mark(i)} ${prose(GRID[reg] ? 3 : 18, i)}\n${pad(i)}- ${prose(GRID[reg] ? 110 : 90, i + 3)}.`);
   const left = reg.startsWith('watermark') ? `## ${prose(3)}\n\n\`Calibration\`` : `\`Calibration\`\n\n## ${prose(4)}.\n\n${prose(8)}.`;
   const right = `${sub ? `### ${prose(5, 4)}\n\n` : ''}${para ? `${prose(40, 6)}.\n\n` : ''}${Array.from({ length: n }, (_, i) => point(i)).join('\n')}`;
-  return `<!-- _class: ${cls} -->\n\n${left}\n\n${right}\n`;
+  return `<!-- @meta{class="${cls}"} -->\n\n${left}\n\n${right}\n`;
 }
 const VENUES = { laptop: null, huddle: 'l', conference: 'xl', hall: '2xl' };
 
@@ -102,7 +102,7 @@ async function main() {
         }
       }
       const deck = gradedDeck({ comp: 'split-panel', size: '4k', scale, steps: probes, slideFor: (p) => ({ slide: p.slide }) })
-        .replace(/<!-- _class: split-panel -->\n\n<!-- _class:/g, '<!-- _class:');
+        .replace(/<!-- @meta\{class="split-panel"\} -->\n\n<!-- @meta\{/g, '<!-- @meta{');
       const r = renderProbe(deck, `split-panel-points-${venue}`, { format: 'html', keep: true });
       try {
         const page = await browser.newPage();

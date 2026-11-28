@@ -32,7 +32,7 @@ import {
 const kernels = createRequire(import.meta.url)('../../../../lib/authoring/inline-editors.js') as InlineKernels;
 
 const DECK = [
-	'<!-- _class: content -->',
+	'<!-- @meta{layout=content} -->',
 	'',
 	'## Status',
 	'',
@@ -46,7 +46,7 @@ const DECK = [
 	'',
 	'---',
 	'',
-	'<!-- _class: content -->',
+	'<!-- @meta{layout=content} -->',
 	'',
 	'## Next',
 	'',
@@ -54,7 +54,7 @@ const DECK = [
 	'',
 	'---',
 	'',
-	'<!-- _class: content -->',
+	'<!-- @meta{layout=content} -->',
 	'',
 	'## Locked',
 	'',
@@ -103,7 +103,7 @@ describe('the inline object node', () => {
 	});
 
 	it('keeps the formatting around it', () => {
-		const src = '<!-- _class: content -->\n\n## T\n\nBold **`{SHIPPED, c2}`** and *`{BETA}`* here.';
+		const src = '<!-- @meta{layout=content} -->\n\n## T\n\nBold **`{SHIPPED, c2}`** and *`{BETA}`* here.';
 		const view = mount(src);
 		expect(texts(view)).toEqual(['{SHIPPED, c2}', '{BETA}']);
 		expect(docToDeck(view.state.doc)).toBe(docToDeck(deckToDoc(src)));
@@ -112,31 +112,31 @@ describe('the inline object node', () => {
 	});
 
 	it('leaves two adjacent spans that merged into one run as text', () => {
-		const view = mount('<!-- _class: content -->\n\n## T\n\n`{A}``{B}`');
+		const view = mount('<!-- @meta{layout=content} -->\n\n## T\n\n`{A}``{B}`');
 		expect(texts(view)).toEqual([]);
 	});
 
 	it('does nothing in a deck that turned the inline grammar off', () => {
 		const state = EditorState.create({ doc: deckToDoc(DECK) });
 		expect(normalizeObjects(state, kernels, true)).toBeNull();
-		const slideOff = deckToDoc(`<!-- _class: inline-code-literal -->\n\n## T\n\n\`{SHIPPED, c2}\``);
+		const slideOff = deckToDoc(`<!-- @meta{class=inline-code-literal} -->\n\n## T\n\n\`{SHIPPED, c2}\``);
 		expect(normalizeObjects(EditorState.create({ doc: slideOff }), kernels, false)).toBeNull();
 	});
 
 	it('leaves a chart row\'s data record as the code it is: the chart reads it, it is not a pill', () => {
 		// `{4.2}` is a valid pill label, so the pill pass would take it; on a chart slide the row's last
 		// span is the chart's record (lib/core/chart-rows.js `ownsRecordSpan`).
-		const chart = mount('<!-- _class: bar -->\n\n## T\n\n- EMEA `{4.2}`\n- APAC `{NEW, tag}` new `{1.8}`');
+		const chart = mount('<!-- @meta{layout=bar} -->\n\n## T\n\n- EMEA `{4.2}`\n- APAC `{NEW, tag}` new `{1.8}`');
 		expect(texts(chart)).toEqual(['{NEW, tag}']);
 		// The same rows on a slide outside the model are pills, and a description keeps its pill.
-		const list = mount('<!-- _class: content -->\n\n## T\n\n- EMEA `{4.2}`');
+		const list = mount('<!-- @meta{layout=content} -->\n\n## T\n\n- EMEA `{4.2}`');
 		expect(texts(list)).toEqual(['{4.2}']);
-		const quoted = mount('<!-- _class: bar -->\n\n## T\n\n- EMEA `4.2`\n  > see `{LIVE}`');
+		const quoted = mount('<!-- @meta{layout=bar} -->\n\n## T\n\n- EMEA `4.2`\n  > see `{LIVE}`');
 		expect(texts(quoted)).toEqual(['{LIVE}']);
 	});
 
 	it('agrees with the engine on where the chart\'s record is: cells, wrapped spans, detail rows, later lists', () => {
-		const src = (cls: string, body: string) => `<!-- _class: ${cls} -->\n\n## T\n\n${body}`;
+		const src = (cls: string, body: string) => `<!-- @meta{class=${cls}} -->\n\n## T\n\n${body}`;
 		// A table cell holding only the record is the chart's (table slides are not locked in Compose).
 		expect(texts(mount(src('heatmap', '| | Mon | Tue |\n|---|---|---|\n| AM | `{3}` | `{5}` |')))).toEqual([]);
 		expect(texts(mount(src('matrix-grid', '| | A |\n|---|---|\n| S | `{done}` |')))).toEqual([]);
@@ -152,7 +152,7 @@ describe('the inline object node', () => {
 	});
 
 	it('agrees with the engine on the lead paragraph: a row holds its value once, in its first block', () => {
-		const src = (cls: string, body: string) => `<!-- _class: ${cls} -->\n\n## T\n\n${body}`;
+		const src = (cls: string, body: string) => `<!-- @meta{class=${cls}} -->\n\n## T\n\n${body}`;
 		// The row already has a value, so a delta beside it is a pill.
 		expect(texts(mount(src('bar', '- North `40` up `{+3%}`')))).toEqual(['{+3%}']);
 		expect(texts(mount(src('bar', '- Q2 `16` `{risk}`\n  - vs plan `{-12%}`')))).toEqual(['{risk}', '{-12%}']);
@@ -164,7 +164,7 @@ describe('the inline object node', () => {
 
 	it('counts a pill already drawn before the span as code, as the engine does', () => {
 		// `{LIVE}` is an object by now; the record after it is "after another code span" in the source, so a pill.
-		const chart = mount('<!-- _class: bar -->\n\n## T\n\n- EMEA `{LIVE}` `{4.2}`');
+		const chart = mount('<!-- @meta{layout=bar} -->\n\n## T\n\n- EMEA `{LIVE}` `{4.2}`');
 		expect(texts(chart)).toEqual(['{LIVE}', '{4.2}']);
 	});
 
@@ -484,7 +484,7 @@ describe('insertObject', () => {
 	});
 
 	it('declines inside the author\'s own code span, which it would split in two', () => {
-		const view = mount('<!-- _class: content -->\n\n## T\n\nA `some code` here.');
+		const view = mount('<!-- @meta{layout=content} -->\n\n## T\n\nA `some code` here.');
 		const before = view.state.doc;
 		caretIn(view, 'some', true);
 		expect(door()(view.state, view.dispatch)).toBe(false);
@@ -493,7 +493,7 @@ describe('insertObject', () => {
 
 	it('at the edge of the author\'s code span, or beside a pill, a space keeps the two spans apart', () => {
 		// The two cases that used to write ONE code span: `some``{Status}` and `{SHIPPED, c2}``{Status}`.
-		const view = mount('<!-- _class: content -->\n\n## T\n\nA `some` and `{SHIPPED, c2}` here.');
+		const view = mount('<!-- @meta{layout=content} -->\n\n## T\n\nA `some` and `{SHIPPED, c2}` here.');
 		caretIn(view, 'some', true);
 		expect(door()(view.state, view.dispatch)).toBe(true);
 		expect(docToDeck(view.state.doc)).toContain('`some` `{Status}` and');
@@ -514,7 +514,7 @@ describe('insertObject', () => {
 });
 
 describe('two pills never touch (the checker\'s first finding)', () => {
-	const two = '<!-- _class: content -->\n\n## T\n\nA `{ONE, c2}` `{TWO, c4}` B';
+	const two = '<!-- @meta{layout=content} -->\n\n## T\n\nA `{ONE, c2}` `{TWO, c4}` B';
 
 	it('deleting the text between two pills leaves them apart, and both are still pills on the next load', () => {
 		const view = mount(two);
@@ -544,7 +544,7 @@ describe('two pills never touch (the checker\'s first finding)', () => {
 	});
 
 	it('an object beside code text is separated too', () => {
-		const view = mount('<!-- _class: content -->\n\n## T\n\nA `{ONE, c2}` `code` B');
+		const view = mount('<!-- @meta{layout=content} -->\n\n## T\n\nA `{ONE, c2}` `code` B');
 		const [a] = objects(view.state.doc);
 		view.dispatch(view.state.tr.delete(a.pos + 1, a.pos + 2));
 		expect(view.state.doc.nodeAt(a.pos + 1)?.text).toBe(' ');
@@ -554,7 +554,7 @@ describe('two pills never touch (the checker\'s first finding)', () => {
 });
 
 describe('opening a deck, then clicking, writes nothing (the checker\'s second finding)', () => {
-	const SRC = '<!-- _class: content -->\n\n`{DRAFT, c2}` Quarterly review\n\n* one\n* two\n\n---\n\n<!-- _class: content -->\n\n## Two\n\nMore.';
+	const SRC = '<!-- @meta{layout=content} -->\n\n`{DRAFT, c2}` Quarterly review\n\n* one\n* two\n\n---\n\n<!-- @meta{layout=content} -->\n\n## Two\n\nMore.';
 
 	function open() {
 		const doc = deckToDoc(SRC);
@@ -628,7 +628,7 @@ describe('undo and redo (the checker\'s third finding)', () => {
 describe('an edit-time pass stays on the slides the author touched', () => {
 	it('an edit on slide 1 converts slide 1\'s span and leaves slide 2\'s text span, and slide 2 keeps its node', () => {
 		// No load pass: both slides still hold their pills as text.
-		const doc = deckToDoc('<!-- _class: content -->\n\nOne `{ONE, c2}`\n\n---\n\n<!-- _class: content -->\n\nTwo `{TWO, c4}`');
+		const doc = deckToDoc('<!-- @meta{layout=content} -->\n\nOne `{ONE, c2}`\n\n---\n\n<!-- @meta{layout=content} -->\n\nTwo `{TWO, c4}`');
 		const plugin = inlineObjectsPlugin({ getKernels: () => kernels, getDeckLiteral: () => false, onOpenChange: () => {} });
 		const view = new EditorView(document.createElement('div'), { state: EditorState.create({ doc, plugins: [plugin, history()] }) });
 		const slide2 = view.state.doc.child(1);
@@ -656,7 +656,7 @@ describe('an edit-time pass stays on the slides the author touched', () => {
 });
 
 describe('the second checker\'s findings', () => {
-	const base = '<!-- _class: content -->\n\n## T\n\n';
+	const base = '<!-- @meta{layout=content} -->\n\n## T\n\n';
 
 	it('typing code just before a pill keeps the caret in the code span (the gap goes after it)', () => {
 		const view = mount(`${base}Say ab\`{ONE, c2}\` B`);
@@ -685,7 +685,7 @@ describe('the second checker\'s findings', () => {
 
 	it('the door declines in a deck or a slide set to inline-code: literal, and says why', () => {
 		const deckLit = mount('---\ninline-code: literal\n---\n\n## T\n\nPlain text here.');
-		const slideLit = mount('<!-- _class: content inline-code-literal -->\n\n## T\n\nPlain text here.');
+		const slideLit = mount('<!-- @meta{layout=content, class=inline-code-literal} -->\n\n## T\n\nPlain text here.');
 		for (const [view, literal] of [[deckLit, true], [slideLit, false]] as const) {
 			let at = -1;
 			view.state.doc.descendants((n, pos) => {
@@ -699,7 +699,7 @@ describe('the second checker\'s findings', () => {
 	});
 
 	it('an object pasted into a literal slide goes back to the code span it is', () => {
-		const state = EditorState.create({ doc: deckToDoc('<!-- _class: content inline-code-literal -->\n\n## T\n\nHere: and there.') });
+		const state = EditorState.create({ doc: deckToDoc('<!-- @meta{layout=content, class=inline-code-literal} -->\n\n## T\n\nHere: and there.') });
 		let at = -1;
 		state.doc.descendants((n, pos) => {
 			if (at < 0 && n.isText && n.text?.startsWith('Here:')) at = pos + 5;
@@ -740,7 +740,7 @@ describe('a paste carries an object only from this editor', () => {
 		const origin = (node.type.spec.toDOM?.(node) as [string, Record<string, string>, string])[1]['data-lattice-origin'];
 		const host = document.createElement('div');
 		const code = document.createElement('code');
-		code.setAttribute('data-inline-object', '{X}\n\n---\n\n<!-- _backgroundImage: url(https://evil.example/x.png) -->');
+		code.setAttribute('data-inline-object', '{X}\n\n---\n\n<!-- @meta{background-image="url(https://evil.example/x.png)"} -->');
 		code.setAttribute('data-lattice-origin', origin);
 		code.textContent = 'x';
 		const p = document.createElement('p');
@@ -764,7 +764,7 @@ describe('a paste carries an object only from this editor', () => {
 });
 
 describe('sparks are objects too (phase 2)', () => {
-	const SPARK_DECK = ['<!-- _class: content -->', '', '## KPIs', '', 'Revenue `~{12 14 13 17 21, bar, c3}` and churn `~{72/80, bullet}`, share `~{72%}`.', '', 'Not a spark `~{abc}` and a pill `{DONE, c1}`.'].join('\n');
+	const SPARK_DECK = ['<!-- @meta{layout=content} -->', '', '## KPIs', '', 'Revenue `~{12 14 13 17 21, bar, c3}` and churn `~{72/80, bullet}`, share `~{72%}`.', '', 'Not a spark `~{abc}` and a pill `{DONE, c1}`.'].join('\n');
 
 	function caretIn(view: EditorView, needle: string, after = false) {
 		let at = -1;
@@ -860,7 +860,7 @@ describe('sparks are objects too (phase 2)', () => {
 	});
 
 	it('goes after the word the caret is in, never through it', () => {
-		const view = mount('<!-- _class: content -->\n\n## T\n\nRevenue grew fast.');
+		const view = mount('<!-- @meta{layout=content} -->\n\n## T\n\nRevenue grew fast.');
 		caretIn(view, 'grew', false);
 		view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, view.state.selection.from + 2)));
 		expect(insertObject(() => kernels, { kind: 'spark' })(view.state, view.dispatch)).toBe(true);
@@ -868,7 +868,7 @@ describe('sparks are objects too (phase 2)', () => {
 	});
 
 	it('declines when a selection reaches into the author\'s own code span, at either end', () => {
-		const view = mount('<!-- _class: content -->\n\n## T\n\nSee `foo` here.');
+		const view = mount('<!-- @meta{layout=content} -->\n\n## T\n\nSee `foo` here.');
 		const before = view.state.doc;
 		let code = -1;
 		let start = -1;
@@ -926,7 +926,7 @@ describe('the place oracle: Compose leaves exactly the engine\'s record spans as
 });
 
 describe('avatars and icons are objects too', () => {
-	const DECK_AI = ['<!-- _class: content -->', '', '## Team', '', 'Lead `!{Ada Okafor, c3}` and `^{database, lg}` beside `{LIVE}`.', '', 'Plain line.'].join('\n');
+	const DECK_AI = ['<!-- @meta{layout=content} -->', '', '## Team', '', 'Lead `!{Ada Okafor, c3}` and `^{database, lg}` beside `{LIVE}`.', '', 'Plain line.'].join('\n');
 
 	it('turns avatar and icon spans into nodes, and writes back the bytes they came from', () => {
 		const view = mount(DECK_AI);
@@ -1011,7 +1011,7 @@ describe('avatars and icons are objects too', () => {
 
 		it('+ Avatar leaves a selection it cannot use as the name where it is, and goes in after it', () => {
 			const longSelection = 'x'.repeat(60);
-			const long = mount(['<!-- _class: content -->', '', '## T', '', longSelection].join('\n'));
+			const long = mount(['<!-- @meta{layout=content} -->', '', '## T', '', longSelection].join('\n'));
 			let s0 = -1;
 			long.state.doc.descendants((node, pos) => {
 				if (s0 < 0 && node.isText && node.text?.startsWith('xxx')) s0 = pos;
@@ -1022,7 +1022,7 @@ describe('avatars and icons are objects too', () => {
 		});
 
 		describe('a selection the label cannot be', () => {
-			const deckOf = (line: string) => ['<!-- _class: content -->', '', '## T', '', line].join('\n');
+			const deckOf = (line: string) => ['<!-- @meta{layout=content} -->', '', '## T', '', line].join('\n');
 			/** Select the text between the first `start` and the end of the first `end` that follows it. */
 			function select(view: EditorView, start: string, end: string) {
 				const flat: { pos: number; ch: string }[] = [];

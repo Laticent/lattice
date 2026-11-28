@@ -23,7 +23,7 @@ theme: indaco
 size: square
 ---
 
-<!-- _class: table -->
+<!-- @meta{class=table} -->
 
 \`The chart handoff\`
 

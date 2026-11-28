@@ -5,7 +5,7 @@ import { expect, test } from './studio-fixture';
 // Links in Compose, by pointing: the selection bar's Link button, a click on a link, and Insert → Link; and Insert → Check.
 // engineering/decisions/2026-10-29-compose-links-markers-insert.md. Every write is held to the saved deck byte for byte.
 
-const DECK = ['<!-- _class: content -->', '', '## Launch', '', 'Read the [launch notes](https://example.com/notes) before Friday.', '', 'The plan is ready.'].join('\n');
+const DECK = ['<!-- @meta{layout=content} -->', '', '## Launch', '', 'Read the [launch notes](https://example.com/notes) before Friday.', '', 'The plan is ready.'].join('\n');
 
 /** The saved deck with a typed trailing space's no-break space read as a space: the browser types one at a line end, before any link code runs. */
 const saved = async (page: Page) => (await savedDeck(page)).replace(/\u00a0/g, ' ');

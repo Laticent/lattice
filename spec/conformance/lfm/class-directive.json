@@ -1,6 +1,7 @@
 {
   "title": "A _class directive names one component and zero or more modifiers",
   "spec": "LFM-1.0",
+  "until": "LFM-2.0",
   "section": "2.1",
   "L0": { "visible": ["Two options, side by side", "Three bets"], "hidden": ["_class", "split-compare", "cards-grid"] },
   "L1": {

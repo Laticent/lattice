@@ -27,7 +27,7 @@ const DECK = `---
 marp: true
 ---
 
-<!-- _class: obligation-matrix -->
+<!-- @meta{class=obligation-matrix} -->
 
 # Matrix
 

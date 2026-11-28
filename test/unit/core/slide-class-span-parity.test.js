@@ -17,11 +17,11 @@
  *      saw a slide the engine does not have, and every byte after the equation
  *      was attributed to it. Live in the corpus at
  *      `lib/components/math/math/math.gallery.md`.
- *   2. The GLOBAL `<!-- class: X -->` directive, which carries forward from its
- *      slide to the end of the deck. Only the spot `<!-- _class: X -->` form was
+ *   2. The GLOBAL `<!-- @meta{class=X, carry} -->` directive, which carries forward from its
+ *      slide to the end of the deck. Only the spot `<!-- @meta{class=X} -->` form was
  *      read, so a deck that switches to a dark canvas mid-way rendered dark
  *      sections with light-baked diagram ink.
- *   3. A directive QUOTED as prose — `` `<!-- _class: kpi -->` `` inside inline
+ *   3. A directive QUOTED as prose — `` `<!-- @meta{layout=kpi} -->` `` inside inline
  *      code, or inside a fenced block. A raw text scan cannot tell that from a
  *      real directive, and the last one on a slide wins, so a deck documenting
  *      its own syntax overrode its own layout. Live at `kit/Sample-Deck.md`.

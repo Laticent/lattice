@@ -54,7 +54,7 @@ describe('renderMarkdown', () => {
 		const src = '---\nglossary: auto\nacronyms:\n  ARR: { expansion: annual recurring revenue, definition: "Recurs yearly." }\n---\n\n# Deck\n';
 		await renderMarkdown(PG, src, 'indaco');
 		const forwarded = render.mock.calls[0][0] as string;
-		expect(forwarded).toContain('<!-- _class: glossary -->');
+		expect(forwarded).toContain('<!-- @meta{layout=glossary} -->');
 		expect(forwarded).toContain('- ARR\n  - Recurs yearly.');
 	});
 

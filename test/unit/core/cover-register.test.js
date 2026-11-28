@@ -24,10 +24,10 @@ const { COVER_REGISTER, COVER_COMPOSITION_CLASSES, coverClasses, coverDeckTokens
 const { lintText } = require(path.join(ROOT, 'lib/authoring/lint.js'));
 const { isSurfaceRegisterToken } = require(path.join(ROOT, 'lib/core/surface-registers.js'));
 
-const TITLE = (cls = '') => `<!-- _class: title ${cls} -->\n\n# A deck.\n\n\`Eyebrow\`\n\nA subtitle.`;
+const TITLE = (cls = '') => `<!-- @meta{class=title ${cls}} -->\n\n# A deck.\n\n\`Eyebrow\`\n\nA subtitle.`;
 const CONTENT = '## A content slide.\n\nWords.';
-const CLOSING = (cls = '') => `<!-- _class: closing ${cls} -->\n\n## Thank you.\n\nA closing line.`;
-const DIVIDER = '<!-- _class: divider -->\n\n## Part two.';
+const CLOSING = (cls = '') => `<!-- @meta{class=closing ${cls}} -->\n\n## Thank you.\n\nA closing line.`;
+const DIVIDER = '<!-- @meta{layout=divider} -->\n\n## Part two.';
 const deck = (fm, slides) => ['---', 'theme: indaco', ...fm, '---', '', slides.join('\n\n---\n\n')].join('\n');
 const classesOf = (fm, slides) => {
   const doc = new JSDOM(latticeEngine.createEngine().render(deck(fm, slides)).html).window.document;

@@ -48,6 +48,14 @@ describe('llmsTxt', () => {
 		expect(txt).toContain('(https://lattice.style/features/)');
 		expect(new TextEncoder().encode(txt).length).toBeLessThan(4096);
 	});
+	it('routes an agent to start.md, then layouts.md, and names the engine version it describes', () => {
+		const txt = llmsTxt({ site: SITE, version: '9.8.7' });
+		expect(txt).toContain('The agent pack below describes engine 9.8.7.');
+		expect(txt).toContain('(https://lattice.style/agents/start.md)');
+		expect(txt).toContain('(https://lattice.style/agents/layouts.md)');
+		expect(txt).toContain('`<!-- @meta{layout=NAME} -->`');
+		expect(llmsTxt({ site: SITE })).not.toContain('describes engine');
+	});
 });
 
 describe('twinPath', () => {

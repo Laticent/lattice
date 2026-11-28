@@ -14,14 +14,14 @@ test('a chart axis line is not an eyebrow; prose in a code span is', () => {
 });
 
 test('a sample whose only line above the heading is an axis gets a real probe eyebrow', () => {
-  const s = splitSample('<!-- _class: gantt -->\n\n`[{Timeline, Q1 .. Q4}]`\n\n## Heading.\n\n| a | b |\n|---|---|\n| 1 | 2 |\n', 'gantt');
+  const s = splitSample('<!-- @meta{layout=gantt} -->\n\n`[{Timeline, Q1 .. Q4}]`\n\n## Heading.\n\n| a | b |\n|---|---|\n| 1 | 2 |\n', 'gantt');
   const out = exercised(s);
   assert.ok(out, 'the sample is topped up');
   assert.match(out.body, /`\[\{Timeline, Q1 \.\. Q4\}\]`\n\n`PROBE · EYEBROW`\n\n## Heading\./);
 });
 
 test('a sample with an eyebrow, a heading and a table is left alone', () => {
-  const s = splitSample('<!-- _class: content -->\n\n`Revenue · FY26`\n\n## Heading.\n\n| a | b |\n|---|---|\n| 1 | 2 |\n', 'content');
+  const s = splitSample('<!-- @meta{layout=content} -->\n\n`Revenue · FY26`\n\n## Heading.\n\n| a | b |\n|---|---|\n| 1 | 2 |\n', 'content');
   assert.equal(exercised(s), null);
 });
 

@@ -3,14 +3,29 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { fillAutoAgenda, autoAgendaPlan } = require('../../../lib/core/agenda-autofill');
+const { fillAutoAgenda: fillKernel, autoAgendaPlan } = require('../../../lib/core/agenda-autofill');
+const { SOURCE_CTX } = require('../../../lib/engine/source-hooks.js');
+const { compileSource } = require('../../../lib/plugins/meta/meta.source.mjs');
+const { readInternal } = require('../../../lib/core/meta-internal.mjs');
+// The kernel runs AFTER the door (lib/engine/index.js), on its internal comments. These tests write records, run the
+// door, fill, and read each internal comment back as a one-line class comment, so a finding reads as the slide's class.
+const fillAutoAgenda = (src) => {
+  const compiled = compileSource(src, SOURCE_CTX).source;
+  const out = fillKernel(compiled);
+  if (out === compiled) return src;
+  return out.replace(/<!-- lat-meta:[^\n]*?-->|<!-- lat-meta:[\s\S]*?-->/g, (c) => {
+    const r = readInternal(c);
+    const extra = c.split('\n').length - 1;
+    return r && Object.keys(r.d).join() === 'class' ? `<!-- _class: ${r.d.class} -->${'\n'.repeat(extra)}` : c;
+  });
+};
 const { agendaLintPlan } = require('../../../lib/authoring/lint-core');
 const { createEngine } = require('../../../lib/engine');
 
 // An empty agenda fills itself from the deck's dividers (engineering/decisions/2026-11-08-agenda-styles-and-autofill.md).
 
 const ROOT = path.join(__dirname, '..', '..', '..');
-const slide = (cls, body) => `<!-- _class: ${cls} -->\n\n${body}`;
+const slide = (cls, body) => `<!-- @meta{class=${cls}} -->\n\n${body}`;
 const deck = (...slides) => `---\ntheme: indaco\n---\n\n${slides.join('\n\n---\n\n')}\n`;
 
 const DIVIDERS = [
@@ -58,8 +73,8 @@ test('a hidden divider opens no section, and a divider in a code fence is code',
   const src = deck(
     slide('agenda', '## Agenda.'),
     DIVIDERS[0],
-    '<!-- _class: divider -->\n<!-- hide -->\n\n## Cut for time',
-    slide('list', '## Example.\n\n```md\n<!-- _class: divider -->\n## Not a section\n```'),
+    '<!-- @meta{layout=divider} -->\n<!-- @meta{hide} -->\n\n## Cut for time',
+    slide('list', '## Example.\n\n```md\n<!-- @meta{layout=divider} -->\n## Not a section\n```'),
     DIVIDERS[2],
   );
   const out = fillAutoAgenda(src);
@@ -68,26 +83,27 @@ test('a hidden divider opens no section, and a divider in a code fence is code',
 });
 
 test('a running global `class: agenda` is filled but never given progress (it would carry to later slides)', () => {
-  const src = `---\ntheme: indaco\n---\n\n<!-- class: agenda -->\n\n## Agenda.\n\n---\n\n${DIVIDERS.join('\n\n---\n\n')}\n`;
+  const src = `---\ntheme: indaco\n---\n\n<!-- @meta{layout=agenda, carry} -->\n\n## Agenda.\n\n---\n\n${DIVIDERS.join('\n\n---\n\n')}\n`;
   const out = fillAutoAgenda(src);
   assert.doesNotMatch(out, /progress-/);
 });
 
-test('a quoted directive keeps its class: the progress token goes inside the quotes', () => {
+test('a quoted class in the record gains its progress like a bare one', () => {
   const src = deck(DIVIDERS[0], slide('"agenda"', '## Where we are.'), DIVIDERS[2]);
-  assert.match(fillAutoAgenda(src), /<!-- _class: "agenda progress-1 agenda-pages" -->/);
+  assert.match(fillAutoAgenda(src), /<!-- _class: agenda progress-1 agenda-pages -->/);
 });
 
-test('a directive spread over several lines still gains its progress', () => {
-  const src = deck(DIVIDERS[0], '<!--\n_class: agenda\n-->\n\n## Where we are.', DIVIDERS[2]);
-  assert.match(fillAutoAgenda(src), /<!--\n_class: agenda progress-1 agenda-pages\n-->/);
+test('a record spread over several lines still gains its progress, on the same lines', () => {
+  const src = deck(DIVIDERS[0], '<!-- @meta{layout=agenda\n} -->\n\n## Where we are.', DIVIDERS[2]);
+  assert.match(fillAutoAgenda(src), /<!-- _class: agenda progress-1 agenda-pages -->\n\n\n## Where we are\./);
 });
 
 test('a divider heading that starts with a block marker stays one item of text', () => {
   const src = deck(slide('agenda', '## A.'), slide('divider', '## 1. Introduction'), slide('divider', '## - Draft notes'), slide('divider', '## # Hash'));
   const out = fillAutoAgenda(src);
   assert.match(out, /1\. 1\\\. Introduction\n2\. \\- Draft notes\n3\. \\# Hash\n/);
-  const { html } = createEngine().render(out, 'indaco');
+  // The engine fills the record deck itself (the kernel runs after its door).
+  const { html } = createEngine().render(src, 'indaco');
   const agenda = html.split('<section').find((s) => /class="[^"]*\bagenda\b/.test(s));
   assert.equal((agenda.match(/<li\b/g) || []).length, 3, 'three items, none nested');
   assert.doesNotMatch(agenda, /<ol[^>]*>[\s\S]*<ol|<ul|<h1/);
@@ -95,25 +111,27 @@ test('a divider heading that starts with a block marker stays one item of text',
 
 test('only a directive the ENGINE reads fills: two comments on one line, or a front-matter class, do not', () => {
   for (const src of [
-    deck('<!-- _paginate: false --> <!-- _class: agenda -->\n\n## A.', ...DIVIDERS),
-    deck('<!-- _class: agenda --> x\n\n## A.', ...DIVIDERS),
+    deck('<!-- @meta{paginate=false} --> <!-- @meta{layout=agenda} -->\n\n## A.', ...DIVIDERS),
+    deck('<!-- @meta{layout=agenda} --> x\n\n## A.', ...DIVIDERS),
     `---\nclass: agenda\n---\n\n# T\n\n---\n\n${DIVIDERS.join('\n\n---\n\n')}\n`,
   ]) assert.equal(fillAutoAgenda(src), src);
 });
 
 test('the fill is idempotent: a filled deck fills to itself', () => {
   const src = deck(slide('agenda', '## Agenda.'), ...DIVIDERS);
-  const once = fillAutoAgenda(src);
-  assert.equal(fillAutoAgenda(once), once);
+  const once = fillKernel(compileSource(src, SOURCE_CTX).source);
+  assert.notEqual(once, compileSource(src, SOURCE_CTX).source);
+  assert.equal(fillKernel(once), once);
 });
 
 test('the Q3 board fixture: emptying its agenda and filling it reproduces the hand-written list', () => {
   const src = fs.readFileSync(path.join(ROOT, 'test', 'fixtures', 'q3-board-review.md'), 'utf8');
   const emptied = src.replace(/(<!-- @meta\{layout=agenda\} -->[\s\S]*?\n)((?:\d+\. .*\n)+)/, '$1');
   assert.notEqual(emptied, src);
-  const squash = (s) => s.replace(/\n{2,}/g, '\n\n').trim();
-  // The filled agenda also carries the page-number marker; the hand-written one did not.
-  assert.equal(squash(fillAutoAgenda(emptied)).replace(' agenda-pages -->', ' -->'), squash(src));
+  // The list it fills is the hand-written one, item for item.
+  const items = (s) => s.match(/(?:^\d+\. .*\n)+/m)?.[0];
+  assert.ok(items(src));
+  assert.equal(items(fillAutoAgenda(emptied)), items(src));
 });
 
 test('the engine renders the filled list, so every surface the engine draws shows it', () => {
@@ -130,15 +148,15 @@ test('the lint plan and the kernel agree on every empty agenda and the section c
   const decks = [
     deck(slide('agenda', '## A.'), ...DIVIDERS),
     deck(slide('agenda', '## A.'), DIVIDERS[0]),
-    deck(slide('agenda', '## A.'), DIVIDERS[0], '<!-- _class: divider -->\n<!-- hide -->\n\n## Cut', DIVIDERS[2]),
-    deck(slide('agenda', '## A.'), slide('list', '```md\n<!-- _class: divider -->\n## No\n```'), DIVIDERS[0]),
+    deck(slide('agenda', '## A.'), DIVIDERS[0], '<!-- @meta{layout=divider} -->\n<!-- @meta{hide} -->\n\n## Cut', DIVIDERS[2]),
+    deck(slide('agenda', '## A.'), slide('list', '```md\n<!-- @meta{layout=divider} -->\n## No\n```'), DIVIDERS[0]),
     deck(slide('agenda', '## A.\n\n<!-- a note -->'), ...DIVIDERS),
     // The checker's divergence cases (2026-11-08): a nested hide, a list inside an HTML block, two comments on one
     // line, a comment with text after it, a front-matter `class: agenda`, a multi-line directive.
-    deck(slide('agenda', '## A.'), DIVIDERS[0], '<!-- _class: divider -->\n\n> <!-- hide -->\n\n## Shown', DIVIDERS[2]),
+    deck(slide('agenda', '## A.'), DIVIDERS[0], '<!-- @meta{layout=divider} -->\n\n> <!-- @meta{hide} -->\n\n## Shown', DIVIDERS[2]),
     deck(slide('agenda', '## A.\n\n<div>\n- a\n- b\n</div>'), ...DIVIDERS),
-    deck('<!-- _paginate: false --> <!-- _class: agenda -->\n\n## A.', ...DIVIDERS),
-    deck('<!-- _class: agenda --> x\n\n## A.', ...DIVIDERS),
+    deck('<!-- @meta{paginate=false} --> <!-- @meta{layout=agenda} -->\n\n## A.', ...DIVIDERS),
+    deck('<!-- @meta{layout=agenda} --> x\n\n## A.', ...DIVIDERS),
     `---\nclass: agenda\n---\n\n# T\n\n---\n\n${DIVIDERS.join('\n\n---\n\n')}\n`,
     deck('<!--\n_class: agenda\n-->\n\n## A.', ...DIVIDERS),
   ];
@@ -191,7 +209,7 @@ test('an authored agenda never gets the page-number marker, whatever the deck sa
 });
 
 test('the engine prints each filled item\'s page: the slide its divider is, counting only shown slides', () => {
-  const src = deck('# Title', slide('agenda', '## A.'), DIVIDERS[0], '<!-- hide -->\n\nCut', DIVIDERS[1], DIVIDERS[2]);
+  const src = deck('# Title', slide('agenda', '## A.'), DIVIDERS[0], '<!-- @meta{hide} -->\n\nCut', DIVIDERS[1], DIVIDERS[2]);
   const { html } = createEngine().render(src, 'indaco');
   const agenda = html.split('<section').find((x) => /class="[^"]*\bagenda\b/.test(x));
   // Title 1, agenda 2, divider 3, the hidden slide not counted, list 4, divider 5.

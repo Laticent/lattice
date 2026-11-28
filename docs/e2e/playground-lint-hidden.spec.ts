@@ -12,7 +12,7 @@ import { requestsFlushed, schedulerDrained } from './barriers';
 
 const SOURCE_KEY = 'lattice-docs-pg-source';
 // `kpii` is one character off `kpi`: an unknown component, so the lint has a finding to underline.
-const DECK = '---\ntheme: cuoio\n---\n\n<!-- _class: kpii -->\n\n# Stray slide\n';
+const DECK = '---\ntheme: cuoio\n---\n\n<!-- @meta{class=kpii} -->\n\n# Stray slide\n';
 const LINT_CORE = /\/esm\/lint\.js(\?|$)/;
 
 test.beforeEach(async ({ page }) => {
@@ -59,7 +59,7 @@ test('@crosswidth Explore never loads the lint core; Edit loads it and lints', a
 	// And the lint is live: a stray component gets its underline.
 	await page.locator('.cm-content').first().click();
 	await page.keyboard.press('ControlOrMeta+End');
-	await page.keyboard.type('\n\n---\n\n<!-- _class: kpii -->\n\n# Stray\n');
+	await page.keyboard.type('\n\n---\n\n<!-- @meta{class=kpii} -->\n\n# Stray\n');
 	await expect(page.locator('.cm-lintRange').first()).toBeVisible({ timeout: 30_000 });
 });
 

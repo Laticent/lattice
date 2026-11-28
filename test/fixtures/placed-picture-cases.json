@@ -3,110 +3,110 @@
  "cases": [
   {
    "name": "a lone picture between blank lines",
-   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## T\n\n![Lake](https://x.test/p.jpg)\n",
+   "md": "---\ntheme: indaco\n---\n\n<!-- @meta{layout=image} -->\n## T\n\n![Lake](https://x.test/p.jpg)\n",
    "addr": "https://x.test/p.jpg",
    "placed": true
   },
   {
    "name": "a picture right under the heading, no blank line",
-   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## T\n![Lake](https://x.test/p.jpg)\n",
+   "md": "---\ntheme: indaco\n---\n\n<!-- @meta{layout=image} -->\n## T\n![Lake](https://x.test/p.jpg)\n",
    "addr": "https://x.test/p.jpg",
    "placed": true
   },
   {
    "name": "a picture right under the class comment",
-   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n![Lake](https://x.test/p.jpg)\n",
+   "md": "---\ntheme: indaco\n---\n\n<!-- @meta{layout=image} -->\n![Lake](https://x.test/p.jpg)\n",
    "addr": "https://x.test/p.jpg",
    "placed": true
   },
   {
    "name": "a picture on a bleed slide",
-   "md": "---\ntheme: indaco\n---\n\n<!-- _class: content bleed -->\n## T\n\n![Lake](https://x.test/p.jpg)\n",
+   "md": "---\ntheme: indaco\n---\n\n<!-- @meta{layout=content, class=bleed} -->\n## T\n\n![Lake](https://x.test/p.jpg)\n",
    "addr": "https://x.test/p.jpg",
    "placed": true
   },
   {
    "name": "the left side (image mirror)",
-   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image mirror -->\n## T\n\n![Lake](https://x.test/p.jpg)\n",
+   "md": "---\ntheme: indaco\n---\n\n<!-- @meta{layout=image, class=mirror} -->\n## T\n\n![Lake](https://x.test/p.jpg)\n",
    "addr": "https://x.test/p.jpg",
    "placed": true
   },
   {
    "name": "a `![bg]` photo beside it: it stays in the text",
-   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## T\n\n![bg right](https://x.test/photo.jpg)\n\n![Logo](https://x.test/p.jpg)\n",
+   "md": "---\ntheme: indaco\n---\n\n<!-- @meta{layout=image} -->\n## T\n\n![bg right](https://x.test/photo.jpg)\n\n![Logo](https://x.test/p.jpg)\n",
    "addr": "https://x.test/p.jpg",
    "placed": false
   },
   {
    "name": "a bleed `![bg]` beside it",
-   "md": "---\ntheme: indaco\n---\n\n<!-- _class: content bleed -->\n## T\n\n![bg](https://x.test/photo.jpg)\n\n![Chart](https://x.test/p.jpg)\n",
+   "md": "---\ntheme: indaco\n---\n\n<!-- @meta{layout=content, class=bleed} -->\n## T\n\n![bg](https://x.test/photo.jpg)\n\n![Chart](https://x.test/p.jpg)\n",
    "addr": "https://x.test/p.jpg",
    "placed": false
   },
   {
    "name": "a record beside it",
-   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## T\n\n`@image{https://x.test/photo.jpg, title=\"Photo\"}`\n\n![Logo](https://x.test/p.jpg)\n",
+   "md": "---\ntheme: indaco\n---\n\n<!-- @meta{layout=image} -->\n## T\n\n`@image{https://x.test/photo.jpg, title=\"Photo\"}`\n\n![Logo](https://x.test/p.jpg)\n",
    "addr": "https://x.test/p.jpg",
    "placed": false
   },
   {
    "name": "a keyword alt in capitals",
-   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## T\n\n![BG right](https://x.test/p.jpg)\n",
+   "md": "---\ntheme: indaco\n---\n\n<!-- @meta{layout=image} -->\n## T\n\n![BG right](https://x.test/p.jpg)\n",
    "addr": "https://x.test/p.jpg",
    "placed": false
   },
   {
    "name": "an http address the record refuses",
-   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## T\n\n![Lake](http://x.test/p.jpg)\n",
+   "md": "---\ntheme: indaco\n---\n\n<!-- @meta{layout=image} -->\n## T\n\n![Lake](http://x.test/p.jpg)\n",
    "addr": "http://x.test/p.jpg",
    "placed": false
   },
   {
    "name": "a picture inside a paragraph of text",
-   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## T\n\nWords before\n![Lake](https://x.test/p.jpg)\n",
+   "md": "---\ntheme: indaco\n---\n\n<!-- @meta{layout=image} -->\n## T\n\nWords before\n![Lake](https://x.test/p.jpg)\n",
    "addr": "https://x.test/p.jpg",
    "placed": false
   },
   {
    "name": "two lone pictures",
-   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## T\n\n![A](https://x.test/p.jpg)\n\n![B](https://x.test/q.jpg)\n",
+   "md": "---\ntheme: indaco\n---\n\n<!-- @meta{layout=image} -->\n## T\n\n![A](https://x.test/p.jpg)\n\n![B](https://x.test/q.jpg)\n",
    "addr": "https://x.test/p.jpg",
    "placed": false,
    "crowded": true
   },
   {
    "name": "a content slide",
-   "md": "---\ntheme: indaco\n---\n\n<!-- _class: content -->\n## T\n\n![Lake](https://x.test/p.jpg)\n",
+   "md": "---\ntheme: indaco\n---\n\n<!-- @meta{layout=content} -->\n## T\n\n![Lake](https://x.test/p.jpg)\n",
    "addr": "https://x.test/p.jpg",
    "placed": false
   },
   {
    "name": "a modifier-only slide",
-   "md": "---\ntheme: indaco\n---\n\n<!-- _class: dark -->\n## T\n\n![Lake](https://x.test/p.jpg)\n",
+   "md": "---\ntheme: indaco\n---\n\n<!-- @meta{class=dark} -->\n## T\n\n![Lake](https://x.test/p.jpg)\n",
    "addr": "https://x.test/p.jpg",
    "placed": false
   },
   {
    "name": "a collage",
-   "md": "---\ntheme: indaco\n---\n\n<!-- _class: collage bleed -->\n## T\n\n![Lake](https://x.test/p.jpg)\n",
+   "md": "---\ntheme: indaco\n---\n\n<!-- @meta{layout=collage, class=bleed} -->\n## T\n\n![Lake](https://x.test/p.jpg)\n",
    "addr": "https://x.test/p.jpg",
    "placed": false
   },
   {
    "name": "a picture in a list item",
-   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## T\n\n- ![Lake](https://x.test/p.jpg)\n",
+   "md": "---\ntheme: indaco\n---\n\n<!-- @meta{layout=image} -->\n## T\n\n- ![Lake](https://x.test/p.jpg)\n",
    "addr": "https://x.test/p.jpg",
    "placed": false
   },
   {
    "name": "a picture in a quote",
-   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## T\n\n> ![Lake](https://x.test/p.jpg)\n",
+   "md": "---\ntheme: indaco\n---\n\n<!-- @meta{layout=image} -->\n## T\n\n> ![Lake](https://x.test/p.jpg)\n",
    "addr": "https://x.test/p.jpg",
    "placed": false
   },
   {
    "name": "a carried class from the slide before",
-   "md": "---\ntheme: indaco\n---\n\n<!-- class: image -->\n\n## One\n\n---\n\n## Two\n\n![Lake](https://x.test/p.jpg)\n",
+   "md": "---\ntheme: indaco\n---\n\n<!-- @meta{layout=image, carry} -->\n\n## One\n\n---\n\n## Two\n\n![Lake](https://x.test/p.jpg)\n",
    "addr": "https://x.test/p.jpg",
    "placed": true
   },
@@ -124,164 +124,164 @@
   },
   {
    "name": "two lone pictures on a bleed slide",
-   "md": "---\ntheme: indaco\n---\n\n<!-- _class: content bleed -->\n## T\n\n![A](https://x.test/p.jpg)\n\n![B](https://x.test/q.jpg)\n",
+   "md": "---\ntheme: indaco\n---\n\n<!-- @meta{layout=content, class=bleed} -->\n## T\n\n![A](https://x.test/p.jpg)\n\n![B](https://x.test/q.jpg)\n",
    "addr": "https://x.test/q.jpg",
    "placed": false,
    "crowded": true
   },
   {
    "name": "a background color is not a photo",
-   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n<!-- _backgroundColor: navy -->\n## T\n\n![Lake](https://x.test/p.jpg)\n",
+   "md": "---\ntheme: indaco\n---\n\n<!-- @meta{layout=image, background-color=navy} -->\n\n## T\n\n![Lake](https://x.test/p.jpg)\n",
    "addr": "https://x.test/p.jpg",
    "placed": true
   },
   {
    "name": "a background image directive is the slide's photo",
-   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n<!-- _backgroundImage: url(https://x.test/bg.jpg) -->\n## T\n\n![Lake](https://x.test/p.jpg)\n",
+   "md": "---\ntheme: indaco\n---\n\n<!-- @meta{layout=image, background-image=\"url(https://x.test/bg.jpg)\"} -->\n\n## T\n\n![Lake](https://x.test/p.jpg)\n",
    "addr": "https://x.test/p.jpg",
    "placed": false
   },
   {
    "name": "a deck-wide `class: collage` is a component name the engine drops",
-   "md": "---\ntheme: indaco\nclass: collage\n---\n\n<!-- _class: image -->\n## T\n\n![Lake](https://x.test/p.jpg)\n",
+   "md": "---\ntheme: indaco\nclass: collage\n---\n\n<!-- @meta{layout=image} -->\n## T\n\n![Lake](https://x.test/p.jpg)\n",
    "addr": "https://x.test/p.jpg",
    "placed": true
   },
   {
    "name": "a deck-wide `class: bleed` with a slide of its own class",
-   "md": "---\ntheme: indaco\nclass: bleed\n---\n\n<!-- _class: content dark -->\n## T\n\n![Lake](https://x.test/p.jpg)\n",
+   "md": "---\ntheme: indaco\nclass: bleed\n---\n\n<!-- @meta{layout=content, class=dark} -->\n## T\n\n![Lake](https://x.test/p.jpg)\n",
    "addr": "https://x.test/p.jpg",
    "placed": true
   },
   {
    "name": "a picture under a heading in a list's second paragraph stays in the list",
-   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## T\n\n- item\n\n  ![Lake](https://x.test/p.jpg)\n",
+   "md": "---\ntheme: indaco\n---\n\n<!-- @meta{layout=image} -->\n## T\n\n- item\n\n  ![Lake](https://x.test/p.jpg)\n",
    "addr": "https://x.test/p.jpg",
    "placed": false
   },
   {
    "name": "a spot `_backgroundImage: none` is no photo",
-   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n<!-- _backgroundImage: none -->\n## T\n\n![Lake](https://x.test/p.jpg)\n",
+   "md": "---\ntheme: indaco\n---\n\n<!-- @meta{layout=image, background-image=none} -->\n\n## T\n\n![Lake](https://x.test/p.jpg)\n",
    "addr": "https://x.test/p.jpg",
    "placed": true
   },
   {
    "name": "a `backgroundImage` the style sink refuses is no photo",
-   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n<!-- _backgroundImage: url(https://x.test/bg.jpg);color:red -->\n## T\n\n![Lake](https://x.test/p.jpg)\n",
+   "md": "---\ntheme: indaco\n---\n\n<!-- @meta{layout=image, background-image=\"url(https://x.test/bg.jpg);color:red\"} -->\n\n## T\n\n![Lake](https://x.test/p.jpg)\n",
    "addr": "https://x.test/p.jpg",
    "placed": true
   },
   {
    "name": "a front-matter `backgroundImage` is every slide's photo",
-   "md": "---\ntheme: indaco\nbackgroundImage: url(https://x.test/bg.jpg)\n---\n\n<!-- _class: image -->\n## T\n\n![Lake](https://x.test/p.jpg)\n",
+   "md": "---\ntheme: indaco\nbackgroundImage: url(https://x.test/bg.jpg)\n---\n\n<!-- @meta{layout=image} -->\n## T\n\n![Lake](https://x.test/p.jpg)\n",
    "addr": "https://x.test/p.jpg",
    "placed": false
   },
   {
    "name": "a running `backgroundImage` from the slide before",
-   "md": "---\ntheme: indaco\n---\n\n<!-- backgroundImage: url(https://x.test/bg.jpg) -->\n## One\n\n---\n\n<!-- _class: image -->\n## T\n\n![Lake](https://x.test/p.jpg)\n",
+   "md": "---\ntheme: indaco\n---\n\n<!-- @meta{background-image=\"url(https://x.test/bg.jpg)\", carry} -->\n## One\n\n---\n\n<!-- @meta{layout=image} -->\n## T\n\n![Lake](https://x.test/p.jpg)\n",
    "addr": "https://x.test/p.jpg",
    "placed": false
   },
   {
    "name": "a running `backgroundImage` cancelled by the slide's own `none`",
-   "md": "---\ntheme: indaco\n---\n\n<!-- backgroundImage: url(https://x.test/bg.jpg) -->\n## One\n\n---\n\n<!-- _backgroundImage: none -->\n<!-- _class: image -->\n## T\n\n![Lake](https://x.test/p.jpg)\n",
+   "md": "---\ntheme: indaco\n---\n\n<!-- @meta{background-image=\"url(https://x.test/bg.jpg)\", carry} -->\n## One\n\n---\n\n<!-- @meta{background-image=none, layout=image} -->\n\n## T\n\n![Lake](https://x.test/p.jpg)\n",
    "addr": "https://x.test/p.jpg",
    "placed": true
   },
   {
    "name": "a title with parentheses",
-   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## T\n\n![Lake](https://x.test/p.jpg \"Dawn (east)\")\n",
+   "md": "---\ntheme: indaco\n---\n\n<!-- @meta{layout=image} -->\n## T\n\n![Lake](https://x.test/p.jpg \"Dawn (east)\")\n",
    "addr": "https://x.test/p.jpg",
    "placed": true
   },
   {
    "name": "a picture right under a setext heading",
-   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\nT\n===\n![Lake](https://x.test/p.jpg)\n",
+   "md": "---\ntheme: indaco\n---\n\n<!-- @meta{layout=image} -->\nT\n===\n![Lake](https://x.test/p.jpg)\n",
    "addr": "https://x.test/p.jpg",
    "placed": true
   },
   {
    "name": "a picture followed directly by a list",
-   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## T\n\n![Lake](https://x.test/p.jpg)\n- a point\n",
+   "md": "---\ntheme: indaco\n---\n\n<!-- @meta{layout=image} -->\n## T\n\n![Lake](https://x.test/p.jpg)\n- a point\n",
    "addr": "https://x.test/p.jpg",
    "placed": true
   },
   {
    "name": "a deck with CRLF line endings",
-   "md": "---\r\ntheme: indaco\r\n---\r\n\r\n<!-- _class: image -->\r\n## T\r\n\r\n![Lake](https://x.test/p.jpg)\r\n",
+   "md": "---\r\ntheme: indaco\r\n---\r\n\r\n<!-- @meta{layout=image} -->\r\n## T\r\n\r\n![Lake](https://x.test/p.jpg)\r\n",
    "addr": "https://x.test/p.jpg",
    "placed": true
   },
   {
    "name": "a slide's own `_backgroundImage: none` lifts a carried background",
-   "md": "---\ntheme: indaco\nbackgroundImage: url(https://x.test/bg.jpg)\n---\n\n<!-- _class: image -->\n<!-- _backgroundImage: none -->\n## T\n\n![Lake](https://x.test/p.jpg)\n",
+   "md": "---\ntheme: indaco\nbackgroundImage: url(https://x.test/bg.jpg)\n---\n\n<!-- @meta{layout=image, background-image=none} -->\n\n## T\n\n![Lake](https://x.test/p.jpg)\n",
    "addr": "https://x.test/p.jpg",
    "placed": true
   },
   {
    "name": "a running `class:` set two slides back still carries",
-   "md": "---\ntheme: indaco\n---\n\n<!-- class: content bleed -->\n\n## One\n\n---\n\n## Two\n\n---\n\n## Three\n\n![Lake](https://x.test/p.jpg)\n",
+   "md": "---\ntheme: indaco\n---\n\n<!-- @meta{layout=content, class=bleed, carry} -->\n\n## One\n\n---\n\n## Two\n\n---\n\n## Three\n\n![Lake](https://x.test/p.jpg)\n",
    "addr": "https://x.test/p.jpg",
    "placed": true
   },
   {
    "name": "split: headings, a lone picture under each heading: the first part places its own",
-   "md": "---\ntheme: indaco\nsplit: headings\n---\n\n<!-- class: image -->\n## One\n\n![A](https://x.test/a.jpg)\n\n## Two\n\n![B](https://x.test/b.jpg)\n",
+   "md": "---\ntheme: indaco\nsplit: headings\n---\n\n<!-- @meta{layout=image, carry} -->\n## One\n\n![A](https://x.test/a.jpg)\n\n## Two\n\n![B](https://x.test/b.jpg)\n",
    "addr": "https://x.test/a.jpg",
    "placed": true
   },
   {
    "name": "split: headings, a lone picture under each heading: the second part places its own",
-   "md": "---\ntheme: indaco\nsplit: headings\n---\n\n<!-- class: image -->\n## One\n\n![A](https://x.test/a.jpg)\n\n## Two\n\n![B](https://x.test/b.jpg)\n",
+   "md": "---\ntheme: indaco\nsplit: headings\n---\n\n<!-- @meta{layout=image, carry} -->\n## One\n\n![A](https://x.test/a.jpg)\n\n## Two\n\n![B](https://x.test/b.jpg)\n",
    "addr": "https://x.test/b.jpg",
    "placed": true
   },
   {
    "name": "split: headings with a spot class: the first part is the image slide",
-   "md": "---\ntheme: indaco\nsplit: headings\n---\n\n<!-- _class: image -->\n## One\n\n![A](https://x.test/a.jpg)\n\n## Two\n\n![B](https://x.test/b.jpg)\n",
+   "md": "---\ntheme: indaco\nsplit: headings\n---\n\n<!-- @meta{layout=image} -->\n## One\n\n![A](https://x.test/a.jpg)\n\n## Two\n\n![B](https://x.test/b.jpg)\n",
    "addr": "https://x.test/a.jpg",
    "placed": true
   },
   {
    "name": "split: headings with a spot class: the second part is not, so its picture stays in the text",
-   "md": "---\ntheme: indaco\nsplit: headings\n---\n\n<!-- _class: image -->\n## One\n\n![A](https://x.test/a.jpg)\n\n## Two\n\n![B](https://x.test/b.jpg)\n",
+   "md": "---\ntheme: indaco\nsplit: headings\n---\n\n<!-- @meta{layout=image} -->\n## One\n\n![A](https://x.test/a.jpg)\n\n## Two\n\n![B](https://x.test/b.jpg)\n",
    "addr": "https://x.test/b.jpg",
    "placed": false
   },
   {
    "name": "split by default, a running class written before the second heading: the first part keeps its picture in the text",
-   "md": "---\ntheme: indaco\n---\n\n## One\n\n![A](https://x.test/a.jpg)\n\n<!-- class: image -->\n## Two\n\n![B](https://x.test/b.jpg)\n",
+   "md": "---\ntheme: indaco\n---\n\n## One\n\n![A](https://x.test/a.jpg)\n\n<!-- @meta{layout=image, carry} -->\n## Two\n\n![B](https://x.test/b.jpg)\n",
    "addr": "https://x.test/a.jpg",
    "placed": false
   },
   {
    "name": "split by default, a running class written before the second heading: the second part places its own",
-   "md": "---\ntheme: indaco\n---\n\n## One\n\n![A](https://x.test/a.jpg)\n\n<!-- class: image -->\n## Two\n\n![B](https://x.test/b.jpg)\n",
+   "md": "---\ntheme: indaco\n---\n\n## One\n\n![A](https://x.test/a.jpg)\n\n<!-- @meta{layout=image, carry} -->\n## Two\n\n![B](https://x.test/b.jpg)\n",
    "addr": "https://x.test/b.jpg",
    "placed": true
   },
   {
    "name": "split by default, a spot class written before the second heading: the first part keeps its picture in the text",
-   "md": "---\ntheme: indaco\n---\n\n## One\n\n![A](https://x.test/a.jpg)\n\n<!-- _class: image -->\n## Two\n\n![B](https://x.test/b.jpg)\n",
+   "md": "---\ntheme: indaco\n---\n\n## One\n\n![A](https://x.test/a.jpg)\n\n<!-- @meta{layout=image} -->\n## Two\n\n![B](https://x.test/b.jpg)\n",
    "addr": "https://x.test/a.jpg",
    "placed": false
   },
   {
    "name": "split by default, a spot class written before the second heading: the second part places its own",
-   "md": "---\ntheme: indaco\n---\n\n## One\n\n![A](https://x.test/a.jpg)\n\n<!-- _class: image -->\n## Two\n\n![B](https://x.test/b.jpg)\n",
+   "md": "---\ntheme: indaco\n---\n\n## One\n\n![A](https://x.test/a.jpg)\n\n<!-- @meta{layout=image} -->\n## Two\n\n![B](https://x.test/b.jpg)\n",
    "addr": "https://x.test/b.jpg",
    "placed": true
   },
   {
    "name": "split by default, a running background before the second heading: the first part still places its picture",
-   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## One\n\n![A](https://x.test/a.jpg)\n\n<!-- backgroundImage: url(https://x.test/bg.jpg) -->\n## Two\n\n![B](https://x.test/b.jpg)\n",
+   "md": "---\ntheme: indaco\n---\n\n<!-- @meta{layout=image} -->\n## One\n\n![A](https://x.test/a.jpg)\n\n<!-- @meta{background-image=\"url(https://x.test/bg.jpg)\", carry} -->\n## Two\n\n![B](https://x.test/b.jpg)\n",
    "addr": "https://x.test/a.jpg",
    "placed": true
   },
   {
    "name": "split by default, a running background before the second heading: the second part, with no class, keeps its picture in the text",
-   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## One\n\n![A](https://x.test/a.jpg)\n\n<!-- backgroundImage: url(https://x.test/bg.jpg) -->\n## Two\n\n![B](https://x.test/b.jpg)\n",
+   "md": "---\ntheme: indaco\n---\n\n<!-- @meta{layout=image} -->\n## One\n\n![A](https://x.test/a.jpg)\n\n<!-- @meta{background-image=\"url(https://x.test/bg.jpg)\", carry} -->\n## Two\n\n![B](https://x.test/b.jpg)\n",
    "addr": "https://x.test/b.jpg",
    "placed": false
   }

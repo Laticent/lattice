@@ -9,8 +9,8 @@ import { expect, gotoStudio, LIVE_PREVIEW, test, typeDeck } from './studio-fixtu
 
 const live = (page: Page) => page.frameLocator(LIVE_PREVIEW);
 
-const FLOW = '<!-- _class: flowchart -->\n\n## The queue clears in three steps.\n\n- Intake `pill` => Triage => Severity?\n- Severity? `diamond`\n  - =SEV1=> Page on-call\n  - -SEV2-> Open ticket => Mitigate\n- Page on-call => Mitigate\n';
-const STATE = '<!-- _class: state-chart -->\n\n## A release moves one way.\n\n- Draft => Review => Approved => Live\n- Review =changes=> Draft\n';
+const FLOW = '<!-- @meta{layout=flowchart} -->\n\n## The queue clears in three steps.\n\n- Intake `pill` => Triage => Severity?\n- Severity? `diamond`\n  - =SEV1=> Page on-call\n  - -SEV2-> Open ticket => Mitigate\n- Page on-call => Mitigate\n';
+const STATE = '<!-- @meta{layout=state-chart} -->\n\n## A release moves one way.\n\n- Draft => Review => Approved => Live\n- Review =changes=> Draft\n';
 
 for (const [name, svg, deck, notes, shape, nodes] of [
 	['flowchart', 'svg.flowchart-svg', FLOW, '`@callout{[{Pages the secondary after five minutes, for=Page on-call}, {The slowest step, for=Mitigate}]}`', 'Page on-call', 'svg.flowchart-svg .fc-shape'],

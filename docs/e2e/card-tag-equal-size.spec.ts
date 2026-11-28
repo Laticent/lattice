@@ -12,7 +12,7 @@ const deckFor = (placement: string): string => [
 	'title: Card tags',
 	'---',
 	'',
-	`<!-- _class: decision ${placement} -->`,
+	`<!-- @meta{class=decision ${placement}} -->`,
 	'',
 	'## Every tag takes the widest tag’s size.',
 	'',

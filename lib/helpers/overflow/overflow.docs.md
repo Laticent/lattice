@@ -120,7 +120,7 @@ slide is broken; the fix is to make the content fit.
 
 Common remedies:
 
-- **Switch to `compact`** (`<!-- _class: <layout> compact -->`):
+- **Switch to `compact`** (`<!-- @meta{layout=<layout>, class=compact} -->`):
   tightens spacing scale ~25%; usually buys back one card of room.
 - **Split the slide.** Two cards-grid slides at 4 items each beat one
   cards-grid at 6.

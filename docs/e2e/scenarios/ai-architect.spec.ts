@@ -41,8 +41,8 @@ test.describe.configure({ timeout: 180_000 });
 const WORDY = 'This paragraph is deliberately long and redundant and it repeats the same point over and over in far more words than the point ever needed.';
 const EYEBROW = 'Quarterly result for the partner referral program across every region';
 const DECK = [
-	`<!-- _class: big-number -->\n\n\`${EYEBROW}\`\n\n- 42%\n  - of the pipeline came from partner referrals, which was an interesting operational detail among several others we noticed this quarter.`,
-	`<!-- _class: closing -->\n\n## The program earns its budget.\n\n\`The ask\`\n\n${WORDY}`,
+	`<!-- @meta{layout=big-number} -->\n\n\`${EYEBROW}\`\n\n- 42%\n  - of the pipeline came from partner referrals, which was an interesting operational detail among several others we noticed this quarter.`,
+	`<!-- @meta{layout=closing} -->\n\n## The program earns its budget.\n\n\`The ask\`\n\n${WORDY}`,
 ].join('\n\n---\n\n');
 
 let relay: APIRequestContext;

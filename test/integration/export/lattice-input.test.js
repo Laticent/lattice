@@ -54,13 +54,13 @@ const themeFiles = (name, accent) => ({ [`${name}.manifest.json`]: JSON.stringif
 const compFiles = (name, css) => ({
   [`${name}.manifest.json`]: JSON.stringify({ name, type: 'component', format: 1 }),
   [`${name}.styles.css`]: css,
-  [`${name}.gallery.md`]: `<!-- _class: ${name} -->\n\n## ${name}\n`,
+  [`${name}.gallery.md`]: `<!-- @meta{class=${name}} -->\n\n## ${name}\n`,
 });
 /** A third-party code component: its transform marks the slide it draws, and nothing else. */
 const codeFiles = {
   'ticker.manifest.json': JSON.stringify({ name: 'ticker', type: 'component', format: 1, facts: 1 }),
   'ticker.styles.css': 'section.ticker-drawn h2 { color: var(--accent); }\n',
-  'ticker.gallery.md': '<!-- _class: ticker -->\n\n## Ticker\n',
+  'ticker.gallery.md': '<!-- @meta{class=ticker} -->\n\n## Ticker\n',
   'ticker.transform.js': 'function ticker(slide) { return slide.html.replace(\' class="\', \' class="ticker-drawn \'); }\nexport { ticker as default };\n',
 };
 
@@ -117,7 +117,7 @@ for (const [label, bin] of CLIS) {
       const comp = path.join(home, 'packages', 'component', 'probe-box');
       fs.mkdirSync(comp, { recursive: true });
       for (const [f, b] of Object.entries(compFiles('probe-box', 'section.probe-box { outline: 7px solid var(--accent); }'))) fs.writeFileSync(path.join(comp, f), b);
-      const file = await writeLattice(dir, { source: '---\ntheme: indaco\n---\n\n<!-- _class: probe-box -->\n\n## Boxed\n' });
+      const file = await writeLattice(dir, { source: '---\ntheme: indaco\n---\n\n<!-- @meta{class=probe-box} -->\n\n## Boxed\n' });
       const out = path.join(dir, 'deck.html');
       const r = cli([file, out], home);
       assert.equal(r.status, 0, r.stderr);
@@ -136,7 +136,7 @@ for (const [label, bin] of CLIS) {
       fs.mkdirSync(theme, { recursive: true });
       for (const [f, b] of Object.entries(themeFiles('probe-brand', '#111111'))) fs.writeFileSync(path.join(theme, f), b);
       const newer = (files) => Object.fromEntries(Object.entries(files).map(([f, b]) => [f, f.endsWith('.manifest.json') ? JSON.stringify({ ...JSON.parse(b), format: 99 }) : b]));
-      const compFile = await writeLattice(dir, { source: '---\ntheme: indaco\n---\n\n<!-- _class: probe-box -->\n\n## Boxed\n', packages: [{ type: 'component', name: 'probe-box', files: newer(compFiles('probe-box', 'section.probe-box { outline: 9px solid red; }')) }] });
+      const compFile = await writeLattice(dir, { source: '---\ntheme: indaco\n---\n\n<!-- @meta{class=probe-box} -->\n\n## Boxed\n', packages: [{ type: 'component', name: 'probe-box', files: newer(compFiles('probe-box', 'section.probe-box { outline: 9px solid red; }')) }] });
       const out = path.join(dir, 'c.html');
       const r = cli([compFile, out], home);
       assert.equal(r.status, 0, r.stderr);
@@ -154,7 +154,7 @@ for (const [label, bin] of CLIS) {
     test('a code component in the file fails without consent and renders with --trust, writing nothing', { timeout: TIMEOUT }, async () => {
       const dir = tmp('code');
       const home = tmp('home');
-      const file = await writeLattice(dir, { source: '---\ntheme: indaco\n---\n\n<!-- _class: ticker -->\n\n## Stamped\n', packages: [{ type: 'component', name: 'ticker', files: codeFiles }] });
+      const file = await writeLattice(dir, { source: '---\ntheme: indaco\n---\n\n<!-- @meta{class=ticker} -->\n\n## Stamped\n', packages: [{ type: 'component', name: 'ticker', files: codeFiles }] });
       const out = path.join(dir, 'deck.html');
       const refused = cli([file, out], home);
       assert.notEqual(refused.status, 0);

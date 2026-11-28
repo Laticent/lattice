@@ -160,7 +160,7 @@ describe('tower', () => {
   describe('narration', () => {
     const { narrateChart } = require('../../../lib/core/chart-narration');
     const slide = [
-      '<!-- _class: tower -->', '', '`Cat program · 2027`', '', '## Who carries the program.', '',
+      '<!-- @meta{layout=tower} -->', '', '`Cat program · 2027`', '', '## Who carries the program.', '',
       '- Layer 2 `$70M xs $90M`', '  - Acme Re `40%`', '  - Vantage Re `45%`',
       '- Layer 1 `$40M xs $50M`', '  - Globex Re `100%`', '- Retention `$50M`', '',
     ].join('\n');
@@ -237,7 +237,7 @@ describe('tower', () => {
 
   describe('narration mirrors the kernel', () => {
     const { narrateChart } = require('../../../lib/core/chart-narration');
-    const say = (body) => narrateChart(['<!-- _class: tower -->', '', '## T.', '', ...body, ''].join('\n'));
+    const say = (body) => narrateChart(['<!-- @meta{layout=tower} -->', '', '## T.', '', ...body, ''].join('\n'));
 
     test('a dropped pill is not said, and marks keep the kernel order', () => {
       const out = say(['- Bad `$40M xs -$10M`', '- Layer 1 `$40M xs $50M`', '- Retention `$50M`']);

@@ -88,12 +88,12 @@ describe('lattice packages', () => {
     const r = await run(['add', await zipOf('kpi', {
       'kpi.manifest.json': JSON.stringify({ name: 'kpi', type: 'component', format: 1 }),
       'kpi.styles.css': 'section.kpi { display: grid; }\nsection.kpi .kpi-row { gap: 1rem; }',
-      'kpi.gallery.md': '<!-- _class: kpi -->\n\n## kpi',
+      'kpi.gallery.md': '<!-- @meta{layout=kpi} -->\n\n## kpi',
     }), '--packages', store]);
     assert.equal(r.code, 0, r.text);
     const dir = path.join(store, 'component/kpi-custom');
     assert.equal(fs.readFileSync(path.join(dir, 'kpi-custom.styles.css'), 'utf8'), 'section.kpi-custom { display: grid; }\nsection.kpi-custom .kpi-row { gap: 1rem; }');
-    assert.equal(fs.readFileSync(path.join(dir, 'kpi-custom.gallery.md'), 'utf8'), '<!-- _class: kpi-custom -->\n\n## kpi');
+    assert.equal(fs.readFileSync(path.join(dir, 'kpi-custom.gallery.md'), 'utf8'), '<!-- @meta{layout=kpi-custom} -->\n\n## kpi');
   });
 
   describe('code packages (contract note §9)', () => {
@@ -101,7 +101,7 @@ describe('lattice packages', () => {
     const comp = (name, extra = {}, manifest = { facts: 1 }) => ({
       [`${name}.manifest.json`]: JSON.stringify({ name, type: 'component', format: 1, ...manifest }),
       [`${name}.styles.css`]: `section.${name} {}`,
-      [`${name}.gallery.md`]: `<!-- _class: ${name} -->`,
+      [`${name}.gallery.md`]: `<!-- @meta{class=${name}} -->`,
       [`${name}.transform.js`]: transform,
       ...extra,
     });
@@ -193,11 +193,11 @@ describe('lattice packages', () => {
       'probe.gallery.md': gallery,
     });
     const store = tmp('store');
-    const bad = await run(['add', await zipOf('probe', comp('<!-- _class: probe -->\n\n<img src="https://evil.test/b.png">')), '--packages', store]);
+    const bad = await run(['add', await zipOf('probe', comp('<!-- @meta{class=probe} -->\n\n<img src="https://evil.test/b.png">')), '--packages', store]);
     assert.equal(bad.code, 1, bad.text);
     assert.match(bad.text, /refused {2}probe: its sample slide loads https:\/\/evil\.test\/b\.png/);
     assert.equal(fs.existsSync(path.join(store, 'component/probe')), false);
-    const ok = await run(['add', await zipOf('probe', comp('<!-- _class: probe -->\n\n![logo](logo.png)\n\n[site](https://ok.test)')), '--packages', store]);
+    const ok = await run(['add', await zipOf('probe', comp('<!-- @meta{class=probe} -->\n\n![logo](logo.png)\n\n[site](https://ok.test)')), '--packages', store]);
     assert.equal(ok.code, 0, ok.text);
   });
 
@@ -435,7 +435,7 @@ describe('lattice packages', () => {
 describe('installed components in a deck (lib/cli/package-render.js)', () => {
   const { embedInstalledComponents } = require('../../../lib/cli/package-render.js');
   const { embedComponentsInMarkdown } = require('../../../lib/layout/bridge.js');
-  const deck = '---\ntheme: indaco\n---\n\n<!-- _class: zeta -->\n\n## Z\n\n---\n\n<!-- _class: yota -->\n\n## Y\n';
+  const deck = '---\ntheme: indaco\n---\n\n<!-- @meta{class=zeta} -->\n\n## Z\n\n---\n\n<!-- @meta{class=yota} -->\n\n## Y\n';
 
   test('embeds the installed component the deck uses', () => {
     const r = embedInstalledComponents(deck, [{ name: 'zeta', css: 'section.zeta { outline: 7px solid lime; }' }], []);
@@ -456,7 +456,7 @@ describe('installed components in a deck (lib/cli/package-render.js)', () => {
   });
 
   test('a shipped name is never taken from the store', () => {
-    const r = embedInstalledComponents('<!-- _class: kpi -->\n\n## K\n', [{ name: 'kpi', css: 'section.kpi { outline: 1px solid red; }' }], ['kpi']);
+    const r = embedInstalledComponents('<!-- @meta{layout=kpi} -->\n\n## K\n', [{ name: 'kpi', css: 'section.kpi { outline: 1px solid red; }' }], ['kpi']);
     assert.deepEqual(r.used, []);
     assert.doesNotMatch(r.source, /outline/);
   });

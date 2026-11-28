@@ -115,7 +115,7 @@ describe('gantt — the bar stamps the folded word (already folded; pinned here 
 
 describe('state-chart narration — the voice folds case with the slide', () => {
   const { narrateStateChart } = require('../../../lib/core/chart-narration');
-  const md = (pill) => ['<!-- _class: state-chart -->', '', '## Flow.', '', '- Draft', '  - -submit-> In Review',
+  const md = (pill) => ['<!-- @meta{layout=state-chart} -->', '', '## Flow.', '', '- Draft', '  - -submit-> In Review',
     `- In Review \`${pill}\``, '  - -ok-> Done', '- Done'].join('\n');
   // The status is spoken in words ("is at risk"), whatever its spelling, and the state's
   // NAME, in the transition sentences, never carries it.

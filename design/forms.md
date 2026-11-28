@@ -29,7 +29,7 @@ answer that ever varies:
 |---|---|---|---|
 | **Form** | is this slide composed? | nobody — it is unconditional | always on; no key, class or flag selects it |
 | **Medium** *(rendering medium)* | what does it compose *into*? | the renderer, never the deck | `2d` (CSS). A WebXR / CSS-3D renderer would be a second medium; none is scheduled |
-| **Frame** | which Frame carves this slide into Cells? | the **component**, via the `_class` token an author writes | 12 Frames: 2 chrome-hosting (`standard` · `minimal`) + 10 sovereign |
+| **Frame** | which Frame carves this slide into Cells? | the **component**, via the `layout=` an author writes in the slide's `@meta` record | 12 Frames: 2 chrome-hosting (`standard` · `minimal`) + 10 sovereign |
 
 **A sovereign Frame is not "Form off."** It is a Frame that declares **one** Cell —
 `cells: ["stage"]` — against `standard`'s nine. One Frame, one Cell, the whole
@@ -360,7 +360,7 @@ special cases. It reconciles with the component model's slot vocabulary
 | below-note (em-dash trailing `p`) | `coda` | harvested into the `coda` Cell, after the key-insight |
 | annotation (italic-only trailing `p`) | `coda` | harvested into the `coda` Cell, in the note's slot — it IS a below-note, styled differently because it is italic-only. **Not** the `overlay` Cell: this row read `overlay` / `tile/annotation` until 2026-09-01, which described a corner-overlay Tile no render path has ever emitted (see §7) |
 | caption (image / chart figure line) | `stage` | **component-owned**, placed by the component's own CSS *inside its stage Cell* — never hoisted. The `footer` Cell holds only footer + progress + pagination. |
-| footer (`_footer:`) | `footer` / `footer-left` | hoisted |
+| footer (`footer:` front matter, or `footer=` in a slide record) | `footer` / `footer-left` | hoisted |
 | meta · status | `masthead-bay` tiles | docked |
 | logo | `logo` | **frame-anchored, not docked** — `base.modifiers.css` pins the mark to the section at the frame insets, top-right by default, and a `logo-<placement>` class (the `logo-finish:` register) seats it in any of the six berths, clearing the header, footer or page number in that band. `no-logo` hides it. Content plane (z2), `accepts: ["chrome"]`. This row read `masthead-bay` until 2026-09-08; nothing ever docked it there |
 | pagination · progress | `pagination-right` · `progress-center` | docked |
@@ -775,7 +775,7 @@ axis. Lattice ships default Frames; designers add more; authors pick one and fil
 its Cells.
 
 > **What ships vs. what's proposed:** Frame *selection* ships today, but the author
-> never reaches it directly — the component's `_class` token names the Frame. A
+> never reaches it directly — the component the slide's `layout=` names picks the Frame. A
 > `title` slide composes as the `title` Frame; anything with no Frame of its own
 > composes as `standard`. (The `form:` toggle this paragraph used to cite never
 > selected a Frame at all: it took `off` / `standard`, not a Frame id, and it is
@@ -916,8 +916,8 @@ The engine + emulator apply it at render time via `applyFormToHtml` →
 `formToggleClass`; the browser **runtime** — which consumes an already-rendered DOM
 that Marp built without our render-time pass — reproduces the same result on the
 live DOM via `lib/forms/form-default.js`, reusing that same `formToggleClass` so
-the sovereign set stays single-sourced (HARD RULE 1). This is what lets a raw Marp
-deck (`lattice.css` + `lattice-runtime.js` + a theme) compose as Form at all.
+the sovereign set stays single-sourced (HARD RULE 1). This is what lets an Export-to-Marp
+bundle (`lattice.css` + `lattice-runtime.js` + a theme) compose as Form at all.
 
 > **This passage used to describe an opt-out, and described it wrongly even then.**
 > It said `form: off` applied only on Lattice's own engine paths "so the runtime

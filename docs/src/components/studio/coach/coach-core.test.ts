@@ -15,7 +15,7 @@ describe('hasContent — the empty-deck guard (K1: never fabricate a grade)', ()
 		expect(hasContent('hello')).toBe(false);
 	});
 	it('is true only with a classed slide and more than one chunk', () => {
-		expect(hasContent('<!-- _class: title -->\n# Hi\n\n---\n\n<!-- _class: statement -->\n## Point')).toBe(true);
+		expect(hasContent('<!-- @meta{layout=title} -->\n# Hi\n\n---\n\n<!-- @meta{class=statement} -->\n## Point')).toBe(true);
 		expect(hasContent('<!-- @meta{layout=title} -->\n# Hi\n\n---\n\n<!-- @meta{layout=statement} -->\n## Point')).toBe(true);
 	});
 });
@@ -37,7 +37,7 @@ describe('assessDeck', () => {
 		// No lint vocab → lint findings are skipped, but the review layer + scorecard still
 		// run (a lint-less grade is degraded, not fabricated). The empty-deck K1 guard above
 		// is what prevents a fake grade — not the vocab.
-		const a = await assess('<!-- _class: title -->\n# Hi\n\n---\n\n## Two', null);
+		const a = await assess('<!-- @meta{layout=title} -->\n# Hi\n\n---\n\n## Two', null);
 		expect(a.hasContent).toBe(true);
 		expect(a.scorecard).not.toBeNull();
 		expect(typeof a.scorecard?.craft.band).toBe('string');
@@ -69,16 +69,16 @@ describe('rankFindings + chips', () => {
 		expect(countSlides('---\ntitle: x\n---\n# A\n\n---\n\n# B')).toBe(2);
 	});
 	it('theAsk recognizes a decision slide', async () => {
-		expect((await theAsk('<!-- _class: decision -->\n# Approve X')).body[0]).toContain('decision slide');
+		expect((await theAsk('<!-- @meta{layout=decision} -->\n# Approve X')).body[0]).toContain('decision slide');
 	});
 	it('structureCheck reports opening/ask/close presence', async () => {
-		const card = await structureCheck('<!-- _class: title -->\n# Open\n\n---\n\n<!-- _class: decision -->\n# Approve');
+		const card = await structureCheck('<!-- @meta{layout=title} -->\n# Open\n\n---\n\n<!-- @meta{layout=decision} -->\n# Approve');
 		expect(card.body[0]).toContain('Opening');
 		expect(card.body).toHaveLength(3);
 	});
 	it('a deck written in slide records gets the same ask and structure as its comment twin', async () => {
 		expect((await theAsk('<!-- @meta{layout=decision} -->\n# Approve X')).body[0]).toContain('You have a decision slide');
-		const comments = await structureCheck('<!-- _class: title -->\n# Open\n\n---\n\n<!-- _class: decision -->\n# Approve\n\n---\n\n<!-- _class: closing -->\n# End');
+		const comments = await structureCheck('<!-- @meta{layout=title} -->\n# Open\n\n---\n\n<!-- @meta{layout=decision} -->\n# Approve\n\n---\n\n<!-- @meta{layout=closing} -->\n# End');
 		const records = await structureCheck('<!-- @meta{layout=title} -->\n# Open\n\n---\n\n<!-- @meta{layout=decision} -->\n# Approve\n\n---\n\n<!-- @meta{layout=closing} -->\n# End');
 		expect(records.body).toEqual(comments.body);
 		expect(records.body.every((l) => l.startsWith('✓'))).toBe(true);

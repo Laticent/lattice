@@ -10,7 +10,7 @@ bullet is an assertion about that render:
 ## a heatmap draws an anchored label at the cell it names
 
 ```markdown
-<!-- _class: heatmap -->
+<!-- @meta{layout=heatmap} -->
 
 ## Retention
 
@@ -32,7 +32,7 @@ bullet is an assertion about that render:
 ## with no style words, the marker is a circle and the words are bare
 
 ```markdown
-<!-- _class: heatmap -->
+<!-- @meta{layout=heatmap} -->
 
 ## Retention
 
@@ -51,7 +51,7 @@ bullet is an assertion about that render:
 ## a seventh callout is not drawn, and the description says so
 
 ```markdown
-<!-- _class: heatmap -->
+<!-- @meta{layout=heatmap} -->
 
 ## Retention
 
@@ -70,7 +70,7 @@ bullet is an assertion about that render:
 ## a label's detail reaches the speaker note
 
 ```markdown
-<!-- _class: heatmap -->
+<!-- @meta{layout=heatmap} -->
 
 ## Retention
 
@@ -86,7 +86,7 @@ bullet is an assertion about that render:
 ## a label that names no cell is reported, not drawn
 
 ```markdown
-<!-- _class: heatmap -->
+<!-- @meta{layout=heatmap} -->
 
 ## Retention
 
@@ -103,7 +103,7 @@ bullet is an assertion about that render:
 ## a heatmap with no legend is untouched
 
 ```markdown
-<!-- _class: heatmap -->
+<!-- @meta{layout=heatmap} -->
 
 ## Retention
 
@@ -121,7 +121,7 @@ bullet is an assertion about that render:
 callout: off
 ---
 
-<!-- _class: heatmap -->
+<!-- @meta{layout=heatmap} -->
 
 ## Retention
 
@@ -140,7 +140,7 @@ callout: off
 ## the pre-split spelling, a `@legend` span that pins a cell, still draws a callout
 
 ```markdown
-<!-- _class: heatmap -->
+<!-- @meta{layout=heatmap} -->
 
 ## Retention
 

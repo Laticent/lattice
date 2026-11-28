@@ -37,7 +37,7 @@ A slide's settings live in one comment; each note lives in its own.
 ## A pane is one more field.
 
 <!-- @meta{pane=bar} -->
-### Directive comments today
+### Directive comments before the cut
 `by key, example and gallery decks`
 
 - Class `3026`
@@ -85,10 +85,43 @@ The second one says the arrow --\> needs an escape inside a comment.} -->
 
 ---
 
+<!-- @meta{layout=list-steps, footer="Old comments set nothing"} -->
+<!-- @note{The cut: an old comment is blanked before the parse, so the slide falls back to the default layout and lint says why.} -->
+
+## Only the record is read.
+
+1. An old comment
+   - `<!-- _class: cards -->` sets nothing; the slide renders the default layout.
+2. A bare record
+   - `<!-- {layout=cards} -->` sets nothing either; it needs `@meta` before the brace.
+3. Lint says so
+   - Each one is an error, `legacy-directive-comment` or `meta-opener-bare`, with the fix.
+
+---
+
+<!-- @meta{footer="One command converts a deck"} -->
+<!-- @note{Run the fix once per deck. The migrated deck renders what the old one rendered before the cut.} -->
+
+## One command converts an old deck.
+
+```text
+$ lattice migrate meta deck.md
+rewrote deck.md: 12 comments → records
+
+before   <!-- _class: cards dark -->
+         <!-- _footer: Q3 review -->
+
+after    <!-- @meta{layout=cards, class=dark, footer=Q3 review} -->
+```
+
+The same pass runs from `lattice lint --fix` and from the fix button in the Studio. A deck is never converted when it is opened.
+
+---
+
 <!-- @meta{layout=title, footer=""} -->
 
 # Same slides, one grammar.
 
-`Records · step 2 of the meta record`
+`Records · the meta record, after the cut`
 
-Directive comments still work; the next steps retire them.
+Only `<!-- @meta{…} -->` sets a slide; `lattice migrate meta` converts the rest.

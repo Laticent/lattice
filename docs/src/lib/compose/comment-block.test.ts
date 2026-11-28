@@ -114,9 +114,9 @@ describe('shapes that are NOT block comments stay exactly as they were', () => {
 	});
 
 	it('a `_`-prefixed directive is still hoisted to the slide, never a comment node', () => {
-		const doc = deckToDoc('<!-- _class: cycle -->\n\n# H');
-		expect(doc.child(0).attrs.directives).toEqual(['<!-- _class: cycle -->']);
-		expect(blocks('<!-- _class: cycle -->\n\n# H')).toEqual(['heading']);
+		const doc = deckToDoc('<!-- @meta{layout=cycle} -->\n\n# H');
+		expect(doc.child(0).attrs.directives).toEqual(['<!-- @meta{layout=cycle} -->']);
+		expect(blocks('<!-- @meta{layout=cycle} -->\n\n# H')).toEqual(['heading']);
 	});
 });
 
@@ -303,31 +303,31 @@ describe('the clipboard shape gate', () => {
 	});
 
 	it('REJECTS a directive-shaped comment even WITH provenance (defense in depth)', () => {
-		expect(readCommentText('<!-- _backgroundImage: url(https://evil.example/beacon.png) -->', CLIP_ORIGIN)).toBe(false);
-		expect(readCommentText('<!-- _class: quote -->', CLIP_ORIGIN)).toBe(false);
+		expect(readCommentText('<!-- @meta{background-image="url(https://evil.example/beacon.png)"} -->', CLIP_ORIGIN)).toBe(false);
+		expect(readCommentText('<!-- @meta{layout=quote} -->', CLIP_ORIGIN)).toBe(false);
 		// The one carve-out: a `_pane` marker in its strict shape, so a pane cut and pasted keeps it.
-		expect(readCommentText('<!-- _pane: bar no-title -->', CLIP_ORIGIN)).toEqual({ text: '<!-- _pane: bar no-title -->' });
-		expect(readCommentText('<!-- _pane: url(https://evil.example/beacon.png) -->', CLIP_ORIGIN)).toBe(false);
-		expect(readCommentText('<!-- _pane: bar -->', null)).toBe(false);
+		expect(readCommentText('<!-- @meta{pane=bar no-title} -->', CLIP_ORIGIN)).toEqual({ text: '<!-- @meta{pane=bar no-title} -->' });
+		expect(readCommentText('<!-- @meta{pane="url(https://evil.example/beacon.png)"} -->', CLIP_ORIGIN)).toBe(false);
+		expect(readCommentText('<!-- @meta{pane=bar} -->', null)).toBe(false);
 		// A record sets the same attributes a directive does, so it is refused the same way; its pane marker in the
 		// strict shape is the one carve-out, as `_pane:` is.
-		expect(readCommentText('<!-- {background-image="url(https://evil.example/beacon.png)"} -->', CLIP_ORIGIN)).toBe(false);
+		expect(readCommentText('<!-- @meta{background-image="url(https://evil.example/beacon.png)"} -->', CLIP_ORIGIN)).toBe(false);
 		expect(readCommentText('<!-- @meta{layout=cards} -->', CLIP_ORIGIN)).toBe(false);
-		expect(readCommentText('<!-- {pane=bar no-title} -->', CLIP_ORIGIN)).toEqual({ text: '<!-- {pane=bar no-title} -->' });
-		expect(readCommentText('<!-- {pane="url(https://evil.example/x.png)"} -->', CLIP_ORIGIN)).toBe(false);
+		expect(readCommentText('<!-- @meta{pane=bar no-title} -->', CLIP_ORIGIN)).toEqual({ text: '<!-- @meta{pane=bar no-title} -->' });
+		expect(readCommentText('<!-- @meta{pane="url(https://evil.example/x.png)"} -->', CLIP_ORIGIN)).toBe(false);
 		// The `@meta` spelling Compose itself writes (record note §15) passes the same strict shape, and fails the same way.
 		expect(readCommentText('<!-- @meta{pane=bar no-title} -->', CLIP_ORIGIN)).toEqual({ text: '<!-- @meta{pane=bar no-title} -->' });
 		expect(readCommentText('<!-- @meta{pane=""} -->', CLIP_ORIGIN)).toEqual({ text: '<!-- @meta{pane=""} -->' });
 		expect(readCommentText('<!-- @meta{pane="url(https://evil.example/x.png)"} -->', CLIP_ORIGIN)).toBe(false);
 		expect(readCommentText('<!-- @meta{pane=bar, background-image="url(https://evil.example/x.png)"} -->', CLIP_ORIGIN)).toBe(false);
 		// The bare spelling of a directive is refused too: the engine applies it from this slide on.
-		expect(readCommentText('<!-- backgroundImage: url(https://evil.example/x.png) -->', CLIP_ORIGIN)).toBe(false);
-		expect(readCommentText('<!-- class: dark -->', CLIP_ORIGIN)).toBe(false);
+		expect(readCommentText('<!-- @meta{background-image="url(https://evil.example/x.png)", carry} -->', CLIP_ORIGIN)).toBe(false);
+		expect(readCommentText('<!-- @meta{class=dark, carry} -->', CLIP_ORIGIN)).toBe(false);
 		expect(readCommentText('<!-- a plain speaker note -->', CLIP_ORIGIN)).toEqual({ text: '<!-- a plain speaker note -->' });
 	});
 
 	it('a foreign div.cs-comment cannot put a directive into the deck source', () => {
-		const payload = '<!-- _backgroundImage: url(https://evil.example/beacon.png) -->';
+		const payload = '<!-- @meta{background-image="url(https://evil.example/beacon.png)"} -->';
 		const host = document.createElement('div');
 		const div = document.createElement('div');
 		div.className = 'cs-comment';

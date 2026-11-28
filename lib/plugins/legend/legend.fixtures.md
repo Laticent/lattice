@@ -14,7 +14,7 @@ heatmap does not draw it and says so.
 ## a heatmap reports a key legend it does not draw
 
 ```markdown
-<!-- _class: heatmap -->
+<!-- @meta{layout=heatmap} -->
 
 ## Retention
 

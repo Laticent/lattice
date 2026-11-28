@@ -36,7 +36,7 @@ function formDeck(sample) {
 // A fitting card (its sample) and an overstuffed one. The card shrinks its type to fit its
 // column, down to a legible floor, so "overstuffed" has to mean MORE than the floor can take:
 // a ledger of fifteen lines. (A long name or caption alone now fits, by design.)
-const FITTING = `<!-- _class: contact -->
+const FITTING = `<!-- @meta{layout=contact} -->
 
 - Ada Slide \`name\`
 - One scan saves the speaker \`title\`
@@ -44,7 +44,7 @@ const FITTING = `<!-- _class: contact -->
 - hello@laticent.io \`email\`
 `;
 
-const OVERSTUFFED = `<!-- _class: contact -->
+const OVERSTUFFED = `<!-- @meta{layout=contact} -->
 
 - Alexandria Bartholomew Christopherson Featherstonehaugh Wolfeschlegelsteinhausenbergerdorff \`name\`
 - Distinguished Principal Staff Systems Architect and Head of Platform \`title\`

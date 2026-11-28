@@ -27,9 +27,9 @@ test.describe.configure({ timeout: 300_000 });
 
 const SEQUENCE = ['sequenceDiagram', '  participant App', '  participant SDK', '  participant Log', '  App->>SDK: score(signal)', '  SDK-->>App: score', '  App->>Log: record'].join('\n');
 const DECK = [
-	`<!-- _class: diagram -->\n\n## Light handshake\n\n\`\`\`mermaid\n${SEQUENCE}\n\`\`\``,
-	`<!-- _class: diagram dark -->\n\n## Dark handshake\n\n\`\`\`mermaid\n${SEQUENCE}\n\`\`\``,
-	'<!-- _class: bar -->\n\n## Coverage by region\n\n- EMEA `4.2`\n- Americas `3.1`\n- APAC `2.4`\n',
+	`<!-- @meta{layout=diagram} -->\n\n## Light handshake\n\n\`\`\`mermaid\n${SEQUENCE}\n\`\`\``,
+	`<!-- @meta{layout=diagram, class=dark} -->\n\n## Dark handshake\n\n\`\`\`mermaid\n${SEQUENCE}\n\`\`\``,
+	'<!-- @meta{layout=bar} -->\n\n## Coverage by region\n\n- EMEA `4.2`\n- Americas `3.1`\n- APAC `2.4`\n',
 ].join('\n\n---\n\n');
 
 async function exportPdf(page: Parameters<typeof gotoStudio>[0]) {

@@ -9,7 +9,7 @@ import { expect, gotoStudio, railButtons, setEditorContent, test } from './studi
 // byte once the two fields a PDF stamps with the clock are masked.
 test.describe.configure({ timeout: 300_000 });
 
-const DECK = Array.from({ length: 4 }, (_, i) => `<!-- _class: big-number -->\n\n\`Slide ${i + 1}\`\n\n- ${i + 1}\n  - of four, each different.`).join('\n\n---\n\n');
+const DECK = Array.from({ length: 4 }, (_, i) => `<!-- @meta{layout=big-number} -->\n\n\`Slide ${i + 1}\`\n\n- ${i + 1}\n  - of four, each different.`).join('\n\n---\n\n');
 
 type P = Parameters<typeof gotoStudio>[0];
 

@@ -26,10 +26,10 @@ const cells = (html) => [...html.matchAll(/<lat-pane class="([^"]*)" data-pane="
 const hostClass = (html) => (html.match(/<section[^>]*\sclass="([^"]*)"/) || [])[1];
 
 const PANES = [
-  '<!-- pane: list -->', '', '- one', '- two', '',
-  '<!-- pane: table -->', '', '| A | B |', '|---|---|', '| 1 | 2 |',
+  '<!-- @meta{pane=list} -->', '', '- one', '- two', '',
+  '<!-- @meta{pane=table} -->', '', '| A | B |', '|---|---|', '| 1 | 2 |',
 ].join('\n');
-const DECK = ['`Eyebrow`', '', '## Title', '', '<!-- panes: 40/60 -->', PANES, '',
+const DECK = ['`Eyebrow`', '', '## Title', '', '<!-- @meta{panes=40/60} -->', PANES, '',
   '> The key insight.', '', '— A below-note.', ''].join('\n');
 
 test('a slide with two panes is ONE section with one title and two lat-pane cells', () => {
@@ -51,18 +51,18 @@ test('the trailing Key Insight and below-note belong to the slide, not to pane 2
 test('the host never gains `content` or keeps a component class, and keeps its own classes', () => {
   assert.equal(hostClass(render(DECK)), 'lat-pane-host chart-finish-pigment color-intensity-muted form'); // the HOST carries the finish; a pane cell below never does
   // A spot directive placed AFTER the panes still applies to the slide.
-  const late = hostClass(render(`## T\n\n${PANES}\n\n<!-- _class: invert -->\n`));
+  const late = hostClass(render(`## T\n\n${PANES}\n\n<!-- @meta{class=invert} -->\n`));
   assert.match(late, /\binvert\b/);
   assert.match(late, /\blat-pane-host\b/);
   assert.doesNotMatch(late, /\bcontent\b/);
   // An inherited class survives too.
-  assert.match(hostClass(render(`<!-- class: invert -->\n\n## T\n\n${PANES}\n`)), /\binvert\b.*\blat-pane-host\b|\blat-pane-host\b.*\binvert\b/);
+  assert.match(hostClass(render(`<!-- @meta{class=invert, carry} -->\n\n## T\n\n${PANES}\n`)), /\binvert\b.*\blat-pane-host\b|\blat-pane-host\b.*\binvert\b/);
 });
 
 test('slides after a panes slide survive whatever sits directly above the `---`', () => {
   for (const [label, last] of [['table', '| 1 | 2 |'], ['comment', '<!-- note -->'], ['list', '- two']]) {
     const body = label === 'list'
-      ? `## One\n\n<!-- pane: table -->\n\n| A |\n|---|\n| 1 |\n\n<!-- pane: list -->\n\n- one\n${last}\n---\n\n## Two\n\nUNIQUE2\n`
+      ? `## One\n\n<!-- @meta{pane=table} -->\n\n| A |\n|---|\n| 1 |\n\n<!-- @meta{pane=list} -->\n\n- one\n${last}\n---\n\n## Two\n\nUNIQUE2\n`
       : `## One\n\n${PANES}\n${label === 'comment' ? `\n${last}` : ''}\n---\n\n## Two\n\nUNIQUE2\n`;
     const html = render(body);
     assert.equal(sections(html), 2, label);
@@ -77,31 +77,31 @@ test('`split: headings` still splits the slides that follow a panes slide', () =
 });
 
 test('a heading written after the first marker is still the slide title', () => {
-  const html = render('<!-- pane: list -->\n\n## TITLEX\n\n- a\n\n<!-- pane: table -->\n\n| A |\n|---|\n| 1 |\n');
+  const html = render('<!-- @meta{pane=list} -->\n\n## TITLEX\n\n- a\n\n<!-- @meta{pane=table} -->\n\n| A |\n|---|\n| 1 |\n');
   assert.match(html, /<h2>TITLEX<\/h2>/);
   assert.equal(count(html, /<h2>/g), 1);
 });
 
 test('markers quoted inside a longer code fence are not panes', () => {
-  const html = render('## T\n\n````md\n```\n<!-- pane: list -->\n<!-- pane: list -->\n````\n');
+  const html = render('## T\n\n````md\n```\n<!-- @meta{pane=list} -->\n<!-- @meta{pane=list} -->\n````\n');
   assert.equal(count(html, /<lat-pane/g), 0);
-  assert.match(html, /&lt;!-- pane: list --&gt;/);
+  assert.match(html, /&lt;!-- @meta\{pane=list\} --&gt;/);
 });
 
 test('a comment holding `<div>` does not swallow the pane', () => {
-  const html = render('## T\n\n<!-- pane: content -->\n\nBEFORE\n\n<!-- a <div> in a note -->\n\nAFTER_C\n\n<!-- pane: list -->\n\n- x\n');
+  const html = render('## T\n\n<!-- @meta{pane=content} -->\n\nBEFORE\n\n<!-- a <div> in a note -->\n\nAFTER_C\n\n<!-- @meta{pane=list} -->\n\n- x\n');
   assert.match(html, /BEFORE/);
   assert.match(html, /AFTER_C/);
 });
 
 test('a quote pane keeps its attribution, because quote claims the trailing paragraph', () => {
-  const html = render('## T\n\n<!-- pane: list -->\n\n- a\n\n<!-- pane: quote -->\n\n> Ship less, think more.\n\n— Jane Doe, CTO\n');
+  const html = render('## T\n\n<!-- @meta{pane=list} -->\n\n- a\n\n<!-- @meta{pane=quote} -->\n\n> Ship less, think more.\n\n— Jane Doe, CTO\n');
   const pane = html.slice(html.indexOf('data-pane="quote"'));
   assert.match(pane.slice(0, pane.indexOf('</lat-pane>')), /Jane Doe/);
 });
 
 test('a spot directive right under the last pane still applies to the slide', () => {
-  const html = render(`## T\n\n${PANES}\n<!-- _footer: FOOTX -->\n`);
+  const html = render(`## T\n\n${PANES}\n<!-- @meta{footer=FOOTX} -->\n`);
   assert.match(html, /<footer>FOOTX<\/footer>/);
 });
 
@@ -112,13 +112,13 @@ test('author HTML shaped like a placeholder is never filled', () => {
 });
 
 test('a chart pane is built by its kernel and keeps its component classes', () => {
-  const html = render('## T\n\n<!-- pane: bar -->\n\n- A `4`\n- B `6`\n\n<!-- pane: list -->\n\n- x\n');
+  const html = render('## T\n\n<!-- @meta{pane=bar} -->\n\n- A `4`\n- B `6`\n\n<!-- @meta{pane=list} -->\n\n- x\n');
   assert.equal(cells(html)[0][0], 'bar form chart-frame');
   assert.match(html, /<svg class="cart-svg bar-svg"/);
 });
 
 test('a chart pane is framed with no heading of its own — no stand-in, no masthead', () => {
-  const html = render('## T\n\n<!-- pane: bar -->\n\n- A `4`\n- B `6`\n\n<!-- pane: list -->\n\n- x\n');
+  const html = render('## T\n\n<!-- @meta{pane=bar} -->\n\n- A `4`\n- B `6`\n\n<!-- @meta{pane=list} -->\n\n- x\n');
   // The host's h2 is the slide's only heading: nothing zero-width, nothing lifted from a pane.
   assert.equal((html.match(/<h2\b/g) || []).length, 1);
   assert.doesNotMatch(html, /\u200b/);
@@ -126,13 +126,13 @@ test('a chart pane is framed with no heading of its own — no stand-in, no mast
 });
 
 test('an ordinary chart SLIDE with no heading still renders untransformed (headless is pane-only)', () => {
-  const html = render('<!-- _class: bar -->\n\n- A `4`\n- B `6`\n');
+  const html = render('<!-- @meta{layout=bar} -->\n\n- A `4`\n- B `6`\n');
   assert.doesNotMatch(html, /chart-frame/);
 });
 
 test('a slide without panes keeps its ids when a LATER slide has panes', () => {
-  const pie = '## P\n\n<!-- _class: piechart -->\n\n- A `60%`\n- B `40%`\n';
-  const panesSlide = '## Q\n\n<!-- pane: piechart -->\n\n- C `70%`\n- D `30%`\n\n<!-- pane: list -->\n\n- x\n';
+  const pie = '## P\n\n<!-- @meta{layout=piechart} -->\n\n- A `60%`\n- B `40%`\n';
+  const panesSlide = '## Q\n\n<!-- @meta{pane=piechart} -->\n\n- C `70%`\n- D `30%`\n\n<!-- @meta{pane=list} -->\n\n- x\n';
   const alone = render(pie);
   const both = render(`${pie}\n---\n\n${panesSlide}`);
   const ids = (h) => [...h.matchAll(/id="(pie-wedge-[^"]+)"/g)].map((m) => m[1]);
@@ -209,7 +209,7 @@ test('a component class written on a panes slide does not run that component on 
   // The component body rules (glossary tables, checklist states, badges …) key on the slide's
   // class. Run before the carve, `_class: glossary` put a letter-range pill on the TITLE and
   // turned a list pane into a glossary table.
-  const html = render('<!-- _class: glossary -->\n\n## Terms\n\n<!-- pane: list -->\n\n- Alpha\n  - one\n- Beta\n  - two\n\n<!-- pane: content -->\n\nx\n');
+  const html = render('<!-- @meta{layout=glossary} -->\n\n## Terms\n\n<!-- @meta{pane=list} -->\n\n- Alpha\n  - one\n- Beta\n  - two\n\n<!-- @meta{pane=content} -->\n\nx\n');
   const host = html.slice(html.indexOf('<section'), html.indexOf('<div class="lat-panes"'));
   assert.doesNotMatch(host, /data-glossary-range/);
   assert.doesNotMatch(host, /data-class="glossary"|--class:"glossary"/);
@@ -295,18 +295,18 @@ test('a scoped widening twins only arms whose root classes a pane of this deck c
 test('an engine keeps a bounded number of pane-scoped sheets', () => {
   const e = engine();
   const kinds = ['list', 'table', 'bar', 'line', 'stats', 'kpi', 'quote', 'agenda', 'checklist', 'glossary'];
-  for (const k of kinds) e.render(`## T\n\n<!-- pane: ${k} -->\n\n- a \`1\`\n\n<!-- pane: content -->\n\nx\n`);
+  for (const k of kinds) e.render(`## T\n\n<!-- @meta{pane=${k}} -->\n\n- a \`1\`\n\n<!-- @meta{pane=content} -->\n\nx\n`);
   const paneSheets = [...e.themes._cssCache.keys()].filter((k) => !k.endsWith('\u0000'));
   assert.ok(paneSheets.length <= 8, `${paneSheets.length} pane sheets cached`);
 });
 
 test('theme rules keyed to a component reach a pane (the a11y texture channel)', () => {
-  const css = engine().render(`---\ntheme: a11y-deuteranopia\n---\n\n## T\n\n<!-- pane: piechart -->\n\n- A \`60%\`\n- B \`40%\`\n\n<!-- pane: list -->\n\n- x\n`).css;
+  const css = engine().render(`---\ntheme: a11y-deuteranopia\n---\n\n## T\n\n<!-- @meta{pane=piechart} -->\n\n- A \`60%\`\n- B \`40%\`\n\n<!-- @meta{pane=list} -->\n\n- x\n`).css;
   assert.match(css, /lat-pane\.piechart[^{]*wedge/);
 });
 
 test('a table in a pane renders with the same table classes as a table slide', () => {
-  const html = render('## T\n\n<!-- pane: list -->\n\n- a\n\n<!-- pane: table -->\n\n| A | B |\n|---|---|\n| 1 | 2 |\n');
+  const html = render('## T\n\n<!-- @meta{pane=list} -->\n\n- a\n\n<!-- @meta{pane=table} -->\n\n| A | B |\n|---|---|\n| 1 | 2 |\n');
   const pane = html.slice(html.indexOf('data-pane="table"'));
   // The row-label verdict leads; the reflow stamp (lib/core/table-shape.js) may follow it.
   assert.match(pane, /<div class="cell-stage">\s*<table class="lat-row-label(-off)?(?: lat-reflow-[a-z]+)?"/);
@@ -314,7 +314,7 @@ test('a table in a pane renders with the same table classes as a table slide', (
 
 test('the spine between panes is on by default and `no-spine` turns it off', () => {
   assert.match(render(DECK), /<div class="lat-panes" data-panes="side" style=/);
-  const off = render(`## T\n\n<!-- panes: 40/60 no-spine -->\n${PANES}\n`);
+  const off = render(`## T\n\n<!-- @meta{panes=40/60 no-spine} -->\n${PANES}\n`);
   assert.match(off, /<div class="lat-panes" data-panes="side" data-rule="none" style=/);
   assert.equal(count(off, /<lat-pane /g), 2);
 });
@@ -333,16 +333,16 @@ test('a chart in a pane draws on a canvas shaped like its pane; a slide chart ke
   const vb = (html) => (html.match(/class="cart-svg[^"]*"[^>]*viewBox="0 0 ([\d.]+) ([\d.]+)"|viewBox="0 0 ([\d.]+) ([\d.]+)"[^>]*class="cart-svg/) || []).filter(Boolean).slice(1).map(Number);
   const bars = '- A `4`\n- B `7`\n- C `3`';
   // A full slide: the fixed 320x180 canvas, exactly as before panes existed.
-  assert.deepEqual(vb(e.render(`<!-- _class: bar -->\n\n## T\n\n${bars}\n`).html), [320, 180]);
+  assert.deepEqual(vb(e.render(`<!-- @meta{layout=bar} -->\n\n## T\n\n${bars}\n`).html), [320, 180]);
   // A 60% stacked band is short and wide, and so is its canvas.
-  const [w, h] = vb(e.render(`## T\n\n<!-- panes: stack 60/40 -->\n<!-- pane: bar -->\n\n${bars}\n\n<!-- pane: content -->\n\nx\n`).html);
+  const [w, h] = vb(e.render(`## T\n\n<!-- @meta{panes=stack 60/40} -->\n<!-- @meta{pane=bar} -->\n\n${bars}\n\n<!-- @meta{pane=content} -->\n\nx\n`).html);
   assert.ok(w / h > 3.5, `stacked band canvas ${w}x${h} is not band-shaped`);
   // The host's chrome takes stage height the panes do not get: a Key Insight shortens the canvas.
-  const tall = vb(e.render(`## T\n\n<!-- pane: bar -->\n\n${bars}\n\n<!-- pane: list -->\n\n- x\n`).html);
-  const short = vb(e.render(`## T\n\n<!-- pane: bar -->\n\n${bars}\n\n<!-- pane: list -->\n\n- x\n\n> Insight.\n`).html);
+  const tall = vb(e.render(`## T\n\n<!-- @meta{pane=bar} -->\n\n${bars}\n\n<!-- @meta{pane=list} -->\n\n- x\n`).html);
+  const short = vb(e.render(`## T\n\n<!-- @meta{pane=bar} -->\n\n${bars}\n\n<!-- @meta{pane=list} -->\n\n- x\n\n> Insight.\n`).html);
   assert.ok(short[1] < tall[1], `a Key Insight did not shorten the pane canvas (${tall} vs ${short})`);
   // The stamp that carries the canvas never reaches the output.
-  assert.doesNotMatch(e.render(`## T\n\n<!-- pane: bar -->\n\n${bars}\n\n<!-- pane: list -->\n\n- x\n`).html, /data-pane-view/);
+  assert.doesNotMatch(e.render(`## T\n\n<!-- @meta{pane=bar} -->\n\n${bars}\n\n<!-- @meta{pane=list} -->\n\n- x\n`).html, /data-pane-view/);
 });
 
 test('a keyed chart grows its key only when the printed text really grows', () => {
@@ -382,8 +382,8 @@ test('a radar in a pane lays out for the pane: its rim labels count in the fit',
   const series = (name, v) => `- ${name}\n${['Coverage', 'Integration', 'Cost', 'Support', 'Speed'].map((ax, i) => `  - ${ax} \`${v[i]}\``).join('\n')}`;
   const radar = `${series('Build', [6, 7, 9, 4, 5])}\n${series('Buy', [8, 5, 3, 7, 6])}`;
   const svgOf = (html) => (html.match(/<svg class="radar-svg[^"]*"[^>]*>/) || [])[0];
-  const slide = svgOf(e.render(`<!-- _class: radar -->\n\n## T\n\n${radar}\n`).html);
-  const pane = svgOf(e.render(`## T\n\n<!-- pane: radar -->\n\n${radar}\n\n<!-- pane: list -->\n\n- x\n`).html);
+  const slide = svgOf(e.render(`<!-- @meta{layout=radar} -->\n\n## T\n\n${radar}\n`).html);
+  const pane = svgOf(e.render(`## T\n\n<!-- @meta{pane=radar} -->\n\n${radar}\n\n<!-- @meta{pane=list} -->\n\n- x\n`).html);
   assert.ok(slide && pane, 'no radar svg');
   // The slide keeps its own drawing; the pane gets one sized for its box, with the type scale
   // the stylesheet multiplies into the rim labels (radar.transform.js composeFigure).
@@ -416,17 +416,17 @@ test('`cards:` reaches a pane — deck-wide and per slide — as it reaches a sl
   const paneOf = (md) => (md.match(/<lat-pane class="cards-grid[^"]*"[^>]*>/) || [''])[0];
   const slideOf = (md) => (md.match(/<section[^>]*class="cards-grid[^"]*"[^>]*>/) || [''])[0];
   for (const v of ['top', 'middle', 'bottom', 'fill', 'spread']) {
-    const deck = e.render(`---\nalign: ${v}\n---\n\n## T\n\n<!-- pane: cards-grid -->\n\n${cards}\n\n<!-- pane: content -->\n\nx\n`).html;
+    const deck = e.render(`---\nalign: ${v}\n---\n\n## T\n\n<!-- @meta{pane=cards-grid} -->\n\n${cards}\n\n<!-- @meta{pane=content} -->\n\nx\n`).html;
     assert.match(paneOf(deck), new RegExp(`data-align="${v}"`), `deck align: ${v}`);
-    const spot = e.render(`## T\n\n<!-- _class: align-${v} -->\n\n<!-- pane: cards-grid -->\n\n${cards}\n\n<!-- pane: content -->\n\nx\n`).html;
-    assert.match(paneOf(spot), new RegExp(`data-align="${v}"`), `_class: align-${v}`);
+    const spot = e.render(`## T\n\n<!-- @meta{class=align-${v}} -->\n\n<!-- @meta{pane=cards-grid} -->\n\n${cards}\n\n<!-- @meta{pane=content} -->\n\nx\n`).html;
+    assert.match(paneOf(spot), new RegExp(`data-align="${v}"`), `@meta{class=align-${v}}`);
   }
   // Nothing set: the pane takes the component's own default, the value a slide of it gets.
-  const slide = e.render(`<!-- _class: cards-grid -->\n\n## T\n\n${cards}\n`).html;
-  const pane = e.render(`## T\n\n<!-- pane: cards-grid -->\n\n${cards}\n\n<!-- pane: content -->\n\nx\n`).html;
+  const slide = e.render(`<!-- @meta{class=cards-grid} -->\n\n## T\n\n${cards}\n`).html;
+  const pane = e.render(`## T\n\n<!-- @meta{pane=cards-grid} -->\n\n${cards}\n\n<!-- @meta{pane=content} -->\n\nx\n`).html;
   assert.equal(paneOf(pane).match(/data-align="(\w+)"/)[1], slideOf(slide).match(/data-align="(\w+)"/)[1]);
   // The tokens a pane needs are in the sheet, keyed on the pane.
-  assert.match(e.render(`## T\n\n<!-- pane: cards-grid -->\n\n${cards}\n\n<!-- pane: content -->\n\nx\n`).css, /lat-pane\[data-align="top"\]\s*\{\s*--align-v:\s*flex-start/);
+  assert.match(e.render(`## T\n\n<!-- @meta{pane=cards-grid} -->\n\n${cards}\n\n<!-- @meta{pane=content} -->\n\nx\n`).css, /lat-pane\[data-align="top"\]\s*\{\s*--align-v:\s*flex-start/);
 });
 
 test('a pane\'s chart canvas has the shape Chromium lays the pane out at', () => {
@@ -444,7 +444,7 @@ test('a pane\'s chart canvas has the shape Chromium lays the pane out at', () =>
   };
   for (const [name, ratio] of Object.entries(measured)) {
     const [size, layout] = name.split(' ');
-    const [w, h] = vb(e.render(`---\nsize: ${size}\n---\n\n## A title that is here\n\n<!-- panes: ${layout} -->\n<!-- pane: list -->\n\n- x\n\n<!-- pane: bar -->\n\n${bars}\n`).html);
+    const [w, h] = vb(e.render(`---\nsize: ${size}\n---\n\n## A title that is here\n\n<!-- @meta{panes="${layout}"} -->\n<!-- @meta{pane=list} -->\n\n- x\n\n<!-- @meta{pane=bar} -->\n\n${bars}\n`).html);
     assert.ok(w && h, `${name}: no bar canvas`);
     assert.ok(Math.abs(Math.log(w / h / ratio)) < 0.03, `${name}: canvas ${w}x${h} (${(w / h).toFixed(2)}) vs measured ${ratio.toFixed(2)}`);
   }
@@ -454,7 +454,7 @@ test('a narrow pie pane under full chrome still grows its key (the ladder finds 
   const e = engine();
   const pie = '- Enterprise `46%`\n- Mid-market `31%`\n- SMB `23%`';
   const md = '`Customer mix`\n\n## Enterprise is now nearly half the book.\n\n`piechart 35 · table 65`\n\n'
-    + `<!-- panes: 35/65 -->\n<!-- pane: piechart -->\n\n${pie}\n\n<!-- pane: table -->\n\n| A | B |\n|---|---|\n| 1 | 2 |\n\n— ARR as of 30 September.\n`;
+    + `<!-- @meta{panes=35/65} -->\n<!-- @meta{pane=piechart} -->\n\n${pie}\n\n<!-- @meta{pane=table} -->\n\n| A | B |\n|---|---|\n| 1 | 2 |\n\n— ARR as of 30 September.\n`;
   const [w, h] = e.render(md).html.match(/piechart-svg" viewBox="0 0 ([\d.]+) ([\d.]+)"/).slice(1).map(Number);
   // The unscaled key beside the disc is 377x200 and prints its labels at ~3.7 units; the
   // fixed-point steps alone jumped past every size that keeps the disc above its floor and
@@ -464,7 +464,7 @@ test('a narrow pie pane under full chrome still grows its key (the ladder finds 
 
 test('on a square, portrait, story or mobile deck a panes slide splits into one slide per pane', () => {
   const e = engine();
-  const deck = (size, extra = '') => `---\nsize: ${size}\n---\n\n${extra}\`Eyebrow\`\n\n## The title.\n\n<!-- speaker note -->\n\n<!-- panes: 40/60 -->\n<!-- pane: bar -->\n\n- A \`4\`\n- B \`7\`\n\n<!-- pane: list -->\n\n- One\n- Two\n\n> The insight.\n`;
+  const deck = (size, extra = '') => `---\nsize: ${size}\n---\n\n${extra}\`Eyebrow\`\n\n## The title.\n\n<!-- speaker note -->\n\n<!-- @meta{panes=40/60} -->\n<!-- @meta{pane=bar} -->\n\n- A \`4\`\n- B \`7\`\n\n<!-- @meta{pane=list} -->\n\n- One\n- Two\n\n> The insight.\n`;
   const sections = (html) => [...html.matchAll(/<section\b[^>]*class="([^"]*)"/g)].map((m) => m[1].split(/\s+/));
   for (const size of ['square', 'portrait', 'story', 'mobile']) {
     const { html } = e.render(deck(size));
@@ -481,7 +481,7 @@ test('on a square, portrait, story or mobile deck a panes slide splits into one 
     assert.doesNotMatch(html, /pane: bar|panes: 40\/60/);
   }
   // A spot `_class` the author wrote rides on every page, beside the pane's component.
-  const s = sections(e.render(deck('portrait', '<!-- _class: align-top -->\n\n')).html);
+  const s = sections(e.render(deck('portrait', '<!-- @meta{class=align-top} -->\n\n')).html);
   assert.ok(s.every((c) => c.includes('align-top')) && s[0].includes('bar') && s[1].includes('list'), JSON.stringify(s));
   // A 16:9 deck (and 4:3 and 4K, all `wide`) keeps the panes.
   for (const size of ['hd', 'standard', '4K']) {
@@ -493,7 +493,7 @@ test('on a square, portrait, story or mobile deck a panes slide splits into one 
 
 test('lint does not budget panes on a deck that splits them', () => {
   const { lintText } = require('../../../lib/authoring/lint');
-  const md = (size) => `---\nsize: ${size}\n---\n\n## T\n\n<!-- panes: stack -->\n<!-- pane: kpi -->\n\n1. 42%\n   - Margin\n\n<!-- pane: list -->\n\n${Array.from({ length: 20 }, (_, i) => `- Point ${i}`).join('\n')}\n`;
+  const md = (size) => `---\nsize: ${size}\n---\n\n## T\n\n<!-- @meta{panes=stack} -->\n<!-- @meta{pane=kpi} -->\n\n1. 42%\n   - Margin\n\n<!-- @meta{pane=list} -->\n\n${Array.from({ length: 20 }, (_, i) => `- Point ${i}`).join('\n')}\n`;
   const panesRules = (size) => lintText(md(size)).filter((f) => f.rule.startsWith('pane-') && f.rule !== 'pane-syntax').map((f) => f.rule);
   assert.deepEqual(panesRules('portrait'), []);
   // At 16:9 the same slide splits too (a kpi row does not stack, nor fits 50% side by side), and
@@ -504,9 +504,9 @@ test('lint does not budget panes on a deck that splits them', () => {
 test('the source-side slide map splits a panes slide exactly where the engine does', () => {
   const { slideClassSpans } = require('../../../lib/core/slide-class-spans');
   const e = engine();
-  const deck = (size, layout = '') => `---\nsize: ${size}\n---\n\n## T\n\n${layout}<!-- pane: bar -->\n\n- A \`4\`\n\n<!-- pane: list -->\n\n- One\n`;
+  const deck = (size, layout = '') => `---\nsize: ${size}\n---\n\n## T\n\n${layout}<!-- @meta{pane=bar} -->\n\n- A \`4\`\n\n<!-- @meta{pane=list} -->\n\n- One\n`;
   const classes = (html) => [...html.matchAll(/<section\b[^>]*class="([^"]*)"/g)].map((m) => m[1].split(/\s+/));
-  for (const [size, layout] of [['portrait', ''], ['hd', '<!-- panes: 25/75 -->\n'], ['hd', '']]) {
+  for (const [size, layout] of [['portrait', ''], ['hd', '<!-- @meta{panes=25/75} -->\n'], ['hd', '']]) {
     const src = deck(size, layout);
     const spans = slideClassSpans(src).spans;
     const rendered = classes(e.render(src).html);
@@ -517,7 +517,7 @@ test('the source-side slide map splits a panes slide exactly where the engine do
   }
   // Code never sits side by side, and a list needs 60% to stack: at 16:9 this slide splits too,
   // and the source-side map says so.
-  const both = '## T\n\n<!-- pane: code -->\n\n```js\nconst x = 1;\n```\n\n<!-- pane: list -->\n\n- One\n- Two\n';
+  const both = '## T\n\n<!-- @meta{pane=code} -->\n\n```js\nconst x = 1;\n```\n\n<!-- @meta{pane=list} -->\n\n- One\n- Two\n';
   assert.equal(classes(e.render(both).html).length, 2);
   assert.deepEqual(slideClassSpans(both).spans.map((sp) => sp.slideClass), ['code', 'list']);
 });
@@ -527,15 +527,15 @@ test('a split page carries the whole slide\'s spot directives, wherever they wer
   const e = engine();
   const classes = (html) => [...html.matchAll(/<section\b[^>]*class="([^"]*)"/g)].map((m) => m[1].split(/\s+/));
   const footers = (html) => [...html.matchAll(/<section\b[\s\S]*?<\/section>/g)].map((m) => (m[0].match(/<footer>([^<]*)<\/footer>/) || [])[1]);
-  const pair = '<!-- pane: bar -->\n\n- A `4`\n- B `7`\n\n<!-- pane: list -->\n\n- One\n- Two\n';
+  const pair = '<!-- @meta{pane=bar} -->\n\n- A `4`\n- B `7`\n\n<!-- @meta{pane=list} -->\n\n- One\n- Two\n';
   const cases = {
     // A spot `_class` and `_footer` under the LAST pane belong to the slide: both pages take them,
     // and neither replaces a page's component.
-    'spot after the markers': [`## T\n\n${pair}\n<!-- _class: dark -->\n<!-- _footer: FOOTX -->\n`, [['bar', 'dark'], ['list', 'dark']]],
+    'spot after the markers': [`## T\n\n${pair}\n<!-- @meta{class=dark} -->\n<!-- @meta{footer=FOOTX} -->\n`, [['bar', 'dark'], ['list', 'dark']]],
     // A component class written on the slide never runs on a page: each page is its pane's.
-    'component in the spot class': [`<!-- _class: glossary dark -->\n\n## T\n\n${pair}`, [['bar', 'dark'], ['list', 'dark']]],
+    'component in the spot class': [`<!-- @meta{layout=glossary, class=dark} -->\n\n## T\n\n${pair}`, [['bar', 'dark'], ['list', 'dark']]],
     // A third marker folds into the second page, as the carve folds it into the second pane.
-    'three markers': [`## T\n\n${pair}\n<!-- pane: table -->\n\n- Three\n`, [['bar'], ['list']]],
+    'three markers': [`## T\n\n${pair}\n<!-- @meta{pane=table} -->\n\n- Three\n`, [['bar'], ['list']]],
   };
   for (const [name, [body, want]] of Object.entries(cases)) {
     const src = `---\nsize: portrait\n---\n\n${body}`;
@@ -590,7 +590,7 @@ test('widenStyleBlocks widens a document\'s <style> blocks and re-sanitizes what
 test('an installed package component\'s CSS, embedded in the deck, reaches a pane of it', () => {
   const { embedComponentsInMarkdown } = require('../../../lib/layout/bridge.js');
   const deck = embedComponentsInMarkdown(
-    '---\ntheme: indaco\n---\n\n## T\n\n<!-- pane: my-card -->\n\n- one\n- two\n\n<!-- pane: list -->\n\n- x\n',
+    '---\ntheme: indaco\n---\n\n## T\n\n<!-- @meta{pane=my-card} -->\n\n- one\n- two\n\n<!-- @meta{pane=list} -->\n\n- x\n',
     [{ name: 'my-card', css: 'section.my-card li { letter-spacing: 1px; }' }],
   );
   const html = render(deck);
@@ -640,7 +640,7 @@ test('a pane carries no footer Cell or page number of its own — the host slide
 });
 
 test('dropFooter cuts the engine\'s footer Cell, not a `cell-footer` an author wrote in a comment', () => {
-  const md = `---\npagination: true\n---\n\n## T\n\n<!-- panes: 50/50 -->\n\n<!-- pane: list -->\n\n- one <!-- <div class="cell-footer"> -->\n- two\n- three\n\n<!-- pane: table -->\n\n| A | B |\n|---|---|\n| 1 | 2 |\n`;
+  const md = `---\npagination: true\n---\n\n## T\n\n<!-- @meta{panes=50/50} -->\n\n<!-- @meta{pane=list} -->\n\n- one <!-- <div class="cell-footer"> -->\n- two\n- three\n\n<!-- @meta{pane=table} -->\n\n| A | B |\n|---|---|\n| 1 | 2 |\n`;
   const html = render(md);
   const list = html.match(/<lat-pane class="list form"[\s\S]*?<\/lat-pane>/)[0];
   assert.match(list, /<li>two<\/li>/);
@@ -649,7 +649,7 @@ test('dropFooter cuts the engine\'s footer Cell, not a `cell-footer` an author w
 });
 
 test('the pane spine is a switch: a deck-wide no-spine reaches every pane slide, and with-spine beats it', () => {
-  const slide = (cls) => `<!-- _class: ${cls} -->\n\n### Left\n\nOne.\n\n### Right\n\nTwo.\n`;
+  const slide = (cls) => `<!-- @meta{class=${cls}} -->\n\n### Left\n\nOne.\n\n### Right\n\nTwo.\n`;
   const rule = (md) => (render(md).match(/data-rule="(\w+)"/) || [])[1] || 'drawn';
   assert.equal(rule(slide('columns')), 'drawn');
   assert.equal(rule(slide('columns no-spine')), 'none');
@@ -670,7 +670,7 @@ test('classLayout decides the spine exactly as the switch spine does (it restate
 });
 
 test('a deck-wide no-spine reaches the alias layout too, and the marker\'s own with-spine beats it', () => {
-  const alias = (words) => `<!-- panes: ${words} -->\n\n<!-- pane: content -->\n\nOne.\n\n<!-- pane: content -->\n\nTwo.\n`;
+  const alias = (words) => `<!-- @meta{panes="${words}"} -->\n\n<!-- @meta{pane=content} -->\n\nOne.\n\n<!-- @meta{pane=content} -->\n\nTwo.\n`;
   const rule = (md) => (render(md).match(/data-rule="(\w+)"/) || [])[1] || 'drawn';
   assert.equal(rule(alias('40/60')), 'drawn');
   assert.equal(rule(`---\nclass: no-spine\n---\n\n${alias('40/60')}`), 'none');

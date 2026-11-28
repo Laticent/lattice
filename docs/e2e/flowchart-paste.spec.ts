@@ -6,8 +6,8 @@ import { expect, gotoStudio, livePreview, setEditorContent, test } from './studi
 // pasted chart stayed as its measuring tiles until a reload rebuilt the frame. The runtime
 // now fetches dagre from beside itself (`ensureDagre` in lib/runtime/index.js). Measured:
 // with that change reverted this spec fails at `data-fc-drawn`; with it, all four lines draw.
-const PLAIN = '---\ntheme: indaco\n---\n\n<!-- _class: title -->\n\n# Before\n';
-const FLOW = `${PLAIN}\n---\n\n<!-- _class: flowchart -->\n\n## Every page reaches a human.\n\n- Alert => Triage\n- Triage -real-> Page on-call\n- Triage -noise-> Close\n- Page on-call -> Close\n`;
+const PLAIN = '---\ntheme: indaco\n---\n\n<!-- @meta{layout=title} -->\n\n# Before\n';
+const FLOW = `${PLAIN}\n---\n\n<!-- @meta{layout=flowchart} -->\n\n## Every page reaches a human.\n\n- Alert => Triage\n- Triage -real-> Page on-call\n- Triage -noise-> Close\n- Page on-call -> Close\n`;
 
 test('a flowchart pasted into a deck with none draws without a reload', async ({ page }) => {
 	await gotoStudio(page);

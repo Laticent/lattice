@@ -1,6 +1,7 @@
 {
  "title": "A _lens tag names the lenses a slide is in or out of, and never reaches the output",
  "spec": "LFM-1.1",
+  "until": "LFM-2.0",
  "section": "2.4",
  "rows": [
   { "name": "include and exclude", "source": "## A\n\n<!-- _lens: brief +ask -evidence -->\n\nText.\n",

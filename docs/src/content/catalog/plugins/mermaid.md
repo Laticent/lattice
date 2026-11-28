@@ -29,7 +29,7 @@ examples:
     label: A flowchart
     caption: Boxes, a decision and labeled arrows, drawn in the theme's colors.
     sample: |
-      <!-- _class: diagram -->
+      <!-- @meta{layout=diagram} -->
 
       ## How signals move from input to decision.
 
@@ -43,7 +43,7 @@ examples:
     label: Grouped steps
     caption: A subgraph draws a frame around the steps that belong together.
     sample: |
-      <!-- _class: diagram -->
+      <!-- @meta{layout=diagram} -->
 
       ## Intake runs before anyone decides.
 
@@ -60,7 +60,7 @@ examples:
     label: A sequence
     caption: Who calls whom, in order — the standard way to explain an API.
     sample: |
-      <!-- _class: diagram -->
+      <!-- @meta{layout=diagram} -->
 
       ## Each message, in the order it was sent.
 
@@ -115,7 +115,7 @@ flowchart LR
 To make a diagram the subject of a slide, use the `diagram` slide, which gives it the room:
 
 ````markdown
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 ## How signals move from input to decision.
 

@@ -108,7 +108,7 @@ interface LensDef {
 
 The **read path** (`project.ts`) computes a reader's view from approved tags +
 registry via one predicate filter over the author-ordered slides. The **suggest
-path** (`suggest.ts`) is a transparent, no-AI rule table over each slide's `_class`
+path** (`suggest.ts`) is a transparent, no-AI rule table over each slide's layout and class
 that *proposes* membership and writes nothing. A human pressing **Approve** in
 Studio is the only thing that writes tags and stamps the content hash.
 

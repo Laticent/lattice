@@ -209,7 +209,7 @@ const DECK = [
   '## Revenue grew\n\n- EMEA leads\n- APAC holds',
   '## A formula\n\n$$ \\sigma(x) = \\frac{1}{1 + e^{-x}} $$',
   '## A diagram\n\n```mermaid\nflowchart LR\n  A --> B\n```',
-  '<!-- _class: columns ratio-50-50 -->\n\n## Two panes\n\n<!-- _pane: content -->\n\n- Left pane\n\n<!-- _pane: content -->\n\n- Right pane',
+  '<!-- @meta{class=columns ratio-50-50} -->\n\n## Two panes\n\n<!-- @meta{pane=content} -->\n\n- Left pane\n\n<!-- @meta{pane=content} -->\n\n- Right pane',
 ].join('\n\n---\n\n');
 const DECK_PAGES = 4;
 

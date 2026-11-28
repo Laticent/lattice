@@ -44,12 +44,15 @@ describe('markdown-it-plugins', () => {
   // registry — isolation the host gives us.
   // NOTE: the owned pipeline defaults to `split: headings`, so a fixture with
   // several headings meant to live on ONE slide must declare `split: rule`.
+  const { runSourceHooks } = require('../../../lib/engine/source-hooks.js');
   function makeHost(plugin) {
     const md = new MarkdownIt('commonmark', { html: true, breaks: true });
     md.enable(['table', 'strikethrough']); // match lib/engine/index.js's markdown-it config
     installSlidePipeline(md);
     if (plugin) md.use(plugin);
-    return { render: (src) => ({ html: md.render(src) }) };
+    // The engine's door first (lib/engine/source-hooks.js), as every engine entry runs it: a record reaches the rules only
+    // through it, and an old comment not at all (the cut, slice E).
+    return { render: (src) => ({ html: md.render(runSourceHooks(src)) }) };
   }
 
   // ── deckClassPropagate ─────────────────────────────────────────────────
@@ -65,13 +68,13 @@ describe('markdown-it-plugins', () => {
       '',
       '---',
       '',
-      '<!-- _class: title -->',
+      '<!-- @meta{layout=title} -->',
       '',
       '# Slide 2',
       '',
       '---',
       '',
-      '<!-- _class: cards-grid compact -->',
+      '<!-- @meta{layout=cards-grid, class=compact} -->',
       '',
       '# Slide 3',
     ].join('\n');
@@ -91,7 +94,7 @@ describe('markdown-it-plugins', () => {
     const m = makeHost(plugins.deckClassPropagate);
     const md = [
       '---', 'class: dark', '---', '',
-      '<!-- _class: list dark -->',
+      '<!-- @meta{layout=list, class=dark} -->',
       '# Already-dark slide',
     ].join('\n');
     const { html } = m.render(md);
@@ -104,7 +107,7 @@ describe('markdown-it-plugins', () => {
     const m = makeHost(plugins.deckClassPropagate);
     const md = [
       '---', 'theme: indaco', '---', '',
-      '<!-- _class: title -->',
+      '<!-- @meta{layout=title} -->',
       '# Title',
     ].join('\n');
     const { html } = m.render(md);
@@ -116,7 +119,7 @@ describe('markdown-it-plugins', () => {
     const m = makeHost(plugins.deckClassPropagate);
     const md = [
       '---', 'class: dark numbered', '---', '',
-      '<!-- _class: cards-grid -->',
+      '<!-- @meta{layout=cards-grid} -->',
       '# Card slide',
     ].join('\n');
     const { html } = m.render(md);
@@ -132,7 +135,7 @@ describe('markdown-it-plugins', () => {
       '---', 'mode: sketch', '---', '',
       '# Slide 1', '',
       '---', '',
-      '<!-- _class: cards-grid -->',
+      '<!-- @meta{layout=cards-grid} -->',
       '# Slide 2',
     ].join('\n');
     const { html } = m.render(md);
@@ -165,7 +168,7 @@ describe('markdown-it-plugins', () => {
 
   test('deckClassPropagate: `color-mode: system` propagates the color-system token to every section', () => {
     const m = makeHost(plugins.deckClassPropagate);
-    const md = ['---', 'color-mode: system', '---', '', '# Slide 1', '', '---', '', '<!-- _class: cards-grid -->', '# Slide 2'].join('\n');
+    const md = ['---', 'color-mode: system', '---', '', '# Slide 1', '', '---', '', '<!-- @meta{layout=cards-grid} -->', '# Slide 2'].join('\n');
     const { html } = m.render(md);
     const sections = [...html.matchAll(/<section[^>]*class="([^"]*)"/g)].map(x => x[1].split(/\s+/).filter(Boolean));
     assert.equal(sections.length, 2);
@@ -193,7 +196,7 @@ describe('markdown-it-plugins', () => {
 
   test('deckClassPropagate: `color-mode: light` does NOT stamp the bare `light` (would re-layout divider.light)', () => {
     const m = makeHost(plugins.deckClassPropagate);
-    const md = ['---', 'color-mode: light', '---', '', '<!-- _class: divider -->', '# Part Two'].join('\n');
+    const md = ['---', 'color-mode: light', '---', '', '<!-- @meta{layout=divider} -->', '# Part Two'].join('\n');
     const { html } = m.render(md);
     const cls = html.match(/<section[^>]*class="([^"]*)"/)[1].split(/\s+/).filter(Boolean);
     assert.ok(cls.includes('color-light'), `should stamp 'color-light'; got [${cls.join(', ')}]`);
@@ -226,7 +229,7 @@ describe('markdown-it-plugins', () => {
       '---', 'color-mode: dark', '---', '',
       '# Slide 1 (deck dark)', '',
       '---', '',
-      '<!-- _class: light -->',
+      '<!-- @meta{class=light} -->',
       '# Slide 2 (bright island)',
     ].join('\n');
     const { html } = m.render(md);
@@ -242,7 +245,7 @@ describe('markdown-it-plugins', () => {
       '---', 'mode: sketch', 'finish: atrium', '---', '',
       '# Slide 1 (gets the deck sketch)', '',
       '---', '',
-      '<!-- _class: boardroom -->',
+      '<!-- @meta{class=boardroom} -->',
       '# Slide 2 (clean, but keeps the backdrop)',
     ].join('\n');
     const { html } = m.render(md);
@@ -255,7 +258,7 @@ describe('markdown-it-plugins', () => {
 
   test('deckClassPropagate: an unknown `finish:` value maps to no class (silent baseline)', () => {
     const m = makeHost(plugins.deckClassPropagate);
-    const md = ['---', 'finish: sketchh', '---', '', '<!-- _class: title -->', '# Slide'].join('\n');
+    const md = ['---', 'finish: sketchh', '---', '', '<!-- @meta{layout=title} -->', '# Slide'].join('\n');
     const { html } = m.render(md);
     const cls = html.match(/<section[^>]*class="([^"]*)"/)[1].split(/\s+/).filter(Boolean);
     assert.deepEqual(cls.filter(noFinishStamp), ['title'], `unknown finish should add nothing; got [${cls.join(', ')}]`);
@@ -267,7 +270,7 @@ describe('markdown-it-plugins', () => {
       '---', 'finish: atrium', '---', '',
       '# Slide 1 (gets the deck finish)', '',
       '---', '',
-      '<!-- _class: finish finish-halo -->',
+      '<!-- @meta{class=finish finish-halo} -->',
       '# Slide 2 (its own finish overrides the deck)',
     ].join('\n');
     const { html } = m.render(md);
@@ -289,7 +292,7 @@ describe('markdown-it-plugins', () => {
     const m = makeHost(plugins.deckClassPropagate);
     const md = [
       '---', 'finish: atrium', '---', '',
-      '<!-- _class: no-finish -->',
+      '<!-- @meta{class=no-finish} -->',
       '# Clean slide',
     ].join('\n');
     const { html } = m.render(md);
@@ -305,7 +308,7 @@ describe('markdown-it-plugins', () => {
       '---', 'claim: quiet', '---', '',
       '# Slide 1', '',
       '---', '',
-      '<!-- _class: cards-grid -->',
+      '<!-- @meta{layout=cards-grid} -->',
       '# Slide 2',
     ].join('\n');
     const { html } = m.render(md);
@@ -321,7 +324,7 @@ describe('markdown-it-plugins', () => {
       '---', 'claim: quiet', '---', '',
       '# Slide 1 (gets the deck quiet)', '',
       '---', '',
-      '<!-- _class: big-number claim-hero -->',
+      '<!-- @meta{layout=big-number, class=claim-hero} -->',
       '# Slide 2 (its own hero overrides the deck quiet)',
     ].join('\n');
     const { html } = m.render(md);
@@ -334,7 +337,7 @@ describe('markdown-it-plugins', () => {
   test('deckClassPropagate: `claim: framed` and an unknown value map to no class (the frame baseline)', () => {
     const m = makeHost(plugins.deckClassPropagate);
     for (const v of ['framed', 'nonsense']) {
-      const md = ['---', `claim: ${v}`, '---', '', '<!-- _class: title -->', '# Slide'].join('\n');
+      const md = ['---', `claim: ${v}`, '---', '', '<!-- @meta{layout=title} -->', '# Slide'].join('\n');
       const { html } = m.render(md);
       const cls = html.match(/<section[^>]*class="([^"]*)"/)[1].split(/\s+/).filter(Boolean);
       assert.deepEqual(cls.filter(noFinishStamp), ['title'], `claim: ${v} should add nothing; got [${cls.join(', ')}]`);
@@ -349,7 +352,7 @@ describe('markdown-it-plugins', () => {
       '---', 'stamp: seal', 'tone: edge', '---', '',
       '# Slide 1', '',
       '---', '',
-      '<!-- _class: cards-grid -->',
+      '<!-- @meta{layout=cards-grid} -->',
       '# Slide 2',
     ].join('\n');
     const { html } = m.render(md);
@@ -369,7 +372,7 @@ describe('markdown-it-plugins', () => {
       '---', 'stamp: seal', 'tone: edge', '---', '',
       '# Slide 1 (deck shapes)', '',
       '---', '',
-      '<!-- _class: stamp-notch tone-glow -->',
+      '<!-- @meta{class=stamp-notch tone-glow} -->',
       '# Slide 2 (its own shapes win)',
     ].join('\n');
     const { html } = m.render(md);
@@ -388,7 +391,7 @@ describe('markdown-it-plugins', () => {
     const m = makeHost(plugins.deckClassPropagate);
     const md = [
       '---', 'tone: edge', '---', '',
-      '<!-- _class: tone-pass -->',
+      '<!-- @meta{class=tone-pass} -->',
       '# A passing slide — its SHAPE still comes from the deck',
     ].join('\n');
     const { html } = m.render(md);
@@ -399,7 +402,7 @@ describe('markdown-it-plugins', () => {
 
   test('deckClassPropagate: an unknown `stamp:` / `tone:` value maps to no class (silent default)', () => {
     const m = makeHost(plugins.deckClassPropagate);
-    const md = ['---', 'stamp: sael', 'tone: raill', '---', '', '<!-- _class: title -->', '# Slide'].join('\n');
+    const md = ['---', 'stamp: sael', 'tone: raill', '---', '', '<!-- @meta{layout=title} -->', '# Slide'].join('\n');
     const { html } = m.render(md);
     const cls = html.match(/<section[^>]*class="([^"]*)"/)[1].split(/\s+/).filter(Boolean);
     assert.deepEqual(cls.filter(noFinishStamp), ['title'], `unknown shapes should add nothing; got [${cls.join(', ')}]`);
@@ -410,14 +413,14 @@ describe('markdown-it-plugins', () => {
   test('deckClassPropagate: `spectrum: off` / `solid` propagate the token; `on`/unknown add nothing', () => {
     const m = makeHost(plugins.deckClassPropagate);
     for (const [v, expected] of [['off', 'no-spectrum'], ['solid', 'spectrum-solid']]) {
-      const md = ['---', `spectrum: ${v}`, '---', '', '# Slide 1', '', '---', '', '<!-- _class: cards-grid -->', '# Slide 2'].join('\n');
+      const md = ['---', `spectrum: ${v}`, '---', '', '# Slide 1', '', '---', '', '<!-- @meta{layout=cards-grid} -->', '# Slide 2'].join('\n');
       const sections = [...m.render(md).html.matchAll(/<section[^>]*class="([^"]*)"/g)].map(x => x[1].split(/\s+/).filter(Boolean));
       assert.equal(sections.length, 2);
       for (const cls of sections) assert.ok(cls.includes(expected), `spectrum: ${v} missing '${expected}'; got [${cls.join(', ')}]`);
       assert.ok(sections[1].includes('cards-grid'), `slide 2 lost 'cards-grid'; got [${sections[1].join(', ')}]`);
     }
     for (const v of ['on', 'nonsense']) {
-      const cls = m.render(['---', `spectrum: ${v}`, '---', '', '<!-- _class: title -->', '# Slide'].join('\n')).html.match(/<section[^>]*class="([^"]*)"/)[1].split(/\s+/).filter(Boolean);
+      const cls = m.render(['---', `spectrum: ${v}`, '---', '', '<!-- @meta{layout=title} -->', '# Slide'].join('\n')).html.match(/<section[^>]*class="([^"]*)"/)[1].split(/\s+/).filter(Boolean);
       assert.deepEqual(cls.filter(noFinishStamp), ['title'], `spectrum: ${v} should add nothing; got [${cls.join(', ')}]`);
     }
   });
@@ -428,7 +431,7 @@ describe('markdown-it-plugins', () => {
       '---', 'spectrum: solid', '---', '',
       '# Slide 1 (deck solid)', '',
       '---', '',
-      '<!-- _class: content no-spectrum -->',
+      '<!-- @meta{layout=content, class=no-spectrum} -->',
       '# Slide 2 (its own off wins)',
     ].join('\n');
     const sections = [...m.render(md).html.matchAll(/<section[^>]*class="([^"]*)"/g)].map(x => x[1].split(/\s+/).filter(Boolean));
@@ -442,7 +445,7 @@ describe('markdown-it-plugins', () => {
     const m = makeHost(plugins.deckClassPropagate);
     const md = ['---',
       'spectrum: left', 'card-spectrum: rainbow top', 'rule: short', 'eyebrow: dot',
-      '---', '', '# Slide 1', '', '---', '', '<!-- _class: cards-grid -->', '# Slide 2'].join('\n');
+      '---', '', '# Slide 1', '', '---', '', '<!-- @meta{layout=cards-grid} -->', '# Slide 2'].join('\n');
     const sections = [...m.render(md).html.matchAll(/<section[^>]*class="([^"]*)"/g)].map(x => x[1].split(/\s+/).filter(Boolean));
     for (const cls of sections) {
       for (const t of ['spectrum-left', 'with-card-spectrum', 'card-spectrum-top', 'rule-short', 'eyebrow-dot']) {
@@ -467,13 +470,13 @@ describe('markdown-it-plugins', () => {
       '---', '',
       '# Slide 1 (deck duo + card)', '',
       '---', '',
-      '<!-- _class: content spectrum-left -->',  // a per-slide EDGE token…
+      '<!-- @meta{layout=content, class=spectrum-left} -->',  // a per-slide EDGE token…
       '# Slide 2', '',
       '---', '',
-      '<!-- _class: content card-spectrum-solid -->',  // …a per-slide CARD STYLE pin…
+      '<!-- @meta{layout=content, class=card-spectrum-solid} -->',  // …a per-slide CARD STYLE pin…
       '# Slide 3', '',
       '---', '',
-      '<!-- _class: content card-spectrum-top -->',  // …and a per-slide CARD EDGE override
+      '<!-- @meta{layout=content, class=card-spectrum-top} -->',  // …and a per-slide CARD EDGE override
       '# Slide 4',
     ].join('\n');
     const s = [...m.render(md).html.matchAll(/<section[^>]*class="([^"]*)"/g)].map(x => x[1].split(/\s+/).filter(Boolean));
@@ -512,7 +515,7 @@ describe('markdown-it-plugins', () => {
       'spectrum: solid left band', 'card-spectrum: rainbow top hairline', 'trim-spectrum: mono',
       'rule: accent', 'eyebrow: dot', 'headline: center',
       '---', '', '# Slide 1',
-      ...restores.flatMap(([own]) => ['', '---', '', `<!-- _class: content ${own} -->`, `# ${own}`]),
+      ...restores.flatMap(([own]) => ['', '---', '', `<!-- @meta{class=content ${own}} -->`, `# ${own}`]),
     ].join('\n');
     const s = [...m.render(md).html.matchAll(/<section[^>]*class="([^"]*)"/g)].map(x => x[1].split(/\s+/).filter(Boolean));
     const deckTokens = restores.map(([, deck]) => deck);
@@ -532,7 +535,7 @@ describe('markdown-it-plugins', () => {
     const m = makeHost(plugins.deckClassPropagate);
     const md = ['---', 'trim-spectrum: rainbow', '---', '',
       '# Slide 1 (deck trim on)', '', '---', '',
-      '<!-- _class: content trim-spectrum-quiet -->', '# Slide 2 (opt out)'].join('\n');
+      '<!-- @meta{layout=content, class=trim-spectrum-quiet} -->', '# Slide 2 (opt out)'].join('\n');
     const s = [...m.render(md).html.matchAll(/<section[^>]*class="([^"]*)"/g)].map(x => x[1].split(/\s+/).filter(Boolean));
     assert.ok(s[0].includes('trim-spectrum-rainbow'), `slide 1 missing deck trim; got [${s[0].join(', ')}]`);
     assert.ok(s[1].includes('trim-spectrum-quiet') && !s[1].includes('trim-spectrum-rainbow'), `slide 2 should opt out; got [${s[1].join(', ')}]`);
@@ -543,7 +546,7 @@ describe('markdown-it-plugins', () => {
     const m = makeHost(plugins.deckClassPropagate);
     const md = ['---', 'rule: accent', 'eyebrow: dot', '---', '',
       '# Slide 1 (deck accent+dot)', '', '---', '',
-      '<!-- _class: content no-heading-rule eyebrow-arrow -->', '# Slide 2'].join('\n');
+      '<!-- @meta{layout=content, class=no-heading-rule eyebrow-arrow} -->', '# Slide 2'].join('\n');
     const s = [...m.render(md).html.matchAll(/<section[^>]*class="([^"]*)"/g)].map(x => x[1].split(/\s+/).filter(Boolean));
     assert.ok(s[0].includes('rule-accent') && s[0].includes('eyebrow-dot'), `slide 1; got [${s[0].join(', ')}]`);
     assert.ok(s[1].includes('no-heading-rule') && !s[1].includes('rule-accent'), `slide 2 rule override; got [${s[1].join(', ')}]`);
@@ -557,7 +560,7 @@ describe('markdown-it-plugins', () => {
     // along and win by CSS source order (the-ask sits later than takeaway).
     const md = ['---', 'class: insight-the-ask', '---', '',
       '# Slide 1 (deck default)', '', '---', '',
-      '<!-- _class: insight-takeaway -->', '# Slide 2'].join('\n');
+      '<!-- @meta{class=insight-takeaway} -->', '# Slide 2'].join('\n');
     const s = [...m.render(md).html.matchAll(/<section[^>]*class="([^"]*)"/g)].map(x => x[1].split(/\s+/).filter(Boolean));
     assert.ok(s[0].includes('insight-the-ask'), `slide 1 deck default; got [${s[0].join(', ')}]`);
     assert.ok(s[1].includes('insight-takeaway') && !s[1].includes('insight-the-ask'), `slide 2 override; got [${s[1].join(', ')}]`);
@@ -1022,7 +1025,7 @@ describe('markdown-it-plugins', () => {
   test('verdictGridBadges: all six markers become a check in a pill, with shape classes', () => {
     const m = makeHost(plugins.verdictGridBadges);
     const md = [
-      '<!-- _class: verdict-grid -->',
+      '<!-- @meta{layout=verdict-grid} -->',
       '## Title',
       '',
       '- Card',
@@ -1054,7 +1057,7 @@ describe('markdown-it-plugins', () => {
     // open ring on a pricing card as in a checklist, a `state-cells` cell or an inline mark.
     const m = makeHost(plugins.verdictGridBadges);
     const md = [
-      '<!-- _class: pricing -->',
+      '<!-- @meta{layout=pricing} -->',
       '## Plans',
       '',
       '- Starter `$0`',
@@ -1077,22 +1080,22 @@ describe('markdown-it-plugins', () => {
     // typed `&lt;b&gt;` is `<b>` by then. Unescaped, the engine emitted a live element
     // while the runtime mirror (which writes textContent) showed the literal text.
     const badge = makeHost(plugins.verdictGridBadges).render([
-      '<!-- _class: verdict-grid -->', '', '- Card', '  - [!] A &lt;b&gt;x&lt;/b&gt; &amp; B',
+      '<!-- @meta{layout=verdict-grid} -->', '', '- Card', '  - [!] A &lt;b&gt;x&lt;/b&gt; &amp; B',
     ].join('\n')).html;
     has(badge, pillOf('fail', 'state-empty', 'no', 'A &lt;b&gt;x&lt;/b&gt; &amp; B'));
     const cell = makeHost(plugins.obligationMatrixBadges).render([
-      '<!-- _class: table state-cells -->', '', '| A | B |', '| - | - |', '| x | [?] &lt;i&gt; |',
+      '<!-- @meta{layout=table, class=state-cells} -->', '', '| A | B |', '| - | - |', '| x | [?] &lt;i&gt; |',
     ].join('\n')).html;
     assert.match(cell, /<span class="state unknown state-unknown">&lt;i&gt;<\/span>/);
   });
 
   test('inline HTML in a label keeps its text and drops its tag, as the runtime\'s textContent does', () => {
     const badge = makeHost(plugins.verdictGridBadges).render(
-      '<!-- _class: verdict-grid -->\n\n- Card\n  - [x] <em>x</em> crit').html;
+      '<!-- @meta{layout=verdict-grid} -->\n\n- Card\n  - [x] <em>x</em> crit').html;
     has(badge, pillOf('pass', 'state-full', 'yes', 'x crit'));
     assert.doesNotMatch(badge, /&lt;em&gt;/, 'a tag must never print as literal text');
     const cell = makeHost(plugins.obligationMatrixBadges).render(
-      '<!-- _class: table state-cells -->\n\n| A | B |\n| - | - |\n| x | [x] <b>y</b> |').html;
+      '<!-- @meta{layout=table, class=state-cells} -->\n\n| A | B |\n| - | - |\n| x | [x] <b>y</b> |').html;
     assert.match(cell, /<span class="state pass state-full">y<\/span>/);
   });
 
@@ -1109,7 +1112,7 @@ describe('markdown-it-plugins', () => {
     // The plugin only fires at listDepth >= 2 (nested badge items).
     const m = makeHost(plugins.verdictGridBadges);
     const md = [
-      '<!-- _class: verdict-grid -->',
+      '<!-- @meta{layout=verdict-grid} -->',
       '- [x] this is a depth-1 item — should NOT be a badge',
     ].join('\n');
     const { html } = m.render(md);
@@ -1121,7 +1124,7 @@ describe('markdown-it-plugins', () => {
   test('obligationMatrixBadges: [x] / [-] / [ ] / [/] markers in <td> become state spans with shape classes', () => {
     const m = makeHost(plugins.obligationMatrixBadges);
     const md = [
-      '<!-- _class: obligation-matrix -->',
+      '<!-- @meta{layout=obligation-matrix} -->',
       '## Title',
       '',
       '| Reg | A | B | C | D |',
@@ -1141,7 +1144,7 @@ describe('markdown-it-plugins', () => {
   test('matrixGridCells: [x] / [-] / [ ] markers in <td> become shape spans; only [x] keeps its label', () => {
     const m = makeHost(plugins.matrixGridCells);
     const md = [
-      '<!-- _class: matrix-grid -->',
+      '<!-- @meta{layout=matrix-grid} -->',
       '## Title',
       '',
       '| Verb | Self | Team | Org |',
@@ -1177,7 +1180,7 @@ describe('markdown-it-plugins', () => {
   test('matrixGridCells: a cell with no marker passes through unchanged', () => {
     const m = makeHost(plugins.matrixGridCells);
     const md = [
-      '<!-- _class: matrix-grid -->',
+      '<!-- @meta{layout=matrix-grid} -->',
       '## Title',
       '',
       '| Verb | Self |',
@@ -1194,7 +1197,7 @@ describe('markdown-it-plugins', () => {
   test('checklistItemStates: top-level [x]/[-]/[ ]/[/] items get state + shape classes on <li>', () => {
     const m = makeHost(plugins.checklistItemStates);
     const md = [
-      '<!-- _class: checklist -->',
+      '<!-- @meta{layout=checklist} -->',
       '- [x] Done',
       '- [-] Partial',
       '- [ ] Todo',
@@ -1215,7 +1218,7 @@ describe('markdown-it-plugins', () => {
   test('checklistItemStates: items without a marker pass through unchanged', () => {
     const m = makeHost(plugins.checklistItemStates);
     const md = [
-      '<!-- _class: checklist -->',
+      '<!-- @meta{layout=checklist} -->',
       '- [x] Marked',
       '- Unmarked item should not get a class',
     ].join('\n');
@@ -1238,7 +1241,7 @@ describe('markdown-it-plugins', () => {
   test('slotLabelLift: wraps lead inline content in the engine label on decision slides', () => {
     const m = makeHost(plugins.slotLabelLift);
     const md = [
-      '<!-- _class: decision -->',
+      '<!-- @meta{layout=decision} -->',
       '- Build',
       '  - body about building',
       '- Why not buy',
@@ -1252,7 +1255,7 @@ describe('markdown-it-plugins', () => {
   test('slotLabelLift: a pre-bolded `**Label**` is emphasis INSIDE the label (W3)', () => {
     const m = makeHost(plugins.slotLabelLift);
     const md = [
-      '<!-- _class: compare-prose transition -->',
+      '<!-- @meta{layout=compare-prose, class=transition} -->',
       '- **Before**',
       '  - body',
     ].join('\n');
@@ -1263,7 +1266,7 @@ describe('markdown-it-plugins', () => {
 
   test('slotLabelLift: a bold FIRST WORD does not split the label (W3)', () => {
     const m = makeHost(plugins.slotLabelLift);
-    const md = '<!-- _class: decision -->\n- **Build** in region\n  - body';
+    const md = '<!-- @meta{layout=decision} -->\n- **Build** in region\n  - body';
     const { html } = m.render(md);
     assert.match(html, /<span class="lat-label"><strong>Build<\/strong> in region<\/span>/, html);
   });
@@ -1271,7 +1274,7 @@ describe('markdown-it-plugins', () => {
   test('slotLabelLift: fires on compare-prose, compare-prose transition, and decision', () => {
     for (const cls of ['compare-prose', 'compare-prose transition', 'decision']) {
       const m = makeHost(plugins.slotLabelLift);
-      const md = `<!-- _class: ${cls} -->\n- Lead\n  - body`;
+      const md = `<!-- @meta{class=${cls}} -->\n- Lead\n  - body`;
       const { html } = m.render(md);
       assert.match(html, /<span class="lat-label">Lead<\/span>/, `expected lift on ${cls} but got: ${html}`);
     }
@@ -1280,7 +1283,7 @@ describe('markdown-it-plugins', () => {
   test('slotLabelLift: does NOT fire on unrelated layouts', () => {
     for (const cls of ['cards-grid', 'list', 'content', 'closing']) {
       const m = makeHost(plugins.slotLabelLift);
-      const md = `<!-- _class: ${cls} -->\n- Lead\n  - body`;
+      const md = `<!-- @meta{class=${cls}} -->\n- Lead\n  - body`;
       const { html } = m.render(md);
       assert.doesNotMatch(html, /<span class="lat-label">Lead<\/span>/, `should not lift on ${cls}`);
     }
@@ -1289,7 +1292,7 @@ describe('markdown-it-plugins', () => {
   test('slotLabelLift: fires on timeline, authority-chain, and actors', () => {
     for (const cls of ['timeline', 'authority-chain', 'actors']) {
       const m = makeHost(plugins.slotLabelLift);
-      const md = `<!-- _class: ${cls} -->\n- Lead\n  - body`;
+      const md = `<!-- @meta{class=${cls}} -->\n- Lead\n  - body`;
       const { html } = m.render(md);
       assert.match(html, /<span class="lat-label">Lead<\/span>/, `expected lift on ${cls} but got: ${html}`);
     }
@@ -1300,7 +1303,7 @@ describe('markdown-it-plugins', () => {
     // load-bearing — nested `- Problem` MUST become the label.
     for (const cls of ['chevron', 'converge', 'ghost']) {
       const m = makeHost(plugins.slotLabelLift);
-      const md = `<!-- _class: list-steps ${cls} -->\n- Lead\n  - body`;
+      const md = `<!-- @meta{class=list-steps ${cls}} -->\n- Lead\n  - body`;
       const { html } = m.render(md);
       assert.match(html, /<span class="lat-label">Lead<\/span>/, `expected lift on list-steps ${cls} but got: ${html}`);
     }
@@ -1312,7 +1315,7 @@ describe('markdown-it-plugins', () => {
     // unrelated component) must NOT have its lead silently wrapped.
     for (const cls of ['chevron', 'converge', 'ghost']) {
       const m = makeHost(plugins.slotLabelLift);
-      const md = `<!-- _class: ${cls} -->\n- Lead\n  - body`;
+      const md = `<!-- @meta{class=${cls}} -->\n- Lead\n  - body`;
       const { html } = m.render(md);
       assert.doesNotMatch(html, /<span class="lat-label">Lead<\/span>/, `should not lift on bare .${cls}`);
     }
@@ -1321,7 +1324,7 @@ describe('markdown-it-plugins', () => {
   test('slotLabelLift: fires on q-and-a (wraps the question so flex can size it)', () => {
     for (const cls of ['q-and-a', 'q-and-a rail', 'q-and-a grid']) {
       const m = makeHost(plugins.slotLabelLift);
-      const md = `<!-- _class: ${cls} -->\n- Why not delay?\n  - Because the window closes.`;
+      const md = `<!-- @meta{class=${cls}} -->\n- Why not delay?\n  - Because the window closes.`;
       const { html } = m.render(md);
       assert.match(html, /<li><span class="lat-label">Why not delay\?<\/span>/, `expected lift on ${cls} but got: ${html}`);
     }
@@ -1332,14 +1335,14 @@ describe('markdown-it-plugins', () => {
     // chip + title that the chart transform owns — the lift must not touch
     // it. A plain \b boundary would mis-fire (hyphen is a word boundary).
     const m = makeHost(plugins.slotLabelLift);
-    const md = '<!-- _class: timeline-list -->\n1. `2024 Q3` Lead\n   - body';
+    const md = '<!-- @meta{layout=timeline-list} -->\n1. `2024 Q3` Lead\n   - body';
     const { html } = m.render(md);
     assert.doesNotMatch(html, /lat-label/, `timeline-list must not be lifted, got: ${html}`);
   });
 
   test('slotLabelLift: actors keeps the trailing `code` actor-name pill outside the label', () => {
     const m = makeHost(plugins.slotLabelLift);
-    const md = '<!-- _class: actors -->\n- Owns the model `Head of Product`\n  - body';
+    const md = '<!-- @meta{layout=actors} -->\n- Owns the model `Head of Product`\n  - body';
     const { html } = m.render(md);
     // Label lifted; the code chip stays a sibling, not a child of <strong>.
     assert.match(html, /<span class="lat-label">Owns the model\s*<\/span>\s*<code>Head of Product<\/code>/);
@@ -1348,7 +1351,7 @@ describe('markdown-it-plugins', () => {
   test('slotLabelLift: only the top-level li lead is lifted, not nested li leads', () => {
     const m = makeHost(plugins.slotLabelLift);
     const md = [
-      '<!-- _class: decision -->',
+      '<!-- @meta{layout=decision} -->',
       '- Build',
       '  - nested lead text',
     ].join('\n');
@@ -1362,7 +1365,7 @@ describe('markdown-it-plugins', () => {
 
   test('stripHeadingPeriods: removes trailing period from headings on no-period slides', () => {
     const m = makeHost(plugins.stripHeadingPeriods);
-    const { html } = m.render('<!-- _class: no-period -->\n## Signal to noise.');
+    const { html } = m.render('<!-- @meta{class=no-period} -->\n## Signal to noise.');
     assert.match(html, /<h2[^>]*>Signal to noise<\/h2>/);
   });
 
@@ -1370,7 +1373,7 @@ describe('markdown-it-plugins', () => {
     const m = makeHost(plugins.stripHeadingPeriods);
     const { html } = m.render([
       '---', 'split: rule', '---', // keep all headings on one slide (engine default is headings-split)
-      '<!-- _class: no-period -->',
+      '<!-- @meta{class=no-period} -->',
       '# Title.',
       '## Section.',
       '### Sub.',
@@ -1382,7 +1385,7 @@ describe('markdown-it-plugins', () => {
 
   test('stripHeadingPeriods: leaves headings without a trailing period unchanged', () => {
     const m = makeHost(plugins.stripHeadingPeriods);
-    const { html } = m.render('<!-- _class: no-period -->\n## No period here');
+    const { html } = m.render('<!-- @meta{class=no-period} -->\n## No period here');
     assert.match(html, /<h2[^>]*>No period here<\/h2>/);
   });
 
@@ -1396,7 +1399,7 @@ describe('markdown-it-plugins', () => {
 
   test('addHeadingPeriods: appends a period to headings that lack one on with-period slides', () => {
     const m = makeHost(plugins.addHeadingPeriods);
-    const { html } = m.render('<!-- _class: with-period -->\n## Signal to noise');
+    const { html } = m.render('<!-- @meta{class=with-period} -->\n## Signal to noise');
     assert.match(html, /<h2[^>]*>Signal to noise\.<\/h2>/);
   });
 
@@ -1404,7 +1407,7 @@ describe('markdown-it-plugins', () => {
     const m = makeHost(plugins.addHeadingPeriods);
     const { html } = m.render([
       '---', 'split: rule', '---', // keep all headings on one slide (engine default is headings-split)
-      '<!-- _class: with-period -->',
+      '<!-- @meta{class=with-period} -->',
       '# Title',
       '## Section',
       '### Sub',
@@ -1416,7 +1419,7 @@ describe('markdown-it-plugins', () => {
 
   test('addHeadingPeriods: does not double-append when heading already ends with a period', () => {
     const m = makeHost(plugins.addHeadingPeriods);
-    const { html } = m.render('<!-- _class: with-period -->\n## Already done.');
+    const { html } = m.render('<!-- @meta{class=with-period} -->\n## Already done.');
     assert.match(html, /<h2[^>]*>Already done\.<\/h2>/);
     assert.doesNotMatch(html, /<h2[^>]*>Already done\.\.<\/h2>/);
   });
@@ -1429,7 +1432,7 @@ describe('markdown-it-plugins', () => {
       ['## Note:',      /<h2[^>]*>Note:<\/h2>/],
       ['## Continued…', /<h2[^>]*>Continued…<\/h2>/],
     ]) {
-      const { html } = m.render(`<!-- _class: with-period -->\n${src}`);
+      const { html } = m.render(`<!-- @meta{class=with-period} -->\n${src}`);
       assert.match(html, pattern);
     }
   });

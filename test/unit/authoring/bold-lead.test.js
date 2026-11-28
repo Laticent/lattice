@@ -175,34 +175,34 @@ describe('the bold-lead rule and its fix', () => {
 describe('the engine labels the whole lead; bold inside it is emphasis', () => {
   const html = (md) => String(engine.render(md).html);
   test('a bold first word does not become a decision tag on its own', () => {
-    const out = html('<!-- _class: decision -->\n\n## H\n\n- **Build** in region\n  - why\n- Buy\n  - why\n');
+    const out = html('<!-- @meta{layout=decision} -->\n\n## H\n\n- **Build** in region\n  - why\n- Buy\n  - why\n');
     assert.match(out, /<span class="lat-label"><strong>Build<\/strong> in region<\/span>/);
   });
   test('an inventory row is lifted: its lead is the label and its detail stays nested', () => {
-    const out = html('<!-- _class: inventory -->\n\n## H\n\n- Planning\n  - Sets targets.\n');
+    const out = html('<!-- @meta{layout=inventory} -->\n\n## H\n\n- Planning\n  - Sets targets.\n');
     assert.match(out, /<li><span class="lat-label">Planning<\/span>\s*<ul>\s*<li>Sets targets\.<\/li>/);
   });
   test('an un-migrated inventory row degrades to body text with a bold word, not one long title', () => {
     // The W3 newcomers (inventory, citation-card, math matrix) label only an item with a nested body.
-    const out = html('<!-- _class: inventory -->\n\n## H\n\n- **Lead.** detail here\n- Plain\n  - body\n');
+    const out = html('<!-- @meta{layout=inventory} -->\n\n## H\n\n- **Lead.** detail here\n- Plain\n  - body\n');
     assert.match(out, /<li><strong>Lead\.<\/strong> detail here<\/li>/);
     assert.match(out, /<li><span class="lat-label">Plain<\/span>/);
   });
   test('an existing slot layout still labels a lead with no nested body (a kpi value may stand alone)', () => {
-    assert.match(html('<!-- _class: kpi -->\n\n## K\n\n1. $2.4B\n'), /<span class="lat-label">\$2\.4B<\/span>/);
+    assert.match(html('<!-- @meta{layout=kpi} -->\n\n## K\n\n1. $2.4B\n'), /<span class="lat-label">\$2\.4B<\/span>/);
   });
   test('a bold word in a word cloud is drawn (a <tspan>), not dropped as an unknown SVG element', () => {
-    const out = html('<!-- _class: word-cloud -->\n\n## W\n\n- **pricing** `5`\n- security `3`\n');
+    const out = html('<!-- @meta{layout=word-cloud} -->\n\n## W\n\n- **pricing** `5`\n- security `3`\n');
     assert.match(out, /<text class="wc-word"[^>]*><tspan dominant-baseline="central" font-weight="bold">pricing<\/tspan><\/text>/);
     assert.doesNotMatch(out, /<text[^>]*><strong>/);
   });
   test('a bold kanban lane is still its lane: `**Done**` keeps the done state', () => {
-    const out = html('<!-- _class: kanban -->\n\n## K\n\n- Doing\n  - a `S`\n- **Done**\n  - b `S`\n');
+    const out = html('<!-- @meta{layout=kanban} -->\n\n## K\n\n- Doing\n  - a `S`\n- **Done**\n  - b `S`\n');
     assert.match(out, /class="kanban-column" data-done[^>]*data-label="Done"/);
   });
   test('list-tabular keeps a bold-led name as ONE grid cell (an inline run), its value a sibling', () => {
     const run = require('../../../lib/transformers/inline-run.js');
-    const out = run.applyToHtml(html('<!-- _class: list-tabular -->\n\n## L\n\n1. **Board** approval `Q3`\n2. Migration `Q4`\n'));
+    const out = run.applyToHtml(html('<!-- @meta{layout=list-tabular} -->\n\n## L\n\n1. **Board** approval `Q3`\n2. Migration `Q4`\n'));
     assert.match(out, /<li><span class="lat-run"><strong>Board<\/strong> approval <\/span><code>Q3<\/code><\/li>/);
   });
   test('findLabel reads a balanced label, inner spans included', () => {

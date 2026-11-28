@@ -50,7 +50,7 @@ function deck(n) {
   for (let i = 0; i < n; i++) {
     const dark = i % 2 === 1;
     slides.push([
-      `<!-- _class: diagram${dark ? ' dark' : ''} -->`,
+      `<!-- @meta{class="diagram${dark ? ' dark' : ''}"} -->`,
       '',
       `## Slide ${i + 1}`,
       '',
