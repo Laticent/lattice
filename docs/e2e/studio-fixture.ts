@@ -582,7 +582,14 @@ export async function recordToasts(page: Page): Promise<() => Promise<string[]>>
 		new MutationObserver(read).observe(document.body, { childList: true, subtree: true, characterData: true });
 		read();
 	});
-	return () => page.evaluate(() => [...((window as unknown as { __latticeToastLog?: string[] }).__latticeToastLog ?? [])]);
+	// A reader that found no log would make every "no such toast" check pass, so it fails instead: the page navigated
+	// after recordToasts() and the log went with the old document. Call recordToasts() again after a navigation.
+	return () =>
+		page.evaluate(() => {
+			const log = (window as unknown as { __latticeToastLog?: string[] }).__latticeToastLog;
+			if (!log) throw new Error('recordToasts: no toast log on this page (it navigated since recordToasts was called)');
+			return [...log];
+		});
 }
 
 /** The app toast pill — the canonical name for the centralized toast accessor.

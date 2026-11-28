@@ -290,7 +290,8 @@ onEveryEngine('@smoke a .lattice carries the photo, and a fresh browser profile 
 	const zip = await JSZip.loadAsync(readFileSync(path));
 	expect(Object.keys(zip.files), 'the photo rides inside the file').toEqual(expect.arrayContaining(['media.json', 'media/export-probe.png']));
 	// Anchor on the export's own toast, then say what must be absent: no stand-in warning when every photo went in.
-	await expectToasts(toasts, /Lattice project ready/, /stand-in|not inside this file/i);
+	// Every .lattice photo note (share-export.ts latticePhotoNote) names a stand-in or says the photo is "not inside".
+	await expectToasts(toasts, /Lattice project ready/, /stand-in|not inside/i);
 
 	const other = await browser.newContext({ baseURL: new URL(page.url()).origin, acceptDownloads: true });
 	try {
@@ -330,8 +331,10 @@ onEveryEngine('@smoke a re-openable PDF carries the photo, and a fresh browser p
 	const pending = page.waitForEvent('download', { timeout: 240_000 });
 	await dialog.getByRole('button', { name: /^Download PDF/ }).click();
 	const path = (await (await pending).path()) as string;
-	// Every warning a re-openable PDF can raise names a stand-in or says the photo is "not inside" (share-export.ts).
-	await expectToasts(toasts, /PDF ready/, /stand-in|not inside/i, '', 60_000);
+	// A re-openable PDF warns three ways: the capture lost an image (deck-export.js missingImageReason), a photo is a
+	// stand-in, or a photo is "not inside" the embedded copy (share-export.ts). This deck has no fences, so the
+	// off-fences note cannot arise.
+	await expectToasts(toasts, /PDF ready/, /could not load every image|stand-in|not inside/i, '', 60_000);
 
 	const other = await browser.newContext({ baseURL: new URL(page.url()).origin, acceptDownloads: true });
 	try {
