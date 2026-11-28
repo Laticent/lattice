@@ -21,18 +21,29 @@ const { runNode, EXPORT_WATCH } = require('../../helpers/spawn-progress');
 const ROOT = path.join(__dirname, '..', '..', '..');
 const CHROME = resolveChrome();
 
-/** A Node child that launches Chromium, writes the browser's pid to `pidFile`, runs `page` on a new tab, then waits. */
-function chromiumChild(pidFile, page) {
-  return `
-    const puppeteer = require(${JSON.stringify(path.join(ROOT, 'node_modules', 'puppeteer'))});
-    (async () => {
-      const browser = await puppeteer.launch({ executablePath: ${JSON.stringify(CHROME)}, headless: true, args: ['--no-sandbox'] });
-      require('node:fs').writeFileSync(${JSON.stringify(pidFile)}, String(browser.process().pid));
-      const tab = await browser.newPage();
-      (${page})(tab).catch(() => {});
-      await new Promise(() => {}); // the child itself never finishes
-    })();`;
-}
+/**
+ * A Node child that launches Chromium, writes the browser's pid to a file, puts a page in one of two states, then waits
+ * forever. Fixed source: the puppeteer path, the browser, the pid file and the page state reach it in argv.
+ *   - `spin`: the page runs a loop that never returns, so the renderer burns CPU while the child waits on it;
+ *   - `wait`: the page waits on a condition that never comes true. Mutation polling re-checks only when the DOM changes,
+ *     and it never does, so the tab sits idle (the default polls every frame, which would be work, not a wait).
+ */
+const CHROMIUM_CHILD = `
+  const [puppeteerPath, chrome, pidFile, state] = process.argv.slice(1);
+  const puppeteer = require(puppeteerPath);
+  (async () => {
+    const browser = await puppeteer.launch({ executablePath: chrome, headless: true, args: ['--no-sandbox'] });
+    require('node:fs').writeFileSync(pidFile, String(browser.process().pid));
+    const tab = await browser.newPage();
+    const page = state === 'spin'
+      ? tab.evaluate(() => { for (;;) {} })
+      : tab.goto('data:text/html,<p>waiting</p>').then(() => tab.waitForFunction(() => false, { polling: 'mutation', timeout: 0 }));
+    page.catch(() => {});
+    await new Promise(() => {}); // the child itself never finishes
+  })();`;
+
+/** The argv for a `node -e` Chromium child in page state `state`. */
+const chromiumChild = (pidFile, state) => [CHROMIUM_CHILD, path.join(ROOT, 'node_modules', 'puppeteer'), CHROME, pidFile, state];
 
 /** Whether `pid` still runs (present and not a zombie). runNode rejects only once the tree is dead, so no wait here. */
 function running(pid) {
@@ -52,17 +63,14 @@ describe('runNode watches a Chromium tree', { skip: (process.platform !== 'linux
     const pids = pidFile();
     // The budget is small so the arm is quick; EXPORT_WATCH's own budget is sized for a full export.
     const watch = { ...EXPORT_WATCH, cpuBudgetMs: 5000 };
-    await assert.rejects(runNode('-e', [chromiumChild(pids, '(tab) => tab.evaluate(() => { for (;;) {} })')], { cwd: ROOT, ...watch }), /spun \d+ s of CPU without exiting/);
+    await assert.rejects(runNode('-e', chromiumChild(pids, 'spin'), { cwd: ROOT, ...watch }), /spun \d+ s of CPU without exiting/);
     const chrome = Number(fs.readFileSync(pids, 'utf8'));
     assert.equal(running(chrome), false, `Chromium ${chrome} outlived the hang`);
   });
 
   test('failing arm: a page that never answers is a hang, though an idle Chromium still ticks', async () => {
     const pids = pidFile();
-    // The child waits on a page condition that never comes true. Mutation polling re-checks only when the DOM changes,
-    // and it never does, so the tab sits idle (the default polls every frame, which would be work, not a wait).
-    const never = '(tab) => tab.goto("data:text/html,<p>waiting</p>").then(() => tab.waitForFunction(() => false, { polling: "mutation", timeout: 0 }))';
-    await assert.rejects(runNode('-e', [chromiumChild(pids, never)], { cwd: ROOT, ...EXPORT_WATCH }), /used \d+ ms of CPU in 10 s, no more than an idle process/);
+    await assert.rejects(runNode('-e', chromiumChild(pids, 'wait'), { cwd: ROOT, ...EXPORT_WATCH }), /used \d+ ms of CPU in 10 s, no more than an idle process/);
     const chrome = Number(fs.readFileSync(pids, 'utf8'));
     assert.equal(running(chrome), false, `Chromium ${chrome} outlived the hang`);
   });

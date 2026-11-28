@@ -187,25 +187,27 @@ describe('runNode', { skip: process.platform !== 'linux' && 'watches /proc, whic
   });
   // A child that starts processes (lattice.js starts Chromium) is judged by its whole tree, not by its own CPU alone.
   // Each grandchild below is a plain Node process, so the arms run in a unit job; the real-Chromium arms live in
-  // test/integration/export/spawn-progress-chromium.test.js.
-  const grandchild = (code) => `require('node:child_process').spawn(process.execPath, ['-e', ${JSON.stringify(code)}], { stdio: 'ignore' }); setInterval(() => {}, 1e9);`;
+  // test/integration/export/spawn-progress-chromium.test.js. Every child below is fixed source; what varies (the
+  // grandchild's code, a file path) reaches it in argv, never spliced into the source text.
+  const SPAWN_GRANDCHILD = "require('node:child_process').spawn(process.execPath, ['-e', process.argv[1]], { stdio: 'ignore' }); setInterval(() => {}, 1e9);";
+  const grandchild = (code) => [SPAWN_GRANDCHILD, code];
 
   test('failing arm: a grandchild that spins while the child waits on it counts as the child spinning', async () => {
-    await assert.rejects(runNode('-e', [grandchild('for (;;) {}')], { cpuBudgetMs: 500, stallMs: 60_000, ceilingMs: 20_000 }), /spun \d+ s of CPU without exiting/);
+    await assert.rejects(runNode('-e', grandchild('for (;;) {}'), { cpuBudgetMs: 500, stallMs: 60_000, ceilingMs: 20_000 }), /spun \d+ s of CPU without exiting/);
   });
 
   test('failing arm: a tree that only ticks, under the stall floor, is stuck though its CPU never stands still', async () => {
     // 5 ms of work every 200 ms: about 25 ms per second, the shape of an idle Chromium waiting on a page that never loads.
     const ticker = 'setInterval(() => { const end = Date.now() + 5; while (Date.now() < end); }, 200);';
-    await assert.rejects(runNode('-e', [grandchild(ticker)], { cpuBudgetMs: 60_000, stallMs: 2000, stallCpuMs: 200, ceilingMs: 20_000 }), /used \d+ ms of CPU in 2 s, no more than an idle process/);
+    await assert.rejects(runNode('-e', grandchild(ticker), { cpuBudgetMs: 60_000, stallMs: 2000, stallCpuMs: 200, ceilingMs: 20_000 }), /used \d+ ms of CPU in 2 s, no more than an idle process/);
   });
 
   test('a hung tree is killed whole: no grandchild outlives the test', async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'spawn-progress-'));
     const pidFile = path.join(dir, 'grandchild.pid');
-    const code = `const c = require('node:child_process').spawn(process.execPath, ['-e', 'setInterval(() => {}, 1e9)'], { stdio: 'ignore' }); require('node:fs').writeFileSync(${JSON.stringify(pidFile)}, String(c.pid)); setInterval(() => {}, 1e9);`;
+    const code = "const c = require('node:child_process').spawn(process.execPath, ['-e', 'setInterval(() => {}, 1e9)'], { stdio: 'ignore' }); require('node:fs').writeFileSync(process.argv[1], String(c.pid)); setInterval(() => {}, 1e9);";
     // A 2 s window: the child's own start-up, which writes the pid file, always uses CPU inside it.
-    await assert.rejects(runNode('-e', [code], { stallMs: 2000 }), /used no CPU for \d+ s/);
+    await assert.rejects(runNode('-e', [code, pidFile], { stallMs: 2000 }), /used no CPU for \d+ s/);
     const pid = Number(fs.readFileSync(pidFile, 'utf8'));
     // runNode rejects only once the tree is dead, so this reads the state right after the hang, with no wait.
     let state = 'gone';
@@ -218,8 +220,8 @@ describe('runNode', { skip: process.platform !== 'linux' && 'watches /proc, whic
     // full 400) and exits; the child says "gone" once it has, then waits. The count is read every 20 ms until then,
     // and once after: it must never fall, and must still hold the grandchild's work at the end.
     const work = 'while (process.cpuUsage().user + process.cpuUsage().system < 400_000);';
-    const code = `require('node:child_process').spawn(process.execPath, ['-e', ${JSON.stringify(work)}], { stdio: 'ignore' }).on('exit', () => console.log('gone')); setInterval(() => {}, 1e9);`;
-    const child = require('node:child_process').spawn(process.execPath, ['-e', code]);
+    const code = "require('node:child_process').spawn(process.execPath, ['-e', process.argv[1]], { stdio: 'ignore' }).on('exit', () => console.log('gone')); setInterval(() => {}, 1e9);";
+    const child = require('node:child_process').spawn(process.execPath, ['-e', code, work]);
     const reads = [];
     let sample;
     try {
