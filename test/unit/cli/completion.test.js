@@ -4,9 +4,10 @@
  *
  *   1. DRIFT — every option the parsers accept (the render command's table in
  *      lib/cli/options.js, `lattice packages`' and `lattice video`'s if-chains, and the known-flag
- *      lists of `lattice lint` and `lattice fmt`) is a Tab
- *      candidate, and `parseArgs` carries no flag of its own outside that table. Both checks
- *      have a failing arm, so a green run means the check ran.
+ *      lists of `lattice lint`, `lattice fmt` and both `lattice migrate` forms) is a Tab
+ *      candidate, and Tab offers no option its parser refuses. Tab lists every verb lattice.js
+ *      dispatches and no verb it does not. `parseArgs` carries no flag of its own outside the
+ *      options table. Each check has a failing arm, so a green run means the check ran.
  *   2. VALUES — closed-set values, the palettes, plugins and installed package names.
  *   3. THE SCRIPTS — the bash script is sourced in a real bash and driven the way bash drives
  *      it (COMP_WORDS, COMP_CWORD, COMP_LINE, COMP_POINT → COMPREPLY). fish (`complete -C`) and
@@ -52,7 +53,8 @@ const strayInParseArgs = (body) => [...literals(body)].filter((f) => !PARSEARGS_
 const PARSE_ARGS = between(read('lattice.js'), 'function parseArgs(argv)', 'return { flags, positional };');
 const RENDER = new Set([...O.VALUE_OPTIONS, ...O.SWITCHES, ...O.EARLY_FLAGS].flatMap((r) => r.flags));
 const PACKAGES = literals(between(read('lib/cli/packages.js'), 'function parse(argv)', 'return { flags, pos };'));
-const VIDEO = new Set([...read('lib/export/video-cli.mjs').matchAll(/a === '(--?[A-Za-z][\w-]*)'/g)].map((m) => m[1]));
+// video-cli.mjs tests each option with `a === '…'`, and help with `argv.includes('…')`.
+const VIDEO = new Set([...read('lib/export/video-cli.mjs').matchAll(/(?:a === |argv\.includes\()'(--?[A-Za-z][\w-]*)'/g)].map((m) => m[1]));
 // lint and fmt: each parser names its known flags in one list, and both take -h and --help. `--all` is
 // only in the list when a caller passes `discover` (the repo's `npm run lint:deck`); `lattice lint` refuses it.
 const LINT = new Set([...literals(between(read('lib/cli/lint-deck.js'), 'const KNOWN = [', ']')), '-h', '--help']);
@@ -61,6 +63,9 @@ const FMT = new Set([...literals(between(read('lib/authoring/code-format/fmt-cli
 // migrate: each form's parser names its known flags in one list after `!['--check'`; both take -h and --help.
 const migrateFlags = (rel) => new Set([...literals(between(read(rel), "a.startsWith('--') && ![", '.includes(a)')), '-h', '--help']);
 const MIGRATE = { meta: migrateFlags('lib/cli/migrate-meta.mjs'), notes: migrateFlags('lib/cli/migrate-notes.mjs') };
+// The verbs lattice.js dispatches on its first word. `__complete` is the hidden protocol command, never offered.
+const DISPATCHED = new Set([...read('lattice.js').matchAll(/process\.argv\[2\] === '([\w-]+)'/g)].map((m) => m[1]).filter((v) => v !== '__complete'));
+const LISTED = new Set(C.SUBCOMMANDS.map(([name]) => name));
 const PACKAGES_PREVS = [['packages'], ...C.PACKAGES_COMMANDS.map(([c]) => ['packages', c])];
 
 describe('drift: PARSEARGS_OWN holds no stale entry', () => {
@@ -104,6 +109,31 @@ describe('drift: Tab offers every option the CLI accepts', () => {
     // Failing arm: --back is a notes flag only.
     assert.ok(!offered(['migrate', 'meta'], '--').has('--back'), 'meta offers --back');
     assert.ok(!offered(['migrate', 'notes', '--back', 'a.md'], '--').has('--back'), 'migrate re-offers --back');
+  });
+
+  test('Tab lists every verb lattice.js dispatches, and no verb it does not', () => {
+    assert.ok(DISPATCHED.size >= 7, `only ${DISPATCHED.size} verbs read; the dispatch moved`);
+    const notListed = (dispatched, listed) => [...dispatched].filter((v) => !listed.has(v));
+    assert.deepEqual(notListed(DISPATCHED, LISTED), [], 'dispatched but not in SUBCOMMANDS');
+    assert.deepEqual(notListed(LISTED, DISPATCHED), [], 'in SUBCOMMANDS but not dispatched');
+    // Failing arms, one per direction.
+    assert.deepEqual(notListed(new Set([...DISPATCHED, 'serve']), LISTED), ['serve']);
+    assert.deepEqual(notListed(new Set([...LISTED, 'serve']), DISPATCHED), ['serve']);
+  });
+
+  test('Tab offers no option the parser refuses', () => {
+    /** Flags Tab offers under `prevs` (any of them) that `accepted` does not hold. */
+    const refused = (accepted, prevs) => [...new Set(prevs.flatMap((p) => [...offered(p, '-')]))].filter((f) => !accepted.has(f));
+    assert.deepEqual(refused(RENDER, [[]]), [], 'render');
+    assert.deepEqual(refused(PACKAGES, PACKAGES_PREVS), [], 'packages');
+    assert.deepEqual(refused(VIDEO, [['video']]), [], 'video');
+    assert.deepEqual(refused(LINT, [['lint']]), [], 'lint');
+    assert.deepEqual(refused(FMT, [['fmt']]), [], 'fmt');
+    for (const form of ['meta', 'notes']) assert.deepEqual(refused(MIGRATE[form], [['migrate', form]]), [], form);
+    // Failing arm: a flag the parser drops is reported.
+    const lint = new Set(LINT);
+    lint.delete('--fit');
+    assert.deepEqual(refused(lint, [['lint']]), ['--fit']);
   });
 
   test('failing arms: an option Tab does not offer, and a flag parseArgs adds on its own', () => {
